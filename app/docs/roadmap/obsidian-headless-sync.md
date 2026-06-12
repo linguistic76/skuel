@@ -143,7 +143,7 @@ credentials (user action), and becomes load-bearing at Phase 3 (Droplet).
    triggering — Obsidian Sync batch deliveries produce one ingest, not one per file
 4. Prints per-run stats (files skipped/ingested/failed, skip efficiency)
 
-**Cron variant:** `./dev vault-watch -- --once` runs a single incremental ingest and exits —
+**Cron variant:** `./dev vault-watch --once` runs a single incremental ingest and exits —
 the roadmap's "simpler, slightly less responsive" alternative, ready for a systemd timer.
 
 **Auth:** ingestion endpoints are admin-only; the watcher logs in via `/login/submit` using

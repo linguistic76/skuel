@@ -745,7 +745,7 @@ point it at the vault root for an incremental whole-vault sync.
 ./dev vault-watch
 
 # One-shot incremental ingest (cron / systemd timer)
-./dev vault-watch -- --once
+./dev vault-watch --once
 ```
 
 ---
