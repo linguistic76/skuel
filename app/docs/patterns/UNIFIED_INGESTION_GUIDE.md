@@ -561,22 +561,27 @@ connections:
 
 ## Entity Configuration
 
-13 entity types are file-ingestible. Configuration in `config.py`:
+15 entity configs — 13 of the 25 EntityTypes plus the two NonKuDomain types
+(FINANCE, GROUP). Configuration in `config.py`. A `name:` field satisfies a
+`title` requirement (the preparer renames `name` → `title`); `title`/`name`
+also auto-fall back to the filename.
 
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
 | `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
 | `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
-| `ps` | `ps.` | `:Entity:PathStep` | title, content | `ps.learn-variables.md` |
-| `lp` | `lp.` | `:Entity:LearningPath` | name | `lp.python-journey.yaml` |
+| `ps` | `ps.` | `:Entity:PathStep` | title | `ps.learn-variables.md` |
+| `lp` | `lp.` | `:Entity:LearningPath` | title | `lp.python-journey.yaml` |
 | `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
 | `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
 | `habit` | `habit.` | `:Entity:Habit` | title | `habit.daily-practice.yaml` |
 | `event` | `event.` | `:Entity:Event` | title | `event.workshop.yaml` |
 | `choice` | `choice.` | `:Entity:Choice` | title | `choice.career-path.yaml` |
-| `principle` | `principle.` | `:Entity:Principle` | name, statement | `principle.consistency.yaml` |
-| `submission` | `report.` | `:Entity:Report` | title | `report.homework.yaml` |
+| `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle.consistency.yaml` |
+| `user_entry` | `ue.` | `:Entity:UserEntry` | title | `ue.journal-2026-06-12.yaml` |
+| `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia.viewed-ps.yaml` |
 | `expense` | `expense.` | `:Expense` | description, amount | `expense.books.yaml` |
+| `group` | `group.` | `:Group` | name | `group.class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath.vision.yaml` |
 
 **Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Finance (`Expense`) is the exception — no `:Entity` base label.
