@@ -37,7 +37,7 @@ from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports import get_enum_value
-from core.ports.query_types import PsKnowledgeItemResult, PsKnowledgeSummaryResult
+from core.ports.query_types import PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -410,34 +410,9 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
     # ========================================================================
     # KNOWLEDGE RELATIONSHIP METHODS (Universal Hierarchical Pattern - 2026-01-30)
     # Delegated to PsBackend (2026-03-24)
+    # Edge writes happen at ingestion time (registry yaml_field_path
+    # "knowledge_uids" → CONTAINS_KNOWLEDGE via ingest_edge).
     # ========================================================================
-
-    @track_query_metrics("ps_add_knowledge")
-    @with_error_handling("add_knowledge_relationship", error_type="database")
-    async def add_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Create CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
-        return await self.backend.add_knowledge(ps_uid, ku_uid)
-
-    @track_query_metrics("ps_get_knowledge")
-    @with_error_handling("get_contained_knowledge", error_type="database")
-    async def get_contained_knowledge(self, ps_uid: str) -> Result[list[PsKnowledgeItemResult]]:
-        """Get KUs contained in this PathStep via CONTAINS_KNOWLEDGE relationships."""
-        result = await self.backend.list_knowledge(ps_uid)
-        if result.is_error:
-            return Result.fail(result)
-        self.logger.info(f"Found {len(result.value)} KUs for PathStep {ps_uid}")
-        return result
-
-    @track_query_metrics("ps_remove_knowledge")
-    @with_error_handling("remove_knowledge_relationship", error_type="database")
-    async def remove_knowledge_relationship(self, ps_uid: str, ku_uid: str) -> Result[bool]:
-        """Remove CONTAINS_KNOWLEDGE relationship between PathStep and KU."""
-        result = await self.backend.remove_knowledge(ps_uid, ku_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if not result.value:
-            self.logger.warning(f"No CONTAINS_KNOWLEDGE relationship found: {ps_uid} -> {ku_uid}")
-        return result
 
     @track_query_metrics("ps_get_knowledge_summary")
     @with_error_handling("get_knowledge_summary", error_type="database")

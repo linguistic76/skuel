@@ -288,46 +288,6 @@ class PsContextService:
     # ========================================================================
 
     @staticmethod
-    def _calculate_knowledge_relevance(
-        ku_uid: str,
-        context: "UserContext",
-    ) -> float:
-        """
-        Calculate relevance of a knowledge unit based on user context.
-
-        Factors:
-        - Used by active goals
-        - Applied by active tasks
-        - Reinforced by active habits
-
-        Returns:
-            Relevance score (0.0-1.0)
-        """
-        relevance = 0.0
-
-        # Check if required by active goals (via tasks_by_goal proxy)
-        # Higher relevance if knowledge is foundational to goals
-        if context.active_goal_uids:
-            relevance += 0.3
-
-        # Check if applied in active tasks (via active_task_uids)
-        if context.active_task_uids:
-            relevance += 0.3
-
-        # Check if part of current learning focus (via learning_path_step_uids)
-        if context.learning_path_step_uids:
-            relevance += 0.2
-
-        # Check substance score for this knowledge
-        if ku_uid in context.knowledge_mastery:
-            # Partially mastered knowledge is highly relevant (finish what you started)
-            mastery = context.knowledge_mastery[ku_uid]
-            if 0 < mastery < 0.9:
-                relevance += 0.2
-
-        return min(1.0, relevance)
-
-    @staticmethod
     def _find_application_opportunities(
         ku_uid: str,
         context: "UserContext",

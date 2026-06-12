@@ -103,20 +103,17 @@ They are hardcoded scalars that should eventually be computed from graph data.
 
 ---
 
-## Group F — Learning Path / Adaptive Recommendation Stubs
+## Group F — Goal Task Generation Stubs
 
 | File | Line | Method | Parameter |
 |------|------|--------|-----------|
-| `core/services/lp/adaptive_lp_recommendations_service.py` | 582 | `_calculate_gap_impact()` | `_user_uid: str` |
-| `core/services/lp/adaptive_lp_recommendations_service.py` | 601 | `_calculate_gap_urgency()` | `_knowledge_uid: str` |
 | `core/services/goals/goal_task_generator.py` | 424 | `_generate_urgent_tasks()` | `_user_context: UserContext` |
 
 **What full implementation requires:**
-- `_calculate_gap_impact`: Must traverse `REQUIRES_KNOWLEDGE` relationships to estimate
-  downstream benefit of filling a curriculum gap.
-- `_calculate_gap_urgency`: Must inspect active goals/tasks that reference this KU to determine
-  urgency from dependency graph.
 - `_generate_urgent_tasks`: Must read `user_context.at_risk_goals` and generate concrete tasks.
+
+(The two `adaptive_lp_recommendations_service.py` stubs formerly listed here were deleted with
+the unwired adaptive_lp shell in the 2026-06 curriculum dead-code campaign.)
 
 ---
 

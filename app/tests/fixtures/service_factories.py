@@ -375,34 +375,6 @@ def create_knowledge_state_for_testing(
     )
 
 
-def create_adaptive_lp_facade_for_testing(
-    ku_service: Mock | None = None,
-    learning_service: Mock | None = None,
-    goals_service: Mock | None = None,
-    tasks_service: Mock | None = None,
-) -> Any:  # Returns AdaptiveLpFacade
-    """
-    Create AdaptiveLpFacade for testing.
-
-    Args:
-        ku_service: Mock KU service
-        learning_service: Mock learning service
-        goals_service: Mock goals service
-        tasks_service: Mock tasks service
-
-    Returns:
-        AdaptiveLpFacade instance with mocked dependencies
-    """
-    from core.services.adaptive_lp import AdaptiveLpFacade
-
-    return AdaptiveLpFacade(
-        ku_service=ku_service,
-        learning_service=learning_service,
-        goals_service=goals_service,
-        tasks_service=tasks_service,
-    )
-
-
 def create_askesis_user_context_for_testing(
     user_uid: str = "test_user",
     **kwargs: Any,

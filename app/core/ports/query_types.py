@@ -59,8 +59,6 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.enums import ContextHealthScore
-    from core.models.pathways.learning_path import LearningPath
-    from core.models.pathways.path_step import PathStep
 
 # ============================================================================
 # CYPHER QUERY PARAMETERS
@@ -1531,14 +1529,6 @@ class LpCompletionStrategy(TypedDict, total=False):
     mid_point_milestone: str
 
 
-class LpPathHierarchy(TypedDict):
-    """Return shape for LpCoreService.get_path_hierarchy()."""
-
-    current: LearningPath
-    steps: list[PathStep]
-    step_count: int
-
-
 class LpPrerequisiteValidation(TypedDict, total=False):
     """Return shape for LpIntelligenceService.validate_path_prerequisites()."""
 
@@ -2436,15 +2426,6 @@ class RevisionChainResult(TypedDict):
     created_at: str
 
 
-class PsKnowledgeItemResult(TypedDict):
-    """Return shape for PsBackend.list_knowledge()."""
-
-    uid: str
-    title: str
-    domain: str | None
-    created_at: str | None
-
-
 # ============================================================================
 # PS BACKEND RESULT TYPES
 # ============================================================================
@@ -2786,7 +2767,6 @@ __all__ = [
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
     "RevisionChainResult",
-    "PsKnowledgeItemResult",
     # PS Backend Result Types
     "PsStepWithKnowledgeRow",
     "PsDeleteStepRow",
@@ -2801,7 +2781,6 @@ __all__ = [
     "LpDomainInsights",
     "LpPathOverview",
     "LpCompletionStrategy",
-    "LpPathHierarchy",
     "LpPrerequisiteValidation",
     "LpBlockerAnalysis",
     "LpPathRecommendation",

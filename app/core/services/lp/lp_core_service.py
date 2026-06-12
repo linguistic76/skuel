@@ -35,7 +35,6 @@ from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID, UserUID
 from core.ports import HasUID, get_enum_value
-from core.ports.query_types import LpPathHierarchy
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
@@ -506,42 +505,6 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         if result.value is None:
             return Result.ok(None)
         return Result.ok(self._to_domain_model(result.value, LearningPathDTO, LearningPath))
-
-    @with_error_handling("get_path_hierarchy", error_type="database", uid_param="path_uid")
-    async def get_path_hierarchy(self, path_uid: str) -> Result[LpPathHierarchy]:
-        """
-        Get learning path with all its steps.
-
-        Args:
-            path_uid: Learning path UID
-
-        Returns:
-            Result containing hierarchy dict with keys:
-            - current: Ku (the path itself)
-            - steps: list[Ku] (ordered path steps)
-            - step_count: int (total number of steps)
-        """
-        # Get current path
-        current_result = await self.backend.get(path_uid)
-        if current_result.is_error:
-            return Result.fail(current_result)
-
-        current_lp = self._to_domain_model(current_result.value, LearningPathDTO, LearningPath)
-
-        # Get steps
-        steps_result = await self.get_steps(path_uid)
-        if steps_result.is_error:
-            return Result.fail(steps_result)
-
-        steps = steps_result.value
-
-        return Result.ok(
-            {
-                "current": current_lp,
-                "steps": steps,
-                "step_count": len(steps),
-            }
-        )
 
     @with_error_handling("add_step_to_path", error_type="database")
     async def add_step_to_path(

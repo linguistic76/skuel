@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from core.constants import GraphDepth, QueryLimit
 from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import HasUID
 from core.ports.query_types import (
@@ -42,7 +42,6 @@ from core.ports.query_types import (
 from core.services.filtered_context import build_filtered_context
 from core.services.ps.ps_ai_service import PsAIService
 from core.services.ps.ps_progress_service import PsProgressService
-from core.utils.decorators import with_error_handling
 from core.utils.error_boundary import safe_event_handler
 from core.utils.list_helpers import (
     FilterConfig,
@@ -52,7 +51,6 @@ from core.utils.list_helpers import (
     get_sequence_attr,
 )
 from core.utils.logging import get_logger
-from core.utils.metrics import get_metrics_summary
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_second_item, get_title_lower
 
@@ -320,31 +318,11 @@ class PsService:
         """Get multiple path steps in one batched query."""
         return await self.core.backend.get_many(uids)
 
-    async def list_user_knowledge(self, user_uid: UserUID) -> Result[list[Any]]:
-        """Get all knowledge entities for semantic search."""
-        result = await self.repo.list(QueryLimit.BULK)
-        if result.is_error:
-            return Result.fail(result)
-        entities, _ = result.value
-        return Result.ok(list(entities))
-
     # ============================================================================
     # SEARCH OPERATIONS - Delegated to PsSearchService (BaseService-backed)
     # ============================================================================
     # PsSearchService inherits BaseService.search() for text search.
     # Specialized methods (facets, chunks, vector) will be expanded as needed.
-
-    async def search_by_title_template(
-        self, search_term: str, limit: int = 25
-    ) -> Result[list[Any]]:
-        """Search by title/template text."""
-        return await self.search.search(query=search_term, limit=limit)
-
-    async def search_with_user_context(
-        self, query: str, user_context: dict[str, Any] | None = None, limit: int = 25
-    ) -> Result[list[Any]]:
-        """Search with optional user context."""
-        return await self.search.search(query=query, limit=limit)
 
     async def search_by_tags(
         self, tags: list[str], match_all: bool = False, limit: int = 25
@@ -779,10 +757,6 @@ class PsService:
         """Get multiple path steps in one batched query."""
         return await self.core.backend.get_many(uids)
 
-    async def get_step_paths(self, step_uid: str, limit: int = 100) -> Result[builtins.list[str]]:
-        """Get all learning paths that contain a specific step."""
-        return await self.relationships.get_related_uids("in_paths", EntityUID(step_uid))
-
     # ============================================================================
     # KU COMPOSITION (PathStep → atomic Ku via USES_KU)
     # ============================================================================
@@ -950,12 +924,6 @@ class PsService:
     # ============================================================================
     # TEMPLATE & UTILITY OPERATIONS
     # ============================================================================
-
-    @with_error_handling("get_query_metrics", error_type="system")
-    async def get_query_metrics(self) -> Result[dict[str, Any]]:
-        """Get query performance metrics."""
-        metrics = get_metrics_summary()
-        return Result.ok(metrics)
 
     async def get_step_stats(self, uid: str) -> Result[dict[str, Any]]:
         """Get statistics for a path step."""

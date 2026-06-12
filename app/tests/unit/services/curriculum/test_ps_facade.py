@@ -152,19 +152,6 @@ class TestPsServiceDetachAndGetPaths:
         )
 
     @pytest.mark.asyncio
-    async def test_get_step_paths_delegates_to_relationships(self, ps_service: PsService) -> None:
-        """get_step_paths delegates to relationships.get_related_uids."""
-        ps_service.relationships.get_related_uids = AsyncMock(
-            return_value=Result.ok(["lp_path_abc", "lp_path_def"])
-        )
-
-        result = await ps_service.get_step_paths("ls_step_abc")
-
-        assert result.is_ok
-        assert result.value == ["lp_path_abc", "lp_path_def"]
-        ps_service.relationships.get_related_uids.assert_called_once_with("in_paths", "ls_step_abc")
-
-    @pytest.mark.asyncio
     async def test_detach_step_propagates_relationships_failure(
         self, ps_service: PsService
     ) -> None:

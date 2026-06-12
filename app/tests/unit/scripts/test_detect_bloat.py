@@ -775,8 +775,10 @@ def test_live_string_table_dispatch_demoted_not_dead(live_methods):
 
 def test_live_known_dead_facade_method_flagged(live_methods):
     # Hand-verified dead (zero references of any kind). Delete this sentinel
-    # alongside the method when it is removed.
-    finding = finding_for(live_methods.findings, "list_user_knowledge")
+    # alongside the method when it is removed, or repoint it at another
+    # reference-free dead method. (Was list_user_knowledge until the
+    # curriculum campaign deleted it.)
+    finding = finding_for(live_methods.findings, "pure_to_dict")
     assert finding is not None and finding.severity is BloatSeverity.WARNING
 
 

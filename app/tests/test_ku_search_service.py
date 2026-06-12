@@ -122,9 +122,7 @@ class TestFacadeDelegation:
         from core.services.ps_service import PsService
 
         # Verify search methods exist on facade
-        assert callable(getattr(PsService, "search_by_title_template", None))
         assert callable(getattr(PsService, "search_by_tags", None))
-        assert callable(getattr(PsService, "search_with_user_context", None))
         assert callable(getattr(PsService, "search_steps", None))
 
 

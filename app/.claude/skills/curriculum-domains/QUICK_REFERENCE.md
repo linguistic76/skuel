@@ -56,7 +56,6 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 | `ku_core_service.py` | CRUD operations for atomic knowledge units |
 | `ku_search_service.py` | Text search, filtering |
 | `ku_intelligence_service.py` | Usage summary, substance metrics |
-| `ku_relationships.py` | Relationship helpers |
 
 ### LP Sub-services (`core/services/lp/`)
 | Service | Purpose |
