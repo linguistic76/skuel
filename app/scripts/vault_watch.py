@@ -154,30 +154,37 @@ def watch(
     interval: float,
     debounce: float,
 ) -> None:
-    """Poll for changes; ingest after the vault has been quiet for `debounce` seconds."""
+    """Poll for changes; ingest after the vault has been quiet for `debounce` seconds.
+
+    The synced baseline advances only after a SUCCESSFUL ingest — a transient
+    trigger failure (app restart, Neo4j blip) leaves the baseline stale, so the
+    next poll retries the same changes instead of silently treating them as synced.
+    """
     print(f"Watching {vault} (poll {interval:.0f}s, debounce {debounce:.0f}s, mode={mode})")
     print("Initial sync...")
-    run_ingest(session, vault, mode, pattern)
-    signature = scan_signature(vault)
+    synced: frozenset[tuple[str, int, int]] | None = None
+    if run_ingest(session, vault, mode, pattern):
+        synced = scan_signature(vault)
 
     while True:
         time.sleep(interval)
         current = scan_signature(vault)
-        if current == signature:
+        if current == synced:
             continue
 
-        # Change detected — wait for a full quiet period (Obsidian Sync may
-        # still be delivering a batch), then ingest whatever settled.
+        # Change detected (or a previous ingest failed) — wait for a full quiet
+        # period (Obsidian Sync may still be delivering a batch), then ingest
+        # whatever settled.
         print(f"[{time.strftime('%H:%M:%S')}] Change detected — debouncing...")
-        signature = current
         while True:
             time.sleep(debounce)
             settled = scan_signature(vault)
-            if settled == signature:
+            if settled == current:
                 break
-            signature = settled
+            current = settled
 
-        run_ingest(session, vault, mode, pattern)
+        if run_ingest(session, vault, mode, pattern):
+            synced = settled
 
 
 def main() -> int:
