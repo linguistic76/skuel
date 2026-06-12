@@ -184,6 +184,30 @@ class TestReconcileDeletions:
         assert result.is_error
 
     @pytest.mark.asyncio
+    async def test_pattern_scope_protects_out_of_scope_rows(self, tmp_path) -> None:
+        """A *.md-scoped run has no authority over tracked YAML files — a
+        missing yaml row is ignored, only the missing md row is deleted."""
+        alive_md = tmp_path / "ku.alive.md"
+        alive_md.write_text("x")
+        gone_md = tmp_path / "ku.gone.md"  # missing, in scope
+        gone_yaml = tmp_path / "task.gone.yaml"  # missing, OUT of scope
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive_md), "entity_uid": "ku.alive"},
+                {"file_path": str(gone_md), "entity_uid": "ku.gone"},
+                {"file_path": str(gone_yaml), "entity_uid": "task.gone"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, pattern="*.md")
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+
+        items = backend.delete_entities_with_metadata.await_args.args[0]
+        assert items == [{"file_path": str(gone_md), "entity_uid": "ku.gone"}]
+
+    @pytest.mark.asyncio
     async def test_relative_paths_stored_canonical(self, tmp_path, monkeypatch) -> None:
         """Metadata written from a relative path reaches the backend as the
         resolved absolute string — otherwise reconciliation's absolute

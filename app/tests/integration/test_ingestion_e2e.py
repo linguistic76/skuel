@@ -512,12 +512,13 @@ relationship: RELATED_TO
 
 
 @pytest.mark.asyncio
-async def test_deleting_all_pattern_matched_files_still_reconciles(
+async def test_scoped_wipe_refused_then_unscoped_run_propagates(
     ingestion_service, valid_ku_directory, neo4j_driver
 ):
     """Deleting every file matching the pattern lands in the 'No files found'
-    early return — reconciliation must still run there. The surviving tracked
-    YAML keeps the mass-deletion valve from triggering."""
+    early return — reconciliation runs there, but a scope-total wipe trips the
+    mass-deletion valve (refused). The unscoped follow-up run (the watcher's
+    normal mode) sees the surviving YAML and propagates the deletions."""
     edge_file = valid_ku_directory / "edge-00-01.yaml"
     edge_file.write_text(
         """type: Edge
@@ -537,16 +538,36 @@ relationship: RELATED_TO
     for md_file in valid_ku_directory.glob("*.md"):
         md_file.unlink()
 
+    # Scoped run: nothing matches *.md anymore -> empty-files early return ->
+    # reconciliation runs but refuses (100% of in-scope tracked files missing).
     result2 = await ingestion_service.ingest_directory(
         directory=valid_ku_directory,
-        pattern="*.md",  # nothing matches now -> empty-files early return
+        pattern="*.md",
         ingestion_mode="incremental",
     )
     assert result2.is_ok
-    stats = result2.value
-    assert isinstance(stats, IncrementalStats)
-    assert stats.total_files == 0
-    assert stats.entities_deleted == 5
+    stats2 = result2.value
+    assert isinstance(stats2, IncrementalStats)
+    assert stats2.total_files == 0
+    assert stats2.entities_deleted == 0  # valve refused the scope-total wipe
+
+    async with neo4j_driver.session() as session:
+        still_there = await session.run(
+            "MATCH (e:Entity) WHERE e.uid STARTS WITH 'ku.e2e-test-' RETURN count(e) AS n"
+        )
+        assert (await still_there.single())["n"] == 5
+
+    # Unscoped run (watcher mode): the surviving edge YAML keeps the valve
+    # off, so the five vault deletions propagate.
+    result3 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result3.is_ok
+    stats3 = result3.value
+    assert isinstance(stats3, IncrementalStats)
+    assert stats3.entities_deleted == 5
 
     async with neo4j_driver.session() as session:
         gone = await session.run(
