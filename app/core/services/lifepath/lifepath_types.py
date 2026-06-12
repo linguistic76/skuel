@@ -6,9 +6,10 @@ Frozen dataclasses used by LifePath services.
 
 These are service-layer types (not stored entities):
 - LifePathDesignation: View over Ku + ULTIMATE_PATH data
-- VisionTheme, VisionCapture, VisionHistory: Vision capture types
+- VisionTheme, VisionCapture: Vision capture types
 - LpRecommendation: LP recommendation type
-- WordActionAlignment: Word-action gap analysis type
+- WordActionAlignment: Word-action gap analysis type (staged — see
+  LifePathService.check_word_action_alignment)
 
 Relocated from core/models/lifepath/ during Ku unification.
 """
@@ -51,16 +52,12 @@ class LifePathDesignation:
     designated_at: datetime | None = None
 
     # THE MEASUREMENT (vision -> action alignment, stored on ULTIMATE_PATH)
+    # Per-dimension scores live on the ULTIMATE_PATH edge (written by
+    # LifePathCoreService.update_alignment_score); only the overall score is
+    # read back into this view. Fresh dimension breakdowns come from
+    # LifePathAlignmentService.calculate_alignment.
     alignment_score: float = 0.0
-    word_action_gap: float = 0.0
     alignment_level: AlignmentLevel = AlignmentLevel.EXPLORING
-
-    # Dimension scores (5-dimensional alignment)
-    knowledge_alignment: float = 0.0  # Mastery of life path knowledge (25%)
-    activity_alignment: float = 0.0  # Tasks/habits supporting life path (25%)
-    goal_alignment: float = 0.0  # Active goals contributing to life path (20%)
-    principle_alignment: float = 0.0  # Values supporting life path direction (15%)
-    momentum: float = 0.0  # Recent activity trend toward life path (15%)
 
     def __post_init__(self) -> None:
         """Compute derived fields after initialization."""
@@ -79,60 +76,6 @@ class LifePathDesignation:
     def has_vision(self) -> bool:
         """Check if user has expressed a vision."""
         return bool(self.vision_statement)
-
-    @property
-    def is_aligned(self) -> bool:
-        """Check if user is at least 'aligned' level."""
-        return self.alignment_level in (AlignmentLevel.FLOURISHING, AlignmentLevel.ALIGNED)
-
-    def get_weakest_dimension(self) -> str:
-        """Identify the dimension needing most attention."""
-        from core.utils.sort_functions import make_dict_value_getter
-
-        dimensions = {
-            "knowledge": self.knowledge_alignment,
-            "activity": self.activity_alignment,
-            "goal": self.goal_alignment,
-            "principle": self.principle_alignment,
-            "momentum": self.momentum,
-        }
-        return min(dimensions, key=make_dict_value_getter(dimensions))
-
-    def get_dimension_insights(self) -> dict[str, str]:
-        """Generate insights for each alignment dimension."""
-        insights = {}
-
-        if self.knowledge_alignment < 0.5:
-            insights["knowledge"] = "Focus on mastering knowledge in your life path"
-        if self.activity_alignment < 0.5:
-            insights["activity"] = "Your daily activities could better support your vision"
-        if self.goal_alignment < 0.5:
-            insights["goal"] = "Set goals that directly contribute to your life path"
-        if self.principle_alignment < 0.5:
-            insights["principle"] = "Align your principles more closely with your vision"
-        if self.momentum < 0.5:
-            insights["momentum"] = "Recent activity shows drift from your life path"
-
-        return insights
-
-    def calculate_weighted_score(self) -> float:
-        """
-        Calculate weighted alignment score from 5 dimensions.
-
-        Weights:
-        - Knowledge: 25%
-        - Activity: 25%
-        - Goal: 20%
-        - Principle: 15%
-        - Momentum: 15%
-        """
-        return (
-            self.knowledge_alignment * 0.25
-            + self.activity_alignment * 0.25
-            + self.goal_alignment * 0.20
-            + self.principle_alignment * 0.15
-            + self.momentum * 0.15
-        )
 
 
 @dataclass(frozen=True)
@@ -178,19 +121,6 @@ class VisionCapture:
         """Get just the theme keywords as a list."""
         return [t.theme for t in self.themes]
 
-    @property
-    def categories(self) -> set[ThemeCategory]:
-        """Get unique categories present in themes."""
-        return {t.category for t in self.themes}
-
-    def get_themes_by_category(self, category: ThemeCategory) -> list[VisionTheme]:
-        """Get all themes in a specific category."""
-        return [t for t in self.themes if t.category == category]
-
-    def to_search_query(self) -> str:
-        """Convert themes to a search query for LP matching."""
-        return " ".join(self.theme_keywords)
-
 
 @dataclass(frozen=True)
 class LpRecommendation:
@@ -206,11 +136,6 @@ class LpRecommendation:
     match_score: float
     matching_themes: tuple[str, ...] = field(default_factory=tuple)
     lp_domain: str | None = None
-
-    @property
-    def is_strong_match(self) -> bool:
-        """Check if this is a strong recommendation."""
-        return self.match_score >= 0.7
 
 
 @dataclass(frozen=True)
@@ -262,31 +187,3 @@ class WordActionAlignment:
             return f"Your vision mentions {missing}, but these aren't reflected in your activities."
 
         return "Some aspects of your vision could be better reflected in your daily activities."
-
-
-@dataclass(frozen=True)
-class VisionHistory:
-    """Track changes in user's vision over time."""
-
-    user_uid: UserUID
-    visions: tuple[VisionCapture, ...] = field(default_factory=tuple)
-
-    @property
-    def current_vision(self) -> VisionCapture | None:
-        """Get the most recent vision."""
-        return self.visions[-1] if self.visions else None
-
-    @property
-    def has_evolved(self) -> bool:
-        """Check if vision has changed over time."""
-        return len(self.visions) > 1
-
-    def get_theme_evolution(self) -> dict[str, list[datetime]]:
-        """Track when each theme appeared/disappeared."""
-        evolution: dict[str, list[datetime]] = {}
-        for vision in self.visions:
-            for theme in vision.theme_keywords:
-                if theme not in evolution:
-                    evolution[theme] = []
-                evolution[theme].append(vision.captured_at)
-        return evolution
