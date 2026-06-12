@@ -72,6 +72,19 @@ Five evidence types in `RelationshipName` enum:
 | `yaml_templates/_schemas/edge_template.yaml` | Full field reference |
 | `yaml_templates/edges/caffeine_exacerbates_buzzing.yaml` | Working example |
 
+## Addendum (2026-06-12): Edge Lifecycle Completion
+
+Edge files are now tracked in `IngestionMetadata` with the relationship identity
+(`edge:{from}|{REL}|{to}`) in the uid slot. Consequences:
+
+- **Incremental skip:** unchanged edge files are skipped on incremental/smart runs
+  (previously re-MERGEd every run).
+- **Deletion propagation:** deleting an Edge YAML deletes exactly that relationship
+  (`IngestionTracker.reconcile_deletions` → `IngestionBackend.delete_edge_with_metadata`),
+  honoring the run's pattern scope and the move/duplicate-file guard.
+
+See: `docs/patterns/UNIFIED_INGESTION_GUIDE.md` § Deletion propagation.
+
 ## Open Questions
 
 1. Should evidence relationships be additive (multiple edges between same nodes) or merged? Currently uses MERGE — same from/to/type updates rather than duplicates.

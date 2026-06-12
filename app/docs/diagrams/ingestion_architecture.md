@@ -68,8 +68,9 @@ flowchart TD
     J -->|"Yes"| K["Skip File<br/>(unchanged)"]
     J -->|"No"| L["Process File"]
     L --> M["Update IngestionMetadata<br/>(new hash + mtime)"]
-    M --> N["Return IncrementalStats<br/>(with skip_efficiency)"]
-    K --> N
+    M --> R["Reconcile Deletions<br/>(tracked file missing on disk →<br/>delete entity + content subtree,<br/>or relationship for Edge YAMLs)"]
+    K --> R
+    R --> N["Return IncrementalStats<br/>(skip_efficiency, entities_deleted, edges_deleted)"]
 
     %% Smart mode
     E --> O{"mtime changed<br/>since last ingestion?"}

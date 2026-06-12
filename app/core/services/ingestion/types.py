@@ -144,6 +144,10 @@ class IncrementalStats:
     # Breakdown by skip reason
     skipped_unchanged: int = 0
     skipped_hash_match: int = 0
+    # Deletion propagation (vault file deleted -> graph entity/edge deleted)
+    entities_deleted: int = 0
+    edges_deleted: int = 0  # deleted Edge YAMLs: relationship removed
+    stale_metadata_removed: int = 0  # moved/renamed files: old tracking row only
     errors: list[dict[str, Any]] | None = None
 
     @property
@@ -170,6 +174,24 @@ class IncrementalStats:
         if self.duration_seconds == 0:
             return 0.0
         return self.total_files / self.duration_seconds
+
+
+@dataclass
+class DeletionReconciliation:
+    """Outcome of vault-deletion reconciliation (incremental/smart modes).
+
+    A tracked file missing from disk means the vault author deleted it; the
+    corresponding graph entity (or, for Edge YAMLs, the relationship) is
+    deleted. Moved/renamed files (same identity still claimed by a file that
+    exists) lose only their stale tracking row.
+    """
+
+    entities_deleted: int = 0
+    edges_deleted: int = 0
+    stale_metadata_removed: int = 0
+    # Safety valve: every tracked file under the directory vanished at once
+    # (unmounted vault, sync wipe). Deletion is refused; counts stay zero.
+    mass_deletion_refused: bool = False
 
 
 @dataclass
