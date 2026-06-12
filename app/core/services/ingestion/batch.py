@@ -20,6 +20,7 @@ import asyncio
 import re
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
@@ -45,7 +46,7 @@ from .config import (
     collect_files,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
-from .ingestion_tracker import IngestionTracker
+from .ingestion_tracker import IngestionTracker, edge_identity
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
@@ -57,8 +58,6 @@ from .validator import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
 
 logger = get_logger("skuel.services.ingestion.batch")
@@ -366,7 +365,7 @@ async def parse_file_for_batch(
 async def _ingest_edge_batch(
     write_backend: IngestionWriteOperations,
     edge_files: list[dict[str, Any]],
-) -> tuple[int, list[dict[str, str]]]:
+) -> tuple[int, list[dict[str, str]], list[dict[str, str]]]:
     """
     Ingest a batch of prepared edge data into Neo4j.
 
@@ -376,10 +375,14 @@ async def _ingest_edge_batch(
         edge_files: List of prepared edge dicts (from prepare_edge_data)
 
     Returns:
-        Tuple of (edges_created_count, error_dicts)
+        Tuple of (edges_created_count, error_dicts, successes). Each success
+        carries {source_file, from_uid, to_uid, rel_type} so the caller can
+        record IngestionMetadata for the edge file — which is what makes
+        edge-file deletion propagate (and unchanged edge files skip).
     """
     edges_created = 0
     errors: list[dict[str, str]] = []
+    successes: list[dict[str, str]] = []
 
     for edge_data in edge_files:
         from_uid = edge_data["from_uid"]
@@ -406,6 +409,14 @@ async def _ingest_edge_batch(
             records = await write_backend.ingest_edge(from_uid, to_uid, rel_type, props)
             if records:
                 edges_created += 1
+                successes.append(
+                    {
+                        "source_file": props.get("source_file", ""),
+                        "from_uid": from_uid,
+                        "to_uid": to_uid,
+                        "rel_type": str(rel_type),
+                    }
+                )
             else:
                 edge_error = IngestionError(
                     file=props.get("source_file", "<edge>"),
@@ -423,7 +434,7 @@ async def _ingest_edge_batch(
             )
             errors.append(edge_error.to_dict())
 
-    return edges_created, errors
+    return edges_created, errors, successes
 
 
 async def ingest_directory(
@@ -505,14 +516,38 @@ async def ingest_directory(
                     errors=[{"message": "No files found"}],
                 )
             )
-        else:
-            return Result.ok(
-                IncrementalStats(
-                    total_files=0,
-                    duration_seconds=0,
-                    errors=[{"message": "No files found"}],
+        # Deletion propagation must still run: deleting the last files matching
+        # the pattern lands here with all_files empty. The mass-deletion valve
+        # (inside reconcile_deletions) covers the everything-vanished case;
+        # this covers e.g. all *.md deleted while tracked *.yaml files survive.
+        empty_errors: list[dict[str, Any]] = [{"message": "No files found"}]
+        entities_deleted = 0
+        edges_deleted = 0
+        stale_metadata_removed = 0
+        if ingestion_backend is not None and not dry_run:
+            empty_tracker = IngestionTracker(ingestion_backend)
+            reconcile_result = await empty_tracker.reconcile_deletions(directory, pattern)
+            if reconcile_result.is_ok:
+                entities_deleted = reconcile_result.value.entities_deleted
+                edges_deleted = reconcile_result.value.edges_deleted
+                stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            else:
+                empty_errors.append(
+                    {
+                        "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                        "operation": "reconcile_deletions",
+                    }
                 )
+        return Result.ok(
+            IncrementalStats(
+                total_files=0,
+                duration_seconds=0,
+                entities_deleted=entities_deleted,
+                edges_deleted=edges_deleted,
+                stale_metadata_removed=stale_metadata_removed,
+                errors=empty_errors,
             )
+        )
 
     # Initialize ingestion tracking for incremental modes
     files_to_process = all_files
@@ -554,7 +589,30 @@ async def ingest_directory(
         )
 
     if not files_to_process:
-        # All files are up to date
+        # All surviving files are up to date — but a deletion-only vault change
+        # lands exactly here (the deleted file is simply absent from all_files),
+        # so deletion propagation must still run before returning.
+        entities_deleted = 0
+        edges_deleted = 0
+        stale_metadata_removed = 0
+        reconcile_errors: list[dict[str, Any]] = []
+        if tracker is not None and not dry_run:
+            reconcile_result = await tracker.reconcile_deletions(directory, pattern)
+            if reconcile_result.is_ok:
+                entities_deleted = reconcile_result.value.entities_deleted
+                edges_deleted = reconcile_result.value.edges_deleted
+                stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            else:
+                # Same error surface as the non-empty processing path — a
+                # silently-skipped reconciliation would report a clean sync
+                # while the deleted entity is still in the graph.
+                reconcile_errors.append(
+                    {
+                        "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                        "operation": "reconcile_deletions",
+                    }
+                )
+
         duration = (datetime.now() - start_time).total_seconds()
         return Result.ok(
             IncrementalStats(
@@ -565,6 +623,10 @@ async def ingest_directory(
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
+                entities_deleted=entities_deleted,
+                edges_deleted=edges_deleted,
+                stale_metadata_removed=stale_metadata_removed,
+                errors=reconcile_errors if reconcile_errors else None,
             )
         )
 
@@ -754,8 +816,11 @@ async def ingest_directory(
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     total_edges_created = 0
+    edge_successes: list[dict[str, str]] = []
     if edge_files and write_backend is not None:
-        total_edges_created, edge_errors = await _ingest_edge_batch(write_backend, edge_files)
+        total_edges_created, edge_errors, edge_successes = await _ingest_edge_batch(
+            write_backend, edge_files
+        )
         errors.extend(edge_errors)
         if total_edges_created:
             logger.info(f"Ingested {total_edges_created} edges from {len(edge_files)} edge files")
@@ -770,9 +835,41 @@ async def ingest_directory(
                 content_hash = tracker.compute_file_hash(file_path)
                 ingestion_updates.append((file_path, uid, content_hash))
 
+        # Edge files: tracked with the relationship identity in the uid slot,
+        # so unchanged edge files skip on later runs and deleting the file
+        # propagates to the relationship.
+        for success in edge_successes:
+            if not success["source_file"]:
+                continue
+            edge_path = Path(success["source_file"])
+            if not edge_path.exists():
+                continue
+            identity = edge_identity(success["from_uid"], success["rel_type"], success["to_uid"])
+            ingestion_updates.append((edge_path, identity, tracker.compute_file_hash(edge_path)))
+
         if ingestion_updates:
             await tracker.update_ingestion_metadata_batch(ingestion_updates)
             logger.info(f"Updated ingestion metadata for {len(ingestion_updates)} files")
+
+    # Deletion propagation: vault file deleted -> graph entity/edge deleted.
+    # Runs after the metadata updates above so moved/renamed files (already
+    # re-ingested under their new path) are recognized as moves, not deletions.
+    entities_deleted = 0
+    edges_deleted = 0
+    stale_metadata_removed = 0
+    if tracker is not None and ingestion_mode != "full" and not dry_run:
+        reconcile_result = await tracker.reconcile_deletions(directory, pattern)
+        if reconcile_result.is_ok:
+            entities_deleted = reconcile_result.value.entities_deleted
+            edges_deleted = reconcile_result.value.edges_deleted
+            stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+        else:
+            errors.append(
+                {
+                    "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                    "operation": "reconcile_deletions",
+                }
+            )
 
     duration = (datetime.now() - start_time).total_seconds()
 
@@ -805,6 +902,9 @@ async def ingest_directory(
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
+                entities_deleted=entities_deleted,
+                edges_deleted=edges_deleted,
+                stale_metadata_removed=stale_metadata_removed,
                 errors=errors if errors else None,
             )
         )

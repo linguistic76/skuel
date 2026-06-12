@@ -310,7 +310,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | Backend | File | Methods | Migrated From |
 |---------|------|---------|---------------|
 | `VectorSearchBackend` | `vector_search_backend.py` | 5 | `Neo4jVectorSearchService` (was `self.executor`) |
-| `IngestionBackend` | `ingestion_backend.py` | 12 | `IngestionHistoryService`, `IngestionTracker` |
+| `IngestionBackend` | `ingestion_backend.py` | 15 | `IngestionHistoryService`, `IngestionTracker` (+3 deletion-propagation methods, 2026-06-12) |
 | `JupyterSyncBackend` | `jupyter_sync_backend.py` | 9 | `JupyterNeo4jSyncService` |
 | `EmbeddingsBackend` | `embeddings_backend.py` | 3 | `EmbeddingsService` (the worker stores through it) |
 | `KnowledgeDomainBackend` | `knowledge_domain_backend.py` | 3 | `KnowledgeDomainService` |

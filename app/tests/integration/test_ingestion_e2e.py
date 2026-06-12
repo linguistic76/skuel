@@ -389,6 +389,205 @@ async def test_incremental_ingestion_skips_unchanged_files(ingestion_service, va
 
 
 @pytest.mark.asyncio
+async def test_deletion_propagation_removes_entity(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """Vault file deleted -> graph entity deleted (2026-06-12 ruling).
+
+    Deleting one file and re-ingesting incrementally hits the all-files-up-to-date
+    early-return path — reconciliation must still run there.
+    """
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    # Attach the content subtree the content adapter creates
+    # ((Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) plus
+    # (Content)-[:HAS_METADATA]->(ContentMetadata)) so the test proves
+    # deletion removes it leaf-first instead of orphaning it.
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (e:Entity {uid: 'ku.e2e-test-02'})
+            MERGE (c:Content {uid: 'ku.e2e-test-02'})
+            MERGE (e)-[:HAS_CONTENT]->(c)
+            MERGE (m:ContentMetadata {uid: 'ku.e2e-test-02'})
+            MERGE (c)-[:HAS_METADATA]->(m)
+            CREATE (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
+            CREATE (c)-[:HAS_CHUNK {sequence: 0}]->(ch)
+            """
+        )
+
+    (valid_ku_directory / "ku-02.md").unlink()
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.entities_deleted == 1
+    assert stats.files_ingested == 0  # remaining files unchanged
+
+    async with neo4j_driver.session() as session:
+        gone = await session.run("MATCH (e:Entity {uid: 'ku.e2e-test-02'}) RETURN count(e) AS n")
+        assert (await gone.single())["n"] == 0
+        kept = await session.run(
+            "MATCH (e:Entity) WHERE e.uid STARTS WITH 'ku.e2e-test-' RETURN count(e) AS n"
+        )
+        assert (await kept.single())["n"] == 4
+        # Content subtree must go with the entity — no orphans for chunk
+        # regeneration scans or the vector index to resurface.
+        orphans = await session.run(
+            """
+            OPTIONAL MATCH (c:Content {uid: 'ku.e2e-test-02'})
+            OPTIONAL MATCH (m:ContentMetadata {uid: 'ku.e2e-test-02'})
+            OPTIONAL MATCH (ch:ContentChunk {uid: 'ku.e2e-test-02-chunk-0'})
+            RETURN count(c) + count(m) + count(ch) AS n
+            """
+        )
+        assert (await orphans.single())["n"] == 0
+
+
+@pytest.mark.asyncio
+async def test_deleted_edge_file_removes_relationship(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """Deleting an Edge YAML removes the relationship it created (2026-06-12
+    ruling follow-up) — edge files are metadata-tracked with the relationship
+    identity, so reconciliation can target the exact edge."""
+    edge_file = valid_ku_directory / "edge-00-01.yaml"
+    edge_file.write_text(
+        """type: Edge
+from: ku.e2e-test-00
+to: ku.e2e-test-01
+relationship: RELATED_TO
+"""
+    )
+
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    async with neo4j_driver.session() as session:
+        created = await session.run(
+            "MATCH (:Entity {uid: 'ku.e2e-test-00'})-[r:RELATED_TO]->"
+            "(:Entity {uid: 'ku.e2e-test-01'}) RETURN count(r) AS n"
+        )
+        assert (await created.single())["n"] == 1
+
+    edge_file.unlink()
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.edges_deleted == 1
+    assert stats.entities_deleted == 0
+
+    async with neo4j_driver.session() as session:
+        gone = await session.run(
+            "MATCH (:Entity {uid: 'ku.e2e-test-00'})-[r:RELATED_TO]->"
+            "(:Entity {uid: 'ku.e2e-test-01'}) RETURN count(r) AS n"
+        )
+        assert (await gone.single())["n"] == 0
+        # Both endpoint entities survive — only the relationship goes.
+        kept = await session.run(
+            "MATCH (e:Entity) WHERE e.uid IN ['ku.e2e-test-00', 'ku.e2e-test-01'] "
+            "RETURN count(e) AS n"
+        )
+        assert (await kept.single())["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_scoped_wipe_propagates_when_vault_demonstrably_mounted(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """Deleting every file matching the pattern lands in the 'No files found'
+    early return — reconciliation runs there. The mass-deletion valve is
+    GLOBAL: the surviving tracked YAML proves the vault is mounted, so the
+    in-scope markdown deletions propagate even though 100% of *.md vanished."""
+    edge_file = valid_ku_directory / "edge-00-01.yaml"
+    edge_file.write_text(
+        """type: Edge
+from: ku.e2e-test-00
+to: ku.e2e-test-01
+relationship: RELATED_TO
+"""
+    )
+
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    for md_file in valid_ku_directory.glob("*.md"):
+        md_file.unlink()
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",  # nothing matches now -> empty-files early return
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.total_files == 0
+    assert stats.entities_deleted == 5
+
+    async with neo4j_driver.session() as session:
+        gone = await session.run(
+            "MATCH (e:Entity) WHERE e.uid STARTS WITH 'ku.e2e-test-' RETURN count(e) AS n"
+        )
+        assert (await gone.single())["n"] == 0
+
+
+@pytest.mark.asyncio
+async def test_renamed_file_keeps_entity_drops_stale_tracking(
+    ingestion_service, valid_ku_directory, neo4j_driver
+):
+    """A rename re-ingests the same uid under a new path — the entity survives,
+    only the old path's IngestionMetadata row is removed."""
+    result1 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",
+        ingestion_mode="incremental",
+    )
+    assert result1.is_ok
+
+    (valid_ku_directory / "ku-03.md").rename(valid_ku_directory / "ku-03-renamed.md")
+
+    result2 = await ingestion_service.ingest_directory(
+        directory=valid_ku_directory,
+        pattern="*.md",
+        ingestion_mode="incremental",
+    )
+    assert result2.is_ok
+    stats = result2.value
+    assert isinstance(stats, IncrementalStats)
+    assert stats.entities_deleted == 0
+    assert stats.stale_metadata_removed == 1
+
+    async with neo4j_driver.session() as session:
+        kept = await session.run("MATCH (e:Entity {uid: 'ku.e2e-test-03'}) RETURN count(e) AS n")
+        assert (await kept.single())["n"] == 1
+
+
+@pytest.mark.asyncio
 async def test_dry_run_faster_than_full_ingestion(ingestion_service, valid_ku_directory):
     """Test that dry-run is faster than full ingestion (read-only queries)."""
     import time

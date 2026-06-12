@@ -20,6 +20,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.models.relationship_names import RelationshipName
 
 
 class IngestionBackend:
@@ -204,4 +205,77 @@ class IngestionBackend:
             RETURN count(*) AS deleted
             """,
             {"paths": paths},
+        )
+
+    async def get_tracked_files_under(self, path_prefix: str) -> Result[list[dict[str, Any]]]:
+        """List all tracked (file_path, entity_uid) pairs under a directory prefix.
+
+        Used by deletion reconciliation: tracked files that no longer exist on
+        disk are vault deletions to propagate. The prefix must end with the
+        path separator so /vault/a doesn't match /vault/abc.
+        """
+        return await self._executor.execute_query(
+            """
+            MATCH (s:IngestionMetadata)
+            WHERE s.file_path STARTS WITH $path_prefix
+            RETURN s.file_path AS file_path, s.entity_uid AS entity_uid
+            """,
+            {"path_prefix": path_prefix},
+        )
+
+    async def delete_entities_with_metadata(
+        self, items: list[dict[str, str]]
+    ) -> Result[list[dict[str, Any]]]:
+        """Delete vault-removed entities, their content subtree, and tracking rows.
+
+        Each item carries {file_path, entity_uid}. Matches the entity across the
+        three uid-bearing node shapes ingestion can create (:Entity multi-label,
+        :Group, :Expense). The content subtree hangs off the entity as
+        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) with
+        (Content)-[:HAS_METADATA]->(ContentMetadata) — all of it is deleted
+        leaf-first (DETACH DELETE on the entity alone would orphan the content
+        side, leaving deleted material in chunk regeneration scans and the
+        vector index). Missing entities (already deleted by hand) still get
+        their metadata row cleaned up.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $items AS item
+            MATCH (s:IngestionMetadata {file_path: item.file_path})
+            OPTIONAL MATCH (e:Entity {uid: item.entity_uid})
+            OPTIONAL MATCH (g:Group {uid: item.entity_uid})
+            OPTIONAL MATCH (x:Expense {uid: item.entity_uid})
+            OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
+            OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
+            OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
+            DETACH DELETE chunk, meta
+            WITH DISTINCT item, s, e, g, x, content
+            DETACH DELETE content
+            WITH DISTINCT item, s, e, g, x
+            DETACH DELETE e, g, x, s
+            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
+            """,
+            {"items": items},
+        )
+
+    async def delete_edge_with_metadata(
+        self, file_path: str, from_uid: str, to_uid: str, rel_type: RelationshipName
+    ) -> Result[list[dict[str, Any]]]:
+        """Delete the relationship a vault-removed Edge YAML created, plus its tracking row.
+
+        ``rel_type`` is a ``RelationshipName`` — the enum type makes the
+        interpolation injection-safe, mirroring ``IngestionWriteBackend.ingest_edge``.
+        A missing relationship (already removed by hand) still cleans up the
+        metadata row.
+        """
+        return await self._executor.execute_query(
+            f"""
+            MATCH (s:IngestionMetadata {{file_path: $file_path}})
+            OPTIONAL MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+            DELETE r
+            WITH DISTINCT s
+            DETACH DELETE s
+            RETURN $file_path AS file_path
+            """,
+            {"file_path": file_path, "from_uid": from_uid, "to_uid": to_uid},
         )
