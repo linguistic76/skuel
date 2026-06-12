@@ -5,7 +5,7 @@ Specialized Domain Converters
 Converter functions for non-Activity domains:
 - Finance (NonKuDomain)
 - Curriculum: KU, PathStep, LearningPath
-- Meta: Report, Analytics, Calendar
+- Meta: Report, Calendar
 - LifePath (the destination)
 
 Each function converts a ParsedActivityLine to a domain-specific dict.
@@ -416,54 +416,6 @@ def activity_to_report_dict(activity: ParsedActivityLine) -> Result[ConversionRe
 
     logger.debug(f"Converted activity to Report dict: {report_type}")
     return Result.ok(report_dict)
-
-
-@with_error_handling(error_type="system", operation="activity_to_analytics_dict")
-def activity_to_analytics_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
-    """
-    Convert ParsedActivityLine to Analytics request dict.
-
-    Analytics are statistical aggregation requests - analyzing activity
-    patterns and progress across domains.
-
-    Args:
-        activity: Parsed activity line with context containing analytics request
-
-    Returns:
-        Result containing dict for Analytics generation request
-    """
-    # Infer analytics type from description
-    analytics_type = "summary"  # default
-    type_keywords = {
-        "habit": "habits",
-        "task": "tasks",
-        "goal": "goals",
-        "finance": "finance",
-        "weekly": "weekly_planning",
-        "review": "weekly_review",
-        "progress": "goal_progress",
-        "life": "life_path",
-    }
-    desc_lower = activity.description.lower()
-    for keyword, atype in type_keywords.items():
-        if keyword in desc_lower:
-            analytics_type = atype
-            break
-
-    # Analytics date from @when
-    analytics_date = activity.when.date() if activity.when else date.today()
-
-    analytics_dict = {
-        "analytics_type": analytics_type,
-        "analytics_date": analytics_date,
-        "description": activity.description,
-        "metadata": {
-            "tags": activity.energy_states if activity.energy_states else [],
-        },
-    }
-
-    logger.debug(f"Converted activity to Analytics dict: {analytics_type}")
-    return Result.ok(analytics_dict)
 
 
 @with_error_handling(error_type="system", operation="activity_to_calendar_dict")
