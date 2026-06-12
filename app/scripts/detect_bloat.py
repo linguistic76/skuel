@@ -266,6 +266,25 @@ _TASKS_GRAVITY = (
     "goal/Ku link surface staged (link_task_to_knowledge is the LIVE knowledge-edge "
     "write path); wire link routes/UI or fold into relationship routes"
 )
+_PS_SEMANTIC_DELETE = (
+    "semantic-edge delete counterpart staged — the ADD path is LIVE (create_step_relationship "
+    "route in path_steps_api.py + hierarchy_routes string-dispatch → add_semantic_relationship); "
+    "wire a delete-step-relationship route for write-path symmetry"
+)
+_PS_SEMANTIC_INFER = (
+    "transitive-inference lens staged (confidence-filtered reasoning chains over semantic "
+    "edges); wire an explore/intelligence inference surface"
+)
+_PS_GUIDANCE = (
+    "guidance-strength lens staged (principles 40% + choices 60% weighted score; backend "
+    "fetch_guidance_counts stays); compose into get_domain_insights like the live "
+    "practice_completeness lens, or a PS detail-page guidance indicator"
+)
+_LP_REVERSE_LOOKUP = (
+    "LP reverse-lookup lens staged (full chain: service wrapper + protocol member + backend "
+    "query, no live equivalent at LP grain); wire a goal-detail 'aligned learning paths' / "
+    "ku-detail 'paths teaching this' consumer"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -555,6 +574,14 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/tasks/_relationship_mixin.py::create_semantic_knowledge_relationship": (
         _TASKS_GRAVITY
     ),
+    # --- PS: semantic write-path symmetry + inference lens ---
+    "core/services/ps/ps_semantic_service.py::remove_semantic_relationship": (_PS_SEMANTIC_DELETE),
+    "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
+    # --- PS: guidance-strength intelligence lens ---
+    "core/services/ps/ps_intelligence_service.py::calculate_guidance_strength": _PS_GUIDANCE,
+    # --- LP: reverse-lookup search lenses ---
+    "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
+    "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

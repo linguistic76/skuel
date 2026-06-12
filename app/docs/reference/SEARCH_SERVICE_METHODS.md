@@ -43,9 +43,10 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_by_frequency()` | - | - | D | - | - | - | - | - | - |
 | `get_by_streak_status()` | - | - | D | - | - | - | - | - | - |
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - |
-| `find_similar_content()` | - | - | - | - | - | - | D | - | - |
-| `get_for_learning_path()` | - | - | - | - | - | - | - | D | - |
-| `get_by_path_type()` | - | - | - | - | - | - | - | - | D |
+| `get_by_namespace()` | - | - | - | - | - | - | D | - | - |
+| `search_by_alias()` | - | - | - | - | - | - | D | - | - |
+| `get_standalone_steps()` | - | - | - | - | - | - | - | D | - |
+| `get_aligned_with_goal()` | - | - | - | - | - | - | - | - | D |
 
 ---
 
@@ -378,38 +379,23 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/ku/ku_search_service.py`
 
-**Configuration:**
+**Configuration (from runtime `create_curriculum_domain_config`):**
 ```python
-_search_fields = ["title", "content", "tags"]
-category_field = "namespace"  # DomainConfig
-_content_field = "content"
-_user_ownership_relationship = None  # Shared content
-_graph_enrichment_patterns = [
-    ("REQUIRES_KNOWLEDGE", "Ku", "prerequisites", "outgoing"),
-    ("ENABLES_LEARNING", "Ku", "enables_learning", "outgoing"),
-    ("APPLIES_KNOWLEDGE", "Task", "applied_in_tasks", "incoming"),
-    ("REINFORCES_KNOWLEDGE", "Habit", "reinforced_by_habits", "incoming"),
-    ("PART_OF_LP", "LearningPath", "learning_paths", "outgoing"),
-]
+search_fields = ("title", "description", "summary")
+category_field = "namespace"
+# user_ownership_relationship = None (shared content)
+# graph_enrichment_patterns come from the relationship registry (KU_CONFIG)
 ```
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `search_by_title_template` | `(template: str, domain: Domain) -> Result[list[Ku]]` | Pattern-based title search |
-| `search_by_tags` | `(tags: list[str], match_all: bool = False) -> Result[list[Ku]]` | Tag-based search |
-| `search_by_facets` | `(facets: dict) -> Result[list[Ku]]` | Multi-facet filtering |
-| `get_content_chunks` | `(ku_uid: str) -> Result[list[dict]]` | Get all chunks for a KU |
-| `find_similar_content` | `(ku_uid: str, limit: int = 5) -> Result[list[Ku]]` | Semantic similarity search |
+| `get_by_namespace` | `(namespace: str, limit: int = 50) -> Result[list[Ku]]` | Filter by ontology namespace |
+| `search_by_alias` | `(alias: str, limit: int = 25) -> Result[list[Ku]]` | Match against Ku aliases |
 
-> Chunk-level vector search now lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`
-> — see `docs/guides/ASKESIS_SEARCH_ARCHITECTURE.md`. The legacy in-memory
-> `search_chunks` keyword path on `EntityChunkingService` was removed.
-| `search_by_features` | `(features: dict) -> Result[list[Ku]]` | Feature-based search |
-| `search_with_user_context` | `(query: str, user_uid: UserUID) -> Result[list[Ku]]` | Personalized search |
-| `search_with_semantic_intent` | `(intent: str, user_uid: UserUID) -> Result[list[Ku]]` | Intent-based discovery |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Ku]]` | Ready-to-learn prioritization |
+> Chunk-level vector search lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`
+> — see `docs/guides/ASKESIS_SEARCH_ARCHITECTURE.md`.
 
 ---
 
@@ -417,26 +403,21 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/ps/ps_search_service.py`
 
-**Configuration:**
+**Configuration (from runtime `create_curriculum_domain_config`):**
 ```python
-_search_fields = ["title", "intent", "description"]
-category_field = "category"  # DomainConfig (default)
-_user_ownership_relationship = None  # Shared content
-_graph_enrichment_patterns = [
-    ("CONTAINS_KNOWLEDGE", "Ku", "knowledge_units", "outgoing"),
-    ("HAS_STEP", "LearningPath", "parent_paths", "incoming"),
-    ("REQUIRES_STEP", "PathStep", "prerequisite_steps", "outgoing"),
-]
+search_fields = ("title", "intent", "description")
+content_field = "description"
+# user_ownership_relationship = None (shared content)
+# graph_enrichment_patterns come from the relationship registry (PS config)
 ```
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_for_learning_path` | `(lp_uid: str) -> Result[list[Ls]]` | Steps in a learning path |
-| `get_standalone_steps` | `() -> Result[list[Ls]]` | Steps not in any path |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Ls]]` | Ready-to-learn prioritization |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Ls]]` | AI-enhanced search |
+| `get_standalone_steps` | `(limit: int = 50) -> Result[list[PathStep]]` | Steps not in any path |
+| `get_prioritized` | `(user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[PathStep]]` | Ready-to-learn prioritization |
+| `intelligent_search` | `(query: str, limit: int = 50) -> Result[tuple[list[PathStep], ParsedSearchQuery]]` | NL search with filter extraction (staged, PLANNED) |
 
 ---
 
@@ -444,28 +425,22 @@ _graph_enrichment_patterns = [
 
 **File:** `core/services/lp/lp_search_service.py`
 
-**Configuration:**
+**Configuration (from runtime `create_curriculum_domain_config`):**
 ```python
-_search_fields = ["name", "goal", "description"]
-category_field = "category"  # DomainConfig (default)
-_user_ownership_relationship = None  # Shared content (can be user-created)
-_graph_enrichment_patterns = [
-    ("HAS_STEP", "PathStep", "steps", "outgoing"),
-    ("ALIGNED_WITH_GOAL", "Goal", "aligned_goals", "outgoing"),
-    ("REQUIRES_KNOWLEDGE", "Ku", "prerequisite_knowledge", "outgoing"),
-]
+search_fields = ("title", "description")  # LP: name→title, goal→description
+content_field = "description"
+# user_ownership_relationship = None (shared content)
+# graph_enrichment_patterns come from the relationship registry (LP config)
 ```
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_path_type` | `(path_type: str) -> Result[list[Lp]]` | Filter by path type |
-| `list_by_creator` | `(creator_uid: str) -> Result[list[Lp]]` | Paths by creator |
-| `get_aligned_with_goal` | `(goal_uid: str, user_uid: UserUID) -> Result[list[Lp]]` | Paths aligned with goal |
-| `get_with_steps` | `(lp_uid: str) -> Result[dict]` | Path with full step details |
-| `get_prioritized` | `(user_uid: UserUID, limit: int = 10) -> Result[list[Lp]]` | Recommended paths |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Lp]]` | AI-enhanced search |
+| `get_aligned_with_goal` | `(goal_uid: str, limit: int = 50) -> Result[list[LearningPath]]` | Paths aligned with goal (staged, PLANNED) |
+| `get_by_knowledge` | `(ku_uid: str, limit: int = 20) -> Result[list[LearningPath]]` | Paths teaching a Ku (staged, PLANNED) |
+| `get_prioritized` | `(user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[LearningPath]]` | Recommended paths |
+| `intelligent_search` | `(query: str, limit: int = 50) -> Result[tuple[list[LearningPath], ParsedSearchQuery]]` | NL search with filter extraction (staged, PLANNED) |
 
 ---
 
@@ -484,12 +459,12 @@ if tasks_result.is_ok:
 ### Find knowledge gaps for a learning path
 
 ```python
-# Get path prerequisites, check user progress
-path_result = await lp_search.get_with_steps("lp.python-mastery")
-if path_result.is_ok:
-    for step in path_result.value["steps"]:
+# Get path steps, check user progress
+steps_result = await lp_service.get_path_steps("lp:tech:python-mastery")
+if steps_result.is_ok:
+    for step in steps_result.value:
         for ku_uid in step.knowledge_uids:
-            progress = await ku_search.get_user_progress(ku_uid, "user.123")
+            progress = await ku_search.get_user_progress(ku_uid, "user_mike")
             if progress.is_ok and progress.value["mastery_level"] < 0.8:
                 print(f"Gap: {ku_uid}")
 ```

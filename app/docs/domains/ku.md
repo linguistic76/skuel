@@ -87,7 +87,6 @@ await ku_service.get_path_steps(ku_uid)
 | Backend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` (`KuBackend`) |
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
-| Relationships Container | `/core/services/ku/ku_relationships.py` (delegates to `KuBackend` for graph queries) |
 | Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 

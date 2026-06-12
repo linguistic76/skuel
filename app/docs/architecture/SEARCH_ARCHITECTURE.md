@@ -445,13 +445,11 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
 ```python
 # PS (Path Steps)
 await ps_service.search.search("python basics", limit=50)
-await ps_service.search.get_for_learning_path("lp_python-mastery_abc")
 await ps_service.search.get_standalone_steps()
 
 # LP (Learning Paths)
 await lp_service.search.search("machine learning", limit=50)
-await lp_service.search.get_by_path_type(LpType.ADAPTIVE)
-await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
+await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")  # staged, PLANNED
 
 # KU (Knowledge Units)
 await ku_service.search.search("meditation", limit=50)

@@ -130,10 +130,10 @@ result = await search_router.advanced_search(request)
 
 ```python
 # PS-specific (call on service directly, not via SearchRouter)
-await ps_service.search.get_for_learning_path("lp:python-mastery")
+await ps_service.search.get_standalone_steps()
 
-# LP-specific
-await lp_service.search.get_aligned_with_goal("goal:learn-python")
+# LP-specific (staged, PLANNED — no live consumer yet)
+await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 ```
 
 ## SearchRouter Method Reference (v3.0.0)

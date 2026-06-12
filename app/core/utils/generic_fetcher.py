@@ -33,11 +33,6 @@ Benefits:
 - Type-safe dataclass construction
 - ~25-35 lines saved per domain (6 domains = ~150-210 lines total)
 
-Note:
------
-KuRelationships uses this utility for its fetch_via_unified() path but retains
-a separate fetch() path via PsService for semantic context support.
-
 Philosophy: "Relationships ARE the data structure, not serialized lists"
 """
 

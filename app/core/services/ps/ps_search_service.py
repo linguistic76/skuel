@@ -8,7 +8,7 @@ unified search architecture.
 This service provides:
 - Text search on title/intent/description (inherited from BaseService)
 - Graph-aware faceted search with relationship traversal
-- PS-specific methods: get_for_learning_path(), get_standalone_steps()
+- PS-specific methods: get_standalone_steps(), get_prioritized()
 
 Architecture (January 2026 Unified):
 - Extends BaseService[BackendOperations[PathStep], PathStep]
@@ -31,7 +31,7 @@ from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import PsOperations
@@ -60,7 +60,6 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     - get_user_progress(user_uid, entity_uid) - User mastery data
 
     PS-Specific Methods:
-    - get_for_learning_path(path_uid) - Steps in a specific learning path
     - get_standalone_steps() - Steps not in any learning path
     - get_prioritized(user_uid, context) - Context-aware prioritization
     - intelligent_search(query) - NLP-enhanced search with filter extraction
@@ -89,52 +88,8 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         super().__init__(backend=backend, service_name="ps.search")
 
     # =========================================================================
-    # ABSTRACT METHOD IMPLEMENTATION
-    # =========================================================================
-
-    def _get_content_query(self) -> str:
-        """
-        Return Cypher query fragment for fetching PS content.
-
-        For PathSteps, content is stored inline in the description field.
-        No separate content storage is used.
-        """
-        return """
-        RETURN n, n.description as content
-        """
-
-    # =========================================================================
     # PS-SPECIFIC METHODS
     # =========================================================================
-
-    async def get_for_learning_path(
-        self, path_uid: str, limit: int = 100
-    ) -> Result[list[PathStep]]:
-        """
-        Get PathSteps belonging to a specific learning path.
-
-        Steps are returned ordered by their sequence within the path.
-
-        Args:
-            path_uid: Learning path UID
-            limit: Maximum results (default 100)
-
-        Returns:
-            Result containing PathSteps in the path, ordered by sequence
-        """
-        if not path_uid:
-            return Result.fail(Errors.validation(message="path_uid is required", field="path_uid"))
-
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        result = await self.backend.get_steps_for_learning_path(path_uid, limit)
-        if result.is_error:
-            return Result.fail(result)
-
-        steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
-
-        self.logger.debug(f"Found {len(steps)} steps for path {path_uid}")
-        return Result.ok(steps)
 
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """
@@ -155,36 +110,6 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
 
         self.logger.debug(f"Found {len(steps)} standalone steps")
-        return Result.ok(steps)
-
-    async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[PathStep]]:
-        """
-        Find path steps that contain/teach this knowledge.
-
-        Complementary to PsGraphService.find_path_steps_containing().
-        Returns full PS entities instead of just UIDs.
-
-        Graph Pattern: (PS)-[:CONTAINS_KNOWLEDGE]->(Ku)
-
-        Args:
-            ku_uid: Knowledge unit UID
-            limit: Maximum results to return (default 20)
-
-        Returns:
-            Result containing list of PathStep entities
-        """
-        if not ku_uid:
-            return Result.fail(Errors.validation(message="ku_uid is required", field="ku_uid"))
-
-        from core.utils.neo4j_mapper import from_neo4j_node
-
-        result = await self.backend.get_steps_using_ku(ku_uid, limit)
-        if result.is_error:
-            return Result.fail(result)
-
-        steps = [from_neo4j_node(record["ps"], PathStep) for record in result.value]
-
-        self.logger.debug(f"Found {len(steps)} path steps for knowledge {ku_uid}")
         return Result.ok(steps)
 
     async def get_prioritized(

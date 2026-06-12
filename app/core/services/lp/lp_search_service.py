@@ -8,12 +8,12 @@ unified search architecture.
 This service provides:
 - Text search on name/goal/outcomes (inherited from BaseService)
 - Graph-aware faceted search with relationship traversal
-- LP-specific methods: get_by_path_type(), get_aligned_with_goal()
+- LP-specific reverse-lookup lenses: get_aligned_with_goal(), get_by_knowledge()
 
 Architecture (January 2026 Unified):
 - Extends BaseService[BackendOperations[Lp], Lp]
 - Inherits: search(), get_by_status(), get_with_content(), etc.
-- Adds: LP-specific methods for path type and goal alignment
+- Adds: LP-specific reverse-lookup lenses (goal alignment, knowledge)
 - No wrapper backend - uses UniversalNeo4jBackend directly
 """
 
@@ -59,9 +59,8 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
     - get_user_progress(user_uid, entity_uid) - User mastery data
 
     LP-Specific Methods:
-    - get_by_path_type(path_type) - Filter by LP type
-    - list_by_creator(user_uid) - Paths created by user
-    - get_aligned_with_goal(goal_uid) - Paths aligned with goal
+    - get_aligned_with_goal(goal_uid) - Paths aligned with goal (staged, PLANNED)
+    - get_by_knowledge(ku_uid) - Paths teaching a Ku (staged, PLANNED)
     - get_prioritized(user_uid, context) - Context-aware prioritization
     - intelligent_search(query) - NLP-enhanced search with filter extraction
 
@@ -90,63 +89,8 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
         super().__init__(backend=backend, service_name="lp.search")
 
     # =========================================================================
-    # ABSTRACT METHOD IMPLEMENTATION
-    # =========================================================================
-
-    def _get_content_query(self) -> str:
-        """
-        Return Cypher query fragment for fetching LP content.
-
-        For Learning Paths, content is stored in the goal and outcomes fields.
-        """
-        return """
-        RETURN n, n.description as content, n.outcomes as outcomes
-        """
-
-    # =========================================================================
     # LP-SPECIFIC METHODS
     # =========================================================================
-
-    async def get_by_path_type(
-        self, path_type: LpType, limit: int = 50
-    ) -> Result[list[LearningPath]]:
-        """
-        Get Learning Paths by path type.
-
-        Args:
-            path_type: LpType to filter by (STRUCTURED, ADAPTIVE, etc.)
-            limit: Maximum results (default 50)
-
-        Returns:
-            Result containing Learning Paths of the specified type
-        """
-        from core.ports import get_enum_value
-
-        return await self.backend.find_by(
-            limit=limit,
-            path_type=get_enum_value(path_type),
-        )
-
-    async def list_by_creator(
-        self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[LearningPath]]:
-        """
-        List Learning Paths created by a specific user.
-
-        Args:
-            user_uid: User UID who created the paths
-            limit: Maximum results (default 50)
-
-        Returns:
-            Result containing Learning Paths created by the user
-        """
-        if not user_uid:
-            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
-
-        return await self.backend.find_by(
-            limit=limit,
-            created_by=user_uid,
-        )
 
     async def get_aligned_with_goal(
         self, goal_uid: str, limit: int = 50
@@ -207,36 +151,6 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
 
         self.logger.debug(f"Found {len(paths)} learning paths for knowledge {ku_uid}")
         return Result.ok(paths)
-
-    async def get_with_steps(self, uid: str, limit: int = 100) -> Result[tuple[LearningPath, list]]:
-        """
-        Get Learning Path with its steps loaded.
-
-        Args:
-            uid: Learning Path UID
-            limit: Maximum steps to load (default 100)
-
-        Returns:
-            Result containing tuple of (Learning Path, list of steps)
-        """
-        if not uid:
-            return Result.fail(Errors.validation(message="uid is required", field="uid"))
-
-        # Get the path first
-        path_result = await self.get(uid)
-        if path_result.is_error:
-            return Result.fail(path_result)
-
-        # Get steps via backend
-        backend_method = getattr(self.backend, "get_steps", None)
-        if backend_method:
-            steps_result = await backend_method(uid, limit)
-            if steps_result.is_error:
-                return Result.fail(steps_result)
-            return Result.ok((path_result.value, steps_result.value))
-
-        # Fallback - return empty steps
-        return Result.ok((path_result.value, []))
 
     async def get_prioritized(
         self, user_uid: UserUID, context: UserContext, limit: int = 20
