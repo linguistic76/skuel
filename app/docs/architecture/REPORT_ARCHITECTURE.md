@@ -399,14 +399,20 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 | Route | Who | What |
 |-------|-----|------|
-| `/api/reports/progress` | User | List user's `ACTIVITY_REPORT` history |
-| `/api/reports/progress/generate` | User | On-demand `ACTIVITY_REPORT` generation |
-| `/api/activity-review/snapshot` | Admin | Generate activity snapshot for review |
-| `/api/activity-review/submit` | Admin | Submit written activity feedback |
-| `/api/activity-review/request` | User | Request an activity review from admin |
-| `/api/activity-review/queue` | Admin | Pending review queue |
-| `/api/activity-review/history` | User/Admin | Received activity feedback history |
-| `/api/privacy/audit` | User | Privacy transparency summary (admin snapshots, shares, schedule) |
+| `/activity-reports` | User | Activity report list page (time-period filter) |
+| `/activity-reports/detail` (+`/content`) | User | Report detail with annotation UI |
+| `/submit-activity-report` | User | On-demand report request form |
+| `/reports/activity-list`, `/reports/progress-list` | User | HTMX list fragments |
+| `/api/gradebook/activity-reports/preview` | Teacher | Gradebook report preview |
+| `/activity-review` → `/activity-review/queue` | Admin | Pending review queue (`get_pending_reviews`) |
+| `/activity-review/new` | Admin | Admin review form |
+| `/activity-review/snapshot-fragment` | Admin | HTMX domain snapshot fragment |
+| `POST /activity-review/submit-feedback` | Admin | Submit written activity feedback |
+
+**Staged, no route yet (PLANNED tier, ADR-069 §3):** the user-side
+"request a review" producer (`ReviewQueueService.request_review` — the admin
+queue's missing input) and the privacy-transparency audit surface
+(`ActivityReportService.get_privacy_summary`).
 
 ---
 

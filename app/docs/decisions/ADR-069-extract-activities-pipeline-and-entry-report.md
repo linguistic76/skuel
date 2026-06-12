@@ -1,8 +1,8 @@
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
 
 **Status:** Accepted (Decisions 1–2, Mike 2026-06-12 — implementation plan:
-`plans/extract-activities-and-entry-report-implementation.md`). Decision 3's four
-ASK-MIKE findings remain open; the bloat campaign is deferred.
+`plans/extract-activities-and-entry-report-implementation.md`). Decision 3 ruled
+and executed 2026-06-12: all 10 findings PLANNED, no deletions (§3 table).
 **Date:** 2026-06-12
 **Builds on:** [ADR-054 UserEntry](ADR-054-user-entry-unified-submissions.md) (incl. Postscript),
 [ADR-043 Intelligence Tier Toggle](ADR-043-intelligence-tier-toggle.md)
@@ -298,15 +298,16 @@ privacy route exists anywhere in `adapters/inbound/`**.
 |---|---|---|---|
 | 1 | `report_relationship_service.get_pending_submissions` | **PLANNED — claimed by this design** | The §2.5 response-trigger query ("owned entries with no REPORT_FOR"), needs a pipeline filter. Completes in PR-3. |
 | 2 | `get_submission_chain` | **PLANNED — claimed by this design** | Student view "what happened after my entry" — the entry detail page's response chain in PR-3. |
-| 3 | `get_unsubmitted_exercises` | **ASK MIKE — rec: PLANNED under the daily-plan thread** | Not claimed here. It is exactly an assigned-work nag for daily planning — the same family as the phantom-dispatch repair thread. If that thread won't claim it, delete. |
-| 4 | `get_report_summary` | **ASK MIKE — rec: delete** | Completion-rate stats with no consumer and no claim from this design; an aggregate ActivityReport/analytics surface can re-derive it when something actually wants it. |
-| 5 | `get_learning_loop_chain` | **ASK MIKE — rec: delete** | Exercise-rooted teacher traversal; the live learning-loop UI fragments query their own paths, and this design doesn't claim exercise-rooted views. |
+| 3 | `get_unsubmitted_exercises` | **PLANNED (Mike, 2026-06-12)** | Assigned-work nag for daily planning — staged under the daily-plan phantom-dispatch repair thread. |
+| 4 | `get_report_summary` | **PLANNED (Mike, 2026-06-12)** | Completion-rate read surface over REPORT_FOR; wire a progress/dashboard consumer. |
+| 5 | `get_learning_loop_chain` | **PLANNED (Mike, 2026-06-12)** | Exercise-rooted loop traversal; awaits a teaching-UI exercise detail view (the entry-rooted twin is design-claimed). |
 | 6–8 | `progress_schedule_service.create_schedule` / `get_user_schedule` / `deactivate_schedule` | **PLANNED — completion backlog of a live consumer** | The worker runs at every bootstrap; these are the missing *producer* surface (a settings route/UI). Deleting them strands a running loop — incoherent. Periodic ActivityReports are also this design's §2.1 aggregate lens over journal-derived activity. |
-| 9 | `activity_report_service.get_privacy_summary` | **ASK MIKE — rec: PLANNED** | Feature-shaped privacy-transparency surface aligned with the security posture (admin-snapshot audit events already publish for it). Whatever the ruling: **fix the lying docstring** — the claimed route does not exist. |
+| 9 | `activity_report_service.get_privacy_summary` | **PLANNED (Mike, 2026-06-12)** | Privacy-transparency surface aligned with the security posture (admin-snapshot audit events already publish for it). The docstring's claimed-but-nonexistent `GET /api/privacy/audit` route reference is fixed in the campaign PR. |
 | 10 | `review_queue_service.request_review` | **PLANNED — completion backlog of a live consumer** | The admin queue page ships and reads `get_pending_reviews`; this is its missing producer (user-side "request a review" button). All-or-nothing cross-surface rule: either both sides live or both go — the consumer is live. |
 
-PLANNED entries get registered in `PLANNED_METHODS` with the one-path-forward
-reasons above; the three ASK items go to Mike before the campaign PR.
+**Campaign executed 2026-06-12 (no-deletion campaign):** all 10 findings registered
+in `PLANNED_METHODS` with the one-path-forward reasons above; findings 1–2 come
+back off the ledger when PR-3 wires them.
 
 ---
 
