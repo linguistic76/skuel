@@ -1,10 +1,10 @@
 # Shared Intelligence Utilities
 
-**Last Updated:** January 24, 2026
+**Last Updated:** June 12, 2026
 
 ## Overview
 
-SKUEL's intelligence services share common patterns across all 10 domain intelligence services (6 Activity + 3 Curriculum + Finance). This document describes:
+SKUEL's intelligence services share common patterns across all 9 domain intelligence services (6 Activity + 3 Curriculum). This document describes:
 1. Shared utilities in `/core/services/intelligence/` that consolidate patterns
 2. BaseAnalyticsService foundation that all domain intelligence services extend
 
@@ -16,7 +16,6 @@ SKUEL's intelligence services share common patterns across all 10 domain intelli
 **All Domain Intelligence Services:**
 - Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
 - Curriculum (3): KU (Knowledge Units), PS (Path Steps), LP (Learning Paths)
-- Finance (1): ExpenseIntelligence (admin-only)
 
 All extend `BaseAnalyticsService` for graph analytics WITHOUT AI dependencies.
 
@@ -29,7 +28,7 @@ All extend `BaseAnalyticsService` for graph analytics WITHOUT AI dependencies.
 **Purpose:** Enforce "Analytics must never depend on AI" at runtime.
 
 ```python
-# File: /core/services/base_analytics_service.py (lines 70-100)
+# File: /core/services/base_analytics_service.py
 
 class BaseAnalyticsService(Generic[B]):
     """
@@ -40,7 +39,7 @@ class BaseAnalyticsService(Generic[B]):
     """
 
     # Architectural constraint: Restrict attributes to prevent AI coupling
-    __slots__ = ("backend", "event_bus", "graph_intel", "logger", "orchestrator", "relationships")
+    __slots__ = ("backend", "event_bus", "graph_intel", "insight_store", "logger", "relationships")
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -67,7 +66,7 @@ class BaseAnalyticsService(Generic[B]):
 This implements SKUEL's core philosophy: *"The user's vision is understood via words, UserContext is determined via actions."*
 
 ```python
-# File: /core/services/base_analytics_service.py (lines 365-522)
+# File: /core/services/base_analytics_service.py
 
 async def _dual_track_assessment(
     self,
@@ -110,7 +109,7 @@ async def _dual_track_assessment(
 
 **Usage Example (Principles):**
 ```python
-# File: /core/services/principles/principles_intelligence_service.py
+# File: /core/services/principles/_alignment_intelligence_mixin.py
 
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.shared.dual_track import DualTrackResult
@@ -119,23 +118,23 @@ async def assess_alignment_dual_track(
     self,
     principle_uid: str,
     user_uid: UserUID,
-    user_level: AlignmentLevel,
-    evidence: str,
-    reflection: str | None = None,
+    user_alignment_level: AlignmentLevel,
+    user_evidence: str,
+    user_reflection: str | None = None,
 ) -> Result[DualTrackResult[AlignmentLevel]]:
     """Compare user's declared alignment vs system-measured alignment."""
     return await self._dual_track_assessment(
         uid=principle_uid,
         user_uid=user_uid,
-        user_level=user_level,              # Vision: AlignmentLevel.ALIGNED
-        user_evidence=evidence,              # Vision: "I always act with integrity"
-        user_reflection=reflection,
-        system_calculator=self._calculate_system_alignment,  # Action: measures actual behavior
+        user_level=user_alignment_level,     # Vision: AlignmentLevel.ALIGNED
+        user_evidence=user_evidence,         # Vision: "I always act with integrity"
+        user_reflection=user_reflection,
+        system_calculator=self._calculate_system_alignment_for_dual_track,  # Action: measures actual behavior
         level_scorer=self._alignment_level_to_score,         # delegates to AlignmentLevel.to_score()
         entity_type=EntityType.PRINCIPLE.value,
     )
 
-async def _calculate_system_alignment(
+async def _calculate_system_alignment_for_dual_track(
     self, principle: Principle, user_uid: UserUID
 ) -> tuple[AlignmentLevel, float, list[str]]:
     """
@@ -176,7 +175,7 @@ result = DualTrackResult[AlignmentLevel](
 **Purpose:** Declarative event handler registration via ClassVar.
 
 ```python
-# File: /core/services/base_analytics_service.py (lines 83-85)
+# Declared on any BaseAnalyticsService subclass:
 
 class GoalsIntelligenceService(BaseAnalyticsService):
     # Declare event handlers at class level
@@ -228,26 +227,28 @@ This led to:
 
 /core/services/intelligence/
 ├── __init__.py                       # Re-exports all shared utilities
+├── _core_intelligence_mixin.py       # Shared get_with_context core (inherited by domain services)
 ├── recommendation_engine.py          # Phase 1: Fluent recommendation builder
-├── metrics_calculator.py             # Phase 2: Shared calculations
+├── metrics_calculator.py             # Phase 2: Shared calculations (generic static math)
+├── metrics_calculators.py            # Domain-specific path-aware metrics functions
 ├── pattern_analyzer.py               # Phase 3: Pattern detection
 ├── trend_analyzer.py                 # Phase 4: Trend classification
-└── cross_domain_context_service.py  # Existing context retrieval
+├── path_aware_analyzer.py            # Cascade impact + path-strength recommendations
+└── query_intelligence_service.py     # Query intelligence (intent, facets, ranking)
 
 /core/models/shared/
 └── dual_track.py                     # DualTrackResult[L] generic model
 
-All 10 Domain Intelligence Services extend BaseAnalyticsService:
+All 9 Domain Intelligence Services extend BaseAnalyticsService:
 ├── tasks/tasks_intelligence_service.py
-├── goals/goaps_intelligence_service.py
+├── goals/goals_intelligence_service.py
 ├── habits/habits_intelligence_service.py
 ├── events/events_intelligence_service.py
 ├── choices/choices_intelligence_service.py
 ├── principles/principles_intelligence_service.py
 ├── ku/ku_intelligence_service.py
-├── ls/ps_intelligence_service.py
-├── lp/lp_intelligence_service.py
-└── finance/finance_intelligence_service.py
+├── ps/ps_intelligence_service.py
+└── lp/lp_intelligence_service.py
 ```
 
 ---
@@ -293,19 +294,18 @@ recommendations = (
 |--------|---------|
 | `with_metrics(dict)` | Set metrics for threshold checks |
 | `add_threshold_check(metric, threshold, message, comparison)` | Add recommendation if metric crosses threshold |
-| `add_range_check(metric, ranges, level)` | Add recommendation based on value range |
 | `add_conditional(condition, message)` | Add recommendation if condition is True |
+| `add_message(message)` | Add recommendation unconditionally |
 | `build()` | Return accumulated recommendations as list |
 
 ### Services Using RecommendationEngine
 
-| Service | Methods Migrated |
-|---------|-----------------|
-| Tasks | `_generate_behavioral_recommendations` |
-| Goals | `_generate_prediction_recommendations`, `_generate_progress_recommendations`, `_generate_learning_recommendations` |
-| Habits | `_generate_performance_recommendations`, `_generate_goal_support_recommendations` |
-| Events | `_generate_scheduling_recommendations` |
-| Principles | `_generate_alignment_recommendations`, `_generate_adherence_recommendations`, `_generate_conflict_recommendations` |
+| Service | Consuming Methods |
+|---------|-------------------|
+| Tasks | `_generate_behavioral_recommendations` (`tasks/_analytics_mixin.py`) |
+| Goals | `_generate_prediction_recommendations` (`goals/_predictive_mixin.py`) |
+| Events | `_generate_scheduling_recommendations` (`events/_analytics_mixin.py`) |
+| Principles | `_generate_adherence_recommendations` (`_alignment_intelligence_mixin.py`), `_generate_conflict_recommendations` (`_influence_mixin.py`) |
 
 ---
 
@@ -336,18 +336,17 @@ After:
 from core.services.intelligence import MetricsCalculator
 
 progress_factor = MetricsCalculator.sigmoid_scale(progress, midpoint=0.5)
-consistency = MetricsCalculator.weighted_average(
-    data,
-    value_fn=lambda x: x.score,
-    weight_fn=lambda x: x.weight
-)
+
+# Extractors as named functions (SKUEL012: no lambdas)
+def get_score(x) -> float: return x.score
+def get_weight(x) -> float: return x.weight
+consistency = MetricsCalculator.weighted_average(data, get_score, get_weight)
 ```
 
 ### Key Methods
 
 | Method | Purpose | Example Use |
 |--------|---------|-------------|
-| `classify_by_threshold(value, thresholds, default)` | Classify value into categories | Status determination |
 | `weighted_average(items, value_fn, weight_fn)` | Compute weighted average | Consistency scores |
 | `sigmoid_scale(value, midpoint, steepness)` | Apply S-curve scaling | Progress factors |
 | `clamp(value, min_val, max_val)` | Constrain value to range | Score bounds |
@@ -357,11 +356,11 @@ consistency = MetricsCalculator.weighted_average(
 
 ### Services Using MetricsCalculator
 
-| Service | Methods Migrated |
-|---------|-----------------|
-| Goals | `_calculate_progress_factor`, `_calculate_consistency_factor`, `_calculate_time_factor`, `_combine_probability_factors` |
-| Habits | `_calculate_practice_effectiveness` |
-| Principles | `_analyze_consistency`, `_calculate_harmony_score` |
+| Service | Methods Used |
+|---------|--------------|
+| Goals (`_predictive_mixin.py`) | `sigmoid_scale`, `weighted_average`, `combine_weighted_factors`, `clamp` |
+| Habits (`_behavioral_signals_mixin.py`) | `clamp` |
+| Principles (`_alignment_intelligence_mixin.py`, `_influence_mixin.py`) | `calculate_ratio`, `calculate_harmony_score` |
 
 ---
 
@@ -399,15 +398,19 @@ counts = PatternAnalyzer.extract_dict_field_counts(
 |--------|---------|
 | `extract_word_frequencies(texts, min_length, exclude, top_n)` | Extract common words from text list |
 | `detect_by_keywords(entities, keyword_sets, text_fn, min_matches)` | Find patterns via keyword matching |
+| `detect_by_indicator_tuples(...)` | Find patterns via (indicator, weight) tuples |
+| `extract_skill_keywords(...)` | Extract skill-shaped keywords from text |
 | `extract_dict_field_counts(dict, field_keys)` | Count list lengths from dict fields |
 | `identify_factors(entities, conditions)` | Identify matching conditions |
+| `find_peak_time(entities, time_extractor)` | Find peak activity hour |
 
 ### Services Using PatternAnalyzer
 
-| Service | Methods Migrated |
-|---------|-----------------|
-| Tasks | `_analyze_task_patterns`, `_identify_learning_opportunities` |
-| Principles | `_extract_recent_activities_from_dict` |
+| Service | Methods Used |
+|---------|--------------|
+| Tasks (`_analytics_mixin.py`) | `find_peak_time`, `identify_factors` |
+| Principles (`_alignment_intelligence_mixin.py`) | `extract_dict_field_counts` |
+| Knowledge intelligence (`activity_knowledge_intelligence_service.py`) | `extract_word_frequencies`, `detect_by_keywords`, `detect_by_indicator_tuples`, `extract_skill_keywords` |
 
 ---
 
@@ -586,22 +589,19 @@ New intelligence services inherit proven patterns without reimplementing.
 ## Testing
 
 ```bash
-# Test shared utilities
-uv run pytest tests/unit/services/intelligence/ -v
+# Integration pipelines exercising the shared utilities end-to-end
+uv run pytest tests/integration/test_goals_analytics_pipeline.py -v
+uv run pytest tests/integration/test_habits_analytics_pipeline.py -v
+uv run pytest tests/integration/test_cross_domain_context_pipeline.py -v
 
-# Test intelligence services (verify behavior unchanged)
-uv run pytest tests/test_goals_intelligence.py -v
-uv run pytest tests/test_habits_intelligence.py -v
-uv run pytest tests/test_events_intelligence.py -v
+# Dual-track assessment behavior
 uv run pytest tests/test_principles_alignment_tracking.py -v
-uv run pytest tests/test_tasks_intelligence.py -v
 ```
 
 ---
 
 ## See Also
 
-- **Implementation Plan:** `/home/mike/.claude/plans/intelligence-helper-consolidation.md`
 - **BaseAnalyticsService:** `/core/services/base_analytics_service.py`
 - **ADR-024:** BaseAnalyticsService Migration
 - **Individual Domain Guides:** See `INTELLIGENCE_SERVICES_INDEX.md`

@@ -5,17 +5,11 @@ PathAwareAnalyzer - Reusable Path Analysis Utilities
 Path Intelligence - Generic analyzer for all intelligence services.
 
 Provides reusable methods for:
-- Parsing path-aware entities from dict representations
-- Filtering by path strength
 - Calculating cascade impact
 - Generating path-strength-based recommendations
 """
 
-from typing import Any, TypeVar
-
-from core.models.graph.path_aware_types import PathAwareProtocol
-
-P = TypeVar("P", bound=PathAwareProtocol)
+from typing import Any
 
 
 class PathAwareAnalyzer:
@@ -23,9 +17,8 @@ class PathAwareAnalyzer:
     Reusable helper for path-aware intelligence analysis.
 
     All intelligence services can use this helper to:
-    1. Filter entities by path strength
-    2. Calculate cascade impact scores
-    3. Generate recommendations based on path metadata
+    1. Calculate cascade impact scores
+    2. Generate recommendations based on path metadata
 
     Path-aware entities themselves are constructed by the models' ``from_dict`` /
     ``ChoiceCrossContext.from_categorized`` via the typed cross-domain reader
@@ -34,7 +27,6 @@ class PathAwareAnalyzer:
     Usage:
         ```python
         # ctx is a typed path-aware context (e.g. from get_cross_domain_context_typed):
-        strong_goals = PathAwareAnalyzer.filter_by_strength(ctx.supporting_goals, 0.8)
         impact = PathAwareAnalyzer.calculate_cascade_impact(
             goals=ctx.supporting_goals,
             knowledge=ctx.knowledge,
@@ -42,51 +34,6 @@ class PathAwareAnalyzer:
         )
         ```
     """
-
-    # ========================================================================
-    # PATH-STRENGTH FILTERING
-    # ========================================================================
-
-    @staticmethod
-    def filter_by_strength(entities: list[P], min_strength: float = 0.8) -> list[P]:
-        """
-        Filter entities by minimum path strength threshold.
-
-        Args:
-            entities: List of path-aware entities
-            min_strength: Minimum path_strength value (0.0-1.0)
-
-        Returns:
-            Filtered list containing only entities with path_strength >= min_strength
-        """
-        return [e for e in entities if e.path_strength >= min_strength]
-
-    @staticmethod
-    def filter_direct_connections(entities: list[P]) -> list[P]:
-        """
-        Get only direct connections (distance = 1).
-
-        Args:
-            entities: List of path-aware entities
-
-        Returns:
-            Filtered list containing only entities with distance == 1
-        """
-        return [e for e in entities if e.distance == 1]
-
-    @staticmethod
-    def filter_by_max_distance(entities: list[P], max_distance: int) -> list[P]:
-        """
-        Filter entities by maximum distance threshold.
-
-        Args:
-            entities: List of path-aware entities
-            max_distance: Maximum distance (hops) allowed
-
-        Returns:
-            Filtered list containing only entities with distance <= max_distance
-        """
-        return [e for e in entities if e.distance <= max_distance]
 
     # ========================================================================
     # CASCADE IMPACT ANALYSIS

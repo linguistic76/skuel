@@ -283,32 +283,6 @@ class PatternAnalyzer:
         return [name for condition, name in conditions if condition(entities)]
 
     @staticmethod
-    def count_by_category(
-        entities: Sequence[Any],
-        category_extractor: Callable[[Any], str],
-    ) -> dict[str, int]:
-        """
-        Count entities by category.
-
-        Args:
-            entities: List of entities to categorize
-            category_extractor: Function to get category from entity
-
-        Returns:
-            Dict of category -> count
-
-        Example:
-            def get_status_value(t) -> str: return t.status.value
-            counts = PatternAnalyzer.count_by_category(tasks, get_status_value)
-            # Returns {"pending": 5, "active": 3, "completed": 10}
-        """
-        counts: dict[str, int] = {}
-        for entity in entities:
-            category = category_extractor(entity)
-            counts[category] = counts.get(category, 0) + 1
-        return counts
-
-    @staticmethod
     def find_peak_time(
         entities: Sequence[Any],
         time_extractor: Callable[[Any], int | None],
