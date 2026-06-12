@@ -116,7 +116,7 @@ sequenceDiagram
     participant Neo4j as Neo4j Database
 
     Admin->>UI: Click "Ingest Directory"
-    UI->>API: POST /api/ingest/directory<br/>{directory, pattern, dry_run}
+    UI->>API: POST /api/ingest/directory<br/>{directory, pattern, batch_size, ingestion_mode}
 
     Note over API: Validate path (traversal protection)
     Note over API: Generate operation_id (UUID)
