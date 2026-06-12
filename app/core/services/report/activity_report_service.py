@@ -542,8 +542,9 @@ class ActivityReportService:
                                the user's entities
             report_schedule  — Current automatic report schedule + last generated
 
-        Used by GET /api/privacy/audit. User-facing — always scoped to the
-        requesting user's own data. No admin privileges required.
+        Staged (PLANNED tier, ADR-069 §3): no route consumes this yet — wire a
+        /privacy route + UI. User-facing — always scoped to the requesting
+        user's own data. No admin privileges required.
 
         Args:
             user_uid: Authenticated user requesting their own privacy summary
