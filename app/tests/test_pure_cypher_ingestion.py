@@ -731,11 +731,59 @@ name: Test Principle
     print("   - Suggestions help users fix issues")
 
 
+def test_name_only_files_survive_post_prepare_validation():
+    """LP/Principle files carrying only `name:` must pass post-prepare validation.
+
+    Regression: prepare_entity_data renames name -> title, so requiring "name"
+    in ENTITY_CONFIGS made validate_entity_data unsatisfiable for any file that
+    didn't redundantly carry both fields — no LearningPath or Principle file
+    could ever ingest (2026-06-12 vault audit).
+    """
+    from pathlib import Path
+    from unittest.mock import MagicMock
+
+    from core.models.enums.entity_enums import EntityType
+
+    service = make_unified_ingestion_service(driver=MagicMock())
+
+    cases = [
+        (
+            EntityType.LEARNING_PATH,
+            {"type": "LearningPath", "uid": "lp:test-path", "name": "Test Path"},
+            Path("/tmp/lp_test-path.md"),
+        ),
+        (
+            EntityType.PRINCIPLE,
+            {
+                "type": "Principle",
+                "uid": "principle:test",
+                "name": "Test Principle",
+                "statement": "I test before I trust",
+            },
+            Path("/tmp/principle_test.md"),
+        ),
+    ]
+    for entity_type, data, path in cases:
+        pre = service.validate_required_fields(entity_type, data, path)
+        assert pre.is_ok, f"pre-prepare validation failed for {entity_type.value}: {pre}"
+
+        prepared = service.prepare_entity_data(entity_type, data, None, path)
+        assert prepared["title"] == data["name"], "name should be renamed to title"
+
+        post = service.validate_entity_data(entity_type, prepared, path)
+        assert post.is_ok, (
+            f"post-prepare validation failed for a name-only {entity_type.value}: {post}"
+        )
+
+    print("✅ name-only LP/Principle files pass post-prepare validation!")
+
+
 if __name__ == "__main__":
     # Run tests directly
     test_connection_property_filtering()
     test_cypher_template_generation()
     test_required_field_validation()
+    test_name_only_files_survive_post_prepare_validation()
     test_user_uid_injection()
     test_entity_type_detection()
     test_file_size_limits()

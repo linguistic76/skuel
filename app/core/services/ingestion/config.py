@@ -204,14 +204,18 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
     EntityType.PRINCIPLE: EntityIngestionConfig(
         entity_label="Principle",
         uid_prefix="principle",
-        required_fields=("name", "statement"),
+        # "title", not "name": the preparer renames name -> title before the
+        # post-prepare validate_entity_data() check, so requiring "name" was
+        # unsatisfiable for any file that didn't redundantly carry both.
+        required_fields=("title", "statement"),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.PRINCIPLE),
     ),
     EntityType.LEARNING_PATH: EntityIngestionConfig(
         entity_label="LearningPath",
         uid_prefix="lp",
-        required_fields=("name",),
+        # "title", not "name" — same name->title rename constraint as PRINCIPLE.
+        required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_PATH),
     ),
     EntityType.PATH_STEP: EntityIngestionConfig(
