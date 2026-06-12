@@ -296,10 +296,10 @@ _DSL_EXTRACTION = (
 _DSL_BRIDGE_VARIANTS = (
     "LLM DSL bridge variant staged — transform() is the maintained entry "
     "(adapters/external/llm factory + PROMPT_REGISTRY dsl_domain_recognition templates); "
-    "context-enhanced and rule-based-sync variants await the same wiring as the extraction "
-    "pipeline: a UserEntry ingestion step that turns natural text into @context-tagged DSL "
-    "(context variant = feed UserContext goals/topics/principles; sync variant = the "
-    "CORE-tier no-LLM fallback)"
+    "context-enhanced and rule-based-sync variants await wiring beyond ADR-069 PR-1 "
+    "(context variant = feed UserContext goals/topics/principles; sync variant is explicitly "
+    "NOT the CORE-tier default — ADR-069 ruled its substring heuristics too noisy for "
+    "auto-create; wire only behind an explicit opt-in flag or preview-only UI)"
 )
 _LIFEPATH_WORD_ACTION = (
     "words-vs-actions integrity lens staged — the concept-defining LifePath check "
@@ -307,6 +307,46 @@ _LIFEPATH_WORD_ACTION = (
     "no live equivalent (the live 5-dimension alignment measures graph edges, not "
     "theme overlap); wire as the words-vs-actions panel on the /lifepath alignment "
     "dashboard next to the live dimension breakdown"
+)
+_REPORT_RESPONSE_CHAIN = (
+    "claimed by ADR-069 (journal responses) — get_pending_submissions is the response-trigger "
+    "query ('owned entries with no REPORT_FOR', gains a pipeline filter) and "
+    "get_submission_chain renders the entry detail page's response chain; both wire in "
+    "ADR-069 PR-3 (plans/extract-activities-and-entry-report-implementation.md)"
+)
+_REPORT_DAILY_PLANNING = (
+    "assigned-work nag staged — 'exercises assigned via group with no submission yet, by due "
+    "date' is a daily-planning signal in the same family as the daily-plan phantom-dispatch "
+    "repair thread; wire when that cross-domain repair lands (Mike ruled PLANNED 2026-06-12)"
+)
+_REPORT_COMPLETION_STATS = (
+    "learning-loop completion-rate read surface staged — submissions with/without reports + "
+    "total reports received over REPORT_FOR edges; wire a progress/dashboard consumer "
+    "(Mike ruled PLANNED 2026-06-12)"
+)
+_REPORT_EXERCISE_CHAIN = (
+    "exercise-rooted loop traversal staged — teacher/admin 'everything chained to this "
+    "Exercise' (submissions, reports, revised exercises); the entry-rooted twin "
+    "get_submission_chain is ADR-069-claimed, this one awaits a teaching-UI exercise detail "
+    "view (Mike ruled PLANNED 2026-06-12)"
+)
+_REPORT_SCHEDULE_PRODUCER = (
+    "missing producer of a LIVE consumer — ProgressReportWorker starts at bootstrap "
+    "(scripts/dev/bootstrap.py) and polls get_due_schedules, but no route creates/manages "
+    "ReportSchedule nodes, so the loop polls an eternally-empty table; wire a report-schedule "
+    "settings route/UI to complete the periodic ActivityReport feature (ADR-069 §3)"
+)
+_REPORT_PRIVACY_AUDIT = (
+    "privacy-transparency surface staged — per-user audit of admin snapshots, shares granted, "
+    "and report schedule; the producer side (ActivitySnapshotAccessed audit events) already "
+    "publishes; wire a /privacy route + UI per the security posture "
+    "(Mike ruled PLANNED 2026-06-12)"
+)
+_REVIEW_REQUEST_PRODUCER = (
+    "missing producer of a LIVE consumer — the admin activity-review queue page "
+    "(activity_review_ui.py → get_pending_reviews) ships and reads an eternally-empty queue "
+    "because no user-facing route calls request_review; wire a 'request a review' "
+    "button/route to complete the loop (ADR-069 §3)"
 )
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
@@ -618,6 +658,36 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/lifepath/lifepath_types.py::biggest_gap": _LIFEPATH_WORD_ACTION,
     "core/services/lifepath/lifepath_types.py::get_gap_summary": _LIFEPATH_WORD_ACTION,
+    # --- Reports: ADR-069-claimed response-chain queries (complete in PR-3) ---
+    "core/services/report/report_relationship_service.py::get_pending_submissions": (
+        _REPORT_RESPONSE_CHAIN
+    ),
+    "core/services/report/report_relationship_service.py::get_submission_chain": (
+        _REPORT_RESPONSE_CHAIN
+    ),
+    # --- Reports: staged intelligence lenses ---
+    "core/services/report/report_relationship_service.py::get_unsubmitted_exercises": (
+        _REPORT_DAILY_PLANNING
+    ),
+    "core/services/report/report_relationship_service.py::get_report_summary": (
+        _REPORT_COMPLETION_STATS
+    ),
+    "core/services/report/report_relationship_service.py::get_learning_loop_chain": (
+        _REPORT_EXERCISE_CHAIN
+    ),
+    # --- Reports: missing producers of live consumers ---
+    "core/services/report/progress_schedule_service.py::create_schedule": (
+        _REPORT_SCHEDULE_PRODUCER
+    ),
+    "core/services/report/progress_schedule_service.py::get_user_schedule": (
+        _REPORT_SCHEDULE_PRODUCER
+    ),
+    "core/services/report/progress_schedule_service.py::deactivate_schedule": (
+        _REPORT_SCHEDULE_PRODUCER
+    ),
+    "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
+    # --- Reports: privacy-transparency surface ---
+    "core/services/report/activity_report_service.py::get_privacy_summary": (_REPORT_PRIVACY_AUDIT),
     # --- Intelligence tier: per-user entitlement (ADR-043 billing stub) ---
     "core/services/intelligence_tier_service.py::get_user_intelligence_tier": (
         "per-user AI entitlement staged — the deliberate ADR-043 'Per-User Tier Stub' "
