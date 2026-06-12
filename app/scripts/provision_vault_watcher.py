@@ -33,6 +33,7 @@ from adapters.persistence.neo4j.session_backend import SessionBackend  # noqa: E
 from adapters.persistence.neo4j.user_backend import UserBackend  # noqa: E402
 from core.auth.graph_auth import GraphAuthService  # noqa: E402
 from core.config.credential_store import get_active_backend  # noqa: E402
+from core.constants import SYSTEM_USER_UID  # noqa: E402
 
 USERNAME = "vault_watcher"
 EMAIL = "vault-watcher@skuel.local"
@@ -49,9 +50,11 @@ async def main() -> int:
         existing = await user_backend.get_user_by_username(USERNAME)
         if existing.is_ok and existing.value:
             # Rotate via the admin reset-token flow (the one path for setting
-            # a password outside the user's own change_password).
+            # a password outside the user's own change_password). The flow
+            # verifies the acting admin is a real ADMIN user — act as the
+            # canonical system owner, not a made-up audit string.
             token_result = await auth.admin_generate_reset_token(
-                existing.value.uid, admin_uid="provision_script"
+                existing.value.uid, admin_uid=SYSTEM_USER_UID
             )
             if token_result.is_error:
                 print(f"✗ Reset token failed: {token_result.expect_error().message}")
