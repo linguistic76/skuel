@@ -690,7 +690,7 @@ When reviewing pull requests, use pattern badges in review comments:
 
 ```python
 class TasksService:
-    async def get_task_with_context(
+    async def get_with_context(
         self,
         uid: str,
         depth: int = 2

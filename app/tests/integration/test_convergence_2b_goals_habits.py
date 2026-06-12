@@ -1,15 +1,15 @@
 """Real-Neo4j guard for Convergence Phase 1 (PR 2B): Goals + Habits onto mechanism B.
 
 2B routes the Goals and Habits intelligence-service graph-context retrieval
-(``get_with_context`` / ``get_<domain>_with_context``, used by both the facade and
-the ``/api/<domain>/context`` route) through
-``UnifiedRelationshipService.get_with_context`` — the registry-sourced mechanism B
-the Tasks facade established in 2A (PR #225). Two things must hold:
+(``get_with_context``, used by both the facade and the ``/api/<domain>/context``
+route) through ``UnifiedRelationshipService.get_with_context`` — the
+registry-sourced mechanism B the Tasks facade established in 2A (PR #225).
+(The ``get_<domain>_with_context`` domain-named aliases were deleted in the
+tasks bloat campaign — generic ``get_with_context`` is the one path.)
+Two things must hold:
 
-1. **Delegation, no recursion.** The Goals/Habits intelligence ``get_with_context``
-   previously delegated to ``get_<domain>_with_context``, which delegated back to
-   ``get_with_context`` — an infinite recursion (RecursionError → 500). The mixin now
-   owns the real implementation routing to ``self.relationships``; the alias is thin.
+1. **Delegation, no recursion.** The intelligence ``get_with_context`` must route
+   to ``self.relationships`` (the shared mixin owns the real implementation).
    Locked by the two ``*_delegation_routes_to_mechanism_b_without_recursion`` tests.
 2. **Registry-sourced edges surface (live Neo4j).** Through the very method the mixins
    delegate to, a Goal/Habit surfaces a registry edge that the bare default-intent
@@ -73,18 +73,14 @@ def _intel_stub(cls):
 async def test_goals_delegation_routes_to_mechanism_b_without_recursion():
     svc, rel = _intel_stub(GoalsIntelligenceService)
     assert await svc.get_with_context("g", 2) == "MECHANISM_B"
-    assert await svc.get_goal_with_context("g2", 3) == "MECHANISM_B"
     rel.get_with_context.assert_any_await("g", 2)
-    rel.get_with_context.assert_any_await("g2", 3)
 
 
 @pytest.mark.asyncio
 async def test_habits_delegation_routes_to_mechanism_b_without_recursion():
     svc, rel = _intel_stub(HabitsIntelligenceService)
     assert await svc.get_with_context("h", 2) == "MECHANISM_B"
-    assert await svc.get_habit_with_context("h2", 3) == "MECHANISM_B"
     rel.get_with_context.assert_any_await("h", 2)
-    rel.get_with_context.assert_any_await("h2", 3)
 
 
 @pytest.mark.asyncio

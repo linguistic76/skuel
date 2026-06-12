@@ -190,10 +190,6 @@ status_factory = StatusRouteFactory(
             body_fields=["actual_minutes", "quality_score"],
             method_name="complete_task",
         ),
-        "uncomplete": StatusTransition(
-            target_status="in_progress",
-            method_name="uncomplete_task",
-        ),
     },
 )
 status_factory.register_routes(app, rt)

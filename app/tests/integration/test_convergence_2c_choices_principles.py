@@ -1,10 +1,11 @@
 """Real-Neo4j guard for Convergence Phase 1 (PR 2C): Choices + Principles onto mechanism B.
 
 2C routes the Choices and Principles intelligence-service graph-context retrieval
-(``get_with_context`` / ``get_<domain>_with_context``, used by both the facade and
-the ``/api/<domain>/context`` route) through
-``UnifiedRelationshipService.get_with_context`` — the registry-sourced mechanism B
-the Tasks facade established in 2A (PR #225) and Goals/Habits copied in 2B (PR #226).
+(``get_with_context``, used by both the facade and the ``/api/<domain>/context``
+route) through ``UnifiedRelationshipService.get_with_context`` — the
+registry-sourced mechanism B the Tasks facade established in 2A (PR #225) and
+Goals/Habits copied in 2B (PR #226). (The ``get_<domain>_with_context``
+domain-named aliases were deleted in the tasks bloat campaign.)
 
 These two domains gain the most: their ``default_context_intent`` is HIERARCHICAL
 (``HAS_CHILD`` / ``PARENT_OF`` / ``CHILD_OF``), which surfaces almost nothing — a
@@ -12,10 +13,8 @@ Choice/Principle is rarely a tree node. Their real edges (AFFECTS_GOAL, GUIDES_G
 INFORMED_BY_PRINCIPLE, …) live only in the registry, so registry-sourcing is the
 headline win. Two things must hold:
 
-1. **Delegation, no recursion.** The Choices intelligence ``get_with_context``
-   previously delegated to ``get_choice_with_context``, which delegated back to
-   ``get_with_context`` — an infinite recursion (RecursionError → 500). The mixin now
-   owns the real implementation routing to ``self.relationships``; the alias is thin.
+1. **Delegation, no recursion.** The intelligence ``get_with_context`` must route
+   to ``self.relationships`` (the shared mixin owns the real implementation).
    (Principles had no service-level override but inherited the EXPLORATORY loader.)
 2. **Registry-sourced edges surface (live Neo4j).** Through the very method the mixins
    delegate to, a Choice/Principle surfaces a registry edge that the bare HIERARCHICAL
@@ -83,18 +82,14 @@ def _intel_stub(cls):
 async def test_choices_delegation_routes_to_mechanism_b_without_recursion():
     svc, rel = _intel_stub(ChoicesIntelligenceService)
     assert await svc.get_with_context("c", 2) == "MECHANISM_B"
-    assert await svc.get_choice_with_context("c2", 3) == "MECHANISM_B"
     rel.get_with_context.assert_any_await("c", 2)
-    rel.get_with_context.assert_any_await("c2", 3)
 
 
 @pytest.mark.asyncio
 async def test_principles_delegation_routes_to_mechanism_b_without_recursion():
     svc, rel = _intel_stub(PrinciplesIntelligenceService)
     assert await svc.get_with_context("p", 2) == "MECHANISM_B"
-    assert await svc.get_principle_with_context("p2", 3) == "MECHANISM_B"
     rel.get_with_context.assert_any_await("p", 2)
-    rel.get_with_context.assert_any_await("p2", 3)
 
 
 @pytest.mark.asyncio

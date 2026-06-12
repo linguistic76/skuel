@@ -757,10 +757,12 @@ def test_live_ai_route_spec_methods_suppressed_or_absent(live_methods):
 
 
 def test_live_error_label_does_not_shield_dead_method(live_methods):
-    # get_subtasks' only string occurrence is its own @with_error_handling
-    # label — a label is not dispatch evidence, so the finding stays WARNING.
-    # Delete this sentinel alongside the method when it is removed.
-    finding = finding_for(live_methods.findings, "get_subtasks")
+    # get_inference_statistics' only string occurrence is its own
+    # @with_error_handling label — a label is not dispatch evidence, so the
+    # finding stays WARNING. (Was get_subtasks until the tasks campaign moved
+    # it to the PLANNED tier.) Delete this sentinel alongside the method when
+    # it is removed, or repoint it at another label-only dead method.
+    finding = finding_for(live_methods.findings, "get_inference_statistics")
     assert finding is not None and finding.severity is BloatSeverity.WARNING
 
 

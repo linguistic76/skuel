@@ -82,8 +82,6 @@ class HabitsService(
     async def complete_habit_with_quality(self, ...) -> Result[Habit]:
         return await self.progress.complete_habit_with_quality(...)
 
-    async def get_habit_with_context(self, uid: str, ...) -> Result[tuple[Habit, GraphContext]]:
-        return await self.intelligence.get_habit_with_context(uid, ...)
 ```
 
 **Facade Mixins** (`core/services/habits/`):
@@ -243,7 +241,7 @@ The habit model tracks all four components of the habit loop:
 
 | Method | Description |
 |--------|-------------|
-| `get_habit_with_context(uid)` | Habit with full graph neighborhood |
+| `get_with_context(uid)` | Habit with full graph neighborhood (shared mechanism B) |
 | `analyze_habit_patterns(user_uid)` | Pattern analysis for all habits |
 | `get_stacking_recommendations(uid)` | Habit stacking suggestions |
 | `identify_at_risk_habits(user_uid)` | Habits with declining streaks |

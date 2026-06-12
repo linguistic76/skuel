@@ -924,16 +924,6 @@ class GraphTraversalOperations(Protocol):
         """Get raw graph context for cross-domain intelligence analysis."""
         ...
 
-    async def query_semantic_context(
-        self,
-        node_uid: str,
-        semantic_types: builtins.list[Any],
-        depth: int = 2,
-        min_confidence: float = 0.0,
-    ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Execute a semantic context query for a node."""
-        ...
-
     async def find_uids_by_semantic_filter(
         self,
         pattern: str,

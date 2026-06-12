@@ -553,10 +553,6 @@ def create_tasks_api_routes(
                 body_fields=["actual_minutes", "quality_score"],
                 method_name="complete_task",
             ),
-            "uncomplete": StatusTransition(
-                target_status="in_progress",
-                method_name="uncomplete_task",
-            ),
         },
         scope=ContentScope.USER_OWNED,
     )

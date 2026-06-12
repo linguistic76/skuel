@@ -486,7 +486,6 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
        ├─ Verifies ownership
        ├─ Updates Task status → COMPLETED
        ├─ Checks prerequisites → unblocks dependent tasks
-       ├─ Calls: relationships.get_completion_impact()
        └─ Publishes: TaskCompleted event
    │
    ├─────────────────────┐

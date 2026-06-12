@@ -70,7 +70,6 @@ from core.utils.type_converters import get_enum_attr_str
 if TYPE_CHECKING:
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
-    from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -194,7 +193,7 @@ class GoalsService(
     - Progress: calculate_goal_progress_with_context, complete_milestone, etc.
     - Learning: create_goal_with_learning_integration, assess_goal_learning_alignment, etc.
     - Search: get_upcoming, get_overdue, get_active, etc.
-    - Intelligence: get_goal_with_context, get_goal_progress_dashboard, etc.
+    - Intelligence: get_goal_progress_dashboard, etc.
     - Scheduling: check_goal_capacity, suggest_goal_timeline, assess_goal_achievability, etc.
 
     SKUEL Architecture:
@@ -416,11 +415,6 @@ class GoalsService(
         return await self.learning.get_goals_blocked_by_knowledge(user_context)
 
     # Intelligence delegations
-    async def get_goal_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Goal, GraphContext]]:
-        return await self.intelligence.get_goal_with_context(uid, depth)
-
     async def get_goal_progress_dashboard(
         self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:

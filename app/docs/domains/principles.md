@@ -238,7 +238,7 @@ class PrinciplesIntelligenceService(
 **Intelligence Mixins** (`core/services/principles/`):
 | Mixin | Purpose |
 |-------|---------|
-| `_CoreIntelligenceMixin` | `get_principle_with_context` (alias), `get_performance_analytics`, `get_domain_insights`; inherits `get_with_context` from shared base |
+| `_CoreIntelligenceMixin` | `get_performance_analytics`, `get_domain_insights`; inherits `get_with_context` from shared base |
 | `_AlignmentIntelligenceMixin` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, helpers |
 | `_InfluenceMixin` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 

@@ -233,6 +233,39 @@ _GOALS_DAILY_PLANNING = (
     "UnifiedRelationshipService) which lacks it; complete by repairing the "
     "intelligence-hub planning injection (cross-domain daily-plan phantom-dispatch repair)"
 )
+# Tasks dead-code campaign (2026-06): staged task capabilities kept by
+# deliberate decision — each reason names the wiring that completes it.
+_TASKS_HIERARCHY = (
+    "sub-task hierarchy staged (universal hierarchical pattern; the WRITE path is "
+    "live — the create flow calls create_subtask_relationship); wire hierarchy routes/UI"
+)
+_TASKS_ASSIGNMENT = (
+    "task-assignment surface staged — reads (Task)-[:ASSIGNED_TO]->(User); the writer "
+    "assign_task_to_user (progress service + facade) is its staged dependency with no "
+    "route/UI; wire assign/queue routes (teacher→student shape) or delete the surface"
+)
+_TASKS_BULK = (
+    "bulk completion staged — sole publisher of TasksBulkCompleted, whose subscribers "
+    "(metrics + task event handler) are live; wire a multi-select complete route/UI"
+)
+_TASKS_INSIGHTS = (
+    "task analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
+)
+_TASKS_KU_ORCHESTRATION = (
+    "manual knowledge-generation trigger staged — the automatic TaskCompleted "
+    "event-handler path is live; this variant returns curated results for review "
+    "instead of auto-creating; wire an admin/review route"
+)
+_TASKS_DEPENDENCY_WRITE = (
+    "task-dependency write path staged — the ONLY writer of (Task)-[:DEPENDS_ON]->(Task), "
+    "which MEGA-QUERY task_dependencies and the gantt timeline read live (lateral routes "
+    "write PREREQUISITE_FOR, not DEPENDS_ON); integration-tested with cache-invalidation "
+    "events; wire a dependency UI on the task detail page"
+)
+_TASKS_GRAVITY = (
+    "goal/Ku link surface staged (link_task_to_knowledge is the LIVE knowledge-edge "
+    "write path); wire link routes/UI or fold into relationship routes"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -499,6 +532,29 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/goal_task_generator.py::generate_tasks_for_all_goals": _GOAL_TASK_AUTOMATION,
     "core/services/goal_task_generator.py::generate_next_critical_tasks": _GOAL_TASK_AUTOMATION,
     "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
+    # --- Tasks: sub-task hierarchy ---
+    "core/services/tasks/tasks_core_service.py::get_subtasks": _TASKS_HIERARCHY,
+    "core/services/tasks/tasks_core_service.py::get_parent_task": _TASKS_HIERARCHY,
+    "core/services/tasks/tasks_core_service.py::get_task_hierarchy": _TASKS_HIERARCHY,
+    # --- Tasks: assignment surface ---
+    "core/services/tasks/tasks_search_service.py::get_user_assigned_tasks": _TASKS_ASSIGNMENT,
+    # --- Tasks: bulk completion ---
+    "core/services/tasks/tasks_core_service.py::complete_tasks_bulk": _TASKS_BULK,
+    # --- Tasks: analytics/AI insight surface ---
+    "core/services/tasks/_analytics_mixin.py::get_behavioral_insights": _TASKS_INSIGHTS,
+    "core/services/tasks/tasks_ai_service.py::generate_task_breakdown": _TASKS_INSIGHTS,
+    "core/services/tasks/tasks_ai_service.py::suggest_priority": _TASKS_INSIGHTS,
+    "core/services/tasks/_orchestration_mixin.py::analyze_task_knowledge_impact": (_TASKS_INSIGHTS),
+    # --- Tasks: manual knowledge-generation trigger ---
+    "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (
+        _TASKS_KU_ORCHESTRATION
+    ),
+    # --- Tasks: dependency write path + gravity links ---
+    "core/services/tasks/_relationship_mixin.py::create_task_dependency": (_TASKS_DEPENDENCY_WRITE),
+    "core/services/tasks/_relationship_mixin.py::link_task_to_goal": _TASKS_GRAVITY,
+    "core/services/tasks/_relationship_mixin.py::create_semantic_knowledge_relationship": (
+        _TASKS_GRAVITY
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

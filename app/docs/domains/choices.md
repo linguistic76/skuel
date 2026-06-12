@@ -345,7 +345,7 @@ Choices support full decision lifecycle:
 
 | Method | Description |
 |--------|-------------|
-| `get_choice_with_context(uid)` | Choice with full graph neighborhood |
+| `get_with_context(uid)` | Choice with full graph neighborhood (shared mechanism B) |
 | `get_decision_intelligence(uid)` | AI-powered decision insights |
 | `analyze_choice_impact(uid)` | Impact analysis across domains |
 

@@ -350,52 +350,6 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         self.logger.debug(f"Found {len(tasks)} assigned tasks for user {user_uid}")
         return Result.ok(tasks)
 
-    @with_error_handling(
-        "get_tasks_requiring_knowledge", error_type="database", uid_param="knowledge_uid"
-    )
-    async def get_tasks_requiring_knowledge(
-        self, knowledge_uid: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list[Task]]:
-        """
-        Get tasks that require specific knowledge.
-
-        Optionally check if user has mastered the knowledge.
-
-        Args:
-            knowledge_uid: Knowledge UID,
-            user_uid: Optional user UID to check mastery,
-            limit: Maximum number of tasks
-
-        Returns:
-            Result containing tasks with readiness information
-        """
-        # GRAPH-NATIVE: Query graph for tasks with REQUIRES_KNOWLEDGE relationship
-        task_uids_result = await self.backend.get_related_uids(
-            knowledge_uid, RelationshipName.REQUIRES_KNOWLEDGE, direction="incoming"
-        )
-        if task_uids_result.is_error:
-            return Result.fail(task_uids_result)
-
-        task_uids = task_uids_result.value
-
-        # Fetch task details for each UID
-        tasks: list[Task] = []
-        for task_uid in task_uids:
-            task_result = await self.backend.get(task_uid)
-            if task_result.is_ok and task_result.value:
-                tasks.append(task_result.value)
-
-        # Filter by user_uid if provided
-        if user_uid:
-            tasks = [t for t in tasks if t.user_uid == user_uid]
-
-        # Apply limit if provided
-        if limit:
-            tasks = tasks[:limit]
-
-        self.logger.debug(f"Found {len(tasks)} tasks requiring knowledge {knowledge_uid}")
-        return Result.ok(tasks)
-
     # ========================================================================
     # GRAPH-AWARE FACETED SEARCH
     # ========================================================================

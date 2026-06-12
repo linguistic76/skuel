@@ -4,8 +4,9 @@ Habits Intelligence Service - Pure Cypher Graph Analytics
 
 Handles pure Cypher graph intelligence queries for habits.
 
-Architecture: Shell delegates to 3 focused mixins in the same directory:
-  _core_intelligence_mixin.py  — get_habit_with_context
+Architecture: Shell delegates to focused mixins (graph context retrieval —
+``get_with_context``, mechanism B — comes from the shared
+``core.services.intelligence._core_intelligence_mixin``):
   _behavioral_signals_mixin.py — analyze_habit_performance,
                                   get_habit_knowledge_reinforcement,
                                   get_habit_goal_support
@@ -27,8 +28,8 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
-from core.services.habits._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.habits._dual_track_mixin import _DualTrackMixin
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
 
@@ -99,11 +100,9 @@ class HabitsIntelligenceService(
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
     #
-    # get_with_context is provided by _CoreIntelligenceMixin (mechanism B,
-    # registry-sourced via self.relationships) — NOT redefined here. A local
-    # override that delegated back to get_habit_with_context recursed infinitely
-    # (get_with_context → get_habit_with_context → get_with_context); the mixin
-    # now owns the real implementation. (Convergence Phase 1, 2B.)
+    # get_with_context is provided by the shared _CoreIntelligenceMixin
+    # (mechanism B, registry-sourced via self.relationships) — NOT redefined
+    # here. (Convergence Phase 1, 2B.)
     # ========================================================================
 
     async def get_performance_analytics(

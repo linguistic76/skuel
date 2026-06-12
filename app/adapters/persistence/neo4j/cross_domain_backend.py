@@ -624,8 +624,8 @@ class CrossDomainBackend:
         capped (``_build_filtered_context_query``). The explicit-intent branches
         (HIERARCHICAL/PREREQUISITE/PRACTICE/GOAL_ACHIEVEMENT) had NO cap, and the generic
         branch's trailing LIMIT was a post-aggregation no-op (effectively unbounded), so
-        capping them here would silently drop nodes for callers like ``get_completion_impact``
-        / Tasks ``get_task_with_dependencies`` on dense graphs. Faithful = cap only what was
+        capping them here would silently drop nodes for explicit-intent callers on dense
+        graphs (the regression Codex caught on PR #243). Faithful = cap only what was
         capped.
 
         Returns one record ``{center_uid, domain_context}``; ``domain_context`` is the

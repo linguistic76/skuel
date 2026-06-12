@@ -58,7 +58,6 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.enums import Domain, Priority
-    from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -147,7 +146,7 @@ class ChoicesService(
     - Core: get_choice, get_user_choices, get_user_items_in_range
     - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
     - Search: get_pending_choices, get_upcoming, get_overdue, get_choices_needing_decision, etc.
-    - Intelligence: get_choice_with_context, get_decision_intelligence, get_decision_patterns, etc.
+    - Intelligence: get_decision_intelligence, get_decision_patterns, etc.
 
     Facade Mixins:
     - _OptionManagementMixin: add_option, update_option, remove_option, make_decision
@@ -245,11 +244,6 @@ class ChoicesService(
         )
 
     # Intelligence delegations
-    async def get_choice_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
-        return await self.intelligence.get_choice_with_context(uid, depth)
-
     async def get_decision_intelligence(
         self, choice_uid: str, min_confidence: float = 0.7, depth: int = 2
     ) -> Result[DecisionIntelligence]:
@@ -482,7 +476,7 @@ class ChoicesService(
             sort_by=sort_by,
         )
 
-    # Note: Intelligence delegations (get_choice_with_context, get_decision_intelligence,
+    # Note: Intelligence delegations (get_decision_intelligence,
     # analyze_choice_impact, get_decision_patterns, etc.) and Search delegations
     # (get_pending_choices, get_upcoming, get_overdue, etc.) delegated
     # via explicit methods above.

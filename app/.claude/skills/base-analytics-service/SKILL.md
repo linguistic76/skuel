@@ -505,12 +505,13 @@ class TasksIntelligenceService(
     # get_with_context() is inherited — no override, no loader wiring needed.
 ```
 
-`_CoreIntelligenceMixin[T]` is generic: PS, LP, and KU inherit it directly
-(`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[LearningPath]`,
-`_CoreIntelligenceMixin[Ku]`) and get a typed `Result[tuple[T, GraphContext]]`
-return. Activity domains use their package's `_CoreIntelligenceMixin` wrapper
-(which extends the shared base) because they also expose a domain-named alias
-(e.g. `get_goal_with_context`).
+`_CoreIntelligenceMixin[T]` is generic: Tasks, Goals, Habits, PS, LP, and KU
+inherit it directly (e.g. `_CoreIntelligenceMixin[PathStep]`) and get a typed
+`Result[tuple[T, GraphContext]]` return. Events, Choices, and Principles keep a
+per-package `_CoreIntelligenceMixin` wrapper (extending the shared base) only
+because they add real domain methods (performance / decision / alignment lenses).
+The domain-named aliases (`get_goal_with_context`, etc.) were deleted in the
+tasks bloat campaign — generic `get_with_context` is the one path.
 
 For cross-domain **analysis** (metrics + recommendations), use the template method
 `BaseAnalyticsService._analyze_entity_with_typed_context(uid, metrics_fn, recommendations_fn)`,

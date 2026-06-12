@@ -63,7 +63,6 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
-    from core.models.graph_context import GraphContext
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -306,11 +305,6 @@ class PrinciplesService(
         )
 
     # Intelligence delegations
-    async def get_principle_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Principle, GraphContext]]:
-        return await self.intelligence.get_principle_with_context(uid, depth)
-
     async def assess_principle_alignment(
         self, principle_uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
