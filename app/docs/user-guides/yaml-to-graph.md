@@ -622,14 +622,14 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 | YAML `type:` | Required Fields |
 |-------------|----------------|
 | `Ku` | title |
-| `PathStep` | title, content |
-| `LearningPath` | name |
+| `PathStep` | title |
+| `LearningPath` | title (`name:` accepted — renamed to title) |
 | `Task` | title |
 | `Goal` | title |
 | `Habit` | title |
 | `Event` | title |
 | `Choice` | title |
-| `Principle` | name, statement |
+| `Principle` | title (`name:` accepted), statement |
 | `Edge` | from, to, relationship |
 
 ### YAML `type:` Values
