@@ -225,14 +225,17 @@ class IngestionBackend:
     async def delete_entities_with_metadata(
         self, items: list[dict[str, str]]
     ) -> Result[list[dict[str, Any]]]:
-        """Delete vault-removed entities, their content chunks, and tracking rows.
+        """Delete vault-removed entities, their content subtree, and tracking rows.
 
         Each item carries {file_path, entity_uid}. Matches the entity across the
         three uid-bearing node shapes ingestion can create (:Entity multi-label,
-        :Group, :Expense), removes dependent :ContentChunk nodes first (DETACH
-        DELETE on the parent would otherwise orphan them), then the entity and
-        its IngestionMetadata row. Missing entities (already deleted by hand)
-        still get their metadata row cleaned up.
+        :Group, :Expense). The content subtree hangs off the entity as
+        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) with
+        (Content)-[:HAS_METADATA]->(ContentMetadata) — all of it is deleted
+        leaf-first (DETACH DELETE on the entity alone would orphan the content
+        side, leaving deleted material in chunk regeneration scans and the
+        vector index). Missing entities (already deleted by hand) still get
+        their metadata row cleaned up.
         """
         return await self._executor.execute_query(
             """
@@ -241,8 +244,12 @@ class IngestionBackend:
             OPTIONAL MATCH (e:Entity {uid: item.entity_uid})
             OPTIONAL MATCH (g:Group {uid: item.entity_uid})
             OPTIONAL MATCH (x:Expense {uid: item.entity_uid})
-            OPTIONAL MATCH (e)-[:HAS_CHUNK]->(chunk:ContentChunk)
-            DETACH DELETE chunk
+            OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
+            OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
+            OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
+            DETACH DELETE chunk, meta
+            WITH DISTINCT item, s, e, g, x, content
+            DETACH DELETE content
             WITH DISTINCT item, s, e, g, x
             DETACH DELETE e, g, x, s
             RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
