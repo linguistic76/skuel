@@ -135,14 +135,20 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 12 of 20 entity types are file-ingestible. The following are excluded:
+# 15 configs: 13 of the 25 EntityTypes are file-ingestible, plus the two
+# NonKuDomain types (FINANCE, GROUP). Not file-ingestible:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - RESOURCE: Created via API with curated metadata
-#   - FORM_TEMPLATE: Created via API by admins
-#   - FORM_SUBMISSION: Created via API by users
-#   - USER_ENTRY: Ingestible; legacy ``je_input``/``exercise_submission``
-#     type strings alias to USER_ENTRY with pipeline inferred (ADR-054).
+#   - FORM_TEMPLATE/FORM_SUBMISSION: Created via API
 #   - EXERCISE_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
+#   - The six Activity Templates: PS-owned, spawned on engagement
+# USER_ENTRY is ingestible via ``type: user_entry`` + an explicit ``pipeline:``;
+# the legacy ``je_input``/``exercise_submission`` type strings are rejected
+# by the detector with a pointer to ADR-054 (no silent aliasing).
+#
+# NOTE on title vs name: prepare_entity_data renames ``name`` -> ``title``
+# (except GROUP), so required_fields must say "title" — requiring "name"
+# is unsatisfiable after preparation (2026-06-12 vault-audit bug).
 #
 # Relationship configs are derived from the Relationship Registry via
 # generate_ingestion_relationship_config(). Only entries with yaml_field_path
