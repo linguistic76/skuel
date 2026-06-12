@@ -1,7 +1,7 @@
 ---
 title: LifePath Domain
 created: 2025-12-04
-updated: 2026-02-03
+updated: 2026-06-12
 status: current
 category: domains
 tags: [lifepath, destination-domain, domain]
@@ -31,22 +31,20 @@ LifePath bridges the gap between:
 ## Architecture Overview
 
 ```
-Activity (6)              Curriculum (3)         Content/Org (3)
-├── Tasks                 ├── KU                 ├── Journals
-├── Goals                 ├── PS                 ├── Assignments
-├── Habits     ──────────►└── LP     ───────────►└── MOC (graph)
-├── Events                      │                        │
-├── Choices                     │                        │
-└── Principles                  │                        │
-       │                        │                        │
-       │    Finance (1)         │                        │
-       └──►├── Expenses ────────┴────────────────────────┘
+Activity (6)              Curriculum (4)         Learning Loop
+├── Tasks                 ├── Ku                 ├── UserEntries
+├── Goals                 ├── PS                 ├── Exercises/Reports
+├── Habits     ──────────►├── LP     ───────────►└── (ADR-054 pipeline)
+├── Events                └── Exercise                    │
+├── Choices                      │                        │
+└── Principles                   │                        │
+       │                         │                        │
+       └─────────────────────────┴────────────────────────┘
                                          │
                                          ▼
                            ╔═════════════════════════╗
                            ║       LIFE PATH         ║
-                           ║   Domain #14: The       ║
-                           ║   Destination           ║
+                           ║   The Destination       ║
                            ╚═════════════════════════╝
 ```
 
@@ -77,9 +75,9 @@ LifePathService (Facade)
 
 | Sub-Service | Purpose |
 |-------------|---------|
-| **vision** | Capture user's vision statement, extract themes via LLM, recommend matching LPs |
+| **vision** | Capture user's vision statement, extract themes via LLM, recommend matching LPs; carries the staged word-action lens |
 | **core** | CRUD for designation, manage ULTIMATE_PATH relationship, store vision data |
-| **alignment** | Calculate 5-dimension alignment score, measure word-action gap |
+| **alignment** | Calculate 5-dimension alignment score from graph edges |
 | **intelligence** | Generate personalized recommendations based on alignment |
 
 ## Key Files
@@ -91,10 +89,10 @@ LifePathService (Facade)
 | **Core Service** | `/core/services/lifepath/lifepath_core_service.py` |
 | **Alignment Service** | `/core/services/lifepath/lifepath_alignment_service.py` |
 | **Intelligence Service** | `/core/services/lifepath/lifepath_intelligence_service.py` |
-| **Domain Model** | `/core/models/lifepath/lifepath.py` |
-| **Vision Models** | `/core/models/lifepath/vision.py` |
-| **DTOs** | `/core/models/lifepath/lifepath_dto.py` |
-| **Request Models** | `/core/models/lifepath/lifepath_request.py` |
+| **Service-Layer Types** | `/core/services/lifepath/lifepath_types.py` (LifePathDesignation, VisionTheme, VisionCapture, LpRecommendation, WordActionAlignment) |
+| **Entity Model + DTO** | `/core/models/life_path/` (EntityType.LIFE_PATH registry entry) |
+| **Request Models** | `/core/models/lifepath_request.py` |
+| **Backend** | `/adapters/persistence/neo4j/lifepath_backend.py` (LifePathBackendOperations) |
 | **Routes** | `/adapters/inbound/lifepath_routes.py` (factory) |
 | **API Routes** | `/adapters/inbound/lifepath_api.py` (4 routes) |
 | **UI Routes** | `/adapters/inbound/lifepath_ui.py` (5 routes, thin — delegates to `ui/lifepath/`) |
@@ -117,18 +115,14 @@ class LifePathDesignation:
     life_path_uid: str | None
     designated_at: datetime | None
 
-    # THE MEASUREMENT (5-dimensional alignment)
+    # THE MEASUREMENT (stored overall score; alignment_level derived)
     alignment_score: float  # 0.0-1.0 overall
-    word_action_gap: float
     alignment_level: AlignmentLevel
-
-    # Dimension scores
-    knowledge_alignment: float   # 25%
-    activity_alignment: float    # 25%
-    goal_alignment: float        # 20%
-    principle_alignment: float   # 15%
-    momentum: float              # 15%
 ```
+
+Per-dimension scores live on the `ULTIMATE_PATH` edge (written by
+`update_alignment_score`); fresh dimension breakdowns come from
+`LifePathAlignmentService.calculate_alignment`, not from this view.
 
 ### AlignmentLevel Enum
 
@@ -219,8 +213,7 @@ designation = await lifepath.core.designate_life_path(user_uid, "lp:tech-leaders
 
 # 4. Calculate alignment
 alignment = await lifepath.get_alignment(user_uid)
-# alignment_score: 0.72 (ALIGNED)
-# weakest dimension: "knowledge" (needs more KU mastery)
+# alignment_score: 0.72 (ALIGNED); per-dimension scores in alignment["dimensions"]
 
 # 5. Get recommendations
 recs = await lifepath.intelligence.get_recommendations(user_uid, alignment)
@@ -232,9 +225,17 @@ LifePath follows SKUEL's three-tier pattern:
 
 | Tier | File | Purpose |
 |------|------|---------|
-| **External (Tier 1)** | `lifepath_request.py` | Pydantic validation for API |
-| **Transfer (Tier 2)** | `lifepath_dto.py` | Mutable DTOs for data transfer |
-| **Core (Tier 3)** | `lifepath.py`, `vision.py` | Frozen domain models |
+| **External (Tier 1)** | `core/models/lifepath_request.py` | Pydantic validation for API |
+| **Transfer (Tier 2)** | `core/models/life_path/life_path_dto.py` | Mutable DTOs for data transfer |
+| **Core (Tier 3)** | `core/models/life_path/life_path.py`, `core/services/lifepath/lifepath_types.py` | Frozen domain models + service-layer views |
+
+## UserContext Wiring
+
+The MEGA-QUERY surfaces the designation to the whole intelligence stack
+(flagship `calculate_life_path_alignment`, Analytics, Askesis, ZPD): it
+matches the designated node by `entity_type: 'life_path'` (designation flips
+the property, never the label) and reads `alignment_score` off the
+`ULTIMATE_PATH` edge — see `user_context_queries.py` "LIFE PATH" section.
 
 ## Key Insight
 
