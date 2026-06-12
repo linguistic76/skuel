@@ -491,7 +491,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth: incremental/smart runs propagate deletions (vault file deleted → entity deleted, with move/rename + mass-deletion guards); `./dev vault-watch` keeps the vault synced continuously.
+One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth: incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards); `./dev vault-watch` keeps the vault synced continuously.
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 
