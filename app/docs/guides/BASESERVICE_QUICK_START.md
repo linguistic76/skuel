@@ -386,7 +386,7 @@ task_result = await tasks_service.get_for_user(
 Get entity with full graph context (neighborhood):
 
 ```python
-result = await tasks_service.get_task_with_context(
+result = await tasks_service.intelligence.get_with_context(
     uid="task.learn-baseservice",
     depth=2,  # How many hops to traverse
 )

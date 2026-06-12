@@ -5,7 +5,7 @@ Events Intelligence Service
 Handles pure Cypher graph intelligence queries for events.
 
 Architecture: Shell delegates to 3 focused mixins in this directory:
-  _core_intelligence_mixin.py        — get_event_with_context, analyze_event_performance,
+  _core_intelligence_mixin.py        — analyze_event_performance,
                                        goal/habit/knowledge analysis helpers
   _analytics_mixin.py                — analyze_upcoming_events, scheduling recommendations
   _behavioral_signals_mixin.py       — assess_engagement_dual_track, dual-track helpers

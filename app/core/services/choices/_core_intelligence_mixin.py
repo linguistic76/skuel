@@ -2,14 +2,13 @@
 Core Intelligence Mixin — ChoicesIntelligenceService
 =====================================================
 
-Graph-context methods: get_with_context, get_choice_with_context,
-get_decision_intelligence, analyze_choice_impact.
+Graph-context methods: get_with_context, get_decision_intelligence,
+analyze_choice_impact.
 
 Graph context retrieval (mechanism B, registry-sourced) is inherited from the
 shared ``_CoreIntelligenceMixin``: ``self.relationships.get_with_context`` sources
 its edge vocabulary from ``CHOICES_CONFIG.cross_domain_relationship_types`` (the
-registry single source of truth). This mixin adds the choice-named alias plus
-decision intelligence.
+registry single source of truth). This mixin adds decision intelligence.
 
 ``get_decision_intelligence`` and ``analyze_choice_impact`` are thin lenses over
 the CANONICAL typed reader: ``BaseAnalyticsService._analyze_entity_with_typed_context``
@@ -40,8 +39,6 @@ from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.choice.choice import Choice
-    from core.models.graph_context import GraphContext
     from core.services.choices.choices_types import (
         ChoiceImpactAnalysis,
         DecisionIntelligence,
@@ -63,13 +60,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     path_helper: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any
-
-    @requires_graph_intelligence("get_choice_with_context")
-    async def get_choice_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Choice, GraphContext]]:
-        """Domain-named alias for get_with_context() (mechanism B)."""
-        return await self.get_with_context(uid, depth)
 
     @requires_graph_intelligence("get_decision_intelligence")
     async def get_decision_intelligence(

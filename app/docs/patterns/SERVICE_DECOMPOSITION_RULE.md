@@ -8,7 +8,7 @@ Extract intelligence methods into mixins when the intelligence service **file ex
 
 | Mixin | Contents |
 |-------|----------|
-| `_core_intelligence_mixin.py` | Per-package wrapper over generic `_CoreIntelligenceMixin[T]` (inherits `get_with_context()` delegation, adds domain-named aliases like `get_task_with_context`) |
+| `_core_intelligence_mixin.py` | Per-package wrapper over generic `_CoreIntelligenceMixin[T]` — only where the domain adds real methods (Events/Choices/Principles); Tasks/Goals/Habits inherit the shared mixin directly (domain-named aliases were deleted in the tasks bloat campaign) |
 | `_analytics_mixin.py` | Performance dashboards, batch analysis, metrics |
 | `_predictive_mixin.py` | Forecasting, success probability, scenario analysis |
 | `_behavioral_signals_mixin.py` | Dual-track assessment, ZPD signals, behavioral patterns |

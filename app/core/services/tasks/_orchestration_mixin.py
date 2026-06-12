@@ -73,20 +73,6 @@ class _OrchestrationMixin:
 
         return Result.ok(impact_analysis)
 
-    async def get_user_assigned_tasks(
-        self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
-    ) -> Result[list[Task]]:
-        """Get tasks assigned to user via graph traversal."""
-        filters: dict[str, Any] = {"user_uid": user_uid}
-        if not include_completed:
-            filters["status__ne"] = "completed"
-        result = await self.backend.list(filters=filters, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-        # list() returns tuple[list[Task], int]
-        tasks, _ = result.value
-        return Result.ok(tasks)
-
     async def trigger_manual_knowledge_generation(
         self, user_uid: UserUID, days_back: int = 30, min_tasks: int = 3
     ) -> Result[dict[str, Any]]:

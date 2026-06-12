@@ -2,15 +2,16 @@
 
 ## Overview
 
-**Architecture:** Shell delegates to 4 focused mixins (April–June 2026):
-- `_core_intelligence_mixin.py` — `get_task_with_context` (mechanism B alias)
+**Architecture:** Shell delegates to focused mixins (April–June 2026); graph context
+retrieval (`get_with_context`, mechanism B) comes from the shared
+`core/services/intelligence/_CoreIntelligenceMixin`:
 - `_analytics_mixin.py` (~255 lines) — `get_behavioral_insights`, completion patterns, success factors
 - `_productivity_mixin.py` (~187 lines) — `analyze_learning_patterns`, `calculate_knowledge_aware_priorities`, `generate_task_insights`, `track_knowledge_mastery_progression`
 - `_dual_track_mixin.py` — `assess_productivity_dual_track` (ADR-030 perception gap; the 6th dual-track engine, added #259)
 
 ```python
 class TasksIntelligenceService(
-    _CoreIntelligenceMixin,    # get_task_with_context (mechanism B alias)
+    _CoreIntelligenceMixin,    # shared: get_with_context (mechanism B)
     _AnalyticsMixin,           # behavioral + performance analytics
     _ProductivityMixin,        # analytics engine delegation
     _DualTrackMixin,           # assess_productivity_dual_track (ADR-030)

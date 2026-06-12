@@ -4,8 +4,9 @@ Tasks Intelligence Service
 
 Task-specific intelligence features (NO AI dependencies).
 
-Architecture: Shell delegates to 3 focused mixins in this directory:
-  _core_intelligence_mixin.py    — get_task_with_context (mechanism B alias)
+Architecture: Shell delegates to focused mixins (graph context retrieval —
+``get_with_context``, mechanism B — comes from the shared
+``core.services.intelligence._core_intelligence_mixin``):
   _analytics_mixin.py            — get_behavioral_insights, performance helpers
   _productivity_mixin.py         — analyze_learning_patterns, calculate_knowledge_aware_priorities,
                                    generate_task_insights, track_knowledge_mastery_progression,
@@ -57,8 +58,8 @@ from core.services.intelligence import (
     calculate_task_cross_domain_metrics,
     task_recommendations,
 )
+from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.tasks._analytics_mixin import _AnalyticsMixin
-from core.services.tasks._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.utils.result_simplified import Errors, Result
@@ -134,7 +135,7 @@ class TasksIntelligenceService(
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
-    # get_with_context() is inherited from _CoreIntelligenceMixin (_SharedCoreMixin).
+    # get_with_context() is inherited from the shared _CoreIntelligenceMixin.
     # ========================================================================
 
     async def get_domain_insights(

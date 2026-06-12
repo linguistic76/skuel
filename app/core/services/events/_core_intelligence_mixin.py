@@ -17,13 +17,11 @@ from core.services.intelligence import calculate_event_performance_metrics
 from core.services.intelligence._core_intelligence_mixin import (
     _CoreIntelligenceMixin as _SharedCoreMixin,
 )
-from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.event.event import Event
     from core.models.graph.path_aware_types import EventCrossContext
-    from core.models.graph_context import GraphContext
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
@@ -31,8 +29,8 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     Event context retrieval and performance analysis for EventsIntelligenceService.
 
     ``get_with_context`` (mechanism B) is inherited from the shared
-    ``_CoreIntelligenceMixin``; this mixin adds event-specific context retrieval
-    (get_event_with_context) and performance analysis methods.
+    ``_CoreIntelligenceMixin``; this mixin adds event performance
+    analysis methods.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -46,13 +44,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any
-
-    @requires_graph_intelligence("get_event_with_context")
-    async def get_event_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Event, GraphContext]]:
-        """Domain-named alias for get_with_context() (mechanism B)."""
-        return await self.get_with_context(uid, depth)
 
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         """

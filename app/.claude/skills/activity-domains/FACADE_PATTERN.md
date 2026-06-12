@@ -30,8 +30,6 @@ class TasksService(KnowledgeIntelligenceDelegationMixin, BaseService[TasksOperat
             "contributes_to_goal", task_uid, goal_uid, props or None
         )
 
-    async def get_task_with_context(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.intelligence.get_task_with_context(*args, **kwargs)
 ```
 
 ## Common Sub-services (All 6 Domains)

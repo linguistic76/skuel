@@ -7,8 +7,6 @@ Graph intelligence, semantic relationship, and cross-domain context methods.
 Provides:
     get_cross_domain_context: Complete cross-domain context with path-aware intelligence
     get_with_context: Entity with full graph context via intent-based traversal
-    get_completion_impact: Impact analysis of completing an entity
-    get_with_semantic_context: Entity with semantic knowledge relationships
     create_semantic_relationship: Create semantic relationship between entities
     find_by_semantic_filter: Find entities by semantic relationship filter
     get_cross_domain_context_typed: Typed cross-domain context with path-aware entities
@@ -23,7 +21,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from core.constants import GraphDepth
 from core.models.type_hints import EntityUID, Neo4jProperties
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -355,129 +352,9 @@ class IntelligenceMixin:
 
         return Result.ok((entity, graph_context_result.value))
 
-    @requires_graph_intelligence("get_completion_impact")
-    @with_error_handling("get_completion_impact", error_type="database", uid_param="uid")
-    async def get_completion_impact(
-        self,
-        uid: str,
-    ) -> Result[dict[str, Any]]:
-        """
-        Analyze impact of completing this entity using graph intelligence.
-
-        Args:
-            uid: Entity UID
-
-        Returns:
-            Result containing completion impact analysis
-        """
-        # Type narrowing: decorator @requires_graph_intelligence ensures this
-        assert self.graph_intel is not None
-
-        # Get entity
-        get_method = getattr(self.backend, self._backend_get_method, None)
-        if get_method is None:
-            return Result.fail(
-                Errors.system(f"Backend method {self._backend_get_method} not found")
-            )
-        entity_result = await get_method(uid)
-        if entity_result.is_error:
-            return Result.fail(entity_result)
-
-        if not entity_result.value:
-            return Result.fail(Errors.not_found(f"{self.config.entity_label} {uid} not found"))
-
-        entity = self._context_to_domain_model(entity_result.value)
-
-        # Execute through graph intelligence with HIERARCHICAL intent
-        graph_context_result = await self.graph_intel.query_with_intent(
-            domain=self._domain,
-            node_uid=uid,
-            intent=self.config.get_intent_for_operation("impact"),
-            depth=GraphDepth.NEIGHBORHOOD,
-        )
-
-        if graph_context_result.is_error:
-            return graph_context_result
-
-        context = graph_context_result.value
-
-        # Analyze impact across domains using scoring weights
-        from core.models.enums import Domain
-
-        impacted_goals = context.get_nodes_by_domain(Domain.GOALS)
-        impacted_habits = context.get_nodes_by_domain(Domain.HABITS)
-        unlocked_knowledge = context.get_nodes_by_domain(Domain.KNOWLEDGE)
-        triggered_tasks = context.get_nodes_by_domain(Domain.TASKS)
-
-        weights = self.config.scoring_weights
-        impact_score = (
-            len(impacted_goals) * weights.get("goals", 0.4)
-            + len(impacted_habits) * weights.get("habits", 0.3)
-            + len(unlocked_knowledge) * weights.get("knowledge", 0.2)
-            + len(triggered_tasks) * weights.get("tasks", 0.1)
-        )
-
-        return Result.ok(
-            {
-                self.config.domain.value.rstrip("s"): entity,
-                "completion_impact": {
-                    "impact_score": impact_score,
-                    "impacted_goals": impacted_goals,
-                    "impacted_habits": impacted_habits,
-                    "unlocked_knowledge": unlocked_knowledge,
-                    "triggered_tasks": triggered_tasks,
-                },
-                "graph_context": context,
-                "performance_metrics": {
-                    "query_time_ms": context.neo4j_query_time_ms,
-                    "total_impacted_entities": context.total_nodes,
-                },
-            }
-        )
-
     # =========================================================================
     # SEMANTIC RELATIONSHIP METHODS
     # =========================================================================
-
-    async def get_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        """
-        Get entity with semantic knowledge relationships.
-
-        Args:
-            uid: Entity UID
-            min_confidence: Minimum confidence threshold
-            semantic_types: Optional override of semantic types (uses config default)
-
-        Returns:
-            Result containing entity with semantic context
-        """
-        if not self.semantic_helper:
-            return Result.fail(
-                Errors.validation(f"Semantic helper not enabled for {self.config.entity_label}")
-            )
-
-        types_to_use = semantic_types or self.config.semantic_types
-
-        result = await self.semantic_helper.get_with_semantic_context(
-            uid=uid,
-            semantic_types=types_to_use,
-            min_confidence=min_confidence,
-        )
-
-        if result.is_error:
-            return result
-
-        # Rename 'entity' key to domain-specific name for backward compatibility
-        data = result.value
-        entity_key = self.config.domain.value.rstrip("s")
-        data[entity_key] = data.pop("entity", None)
-
-        return Result.ok(data)
 
     async def create_semantic_relationship(
         self,

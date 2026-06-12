@@ -10,7 +10,6 @@
 | File | Responsibility |
 |------|---------------|
 | `goals_intelligence_service.py` | Shell: `__init__` + dataclasses (`GoalPrediction`, `HabitImpactAnalysis`); label attrs resolved via `DomainConfig` |
-| `_core_intelligence_mixin.py` | `get_goal_with_context` (alias for `get_with_context`); inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_analytics_mixin.py` | `get_performance_analytics`, `get_domain_insights`, `get_goal_progress_dashboard`, `_generate_progress_recommendations`, `get_goal_completion_forecast`, `get_goal_learning_requirements` |
 | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + all `_calculate_*` / `_identify_*` / `_determine_*` private helpers |
 | `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |
@@ -29,13 +28,15 @@ GoalsIntelligenceService provides comprehensive goal intelligence combining grap
 
 ## Core Methods
 
-### Method 1: get_goal_with_context()
+### Method 1: get_with_context() (shared mechanism B)
 
-**Purpose:** Get goal with full graph context using pure Cypher graph intelligence. Automatically selects optimal query type based on goal's suggested intent.
+**Purpose:** Get goal with full graph context using pure Cypher graph intelligence.
+Inherited from the shared `core/services/intelligence/_CoreIntelligenceMixin` —
+routes through `self.relationships.get_with_context` (registry-sourced edge vocabulary).
 
 **Signature:**
 ```python
-async def get_goal_with_context(
+async def get_with_context(
     self,
     uid: str,
     depth: int = 2
@@ -59,7 +60,7 @@ async def get_goal_with_context(
 
 **Example:**
 ```python
-result = await goals_service.intelligence.get_goal_with_context(
+result = await goals_service.intelligence.get_with_context(
     uid="goal_001",
     depth=2
 )

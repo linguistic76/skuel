@@ -113,7 +113,7 @@ class _CoreIntelligenceMixin[T]:
         return await self.relationships.get_with_context(uid, depth)
 ```
 
-Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Activity domains wrap this in a per-package `_CoreIntelligenceMixin` that also adds domain-named aliases (`get_task_with_context`, etc.). PS/LP/KU inherit directly (Events is an activity domain and inherits via its package wrapper).
+Subclasses parameterize with their model (`_CoreIntelligenceMixin[PathStep]`, `_CoreIntelligenceMixin[Goal]`, etc.) to get a typed return. Tasks/Goals/Habits/PS/LP/KU inherit it directly; Events/Choices/Principles wrap it in a per-package `_CoreIntelligenceMixin` that adds real domain methods (the domain-named aliases were deleted in the tasks bloat campaign).
 
 **Returns:**
 ```python

@@ -263,19 +263,19 @@ def requires_graph_intelligence(operation: str):
 
     Example:
         # Before (repeated in every -4 method):
-        async def get_habit_with_context(self, uid: str) -> Result:
+        async def get_with_context(self, uid: str) -> Result:
             if not self.graph_intel:
                 return Result.fail(Errors.system(
                     message="GraphIntelligenceService not available - -4 queries disabled",
-                    operation="get_habit_with_context"
+                    operation="get_with_context"
                 )))
             # ... method logic
 
         # After (clean and declarative):
         from core.utils.decorators import requires_graph_intelligence
 
-        @requires_graph_intelligence("get_habit_with_context")
-        async def get_habit_with_context(self, uid: str) -> Result:
+        @requires_graph_intelligence("get_with_context")
+        async def get_with_context(self, uid: str) -> Result:
             # ... method logic only
 
     Note:

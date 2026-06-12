@@ -78,7 +78,6 @@ from core.utils.sort_functions import (
 )
 
 if TYPE_CHECKING:
-    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualDependencies, ContextualTask
     from core.models.pathways.lp_position import LpPosition
     from core.models.task.task_request import TaskCreateRequest
@@ -255,7 +254,6 @@ class TasksService(
     - create_task: Has special user_uid parameter handling
     - get_tasks_batch: Uses backend directly
     - complete_task_with_cascade: Orchestrates knowledge generation
-    - get_task_with_dependencies: Transforms result
     - link_task_to_knowledge/goal: Passes specific parameters
     - analyze_task_knowledge_impact: Full orchestration
     """
@@ -737,25 +735,6 @@ class TasksService(
     ) -> Result[list[ContextualTask]]:
         return await self.planning.get_learning_tasks_for_user(context, knowledge_focus, limit)
 
-    # Relationship delegations
-    async def get_task_completion_impact(self, uid: str) -> Result[dict[str, Any]]:
-        return await self.relationships.get_completion_impact(uid)
-
-    async def analyze_task_learning_context(
-        self, entity_uid: EntityUID, depth: int = 2, min_confidence: float = 0.7
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_cross_domain_context(entity_uid, depth, min_confidence)
-
-    async def get_task_with_semantic_context(
-        self,
-        uid: str,
-        min_confidence: float = 0.8,
-        semantic_types: list[SemanticRelationshipType] | None = None,
-    ) -> Result[dict[str, Any]]:
-        return await self.relationships.get_with_semantic_context(
-            uid, min_confidence, semantic_types
-        )
-
     # Intelligence delegations
     async def analyze_task_learning_metrics(
         self, _filters: dict[str, Any] | None = None
@@ -816,15 +795,6 @@ class TasksService(
         return await self.progress.complete_task_with_cascade(
             uid, user_context=None, actual_minutes=actual_minutes, quality_score=quality_score
         )
-
-    async def uncomplete_task(self, uid: str) -> Result[Task]:
-        """
-        Mark task as incomplete (StatusRouteFactory compatible).
-
-        Reverts task status to IN_PROGRESS.
-        """
-
-        return await self.core.update_task(uid, TaskUpdateIntent(status=EntityStatus.ACTIVE.value))
 
     # ========================================================================
     # RELATIONSHIPS AND DEPENDENCIES — provided by _RelationshipMixin

@@ -711,7 +711,7 @@ async def analyze_task_knowledge(
     if result.is_error:
         return {}
 
-    impact = await tasks_service.get_task_completion_impact(task_uid)
+    impact = await tasks_service.analyze_task_knowledge_impact(task_uid)
     return impact.value if impact.is_ok else {}
 ```
 

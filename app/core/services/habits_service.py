@@ -85,7 +85,6 @@ from core.utils.sort_functions import (
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualHabit
-    from core.models.graph_context import GraphContext
     from core.models.habit.habit_request import HabitCreateRequest
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -165,7 +164,7 @@ class HabitsService(
     - Learning: get_learning_habits, create_habit_from_learning_goal, etc.
     - Planning: get_habit_priorities_for_user, get_actionable_habits_for_user, etc.
     - Scheduling: check_habit_capacity, suggest_habit_stacking, etc.
-    - Intelligence: get_habit_with_context, analyze_habit_performance, etc.
+    - Intelligence: analyze_habit_performance, etc.
     - Events: get_event_uids_for_habit, schedule_events_for_habit
 
     Mixin methods (see habits/ package):
@@ -365,11 +364,6 @@ class HabitsService(
         return await self.learning.assess_habit_learning_impact(habit_uid, learning_position)
 
     # Intelligence delegations
-    async def get_habit_with_context(
-        self, uid: str, depth: int = 2
-    ) -> Result[tuple[Habit, GraphContext]]:
-        return await self.intelligence.get_habit_with_context(uid, depth)
-
     async def analyze_habit_performance(
         self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:

@@ -59,13 +59,25 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   this_count=$(git rev-list --count "${range_args[@]}" 2>/dev/null || echo 0)
   commit_count=$((commit_count + this_count))
 
-  # -U0 = only the changed lines themselves.
-  this_diff=$(git diff -U0 "${range_args[@]}" -- \
-    ':(exclude)*.lock' ':(exclude)*.lock.json' 2>/dev/null || true)
+  # -U0 = only the changed lines themselves. rev-list resolves the range
+  # (it understands --not/--remotes; `git diff` does NOT — feeding it those
+  # args silently produced a bogus whole-tree diff on new-branch pushes),
+  # then diff-tree emits each pushed commit's own diff. --cc covers merge
+  # commits (without it diff-tree emits NO patch for a merge, so a secret
+  # introduced only in a conflict resolution would evade the scan); for a
+  # merge it prints the combined diff — exactly the resolution's own lines.
+  this_diff=$(git rev-list "${range_args[@]}" 2>/dev/null \
+    | git diff-tree --stdin --cc -U0 --no-commit-id -r -- \
+      ':(exclude)*.lock' ':(exclude)*.lock.json' 2>/dev/null || true)
   diff_text+="$this_diff"$'\n'
 done
 
-if [[ -z "${diff_text// }" ]]; then
+# grep over a herestring, not ${diff_text// } — bash pattern substitution is
+# quadratic on large strings and turned big pushes into multi-minute CPU
+# burns. A herestring (no pipe) also avoids the pipefail+SIGPIPE trap: with
+# `printf | grep -q`, grep exits at the first match, printf dies of SIGPIPE,
+# pipefail reports failure, and the `!` would silently skip the whole scan.
+if ! grep -q '[^[:space:]]' <<<"$diff_text"; then
   exit 0
 fi
 
@@ -86,7 +98,10 @@ patterns=(
   'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
 )
 
-added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
+# One or two leading '+' (plain diff / --cc combined-diff addition), but not
+# the '+++ b/file' header — combined-diff lines added by a merge resolution
+# relative to both parents are prefixed '++'.
+added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+{1,2}[^+]' || true)
 
 for entry in "${patterns[@]}"; do
   label="${entry%%|*}"

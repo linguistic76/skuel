@@ -8,7 +8,6 @@
 | File | Contents |
 |------|----------|
 | `habits_intelligence_service.py` | Shell: `__init__` + 3 protocol delegation methods (label attrs resolved via `DomainConfig`) |
-| `_core_intelligence_mixin.py` | `get_habit_with_context` (alias for `get_with_context`); inherits `get_with_context` from `core/services/intelligence/_CoreIntelligenceMixin` |
 | `_behavioral_signals_mixin.py` | `analyze_habit_performance`, `get_habit_knowledge_reinforcement`, `get_habit_goal_support`, and private helpers |
 | `_dual_track_mixin.py` | `assess_consistency_dual_track`, `_calculate_system_consistency`, gap insights/recommendations, `get_zpd_knowledge_signals` |
 
@@ -24,13 +23,15 @@ HabitsIntelligenceService transforms habit execution data into behavioral insigh
 
 ## Core Methods
 
-### Method 1: get_habit_with_context()
+### Method 1: get_with_context() (shared mechanism B)
 
-**Purpose:** Get habit with full graph context using pure Cypher graph intelligence. Automatically selects optimal query type based on habit's suggested intent.
+**Purpose:** Get habit with full graph context using pure Cypher graph intelligence.
+Inherited from the shared `core/services/intelligence/_CoreIntelligenceMixin` —
+routes through `self.relationships.get_with_context` (registry-sourced edge vocabulary).
 
 **Signature:**
 ```python
-async def get_habit_with_context(
+async def get_with_context(
     self,
     uid: str,
     depth: int = 2
@@ -54,7 +55,7 @@ async def get_habit_with_context(
 
 **Example:**
 ```python
-result = await habits_service.intelligence.get_habit_with_context(
+result = await habits_service.intelligence.get_with_context(
     uid="habit_001",
     depth=2
 )

@@ -5,11 +5,13 @@ Goals Sub-Services
 This package contains focused sub-services and intelligence mixins that compose
 the unified GoalsService facade.
 
-Architecture: Facade Pattern (8 sub-services + 5 intelligence mixins + 2 facade mixins)
+Architecture: Facade Pattern (8 sub-services + intelligence mixins + 2 facade mixins)
 - Each sub-service handles ONE specific responsibility
 - GoalsService (facade) delegates to appropriate sub-service via explicit delegation methods
 - GoalsService composes 2 facade mixins for relationship + orchestration methods (April 2026)
-- GoalsIntelligenceService delegates to 5 focused mixins (April 2026)
+- GoalsIntelligenceService delegates to focused mixins (April 2026); graph context
+  retrieval (get_with_context) comes from the shared
+  core.services.intelligence._core_intelligence_mixin
 - ~40+ delegation methods + explicit orchestration methods
 - Zero breaking changes to external code
 
@@ -18,7 +20,6 @@ Facade Mixins (compose into GoalsService):
 - _RelationshipMixin: link_goal_to_habit/knowledge/principle, semantic relationships
 
 Intelligence Mixins (compose into GoalsIntelligenceService):
-- _CoreIntelligenceMixin: graph context retrieval
 - _AnalyticsMixin: progress dashboard, completion forecast, learning requirements
 - _PredictiveMixin: success prediction, habit impact, risk assessment, scenarios
 - _DualTrackMixin: dual-track progress assessment (user vision vs system measurement)
@@ -53,7 +54,6 @@ Architecture Notes:
 """
 
 from core.services.goals._analytics_mixin import _AnalyticsMixin
-from core.services.goals._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.goals._dual_track_mixin import _DualTrackMixin
 from core.services.goals._orchestration_mixin import _OrchestrationMixin
 from core.services.goals._predictive_mixin import _PredictiveMixin
@@ -79,7 +79,6 @@ from core.services.goals.goals_search_service import GoalsSearchService
 
 __all__ = [
     "_AnalyticsMixin",
-    "_CoreIntelligenceMixin",
     "_DualTrackMixin",
     "_OrchestrationMixin",
     "_PredictiveMixin",

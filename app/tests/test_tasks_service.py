@@ -44,8 +44,6 @@ def mock_tasks_backend() -> Any:
     """Mock tasks backend for testing."""
     from datetime import datetime
 
-    from core.models.enums import EntityStatus
-
     backend = Mock()
 
     # Mock the generic BackendOperations methods (used by core service)
@@ -230,48 +228,6 @@ class TestCompleteTaskWithCascade:
 
 
 # ---------------------------------------------------------------------------
-# TestGetTaskWithDependencies
-# ---------------------------------------------------------------------------
-
-
-class TestGetTaskWithDependencies:
-    @pytest.mark.asyncio
-    async def test_wraps_result_in_dict_with_task_and_graph_context(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """get_task_with_dependencies wraps (task, context) tuple in dict."""
-        service = tasks_service_with_mocked_subservices
-        mock_task = Mock()
-        mock_context = Mock()
-        service.relationships.get_with_context = AsyncMock(
-            return_value=Result.ok((mock_task, mock_context))
-        )
-
-        result = await service.get_task_with_dependencies("task_abc", depth=2)
-
-        assert result.is_ok
-        assert result.value["task"] is mock_task
-        assert result.value["graph_context"] is mock_context
-        service.relationships.get_with_context.assert_called_once_with(
-            "task_abc", 2, intent="dependencies"
-        )
-
-    @pytest.mark.asyncio
-    async def test_propagates_relationship_error(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """get_task_with_dependencies propagates error from relationships."""
-        service = tasks_service_with_mocked_subservices
-        service.relationships.get_with_context = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_abc"))
-        )
-
-        result = await service.get_task_with_dependencies("task_abc")
-
-        assert result.is_error
-
-
-# ---------------------------------------------------------------------------
 # TestLinkTaskToKnowledge
 # ---------------------------------------------------------------------------
 
@@ -297,28 +253,6 @@ class TestLinkTaskToKnowledge:
             "task_abc",
             "ku_python_xyz",
             {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
-        )
-
-
-# ---------------------------------------------------------------------------
-# TestUncompleteTask
-# ---------------------------------------------------------------------------
-
-
-class TestUncompleteTask:
-    @pytest.mark.asyncio
-    async def test_calls_core_update_with_active_status(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """uncomplete_task calls core.update_task with EntityStatus.ACTIVE."""
-        service = tasks_service_with_mocked_subservices
-        mock_task = Mock()
-        service.core.update_task = AsyncMock(return_value=Result.ok(mock_task))
-
-        await service.uncomplete_task("task_abc")
-
-        service.core.update_task.assert_called_once_with(
-            "task_abc", TaskUpdateIntent(status=EntityStatus.ACTIVE.value)
         )
 
 
