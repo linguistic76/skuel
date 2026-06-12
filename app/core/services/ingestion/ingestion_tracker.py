@@ -79,6 +79,17 @@ class IngestionTracker:
         self.backend = backend
         self.logger = logger
 
+    @staticmethod
+    def _canonical(file_path: Path) -> str:
+        """Canonical absolute path string — THE key form for IngestionMetadata.
+
+        Metadata written with relative paths (direct service calls with a
+        relative directory) would be invisible to deletion reconciliation,
+        which queries by absolute directory prefix. Resolving at the tracker
+        boundary keeps storage, lookup, and reconciliation in one form.
+        """
+        return str(file_path.resolve())
+
     async def ensure_constraints(self) -> Result[None]:
         """
         Ensure Neo4j constraints exist for IngestionMetadata nodes.
@@ -111,7 +122,7 @@ class IngestionTracker:
         if not file_paths:
             return Result.ok({})
 
-        path_strings = [str(fp) for fp in file_paths]
+        path_strings = [self._canonical(fp) for fp in file_paths]
 
         result = await self.backend.get_ingestion_metadata(path_strings)
 
@@ -177,7 +188,7 @@ class IngestionTracker:
 
         result = await self.backend.update_ingestion_metadata(
             {
-                "file_path": str(file_path),
+                "file_path": self._canonical(file_path),
                 "content_hash": content_hash,
                 "file_mtime": file_mtime,
                 "entity_uid": entity_uid,
@@ -221,7 +232,7 @@ class IngestionTracker:
                 file_mtime = file_path.stat().st_mtime
                 items.append(
                     {
-                        "file_path": str(file_path),
+                        "file_path": self._canonical(file_path),
                         "entity_uid": entity_uid,
                         "content_hash": content_hash,
                         "file_mtime": file_mtime,
@@ -265,7 +276,9 @@ class IngestionTracker:
         if not file_paths:
             return Result.ok(0)
 
-        result = await self.backend.delete_ingestion_metadata([str(fp) for fp in file_paths])
+        result = await self.backend.delete_ingestion_metadata(
+            [self._canonical(fp) for fp in file_paths]
+        )
 
         if result.is_error:
             self.logger.error(
@@ -474,7 +487,7 @@ class IngestionTracker:
         all_decisions: list[IngestionDecision] = []
 
         for file_path in file_paths:
-            metadata = metadata_map.get(str(file_path))
+            metadata = metadata_map.get(self._canonical(file_path))
             decision = self.needs_ingestion(file_path, metadata)
             all_decisions.append(decision)
 

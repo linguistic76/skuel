@@ -109,6 +109,29 @@ class TestReconcileDeletions:
         backend.delete_entities_with_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_relative_paths_stored_canonical(self, tmp_path, monkeypatch) -> None:
+        """Metadata written from a relative path reaches the backend as the
+        resolved absolute string — otherwise reconciliation's absolute
+        directory-prefix query would never see it and deletions would not
+        propagate for relative-path callers."""
+        from pathlib import Path
+
+        monkeypatch.chdir(tmp_path)
+        target = tmp_path / "ku.rel.md"
+        target.write_text("x")
+
+        backend = MagicMock()
+        backend.update_ingestion_metadata_batch = AsyncMock(
+            return_value=Result.ok([{"updated": 1}])
+        )
+        tracker = IngestionTracker(backend)
+
+        await tracker.update_ingestion_metadata_batch([(Path("ku.rel.md"), "ku.rel", "hash")])
+
+        items = backend.update_ingestion_metadata_batch.await_args.args[0]
+        assert items[0]["file_path"] == str(target.resolve())
+
+    @pytest.mark.asyncio
     async def test_all_files_present_is_noop(self, tmp_path) -> None:
         alive = tmp_path / "ku.alive.md"
         alive.write_text("x")

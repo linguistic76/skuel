@@ -559,11 +559,22 @@ async def ingest_directory(
         # so deletion propagation must still run before returning.
         entities_deleted = 0
         stale_metadata_removed = 0
+        reconcile_errors: list[dict[str, Any]] = []
         if tracker is not None and not dry_run:
             reconcile_result = await tracker.reconcile_deletions(directory)
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            else:
+                # Same error surface as the non-empty processing path — a
+                # silently-skipped reconciliation would report a clean sync
+                # while the deleted entity is still in the graph.
+                reconcile_errors.append(
+                    {
+                        "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                        "operation": "reconcile_deletions",
+                    }
+                )
 
         duration = (datetime.now() - start_time).total_seconds()
         return Result.ok(
@@ -577,6 +588,7 @@ async def ingest_directory(
                 skipped_hash_match=skipped_hash_match,
                 entities_deleted=entities_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                errors=reconcile_errors if reconcile_errors else None,
             )
         )
 
