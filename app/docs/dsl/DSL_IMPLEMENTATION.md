@@ -22,7 +22,7 @@ This guide covers how to implement a parser for the SKUEL Activity DSL, includin
 - `ActivityDSLParser` - Main parser class
 - `ParsedActivityLine` - Structured result dataclass
 - `EntityType` enum - Type-safe entity classification
-- `ActivityEntityConverter` - DSL → Domain entity conversion
+- `activity_to_*` converter functions - DSL → Domain entity conversion
 
 ---
 
@@ -458,47 +458,42 @@ class ActivityDSLParser:
 
 ## Step 7: Domain Entity Conversion
 
-### ActivityEntityConverter
+### Converter functions
+
+Conversion is per-domain standalone functions, not a dispatch class. Each
+`activity_to_*` function guards on its `is_<domain>()` predicate and returns a
+`Result[ConversionResult]` (`TaskCreateRequest | dict`):
+
+- `activity_domain_converters.py` — Task, Habit, Goal, Event, Principle, Choice
+- `specialized_domain_converters.py` — Finance, KU, PS, LP, Report, Calendar, LifePath
+
+Graph connections ride the create request: link UIDs from `@ku()` / `@link()`
+are emitted as request fields (`applies_knowledge_uids`, `fulfills_goal_uid`,
+`linked_*_uids`) that the graph-aware create paths persist as edges.
 
 ```python
-from core.services.dsl.activity_entity_converter import ActivityEntityConverter
-from core.models.enums.entity_enums import EntityType
+from core.services.dsl.activity_domain_converters import activity_to_task_request
 
-class ActivityEntityConverter:
-    """Converts ParsedActivityLine to domain create requests."""
+@with_error_handling(error_type="system", operation="activity_to_task_request")
+def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
+    """Convert ParsedActivityLine to TaskCreateRequest (excerpt)."""
+    if not activity.is_task():
+        return Result.fail(Errors.validation(...))
 
-    def convert(self, activity: ParsedActivityLine) -> ConversionResult:
-        """Convert activity to appropriate domain entity."""
-
-        # Get canonical ku type (first context)
-        primary_type = activity.contexts[0] if activity.contexts else None
-
-        if not primary_type:
-            return Result.fail(Errors.validation("No context type specified", field="contexts"))
-
-        # Dispatch to appropriate converter
-        match primary_type:
-            case EntityType.TASK:
-                return self._convert_to_task(activity)
-            case EntityType.HABIT:
-                return self._convert_to_habit(activity)
-            case EntityType.GOAL:
-                return self._convert_to_goal(activity)
-            case EntityType.EVENT:
-                return self._convert_to_event(activity)
-            case _:
-                return self._convert_generic(activity)
-
-    def _convert_to_task(self, activity: ParsedActivityLine) -> TaskCreateRequest:
-        """Convert to Task entity."""
-        return TaskCreateRequest(
-            title=activity.description,
-            due_date=activity.when.date() if activity.when else None,
-            priority=activity.priority or 3,
-            estimated_duration_minutes=activity.duration_minutes,
-            energy_requirement=activity.energy_states[0] if activity.energy_states else None,
-            # ... map other fields
-        )
+    request = TaskCreateRequest(
+        title=activity.description,
+        due_date=activity.when.date() if activity.when else None,
+        duration_minutes=activity.duration_minutes or 30,
+        priority=map_dsl_priority_to_enum(activity.priority),
+        status=EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
+        recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern),
+        # Knowledge connections
+        applies_knowledge_uids=activity.get_linked_knowledge(),
+        # Goal connections
+        fulfills_goal_uid=activity.get_linked_goals()[0] if activity.get_linked_goals() else None,
+        tags=activity.energy_states if activity.energy_states else [],
+    )
+    return Result.ok(request)
 ```
 
 ---
@@ -671,5 +666,5 @@ def parse_line_with_validation(self, line: str) -> Result[ParsedActivityLine]:
 - **Formal Grammar:** `DSL_SPECIFICATION.md`
 - **Usage Examples:** `DSL_USAGE_GUIDE.md`
 - **Parser Implementation:** `/core/services/dsl/activity_dsl_parser.py`
-- **Entity Converter:** `/core/services/dsl/activity_entity_converter.py` (orchestrator), `/core/services/dsl/activity_domain_converters.py` (activity domains), `/core/services/dsl/specialized_domain_converters.py` (curriculum/meta/finance/lifepath), `/core/services/dsl/dsl_mappings.py` (shared mappings)
+- **Entity Converters:** `/core/services/dsl/activity_domain_converters.py` (activity domains), `/core/services/dsl/specialized_domain_converters.py` (curriculum/meta/finance/lifepath), `/core/services/dsl/dsl_mappings.py` (shared mappings)
 - **EntityType Enum:** `/core/models/enums/entity_enums.py`

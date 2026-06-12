@@ -285,6 +285,22 @@ _LP_REVERSE_LOOKUP = (
     "query, no live equivalent at LP grain); wire a goal-detail 'aligned learning paths' / "
     "ku-detail 'paths teaching this' consumer"
 )
+_DSL_EXTRACTION = (
+    "DSL extraction pipeline staged — production wiring deliberately retired with the "
+    "journal pipeline (ADR-054 Commit 6a); no live @context-tag → entities path exists. "
+    "Forward direction is ONE path: wire extraction as a UserEntryProcessingService.process() "
+    "pipeline step over UserEntry content (the unified-ingestion hips), NOT a resurrection of "
+    "the submission-metadata flow — _store_extraction_metadata must be repointed off the "
+    "retired get_submission/update_submission surface first"
+)
+_DSL_BRIDGE_VARIANTS = (
+    "LLM DSL bridge variant staged — transform() is the maintained entry "
+    "(adapters/external/llm factory + PROMPT_REGISTRY dsl_domain_recognition templates); "
+    "context-enhanced and rule-based-sync variants await the same wiring as the extraction "
+    "pipeline: a UserEntry ingestion step that turns natural text into @context-tagged DSL "
+    "(context variant = feed UserContext goals/topics/principles; sync variant = the "
+    "CORE-tier no-LLM fallback)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -582,6 +598,13 @@ PLANNED_METHODS: dict[str, str] = {
     # --- LP: reverse-lookup search lenses ---
     "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
+    # --- DSL: extraction pipeline (Analog-to-Digital flagship, phase 3) ---
+    "core/services/dsl/activity_extractor.py::extract_and_create": _DSL_EXTRACTION,
+    "core/services/dsl/activity_extractor.py::preview_extraction": _DSL_EXTRACTION,
+    "core/services/dsl/activity_extractor.py::has_errors": _DSL_EXTRACTION,
+    # --- DSL: LLM bridge variants (Analog-to-Digital flagship, phase 1) ---
+    "core/services/dsl/llm_dsl_bridge.py::transform_with_context": _DSL_BRIDGE_VARIANTS,
+    "core/services/dsl/llm_dsl_bridge.py::transform_sync": _DSL_BRIDGE_VARIANTS,
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

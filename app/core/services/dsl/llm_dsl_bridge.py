@@ -171,10 +171,10 @@ class LLMDSLBridgeService:
         # - @context(habit) Exercise @repeat(daily)
     ```
 
-    **Integration with Pipeline:**
+    **Integration with Pipeline (staged — see PLANNED tier):**
 
     ```python
-    # In ReportProcessorService or JournalCoreService
+    # In a future UserEntry processing pipeline step
 
     # 1. Transform raw text to DSL format
     transform_result = await llm_bridge.transform(raw_journal_text, user_uid)

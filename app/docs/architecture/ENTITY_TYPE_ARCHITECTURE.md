@@ -482,12 +482,12 @@ The Activity DSL enables natural language parsing into entity types:
 - [ ] Embody wisdom and service  @context(lifepath)  @link(principle:service)
 ```
 
-**Processing pipeline:**
+**Processing pipeline (staged — PLANNED tier; wiring retired with the journal pipeline, ADR-054):**
 ```
 Natural Text
     -> LLMDSLBridgeService.transform()        # GPT-4o-mini adds @context tags
     -> ActivityDSLParser.parse_journal()       # ParsedJournal (domain buckets)
-    -> ActivityEntityConverter.convert()       # Domain-typed create requests
+    -> activity_to_* converter functions       # Domain-typed create requests (link UIDs ride along)
     -> ActivityExtractorService.extract_and_create()  # SKUEL entities + graph relationships
 ```
 

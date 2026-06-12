@@ -294,16 +294,6 @@ class ParsedActivityLine:
         return EntityType.LIFE_PATH in self.contexts
 
     @property
-    def primary_context(self) -> EntityType | NonKuDomain | None:
-        """
-        Get the primary (first) context for this activity.
-
-        Returns:
-            The first EntityType or NonKuDomain in contexts, or None if contexts is empty
-        """
-        return self.contexts[0] if self.contexts else None
-
-    @property
     def context_values(self) -> list[str]:
         """
         Get context values as strings (for serialization/logging).
@@ -340,10 +330,6 @@ class ParsedActivityLine:
             ]
         )
         return uids
-
-    def get_linked_choices(self) -> list[str]:
-        """Get choice UIDs from @link() tags."""
-        return [link["id"] for link in self.links if link.get("type") == EntityType.CHOICE.value]
 
     def get_amount(self) -> float | None:
         """
