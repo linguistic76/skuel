@@ -205,3 +205,47 @@ class IngestionBackend:
             """,
             {"paths": paths},
         )
+
+    async def get_tracked_files_under(self, path_prefix: str) -> Result[list[dict[str, Any]]]:
+        """List all tracked (file_path, entity_uid) pairs under a directory prefix.
+
+        Used by deletion reconciliation: tracked files that no longer exist on
+        disk are vault deletions to propagate. The prefix must end with the
+        path separator so /vault/a doesn't match /vault/abc.
+        """
+        return await self._executor.execute_query(
+            """
+            MATCH (s:IngestionMetadata)
+            WHERE s.file_path STARTS WITH $path_prefix
+            RETURN s.file_path AS file_path, s.entity_uid AS entity_uid
+            """,
+            {"path_prefix": path_prefix},
+        )
+
+    async def delete_entities_with_metadata(
+        self, items: list[dict[str, str]]
+    ) -> Result[list[dict[str, Any]]]:
+        """Delete vault-removed entities, their content chunks, and tracking rows.
+
+        Each item carries {file_path, entity_uid}. Matches the entity across the
+        three uid-bearing node shapes ingestion can create (:Entity multi-label,
+        :Group, :Expense), removes dependent :ContentChunk nodes first (DETACH
+        DELETE on the parent would otherwise orphan them), then the entity and
+        its IngestionMetadata row. Missing entities (already deleted by hand)
+        still get their metadata row cleaned up.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $items AS item
+            MATCH (s:IngestionMetadata {file_path: item.file_path})
+            OPTIONAL MATCH (e:Entity {uid: item.entity_uid})
+            OPTIONAL MATCH (g:Group {uid: item.entity_uid})
+            OPTIONAL MATCH (x:Expense {uid: item.entity_uid})
+            OPTIONAL MATCH (e)-[:HAS_CHUNK]->(chunk:ContentChunk)
+            DETACH DELETE chunk
+            WITH DISTINCT item, s, e, g, x
+            DETACH DELETE e, g, x, s
+            RETURN item.file_path AS file_path, item.entity_uid AS entity_uid
+            """,
+            {"items": items},
+        )

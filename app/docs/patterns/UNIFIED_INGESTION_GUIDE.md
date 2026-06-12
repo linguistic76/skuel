@@ -738,6 +738,13 @@ session plus the `X-CSRF-Token` header (see `scripts/vault_watch.py` for the can
 `ingestion_mode` is accepted by `/api/ingest/directory` only; since directory scanning recurses,
 point it at the vault root for an incremental whole-vault sync.
 
+**Deletion propagation (incremental/smart only):** vault file deleted → graph entity deleted.
+After processing, tracked files under the directory that no longer exist on disk have their
+entity + content chunks + IngestionMetadata removed (`IngestionTracker.reconcile_deletions`).
+Moved/renamed files lose only the stale tracking row; a 100%-missing sweep (unmounted vault)
+is refused as a safety valve. Edge YAML deletion does NOT remove the relationship (edge files
+are not metadata-tracked). Response fields: `entities_deleted`, `stale_metadata_removed`.
+
 ### Example: Automated incremental vault sync
 
 ```bash

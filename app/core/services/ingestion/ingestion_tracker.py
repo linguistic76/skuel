@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import EntityUID
+from core.services.ingestion.types import DeletionReconciliation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -279,6 +280,84 @@ class IngestionTracker:
         records = result.value
         deleted_count = records[0]["deleted"] if records else 0
         return Result.ok(deleted_count)
+
+    async def reconcile_deletions(self, directory: Path) -> Result[DeletionReconciliation]:
+        """
+        Propagate vault deletions to the graph for one directory.
+
+        A tracked file under `directory` that no longer exists on disk means
+        the author deleted it from the vault — the corresponding entity (and
+        its content chunks + tracking row) is deleted from Neo4j.
+
+        Two guards:
+        - **Moved/renamed files**: if the same entity_uid is still claimed by
+          a tracked file that DOES exist (the rename was just re-ingested),
+          only the stale tracking row is removed — the entity survives.
+        - **Mass-deletion safety valve**: if EVERY tracked file under the
+          directory vanished at once (unmounted vault, sync wipe), deletion
+          is refused and a warning logged. A real full-vault teardown is an
+          explicit admin operation, not a watcher side effect.
+
+        Backend: IngestionBackend.get_tracked_files_under / delete_entities_with_metadata.
+        """
+        # Trailing separator so /vault/a never matches /vault/abc.
+        prefix = str(directory.resolve()).rstrip("/") + "/"
+        tracked_result = await self.backend.get_tracked_files_under(prefix)
+        if tracked_result.is_error:
+            return Result.fail(tracked_result)
+
+        tracked = tracked_result.value or []
+        if not tracked:
+            return Result.ok(DeletionReconciliation())
+
+        missing = [row for row in tracked if not Path(str(row["file_path"])).exists()]
+        if not missing:
+            return Result.ok(DeletionReconciliation())
+
+        if len(missing) == len(tracked):
+            self.logger.warning(
+                "Deletion reconciliation refused: all %d tracked files under %s "
+                "are missing — looks like an unmounted vault or sync wipe, not "
+                "authoring. Delete explicitly via the ingestion dashboard if intended.",
+                len(tracked),
+                directory,
+            )
+            return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
+
+        # Entity uids still claimed by a file that exists = moves/renames.
+        live_uids = {row["entity_uid"] for row in tracked if Path(str(row["file_path"])).exists()}
+        stale_rows = [row for row in missing if row["entity_uid"] in live_uids]
+        delete_rows = [row for row in missing if row["entity_uid"] not in live_uids]
+
+        stale_removed = 0
+        if stale_rows:
+            stale_result = await self.delete_ingestion_metadata(
+                [Path(str(row["file_path"])) for row in stale_rows]
+            )
+            stale_removed = stale_result.value if stale_result.is_ok else 0
+
+        entities_deleted = 0
+        if delete_rows:
+            items = [
+                {"file_path": str(row["file_path"]), "entity_uid": str(row["entity_uid"])}
+                for row in delete_rows
+            ]
+            delete_result = await self.backend.delete_entities_with_metadata(items)
+            if delete_result.is_error:
+                return Result.fail(delete_result)
+            entities_deleted = len(delete_result.value or [])
+            self.logger.info(
+                "Deletion propagation: removed %d entities for vault-deleted files under %s",
+                entities_deleted,
+                directory,
+            )
+
+        return Result.ok(
+            DeletionReconciliation(
+                entities_deleted=entities_deleted,
+                stale_metadata_removed=stale_removed,
+            )
+        )
 
     def compute_file_hash(self, file_path: Path) -> str:
         """

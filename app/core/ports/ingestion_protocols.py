@@ -77,6 +77,12 @@ class IngestionBackendOperations(Protocol):
 
     async def delete_ingestion_metadata(self, paths: list[str]) -> Result[list[dict[str, Any]]]: ...
 
+    async def get_tracked_files_under(self, path_prefix: str) -> Result[list[dict[str, Any]]]: ...
+
+    async def delete_entities_with_metadata(
+        self, items: list[dict[str, str]]
+    ) -> Result[list[dict[str, Any]]]: ...
+
 
 @runtime_checkable
 class IngestionWriteOperations(Protocol):

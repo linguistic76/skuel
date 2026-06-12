@@ -152,9 +152,14 @@ through the credential store) and re-authenticates on session expiry. Going thro
 API (not direct service composition) keeps ingestion on the app's fully-wired service —
 embeddings, event bus, UserEntry routing — one path, no divergence.
 
-**Not in scope (unchanged):** deletion propagation — a file removed from the vault is detected
-as a change and triggers a run, but ingestion is create/update only; the graph entity remains.
-Deletion semantics are an open design decision.
+**Deletion propagation (ruled + implemented 2026-06-12):** a vault file deleted means the graph
+entity is deleted (Mike's ruling). Incremental/smart runs reconcile after processing: tracked
+files (IngestionMetadata) under the directory that no longer exist on disk have their entity,
+content chunks, and tracking row removed. Two guards: moved/renamed files (same entity_uid
+re-ingested under a new path) lose only the stale tracking row; and if EVERY tracked file
+vanished at once (unmounted vault, sync wipe) deletion is refused with a warning — a full
+teardown is an explicit admin operation, not a watcher side effect. Known limitation: deleting
+an Edge YAML does not remove the relationship (edge files are not metadata-tracked).
 
 ### Phase 3: Server Deployment (Stage 2 — Droplet)
 

@@ -554,7 +554,17 @@ async def ingest_directory(
         )
 
     if not files_to_process:
-        # All files are up to date
+        # All surviving files are up to date — but a deletion-only vault change
+        # lands exactly here (the deleted file is simply absent from all_files),
+        # so deletion propagation must still run before returning.
+        entities_deleted = 0
+        stale_metadata_removed = 0
+        if tracker is not None and not dry_run:
+            reconcile_result = await tracker.reconcile_deletions(directory)
+            if reconcile_result.is_ok:
+                entities_deleted = reconcile_result.value.entities_deleted
+                stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+
         duration = (datetime.now() - start_time).total_seconds()
         return Result.ok(
             IncrementalStats(
@@ -565,6 +575,8 @@ async def ingest_directory(
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
+                entities_deleted=entities_deleted,
+                stale_metadata_removed=stale_metadata_removed,
             )
         )
 
@@ -774,6 +786,24 @@ async def ingest_directory(
             await tracker.update_ingestion_metadata_batch(ingestion_updates)
             logger.info(f"Updated ingestion metadata for {len(ingestion_updates)} files")
 
+    # Deletion propagation: vault file deleted -> graph entity deleted.
+    # Runs after the metadata updates above so moved/renamed files (already
+    # re-ingested under their new path) are recognized as moves, not deletions.
+    entities_deleted = 0
+    stale_metadata_removed = 0
+    if tracker is not None and ingestion_mode != "full" and not dry_run:
+        reconcile_result = await tracker.reconcile_deletions(directory)
+        if reconcile_result.is_ok:
+            entities_deleted = reconcile_result.value.entities_deleted
+            stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+        else:
+            errors.append(
+                {
+                    "message": f"Deletion reconciliation failed: {reconcile_result.error}",
+                    "operation": "reconcile_deletions",
+                }
+            )
+
     duration = (datetime.now() - start_time).total_seconds()
 
     # Return appropriate stats type based on ingestion mode
@@ -805,6 +835,8 @@ async def ingest_directory(
                 duration_seconds=duration,
                 skipped_unchanged=skipped_unchanged,
                 skipped_hash_match=skipped_hash_match,
+                entities_deleted=entities_deleted,
+                stale_metadata_removed=stale_metadata_removed,
                 errors=errors if errors else None,
             )
         )

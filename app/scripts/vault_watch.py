@@ -129,6 +129,9 @@ def print_stats(payload: dict) -> None:
     )
     if skipped is not None:
         summary += f", {skipped} skipped unchanged ({payload.get('skip_efficiency', 0):.0f}%)"
+    deleted = payload.get("entities_deleted", 0)
+    if deleted:
+        summary += f", {deleted} entities deleted (vault deletions)"
     summary += f" in {payload.get('duration_seconds', 0):.1f}s"
     print(summary)
     for err in (payload.get("errors") or [])[:5]:
