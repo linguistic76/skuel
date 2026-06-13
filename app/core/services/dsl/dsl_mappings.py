@@ -8,12 +8,26 @@ to SKUEL domain enums. Used by all converter modules.
 
 from typing import Any
 
+from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import Priority, RecurrencePattern
+from core.models.event.event_request import EventCreateRequest
+from core.models.goal.goal_request import GoalCreateRequest
+from core.models.habit.habit_request import HabitCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task_request import TaskCreateRequest
 
-# Type alias for conversion results
-# As we add more typed CreateRequest classes, add them to this union
-ConversionResult = TaskCreateRequest | dict[str, Any]
+# Type alias for conversion results.
+# The 6 Activity Domain converters emit typed *CreateRequest objects; the
+# specialized converters (ku, calendar, ...) still emit dicts.
+ConversionResult = (
+    TaskCreateRequest
+    | HabitCreateRequest
+    | GoalCreateRequest
+    | EventCreateRequest
+    | PrincipleCreateRequest
+    | ChoiceCreateRequest
+    | dict[str, Any]
+)
 
 
 def map_dsl_priority_to_enum(dsl_priority: int | None) -> Priority:

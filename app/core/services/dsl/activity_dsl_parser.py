@@ -259,17 +259,8 @@ class ParsedActivityLine:
         return EntityType.LEARNING_PATH in self.contexts
 
     # ========================================================================
-    # META DOMAINS (3) - Type-Safe Checks
+    # META DOMAINS - Type-Safe Checks
     # ========================================================================
-
-    def is_report(self) -> bool:
-        """
-        Check if this is a Report activity (file uploads, processing).
-
-        Returns:
-            True if EntityType.USER_ENTRY is in contexts
-        """
-        return EntityType.USER_ENTRY in self.contexts
 
     def is_calendar(self) -> bool:
         """
@@ -429,12 +420,8 @@ class ParsedJournal:
         return [a for a in self.activities if a.is_lp()]
 
     # ========================================================================
-    # META DOMAINS (3) - Filtered Accessors
+    # META DOMAINS - Filtered Accessors
     # ========================================================================
-
-    def get_reports(self) -> list[ParsedActivityLine]:
-        """Get all Report activities."""
-        return [a for a in self.activities if a.is_report()]
 
     def get_calendar_items(self) -> list[ParsedActivityLine]:
         """Get all Calendar activities."""
@@ -960,8 +947,9 @@ class ActivityDSLParser:
         """
         Parse @ku() knowledge unit reference.
 
-        Expected format: ku:namespace/slug
-        Returns the full UID string.
+        Accepted forms: the canonical flat UID ``ku_{slug}_{random}``
+        (ADR-013) plus the ``ku:``/``ku.`` separator forms ingestion
+        normalizes. Returns the full UID string.
         """
         if not value:
             return None
@@ -969,13 +957,12 @@ class ActivityDSLParser:
         # Clean up the value
         value = value.strip()
 
-        # Validate format (should start with ku:)
-        if not value.startswith("ku:"):
-            self.logger.warning(f"Invalid KU format (missing ku: prefix): {value}")
-            # Be lenient - add prefix if missing
-            return f"ku:{value}"
+        if value.startswith(("ku:", "ku.", "ku_")):
+            return value
 
-        return value
+        self.logger.warning(f"Invalid KU format (missing ku prefix): {value}")
+        # Be lenient - add prefix if missing
+        return f"ku:{value}"
 
     def _parse_links(self, value: str) -> list[dict[str, str]]:
         """

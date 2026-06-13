@@ -162,16 +162,12 @@ Some reflections on the day...
             habits_service=None,  # Not testing habit creation
             goals_service=None,
             events_service=None,
-            report_service=None,
         )
 
     @pytest.mark.asyncio
     async def test_extract_finds_activities(self, extractor, mock_ku):
         """Extractor finds all activity lines."""
-        result = await extractor.extract_and_create(
-            report=mock_ku,
-            user_uid="user_mike",
-        )
+        result = await extractor.extract_and_create(mock_ku, "user_mike")
 
         assert result.is_ok
         extraction = result.value
@@ -182,10 +178,7 @@ Some reflections on the day...
     @pytest.mark.asyncio
     async def test_extract_creates_tasks(self, extractor, mock_ku, mock_tasks_service):
         """Extractor creates tasks via service."""
-        result = await extractor.extract_and_create(
-            report=mock_ku,
-            user_uid="user_mike",
-        )
+        result = await extractor.extract_and_create(mock_ku, "user_mike")
 
         assert result.is_ok
         extraction = result.value
@@ -196,10 +189,99 @@ Some reflections on the day...
         assert mock_tasks_service.create_task.call_count == 2
 
     @pytest.mark.asyncio
+    async def test_extract_records_line_provenance(self, extractor, mock_ku):
+        """Each created entity carries a (uid, line_hash) provenance pair."""
+        result = await extractor.extract_and_create(mock_ku, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert len(extraction.created_links) == extraction.total_created
+        for uid, line_hash in extraction.created_links:
+            assert uid == "task:123"
+            assert len(line_hash) == 64  # sha256 hex digest
+
+    @pytest.mark.asyncio
+    async def test_extract_skips_existing_line_hashes(self, extractor, mock_ku):
+        """Guard 2: lines whose hash already has an EXTRACTED_FROM edge skip."""
+        first = await extractor.extract_and_create(mock_ku, "user_mike")
+        assert first.is_ok
+        existing = frozenset(line_hash for _, line_hash in first.value.created_links)
+
+        second = await extractor.extract_and_create(
+            mock_ku, "user_mike", existing_line_hashes=existing
+        )
+
+        assert second.is_ok
+        extraction = second.value
+        assert extraction.tasks_created == 0
+        assert extraction.created_links == []
+        assert extraction.lines_skipped_existing == 2
+
+    @pytest.mark.asyncio
+    async def test_extract_collects_ku_references(self, extractor, mock_ku):
+        """@ku() references are collected for APPLIES_KNOWLEDGE edge writes."""
+        result = await extractor.extract_and_create(mock_ku, "user_mike")
+
+        assert result.is_ok
+        assert result.value.referenced_ku_uids == ["ku:books/productivity"]
+
+    @pytest.mark.asyncio
+    async def test_extract_content_override_wins(self, extractor, mock_ku):
+        """content_override is parsed instead of the entry's own content."""
+        result = await extractor.extract_and_create(
+            mock_ku,
+            "user_mike",
+            content_override="- [ ] Only this @context(task)",
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.activities_found == 1
+        assert extraction.tasks_found == 1
+        assert extraction.habits_found == 0
+
+    @pytest.mark.asyncio
+    async def test_curriculum_creation_gated_for_non_teacher(self, mock_tasks_service):
+        """Non-teacher @context(ku) creation lines are recorded, not created."""
+        mock_ku_service = AsyncMock()
+        extractor = ActivityExtractorService(
+            tasks_service=mock_tasks_service,
+            ku_service=mock_ku_service,
+        )
+        entry = UserEntry(
+            uid="ue_gate",
+            title="Gate test",
+            user_uid="user_member",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.EXTRACT_ACTIVITIES,
+            content=(
+                "- [ ] Python decorators @context(ku)\n"
+                "- [ ] Practice decorators @context(task) @ku(ku:tech/decorators)\n"
+            ),
+        )
+
+        result = await extractor.extract_and_create(
+            entry, "user_member", allow_curriculum_creation=False
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.kus_created == 0
+        mock_ku_service.create_ku.assert_not_called()
+        assert any(
+            "curriculum creation requires teacher/admin role" in e
+            for e in extraction.creation_errors
+        )
+        # The @ku() reference on the task line still resolves
+        assert "ku:tech/decorators" in extraction.referenced_ku_uids
+        assert extraction.tasks_created == 1
+
+    @pytest.mark.asyncio
     async def test_extract_handles_empty_content(self, extractor):
         """Extractor handles empty content gracefully."""
-        empty_ku = UserEntry(
-            uid="report:empty",
+        empty_entry = UserEntry(
+            uid="ue_empty",
             title="Empty",
             user_uid="user_mike",
             entity_type=EntityType.USER_ENTRY,
@@ -212,10 +294,7 @@ Some reflections on the day...
             processed_content="",
         )
 
-        result = await extractor.extract_and_create(
-            report=empty_ku,
-            user_uid="user_mike",
-        )
+        result = await extractor.extract_and_create(empty_entry, "user_mike")
 
         assert result.is_ok
         extraction = result.value
@@ -243,7 +322,7 @@ class TestExtractionResult:
     def test_total_created(self):
         """total_created sums all entity counts."""
         result = ActivityExtractionResult(
-            report_uid="test",
+            entry_uid="test",
             user_uid="user",
             tasks_created=3,
             habits_created=2,
@@ -256,20 +335,20 @@ class TestExtractionResult:
     def test_has_errors(self):
         """has_errors detects any error lists."""
         result_clean = ActivityExtractionResult(
-            report_uid="test",
+            entry_uid="test",
             user_uid="user",
         )
         assert not result_clean.has_errors
 
         result_parse_error = ActivityExtractionResult(
-            report_uid="test",
+            entry_uid="test",
             user_uid="user",
             parse_errors=["Line 5: Invalid @context"],
         )
         assert result_parse_error.has_errors
 
         result_create_error = ActivityExtractionResult(
-            report_uid="test",
+            entry_uid="test",
             user_uid="user",
             creation_errors=["Task creation failed"],
         )
@@ -278,7 +357,7 @@ class TestExtractionResult:
     def test_to_dict(self):
         """to_dict produces serializable output."""
         result = ActivityExtractionResult(
-            report_uid="test",
+            entry_uid="test",
             user_uid="user",
             activities_found=5,
             tasks_created=2,

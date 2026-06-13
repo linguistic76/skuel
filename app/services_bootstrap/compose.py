@@ -1112,12 +1112,52 @@ async def compose_services(
         # ``type: user_entry`` route through the same create_entry() pipeline
         # as the /submit form (ADR-054 — one path forward).
         unified_ingestion.user_entry_service = user_entry_service
+
+        # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
+        # Domain facades are the create surfaces; ps/lp/calendar/lifepath
+        # carry no create-capable method today and finance was retired with
+        # ADR-052, so those inject None (their parsed lines count in *_found
+        # and skip cleanly).
+        from core.services.dsl import ActivityExtractorService
+
+        activity_extractor = ActivityExtractorService(
+            tasks_service=activity_services["tasks"],
+            habits_service=activity_services["habits"],
+            goals_service=activity_services["goals"],
+            events_service=activity_services["events"],
+            principles_service=activity_services["principles"],
+            choices_service=activity_services["choices"],
+            finance_service=None,
+            ku_service=learning_services["atomic_ku_service"],
+            ps_service=None,
+            lp_service=None,
+            calendar_service=None,
+            lifepath_service=None,
+        )
+
+        # Optional Digital pre-pass: LLM bridge tags untagged prose before the
+        # Analog parser runs. FULL tier only; a keyless bridge would error on
+        # every transform() call, so it degrades to None (parser-only) too.
+        dsl_bridge = None
+        if tier.ai_enabled:
+            from adapters.external.llm import create_llm_dsl_bridge
+
+            bridge = create_llm_dsl_bridge()
+            dsl_bridge = bridge if bridge.chat_port is not None else None
+            if dsl_bridge is None:
+                logger.info("⏭️  DSL bridge skipped (no OpenAI key) — parser-only extraction")
+        else:
+            logger.info("⏭️  DSL bridge skipped (intelligence tier: CORE) — parser-only extraction")
+
         user_entry_processor = UserEntryProcessingService(
             entry_service=user_entry_service,
             transcription_adapter=core_services["deepgram_adapter"],
             llm_caller=llm_caller,
             instruction_resolver=instruction_resolver,
             event_bus=event_bus,
+            activity_extractor=activity_extractor,
+            dsl_bridge=dsl_bridge,
+            user_service=user_service,
         )
         user_entry_assessment = AssessmentService(
             backend=user_entry_backend,
