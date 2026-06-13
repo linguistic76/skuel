@@ -23,6 +23,7 @@ invisible.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from starlette.datastructures import UploadFile
@@ -280,7 +281,8 @@ def create_user_entry_api_routes(
         """Trigger the pipeline on an existing entry.
 
         JSON body: ``UserEntryProcessRequest`` (``uid`` required, optional
-        per-run ``pipeline`` and ``instructions`` overrides).
+        per-run ``pipeline``/``instructions`` overrides and ``force`` re-run
+        flag for the EXTRACT_ACTIVITIES completed-run guard).
         """
         user_uid = require_authenticated_user(request)
 
@@ -302,7 +304,12 @@ def create_user_entry_api_routes(
             return Result.fail(loaded)
         entry = loaded.value
 
-        result = await processing_service.process(entry, instructions=req.instructions)
+        if req.pipeline is not None and req.pipeline != entry.pipeline:
+            entry = replace(entry, pipeline=req.pipeline)
+
+        result = await processing_service.process(
+            entry, instructions=req.instructions, force=req.force
+        )
         if result.is_error:
             return Result.fail(result)
 

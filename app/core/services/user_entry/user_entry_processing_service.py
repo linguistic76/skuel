@@ -10,17 +10,24 @@ to the matching processor:
     Pipeline.TRANSCRIBE               → Deepgram audio → transcript
     Pipeline.LLM_SUMMARY              → LLM summarization of text/processed content
     Pipeline.TRANSCRIBE_AND_STRUCTURE → transcribe + LLM structuring (two entries)
+    Pipeline.EXTRACT_ACTIVITIES       → DSL parse → real entities with
+                                        EXTRACTED_FROM provenance (ADR-069)
 
 TRANSCRIBE_AND_STRUCTURE produces a second ``UserEntry`` carrying the
 LLM-structured output, linked back to the source with a ``TRANSFORMS``
 edge (wired via ``UserEntryCreateRequest.transforms_of_uid`` on the
 facade).
 
-ADR-054: activity extraction from journals dropped; create Tasks/Goals directly.
+EXTRACT_ACTIVITIES is Analog-complete: the DSL parser runs over hand-tagged
+``@context(...)`` lines with no API keys; on FULL tier an optional LLM
+bridge pre-pass tags untagged prose first and degrades to parser-only when
+the bridge call fails (ADR-069 Decision 1 — extraction joins the unified
+ingestion path; the ADR-054-retired submission-metadata flow stays retired).
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +41,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
+from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
@@ -43,9 +51,12 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.transcription_protocols import TranscriptionPort
+    from core.services.dsl.activity_extractor import ActivityExtractorService
+    from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
+    from core.services.user_service import UserService
 
 
 class UserEntryProcessingService:
@@ -63,12 +74,18 @@ class UserEntryProcessingService:
         llm_caller: UnifiedLLMCaller | None = None,
         instruction_resolver: InstructionResolver | None = None,
         event_bus: EventBusOperations | None = None,
+        activity_extractor: ActivityExtractorService | None = None,
+        dsl_bridge: LLMDSLBridgeService | None = None,
+        user_service: UserService | None = None,
     ) -> None:
         self.entry_service = entry_service
         self.transcription_adapter = transcription_adapter
         self.llm_caller = llm_caller
         self.instruction_resolver = instruction_resolver
         self.event_bus = event_bus
+        self.activity_extractor = activity_extractor
+        self.dsl_bridge = dsl_bridge
+        self.user_service = user_service
         self.logger = get_logger("skuel.services.user_entry.processing")
 
     # =========================================================================
@@ -79,6 +96,7 @@ class UserEntryProcessingService:
         self,
         entry: UserEntry,
         instructions: str | None = None,
+        force: bool = False,
     ) -> Result[UserEntry]:
         """Run ``entry.pipeline`` on ``entry``.
 
@@ -86,6 +104,9 @@ class UserEntryProcessingService:
             entry: The UserEntry to process.
             instructions: Per-run override for pipeline instructions
                 (e.g., custom LLM prompt). Falls back to ``entry.instructions``.
+            force: Re-run override for EXTRACT_ACTIVITIES — bypasses the
+                completed-run guard (line-hash dedup still prevents
+                duplicates).
 
         Returns:
             Result[UserEntry] — the (possibly updated) entry.
@@ -94,6 +115,17 @@ class UserEntryProcessingService:
 
         if pipeline == Pipeline.NONE or pipeline == Pipeline.TEACHER_REVIEW:
             return Result.ok(entry)
+
+        if pipeline == Pipeline.EXTRACT_ACTIVITIES:
+            # Guard precedes _emit_started: a completed-run no-op is not a run.
+            if self._extraction_already_completed(entry) and not force:
+                self.logger.info(
+                    f"EXTRACT_ACTIVITIES already completed for {entry.uid}; "
+                    "no-op (pass force=True to re-run)"
+                )
+                return Result.ok(entry)
+            await self._emit_started(entry)
+            return await self._run_extract_activities(entry)
 
         await self._emit_started(entry)
 
@@ -313,6 +345,172 @@ class UserEntryProcessingService:
         return Result.ok(updated_source)
 
     # =========================================================================
+    # EXTRACT_ACTIVITIES (ADR-069)
+    # =========================================================================
+
+    @staticmethod
+    def _extraction_already_completed(entry: UserEntry) -> bool:
+        """Guard 1 of the two-guard idempotency: completed-run metadata."""
+        summary = (entry.metadata or {}).get("activity_extraction")
+        if isinstance(summary, str):
+            # backend.update JSON-serializes nested dicts into string props.
+            try:
+                summary = json.loads(summary)
+            except ValueError:
+                return False
+        return isinstance(summary, dict) and summary.get("status") == "completed"
+
+    async def _run_extract_activities(self, entry: UserEntry) -> Result[UserEntry]:
+        """DSL extraction: text → parsed Activity Lines → real entities.
+
+        Analog-complete with graceful Digital enhancement:
+        1. Optional bridge pre-pass (FULL tier) tags untagged prose; a bridge
+           *failure* degrades to parser-only over the original text
+           (ProgressReportGenerator precedent), a bridge *absence* is silent.
+        2. Guard 2 of the two-guard idempotency: lines whose hash already has
+           an EXTRACTED_FROM edge to this entry are skipped by the extractor.
+        3. Provenance: ``(created)-[:EXTRACTED_FROM {extracted_at,
+           source_line_hash}]->(entry)`` batch write.
+        4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
+           created Ku and resolved ``@ku()`` reference — the substance/ZPD
+           edge (PR-2 consumes it).
+        5. Run summary persisted under ``entry.metadata["activity_extraction"]``.
+        """
+        if self.activity_extractor is None:
+            return await self._fail(
+                entry,
+                Errors.system(
+                    message="ActivityExtractorService not configured for "
+                    "UserEntryProcessingService",
+                ),
+                phase="setup",
+            )
+
+        source_text = entry.processed_content or entry.content
+        if not source_text:
+            return await self._fail(
+                entry,
+                Errors.validation(
+                    "EXTRACT_ACTIVITIES pipeline requires entry.content or entry.processed_content",
+                    field="content",
+                ),
+                phase="setup",
+            )
+
+        # --- Bridge pre-pass (optional Digital enhancement) ------------------
+        working_text = source_text
+        bridge_error: str | None = None
+        if self.dsl_bridge is not None:
+            bridge_result = await self.dsl_bridge.transform(source_text, user_uid=entry.user_uid)
+            if bridge_result.is_error:
+                # Degrade, don't fail: the Analog parser still runs over the
+                # original text; tagged lines extract regardless.
+                bridge_error = str(bridge_result.expect_error())
+                self.logger.warning(
+                    f"DSL bridge degraded to parser-only for {entry.uid}: {bridge_error}"
+                )
+            elif bridge_result.value.activity_lines:
+                working_text = (
+                    source_text
+                    + "\n\n## Extracted Activities\n"
+                    + "\n".join(bridge_result.value.activity_lines)
+                )
+
+        # --- Existing-hash read (guard 2 input) -------------------------------
+        # Read on every run, not only under force: if a prior run wrote edges
+        # but died before the metadata write, the next run must still dedup.
+        hashes_result = await self.entry_service.backend.get_relationships(
+            entry.uid, rel_type=RelationshipName.EXTRACTED_FROM, direction="incoming"
+        )
+        if hashes_result.is_error:
+            return await self._fail(entry, hashes_result.expect_error(), phase="read_provenance")
+        existing_line_hashes = frozenset(
+            line_hash
+            for rel in hashes_result.value or []
+            if (line_hash := (rel.get("properties") or {}).get("source_line_hash"))
+        )
+
+        # --- Curriculum-creation gate (fail-closed) ---------------------------
+        allow_curriculum_creation = False
+        if self.user_service is not None:
+            user_result = await self.user_service.get_user(entry.user_uid)
+            if user_result.is_ok and user_result.value is not None:
+                allow_curriculum_creation = user_result.value.can_create_curriculum()
+
+        # --- Extraction --------------------------------------------------------
+        extract_result = await self.activity_extractor.extract_and_create(
+            entry,
+            entry.user_uid,
+            content_override=working_text,
+            allow_curriculum_creation=allow_curriculum_creation,
+            existing_line_hashes=existing_line_hashes,
+        )
+        if extract_result.is_error:
+            return await self._fail(entry, extract_result.expect_error(), phase="extract")
+        extraction = extract_result.value
+
+        # --- Provenance edges ---------------------------------------------------
+        if extraction.created_links:
+            links_result = await self.entry_service.backend.create_extracted_from_links(
+                entry.uid, extraction.created_links
+            )
+            if links_result.is_error:
+                return await self._fail(entry, links_result.expect_error(), phase="persist_links")
+
+        # --- APPLIES_KNOWLEDGE edges (substance/ZPD contract) -------------------
+        # A dangling @ku() reference (typo'd UID) must not fail the run — it
+        # lands in the summary's link_errors instead.
+        link_errors: list[str] = []
+        ku_uids = dict.fromkeys(extraction.created_ku_uids + extraction.referenced_ku_uids)
+        for ku_uid in ku_uids:
+            edge_result = await self.entry_service.backend.add_relationship(
+                entry.uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE
+            )
+            if edge_result.is_error:
+                message = f"APPLIES_KNOWLEDGE {entry.uid} -> {ku_uid}: " + str(
+                    edge_result.expect_error()
+                )
+                link_errors.append(message)
+                self.logger.warning(message)
+
+        # --- Run summary ---------------------------------------------------------
+        if extraction.has_errors:
+            self.logger.warning(
+                f"Extraction for {entry.uid} completed with errors: "
+                f"{len(extraction.parse_errors)} parse, "
+                f"{len(extraction.creation_errors)} creation"
+            )
+
+        summary: dict[str, Any] = {
+            **extraction.to_dict(),
+            "status": "completed",
+            "bridge_error": bridge_error,
+            "link_errors": link_errors,
+        }
+        updates: dict[str, Any] = {
+            "metadata": {**(entry.metadata or {}), "activity_extraction": summary},
+            "status": EntityStatus.COMPLETED.value,
+            "processing_completed_at": datetime.now(),
+        }
+        if bridge_error is not None:
+            updates["processing_error"] = f"DSL bridge degraded to parser-only: {bridge_error}"
+        update_result = await self.entry_service.backend.update(entry.uid, updates)
+        if update_result.is_error:
+            return await self._fail(entry, update_result.expect_error(), phase="persist_metadata")
+
+        refreshed = await self.entry_service.get_entry(entry.uid, entry.user_uid)
+        if refreshed.is_error or refreshed.value is None:
+            # The run itself succeeded; surface the refetched-entry gap rather
+            # than failing a completed extraction.
+            self.logger.warning(f"Could not refetch {entry.uid} after extraction")
+            await self._emit_completed(entry)
+            return Result.ok(entry)
+
+        updated = refreshed.value
+        await self._emit_completed(updated)
+        return Result.ok(updated)
+
+    # =========================================================================
     # ADAPTER WRAPPERS
     # =========================================================================
 
@@ -389,7 +587,8 @@ class UserEntryProcessingService:
         ``phase`` is the stage of the pipeline where the failure occurred
         (``setup``, ``transcribe``, ``update_source``, ``structure``,
         ``persist_child``, ``generate_summary``, ``persist_summary``,
-        ``persist_transcript``). Threaded onto the emitted
+        ``persist_transcript``, ``read_provenance``, ``extract``,
+        ``persist_links``, ``persist_metadata``). Threaded onto the emitted
         ``UserEntryProcessingFailed`` event so postmortems can tell a
         Deepgram blip apart from an LLM blip inside a
         ``TRANSCRIBE_AND_STRUCTURE`` run without re-reading logs.

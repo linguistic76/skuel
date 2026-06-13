@@ -27,6 +27,9 @@ class Pipeline(StrEnum):
         TRANSCRIBE_AND_STRUCTURE  — audio → transcribed entry → LLM-structured
                                     second entry (journal pipeline)
         LLM_SUMMARY               — text/file → LLM summary
+        EXTRACT_ACTIVITIES        — text → DSL parse → real entities (tasks,
+                                    goals, habits, ...) with EXTRACTED_FROM
+                                    provenance (ADR-069)
         TEACHER_REVIEW            — no processing; entry waits in teacher queue
                                     via SHARED_WITH_GROUP
     """
@@ -35,6 +38,7 @@ class Pipeline(StrEnum):
     TRANSCRIBE = "transcribe"
     TRANSCRIBE_AND_STRUCTURE = "transcribe_and_structure"
     LLM_SUMMARY = "llm_summary"
+    EXTRACT_ACTIVITIES = "extract_activities"
     TEACHER_REVIEW = "teacher_review"
 
     def allows_sharing(self) -> bool:

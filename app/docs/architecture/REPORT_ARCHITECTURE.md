@@ -110,6 +110,7 @@ Exercise (scope=ASSIGNED)
          TRANSCRIBE               → Deepgram audio → transcript
          LLM_SUMMARY              → LLM summarization
          TRANSCRIBE_AND_STRUCTURE → transcribe + LLM structuring (2nd UserEntry)
+         EXTRACT_ACTIVITIES       → DSL parse → real entities (ADR-069)
          TEACHER_REVIEW / NONE    → no-op
        |
        v

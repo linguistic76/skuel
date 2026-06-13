@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2025-11-30
+updated: 2026-06-12
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage]
@@ -10,7 +10,13 @@ related: [DSL_SPECIFICATION.md, DSL_IMPLEMENTATION.md]
 # SKUEL Activity DSL - Usage Guide
 
 *Practical examples and patterns for writing SKUEL Activity Lines*
-*Last Updated: 2025-11-30*
+*Last Updated: 2026-06-12*
+
+> **Wiring status:** live. Activity Lines in a UserEntry are extracted into
+> real entities via `Pipeline.EXTRACT_ACTIVITIES`
+> (`UserEntryProcessingService.process()`, ADR-069) — with
+> `EXTRACTED_FROM` provenance edges, line-hash idempotency, and an optional
+> FULL-tier LLM pre-pass that tags untagged prose.
 
 ## Quick Start
 

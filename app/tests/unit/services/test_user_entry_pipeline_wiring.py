@@ -19,6 +19,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
+from core.services.dsl import ActivityExtractionResult, DSLTransformResult
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -394,6 +395,233 @@ class TestTranscribeAndStructure:
         svc.update_processed_content.assert_awaited_once()
         svc.backend.update.assert_awaited_once()
         assert svc.backend.update.await_args.args[1]["status"] == EntityStatus.FAILED.value
+
+
+# ---------------------------------------------------------------------------
+# EXTRACT_ACTIVITIES (ADR-069)
+# ---------------------------------------------------------------------------
+
+
+def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
+    """Entry-service mock with the backend surfaces the extraction branch uses."""
+    svc = _entry_service_with_updated(updated_entry)
+    svc.backend.get_relationships = AsyncMock(return_value=Result.ok([]))
+    svc.backend.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
+    svc.backend.add_relationship = AsyncMock(return_value=Result.ok(True))
+    svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
+    return svc
+
+
+def _extraction_result(
+    entry_uid: str,
+    *,
+    created_links: list[tuple[str, str]] | None = None,
+    created_ku_uids: list[str] | None = None,
+    referenced_ku_uids: list[str] | None = None,
+) -> ActivityExtractionResult:
+    return ActivityExtractionResult(
+        entry_uid=entry_uid,
+        user_uid="user_1",
+        created_links=created_links or [],
+        created_ku_uids=created_ku_uids or [],
+        referenced_ku_uids=referenced_ku_uids or [],
+    )
+
+
+def _teacher_user_service(can_create: bool = True) -> MagicMock:
+    user = MagicMock()
+    user.can_create_curriculum = MagicMock(return_value=can_create)
+    svc = MagicMock()
+    svc.get_user = AsyncMock(return_value=Result.ok(user))
+    return svc
+
+
+class TestExtractActivities:
+    @pytest.mark.asyncio
+    async def test_parser_only_success_persists_links_and_summary(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Call mom @context(task)")
+        svc = _extract_entry_service(entry)
+
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    created_links=[("task:1", "hash1")],
+                    referenced_ku_uids=["ku:tech/x"],
+                )
+            )
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.user_service = _teacher_user_service()
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.backend.create_extracted_from_links.assert_awaited_once_with(
+            entry.uid, [("task:1", "hash1")]
+        )
+        svc.backend.add_relationship.assert_awaited_once()
+        assert svc.backend.add_relationship.await_args.args[:2] == (entry.uid, "ku:tech/x")
+        svc.backend.update.assert_awaited_once()
+        updates = svc.backend.update.await_args.args[1]
+        assert updates["metadata"]["activity_extraction"]["status"] == "completed"
+        assert updates["status"] == EntityStatus.COMPLETED.value
+        assert "processing_error" not in updates
+
+    @pytest.mark.asyncio
+    async def test_bridge_failure_degrades_to_parser_only(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Tagged @context(task)")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform = AsyncMock(
+            return_value=Result.fail(Errors.integration(service="llm", message="rate limited"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        # Extraction still ran, over the ORIGINAL text.
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["content_override"] == entry.content
+        # Degradation recorded, run completed.
+        updates = svc.backend.update.await_args.args[1]
+        assert "DSL bridge degraded to parser-only" in updates["processing_error"]
+        assert updates["metadata"]["activity_extraction"]["status"] == "completed"
+        assert "rate limited" in updates["metadata"]["activity_extraction"]["bridge_error"]
+
+    @pytest.mark.asyncio
+    async def test_bridge_success_appends_tagged_lines(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="untagged prose")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform = AsyncMock(
+            return_value=Result.ok(
+                DSLTransformResult(
+                    original_text="untagged prose",
+                    transformed_text="- @context(task) Call mom",
+                    activity_lines=["- @context(task) Call mom"],
+                )
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        working = extractor.extract_and_create.await_args.kwargs["content_override"]
+        assert working.startswith("untagged prose")
+        assert "## Extracted Activities" in working
+        assert "- @context(task) Call mom" in working
+
+    @pytest.mark.asyncio
+    async def test_curriculum_gate_threads_fail_closed(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(ku) X")
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        # No user_service at all → gate stays closed.
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["allow_curriculum_creation"] is False
+
+    @pytest.mark.asyncio
+    async def test_existing_hashes_are_read_and_threaded(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.backend.get_relationships = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {"type": "EXTRACTED_FROM", "properties": {"source_line_hash": "abc"}},
+                    {"type": "EXTRACTED_FROM", "properties": {}},
+                ]
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["existing_line_hashes"] == frozenset({"abc"})
+
+    @pytest.mark.asyncio
+    async def test_provenance_write_failure_fails_run(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.backend.create_extracted_from_links = AsyncMock(
+            return_value=Result.fail(Errors.database("create_extracted_from_links", "boom"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid, created_links=[("task:1", "h")]))
+        )
+        bus = MagicMock()
+        captured: list[Any] = []
+
+        async def _publish(event: Any) -> None:
+            captured.append(event)
+
+        bus.publish_async = AsyncMock(side_effect=_publish)
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_error
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "persist_links"
+
+    @pytest.mark.asyncio
+    async def test_ku_edge_failure_is_recorded_not_fatal(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.backend.add_relationship = AsyncMock(
+            return_value=Result.fail(Errors.validation("Invalid relationship type"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid, referenced_ku_uids=["ku:typo/x"]))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        updates = svc.backend.update.await_args.args[1]
+        link_errors = updates["metadata"]["activity_extraction"]["link_errors"]
+        assert len(link_errors) == 1
+        assert "ku:typo/x" in link_errors[0]
 
 
 # ---------------------------------------------------------------------------
