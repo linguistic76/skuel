@@ -350,20 +350,28 @@ landmine, because the call type-checks but blows up (or, behind a swallowing
   `tests/integration/test_choice_knowledge_edge_roundtrip.py`,
   `test_principle_cascade_reads_roundtrip.py`.
 
-### Domain Relationships (3 methods)
+### Domain Relationships
+
+The live "fetch all relationships in parallel" path is the per-domain
+`<Domain>Relationships.fetch()` classmethod — a standalone frozen dataclass whose
+`fetch()` calls `core/utils/generic_fetcher.py::fetch_relationships_parallel()` with
+the domain's `*_QUERY_SPECS` constant. (`UnifiedRelationshipService` is passed in as
+the query backend.)
 
 ```python
-# Fetch all relationships for an entity (parallel execution)
-rels = await service.fetch_all_relationships("task:123")
-# Returns DomainRelationships with all relationship data
+from core.services.tasks.task_relationships import TaskRelationships
+
+# Fetch all task relationships for an entity (parallel execution)
+rels = await TaskRelationships.fetch("task:123", service)
+# Returns a TaskRelationships dataclass with all relationship UID lists
 
 # Check for any knowledge connections
 if rels.has_any_knowledge():
-    knowledge = rels.get_all_knowledge_uids()
+    knowledge = rels.get_combined_knowledge_uids()
 
 # Check prerequisites
 if rels.has_prerequisites():
-    prereqs = rels.get_field("prerequisite_task_uids")
+    prereqs = rels.prerequisite_task_uids
 ```
 
 ### Path-Aware Queries (4 methods)
@@ -660,7 +668,6 @@ context = await tasks_service.get_cross_domain_context_typed(task_uid)
 | `get_task_dependencies()` | `get_task_dependencies_for_user(uid, context)` (context-enriched, supports transitive via `include_transitive=True, max_depth=N`) |
 | `get_task_cross_domain_context()` | `get_cross_domain_context_typed(uid)` |
 | `create_knowledge_link()` | `create_relationship("knowledge", uid, ku_uid, props)` |
-| `TaskRelationships.fetch()` | `fetch_all_relationships(uid)` |
 
 ---
 
