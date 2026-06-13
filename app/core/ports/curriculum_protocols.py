@@ -1447,11 +1447,6 @@ class ExerciseOperations(Protocol):
         """Update an exercise. Returns Result[Exercise]."""
         ...
 
-    async def delete_exercise(self, uid: str) -> Result[bool]:
-        """Delete an exercise. Returns Result[bool]."""
-        ...
-
-    # Curriculum linking
     # Curriculum linking
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """Link exercise to curriculum KU via REQUIRES_KNOWLEDGE."""

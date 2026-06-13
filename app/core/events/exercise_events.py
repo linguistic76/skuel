@@ -2,7 +2,14 @@
 Exercise Domain Events
 ========================
 
-Events published when teacher exercise operations occur.
+Lifecycle event for teacher exercise operations.
+
+``ExerciseCreated`` is a STAGED hook (PLANNED_EVENTS in scripts/detect_bloat.py):
+the teacher-assignment notification + calendar integration it triggers is not yet
+wired (no publisher, no subscriber). Its sibling ``ExerciseSubmitted`` was deleted
+(campaign 17) — the student-submission moment is now published live as
+``UserEntryCreated`` after the ADR-054 UserEntry collapse routed ``/submit`` through
+``UserEntryService.create_entry()``.
 
 Formerly assignment_events.py — renamed per of Ku hierarchy refactoring.
 
@@ -35,24 +42,3 @@ class ExerciseCreated(BaseEvent):
     @property
     def event_type(self) -> str:
         return "exercise.created"
-
-
-@dataclass(frozen=True)
-class ExerciseSubmitted(BaseEvent):
-    """
-    Published when a student submits a report for an exercise.
-
-    Triggers:
-    - Teacher notification (new submission in review queue)
-    - Progress tracking
-    """
-
-    report_uid: str
-    exercise_uid: str
-    student_uid: str
-    teacher_uid: str
-    metadata: dict[str, Any] | None = None
-
-    @property
-    def event_type(self) -> str:
-        return "exercise.submitted"
