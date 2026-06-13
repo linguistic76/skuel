@@ -718,9 +718,9 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         Params:
             report_uid: Submission UID to attach the report to
             report_entity_uid: UID for the new EntryReport node
-            author_uid: UID of the user who authored the report. For teacher
-                reports this is the teacher; for AI reports the caller is the
-                student themselves (the "author of record").
+            author_uid: UID of the human who authored the report — the teacher
+                for HUMAN reports, ``None`` for LLM/AI reports (no human author,
+                per the EntryReport contract).
             feedback, title, entity_type, completed_status, processor_type,
                 assessment_outcome, now: standard report fields
             report_file_path: optional path to uploaded .md file (may be None)
@@ -883,13 +883,15 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             MERGE (re)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
         )
 
-        // Auto-share RevisedExercise with student
+        // Auto-share RevisedExercise with student.
+        // re is freshly CREATEd in this tx, so no prior share can exist — CREATE
+        // with inline props puts shared_at on the relationship (matching the report
+        // share above); ON CREATE SET inside FOREACH can't bind the rel var.
         WITH submission, student, fb, re, revision_number
         FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (student)-[:{RelationshipName.SHARES_WITH.value} {{
-                role: 'student'
+            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
+                shared_at: datetime($now), role: 'student'
             }}]->(re)
-            ON CREATE SET student.shared_at = datetime($now)
         )
 
         RETURN submission.uid AS uid,

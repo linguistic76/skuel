@@ -115,7 +115,7 @@ class TestGenerateReportHappyPath:
         assert report.status == EntityStatus.COMPLETED
         assert report.subject_uid == SUBMISSION_UID
         assert report.user_uid == STUDENT_UID  # student always owns the report
-        assert report.author_uid == TEACHER_UID  # caller is the author (LLM trigger)
+        assert report.author_uid is None  # LLM-authored ⇒ no human author
         assert report.processed_content == "Great work — here is your feedback."
         assert report.uid.startswith("er_")
 
@@ -197,8 +197,8 @@ class TestGenerateReportBackendDelegation:
         assert params["allowed_from_statuses"] is None
 
     @pytest.mark.asyncio
-    async def test_params_use_author_uid_for_caller(self):
-        """Canonical method takes author_uid (renamed from teacher_uid)."""
+    async def test_params_use_author_uid_none_for_llm(self):
+        """Canonical method takes author_uid (renamed from teacher_uid); LLM ⇒ None."""
         backend = _make_ext_backend()
         service = _make_service(backend=backend)
 
@@ -209,7 +209,7 @@ class TestGenerateReportBackendDelegation:
         )
 
         (params,), _ = backend.create_report_node.await_args
-        assert params["author_uid"] == TEACHER_UID
+        assert params["author_uid"] is None
         assert "teacher_uid" not in params
 
     @pytest.mark.asyncio

@@ -408,10 +408,15 @@ def create_user_entry_ui_routes(
         if entry_result.is_error or entry_result.value is None:
             return render_error_banner("Submission not found")
 
-        if entry_report_service is not None:
-            history_result = await entry_report_service.list_for_submission(uid)
-            if not history_result.is_error and history_result.value:
-                return render_error_banner("Cannot delete a submission that has received feedback")
+        # Fail closed: an entry that has received feedback must not be silently
+        # lost, so block the delete whenever the feedback state can't be confirmed.
+        if entry_report_service is None:
+            return render_error_banner("Cannot verify feedback state — delete blocked")
+        history_result = await entry_report_service.list_for_submission(uid)
+        if history_result.is_error:
+            return render_error_banner("Could not check for feedback — delete blocked")
+        if history_result.value:
+            return render_error_banner("Cannot delete a submission that has received feedback")
 
         delete_result = await orchestrator.delete_entry(uid, user_uid)
         if delete_result.is_error:
