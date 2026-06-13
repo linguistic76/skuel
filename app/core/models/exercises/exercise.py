@@ -15,7 +15,7 @@ Exercise is the shared, reusable instruction template side of SKUEL's core loop:
     UserEntry (user-owned work product — EntityType.USER_ENTRY)
         ↓  FULFILLS_EXERCISE relationship in Neo4j
         ↓  auto-shared with teacher
-    ExerciseReport (teacher's response — EntityType.EXERCISE_REPORT)
+    EntryReport (teacher's response — EntityType.ENTRY_REPORT)
 
 The Exercise belongs to curriculum (shared, admin/teacher-created).
 The UserEntry is entirely user-owned the moment it is created.
@@ -25,7 +25,7 @@ Terminology
 - Exercise = what the teacher/admin creates (instruction template, scope=ASSIGNED)
              or what a user creates for personal AI feedback (scope=PERSONAL)
 - UserEntry = the user's work product in response to an Exercise (ADR-054)
-- ExerciseReport = the teacher's or AI's response to the UserEntry
+- EntryReport = the teacher's or AI's response to the UserEntry
 
 Hierarchy:
     Entity (~29 fields)
@@ -63,7 +63,7 @@ class Exercise(Curriculum):
     Transparency principles:
     - Instructions are visible and editable (no black box)
     - User controls the model
-    - ExerciseReport = instructions + entry content -> LLM -> response
+    - EntryReport = instructions + entry content -> LLM -> response
 
     Exercise-specific fields (13):
     - path_step_uid: PathStep this exercise belongs to (required for PERSONAL scope)

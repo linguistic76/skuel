@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from core.utils.result_simplified import Errors, Result
 
 # Helpers for mocking execute_query call sequence (returns Result[list[dict]])
@@ -36,7 +36,7 @@ def mock_backend():
 
 @pytest.fixture
 def mock_report_backend():
-    """Create a mock ExerciseReport backend (canonical report-node create)."""
+    """Create a mock EntryReport backend (canonical report-node create)."""
     backend = MagicMock()
     backend.create = AsyncMock()
     return backend
@@ -93,11 +93,11 @@ class TestCreateAssessment:
         )
 
         assert not result.is_error
-        # Verify the ExerciseReport backend.create was called with an ExerciseReport
+        # Verify the EntryReport backend.create was called with an EntryReport
         assert mock_report_backend.create.call_count == 1
         created_ku = mock_report_backend.create.call_args[0][0]
-        assert isinstance(created_ku, ExerciseReport)
-        assert created_ku.entity_type == EntityType.EXERCISE_REPORT
+        assert isinstance(created_ku, EntryReport)
+        assert created_ku.entity_type == EntityType.ENTRY_REPORT
         assert created_ku.user_uid == "user_student"  # student always owns
         assert created_ku.author_uid == "user_teacher"  # teacher is the author
         assert created_ku.subject_uid == "user_student"
@@ -245,7 +245,7 @@ class TestGetAssessments:
                     "report": {
                         "uid": "report_123",
                         "user_uid": "user_teacher",
-                        "entity_type": "exercise_report",
+                        "entity_type": "entry_report",
                         "title": "Assessment 1",
                         "subject_uid": "user_student",
                     }

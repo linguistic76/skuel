@@ -1,13 +1,13 @@
 ---
 title: Report Architecture
-updated: 2026-06-01
+updated: 2026-06-13
 status: current
 category: architecture
-version: 3.1.0
+version: 3.2.0
 tags:
 - report
 - activity_report
-- exercise_report
+- entry_report
 - activity_domains
 - submissions
 - exercise
@@ -22,12 +22,13 @@ related_skills:
 
 > "The student submits, the system responds, the teacher refines."
 
-SKUEL's report system is a unified response infrastructure covering two distinct entry points:
+SKUEL's report system is a unified response infrastructure covering three distinct entry points:
 
-1. **Curriculum work** — a student submits against an Exercise; teacher or AI responds
-2. **Activity Domains** — a user's Tasks, Goals, Habits, Events, Choices, and Principles; AI or admin responds
+1. **Curriculum work** — a student submits against an Exercise; teacher or AI responds (`EntryReport`, shared with the student).
+2. **Activity Domains** — a user's Tasks, Goals, Habits, Events, Choices, and Principles; AI or admin responds (`ActivityReport`).
+3. **Journal reflections** (ADR-069) — a user requests an LLM reflective response to their own journal-chain entry; produces a **PRIVATE, self-owned** `EntryReport` (`ReportSource.LLM`, `author_uid=null`, no `SHARES_WITH` grant, no entry status transition). See `EntryReportService.generate_entry_response`.
 
-Both paths produce report entities. The `EntityType` and `ReportSource` fields discriminate them.
+All paths produce report entities. The `EntityType`, `ReportSource`, and `visibility` fields discriminate them.
 
 ---
 ## Related Skills
@@ -41,19 +42,19 @@ For implementation guidance, see:
 | EntityType | Who Creates | Purpose | Discriminator |
 |------------|-------------|---------|---------------|
 | `USER_ENTRY` | Student uploads file / fills form | Raw student work (audio, text, images, structured form) — the curriculum turn-in | `pipeline` (e.g. `teacher_review`) |
-| `EXERCISE_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `processor_type`: `HUMAN` (teacher) or `LLM` (AI) |
+| `ENTRY_REPORT` | Teacher **or** AI | Assessment with `subject_uid` pointing to a submission | `processor_type`: `HUMAN` (teacher) or `LLM` (AI) |
 | `ACTIVITY_REPORT` | System **or** Admin | Activity-level feedback (not tied to artifact) | `processor_type`: `AUTOMATIC`, `LLM`, or `HUMAN` |
 
 There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with `JE_INPUT` / `JE_OUTPUT`) into the single `USER_ENTRY` type, discriminated by its `pipeline` field rather than by entity_type.
 
 **Hierarchy:**
 - `UserEntry` extends `UserOwnedEntity` — file/processing fields
-- `ExerciseReport` extends `UserOwnedEntity` — report fields only (no file/processing fields, unlike `UserEntry`)
+- `EntryReport` extends `UserOwnedEntity` — report fields only (no file/processing fields, unlike `UserEntry`)
 - `ActivityReport` extends `UserOwnedEntity` directly — no file fields, responds to aggregate activity patterns
 
 **Note:** Journaling is a `Pipeline` (`TRANSCRIBE_AND_STRUCTURE`), not a separate domain — the former `JE_INPUT` / `JE_OUTPUT` types were collapsed into `USER_ENTRY` alongside `EXERCISE_SUBMISSION` (ADR-054). See [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md).
 
-**Deleted EntityTypes / aliases:** `EXERCISE_SUBMISSION`, `JE_INPUT`, and `JE_OUTPUT` are gone from `EntityType`; their legacy string values still *parse* via `from_string()` but redirect to `USER_ENTRY` (not to any standalone type). The old `SUBMISSION_REPORT` / `JOURNAL_SUBMISSION` strings are not in the alias map, so `from_string()` returns `None` for them — assessment now produces an `EXERCISE_REPORT`.
+**Deleted EntityTypes / aliases:** `EXERCISE_SUBMISSION`, `JE_INPUT`, and `JE_OUTPUT` are gone from `EntityType`; their legacy string values still *parse* via `from_string()` but redirect to `USER_ENTRY` (not to any standalone type). The old `SUBMISSION_REPORT` / `JOURNAL_SUBMISSION` strings are not in the alias map, so `from_string()` returns `None` for them — assessment now produces an `ENTRY_REPORT`.
 
 > **Canonical discriminator — match the `:UserEntry` label, not `entity_type`.** The write path forces `entity_type = 'user_entry'` (`UserEntry.__post_init__`) and the migration relabelled every historical node `:UserEntry` with `entity_type = 'user_entry'`. A curriculum turn-in is identified by the `:UserEntry` label plus either its `pipeline` (`teacher_review`) or a `FULFILLS_EXERCISE` edge — **never** by a distinct entity_type. Read queries for turn-ins (teacher review, assessment, ZPD submission scores, cross-domain, group counts, learning-loop chains) now match `(:Entity:UserEntry)` accordingly; `user_context_queries.py` is migration-aware (counts `entity_type = 'user_entry'` by `pipeline`). The two remaining `entity_type = 'exercise_submission'` / `'je_input'` filters — journal-processing context (`_user_entry_content_mixin.py`) and ZPD journal-engagement (`zpd_backend.py`) — are journal-semantics sites pending a separate decision on journal-entry identity (ADR-054 dropped journal→KU extraction). This doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
 
@@ -121,7 +122,7 @@ Exercise (scope=ASSIGNED)
 5. Auto-sharing (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
        |   + SHARED_WITH_GROUP to the exercise's assigned groups (UnifiedSharingService)
        v
-6. Teacher reviews via the group-based queue → writes EXERCISE_REPORT
+6. Teacher reviews via the group-based queue → writes ENTRY_REPORT
        |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)
        |   request_revision: SUBMITTED/ACTIVE   → REVISION_REQUESTED (Cypher guard)
        |   approve_report:   REVISION_REQUESTED → COMPLETED          (Cypher guard)
@@ -151,7 +152,7 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 (submission)-[:SHARED_WITH_GROUP]->(group)
 
 // Teacher report — student owns the report (access ownership); teacher is recorded via author_uid
-(student)-[:OWNS]->(report:Entity {entity_type: "exercise_report", author_uid: "teacher_uid"})
+(student)-[:OWNS]->(report:Entity {entity_type: "entry_report", author_uid: "teacher_uid"})
 (report)-[:REPORT_FOR]->(submission)
 ```
 
@@ -171,7 +172,7 @@ Curriculum Work                 Activity Domains
                  │
                  ▼
            [REPORT]
-            ├── EXERCISE_REPORT    (response to exercise submission)
+            ├── ENTRY_REPORT    (response to exercise submission)
             └── ACTIVITY_REPORT    (response to activity patterns)
 ```
 
@@ -179,13 +180,13 @@ Curriculum Work                 Activity Domains
 
 ## Report EntityTypes
 
-### 1. `EXERCISE_REPORT` — Response to an Exercise Submission
+### 1. `ENTRY_REPORT` — Response to an Exercise Submission
 
-`EXERCISE_REPORT` is created in response to a **specific submitted artifact** (a turned-in `UserEntry` — `entity_type` `'user_entry'`).
+`ENTRY_REPORT` is created in response to a **specific submitted artifact** (a turned-in `UserEntry` — `entity_type` `'user_entry'`).
 
 | Field | Value |
 |-------|-------|
-| `entity_type` | `"exercise_report"` |
+| `entity_type` | `"entry_report"` |
 | Inherits | `UserOwnedEntity` — NOT Submission |
 | `subject_uid` | UID of the submission being evaluated — **graph-native**, projected from the `REPORT_FOR` edge on read (not stored as a node property) |
 | `processor_type` | `HUMAN` or `LLM` |
@@ -196,14 +197,14 @@ Curriculum Work                 Activity Domains
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
 | Teacher writes feedback | `AssessmentService.create_assessment()` | `HUMAN` | Teacher reviews submission in queue |
-| AI evaluates via Exercise | `ExerciseReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
+| AI evaluates via Exercise | `EntryReportService.generate_report()` | `LLM` | Exercise has `instructions`; AI generates response |
 
-Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the submission owner) in one transaction. The typed read path (`ExerciseReportService.list_for_submission`) is the authoritative source for report content — there is no submission-side denormalization.
+Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the submission owner) in one transaction. The typed read path (`EntryReportService.list_for_submission`) is the authoritative source for report content — there is no submission-side denormalization.
 
 **Graph pattern:**
 ```cypher
 // student always owns the report (access ownership)
-(student:User)-[:OWNS]->(report:Entity:ExerciseReport {entity_type: 'exercise_report'})
+(student:User)-[:OWNS]->(report:Entity:EntryReport {entity_type: 'entry_report'})
 (report)-[:REPORT_FOR]->(submission:Entity:UserEntry {entity_type: 'user_entry'})
 // report creation (create_report_node) matches the submission by uid only — no
 // entity_type filter — so REPORT_FOR points at the :UserEntry node as written.
@@ -272,9 +273,9 @@ class ActivityReport(UserOwnedEntity):
 
 | ReportSource | Who | Applies To |
 |---------------|-----|-----------|
-| `HUMAN` | Teacher writes | `EXERCISE_REPORT` (teacher assessment) |
+| `HUMAN` | Teacher writes | `ENTRY_REPORT` (teacher assessment) |
 | `HUMAN` | Admin writes | `ACTIVITY_REPORT` (activity review) |
-| `LLM` | AI via Exercise | `EXERCISE_REPORT` (AI assessment of submission) |
+| `LLM` | AI via Exercise | `ENTRY_REPORT` (AI assessment of submission) |
 | `LLM` | AI on demand | `ACTIVITY_REPORT` (activity summary with LLM insights) |
 | `AUTOMATIC` | Scheduled system | `ACTIVITY_REPORT` (periodic progress report) |
 
@@ -303,14 +304,14 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry` / `submit_file`), exercise linking, audience resolution |
 | `UserEntryProcessingService` | `UserEntryProcessingOperations` | Pipeline dispatcher: reads `entry.pipeline`, routes to transcription / LLM processors |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
-| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `ExerciseReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates ExerciseReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
+| `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `EntryReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates EntryReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
 
 **Report producers:**
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `AssessmentService` | `AssessmentOperations` (service) | `ExerciseReport` (HUMAN) | Teacher assessment; verifies group membership. Own protocol since PR #128 (no longer bundled into `ExerciseReportOperations`) |
-| `ExerciseReportService` | `ExerciseReportOperations` (service) + `ExerciseReportBackendOperations` (backend) | `ExerciseReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[ExerciseReport]` (delegates to `ExerciseReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:ExerciseReport` dual-labeled nodes; reads discriminate AI vs teacher via `ExerciseReport.processor_type` on the typed model |
+| `AssessmentService` | `AssessmentOperations` (service) | `EntryReport` (HUMAN) | Teacher assessment; verifies group membership. Own protocol since PR #128 (no longer bundled into `EntryReportOperations`) |
+| `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
@@ -329,7 +330,7 @@ Methods: `get_pending_submissions()`, `get_unsubmitted_exercises()`, `get_report
 
 ## Where Reports Sit in the 4-Layer Architecture
 
-The 4-phase learning loop is: **Exercise → UserEntry → ExerciseReport → RevisedExercise**. PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`.
+The 4-phase learning loop is: **Exercise → UserEntry → EntryReport → RevisedExercise**. PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)`.
 
 The first three stages are **leaf domains** — each owns its own Neo4j nodes and fits the standard 4-layer pattern:
 
@@ -346,12 +347,12 @@ ActivityReportBackend   ← owns ActivityReport persistence + privacy audit quer
 
 Reports split into two structurally different positions:
 
-### EXERCISE_REPORT — Leaf Domain
+### ENTRY_REPORT — Leaf Domain
 
-`EXERCISE_REPORT` fits the leaf domain model. One submission goes in, one ExerciseReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
+`ENTRY_REPORT` fits the leaf domain model. One submission goes in, one EntryReport node comes out. The generating services operate against a focused backend — the scope is a single artifact and its owner.
 
 ```
-UserEntry  →  ExerciseReportService / AssessmentService  →  EXERCISE_REPORT node
+UserEntry  →  EntryReportService / AssessmentService  →  ENTRY_REPORT node
               (one artifact in, one report node out)
 ```
 
@@ -375,7 +376,7 @@ ACTIVITY_REPORT node
 
 | Report Mode | Structural Position | Why |
 |-------------|--------------------|----|
-| `EXERCISE_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
+| `ENTRY_REPORT` | Leaf domain — fits 4-layer pattern | One artifact in, one node out; single-domain scope |
 | `ACTIVITY_REPORT` | Cross-domain aggregator + `ActivityReportBackend` | Content reads from 6 Activity Domain backends; persistence via `ActivityReportBackend` |
 
 The learning loop does not end at a leaf domain — it fans back out across the user's entire lived activity. That is what makes `ACTIVITY_REPORT` architecturally distinct from the other three stages of the loop.
@@ -489,7 +490,7 @@ When `openai_service` is available, the generator:
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
-| `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`EXERCISE_REPORT`) |
+| `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`ENTRY_REPORT`) |
 | `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
@@ -502,9 +503,9 @@ When `openai_service` is available, the generator:
 ## Neo4j Schema
 
 ```cypher
-// EXERCISE_REPORT — tied to a specific submission
-(:Entity:ExerciseReport {
-    uid, entity_type: 'exercise_report',
+// ENTRY_REPORT — tied to a specific submission
+(:Entity:EntryReport {
+    uid, entity_type: 'entry_report',
     user_uid,             // always the student (access ownership — who the report belongs to)
     author_uid,           // teacher UID for HUMAN reports; null for LLM/AI reports
     visibility: 'shared', // set at create so SHARES_WITH grants access via UnifiedSharingService
@@ -516,10 +517,10 @@ When `openai_service` is available, the generator:
     created_at, updated_at
 })
 // subject_uid is NOT stored as a node property — it is projected from the
-// REPORT_FOR edge on read by ExerciseReportBackend.get / list_for_submission:
+// REPORT_FOR edge on read by EntryReportBackend.get / list_for_submission:
 //   OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}
-(:Entity:ExerciseReport)-[:REPORT_FOR]->(:Entity:UserEntry {entity_type: 'user_entry'})
-(:Entity:ExerciseReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student
+(:Entity:EntryReport)-[:REPORT_FOR]->(:Entity:UserEntry {entity_type: 'user_entry'})
+(:Entity:EntryReport)-[:SHARES_WITH]->(:User)  // submission owner — makes content visible to the student
 
 // ACTIVITY_REPORT — tied to a user's activity patterns
 (:Entity:ActivityReport {

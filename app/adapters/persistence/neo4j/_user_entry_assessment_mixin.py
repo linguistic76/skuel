@@ -98,7 +98,7 @@ class _UserEntryAssessmentMixin:
         """Get assessment nodes for a student via ASSESSMENT_OF."""
         query = """
         MATCH (report:Entity)-[:ASSESSMENT_OF]->(u:User {uid: $student_uid})
-        WHERE report.entity_type = 'exercise_report'
+        WHERE report.entity_type = 'entry_report'
         RETURN report
         ORDER BY report.created_at DESC
         LIMIT $limit
@@ -129,7 +129,7 @@ class _UserEntryAssessmentMixin:
           AND entry.status IN $statuses
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
-        OPTIONAL MATCH (report:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
+        OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WITH entry, r, ex, student, g, count(DISTINCT report) AS feedback_count
         RETURN entry.uid AS entry_uid,
                entry.title AS title,
@@ -157,9 +157,9 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an ExerciseReport node by UID."""
+        """Get the report_file_path for an EntryReport node by UID."""
         query = """
-        MATCH (r:Entity {uid: $report_uid, entity_type: 'exercise_report'})
+        MATCH (r:Entity {uid: $report_uid, entity_type: 'entry_report'})
         RETURN r.report_file_path as file_path
         """
         result = await self.execute_query(query, {"report_uid": report_uid})
@@ -216,7 +216,7 @@ class _UserEntryAssessmentMixin:
         WHERE s.pipeline = '{Pipeline.TEACHER_REVIEW.value}'
           AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
@@ -270,7 +270,7 @@ class _UserEntryAssessmentMixin:
             (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group {{is_active: true}})
                 <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
           }}
-        OPTIONAL MATCH (fb:Entity {{entity_type: 'exercise_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
+        OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
         OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,

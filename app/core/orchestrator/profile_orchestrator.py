@@ -140,7 +140,7 @@ class ProfileOrchestrator:
         sorted_items = sorted(active_items, key=_preview_priority_sort_key)
         return Result.ok(sorted_items[:3])
 
-    async def get_recent_exercise_reports(
+    async def get_recent_entry_reports(
         self, user_uid: UserUID, limit: int = 5
     ) -> Result[list[Any]]:
         """Get recent exercise reports (teacher assessments) received by the user."""

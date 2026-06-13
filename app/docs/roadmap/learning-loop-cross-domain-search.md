@@ -39,8 +39,8 @@ Teacher/admin view: "show me everything related to this exercise."
 
 ```
 (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
-(ExerciseReport)-[:REPORT_FOR]->(UserEntry)
-(RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
+(EntryReport)-[:REPORT_FOR]->(UserEntry)
+(RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
 ```
 
 Returns: `{exercise, submissions, feedback, revised_exercises}`
@@ -51,8 +51,8 @@ Student view: "what happened after I submitted?"
 
 ```
 (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
-(ExerciseReport)-[:REPORT_FOR]->(UserEntry)
-(RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
+(EntryReport)-[:REPORT_FOR]->(UserEntry)
+(RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
 ```
 
 Returns: `{submission, exercise, feedback, revised_exercises}`
@@ -61,10 +61,10 @@ Returns: `{submission, exercise, feedback, revised_exercises}`
 
 `ReportRelationshipOperations` in `core/ports/report_protocols.py` covers all 5 methods (3 existing + 2 new).
 
-## Future: ExerciseReport and ActivityReport Search
+## Future: EntryReport and ActivityReport Search
 
 These entities currently lack BaseService-based search:
-- **ExerciseReport**: `ExerciseReportService` is an LLM generator, not a BaseService. Would need a `ExerciseReportSearchService` extending BaseService.
+- **EntryReport**: `EntryReportService` is an LLM generator, not a BaseService. Would need a `EntryReportSearchService` extending BaseService.
 - **ActivityReport**: `ActivityReportService` is standalone. Would need search methods or a BaseService wrapper.
 
 Both are lower priority since teachers primarily search by Exercise or Submission, then navigate to feedback via relationships.

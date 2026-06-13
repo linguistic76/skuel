@@ -76,7 +76,7 @@ Flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking).
 
 Renders `HomeHub(active_tab='gradebook')` — GradeBook tab pre-selected; block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`). Child pages use `SidebarPage` with GradeBook sidebar; nav defined in `ui/gradebook/nav.py`.
 
-Study sub-pages — `/exercise-reports`, `/exercise-reports/detail`, `/activity-reports`, `/submit-activity-report`, `/revised-exercises`, `/revised-exercises/detail` — use `SidebarPage` via GradeBook sidebar.
+Study sub-pages — `/entry-reports`, `/entry-reports/detail`, `/activity-reports`, `/submit-activity-report`, `/revised-exercises`, `/revised-exercises/detail` — use `SidebarPage` via GradeBook sidebar.
 
 ### `/library`
 

@@ -644,7 +644,7 @@ class ExerciseService(BaseService):
 
         This declares that the exercise requires understanding of the
         curriculum knowledge unit — anchoring the exercise to the
-        four-phase loop: Exercise → UserEntry → ExerciseReport → RevisedExercise.
+        four-phase loop: Exercise → UserEntry → EntryReport → RevisedExercise.
 
         Args:
             exercise_uid: Exercise UID (entity_type='exercise')

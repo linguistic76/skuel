@@ -354,15 +354,15 @@ logs a warning rather than failing the request.
 
 ---
 
-## Phase 3: ExerciseReport — The Response
+## Phase 3: EntryReport — The Response
 
 **What it is:** The evaluation of a submitted artifact. The loop's reply to the student's work.
 
-### EXERCISE_REPORT — Response to an Artifact
+### ENTRY_REPORT — Response to an Artifact
 
-**EntityType:** `EntityType.EXERCISE_REPORT`
-**Model:** `core/models/report/exercise_report.py` — `ExerciseReport(UserOwnedEntity)` frozen dataclass
-**Neo4j label:** `:Entity:ExerciseReport`
+**EntityType:** `EntityType.ENTRY_REPORT`
+**Model:** `core/models/report/entry_report.py` — `EntryReport(UserOwnedEntity)` frozen dataclass
+**Neo4j label:** `:Entity:EntryReport`
 **Inherits:** `UserOwnedEntity` directly — NOT Submission. The class adds 7 report-specific fields on top.
 
 **Key fields:**
@@ -370,7 +370,7 @@ logs a warning rather than failing the request.
 processed_content: str | None                         # LLM/teacher-generated feedback (written by create_report_node as processed_content: $feedback)
 report_generated_at: datetime | None
 # GRAPH-NATIVE: projected from the REPORT_FOR edge on read (not a stored node property).
-# ExerciseReportBackend.get / list_for_submission hydrate it via
+# EntryReportBackend.get / list_for_submission hydrate it via
 # `OPTIONAL MATCH (n)-[:REPORT_FOR]->(sub) RETURN n{.*, subject_uid: sub.uid}`.
 subject_uid: str | None                           # UID of the submission being evaluated
 processor_type: ReportSource | None              # HUMAN (teacher) | LLM (AI)
@@ -388,7 +388,7 @@ self-describing — the report records what decision was made, not just feedback
 |--------|---------|---------------|-------------------|---------|
 | Teacher submits `.md` file | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher uploads feedback file at `/teaching/review/{uid}` |
 | Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher fills structured revision form (instructions + categorized feedback points via Alpine.js dynamic list + rationale) |
-| AI | `ExerciseReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
+| AI | `EntryReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Two teacher feedback pathways — same service methods, different entry points:**
 
@@ -397,7 +397,7 @@ self-describing — the report records what decision was made, not just feedback
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(report:Entity:ExerciseReport {
+(teacher:User)-[:OWNS]->(report:Entity:EntryReport {
     processor_type: 'human',            // or 'llm'
     assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
     visibility: 'shared',               // set at create so SHARES_WITH is honored by UnifiedSharingService
@@ -408,9 +408,9 @@ self-describing — the report records what decision was made, not just feedback
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
-Reads go through `ExerciseReportBackend` (typed fetches — `get`, `list_for_submission`);
-writes (teacher + AI) go through `ExerciseReportBackend.create_report_node`. Both are reached via
-`ExerciseReportService`, the single service entry point.
+Reads go through `EntryReportBackend` (typed fetches — `get`, `list_for_submission`);
+writes (teacher + AI) go through `EntryReportBackend.create_report_node`. Both are reached via
+`EntryReportService`, the single service entry point.
 
 **The Revision Cycle (Phase 3 → 4 → 2 → 3):**
 
@@ -420,9 +420,9 @@ in `core/ports/report_protocols.py`):
 
 | Action | Method | AssessmentOutcome | Allowed From Status | Event Published | Result |
 |--------|--------|-------------------|---------------------|-----------------|--------|
-| Write report | `submit_report()` | `APPROVED` | `SUBMITTED`, `ACTIVE` | `ReportSubmitted` | `ExerciseReport` created, loop continues |
-| Request revision (with exercise) | `request_revision_with_exercise()` | `NEEDS_REVISION` | `SUBMITTED`, `ACTIVE` | `UserEntryRevisionRequested` + `RevisedExerciseCreated` + `RevisedExerciseEmbeddingRequested` | **Atomic**: ExerciseReport + RevisedExercise created in one transaction |
-| Request revision (report only) | `request_revision()` | `NEEDS_REVISION` | `SUBMITTED`, `ACTIVE` | `UserEntryRevisionRequested` | ExerciseReport created, no RevisedExercise |
+| Write report | `submit_report()` | `APPROVED` | `SUBMITTED`, `ACTIVE` | `ReportSubmitted` | `EntryReport` created, loop continues |
+| Request revision (with exercise) | `request_revision_with_exercise()` | `NEEDS_REVISION` | `SUBMITTED`, `ACTIVE` | `UserEntryRevisionRequested` + `RevisedExerciseCreated` + `RevisedExerciseEmbeddingRequested` | **Atomic**: EntryReport + RevisedExercise created in one transaction |
+| Request revision (report only) | `request_revision()` | `NEEDS_REVISION` | `SUBMITTED`, `ACTIVE` | `UserEntryRevisionRequested` | EntryReport created, no RevisedExercise |
 | Approve | `approve_report()` | — (no report created) | `REVISION_REQUESTED` | `UserEntryApproved` | Loop closes for this exercise |
 
 **Cypher-level status guards:** All three methods enforce valid status transitions
@@ -432,7 +432,7 @@ returns empty results and the service returns a validation error (not "not found
 since `_verify_teacher_has_group_access` already confirmed existence). This is race-safe —
 no gap between read and write.
 
-Each feedback round creates a new `ExerciseReport` entity via `REPORT_FOR` —
+Each feedback round creates a new `EntryReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes
 `ReportSubmitted`, `UserEntryRevisionRequested`, and `UserEntryApproved` events.
 Student notification delivery is **planned** — see the Messaging system in
@@ -446,7 +446,7 @@ activity feed to discover new reports.
 ## Parallel Reporting: ActivityReport — Response to Activity Patterns
 
 > **Not a loop phase.** ActivityReport closes a feedback loop over *lived activity* across
-> a time window. It shares the same pedagogical purpose as ExerciseReport (work → response),
+> a time window. It shares the same pedagogical purpose as EntryReport (work → response),
 > but is **structurally separate**: different services, different routes, and explicitly
 > excluded from `LearningLoopEventHandlerService` and `LearningLoopQueryService`.
 
@@ -512,11 +512,11 @@ the same method.
 ## Phase 4: RevisedExercise — The Targeted Revision
 
 **What it is:** A teacher-created revision of an Exercise that addresses specific gaps
-identified in `ExerciseReport`. Forces a reflection step between feedback and
+identified in `EntryReport`. Forces a reflection step between feedback and
 resubmission.
 
 ```
-PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
+PathStep → Exercise v1 → Submission v1 → EntryReport v1
                                               ↓
                                         RevisedExercise v2 → Submission v2 → ...
 ```
@@ -533,7 +533,7 @@ PathStep → Exercise v1 → Submission v1 → ExerciseReport v1
 - `revision_number` auto-determined from existing chain length
 - `feedback_points: tuple[FeedbackPoint, ...]` — typed feedback using `FeedbackCategory` enum (ACCURACY, COMPLETENESS, DEPTH, CLARITY, APPLICATION, METHODOLOGY) + free-text detail. Enables pattern tracking across submissions.
 - `expected_modality` and `submission_uid` auto-resolved by service on creation — teacher doesn't provide these
-- `parent_entity_uid` set to `report_uid` at `create()` time — the ExerciseReport is the direct derivation parent. Makes the chain navigable via Python model: no graph query needed to answer "which report prompted this revision?" The `RESPONDS_TO_REPORT` graph edge and `parent_entity_uid` carry the same information.
+- `parent_entity_uid` set to `report_uid` at `create()` time — the EntryReport is the direct derivation parent. Makes the chain navigable via Python model: no graph query needed to answer "which report prompted this revision?" The `RESPONDS_TO_REPORT` graph edge and `parent_entity_uid` carry the same information.
 
 **Services:**
 ```python
@@ -548,9 +548,9 @@ await backend.link_to_exercise(re_uid, exercise_uid)      # REVISES_EXERCISE
 await backend.get_revision_chain(exercise_uid)             # All revisions ordered
 await backend.get_by_report_uid(report_uid)                # Lookup RevisedExercise by report
 
-# ExerciseReportBackend — atomic revision request (preferred path from teaching UI)
-await exercise_report_backend.create_report_and_revised_exercise(params)
-# Single Cypher: creates ExerciseReport + RevisedExercise + all relationships atomically
+# EntryReportBackend — atomic revision request (preferred path from teaching UI)
+await entry_report_backend.create_report_and_revised_exercise(params)
+# Single Cypher: creates EntryReport + RevisedExercise + all relationships atomically
 # Used by TeacherReviewService.request_revision_with_exercise()
 ```
 
@@ -565,7 +565,7 @@ await exercise_report_backend.create_report_and_revised_exercise(params)
     revision_number: 2,
     feedback_points: '[{"category":"depth","detail":"..."}]'
 })
-(re)-[:RESPONDS_TO_REPORT]->(report:Entity:ExerciseReport)
+(re)-[:RESPONDS_TO_REPORT]->(report:Entity:EntryReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (submission:Entity:Submission)-[:FULFILLS_EXERCISE]->(exercise)        // root anchor — always
 (submission:Entity:Submission)-[:FULFILLS_REVISED_EXERCISE]->(re)     // revision pointer
@@ -602,7 +602,7 @@ Students view their revisions in the GradeBook sidebar under "Revisions":
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderers in `ui/learning_loop/revised_exercise.py`.
 The detail page links to `/submit?exercise_uid={re_uid}` — triggering the two-path Cypher for
-`FULFILLS_REVISED_EXERCISE`. The ExerciseReport detail at `/exercise-reports/detail?uid=` shows
+`FULFILLS_REVISED_EXERCISE`. The EntryReport detail at `/entry-reports/detail?uid=` shows
 a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
 
 **Loop role:** RevisedExercise is the *refinement* — it bridges feedback back into a
@@ -630,9 +630,9 @@ because it differs from `Exercise` on five structural axes:
 The verb lives on the edge: `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`. Type name =
 noun; edge name = verb; variant = enum field. Applied throughout the loop: `UserEntry` uses
 `pipeline: Pipeline` to distinguish what would once have been three separate types (ADR-054),
-and `ExerciseReport` uses `report_source: ReportSource` + `assessment_outcome:
+and `EntryReport` uses `report_source: ReportSource` + `assessment_outcome:
 AssessmentOutcome` to cover both initial and revision cycles without spawning a
-`RevisedExerciseReport` type.
+`RevisedEntryReport` type.
 
 **See:** [`/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples. ADR-054 is the reference for the `UserEntry` collapse rationale.
 
@@ -648,8 +648,8 @@ AssessmentOutcome` to cover both initial and revision cycles without spawning a
 | `FULFILLS_EXERCISE` | `Submission` → `Exercise` (root) | Always anchors to the original Exercise, across all revision iterations |
 | `FULFILLS_REVISED_EXERCISE` | `Submission` → `RevisedExercise` | Created alongside FULFILLS_EXERCISE for revision-cycle submissions only |
 | `SHARES_WITH` | `User` → `RevisedExercise` | Auto-share revision to student on creation |
-| `REPORT_FOR` | `ExerciseReport` → `Submission` | Report evaluates this specific artifact |
-| `RESPONDS_TO_REPORT` | `RevisedExercise` → `ExerciseReport` | Revision addresses this report |
+| `REPORT_FOR` | `EntryReport` → `Submission` | Report evaluates this specific artifact |
+| `RESPONDS_TO_REPORT` | `RevisedExercise` → `EntryReport` | Revision addresses this report |
 | `REVISES_EXERCISE` | `RevisedExercise` → `Exercise` | Revision of this original exercise |
 
 **RelationshipName enum locations:**
@@ -660,10 +660,10 @@ RelationshipName.REQUIRES_KNOWLEDGE      # Exercise → Ku
 RelationshipName.SHARED_WITH_GROUP       # Exercise/PathStep/LearningPath → Group (ADR-053)
 RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (always)
 RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
-RelationshipName.REPORT_FOR              # ExerciseReport → Submission
+RelationshipName.REPORT_FOR              # EntryReport → Submission
 RelationshipName.SHARES_WITH             # User → RevisedExercise (auto-share to student)
 RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
-RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → ExerciseReport
+RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → EntryReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ```
 
@@ -678,11 +678,11 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
 | **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `submit_file`, `get_entry`, `list_for_user`, `get_review_queue`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
 | **UserEntry processing** | `UserEntryProcessingService` | `UserEntryProcessingOperations` | — (dispatches; updates via `UserEntryService`) | `process(entry)` — pipeline dispatch by `Pipeline` (TRANSCRIBE / LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE) |
-| **Submission report** | `ExerciseReportService` (AI) + `AssessmentService` (HUMAN) | `ExerciseReportOperations` (service, AI + reads) + `ExerciseReportBackendOperations` (backend); `AssessmentOperations` for teacher assessments — split in PR #128, NOT a single-class union | `ExerciseReportBackend` (typed reads + report-node creation via `create_report_node`) + `UserEntryBackend` (assessment relationship/query ops: authority check, `ASSESSMENT_OF`, auto-share) | `ExerciseReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[ExerciseReport]` (both sources). `AssessmentService`: `create_assessment`, `get_assessments_for_student/by_teacher`. Writes land as `:Entity:ExerciseReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
+| **Submission report** | `EntryReportService` (AI) + `AssessmentService` (HUMAN) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `AssessmentOperations` for teacher assessments — split in PR #128, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node`) + `UserEntryBackend` (assessment relationship/query ops: authority check, `ASSESSMENT_OF`, auto-share) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[EntryReport]` (both sources). `AssessmentService`: `create_assessment`, `get_assessments_for_student/by_teacher`. Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
 | **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService`; the former `JournalOutputService` was deleted |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `ExerciseReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `ExerciseReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `EntryReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate`, `create_scheduled` |
 | **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
 | **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
@@ -733,7 +733,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Activity review (admin)** | `/api/activity-review/queue` | GET | Admin |
 | **Activity review (user)** | `/api/activity-review/history` | GET | User |
 | **Annotation** | `/api/activity-reports/annotate` | POST | User |
-| **Exercise report detail** | `/exercise-reports/detail?uid=` | GET | Student (owner) |
+| **Exercise report detail** | `/entry-reports/detail?uid=` | GET | Student (owner) |
 | **Revised exercises (list)** | `/revised-exercises` | GET | Student |
 | **Revised exercises (detail)** | `/revised-exercises/detail?uid=` | GET | Student |
 | **Revised exercises (HTMX list)** | `/revised-exercises/list` | GET | Student |
@@ -778,9 +778,9 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    entries joined to exercises via FULFILLS_EXERCISE)
        ↓
 6. TeacherReviewService.submit_report()             → core/services/report/teacher_review_service.py
-   Creates ExerciseReport with ReportSource.HUMAN
-   OR ExerciseReportService.generate_report()     → core/services/report/exercise_report_service.py
-   Creates ExerciseReport with ReportSource.LLM (via Exercise instructions)
+   Creates EntryReport with ReportSource.HUMAN
+   OR EntryReportService.generate_report()     → core/services/report/entry_report_service.py
+   Creates EntryReport with ReportSource.LLM (via Exercise instructions)
        ↓
 7. Student sees feedback, optionally resubmits (revision cycle)
 ```

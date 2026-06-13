@@ -1,8 +1,8 @@
 """Shared report item rendering for submission report display.
 
 Used by the teacher review UI and the student submission detail page. Takes
-a typed ``ExerciseReport`` — the persistence boundary returns these directly
-via ``ExerciseReportService.list_for_submission``.
+a typed ``EntryReport`` — the persistence boundary returns these directly
+via ``EntryReportService.list_for_submission``.
 """
 
 from typing import Any
@@ -10,11 +10,11 @@ from typing import Any
 from fasthtml.common import A, Div, P, Span
 
 from core.models.enums.pipeline import ReportSource
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 
 
-def render_report_item(report: ExerciseReport) -> Div:
-    """Render a single typed ExerciseReport as a history card."""
+def render_report_item(report: EntryReport) -> Div:
+    """Render a single typed EntryReport as a history card."""
     author = report.user_uid or "Author"
     content = report.processed_content or ""
     title = report.title or ""

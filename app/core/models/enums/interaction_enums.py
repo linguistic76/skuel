@@ -33,7 +33,7 @@ class InteractionResult(StrEnum):
     Result status of the interaction after it was processed.
 
     PENDING:             Interaction recorded, result not yet known.
-    REPORT_GENERATED:    An ExerciseReport was auto-generated.
+    REPORT_GENERATED:    An EntryReport was auto-generated.
     SHARED_WITH_TEACHER: Submission was shared with a teacher for review.
     COMPLETED:           Interaction fully processed with no further action needed.
     FAILED:              Processing failed (error recorded on the submission).

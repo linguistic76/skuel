@@ -26,6 +26,7 @@ All writes go through ``UserEntryService.submit_file``. All reads go through
 
 from __future__ import annotations
 
+import json
 import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,7 +42,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
+from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.gradebook.nav import render_gradebook_sidebar_page
@@ -60,7 +61,7 @@ from ui.workbench.nav import render_submissions_sidebar_page
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.services.groups.group_service import GroupService
-    from core.services.report.exercise_report_service import ExerciseReportService
+    from core.services.report.entry_report_service import EntryReportService
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.routes.user_entry.ui")
@@ -71,6 +72,88 @@ def _status_value(entry: UserEntry) -> str:
     if isinstance(status, EntityStatus):
         return status.value
     return str(status) if status else "submitted"
+
+
+def _render_entry_responses(responses: list[dict[str, Any]]) -> Any:
+    """Render the "Responses" section for an entry detail page (ADR-069).
+
+    HTMX swap target ``#entry-responses`` — re-rendered after a new response is
+    generated. Each item links to the full report at ``/entry-reports/detail``.
+    """
+    if responses:
+        body: Any = Div(
+            *[
+                Div(
+                    Span(str(r.get("title") or "Response"), cls="font-medium text-sm"),
+                    Span(
+                        f" · {str(r.get('processor_type') or '').upper()}",
+                        cls="text-xs text-muted-foreground ml-1",
+                    ),
+                    ButtonLink(
+                        "View",
+                        href=f"/entry-reports/detail?uid={r.get('uid')}",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                    ),
+                    cls="flex items-center justify-between p-2 border-b border-border",
+                )
+                for r in responses
+                if r.get("uid")
+            ]
+        )
+    else:
+        body = P("No responses yet.", cls="text-sm text-muted-foreground")
+
+    return Div(
+        H4("Responses", cls="mb-3"),
+        body,
+        id="entry-responses",
+        cls="mt-6",
+    )
+
+
+def _render_respond_button(entry_uid: str) -> Any:
+    """Button that requests a reflective LLM response for a journal entry."""
+    return Button(
+        "Get a reflective response",
+        variant=ButtonT.secondary,
+        size=Size.sm,
+        hx_post="/api/entry-reports/respond",
+        hx_vals=json.dumps({"entry_uid": entry_uid}),
+        hx_target="#entry-responses",
+        hx_swap="outerHTML",
+        hx_disabled_elt="this",
+        cls="mt-4",
+    )
+
+
+def _render_awaiting_response_section(entries: list[UserEntry]) -> Any:
+    """Render the "Awaiting a response" list on the journals browse page.
+
+    Empty (renders nothing) when every journal entry already has a response.
+    Each item links to the entry detail page where the response can be requested.
+    """
+    if not entries:
+        return Div()
+    return Card(
+        CardHeader(CardTitle("Awaiting a response")),
+        CardBody(
+            *[
+                Div(
+                    Span(e.title or "Untitled entry", cls="font-medium text-sm"),
+                    ButtonLink(
+                        "Open",
+                        href=f"/gradebook/{e.uid}",
+                        variant=ButtonT.ghost,
+                        size=Size.sm,
+                    ),
+                    cls="flex items-center justify-between p-2 border-b border-border",
+                )
+                for e in entries
+            ]
+        ),
+        cls="mb-6 bg-background shadow-sm",
+    )
 
 
 def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
@@ -137,7 +220,7 @@ def create_user_entry_ui_routes(
     user_entry_service: UserEntryService,
     *,
     orchestrator: UserEntryOrchestrator | None = None,
-    exercise_report_service: ExerciseReportService | None = None,
+    entry_report_service: EntryReportService | None = None,
     groups_service: GroupService | None = None,
 ) -> list[Any]:
     """Register the UserEntry UI routes.
@@ -147,7 +230,7 @@ def create_user_entry_ui_routes(
         rt: Route decorator
         user_entry_service: Primary ``UserEntryService`` (writes)
         orchestrator: ``UserEntryOrchestrator`` (reads across related services)
-        exercise_report_service: Used to guard delete when feedback exists
+        entry_report_service: Used to guard delete when feedback exists
         groups_service: ``GroupService`` used by ``/submit`` to enumerate the
             student's own groups for the audience radio selector.
     """
@@ -325,8 +408,8 @@ def create_user_entry_ui_routes(
         if entry_result.is_error or entry_result.value is None:
             return render_error_banner("Submission not found")
 
-        if exercise_report_service is not None:
-            history_result = await exercise_report_service.list_for_submission(uid)
+        if entry_report_service is not None:
+            history_result = await entry_report_service.list_for_submission(uid)
             if not history_result.is_error and history_result.value:
                 return render_error_banner("Cannot delete a submission that has received feedback")
 
@@ -382,6 +465,19 @@ def create_user_entry_ui_routes(
         if not result.is_error and result.value:
             entries = list(result.value)
 
+        # Journal-chain entries with no response yet — wires
+        # get_pending_submissions(pipelines=[...]) (ADR-069). The awaiting set
+        # spans BOTH journal pipelines (EXTRACT_ACTIVITIES + TRANSCRIBE_AND_STRUCTURE),
+        # so resolve titles from the user's full entry list rather than the
+        # transcription-only journal grid (which would silently drop the former).
+        awaiting_result = await orchestrator.get_entries_awaiting_response(user_uid)
+        awaiting_uids = set(awaiting_result.value or []) if awaiting_result.is_ok else set()
+        awaiting_entries: list[UserEntry] = []
+        if awaiting_uids:
+            pool_result = await orchestrator.list_for_user(user_uid, limit=100)
+            pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
+            awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
+
         from ui.layouts.base_page import BasePage
 
         content = Div(
@@ -395,6 +491,7 @@ def create_user_entry_ui_routes(
                     size=Size.sm,
                 ),
             ),
+            _render_awaiting_response_section(awaiting_entries),
             _render_user_entry_journal_grid(entries),
         )
         return await BasePage(
@@ -475,6 +572,45 @@ def create_user_entry_ui_routes(
             logger.error(f"Error downloading journal {uid}: {e}", exc_info=True)
             return Div(P(f"Download failed: {e}", cls="text-center text-error"))
 
+    @rt("/api/entry-reports/respond", methods=["POST"])
+    @csrf_protected
+    async def respond_to_entry(request: Request, entry_uid: str = "") -> Any:
+        """Generate an LLM reflective response to the user's own journal entry.
+
+        Owner-only (the orchestrator/service does the ownership-verified fetch
+        and returns not-found for entries the user does not own). Returns the
+        re-rendered ``#entry-responses`` section so the new response appears
+        in place (HTMX outerHTML swap).
+        """
+        user_uid = require_authenticated_user(request)
+        entry_uid = (entry_uid or "").strip()
+        if not entry_uid:
+            return render_inline_error("Missing entry_uid")
+
+        result = await orchestrator.generate_entry_response(entry_uid, user_uid)
+        if result.is_error:
+            # Owner-scope the response fetch: `get_entry_responses` is NOT
+            # ownership-aware, so on a failed attempt (e.g. not-found for an
+            # entry the caller does not own) we must NOT render that entry's
+            # reports — re-verify ownership before surfacing any responses.
+            owned = await orchestrator.get_entry(entry_uid, user_uid)
+            existing = (
+                await orchestrator.get_entry_responses(entry_uid)
+                if owned.is_ok and owned.value is not None
+                else None
+            )
+            return Div(
+                render_inline_error(result.expect_error().message),
+                _render_entry_responses(
+                    existing.value if existing is not None and existing.is_ok else []
+                ),
+                id="entry-responses",
+            )
+
+        responses_result = await orchestrator.get_entry_responses(entry_uid)
+        responses = responses_result.value if responses_result.is_ok else []
+        return _render_entry_responses(responses)
+
     # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
     # =========================================================================
@@ -543,9 +679,22 @@ def create_user_entry_ui_routes(
             cls="bg-background shadow-sm",
         )
 
+        # Responses section (ADR-069) — EntryReports pointing at this entry,
+        # via ReportRelationshipService.get_submission_chain.
+        responses_result = await orchestrator.get_entry_responses(uid)
+        responses = responses_result.value if responses_result.is_ok else []
+        # Button visibility uses the SAME eligibility check the respond POST
+        # enforces — so it shows for NONE-pipeline TRANSFORMS children too.
+        eligible = await orchestrator.is_entry_response_eligible(entry)
+        respond_button: Any = (
+            _render_respond_button(uid) if (eligible.is_ok and eligible.value) else None
+        )
+
         content = Div(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
             detail_card,
+            respond_button,
+            _render_entry_responses(responses),
         )
 
         return await render_gradebook_sidebar_page(
@@ -569,6 +718,7 @@ def create_user_entry_ui_routes(
         journals_browse_page,
         upload_journal,
         download_journal,
+        respond_to_entry,
         submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}
     ]
 

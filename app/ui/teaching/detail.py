@@ -9,7 +9,7 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Div, Form, Input, Label, P, Span
 
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -93,16 +93,14 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
     )
 
 
-def render_report_item(report: ExerciseReport) -> Div:
-    """Render a single typed ExerciseReport. Delegates to shared component."""
+def render_report_item(report: EntryReport) -> Div:
+    """Render a single typed EntryReport. Delegates to shared component."""
     from ui.patterns.report_item import render_report_item as _shared_render
 
     return _shared_render(report)
 
 
-def render_review_panel_inline(
-    uid: str, detail: dict[str, Any], history: list[ExerciseReport]
-) -> Div:
+def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[EntryReport]) -> Div:
     """
     Inline review panel fragment — loaded by HTMX into a submission card drawer.
 

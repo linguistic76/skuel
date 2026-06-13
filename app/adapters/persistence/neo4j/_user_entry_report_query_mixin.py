@@ -2,7 +2,7 @@
 UserEntry Report Query Mixin
 =============================
 
-Cross-joins to ExerciseReport and learning-loop chain queries.
+Cross-joins to EntryReport and learning-loop chain queries.
 Covers pending entries, unsubmitted exercises, report summaries,
 and learning-loop chain reads.
 
@@ -50,26 +50,43 @@ class _UserEntryReportQueryMixin:
     # ========================================================================
 
     async def get_pending_submissions_raw(
-        self, user_uid: UserUID, submission_types: list[str]
+        self,
+        user_uid: UserUID,
+        submission_types: list[str],
+        pipelines: list[str] | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entries without a REPORT_FOR relationship."""
+        """Get entries without a REPORT_FOR relationship.
+
+        When ``pipelines`` is non-empty, narrows further to entries whose
+        ``pipeline`` property is in the given values (``$pipelines IS NULL``
+        is the no-filter case, evaluated server-side).
+        """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(submission:Entity)
         WHERE submission.entity_type IN $submission_types
+          AND ($pipelines IS NULL OR submission.pipeline IN $pipelines)
           AND NOT ()-[:{RelationshipName.REPORT_FOR.value}]->(submission)
         RETURN submission.uid AS uid
         ORDER BY submission.created_at DESC
         LIMIT 20
         """
         return await self.execute_query(
-            query, {"user_uid": user_uid, "submission_types": submission_types}
+            query,
+            {
+                "user_uid": user_uid,
+                "submission_types": submission_types,
+                "pipelines": pipelines if pipelines else None,
+            },
         )
 
-    async def get_pending_entries_raw(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+    async def get_pending_entries_raw(
+        self, user_uid: UserUID, pipelines: list[str] | None = None
+    ) -> Result[list[Neo4jProperties]]:
         """Entries without an incoming ``REPORT_FOR`` relationship."""
         return await self.get_pending_submissions_raw(
             user_uid=user_uid,
             submission_types=[_USER_ENTRY],
+            pipelines=pipelines,
         )
 
     async def get_unsubmitted_exercises_raw(
@@ -123,7 +140,7 @@ class _UserEntryReportQueryMixin:
         WHERE ex.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}|{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(ex)
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-          WHERE fb.entity_type = 'exercise_report'
+          WHERE fb.entity_type = 'entry_report'
         OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
           WHERE re.entity_type = 'revised_exercise'
         RETURN ex {{.uid, .title, .entity_type, .status, .created_at}} AS exercise,
@@ -140,7 +157,7 @@ class _UserEntryReportQueryMixin:
         OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
           WHERE ex.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
-          WHERE fb.entity_type = 'exercise_report'
+          WHERE fb.entity_type = 'entry_report'
         OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
           WHERE re.entity_type = 'revised_exercise'
         RETURN sub {{.uid, .title, .status, .created_at, .user_uid}} AS submission,

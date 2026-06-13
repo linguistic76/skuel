@@ -4,14 +4,14 @@ Report Service Package
 
 Sub-services for the Report stage of SKUEL's educational loop:
 
-    Exercise → UserEntry → ExerciseReport → RevisedExercise
+    Exercise → UserEntry → EntryReport → RevisedExercise
                               ↑
                     teacher/AI responds to work
 
 Sub-services:
 - ActivityReportService: Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
 - ReportRelationshipService: Level 1 graph queries (no LLM) — pending submissions, summary
-- ExerciseReportService: AI report generation via Exercise instructions (Level 2, LLM)
+- EntryReportService: AI report generation via Exercise instructions (Level 2, LLM)
 - ReviewQueueService: ReviewRequest queue management (user requests, admin queue)
 - TeacherReviewService: Human teacher assessment and review queue
 - ProgressReportGenerator: AI-generated progress reports
@@ -19,7 +19,7 @@ Sub-services:
 """
 
 from core.services.report.activity_report_service import ActivityReportService
-from core.services.report.exercise_report_service import ExerciseReportService
+from core.services.report.entry_report_service import EntryReportService
 from core.services.report.progress_report_generator import ProgressReportGenerator
 from core.services.report.progress_schedule_service import ProgressScheduleService
 from core.services.report.report_relationship_service import ReportRelationshipService
@@ -32,6 +32,6 @@ __all__ = [
     "ProgressScheduleService",
     "ReportRelationshipService",
     "ReviewQueueService",
-    "ExerciseReportService",
+    "EntryReportService",
     "TeacherReviewService",
 ]

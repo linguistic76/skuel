@@ -1,7 +1,7 @@
-"""Exercise-family backends: Exercise, RevisedExercise, ExerciseReport.
+"""Exercise-family backends: Exercise, RevisedExercise, EntryReport.
 
 The three entities that drive the four-phase learning loop:
-Exercise → UserEntry → ExerciseReport → RevisedExercise → …
+Exercise → UserEntry → EntryReport → RevisedExercise → …
 
 PathStep is the curriculum anchor, linked via (PathStep)-[:RELATED_TO]->(Exercise)
 (denormalized as Exercise.path_step_uid for PERSONAL scope).
@@ -15,7 +15,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
 from core.models.relationship_names import RelationshipName
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     CurriculumExerciseResult,
@@ -464,7 +464,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             f"""
             MATCH (re:Entity {{uid: $re_uid, entity_type: 'revised_exercise'}})
             MATCH (fb:Entity {{uid: $report_uid}})
-            WHERE fb.entity_type IN ['exercise_report', 'activity_report']
+            WHERE fb.entity_type IN ['entry_report', 'activity_report']
             MERGE (re)-[r:{RelationshipName.RESPONDS_TO_REPORT}]->(fb)
             ON CREATE SET r.created_at = datetime()
             RETURN true as success
@@ -513,7 +513,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         """Verify teacher has review authority over a report.
 
         Checks the graph path (OWNS-based, per ADR-040):
-        - (ExerciseReport)-[:REPORT_FOR]->(UserEntry) exists
+        - (EntryReport)-[:REPORT_FOR]->(UserEntry) exists
         - (Student)-[:OWNS]->(UserEntry)
         - Teacher identity is role-gated at the route level (@require_role)
 
@@ -698,26 +698,26 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         )
 
 
-class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
+class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
     """
-    Domain backend for ExerciseReport entities.
+    Domain backend for EntryReport entities.
 
     Provides typed relationship-specific reads for the four-phase learning loop.
-    All reads assert both labels (``:Entity:ExerciseReport``) and return
-    ``list[ExerciseReport]`` via ``from_neo4j_node``.
+    All reads assert both labels (``:Entity:EntryReport``) and return
+    ``list[EntryReport]`` via ``from_neo4j_node``.
 
     Report *creation* works through ``create_report_node`` and ``create_report_and_revised_exercise``
-    to ensure the ExerciseReport domain backend completely owns its own lifecycle.
+    to ensure the EntryReport domain backend completely owns its own lifecycle.
     """
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission.
+        """Create EntryReport node, link via REPORT_FOR, share with student, update submission.
 
         Canonical report-creation path for both teacher (HUMAN) and AI (LLM) reports.
 
         Params:
             report_uid: Submission UID to attach the report to
-            report_entity_uid: UID for the new ExerciseReport node
+            report_entity_uid: UID for the new EntryReport node
             author_uid: UID of the user who authored the report. For teacher
                 reports this is the teacher; for AI reports the caller is the
                 student themselves (the "author of record").
@@ -728,6 +728,12 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
                 None to leave submission.status unchanged (AI reports pass None)
             allowed_from_statuses: list of current-status values permitted for
                 the transition, or None to skip the guard (AI reports pass None)
+            visibility: report node visibility — ``'shared'`` for teacher/AI
+                reports (student gets a SHARES_WITH grant), ``'private'`` for
+                self-owned journal responses (no separate grant; owner reads it).
+            create_student_share: when True (teacher/AI), create the
+                ``(student)-[:SHARES_WITH]->(report)`` grant; when False
+                (journal responses), skip it — the owner already owns the node.
 
         Returns empty results when the guard is present and rejects the
         transition (caller already verified existence).
@@ -746,16 +752,16 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         )
 
         // Canonical feedback lives on the report node
-        // Multi-label: :Entity for cross-domain queries, :ExerciseReport for
-        // typed reads via ExerciseReportBackend (CLAUDE.md: multi-label writes invariant).
-        CREATE (fb:Entity:ExerciseReport {{
+        // Multi-label: :Entity for cross-domain queries, :EntryReport for
+        // typed reads via EntryReportBackend (CLAUDE.md: multi-label writes invariant).
+        CREATE (fb:Entity:EntryReport {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
             user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
             author_uid: $author_uid,
             status: $completed_status,
-            visibility: 'shared',
+            visibility: $visibility,
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             processed_content: $feedback,
@@ -765,16 +771,20 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             updated_at: datetime($now)
         }})
 
+        // Owner = the submission's student when present, else the author.
+        // OPTIONAL author MATCH so LLM journal responses can pass author_uid=null
+        // (no human author) without dropping the row — the entry owner still owns it.
         WITH submission, student, fb
-        MATCH (author:User {{uid: $author_uid}})
-        WITH submission, student, fb, author,
-             CASE WHEN student IS NOT NULL THEN student ELSE author END AS owner
+        OPTIONAL MATCH (author:User {{uid: $author_uid}})
+        WITH submission, student, fb, COALESCE(student, author) AS owner
+        WHERE owner IS NOT NULL
         CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
         WITH submission, student, fb
-        WHERE student IS NOT NULL
-        CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
+        FOREACH (_ IN CASE WHEN student IS NOT NULL AND $create_student_share THEN [1] ELSE [] END |
+            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
+        )
 
         RETURN submission.uid as uid,
                submission.status as status,
@@ -786,14 +796,14 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
     async def create_report_and_revised_exercise(
         self, params: dict[str, Any]
     ) -> Result[list[Neo4jProperties]]:
-        """Atomically create ExerciseReport + RevisedExercise in one transaction.
+        """Atomically create EntryReport + RevisedExercise in one transaction.
 
         Combines the two-phase revision request (create_report_node + RevisedExercise
         create with relationships) into a single Cypher query. All-or-nothing: if any
         part fails, no partial state is left behind.
 
         Params required:
-            Phase 1 (ExerciseReport): report_uid (submission UID), report_entity_uid,
+            Phase 1 (EntryReport): report_uid (submission UID), report_entity_uid,
                 author_uid, feedback, report_file_path, title, entity_type,
                 submission_status, completed_status, processor_type,
                 assessment_outcome, allowed_from_statuses, now
@@ -801,7 +811,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
                 original_exercise_uid
         """
         query = f"""
-        // Phase 1: Match submission with status guard, create ExerciseReport
+        // Phase 1: Match submission with status guard, create EntryReport
         MATCH (submission:Entity {{uid: $report_uid}})
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
@@ -809,7 +819,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         SET submission.status = $submission_status,
             submission.updated_at = datetime($now)
 
-        CREATE (fb:Entity:ExerciseReport {{
+        CREATE (fb:Entity:EntryReport {{
             uid: $report_entity_uid,
             title: $title,
             entity_type: $entity_type,
@@ -891,16 +901,16 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         """
         return await self.execute_query(query, params)
 
-    async def get(self, uid: str) -> Result[ExerciseReport | None]:
-        """Typed single-fetch for ExerciseReport by UID.
+    async def get(self, uid: str) -> Result[EntryReport | None]:
+        """Typed single-fetch for EntryReport by UID.
 
         Overrides ``UniversalNeo4jBackend.get`` to project ``subject_uid``
-        from the REPORT_FOR edge so the hydrated ExerciseReport carries the
+        from the REPORT_FOR edge so the hydrated EntryReport carries the
         submission UID it reports on. Returns ``Result.ok(None)`` when no
         node matches (same not-found-is-not-error contract as the parent).
         """
         cypher = f"""
-            MATCH (n:ExerciseReport {{uid: $uid}})
+            MATCH (n:EntryReport {{uid: $uid}})
             OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
         """
@@ -913,10 +923,10 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
             entity = from_neo4j_node(records[0]["n"], self.entity_class)
             return Result.ok(entity)
         except Exception as e:  # safety-net: neo4j + mapping errors
-            return Result.fail(Errors.database("get", f"Failed to fetch ExerciseReport: {e!s}"))
+            return Result.fail(Errors.database("get", f"Failed to fetch EntryReport: {e!s}"))
 
-    async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
-        """Return all reports attached to a submission, as typed ExerciseReport
+    async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
+        """Return all reports attached to a submission, as typed EntryReport
         instances, ordered by created_at ASC (oldest → newest review round).
 
         Replaces the former dict-returning get_report_for_submission (this
@@ -924,7 +934,7 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
         Typed all the way to the route handler — no TypedDict projection.
         """
         cypher = f"""
-            MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity {{uid: $submission_uid}})
+            MATCH (n:EntryReport)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity {{uid: $submission_uid}})
             RETURN n{{.*, subject_uid: $submission_uid}} AS n
             ORDER BY n.created_at ASC
         """
@@ -941,19 +951,19 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
 
     async def get_reports_for_student_exercise(
         self, student_uid: str, exercise_uid: str
-    ) -> Result[list[ExerciseReport]]:
-        """All ExerciseReports for a student's submissions on a given exercise.
+    ) -> Result[list[EntryReport]]:
+        """All EntryReports for a student's submissions on a given exercise.
 
         Traverses: (Student)-[:OWNS]->(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
-                   (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
+                   (EntryReport)-[:REPORT_FOR]->(UserEntry)
 
-        Returns typed ExerciseReport instances ordered by created_at DESC
+        Returns typed EntryReport instances ordered by created_at DESC
         (newest-first — natural reading order for "most recent feedback").
         """
         cypher = f"""
             MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity)
             MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
-            MATCH (n:ExerciseReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
+            MATCH (n:EntryReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
             ORDER BY n.created_at DESC
         """
@@ -975,18 +985,18 @@ class ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport]):
 
     async def get_reports_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> Result[list[ExerciseReport]]:
-        """All ExerciseReports authored by a teacher, newest first.
+    ) -> Result[list[EntryReport]]:
+        """All EntryReports authored by a teacher, newest first.
 
         Filters on ``author_uid`` — the dedicated authorship field set at
-        report creation time. ``user_uid`` on ExerciseReport always stores the
+        report creation time. ``user_uid`` on EntryReport always stores the
         student (access ownership); ``author_uid`` stores the teacher for
         HUMAN reports and is None for LLM/AI reports.
 
-        Returns typed ExerciseReport instances.
+        Returns typed EntryReport instances.
         """
         cypher = f"""
-            MATCH (n:ExerciseReport {{author_uid: $teacher_uid}})
+            MATCH (n:EntryReport {{author_uid: $teacher_uid}})
             OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
             ORDER BY n.created_at DESC

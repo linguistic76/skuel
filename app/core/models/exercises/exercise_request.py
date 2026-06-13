@@ -219,7 +219,7 @@ class ExerciseUpdateRequest(BaseModel):
 class ReportGenerateRequest(BaseModel):
     """Request to generate AI report for a submission using an Exercise.
 
-    Always creates an ExerciseReport entity (processor_type=LLM) in Neo4j.
+    Always creates an EntryReport entity (processor_type=LLM) in Neo4j.
     """
 
     submission_uid: str = Field(..., description="UID of the submission to analyze")

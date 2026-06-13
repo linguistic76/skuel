@@ -1784,7 +1784,7 @@ class SkuelLinter:
             # Content processing
             "exercise_submission",
             "activity_report",
-            "exercise_report",
+            "entry_report",
             "interaction",
             # Journal
             "je_input",

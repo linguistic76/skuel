@@ -2019,7 +2019,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 
 # -----------------------------------------------------------------------------
 # REVISED_EXERCISE (Four-Phase Learning Loop — teacher-owned, student-targeted)
-# RevisedExercise responds to ExerciseReport and revises an Exercise
+# RevisedExercise responds to EntryReport and revises an Exercise
 # -----------------------------------------------------------------------------
 REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
@@ -2030,7 +2030,7 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Teacher-owned, student-targeted
     relationships=(
-        # Outgoing: RevisedExercise → ExerciseReport (what feedback it addresses)
+        # Outgoing: RevisedExercise → EntryReport (what feedback it addresses)
         UnifiedRelationshipDefinition(
             RelationshipName.RESPONDS_TO_REPORT,
             "Entity",
@@ -2437,7 +2437,7 @@ ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     # User-authored content + Reports (3)
     EntityType.USER_ENTRY: "UserEntry",
     EntityType.ACTIVITY_REPORT: "ActivityReport",
-    EntityType.EXERCISE_REPORT: "ExerciseReport",
+    EntityType.ENTRY_REPORT: "EntryReport",
     # General-Purpose Forms (2)
     EntityType.FORM_TEMPLATE: "FormTemplate",
     EntityType.FORM_SUBMISSION: "FormSubmission",
@@ -2477,7 +2477,7 @@ LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
     "JeInput": EntityType.USER_ENTRY,  # legacy alias
     "JeOutput": EntityType.USER_ENTRY,  # legacy alias
     "ActivityReport": EntityType.ACTIVITY_REPORT,
-    "ExerciseReport": EntityType.EXERCISE_REPORT,
+    "EntryReport": EntityType.ENTRY_REPORT,
     # General-Purpose Forms (2)
     "FormTemplate": EntityType.FORM_TEMPLATE,
     "FormSubmission": EntityType.FORM_SUBMISSION,

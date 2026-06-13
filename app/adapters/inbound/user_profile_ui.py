@@ -231,13 +231,13 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     # ------------------------------------------------------------------
 
     @rt("/api/profile/reports/exercise-summary")
-    async def exercise_reports_summary(request: Request) -> Any:
+    async def entry_reports_summary(request: Request) -> Any:
         """HTMX fragment: 5 most recent exercise reports for the profile hub."""
         from fasthtml.common import A, P, Span
 
         user_uid = require_authenticated_user(request)
 
-        result = await profile_orchestrator.get_recent_exercise_reports(user_uid, limit=5)
+        result = await profile_orchestrator.get_recent_entry_reports(user_uid, limit=5)
         if result.is_error:
             return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
 
@@ -259,7 +259,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 Div(
                     A(
                         title,
-                        href=f"/exercise-reports?uid={uid}",
+                        href=f"/entry-reports?uid={uid}",
                         cls="text-sm font-medium text-foreground hover:text-primary truncate",
                     ),
                     Span(

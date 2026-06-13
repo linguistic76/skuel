@@ -23,7 +23,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.exercises.exercise_service import ExerciseService
-from core.services.report.exercise_report_service import ExerciseReportService
+from core.services.report.entry_report_service import EntryReportService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -35,7 +35,7 @@ def create_exercises_api_routes(
     rt: Any,
     exercises_service: ExerciseService,
     transcript_service: ContentEnrichmentService | None,
-    exercise_report_service: ExerciseReportService | None,
+    entry_report_service: EntryReportService | None,
     user_service: Any = None,
 ) -> list[Any]:
     """
@@ -46,7 +46,7 @@ def create_exercises_api_routes(
         rt: Route decorator
         exercises_service: ExerciseService instance
         transcript_service: ContentEnrichmentService for entry lookup
-        exercise_report_service: ExerciseReportService for AI reports
+        entry_report_service: EntryReportService for AI reports
         user_service: UserService for role checks
     """
 
@@ -64,7 +64,7 @@ def create_exercises_api_routes(
         """
         Generate AI report for an entry using an exercise.
 
-        Creates a ExerciseReport entity (processor_type=LLM) linked to the
+        Creates a EntryReport entity (processor_type=LLM) linked to the
         submission via REPORT_FOR — symmetric with human teacher reports.
 
         Body (JSON):
@@ -74,14 +74,14 @@ def create_exercises_api_routes(
         - max_tokens: Max tokens to generate (optional, default 4000)
 
         Returns:
-        - 200: ExerciseReport entity created {report_uid, submission_uid, exercise_uid, content}
+        - 200: EntryReport entity created {report_uid, submission_uid, exercise_uid, content}
         - 400: Invalid input
         - 404: Entry or exercise not found
         - 503: Service not available
         """
-        if not exercise_report_service:
+        if not entry_report_service:
             return Result.fail(
-                Errors.system("Report service not available", service="ExerciseReportService")
+                Errors.system("Report service not available", service="EntryReportService")
             )
 
         if not transcript_service:
@@ -116,8 +116,8 @@ def create_exercises_api_routes(
         if not isinstance(entry, UserEntry):
             return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
 
-        # Generate report — creates ExerciseReport entity + REPORT_FOR relationship
-        report_result = await exercise_report_service.generate_report(
+        # Generate report — creates EntryReport entity + REPORT_FOR relationship
+        report_result = await entry_report_service.generate_report(
             entry=entry,
             exercise=exercise,
             user_uid=user_uid,

@@ -4,7 +4,7 @@ UserEntry Routes (ADR-054)
 
 Wires the ``user_entry`` domain's API + UI surface via ``DomainRouteConfig``,
 then re-registers the cross-cutting extension factories and the three sibling
-sub-UIs (exercise_reports, activity_reports, revised_exercises) that used to
+sub-UIs (entry_reports, activity_reports, revised_exercises) that used to
 live under the legacy ``submissions_routes``. This is the single entry point
 for the unified submission/journal experience.
 
@@ -31,7 +31,7 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
     ui_factory=create_user_entry_ui_routes,
     ui_related_services={
         "orchestrator": "user_entry_orchestrator",
-        "exercise_report_service": "exercise_report",
+        "entry_report_service": "entry_report",
         "groups_service": "groups",
     },
 )
@@ -76,10 +76,10 @@ def create_user_entry_routes(
     user_entry_orch = getattr(services, "user_entry_orchestrator", None)
     if user_entry_orch:
         from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
-        from adapters.inbound.exercise_reports_ui import create_exercise_reports_ui_routes
+        from adapters.inbound.entry_reports_ui import create_entry_reports_ui_routes
         from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
 
-        create_exercise_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
+        create_entry_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
         create_activity_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
         create_revised_exercises_ui_routes(app, rt, orchestrator=user_entry_orch)
         logger.info("UserEntry: exercise/activity/revised-exercise UI sub-factories registered")

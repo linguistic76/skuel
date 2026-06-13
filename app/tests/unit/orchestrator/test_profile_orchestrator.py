@@ -318,10 +318,10 @@ async def test_get_assigned_exercises_delegates() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_recent_exercise_reports_delegates() -> None:
+async def test_get_recent_entry_reports_delegates() -> None:
     orch, mocks = _build()
     mocks["assessment_service"].get_assessments_for_student.return_value = Result.ok([])
-    await orch.get_recent_exercise_reports("user_1", limit=7)
+    await orch.get_recent_entry_reports("user_1", limit=7)
     mocks["assessment_service"].get_assessments_for_student.assert_called_once_with(
         "user_1", limit=7
     )

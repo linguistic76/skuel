@@ -31,7 +31,7 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.report.activity_report import ActivityReport
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from core.models.resource.resource import Resource
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
@@ -65,7 +65,7 @@ SubmissionEntity = UserEntry
 JournalEntity = UserEntry
 
 # Report entities — report output (no file fields, report-specific fields)
-ReportEntity = ActivityReport | ExerciseReport
+ReportEntity = ActivityReport | EntryReport
 
 # =============================================================================
 # TYPE CLASS MAP — dispatcher for entity deserialization
@@ -88,7 +88,7 @@ ENTITY_TYPE_CLASS_MAP: dict[EntityType, type[Entity]] = {
     EntityType.REVISED_EXERCISE: RevisedExercise,
     EntityType.USER_ENTRY: UserEntry,
     EntityType.ACTIVITY_REPORT: ActivityReport,
-    EntityType.EXERCISE_REPORT: ExerciseReport,
+    EntityType.ENTRY_REPORT: EntryReport,
     EntityType.FORM_TEMPLATE: FormTemplate,
     EntityType.FORM_SUBMISSION: FormSubmission,
     EntityType.INTERACTION: Interaction,

@@ -4,7 +4,7 @@ Unified LLM Caller
 
 Routes LLM calls to OpenAI or Anthropic based on model prefix.
 
-Extracts the model-routing logic that was duplicated in ExerciseReportService
+Extracts the model-routing logic that was duplicated in EntryReportService
 and hardcoded in JournalOutputGenerator into a single reusable service.
 
 Usage:
@@ -63,7 +63,7 @@ class UnifiedLLMCaller:
     """
     Routes LLM calls to OpenAI or Anthropic based on model prefix.
 
-    Replaces duplicated routing logic in ExerciseReportService (lines 136-174)
+    Replaces duplicated routing logic in EntryReportService (lines 136-174)
     and hardcoded OpenAI calls in JournalOutputGenerator.
     """
 

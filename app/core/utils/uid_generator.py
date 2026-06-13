@@ -205,7 +205,7 @@ class UIDGenerator:
         General UID generation for any entity type.
 
         Args:
-            prefix: UID prefix (e.g., "task", "sr", "fs", "notif")
+            prefix: UID prefix (e.g., "task", "er", "fs", "notif")
             name: Optional name for semantic UIDs
 
         Returns:

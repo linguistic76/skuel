@@ -1,6 +1,6 @@
-"""Tests for ExerciseReportService (AI report generation path).
+"""Tests for EntryReportService (AI report generation path).
 
-Mirrors test_teacher_review_service.py: mocks ExerciseReportBackendOperations.create_report_node
+Mirrors test_teacher_review_service.py: mocks EntryReportBackendOperations.create_report_node
 and asserts the parameters passed. The SHARES_WITH + OWNS + REPORT_FOR edges are
 created inside the Cypher of create_report_node itself (covered by the teacher-path
 tests and by integration checks against Neo4j); this suite verifies that the AI
@@ -16,9 +16,9 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
-from core.services.report.exercise_report_service import ExerciseReportService
+from core.services.report.entry_report_service import EntryReportService
 from core.utils.result_simplified import Errors, Result
 
 STUDENT_UID = "user_student_xyz"
@@ -84,8 +84,8 @@ def _make_service(
     *,
     llm_caller: MagicMock | None = None,
     backend: MagicMock | None = None,
-) -> ExerciseReportService:
-    return ExerciseReportService(
+) -> EntryReportService:
+    return EntryReportService(
         llm_caller=llm_caller or _make_llm_caller(),
         backend=backend or _make_ext_backend(),
     )
@@ -98,7 +98,7 @@ def _make_service(
 
 class TestGenerateReportHappyPath:
     @pytest.mark.asyncio
-    async def test_success_returns_exercise_report_entity(self):
+    async def test_success_returns_entry_report_entity(self):
         service = _make_service()
 
         result = await service.generate_report(
@@ -109,7 +109,7 @@ class TestGenerateReportHappyPath:
 
         assert not result.is_error, result.error if result.is_error else None
         report = result.value
-        assert report.entity_type == EntityType.EXERCISE_REPORT
+        assert report.entity_type == EntityType.ENTRY_REPORT
         assert report.processor_type == ReportSource.LLM
         assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
         assert report.status == EntityStatus.COMPLETED
@@ -117,7 +117,7 @@ class TestGenerateReportHappyPath:
         assert report.user_uid == STUDENT_UID  # student always owns the report
         assert report.author_uid == TEACHER_UID  # caller is the author (LLM trigger)
         assert report.processed_content == "Great work — here is your feedback."
-        assert report.uid.startswith("sr_")
+        assert report.uid.startswith("er_")
 
     @pytest.mark.asyncio
     async def test_llm_called_with_feedback_prompt(self):
@@ -145,7 +145,7 @@ class TestGenerateReportHappyPath:
 
 
 class TestGenerateReportBackendDelegation:
-    """The AI path must route through ExerciseReportBackendOperations.create_report_node with
+    """The AI path must route through EntryReportBackendOperations.create_report_node with
     the right params — this is what wires AI reports into the student-visible
     read path (SHARES_WITH) and keeps them symmetric with teacher reports."""
 
@@ -176,7 +176,7 @@ class TestGenerateReportBackendDelegation:
         (params,), _ = backend.create_report_node.await_args
         assert params["processor_type"] == ReportSource.LLM.value
         assert params["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
-        assert params["entity_type"] == EntityType.EXERCISE_REPORT.value
+        assert params["entity_type"] == EntityType.ENTRY_REPORT.value
 
     @pytest.mark.asyncio
     async def test_params_skip_status_transition_and_guard(self):
@@ -230,7 +230,7 @@ class TestGenerateReportBackendDelegation:
         assert params["report_file_path"] is None
         assert "Reflection #3" in params["title"]
         assert params["now"]  # ISO timestamp, non-empty
-        assert params["report_entity_uid"].startswith("sr_")
+        assert params["report_entity_uid"].startswith("er_")
 
 
 # ============================================================================
@@ -351,7 +351,7 @@ class TestGenerateReportErrorPropagation:
 # ============================================================================
 
 
-def _make_exercise_report_backend() -> MagicMock:
+def _make_entry_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
     backend.get = AsyncMock(return_value=Result.ok(None))
@@ -363,9 +363,9 @@ class TestGet:
 
     @pytest.mark.asyncio
     async def test_delegates_to_backend_and_returns_report(self):
-        report = ExerciseReport(
+        report = EntryReport(
             uid="sr_teacher_042",
-            entity_type=EntityType.EXERCISE_REPORT,
+            entity_type=EntityType.ENTRY_REPORT,
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
@@ -373,9 +373,9 @@ class TestGet:
             content="Solid work.",
             subject_uid=SUBMISSION_UID,
         )
-        backend = _make_exercise_report_backend()
+        backend = _make_entry_report_backend()
         backend.get.return_value = Result.ok(report)
-        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
         result = await service.get("sr_teacher_042")
 
@@ -385,9 +385,9 @@ class TestGet:
 
     @pytest.mark.asyncio
     async def test_missing_report_narrows_to_not_found(self):
-        backend = _make_exercise_report_backend()
+        backend = _make_entry_report_backend()
         backend.get.return_value = Result.ok(None)
-        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
         result = await service.get("sr_missing")
 
@@ -395,7 +395,7 @@ class TestGet:
 
     @pytest.mark.asyncio
     async def test_no_backend_fails_fast(self):
-        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=None)
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=None)
 
         result = await service.get("sr_any")
 
@@ -403,9 +403,9 @@ class TestGet:
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates(self):
-        backend = _make_exercise_report_backend()
+        backend = _make_entry_report_backend()
         backend.get.return_value = Result.fail(Errors.database("get", "query failed"))
-        service = ExerciseReportService(llm_caller=_make_llm_caller(), backend=backend)
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
         result = await service.get("sr_any")
 
@@ -413,15 +413,15 @@ class TestGet:
 
 
 class TestListForSubmission:
-    """`list_for_submission` delegates to ExerciseReportBackend and returns
-    typed ExerciseReport entities — both teacher (HUMAN) and AI (LLM) reports
+    """`list_for_submission` delegates to EntryReportBackend and returns
+    typed EntryReport entities — both teacher (HUMAN) and AI (LLM) reports
     appear, discriminated by processor_type."""
 
     @pytest.mark.asyncio
     async def test_delegates_to_backend_and_returns_typed_reports(self):
-        ai_report = ExerciseReport(
+        ai_report = EntryReport(
             uid="sr_ai_001",
-            entity_type=EntityType.EXERCISE_REPORT,
+            entity_type=EntityType.ENTRY_REPORT,
             title="AI Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
@@ -430,9 +430,9 @@ class TestListForSubmission:
             content="AI notes",
             subject_uid=SUBMISSION_UID,
         )
-        teacher_report = ExerciseReport(
+        teacher_report = EntryReport(
             uid="sr_teacher_001",
-            entity_type=EntityType.EXERCISE_REPORT,
+            entity_type=EntityType.ENTRY_REPORT,
             title="Teacher Feedback",
             user_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
@@ -440,9 +440,9 @@ class TestListForSubmission:
             content="Teacher notes",
             subject_uid=SUBMISSION_UID,
         )
-        backend = _make_exercise_report_backend()
+        backend = _make_entry_report_backend()
         backend.list_for_submission.return_value = Result.ok([ai_report, teacher_report])
-        service = ExerciseReportService(
+        service = EntryReportService(
             llm_caller=_make_llm_caller(),
             backend=backend,
         )
@@ -455,7 +455,7 @@ class TestListForSubmission:
 
     @pytest.mark.asyncio
     async def test_no_backend_fails_fast(self):
-        service = ExerciseReportService(
+        service = EntryReportService(
             llm_caller=_make_llm_caller(),
             backend=None,
         )
@@ -466,11 +466,11 @@ class TestListForSubmission:
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates(self):
-        backend = _make_exercise_report_backend()
+        backend = _make_entry_report_backend()
         backend.list_for_submission.return_value = Result.fail(
             Errors.database("list_for_submission", "query failed")
         )
-        service = ExerciseReportService(
+        service = EntryReportService(
             llm_caller=_make_llm_caller(),
             backend=backend,
         )
@@ -490,7 +490,7 @@ class TestGenerateReportWithoutBackend:
     async def test_no_backend_returns_system_error(self):
         """Fail-fast: missing backend returns a system error
         rather than a transient non-persisted report (SKUEL fail-fast rule)."""
-        service = ExerciseReportService(
+        service = EntryReportService(
             llm_caller=_make_llm_caller(text="Feedback text."),
             backend=None,
         )

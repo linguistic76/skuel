@@ -46,11 +46,11 @@ RENAMED: dict[str, str] = {
     "EntityType.CURRICULUM": "EntityType.PATH_STEP",
     "EntityType.ARTICLE": "EntityType.PATH_STEP",
     "EntityType.AI_FEEDBACK": "EntityType.ACTIVITY_REPORT",
-    "EntityType.FEEDBACK_REPORT": "EntityType.EXERCISE_REPORT",
+    "EntityType.FEEDBACK_REPORT": "EntityType.ENTRY_REPORT",
     # Submission/Report hierarchy refactoring (Mar 2026) → UserEntry collapse (Apr 2026)
     "EntityType.SUBMISSION": "EntityType.USER_ENTRY",
     "EntityType.JOURNAL": "EntityType.USER_ENTRY",
-    "EntityType.SUBMISSION_REPORT": "EntityType.EXERCISE_REPORT",
+    "EntityType.SUBMISSION_REPORT": "EntityType.ENTRY_REPORT",
     # Journal domain extraction (Mar 2026) → UserEntry collapse (Apr 2026)
     "EntityType.JOURNAL_SUBMISSION": "EntityType.USER_ENTRY",
     "EntityType.JOURNAL_REPORT": "EntityType.USER_ENTRY",
@@ -83,7 +83,7 @@ RENAMED: dict[str, str] = {
     "list_reports": "list_submissions",
     "get_recent_reports": "get_recent_submissions",
     # Old module-level class rename (Privacy refactor, Mar 2026)
-    "class Feedback(": "class ExerciseReport(",
+    "class Feedback(": "class EntryReport(",
     # Old import paths (post ku/ monolith dissolution, Feb 2026)
     "from core.models.ku.ku_enums import": "from core.models.enums.entity_enums import (or domain-specific enums file)",
     "from core.models.ku import": "from core.models.<domain> import  (ku/ monolith deleted)",
@@ -100,10 +100,10 @@ RENAMED: dict[str, str] = {
     "from components.": "from ui.<domain>.views import  (components/ deleted)",
     # Feedback→Report rename (Mar 2026)
     "from core.services.feedback": "from core.services.report",
-    "FeedbackService": "ExerciseReportService",
-    # SubmissionReport→ExerciseReport rename (Mar 2026)
-    "SubmissionReportService": "ExerciseReportService",
-    "SubmissionReportOperations": "ExerciseReportOperations",
+    "FeedbackService": "EntryReportService",
+    # SubmissionReport→ExerciseReport→EntryReport rename (Mar 2026 → ADR-069 Jun 2026)
+    "SubmissionReportService": "EntryReportService",
+    "SubmissionReportOperations": "EntryReportOperations",
     "FeedbackRelationshipService": "ReportRelationshipService",
     "ProgressFeedbackGenerator": "ProgressReportGenerator",
     "ProgressFeedbackWorker": "ProgressReportWorker",

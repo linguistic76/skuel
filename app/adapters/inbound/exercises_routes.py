@@ -33,7 +33,7 @@ EXERCISES_CONFIG = DomainRouteConfig(
     ui_factory=create_exercises_ui_routes,
     api_related_services={
         "transcript_service": "content_enrichment",
-        "exercise_report_service": "exercise_report",
+        "entry_report_service": "entry_report",
         "user_service": "user",
     },
     ui_related_services={

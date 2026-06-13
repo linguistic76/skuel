@@ -7,12 +7,12 @@ from ui.patterns.hub import HubBlockData
 
 GRADEBOOK_BLOCKS: list[HubBlockData] = [
     HubBlockData(
-        "Exercise Reports",
-        "exercise-reports",
+        "Entry Reports",
+        "entry-reports",
         "clipboard",
         "#F59E0B",
-        "/exercise-reports",
-        "/api/gradebook/exercise-reports/preview",
+        "/entry-reports",
+        "/api/gradebook/entry-reports/preview",
     ),
     HubBlockData(
         "Activity Reports",

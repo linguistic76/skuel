@@ -310,7 +310,7 @@ class PsMasteryService:
         approval scores will upgrade AI feedback scores for the same exercise.
 
         The mastery_score is determined by MasteryImpact on the Exercise:
-        - ExerciseReportService uses MasteryImpact.get_ai_score() (0.4-0.8)
+        - EntryReportService uses MasteryImpact.get_ai_score() (0.4-0.8)
         - TeacherReviewService uses MasteryImpact.get_teacher_score() (0.6-0.95)
 
         See: core/models/enums/learning_enums.py - MasteryImpact

@@ -2,7 +2,7 @@
 Report Mastery Service
 ======================
 
-Explicitly unifies mastery propagation for Exercise Reports. Calculates the
+Explicitly unifies mastery propagation for Entry Reports. Calculates the
 proper mastery score via the MasteryImpact logic and propagates it back to the ZPD
 boundaries by:
 1. Updating the Submission's `score` tracking (for compound evidence)
