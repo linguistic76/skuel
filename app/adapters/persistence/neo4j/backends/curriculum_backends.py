@@ -1,6 +1,6 @@
 """Curriculum core backends: Ku, PathStep, LearningPath.
 
-The Exercise/RevisedExercise/ExerciseReport trio lives in ``exercise_backends.py``.
+The Exercise/RevisedExercise/EntryReport trio lives in ``exercise_backends.py``.
 """
 
 from __future__ import annotations

@@ -69,7 +69,7 @@ from ui.teaching.types import (
 
 if TYPE_CHECKING:
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
-    from core.ports.report_protocols import ExerciseReportOperations
+    from core.ports.report_protocols import EntryReportOperations
 
 logger = get_logger("skuel.routes.teaching.ui")
 
@@ -148,7 +148,7 @@ def create_teaching_ui_routes(
     rt: Any,
     orchestrator: "TeacherOrchestrator",
     user_service: Any,
-    exercise_report_service: "ExerciseReportOperations | None" = None,
+    entry_report_service: "EntryReportOperations | None" = None,
 ) -> None:
     """
     Create teaching UI routes for the teacher dashboard.
@@ -272,8 +272,8 @@ def create_teaching_ui_routes(
 
         # Fetch feedback history via the typed read path
         feedback_history_section: Any = ""
-        if exercise_report_service is not None:
-            history_result = await exercise_report_service.list_for_submission(uid)
+        if entry_report_service is not None:
+            history_result = await entry_report_service.list_for_submission(uid)
             if not history_result.is_error and history_result.value:
                 feedback_items = [render_report_item(fb) for fb in history_result.value]
                 feedback_history_section = Div(

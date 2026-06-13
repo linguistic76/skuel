@@ -428,7 +428,7 @@ When building a new SKUEL page or feature, verify:
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
 | `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only, fetched via `backend.get_many()` by pinned UIDs), `/library/path-steps` (IN_PROGRESS only, fetched via `backend.get_many()` by enrolled UIDs). Exercise status helpers extracted to `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/explore_ui.py` | Explore hub + PS detail page + 2 PathStep learning loop HTMX fragments (`/learning-loop/ps/{ps_uid}/exercises`, `/learning-loop/ps/{ps_uid}/submissions-and-feedback`) wired in `create_explore_ui_routes` |
-| `/adapters/inbound/user_entry_routes.py` | UserEntry hub orchestrator (`create_user_entry_routes`) — wires user_entry_ui, exercise_reports_ui, activity_reports_ui, revised_exercises_ui sub-factories |
+| `/adapters/inbound/user_entry_routes.py` | UserEntry hub orchestrator (`create_user_entry_routes`) — wires user_entry_ui, entry_reports_ui, activity_reports_ui, revised_exercises_ui sub-factories |
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
 | `/core/services/resource_service.py` | `ResourceService` — `list_all()` for `Resource` entities (books, talks, films) |
 | `/ui/activities/filter_bar.py` | Config-driven `ActivityFilterBar` component (`FilterBarConfig`, `FilterSelect`) — shared across all 6 Activity Domains |

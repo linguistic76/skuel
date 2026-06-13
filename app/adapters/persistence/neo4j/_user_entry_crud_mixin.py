@@ -108,7 +108,7 @@ class _UserEntryCrudMixin:
                 "user_uid": user_uid,
                 "limit": limit,
                 "entry_type": _USER_ENTRY,
-                "report_type": EntityType.EXERCISE_REPORT.value,
+                "report_type": EntityType.ENTRY_REPORT.value,
             },
         )
         if result.is_error:

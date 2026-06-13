@@ -1,12 +1,12 @@
 """
-Phase 3: ExerciseReport — Student-Facing Feedback Pages
+Phase 3: EntryReport — Student-Facing Feedback Pages
 =========================================================
 
-Student view of exercise feedback. An ExerciseReport is created when a teacher
+Student view of exercise feedback. An EntryReport is created when a teacher
 or AI evaluates a submission (Phase 2: UserEntry):
 
-    UserEntry → ExerciseReport  (teacher: ReportSource.HUMAN)
-              → ExerciseReport  (AI: ReportSource.LLM)
+    UserEntry → EntryReport  (teacher: ReportSource.HUMAN)
+              → EntryReport  (AI: ReportSource.LLM)
 
 assessment_outcome drives what the student sees:
     APPROVED        — work accepted; loop closes for this exercise
@@ -16,12 +16,12 @@ assessment_outcome drives what the student sees:
 These pages live in the GradeBook sidebar (ui/gradebook/nav.py).
 
 Routes:
-- GET /exercise-reports              — Exercise reports list page
-- GET /exercise-reports/detail?uid=  — Report detail with outcome badge + revision link
+- GET /entry-reports              — Exercise reports list page
+- GET /entry-reports/detail?uid=  — Report detail with outcome badge + revision link
 - GET /reports/list                  — HTMX fragment: teacher assessments received
 
 Renderers: ui/submissions/report.py
-Services: ExerciseReportService (AI), TeacherReviewService (teacher)
+Services: EntryReportService (AI), TeacherReviewService (teacher)
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -39,7 +39,7 @@ from core.utils.logging import get_logger
 from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
-    render_exercise_report_detail,
+    render_entry_report_detail,
     render_received_report_list,
 )
 from ui.patterns.error_banner import render_error_banner
@@ -47,7 +47,7 @@ from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 
-logger = get_logger("skuel.routes.exercise_reports")
+logger = get_logger("skuel.routes.entry_reports")
 
 
 # ============================================================================
@@ -55,12 +55,12 @@ logger = get_logger("skuel.routes.exercise_reports")
 # ============================================================================
 
 
-def create_exercise_reports_ui_routes(
+def create_entry_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any = None,
 ) -> list[Any]:
-    """Create /exercise-reports UI routes.
+    """Create /entry-reports UI routes.
 
     Args:
         _app: FastHTML application instance
@@ -72,8 +72,8 @@ def create_exercise_reports_ui_routes(
     # EXERCISE REPORTS PAGE
     # ========================================================================
 
-    @rt("/exercise-reports")
-    async def exercise_reports_page(request: Request) -> Any:
+    @rt("/entry-reports")
+    async def entry_reports_page(request: Request) -> Any:
         """Teacher and AI exercise reports on submissions."""
         require_authenticated_user(request)
 
@@ -88,14 +88,14 @@ def create_exercise_reports_ui_routes(
 
         content = Div(
             PageHeader(
-                "Exercise Reports",
+                "Entry Reports",
                 subtitle="Teacher and AI feedback on your exercise submissions",
             ),
             reports_section,
         )
         return await render_gradebook_sidebar_page(
             content=content,
-            active="exercise-reports",
+            active="entry-reports",
             request=request,
         )
 
@@ -103,8 +103,8 @@ def create_exercise_reports_ui_routes(
     # EXERCISE REPORT DETAIL PAGE
     # ========================================================================
 
-    @rt("/exercise-reports/detail")
-    async def exercise_report_detail(request: Request) -> Any:
+    @rt("/entry-reports/detail")
+    async def entry_report_detail(request: Request) -> Any:
         """Exercise report detail view — full feedback content and outcome."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
@@ -112,33 +112,33 @@ def create_exercise_reports_ui_routes(
         if not uid:
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report UID is required")),
-                active="exercise-reports",
+                active="entry-reports",
                 request=request,
             )
 
         if not orchestrator:
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report service unavailable")),
-                active="exercise-reports",
+                active="entry-reports",
                 request=request,
             )
 
-        view_result = await orchestrator.get_exercise_report_view(uid, user_uid)
+        view_result = await orchestrator.get_entry_report_view(uid, user_uid)
         if view_result.is_error:
             logger.warning(f"Exercise report not found or inaccessible: {uid}")
             return await render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Report not found")),
-                active="exercise-reports",
+                active="entry-reports",
                 request=request,
             )
 
         view = view_result.value
         content = Div(
-            render_exercise_report_detail(view["report"], revised_exercise=view["revised_exercise"])
+            render_entry_report_detail(view["report"], revised_exercise=view["revised_exercise"])
         )
         return await render_gradebook_sidebar_page(
             content=content,
-            active="exercise-reports",
+            active="entry-reports",
             request=request,
         )
 
@@ -147,7 +147,7 @@ def create_exercise_reports_ui_routes(
     # ========================================================================
 
     @rt("/reports/list")
-    async def exercise_reports_list(request: Request) -> Any:
+    async def entry_reports_list(request: Request) -> Any:
         """HTMX fragment: teacher assessments received."""
         try:
             user_uid = require_authenticated_user(request)
@@ -175,8 +175,8 @@ def create_exercise_reports_ui_routes(
     # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /gradebook hub)
     # ========================================================================
 
-    @rt("/api/gradebook/exercise-reports/preview")
-    async def exercise_reports_preview(request: Request) -> Any:
+    @rt("/api/gradebook/entry-reports/preview")
+    async def entry_reports_preview(request: Request) -> Any:
         """HTMX fragment: 3 most recent exercise reports for hub preview."""
         user_uid = require_authenticated_user(request)
         if not orchestrator:
@@ -197,17 +197,16 @@ def create_exercise_reports_ui_routes(
                 if source
                 else None
             )
-            href = f"/exercise-reports/detail?uid={uid}" if uid else "/exercise-reports"
+            href = f"/entry-reports/detail?uid={uid}" if uid else "/entry-reports"
             cards.append(HubPreviewCard(title=title, href=href, badge=badge))
         return HubPreviewGrid(cards)
 
     logger.info(
-        "Exercise Reports UI routes created "
-        "(/exercise-reports, /exercise-reports/detail, /reports/list)"
+        "Entry Reports UI routes created (/entry-reports, /entry-reports/detail, /reports/list)"
     )
 
     return [
-        exercise_reports_page,
-        exercise_report_detail,
-        exercise_reports_list,
+        entry_reports_page,
+        entry_report_detail,
+        entry_reports_list,
     ]

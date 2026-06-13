@@ -1,5 +1,5 @@
 """
-ExerciseReport Domain Request Models
+EntryReport Domain Request Models
 =======================================
 
 Pydantic models for teacher/AI reports on student submissions.
@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 
 class AssessmentCreateRequest(BaseModel):
-    """Request model for creating a teacher assessment (ExerciseReport entity)."""
+    """Request model for creating a teacher assessment (EntryReport entity)."""
 
     subject_uid: str = Field(..., description="Student being assessed")
     title: str = Field(..., min_length=1, max_length=500, description="Assessment title")

@@ -11,20 +11,20 @@ related:
 
 # Report Mastery Architecture
 
-The `ReportMasteryService` is the explicit mechanism that propagates mastery outcomes from generated Exercise Reports back into the student's learning graph. It isolates and unifies the rule that dictates how student feedback interacts with the Zone of Proximal Development (ZPD).
+The `ReportMasteryService` is the explicit mechanism that propagates mastery outcomes from generated Entry Reports back into the student's learning graph. It isolates and unifies the rule that dictates how student feedback interacts with the Zone of Proximal Development (ZPD).
 
 ## The Problem
 
 Previously, mastery capabilities were underspecified and implicit:
-- Both `TeacherReviewService.approve_report` and `ExerciseReportService.generate_report` directly called the `PsMasteryService` within unstructured side effects.
-- Crucially, the outcome's evaluation metric—the `assessment_score` and the `score` evaluated by the teacher or AI within an Exercise Report—were bypassed completely during mastery propagation.
+- Both `TeacherReviewService.approve_report` and `EntryReportService.generate_report` directly called the `PsMasteryService` within unstructured side effects.
+- Crucially, the outcome's evaluation metric—the `assessment_score` and the `score` evaluated by the teacher or AI within an Entry Report—were bypassed completely during mastery propagation.
 - Because the overarching progress was tracked manually without explicit storage, the ZPD (computed dynamically using Cypher queries involving `max(coalesce(es.score, 0.0))`) never received the updated scores, stalling the learner's actual growth state.
 
 ## The Solution: Explicit Propagation
 
 `ReportMasteryService` resolves the disconnect between report generation and ZPD resolution by introducing an explicit loop closure service method: `propagate_mastery()`.
 
-Instead of passively accepting side effects, report generating services—like `TeacherReviewService` and `ExerciseReportService`—intercept the implicit process by executing `ReportMasteryService.propagate_mastery(...)` immediately upon determining the `MasteryImpact` of an exercise.
+Instead of passively accepting side effects, report generating services—like `TeacherReviewService` and `EntryReportService`—intercept the implicit process by executing `ReportMasteryService.propagate_mastery(...)` immediately upon determining the `MasteryImpact` of an exercise.
 
 ### How it Works
 

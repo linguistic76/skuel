@@ -9,10 +9,10 @@ Answers intelligence questions about the Report stage of the learning loop:
 - How many submissions have reports vs. not?
 
 No LLM dependencies — this is a Level 1 graph analytics service.
-The higher-level ExerciseReportService (LLM report generation) is a separate concern.
+The higher-level EntryReportService (LLM report generation) is a separate concern.
 
 Graph relationships queried:
-- REPORT_FOR: (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
+- REPORT_FOR: (EntryReport)-[:REPORT_FOR]->(UserEntry)
 - OWNS: (User)-[:OWNS]->(UserEntry)
 
 See: /docs/architecture/REPORT_ARCHITECTURE.md
@@ -27,6 +27,7 @@ from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.enums.pipeline import Pipeline
     from core.ports.user_entry_protocols import UserEntryReportQueryOperations
 
 
@@ -53,7 +54,9 @@ class ReportRelationshipService:
     # INTELLIGENCE QUERIES
     # ========================================================================
 
-    async def get_pending_submissions(self, user_uid: UserUID) -> Result[list[str]]:
+    async def get_pending_submissions(
+        self, user_uid: UserUID, pipelines: "list[Pipeline] | None" = None
+    ) -> Result[list[str]]:
         """
         Get UIDs of submissions that have not yet received a report.
 
@@ -64,11 +67,17 @@ class ReportRelationshipService:
 
         Args:
             user_uid: User identifier
+            pipelines: Optional pipeline filter — when given, only entries whose
+                ``pipeline`` is in this set are returned (e.g. journal pipelines
+                for the "entries awaiting a response" surface, ADR-069).
 
         Returns:
             Result containing list of submission UIDs awaiting report (most recent first)
         """
-        result = await self.backend.get_pending_entries_raw(user_uid)
+        result = await self.backend.get_pending_entries_raw(
+            user_uid,
+            pipelines=[p.value for p in pipelines] if pipelines else None,
+        )
         if result.is_error:
             return Result.fail(result)
 
@@ -160,8 +169,8 @@ class ReportRelationshipService:
 
         Graph pattern (mixed directions):
             (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
-            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
+            (EntryReport)-[:REPORT_FOR]->(UserEntry)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
             (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
 
         Args:
@@ -199,8 +208,8 @@ class ReportRelationshipService:
 
         Graph pattern:
             (UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)
-            (ExerciseReport)-[:REPORT_FOR]->(UserEntry)
-            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
+            (EntryReport)-[:REPORT_FOR]->(UserEntry)
+            (RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
 
         Args:
             submission_uid: UID of the submission

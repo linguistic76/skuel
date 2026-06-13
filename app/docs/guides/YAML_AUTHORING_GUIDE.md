@@ -124,7 +124,7 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-13 of SKUEL's 20 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, ExerciseReport, ActivityReport).
+13 of SKUEL's 20 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, EntryReport, ActivityReport).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|

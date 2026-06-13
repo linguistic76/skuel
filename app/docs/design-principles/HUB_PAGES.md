@@ -46,7 +46,7 @@ All four pages render `HomeHub(active_tab=...)` from `ui/home_hub.py`. The Alpin
 
 Each tab shows a `HubDomainBlockList` populated by a `*_BLOCKS` constant:
 - **Submissions tab** — `SUBMISSIONS_BLOCKS` from `ui/workbench/hub.py`: Upload Activity Data, Submit Exercise
-- **GradeBook tab** — `GRADEBOOK_BLOCKS` from `ui/gradebook/hub.py`: Exercise Reports, Activity Reports, Revisions
+- **GradeBook tab** — `GRADEBOOK_BLOCKS` from `ui/gradebook/hub.py`: Entry Reports, Activity Reports, Revisions
 - **Library tab** — `LIBRARY_BLOCKS` from `ui/library/hub.py`: Exercises, Submission History, Resources, Ku, Path Steps
 
 Visiting any of the four URLs lands you on the same interface with the appropriate tab highlighted. Child pages use `SidebarPage` for within-section navigation.

@@ -4,7 +4,7 @@ Revised Exercise Routes - Configuration-Driven Registration
 
 Wires RevisedExercise API routes using DomainRouteConfig.
 CRUD via CRUDRouteFactory (teacher-only), domain-specific routes via API factory.
-Part of the four-phase learning loop: Exercise → UserEntry → ExerciseReport → RevisedExercise → ...
+Part of the four-phase learning loop: Exercise → UserEntry → EntryReport → RevisedExercise → ...
 """
 
 from typing import TYPE_CHECKING, Any

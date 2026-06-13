@@ -19,7 +19,7 @@ codebase either feeds this loop, supports its infrastructure, or should be quest
 Learning is not consuming content. Learning is what happens when knowledge changes how you
 act, decide, and live. SKUEL models this through four phases: **how you practise**
 (Exercise), **what you produce** (UserEntry), **what the system says back**
-(ExerciseReport), and **how the teacher guides revision** (RevisedExercise). PathStep
+(EntryReport), and **how the teacher guides revision** (RevisedExercise). PathStep
 is the *curriculum anchor* — the knowledge the loop exists to transmit — linked via
 `(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for
 PERSONAL scope). It sits outside the cycle as context, not as a phase.
@@ -39,7 +39,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║                                                                          ║
 ║  (anchor)                                                                ║
-║  [PathStep] ──RELATED_TO──▶ [Exercise] ──▶ [UserEntry] ──▶ [ExerciseReport]
+║  [PathStep] ──RELATED_TO──▶ [Exercise] ──▶ [UserEntry] ──▶ [EntryReport]
 ║   admin                       teacher       student            teacher/AI║
 ║   creates                     assigns       produces           responds  ║
 ║                                                                 │        ║
@@ -51,7 +51,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║                                                                 ▼        ║
 ║                                              [UserEntry v2] ──▶ ...      ║
 ║                                                                          ║
-║   Phases: 1 Exercise → 2 UserEntry → 3 ExerciseReport → 4 RevisedExercise║
+║   Phases: 1 Exercise → 2 UserEntry → 3 EntryReport → 4 RevisedExercise║
 ║   PathStep is the curriculum anchor, not a phase.                        ║
 ║                                                                          ║
 ║  ACTIVITY TRACK (aggregate-based)                                        ║
@@ -72,7 +72,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 
 | Track | Entry Point | Report Entity | Who Responds |
 |-------|------------|-----------------|--------------|
-| **Curriculum** | Student uploads a file against an Exercise | `EXERCISE_REPORT` | Teacher or AI (via Exercise instructions) |
+| **Curriculum** | Student uploads a file against an Exercise | `ENTRY_REPORT` | Teacher or AI (via Exercise instructions) |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
 
 Activity Domains are **equal** entry points — not secondary. A user's Tasks, Goals, Habits,
@@ -84,7 +84,7 @@ The mechanism differs, but the loop closes either way.
 > the user's lived practice across all six Activity Domains over a time window — it is
 > implicit, never uploaded, and produces an `ACTIVITY_REPORT`. The **structural submission**
 > (`EntityType.USER_ENTRY`) is a file a student explicitly uploads against an Exercise in the
-> Curriculum Track and produces an `EXERCISE_REPORT`. `ActivityReport` inherits
+> Curriculum Track and produces an `ENTRY_REPORT`. `ActivityReport` inherits
 > `UserOwnedEntity` directly — it has no file fields. `UserEntry` carries file fields and a
 > `pipeline` discriminator (ADR-054). When reading code that touches both tracks, keep this
 > distinction in mind: the loop closes differently in each track even though the pedagogical
@@ -309,7 +309,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 **EntityType:** `EntityType.EXERCISE`
 **Loop role:** The *how* — operationalises PathStep content into a concrete task. The `instructions`
 field serves double duty: directive for the student AND prompt for the AI when generating
-`EXERCISE_REPORT`.
+`ENTRY_REPORT`.
 
 **See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
 Exercise pipeline and teacher workflow.
@@ -371,27 +371,27 @@ about *where in the curriculum* evidence was generated — not just what the stu
 
 ---
 
-## Phase 3: ExerciseReport — The Response
+## Phase 3: EntryReport — The Response
 
 **What:** The evaluation. Two structurally distinct entities cover the two tracks.
 Both say "here is what your work means."
 
-### 3a. EXERCISE_REPORT — Response to an Artifact
+### 3a. ENTRY_REPORT — Response to an Artifact
 
 **What:** Evaluation of a specific `UserEntry`. One artifact in, one
-`ExerciseReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
+`EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
 via the Exercise's `instructions` field (`LLM`).
 
-**EntityType:** `EntityType.EXERCISE_REPORT`
+**EntityType:** `EntityType.ENTRY_REPORT`
 **Self-describing outcome:** Each report records its `assessment_outcome` (`AssessmentOutcome` enum):
 `APPROVED` (teacher approved, mastery 0.8), `NEEDS_REVISION` (teacher requests resubmission),
 or `AI_EVALUATED` (LLM feedback, mastery 0.6, awaiting teacher review).
 
-**Structural position:** Leaf domain. Reads flow through `ExerciseReportBackend`
+**Structural position:** Leaf domain. Reads flow through `EntryReportBackend`
 (typed `get` + `list_for_submission` — `subject_uid` is projected from the
 `REPORT_FOR` edge, not stored as a node property). Writes flow through
-`UserEntryBackend.create_report_node`. Both are reached via `ExerciseReportService`,
-the single service entry point (`ExerciseReportOperations` / `ExerciseReportBackendOperations`
+`UserEntryBackend.create_report_node`. Both are reached via `EntryReportService`,
+the single service entry point (`EntryReportOperations` / `EntryReportBackendOperations`
 protocols in `core/ports/report_protocols.py`).
 
 ### 3b. ACTIVITY_REPORT — Response to Activity Patterns
@@ -413,15 +413,15 @@ canonical taxonomy, all services, API routes, ReportSource table, graph patterns
 ## Phase 4: RevisedExercise — The Targeted Revision
 
 **What:** A teacher-created revision of an Exercise that addresses specific gaps identified
-in `ExerciseReport`. The teacher creates targeted, revised instructions for a specific
+in `EntryReport`. The teacher creates targeted, revised instructions for a specific
 student. The student then submits against the RevisedExercise, receives new feedback, and the
 cycle continues indefinitely. This forces a **reflection step** between feedback and
 resubmission, making revision pedagogically explicit.
 
 ```
-Exercise v1 → UserEntry v1 → ExerciseReport v1
+Exercise v1 → UserEntry v1 → EntryReport v1
                                    ↓
-                             RevisedExercise v2 → UserEntry v2 → ExerciseReport v2
+                             RevisedExercise v2 → UserEntry v2 → EntryReport v2
                                    ↓
                              RevisedExercise v3 → ...
 ```
@@ -438,7 +438,7 @@ revision cycle explicitly rather than implicitly.
 - `revision_number` auto-determined from existing chain length
 - `feedback_points` carries typed `FeedbackPoint` objects (`FeedbackCategory` + free-text detail) — enables pattern tracking across submissions
 - `expected_modality` and `submission_uid` auto-resolved by service on creation from the original Exercise and authority check
-- `parent_entity_uid` set to `report_uid` at `create()` time — the ExerciseReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
+- `parent_entity_uid` set to `report_uid` at `create()` time — the EntryReport is the direct derivation parent. Mirror of the `RESPONDS_TO_REPORT` graph edge; makes the chain Python-model-readable without a graph query.
 
 **Graph relationships:**
 ```cypher
@@ -450,7 +450,7 @@ revision cycle explicitly rather than implicitly.
     student_uid: '...',
     revision_number: 2
 })
-(re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:ExerciseReport)
+(re)-[:RESPONDS_TO_REPORT]->(feedback:Entity:EntryReport)
 (re)-[:REVISES_EXERCISE]->(exercise:Entity:Exercise)
 (student:User)-[:SHARES_WITH {role: 'student'}]->(re)     // auto-created on creation
 (submission:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(exercise)    // root anchor — always
@@ -461,7 +461,7 @@ revision cycle explicitly rather than implicitly.
 ```python
 services.revised_exercises              # RevisedExerciseService (standalone CRUD)
 services.teacher_review                 # TeacherReviewService.request_revision_with_exercise()
-# ^ Atomic path: creates ExerciseReport + RevisedExercise in one Neo4j transaction
+# ^ Atomic path: creates EntryReport + RevisedExercise in one Neo4j transaction
 #   via UserEntryBackend.create_report_and_revised_exercise()
 ```
 
@@ -489,10 +489,10 @@ from the student to the RevisedExercise (same pattern as ADR-040 assignment auto
 
 ## Naming
 
-Every node in the chain `Exercise → UserEntry → ExerciseReport → RevisedExercise → UserEntry → ...` is a noun — object-language, not process-language. Variation *inside* each node lives on enum fields, never on parallel types:
+Every node in the chain `Exercise → UserEntry → EntryReport → RevisedExercise → UserEntry → ...` is a noun — object-language, not process-language. Variation *inside* each node lives on enum fields, never on parallel types:
 
 - **`UserEntry`** carries `pipeline: Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`) — ADR-054 collapsed `ExerciseSubmission` / `JeInput` / `JeOutput` into this one type.
-- **`ExerciseReport`** carries `report_source: ReportSource` (`HUMAN`, `LLM`, `AUTOMATIC`) and `assessment_outcome: AssessmentOutcome` (`APPROVED`, `NEEDS_REVISION`, `AI_EVALUATED`) — a single report type covers both initial and revision cycles.
+- **`EntryReport`** carries `report_source: ReportSource` (`HUMAN`, `LLM`, `AUTOMATIC`) and `assessment_outcome: AssessmentOutcome` (`APPROVED`, `NEEDS_REVISION`, `AI_EVALUATED`) — a single report type covers both initial and revision cycles.
 - **`RevisedExercise`** is a distinct EntityType because its hierarchy (`UserOwnedEntity` vs. `Curriculum`), ownership (teacher-owned vs. shared), `ContentOrigin` tier (`USER_CREATED` vs. `CURRICULUM`), and feedback typing (`FeedbackPoint[]` vs. plain `instructions`) all diverge from `Exercise`. "Revised" is a past-participle reading as "a kind of exercise" — not a verb phrase. The verb lives on the edge `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`.
 
 **See:** [ENTITY_TYPE_ARCHITECTURE.md § Naming Convention](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples.
@@ -598,7 +598,7 @@ The learning loop is Layer 1 of a 5-layer system. Each layer builds on the ones 
 | 4. Knowledge Graph | Neo4j relationships encode everything | The loop generates graph relationships |
 | 3. Saved Interactions | Conversations, journals, annotations | Each loop iteration compounds signals |
 | 2. ZPD + UserContext | "Where are you?" + "What's next?" | Intelligence makes the loop adaptive |
-| **1. Learning Loop** | **Exercise → UserEntry → ExerciseReport → RevisedExercise** (PathStep anchors, outside the cycle) | **The base — everything serves this** |
+| **1. Learning Loop** | **Exercise → UserEntry → EntryReport → RevisedExercise** (PathStep anchors, outside the cycle) | **The base — everything serves this** |
 
 See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 

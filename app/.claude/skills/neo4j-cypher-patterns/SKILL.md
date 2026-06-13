@@ -35,7 +35,7 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | **User-authored content + Reports (3) — ADR-054** | | | |
 | User Entries | `UserEntry` | `ue_{slug}_{random}` | `ue_my-essay_abc123` |
 | Activity Reports | `ActivityReport` | `ar_{random}` | |
-| Exercise Reports | `ExerciseReport` | `sr_{random}` | |
+| Entry Reports | `EntryReport` | `sr_{random}` | |
 | **Destination** | | | |
 | Life Path | `LifePath` | `lp_{random}` | `lp_abc123` |
 | **Other** | | | |

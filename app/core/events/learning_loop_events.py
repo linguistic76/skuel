@@ -104,7 +104,7 @@ class AssessmentCreated(BaseEvent):
 
     Relocated from ``submission_events.py`` during ADR-054 pre-6b sweep;
     ``submission_uid`` → ``entity_uid`` since the subject is an
-    ExerciseReport, not a submission.
+    EntryReport, not a submission.
     """
 
     entity_uid: str

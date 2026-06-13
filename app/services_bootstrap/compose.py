@@ -846,11 +846,11 @@ async def compose_services(
 
         # Create report and exercise services
         from adapters.persistence.neo4j.backends.exercise_backends import (
+            EntryReportBackend,
             ExerciseBackend,
-            ExerciseReportBackend,
         )
         from core.models.exercises.exercise import Exercise
-        from core.models.report.exercise_report import ExerciseReport
+        from core.models.report.entry_report import EntryReport
         from core.services.exercises import ExerciseService
         from core.services.report.report_mastery_service import ReportMasteryService
 
@@ -862,7 +862,7 @@ async def compose_services(
 
         # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
         from core.services.llm_caller import UnifiedLLMCaller
-        from core.services.report import ExerciseReportService
+        from core.services.report import EntryReportService
 
         llm_caller = None
         if openai_chat:
@@ -872,21 +872,21 @@ async def compose_services(
             )
             logger.info("✅ UnifiedLLMCaller created")
 
-        exercise_report_backend = ExerciseReportBackend(
+        entry_report_backend = EntryReportBackend(
             driver=driver,
-            label=NeoLabel.EXERCISE_REPORT,
-            entity_class=ExerciseReport,
+            label=NeoLabel.ENTRY_REPORT,
+            entity_class=EntryReport,
             prometheus_metrics=prometheus_metrics,
             base_label=NeoLabel.ENTITY,
         )
 
-        # ExerciseReportService: always created so typed reads (get,
+        # EntryReportService: always created so typed reads (get,
         # list_for_submission) work in both CORE and FULL tiers. AI report
         # *generation* still requires llm_caller — returns a system error
         # when llm_caller is None (CORE tier).
-        exercise_report_service = ExerciseReportService(
+        entry_report_service = EntryReportService(
             llm_caller=llm_caller,
-            backend=exercise_report_backend,  # mastery-loop reads + canonical report-node creation
+            backend=entry_report_backend,  # mastery-loop reads + canonical report-node creation
             ku_interaction_service=learning_services["ps"].mastery,  # closes mastery loop
             report_mastery_service=report_mastery_service,
         )
@@ -1006,7 +1006,7 @@ async def compose_services(
 
         teacher_review_service = TeacherReviewService(
             user_entry_backend=user_entry_backend,
-            report_backend=exercise_report_backend,
+            report_backend=entry_report_backend,
             exercise_backend=exercise_backend,
             group_backend=group_backend,
             ku_interaction_service=learning_services["ps"].mastery,
@@ -1113,6 +1113,11 @@ async def compose_services(
         # as the /submit form (ADR-054 — one path forward).
         unified_ingestion.user_entry_service = user_entry_service
 
+        # Wire UserEntryService into EntryReportService (constructed earlier,
+        # before user_entry_service existed) so generate_entry_response can do
+        # the ownership-verified fetch + journal-chain eligibility check (ADR-069).
+        entry_report_service.entry_service = user_entry_service
+
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
         # Domain facades are the create surfaces; ps/lp/calendar/lifepath
         # carry no create-capable method today and finance was retired with
@@ -1161,7 +1166,7 @@ async def compose_services(
         )
         user_entry_assessment = AssessmentService(
             backend=user_entry_backend,
-            report_backend=exercise_report_backend,
+            report_backend=entry_report_backend,
             event_bus=event_bus,
         )
         logger.info(
@@ -1276,6 +1281,9 @@ async def compose_services(
         # ADR-054: the former SubmissionsOrchestrator + JournalOrchestrator are retired.
         # UserEntryOrchestrator is the sole facade for submissions + journals.
         from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
+        from core.services.report import ReportRelationshipService
+
+        report_relationship_service = ReportRelationshipService(backend=user_entry_backend)
 
         user_entry_orchestrator = UserEntryOrchestrator(
             user_entry_service=user_entry_service,
@@ -1284,9 +1292,10 @@ async def compose_services(
             user_service=user_service,
             activity_report_service=activity_report_service,
             revised_exercise_service=revised_exercise_service,
-            exercise_report_service=exercise_report_service,
+            entry_report_service=entry_report_service,
             sharing_service=unified_sharing_service,
             assessment_service=user_entry_assessment,
+            report_relationship_service=report_relationship_service,
         )
         logger.info("✅ UserEntry Orchestrator created (ADR-054)")
 
@@ -1454,7 +1463,7 @@ async def compose_services(
             # Content
             content_enrichment=content_enrichment,
             report_mastery=report_mastery_service,  # Explicit mastery propagation
-            exercise_report=exercise_report_service,  # LLM report on submissions/journals
+            entry_report=entry_report_service,  # LLM report on submissions/journals
             exercises=exercise_service,  # Reusable LLM instruction templates
             revised_exercises=revised_exercise_service,  # Four-phase learning loop revisions
             form_templates=form_template_service,  # General-purpose form templates

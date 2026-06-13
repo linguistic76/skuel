@@ -46,7 +46,7 @@ is the prerequisite for all architectural decisions.
 **The loop, in its narrowest form:**
 
 ```
-Exercise → UserEntry → ExerciseReport → RevisedExercise → repeat
+Exercise → UserEntry → EntryReport → RevisedExercise → repeat
 ```
 
 These four entity types ARE the learning loop. Everything else is substrate (Ku, PathStep),
@@ -69,7 +69,7 @@ The cycle repeats until the teacher approves or the student reaches mastery.
 ║                                                                          ║
 ║  THE LOOP (iterates until mastered)                                      ║
 ║  ────────────────────────────────────────────────────────────────────    ║
-║  [Exercise] → [UserEntry] → [ExerciseReport]                             ║
+║  [Exercise] → [UserEntry] → [EntryReport]                             ║
 ║   Phase 1      Phase 2        Phase 3                                    ║
 ║   directive    student's work teacher/AI response                        ║
 ║                                    ↓                                     ║
@@ -140,11 +140,11 @@ property are both named **`entity_type`** (renamed from `ku_type` in March 2026)
 ```python
 # Python model field:
 ku = Ku(entity_type=EntityType.KU, ...)
-report = ExerciseReport(entity_type=EntityType.EXERCISE_REPORT, ...)
+report = EntryReport(entity_type=EntityType.ENTRY_REPORT, ...)
 activity_report = ActivityReport(entity_type=EntityType.ACTIVITY_REPORT, ...)
 
 # Neo4j property:
-MATCH (n:Entity {entity_type: 'exercise_report'})
+MATCH (n:Entity {entity_type: 'entry_report'})
 MATCH (n:Entity {entity_type: 'ku'})
 ```
 
@@ -204,7 +204,7 @@ The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 - **Phase 1 — Exercise** (the directive): fields, scopes, submission modes, PathStep anchor, worksheet download, graph patterns.
 - **Phase 2 — UserEntry** (the student's work): processing pipeline, status transitions, modality vs pipeline, backend Cypher.
 - **The Interaction Contract** — curriculum context captured at submission time (ADR-051).
-- **Phase 3 — ExerciseReport** (the response): teacher vs AI sources, revision cycle, status guards.
+- **Phase 3 — EntryReport** (the response): teacher vs AI sources, revision cycle, status guards.
 - **Parallel Reporting — ActivityReport** (structurally separate sibling system).
 - **Phase 4 — RevisedExercise** (the targeted revision) + why it is object-language (naming rationale).
 - **The Binding Graph Relationships**, **Service Architecture Summary**, and **API Routes Per Phase**.
@@ -300,18 +300,18 @@ that never closes the loop.
 | `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
 | `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
 | `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise student UI routes (GradeBook sidebar) |
-| `adapters/inbound/exercise_reports_ui.py` | 4 | ExerciseReport UI routes (list + detail page) |
+| `adapters/inbound/entry_reports_ui.py` | 4 | EntryReport UI routes (list + detail page) |
 | `ui/learning_loop/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
-| `ui/learning_loop/report.py` | 4 | ExerciseReport renderers (detail page with outcome/processor badges) |
+| `ui/learning_loop/report.py` | 4 | EntryReport renderers (detail page with outcome/processor badges) |
 | `ui/patterns/modal.py` | support | AlpineModal — standardized Alpine.js modal wrapper |
 | `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
 | `core/models/user_entry/user_entry.py` | 3 | UserEntry frozen dataclass (`UserOwnedEntity`) |
-| `core/models/report/exercise_report.py` | 4 | ExerciseReport model |
+| `core/models/report/entry_report.py` | 4 | EntryReport model |
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/user_entry/user_entry_service.py` | 3+4 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
 | `core/services/user_entry/user_entry_processing_service.py` | 3 | Pipeline processing — transcription, LLM summary/structure (the former journal track, now a `Pipeline`) |
 | `core/services/user_entry/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
-| `core/services/report/exercise_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
+| `core/services/report/entry_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
 | `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1, config via `config/deepgram.toml`) |

@@ -1,5 +1,5 @@
 """
-ExerciseReportDTO - Exercise Report DTO (Tier 2 - Transfer)
+EntryReportDTO - Entry Report DTO (Tier 2 - Transfer)
 =============================================================
 
 Extends UserOwnedDTO with 6 report-specific fields.
@@ -7,7 +7,7 @@ Extends UserOwnedDTO with 6 report-specific fields.
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields
-        └── ExerciseReportDTO(UserOwnedDTO) +5 fields
+        └── EntryReportDTO(UserOwnedDTO) +5 fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -29,9 +29,9 @@ from core.models.user_owned_dto import UserOwnedDTO
 
 
 @dataclass
-class ExerciseReportDTO(UserOwnedDTO):
+class EntryReportDTO(UserOwnedDTO):
     """
-    Mutable DTO for exercise reports (EntityType.EXERCISE_REPORT).
+    Mutable DTO for exercise reports (EntityType.ENTRY_REPORT).
 
     Extends UserOwnedDTO with report-specific fields. LLM/teacher-generated
     analysis lives on ``processed_content`` (written by the canonical
@@ -78,8 +78,8 @@ class ExerciseReportDTO(UserOwnedDTO):
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ExerciseReportDTO:
-        """Create ExerciseReportDTO from dictionary (from database)."""
+    def from_dict(cls, data: dict[str, Any]) -> EntryReportDTO:
+        """Create EntryReportDTO from dictionary (from database)."""
         from core.models.dto_helpers import dto_from_dict
 
         return dto_from_dict(
@@ -148,6 +148,6 @@ class ExerciseReportDTO(UserOwnedDTO):
 
     def __eq__(self, other: object) -> bool:
         """Equality based on UID."""
-        if not isinstance(other, ExerciseReportDTO):
+        if not isinstance(other, EntryReportDTO):
             return False
         return self.uid == other.uid

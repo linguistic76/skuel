@@ -1,15 +1,15 @@
 """
-Exercise Report Service
+Entry Report Service
 ========================
 
 Generates AI reports for submission entries using Exercises.
 
-AI report creates a first-class EXERCISE_REPORT entity (ReportSource.LLM),
+AI report creates a first-class ENTRY_REPORT entity (ReportSource.LLM),
 symmetric with human teacher reports (ReportSource.HUMAN). Both are stored
-as EXERCISE_REPORT entities linked to the submission via REPORT_FOR.
+as ENTRY_REPORT entities linked to the submission via REPORT_FOR.
 
 The core educational loop:
-    Exercise (instructions) + Submission (student work) → LLM → EXERCISE_REPORT entity
+    Exercise (instructions) + Submission (student work) → LLM → ENTRY_REPORT entity
 
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
@@ -22,11 +22,13 @@ from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
-from core.models.enums.pipeline import ReportSource
+from core.models.enums.pipeline import Pipeline, ReportSource
 from core.models.exercises.exercise import Exercise
-from core.models.report.exercise_report import ExerciseReport
+from core.models.relationship_names import RelationshipName
+from core.models.report.entry_report import EntryReport
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
+from core.prompts import PROMPT_REGISTRY
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -34,18 +36,19 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
-    from core.ports.report_protocols import ExerciseReportBackendOperations
+    from core.ports.report_protocols import EntryReportBackendOperations
     from core.services.ps.ps_mastery_service import PsMasteryService
     from core.services.report.report_mastery_service import ReportMasteryService
+    from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger(__name__)
 
 
-class ExerciseReportService:
+class EntryReportService:
     """
     Generates AI reports for submission entries using exercise instructions.
 
-    Creates an EXERCISE_REPORT entity (ReportSource.LLM) linked to the
+    Creates an ENTRY_REPORT entity (ReportSource.LLM) linked to the
     submission via REPORT_FOR — symmetric with teacher reports.
 
     Supports both OpenAI and Anthropic models.
@@ -55,16 +58,17 @@ class ExerciseReportService:
     def __init__(
         self,
         llm_caller: LLMCallerProtocol | None,
-        backend: "ExerciseReportBackendOperations | None" = None,
+        backend: "EntryReportBackendOperations | None" = None,
         ku_interaction_service: "PsMasteryService | None" = None,
         report_mastery_service: "ReportMasteryService | None" = None,
+        entry_service: "UserEntryService | None" = None,
     ) -> None:
         """
         Initialize with LLM caller and domain backends.
 
         Args:
             llm_caller: Unified LLM caller for model-agnostic generation
-            backend: The typed read facade for ExerciseReport — typed reads
+            backend: The typed read facade for EntryReport — typed reads
                 (``list_for_submission``, etc.) plus the mastery-loop scalar
                 projection (``get_linked_ku_and_student``). Report *creation*
                 is delegated to ``user_entry_backend.create_report_node`` —
@@ -76,11 +80,15 @@ class ExerciseReportService:
                 after feedback is persisted, closing the mastery loop for PERSONAL scope
                 exercises where no teacher approval step exists
             report_mastery_service: Optional — explicit mastery propagation service
+            entry_service: Optional — UserEntryService facade used by
+                ``generate_entry_response`` for the ownership-verified entry
+                fetch and the journal-chain eligibility check (TRANSFORMS edge).
         """
         self.llm_caller = llm_caller
         self.backend = backend
         self.ku_interaction_service = ku_interaction_service
         self.report_mastery_service = report_mastery_service
+        self.entry_service = entry_service
         self.logger = logger
 
         available = []
@@ -91,19 +99,19 @@ class ExerciseReportService:
         if self.ku_interaction_service:
             available.append("MasteryLoop")
 
-        logger.info(f"ExerciseReportService initialized with: {', '.join(available)}")
+        logger.info(f"EntryReportService initialized with: {', '.join(available)}")
 
-    async def get(self, uid: str) -> Result[ExerciseReport]:
-        """Typed single-fetch for ExerciseReport by UID.
+    async def get(self, uid: str) -> Result[EntryReport]:
+        """Typed single-fetch for EntryReport by UID.
 
-        Delegates to ``ExerciseReportBackend.get`` and narrows a missing
+        Delegates to ``EntryReportBackend.get`` and narrows a missing
         row to a not-found error so routes can use the standard
         ``require_found`` pattern.
         """
         if not self.backend:
             return Result.fail(
                 Errors.system(
-                    "ExerciseReportBackend not configured",
+                    "EntryReportBackend not configured",
                     operation="get",
                 )
             )
@@ -111,25 +119,231 @@ class ExerciseReportService:
         if result.is_error:
             return Result.fail(result)
         if result.value is None:
-            return Result.fail(Errors.not_found(resource="ExerciseReport", identifier=uid))
+            return Result.fail(Errors.not_found(resource="EntryReport", identifier=uid))
         return Result.ok(result.value)
 
-    async def list_for_submission(self, submission_uid: str) -> Result[list[ExerciseReport]]:
+    async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
         """List all reports attached to a submission (ASC by created_at).
 
-        Delegates to ExerciseReportBackend.list_for_submission — typed
+        Delegates to EntryReportBackend.list_for_submission — typed
         end-to-end, no TypedDict projection, no mapping step. Both teacher
         (HUMAN) and AI (LLM) reports appear here, discriminated by
-        ``ExerciseReport.processor_type``.
+        ``EntryReport.processor_type``.
         """
         if not self.backend:
             return Result.fail(
                 Errors.system(
-                    "ExerciseReportBackend not configured",
+                    "EntryReportBackend not configured",
                     operation="list_for_submission",
                 )
             )
         return await self.backend.list_for_submission(submission_uid)
+
+    # =========================================================================
+    # JOURNAL-RESPONSE GENERATION (ADR-069)
+    # =========================================================================
+
+    async def generate_entry_response(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[EntryReport]:
+        """Generate an LLM reflective response to a user's own journal entry.
+
+        Unlike ``generate_report`` (which evaluates an exercise turn-in against
+        an Exercise rubric), this produces a warm, peer-like reflection on a
+        personal journal entry. The result is a PRIVATE, self-owned
+        ``ENTRY_REPORT`` (ReportSource.LLM) — no teacher author, no student
+        share grant, and **no status transition** on the entry.
+
+        Eligibility — the entry must be on the journal chain:
+          * ``pipeline == EXTRACT_ACTIVITIES`` (ADR-069 activity extraction), or
+          * ``pipeline == TRANSCRIBE_AND_STRUCTURE`` (journal source), or
+          * ``pipeline == NONE`` with an outgoing ``TRANSFORMS`` edge (the
+            structured journal output child).
+        Exercise turn-ins (``pipeline == TEACHER_REVIEW``) go through teacher
+        review and are rejected with a business error.
+
+        FULL tier only — at CORE tier ``llm_caller`` is ``None`` and a
+        ``llm_tier_required`` business error is returned (same shape as
+        ``Pipeline.LLM_SUMMARY``).
+        """
+        if not self.llm_caller:
+            return Result.fail(
+                Errors.business(
+                    rule="llm_tier_required",
+                    message=(
+                        "Reflective entry responses require INTELLIGENCE_TIER=full; "
+                        "the LLM caller is not configured (CORE tier)."
+                    ),
+                )
+            )
+        if not self.backend:
+            return Result.fail(
+                Errors.system(
+                    "EntryReportBackend not configured", operation="generate_entry_response"
+                )
+            )
+        if not self.entry_service:
+            return Result.fail(
+                Errors.system(
+                    "UserEntryService not configured", operation="generate_entry_response"
+                )
+            )
+
+        # Ownership-verified fetch — returns not-found (404) for entries the
+        # user does not own, never 403 (OWNERSHIP_VERIFICATION pattern).
+        entry_result = await self.entry_service.get_entry(entry_uid, user_uid)
+        if entry_result.is_error:
+            return Result.fail(entry_result)
+        entry = entry_result.value
+        if entry is None:
+            return Result.fail(Errors.not_found(resource="UserEntry", identifier=entry_uid))
+
+        eligibility = await self._is_journal_chain_entry(entry)
+        if eligibility.is_error:
+            return Result.fail(eligibility)
+        if not eligibility.value:
+            return Result.fail(
+                Errors.business(
+                    rule="entry_not_eligible_for_response",
+                    message=(
+                        "Reflective responses are only available for journal entries; "
+                        "exercise turn-ins go through teacher review."
+                    ),
+                )
+            )
+
+        source_text = entry.processed_content or entry.content
+        if not source_text:
+            return Result.fail(
+                Errors.validation("Entry has no content to respond to", field="content")
+            )
+
+        try:
+            prompt = PROMPT_REGISTRY.render("entry_response", content=source_text)
+            llm_result = await self.llm_caller.generate(
+                prompt=prompt,
+                temperature=0.7,
+                max_tokens=1200,
+            )
+            if llm_result.is_error:
+                return Result.fail(llm_result)
+
+            return await self._persist_entry_response(
+                entry=entry,
+                response_text=llm_result.value,
+                user_uid=user_uid,
+            )
+        except LLM_EXCEPTIONS as e:
+            self.logger.error(f"LLM error generating entry response: {e}")
+            return Result.fail(
+                Errors.integration(
+                    service="LLM",
+                    operation="generate_entry_response",
+                    message=f"Entry response generation failed: {e!s}",
+                )
+            )
+
+    async def is_response_eligible(self, entry: UserEntry) -> Result[bool]:
+        """Whether ``entry`` can receive a reflective response (UI gate).
+
+        Public wrapper over the same journal-chain check ``generate_entry_response``
+        enforces — so the Respond button shows for *exactly* the entries the POST
+        accepts, including ``NONE``-pipeline ``TRANSFORMS`` children (one graph
+        read; the two explicit journal pipelines short-circuit without a query).
+        """
+        return await self._is_journal_chain_entry(entry)
+
+    async def _is_journal_chain_entry(self, entry: UserEntry) -> Result[bool]:
+        """Whether ``entry`` is on the journal chain (response-eligible).
+
+        See :meth:`generate_entry_response` for the three eligible cases.
+        """
+        if entry.pipeline in (Pipeline.EXTRACT_ACTIVITIES, Pipeline.TRANSCRIBE_AND_STRUCTURE):
+            return Result.ok(True)
+        if entry.pipeline == Pipeline.NONE and self.entry_service is not None:
+            rels = await self.entry_service.backend.get_relationships(
+                entry.uid, rel_type=RelationshipName.TRANSFORMS, direction="outgoing"
+            )
+            if rels.is_error:
+                return Result.fail(rels)
+            return Result.ok(bool(rels.value))
+        return Result.ok(False)
+
+    async def _persist_entry_response(
+        self, entry: UserEntry, response_text: str, user_uid: UserUID
+    ) -> Result[EntryReport]:
+        """Persist a journal response as a PRIVATE, self-owned ENTRY_REPORT.
+
+        Delegates to ``create_report_node`` with ``visibility='private'``,
+        ``create_student_share=False``, ``author_uid=None`` (no human author),
+        and ``submission_status=None`` (no status transition).
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system(
+                    "EntryReportBackend not configured", operation="_persist_entry_response"
+                )
+            )
+
+        report_entity_uid = UIDGenerator.generate_uid("er")
+        now = datetime.now().isoformat()
+        title = (
+            f"Reflection on: {entry.title[:50]}"
+            if entry.title
+            else f"Reflection on entry {entry.uid[:20]}"
+        )
+
+        try:
+            query_result = await self.backend.create_report_node(
+                {
+                    "report_uid": entry.uid,
+                    "report_entity_uid": report_entity_uid,
+                    "author_uid": None,
+                    "feedback": response_text,
+                    "report_file_path": None,
+                    "title": title,
+                    "entity_type": EntityType.ENTRY_REPORT.value,
+                    "submission_status": None,
+                    "completed_status": EntityStatus.COMPLETED.value,
+                    "processor_type": ReportSource.LLM.value,
+                    "assessment_outcome": None,
+                    "allowed_from_statuses": None,
+                    "visibility": "private",
+                    "create_student_share": False,
+                    "now": now,
+                },
+            )
+            if query_result.is_error or not query_result.value:
+                return Result.fail(
+                    Errors.database(
+                        "create_entry_response",
+                        "Failed to create ENTRY_REPORT node for journal response",
+                    )
+                )
+
+            self.logger.info(f"Journal-response ENTRY_REPORT created: {report_entity_uid}")
+            return Result.ok(
+                EntryReport(
+                    uid=report_entity_uid,
+                    entity_type=EntityType.ENTRY_REPORT,
+                    title=title,
+                    user_uid=user_uid,
+                    author_uid=None,
+                    status=EntityStatus.COMPLETED,
+                    processor_type=ReportSource.LLM,
+                    assessment_outcome=None,
+                    processed_content=response_text,
+                    subject_uid=entry.uid,
+                )
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Failed to persist journal response: {e}")
+            return Result.fail(
+                Errors.database(
+                    "create_entry_response",
+                    f"Failed to persist journal response: {e!s}",
+                )
+            )
 
     async def generate_report(
         self,
@@ -138,11 +352,11 @@ class ExerciseReportService:
         user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> Result[ExerciseReport]:
+    ) -> Result[EntryReport]:
         """
         Generate AI report for a submission entry using exercise instructions.
 
-        Creates an EXERCISE_REPORT entity (ReportSource.LLM) in Neo4j, linked
+        Creates an ENTRY_REPORT entity (ReportSource.LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
         (list_for_submission) is the authoritative source for report content.
 
@@ -154,7 +368,7 @@ class ExerciseReportService:
             max_tokens: Maximum tokens to generate (default 4000)
 
         Returns:
-            Result[ExerciseReport] containing the created EXERCISE_REPORT entity
+            Result[EntryReport] containing the created ENTRY_REPORT entity
         """
         try:
             if not self.llm_caller:
@@ -197,7 +411,7 @@ class ExerciseReportService:
             feedback_text = llm_result.value
             self.logger.info(f"Report generated: {len(feedback_text)} chars")
 
-            # Persist as EXERCISE_REPORT entity
+            # Persist as ENTRY_REPORT entity
             return await self._persist_report_entity(
                 submission=entry,
                 exercise=exercise,
@@ -226,9 +440,9 @@ class ExerciseReportService:
         exercise: Exercise,
         feedback_text: str,
         user_uid: UserUID,
-    ) -> Result[ExerciseReport]:
+    ) -> Result[EntryReport]:
         """
-        Persist AI report as an EXERCISE_REPORT entity in Neo4j.
+        Persist AI report as an ENTRY_REPORT entity in Neo4j.
 
         Delegates to ``UserEntryBackend.create_report_node`` — the canonical
         report-creation path shared with teacher reports. Creates the entity,
@@ -243,13 +457,13 @@ class ExerciseReportService:
         if not self.backend:
             return Result.fail(
                 Errors.system(
-                    "backend not configured — ExerciseReportService requires "
+                    "backend not configured — EntryReportService requires "
                     "backend at startup (fail-fast dependency)",
                     operation="_persist_report_entity",
                 )
             )
 
-        report_entity_uid = UIDGenerator.generate_uid("sr")
+        report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
         title = (
             f"AI Feedback: {exercise.title[:50]}"
@@ -266,12 +480,14 @@ class ExerciseReportService:
                     "feedback": feedback_text,
                     "report_file_path": None,
                     "title": title,
-                    "entity_type": EntityType.EXERCISE_REPORT.value,
+                    "entity_type": EntityType.ENTRY_REPORT.value,
                     "submission_status": None,
                     "completed_status": EntityStatus.COMPLETED.value,
                     "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "allowed_from_statuses": None,
+                    "visibility": "shared",
+                    "create_student_share": True,
                     "now": now,
                 },
             )
@@ -280,20 +496,20 @@ class ExerciseReportService:
                 return Result.fail(
                     Errors.database(
                         "create_report_entity",
-                        "Failed to create EXERCISE_REPORT entity",
+                        "Failed to create ENTRY_REPORT entity",
                     )
                 )
 
-            self.logger.info(f"EXERCISE_REPORT entity created: {report_entity_uid}")
+            self.logger.info(f"ENTRY_REPORT entity created: {report_entity_uid}")
 
             student_uid: UserUID = (
                 UserUID(str(query_result.value[0].get("student_uid") or user_uid))
                 if query_result.value
                 else user_uid
             )
-            feedback_entity = ExerciseReport(
+            feedback_entity = EntryReport(
                 uid=report_entity_uid,
-                entity_type=EntityType.EXERCISE_REPORT,
+                entity_type=EntityType.ENTRY_REPORT,
                 title=title,
                 user_uid=student_uid,
                 author_uid=user_uid,

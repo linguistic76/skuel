@@ -110,7 +110,7 @@ Run: `uv run ruff check core/ adapters/ ui/`
 - **Sync renamed to Ingestion** — one-way pipeline, not bidirectional
 - **All ~72 Services dataclass fields typed** — zero `Any` remaining
 - **Reports domain renamed** to Submissions + Reports (Feb 2026)
-- **Report types split** — ActivityReport (user-owned) vs ExerciseReport (tied to submission)
+- **Report types split** — ActivityReport (user-owned) vs EntryReport (tied to submission)
 - **universal_backend.py decomposed** — 4,214 lines into 6 focused mixins
 - **unified_relationship_service.py decomposed** — into 6 mixins
 - **Activity domain query layer refactored** — `get_filtered_context()` replaces 24 closure call sites

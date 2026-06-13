@@ -1,6 +1,6 @@
-"""Phase 3: ExerciseReport — PathStep feedback UI.
+"""Phase 3: EntryReport — PathStep feedback UI.
 
-Renders ExerciseReport summaries for a user's submissions during a PathStep.
+Renders EntryReport summaries for a user's submissions during a PathStep.
 Filters to submissions that have a linked report (REPORT_FOR edge present).
 
 Outcome badges map to assessment_outcome values:
@@ -8,8 +8,8 @@ Outcome badges map to assessment_outcome values:
     needs_revision   → amber "Revision Requested" badge + "Revise →" link (→ Phase 4)
     ai_evaluated / other → blue "Reviewed" badge
 
-The "Revise →" action links to /exercise-reports/detail?uid= which shows the full
-ExerciseReport. When a RevisedExercise exists for that report, the detail page
+The "Revise →" action links to /entry-reports/detail?uid= which shows the full
+EntryReport. When a RevisedExercise exists for that report, the detail page
 surfaces the Phase 4 entry point.
 
 Data is shared with submissions_section.py (Phase 2) — both render from the same
@@ -59,7 +59,7 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
             _outcome_badge(outcome),
             ButtonLink(
                 action_text,
-                href=f"/exercise-reports/detail?uid={sub['report_uid']}",
+                href=f"/entry-reports/detail?uid={sub['report_uid']}",
                 variant=ButtonT.primary if action_text == "Revise →" else ButtonT.ghost,
                 size=Size.sm,
             ),

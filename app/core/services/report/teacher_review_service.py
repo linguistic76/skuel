@@ -8,7 +8,7 @@ Reuses SHARES_WITH infrastructure. When a student submits an entity against
 an ASSIGNED Exercise, the entity is auto-shared with the teacher.
 The teacher's review queue = submissions shared with them via role="teacher".
 
-When providing a report or requesting revision, an EXERCISE_REPORT Entity node
+When providing a report or requesting revision, an ENTRY_REPORT Entity node
 is created and linked to the submission via REPORT_FOR. This makes every
 report round a first-class graph entity — searchable, queryable, and
 supporting revision cycles.
@@ -46,7 +46,7 @@ from core.ports.query_types import (
     TeacherGroupStats,
 )
 from core.ports.report_protocols import (
-    ExerciseReportBackendOperations,
+    EntryReportBackendOperations,
     TeacherReviewExerciseQueries,
     TeacherReviewGroupQueries,
 )
@@ -70,7 +70,7 @@ class TeacherReviewService:
     def __init__(
         self,
         user_entry_backend: UserEntryOperations,
-        report_backend: ExerciseReportBackendOperations,
+        report_backend: EntryReportBackendOperations,
         exercise_backend: TeacherReviewExerciseQueries,
         group_backend: TeacherReviewGroupQueries,
         ku_interaction_service: "PsMasteryService",
@@ -160,13 +160,13 @@ class TeacherReviewService:
         """
         Submit teacher report for an entity.
 
-        Creates an EXERCISE_REPORT Entity node linked to the submission via REPORT_FOR
+        Creates an ENTRY_REPORT Entity node linked to the submission via REPORT_FOR
         and transitions submission status to COMPLETED.
 
         Args:
             report_uid: Submission UID to provide report for
             teacher_uid: Teacher providing report
-            feedback: ExerciseReport text (read from uploaded .md file)
+            feedback: EntryReport text (read from uploaded .md file)
             file_path: Optional path to the uploaded .md report file
 
         Returns:
@@ -176,7 +176,7 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check)
 
-        report_entity_uid = UIDGenerator.generate_uid("sr")
+        report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
 
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
@@ -188,12 +188,14 @@ class TeacherReviewService:
                 "feedback": feedback,
                 "report_file_path": file_path,
                 "title": f"Feedback: {report_uid[:30]}",
-                "entity_type": EntityType.EXERCISE_REPORT.value,
+                "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.COMPLETED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "allowed_from_statuses": allowed_from,
+                "visibility": "shared",
+                "create_student_share": True,
                 "now": now,
             }
         )
@@ -246,7 +248,7 @@ class TeacherReviewService:
         """
         Request revision for a student submission.
 
-        Creates an EXERCISE_REPORT Entity node with revision notes, linked via REPORT_FOR.
+        Creates an ENTRY_REPORT Entity node with revision notes, linked via REPORT_FOR.
         Sets submission status to REVISION_REQUESTED.
 
         Args:
@@ -261,7 +263,7 @@ class TeacherReviewService:
         if access_check.is_error:
             return Result.fail(access_check)
 
-        report_entity_uid = UIDGenerator.generate_uid("sr")
+        report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
 
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
@@ -273,12 +275,14 @@ class TeacherReviewService:
                 "feedback": notes,
                 "report_file_path": None,
                 "title": f"Revision request: {report_uid[:30]}",
-                "entity_type": EntityType.EXERCISE_REPORT.value,
+                "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
+                "visibility": "shared",
+                "create_student_share": True,
                 "now": now,
             }
         )
@@ -333,7 +337,7 @@ class TeacherReviewService:
         feedback_points: list[dict[str, str]],
         revision_rationale: str | None,
     ) -> Result[RevisionWithExerciseResult]:
-        """Atomically create ExerciseReport + RevisedExercise in one transaction.
+        """Atomically create EntryReport + RevisedExercise in one transaction.
 
         Combines the two-phase revision request into a single backend call.
         If anything fails, no partial state is left behind — the student never
@@ -356,7 +360,7 @@ class TeacherReviewService:
         from core.utils.embedding_text_builder import build_embedding_text
         from core.utils.neo4j_mapper import to_neo4j_node
 
-        report_entity_uid = UIDGenerator.generate_uid("sr")
+        report_entity_uid = UIDGenerator.generate_uid("er")
         re_uid = UIDGenerator.generate_uid("re")
         now = datetime.now().isoformat()
 
@@ -387,14 +391,14 @@ class TeacherReviewService:
         allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
         result = await self.report_backend.create_report_and_revised_exercise(
             {
-                # Phase 1 params (ExerciseReport)
+                # Phase 1 params (EntryReport)
                 "report_uid": submission_uid,
                 "report_entity_uid": report_entity_uid,
                 "author_uid": teacher_uid,
                 "feedback": notes,
                 "report_file_path": None,
                 "title": f"Revision request: {submission_uid[:30]}",
-                "entity_type": EntityType.EXERCISE_REPORT.value,
+                "entity_type": EntityType.ENTRY_REPORT.value,
                 "submission_status": EntityStatus.REVISION_REQUESTED.value,
                 "completed_status": EntityStatus.COMPLETED.value,
                 "processor_type": ReportSource.HUMAN.value,
@@ -894,7 +898,7 @@ class TeacherReviewService:
     # ========================================================================
 
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an ExerciseReport node by UID."""
+        """Get the report_file_path for an EntryReport node by UID."""
         return await self.user_entry_backend.get_report_file_path(report_uid)
 
     async def _verify_teacher_has_group_access(

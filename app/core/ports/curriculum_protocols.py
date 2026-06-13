@@ -1520,7 +1520,7 @@ class RevisedExerciseOperations(Protocol):
     """Revised exercise operations for the four-phase learning loop.
 
     RevisedExercise is a UserOwnedEntity (teacher-owned, student-targeted)
-    that provides targeted revision instructions after ExerciseReport.
+    that provides targeted revision instructions after EntryReport.
 
     CRUD: Inherited from CrudOperationsMixin via BaseService (create, get, update, delete, list).
     Domain-specific: list_for_student, get_revision_chain.

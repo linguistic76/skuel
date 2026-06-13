@@ -102,7 +102,7 @@ async def test_share_not_completed(mock_backend, sharing_service):
                 {
                     "actual_owner": "user_owner",
                     "status": "processing",
-                    "entity_type": "exercise_report",
+                    "entity_type": "entry_report",
                 }
             ]
         )
@@ -552,7 +552,7 @@ async def test_verify_shareable_activity_active(mock_backend, sharing_service):
 async def test_verify_shareable_not_completed(mock_backend, sharing_service):
     """Test verify_shareable fails for non-completed non-activity entities."""
     mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "processing", "entity_type": "exercise_report"}])
+        return_value=Result.ok([{"status": "processing", "entity_type": "entry_report"}])
     )
 
     result = await sharing_service.verify_shareable(entity_uid="report_123")

@@ -23,11 +23,12 @@ if TYPE_CHECKING:
     from core.models.exercises.exercise import Exercise
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
-    from core.models.report.exercise_report import ExerciseReport
+    from core.models.report.entry_report import EntryReport
     from core.models.user_entry.user_entry import UserEntry
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.report.activity_report_service import ActivityReportService
-    from core.services.report.exercise_report_service import ExerciseReportService
+    from core.services.report.entry_report_service import EntryReportService
+    from core.services.report.report_relationship_service import ReportRelationshipService
     from core.services.report.teacher_review_service import TeacherReviewService
     from core.services.revised_exercises import RevisedExerciseService
     from core.services.sharing import UnifiedSharingService
@@ -36,15 +37,15 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
 
 
-class ExerciseReportView(TypedDict):
+class EntryReportView(TypedDict):
     """Bundled view for the exercise-report detail page.
 
-    Returned by :meth:`UserEntryOrchestrator.get_exercise_report_view` — combines
+    Returned by :meth:`UserEntryOrchestrator.get_entry_report_view` — combines
     the report itself with the optional ``RevisedExercise`` that targets it, so
     the UI can render both in a single round trip.
     """
 
-    report: ExerciseReport
+    report: EntryReport
     revised_exercise: RevisedExercise | None
 
 
@@ -64,9 +65,10 @@ class UserEntryOrchestrator:
         user_service: UserService,
         activity_report_service: ActivityReportService,
         revised_exercise_service: RevisedExerciseService,
-        exercise_report_service: ExerciseReportService,
+        entry_report_service: EntryReportService,
         sharing_service: UnifiedSharingService,
         assessment_service: AssessmentService,
+        report_relationship_service: ReportRelationshipService,
     ) -> None:
         self._entries = user_entry_service
         self._exercises = exercises_service
@@ -74,9 +76,10 @@ class UserEntryOrchestrator:
         self._user_service = user_service
         self._activity_report = activity_report_service
         self._revised_exercise = revised_exercise_service
-        self._exercise_report = exercise_report_service
+        self._entry_report = entry_report_service
         self._sharing = sharing_service
         self._assessment = assessment_service
+        self._report_relationship = report_relationship_service
 
     @property
     def user_service(self) -> UserService:
@@ -158,30 +161,73 @@ class UserEntryOrchestrator:
     # Reports & Reviews
     # ------------------------------------------------------------------
 
-    async def get_exercise_report(self, uid: str) -> Result[ExerciseReport]:
-        """Fetch an ExerciseReport by UID."""
-        return await self._exercise_report.get(uid)
+    async def get_entry_report(self, uid: str) -> Result[EntryReport]:
+        """Fetch an EntryReport by UID."""
+        return await self._entry_report.get(uid)
+
+    async def generate_entry_response(
+        self, entry_uid: str, user_uid: UserUID
+    ) -> Result[EntryReport]:
+        """Generate an LLM reflective response to a user's own journal entry (ADR-069).
+
+        Delegates to :meth:`EntryReportService.generate_entry_response` — the
+        service performs the ownership-verified fetch, journal-chain eligibility
+        check, and persists a PRIVATE self-owned ENTRY_REPORT.
+        """
+        return await self._entry_report.generate_entry_response(entry_uid, user_uid)
+
+    async def is_entry_response_eligible(self, entry: UserEntry) -> Result[bool]:
+        """Whether ``entry`` can receive a reflective response (drives the UI button).
+
+        Delegates to :meth:`EntryReportService.is_response_eligible` so the button
+        shows for exactly the entries the respond POST accepts (ADR-069).
+        """
+        return await self._entry_report.is_response_eligible(entry)
+
+    async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
+        """List the EntryReports attached to an entry (the "Responses" section).
+
+        Wires ``ReportRelationshipService.get_submission_chain`` — returns the
+        chain's ``feedback`` projection (uid, title, processor_type, created_at)
+        for each report pointing at this entry via REPORT_FOR.
+        """
+        chain_result = await self._report_relationship.get_submission_chain(entry_uid)
+        if chain_result.is_error:
+            return Result.fail(chain_result)
+        return Result.ok(list(chain_result.value.get("feedback") or []))
+
+    async def get_entries_awaiting_response(self, user_uid: UserUID) -> Result[list[str]]:
+        """UIDs of journal-chain entries that have no report yet (Respond candidates).
+
+        Wires ``ReportRelationshipService.get_pending_submissions`` with the
+        journal-pipeline filter so exercise turn-ins (teacher_review) are
+        excluded from the "awaiting a response" surface.
+        """
+        return await self._report_relationship.get_pending_submissions(
+            user_uid,
+            pipelines=[Pipeline.EXTRACT_ACTIVITIES, Pipeline.TRANSCRIBE_AND_STRUCTURE],
+        )
 
     async def check_report_access(self, report_uid: EntityUID, user_uid: UserUID) -> Result[bool]:
         """Canonical access check for a report — owner, PUBLIC, or shared."""
         return await self._sharing.check_access(report_uid, user_uid)
 
-    async def get_exercise_report_view(
+    async def get_entry_report_view(
         self, report_uid: str, user_uid: UserUID
-    ) -> Result[ExerciseReportView]:
+    ) -> Result[EntryReportView]:
         """Fetch a report with access check + optional linked revision.
 
         Access denial surfaces as a not-found error so the route can render
         the standard "Report not found" banner without leaking existence.
         """
-        report_result = await self._exercise_report.get(report_uid)
+        report_result = await self._entry_report.get(report_uid)
         if report_result.is_error:
             return Result.fail(report_result)
         report = report_result.value
 
         access_result = await self._sharing.check_access(report.uid, user_uid)
         if access_result.is_error or not access_result.value:
-            return Result.fail(Errors.not_found("ExerciseReport", report_uid))
+            return Result.fail(Errors.not_found("EntryReport", report_uid))
 
         revision: RevisedExercise | None = None
         revision_result = await self._revised_exercise.get_by_report_uid(report.uid)
@@ -192,8 +238,8 @@ class UserEntryOrchestrator:
 
     async def get_assessments_for_student(
         self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[ExerciseReport]]:
-        """Assessments (EXERCISE_REPORT entities) received by a student."""
+    ) -> Result[list[EntryReport]]:
+        """Assessments (ENTRY_REPORT entities) received by a student."""
         return await self._assessment.get_assessments_for_student(user_uid, limit)
 
     # ------------------------------------------------------------------

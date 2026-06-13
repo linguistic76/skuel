@@ -725,7 +725,7 @@ class Neo4jSchemaManager:
         Drop indexes that reference labels no longer in use.
 
         Stale indexes:
-        - ai_report_uid_idx (label AiReport — reports use ExerciseReport)
+        - ai_report_uid_idx (label AiReport — reports use EntryReport)
         - lpstep_embedding_idx (label LpStep — current label is PathStep)
         - journal_submission_* (label JournalSubmission — predecessor of JeInput)
         - journal_report_* (label JournalReport — predecessor of JeOutput)
@@ -829,7 +829,7 @@ class Neo4jSchemaManager:
             ("life_path_uid_idx", NeoLabel.LIFE_PATH),
             ("resource_uid_idx", NeoLabel.RESOURCE),
             ("user_entry_uid_idx", NeoLabel.USER_ENTRY),
-            ("exercise_report_uid_idx", NeoLabel.EXERCISE_REPORT),
+            ("entry_report_uid_idx", NeoLabel.ENTRY_REPORT),
             ("activity_report_uid_idx", NeoLabel.ACTIVITY_REPORT),
             ("form_template_uid_idx", NeoLabel.FORM_TEMPLATE),
             ("form_submission_uid_idx", NeoLabel.FORM_SUBMISSION),
@@ -847,7 +847,7 @@ class Neo4jSchemaManager:
             ("choice_user_uid_idx", NeoLabel.CHOICE),
             ("principle_user_uid_idx", NeoLabel.PRINCIPLE),
             ("user_entry_user_uid_idx", NeoLabel.USER_ENTRY),
-            ("exercise_report_user_uid_idx", NeoLabel.EXERCISE_REPORT),
+            ("entry_report_user_uid_idx", NeoLabel.ENTRY_REPORT),
             ("activity_report_user_uid_idx", NeoLabel.ACTIVITY_REPORT),
             ("form_submission_user_uid_idx", NeoLabel.FORM_SUBMISSION),
             ("revised_exercise_user_uid_idx", NeoLabel.REVISED_EXERCISE),

@@ -29,7 +29,7 @@ SKUEL is not a flat collection of features. It's a layered system where each lay
 ├─────────────────────────────────────────┤
 │  2. ZPD + UserContext (intelligence)    │  "Where are you?" + "What's next?"
 ├─────────────────────────────────────────┤
-│  1. Learning Loop (base)                │  Exercise → UserEntry → ExerciseReport → RevisedExercise ...
+│  1. Learning Loop (base)                │  Exercise → UserEntry → EntryReport → RevisedExercise ...
 └─────────────────────────────────────────┘
 ```
 

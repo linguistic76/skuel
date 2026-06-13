@@ -306,12 +306,6 @@ _LIFEPATH_WORD_ACTION = (
     "theme overlap); wire as the words-vs-actions panel on the /lifepath alignment "
     "dashboard next to the live dimension breakdown"
 )
-_REPORT_RESPONSE_CHAIN = (
-    "claimed by ADR-069 (journal responses) — get_pending_submissions is the response-trigger "
-    "query ('owned entries with no REPORT_FOR', gains a pipeline filter) and "
-    "get_submission_chain renders the entry detail page's response chain; both wire in "
-    "ADR-069 PR-3 (plans/extract-activities-and-entry-report-implementation.md)"
-)
 _REPORT_DAILY_PLANNING = (
     "assigned-work nag staged — 'exercises assigned via group with no submission yet, by due "
     "date' is a daily-planning signal in the same family as the daily-plan phantom-dispatch "
@@ -325,8 +319,8 @@ _REPORT_COMPLETION_STATS = (
 _REPORT_EXERCISE_CHAIN = (
     "exercise-rooted loop traversal staged — teacher/admin 'everything chained to this "
     "Exercise' (submissions, reports, revised exercises); the entry-rooted twin "
-    "get_submission_chain is ADR-069-claimed, this one awaits a teaching-UI exercise detail "
-    "view (Mike ruled PLANNED 2026-06-12)"
+    "get_submission_chain is now wired live (ADR-069 PR-3), this one awaits a teaching-UI "
+    "exercise detail view (Mike ruled PLANNED 2026-06-12)"
 )
 _REPORT_SCHEDULE_PRODUCER = (
     "missing producer of a LIVE consumer — ProgressReportWorker starts at bootstrap "
@@ -654,13 +648,8 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/lifepath/lifepath_types.py::biggest_gap": _LIFEPATH_WORD_ACTION,
     "core/services/lifepath/lifepath_types.py::get_gap_summary": _LIFEPATH_WORD_ACTION,
-    # --- Reports: ADR-069-claimed response-chain queries (complete in PR-3) ---
-    "core/services/report/report_relationship_service.py::get_pending_submissions": (
-        _REPORT_RESPONSE_CHAIN
-    ),
-    "core/services/report/report_relationship_service.py::get_submission_chain": (
-        _REPORT_RESPONSE_CHAIN
-    ),
+    # NOTE: get_pending_submissions + get_submission_chain were wired live in
+    # ADR-069 PR-3 (journal responses) — removed from PLANNED_METHODS.
     # --- Reports: staged intelligence lenses ---
     "core/services/report/report_relationship_service.py::get_unsubmitted_exercises": (
         _REPORT_DAILY_PLANNING

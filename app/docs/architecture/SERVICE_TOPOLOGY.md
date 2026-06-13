@@ -613,7 +613,7 @@ Routes / Application Code
 │
 ├─ user_entry/                            (ADR-054 — replaces submissions/ + journal/)
 │   ├─ user_entry_service.py              (entry point — UserEntryService facade over UserEntryBackend)
-│   ├─ assessment_service.py             (AssessmentService — teacher assessments → ExerciseReport)
+│   ├─ assessment_service.py             (AssessmentService — teacher assessments → EntryReport)
 │   ├─ user_entry_processing_service.py  (UserEntryProcessingService — transcription/LLM → UserEntry)
 │   ├─ exercise_linker.py                (UserEntryExerciseLinker — links UserEntry to Exercise)
 │   ├─ audience_resolver.py              (AudienceResolver — shared sharing/audience helper)
@@ -628,10 +628,10 @@ Routes / Application Code
 │   └─ batch_transcription_service.py (batch audio → txt)
 │
 └─ report/
-    ├─ exercise_report_service.py     (entry point — uses UnifiedLLMCaller)
+    ├─ entry_report_service.py     (entry point — uses UnifiedLLMCaller)
     ├─ activity_report_service.py     (CRUD for ActivityReport — delegates to ActivityReportBackend)
     ├─ review_queue_service.py        (ReviewRequest node management)
-    ├─ teacher_review_service.py      (delegates to UserEntryBackend, ExerciseReportBackend, ExerciseBackend, GroupBackend)
+    ├─ teacher_review_service.py      (delegates to UserEntryBackend, EntryReportBackend, ExerciseBackend, GroupBackend)
     ├─ progress_report_generator.py   (LLM → processed_content)
     └─ progress_schedule_service.py
 ```

@@ -122,7 +122,7 @@ SKUEL organizes human experience into **20 entity types**, grouped into **7 subs
 │  CURRICULUM            Ku • PS • LP • Exercise                   │
 │  CURATED CONTENT       Resource (books, talks, films)           │
 │  CONTENT PROCESSING    Submission • Journal • ActivityReport    │
-│                        ExerciseReport                         │
+│                        EntryReport                         │
 │  ORGANIZATION          Groups • MOC (emergent)                  │
 │  DESTINATION           LifePath — "Everything flows here"       │
 └─────────────────────────────────────────────────────────────────┘

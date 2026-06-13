@@ -91,7 +91,7 @@ class NeoLabel(StrEnum):
     # Content Processing — user submissions and reports
     SUBMISSION = "Submission"  # Base label for multi-label queries
     ACTIVITY_REPORT = "ActivityReport"
-    EXERCISE_REPORT = "ExerciseReport"
+    ENTRY_REPORT = "EntryReport"
 
     # Unified user-authored content (ADR-054)
     USER_ENTRY = "UserEntry"
@@ -271,7 +271,7 @@ def _init_entity_type_mapping() -> None:
             EntityType.FORM_TEMPLATE: NeoLabel.FORM_TEMPLATE,
             EntityType.FORM_SUBMISSION: NeoLabel.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT: NeoLabel.ACTIVITY_REPORT,
-            EntityType.EXERCISE_REPORT: NeoLabel.EXERCISE_REPORT,
+            EntityType.ENTRY_REPORT: NeoLabel.ENTRY_REPORT,
             EntityType.INTERACTION: NeoLabel.INTERACTION,
             EntityType.LIFE_PATH: NeoLabel.LIFE_PATH,
             EntityType.USER_ENTRY: NeoLabel.USER_ENTRY,  # ADR-054

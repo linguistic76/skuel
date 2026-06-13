@@ -47,7 +47,7 @@ from ui.layout import Size
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
-    from core.ports.report_protocols import ExerciseReportOperations
+    from core.ports.report_protocols import EntryReportOperations
 
 logger = get_logger(__name__)
 
@@ -74,7 +74,7 @@ def create_teaching_api_routes(
     exercises_service: Any,
     user_entry_service: Any = None,
     revised_exercise_service: Any = None,
-    exercise_report_service: "ExerciseReportOperations | None" = None,
+    entry_report_service: "EntryReportOperations | None" = None,
 ) -> list[Any]:
     """
     Create teaching API routes.
@@ -143,7 +143,7 @@ def create_teaching_api_routes(
     async def request_revision(request: Request, uid: str, current_user: Any) -> Any:
         """Request revision for a student submission with structured feedback.
 
-        When exercise_uid is present, creates ExerciseReport + RevisedExercise
+        When exercise_uid is present, creates EntryReport + RevisedExercise
         atomically in a single transaction. Falls back to report-only when
         exercise_uid is absent.
         """
@@ -157,7 +157,7 @@ def create_teaching_api_routes(
 
         form_data = result.value
 
-        # Atomic path: ExerciseReport + RevisedExercise in one transaction
+        # Atomic path: EntryReport + RevisedExercise in one transaction
         if form_data.exercise_uid:
             # Parse feedback points from form arrays
             raw_form = await request.form()
@@ -211,7 +211,7 @@ def create_teaching_api_routes(
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
     async def download_report_file(request: Request, report_uid: str, current_user: Any) -> Any:
-        """Download the .md feedback file attached to an ExerciseReport."""
+        """Download the .md feedback file attached to an EntryReport."""
         path_result = await teacher_review_service.get_report_file_path(report_uid)
         if path_result.is_error or not path_result.value:
             from fasthtml.common import Div, P
@@ -285,10 +285,10 @@ def create_teaching_api_routes(
             submission_uid=uid, teacher_uid=current_user.uid
         )
 
-        if exercise_report_service is None:
+        if entry_report_service is None:
             history: list[Any] = []
         else:
-            history_result = await exercise_report_service.list_for_submission(uid)
+            history_result = await entry_report_service.list_for_submission(uid)
             history = list(
                 history_result.value if not history_result.is_error and history_result.value else []
             )

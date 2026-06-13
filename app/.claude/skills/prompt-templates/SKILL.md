@@ -52,6 +52,7 @@ core/prompts/
 ├── registry.py               # PromptRegistry + PROMPT_REGISTRY singleton
 └── templates/
     ├── activity_feedback.md
+    ├── entry_response.md
     ├── journal_activity.md
     ├── journal_articulation.md
     ├── journal_exploration.md
@@ -81,6 +82,7 @@ programming error, not a domain failure.
 | Template ID | Consumers | Placeholders |
 |-------------|-----------|--------------|
 | `activity_feedback` | `ProgressReportGenerator._build_llm_prompt()` | `{time_period}`, `{depth}`, `{stats_json}`, `{insights_section}` |
+| `entry_response` | `EntryReportService.generate_entry_response()` (ADR-069 journal responses) | `{content}` |
 | `journal_activity` | `JournalOutputService._format_activity()` + `InstructionResolver` | `{content}` |
 | `journal_articulation` | `JournalOutputService._format_articulation()` + `InstructionResolver` | `{content}` |
 | `journal_exploration` | `JournalOutputService._format_exploration()` + `InstructionResolver` | `{content}` |

@@ -67,7 +67,7 @@ New user-authored flows arrive as new pipeline variants, not as new EntityTypes 
 
 Interpretive output — what the system (human or machine) says *about* Action-layer data.
 
-Members: `ExerciseReport`, `ActivityReport`, `RevisedExercise`
+Members: `EntryReport`, `ActivityReport`, `RevisedExercise`
 
 ## Mapping to `ContentOrigin`
 
@@ -104,7 +104,7 @@ The Learning Loop is where all three layers meet most cleanly.
 ```
 Curriculum     Action              Feedback         Curriculum (again)
 ─────────      ────────────        ──────────────   ─────────────────
-Exercise  →    UserEntry      →    ExerciseReport → RevisedExercise
+Exercise  →    UserEntry      →    EntryReport → RevisedExercise
                                                          │
                                                          ▼
                                                     UserEntry (next attempt)
@@ -114,8 +114,8 @@ Exercise  →    UserEntry      →    ExerciseReport → RevisedExercise
 Each arrow is a relationship in the graph:
 
 - `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)` — the revision count lives on the edge, not on the node. A second attempt is a second `UserEntry`.
-- `(ExerciseReport)-[:REPORT_FOR]->(UserEntry)`
-- `(RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)` and `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`
+- `(EntryReport)-[:REPORT_FOR]->(UserEntry)`
+- `(RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)` and `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`
 
 ## When to Use Which Model
 
@@ -146,6 +146,6 @@ The two models do not compete. They answer different questions.
 - `ADR-055-architectural-lenses.md` — the decision that formalizes Model A + Model B
 - `SEVEN_SUBSYSTEMS.md` — Model A at the coarse (7-subsystem) level, with MVP matrix
 - `ENTITY_TYPE_ARCHITECTURE.md` — Model A at the fine (20-EntityType) level
-- `LEARNING_LOOP_ARCHITECTURE.md` — the canonical Exercise → UserEntry → ExerciseReport → RevisedExercise flow
+- `LEARNING_LOOP_ARCHITECTURE.md` — the canonical Exercise → UserEntry → EntryReport → RevisedExercise flow
 - `ADR-054-user-entry-unified-submissions.md` — why `UserEntry` + `Pipeline` replaces the old per-type split
 - `ADR-047-entity-types-replace-domain-categories.md` — why we talk about entity types and behavioral traits, not category membership

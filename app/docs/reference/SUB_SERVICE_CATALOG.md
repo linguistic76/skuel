@@ -358,7 +358,7 @@ handler = LearningLoopEventHandlerService(backend=user_entry_backend, insight_st
 **File:** `/core/services/user_entry/learning_loop_query.py`
 **Package:** `/core/services/user_entry/`
 
-**Responsibility:** Read-only queries that traverse the four-phase learning loop graph (Exercise → UserEntry → ExerciseReport → RevisedExercise). Interaction nodes provide situated context for each UserEntry. Read-side peer of `LearningLoopEventHandlerService`.
+**Responsibility:** Read-only queries that traverse the four-phase learning loop graph (Exercise → UserEntry → EntryReport → RevisedExercise). Interaction nodes provide situated context for each UserEntry. Read-side peer of `LearningLoopEventHandlerService`.
 
 **Rationale:** Isolates learning-loop reads (Interaction/Exercise/Report traversals) from generic entity search, which `UserEntryService` inherits from `BaseService`. New learning-loop reads land here.
 

@@ -1908,7 +1908,7 @@ class RevisionRequestResult(TypedDict, total=False):
 class RevisionWithExerciseResult(TypedDict):
     """Return shape for TeacherReviewService.request_revision_with_exercise().
 
-    Atomic operation that creates both ExerciseReport and RevisedExercise
+    Atomic operation that creates both EntryReport and RevisedExercise
     in a single Neo4j transaction.
     """
 
