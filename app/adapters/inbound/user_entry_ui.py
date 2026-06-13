@@ -74,14 +74,6 @@ def _status_value(entry: UserEntry) -> str:
     return str(status) if status else "submitted"
 
 
-# Pipelines whose entries are journal-chain reflections eligible for an LLM
-# reflective response (ADR-069). NONE-pipeline TRANSFORMS children are also
-# eligible but require a graph check; the service validates that case on POST.
-_RESPONSE_BUTTON_PIPELINES = frozenset(
-    {Pipeline.EXTRACT_ACTIVITIES, Pipeline.TRANSCRIBE_AND_STRUCTURE}
-)
-
-
 def _render_entry_responses(responses: list[dict[str, Any]]) -> Any:
     """Render the "Responses" section for an entry detail page (ADR-069).
 
@@ -474,10 +466,17 @@ def create_user_entry_ui_routes(
             entries = list(result.value)
 
         # Journal-chain entries with no response yet — wires
-        # get_pending_submissions(pipelines=[...]) (ADR-069).
+        # get_pending_submissions(pipelines=[...]) (ADR-069). The awaiting set
+        # spans BOTH journal pipelines (EXTRACT_ACTIVITIES + TRANSCRIBE_AND_STRUCTURE),
+        # so resolve titles from the user's full entry list rather than the
+        # transcription-only journal grid (which would silently drop the former).
         awaiting_result = await orchestrator.get_entries_awaiting_response(user_uid)
         awaiting_uids = set(awaiting_result.value or []) if awaiting_result.is_ok else set()
-        awaiting_entries = [e for e in entries if e.uid in awaiting_uids]
+        awaiting_entries: list[UserEntry] = []
+        if awaiting_uids:
+            pool_result = await orchestrator.list_for_user(user_uid, limit=100)
+            pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
+            awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
 
         from ui.layouts.base_page import BasePage
 
@@ -684,8 +683,11 @@ def create_user_entry_ui_routes(
         # via ReportRelationshipService.get_submission_chain.
         responses_result = await orchestrator.get_entry_responses(uid)
         responses = responses_result.value if responses_result.is_ok else []
+        # Button visibility uses the SAME eligibility check the respond POST
+        # enforces — so it shows for NONE-pipeline TRANSFORMS children too.
+        eligible = await orchestrator.is_entry_response_eligible(entry)
         respond_button: Any = (
-            _render_respond_button(uid) if entry.pipeline in _RESPONSE_BUTTON_PIPELINES else None
+            _render_respond_button(uid) if (eligible.is_ok and eligible.value) else None
         )
 
         content = Div(

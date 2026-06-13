@@ -243,6 +243,16 @@ class EntryReportService:
                 )
             )
 
+    async def is_response_eligible(self, entry: UserEntry) -> Result[bool]:
+        """Whether ``entry`` can receive a reflective response (UI gate).
+
+        Public wrapper over the same journal-chain check ``generate_entry_response``
+        enforces — so the Respond button shows for *exactly* the entries the POST
+        accepts, including ``NONE``-pipeline ``TRANSFORMS`` children (one graph
+        read; the two explicit journal pipelines short-circuit without a query).
+        """
+        return await self._is_journal_chain_entry(entry)
+
     async def _is_journal_chain_entry(self, entry: UserEntry) -> Result[bool]:
         """Whether ``entry`` is on the journal chain (response-eligible).
 

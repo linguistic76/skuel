@@ -176,6 +176,14 @@ class UserEntryOrchestrator:
         """
         return await self._entry_report.generate_entry_response(entry_uid, user_uid)
 
+    async def is_entry_response_eligible(self, entry: UserEntry) -> Result[bool]:
+        """Whether ``entry`` can receive a reflective response (drives the UI button).
+
+        Delegates to :meth:`EntryReportService.is_response_eligible` so the button
+        shows for exactly the entries the respond POST accepts (ADR-069).
+        """
+        return await self._entry_report.is_response_eligible(entry)
+
     async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
         """List the EntryReports attached to an entry (the "Responses" section).
 
