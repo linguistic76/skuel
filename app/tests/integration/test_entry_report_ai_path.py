@@ -193,10 +193,10 @@ async def test_ai_report_creates_shares_with_edge_to_student(
     )
     assert record["share_role"] == "student"
 
-    # author_uid node property tracks who triggered generation (symmetric with
-    # teacher reports where it tracks the teacher). The OWNS edge, by contrast,
-    # always points at the student so the report surfaces in the student's hub.
-    assert record["author_uid"] == AUTHOR_UID
+    # LLM-authored reports carry no human author (EntryReport contract) — the
+    # triggerer is not the author. The OWNS edge, by contrast, always points at
+    # the student so the report surfaces in the student's hub.
+    assert record["author_uid"] is None
     assert record["owner_uid"] == STUDENT_UID
 
 

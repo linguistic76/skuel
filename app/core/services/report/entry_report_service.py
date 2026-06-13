@@ -476,7 +476,9 @@ class EntryReportService:
                 {
                     "report_uid": submission.uid,
                     "report_entity_uid": report_entity_uid,
-                    "author_uid": user_uid,
+                    # LLM-authored report ⇒ no human author (EntryReport contract).
+                    # user_uid is the triggerer/owner, not the author.
+                    "author_uid": None,
                     "feedback": feedback_text,
                     "report_file_path": None,
                     "title": title,
@@ -512,7 +514,7 @@ class EntryReportService:
                 entity_type=EntityType.ENTRY_REPORT,
                 title=title,
                 user_uid=student_uid,
-                author_uid=user_uid,
+                author_uid=None,
                 status=EntityStatus.COMPLETED,
                 processor_type=ReportSource.LLM,
                 assessment_outcome=AssessmentOutcome.AI_EVALUATED,
