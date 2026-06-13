@@ -58,7 +58,7 @@ class Pipeline(StrEnum):
 
 class ReportSource(StrEnum):
     """
-    Provenance of a report (`ExerciseReport`, `ActivityReport`).
+    Provenance of a report (`EntryReport`, `ActivityReport`).
 
     Replaces `ProcessorType` for the "who authored this report" dimension.
     A report always has a source; a user entry always has a pipeline.

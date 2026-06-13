@@ -4,7 +4,7 @@ Report Protocols
 
 Route-facing protocols for the Report stage of SKUEL's core educational loop:
 
-    Exercise → UserEntry → ExerciseReport → RevisedExercise
+    Exercise → UserEntry → EntryReport → RevisedExercise
                               ↑
                     someone responds to the work
 
@@ -15,7 +15,7 @@ Reports have two implementations — the mechanism differs, the concept is the s
     Human report  (teacher reviews and writes)  → ReportSource.HUMAN
     AI report     (LLM evaluates via Exercise)   → ReportSource.LLM
 
-Both create EXERCISE_REPORT entities (EntityType.EXERCISE_REPORT) linked to the
+Both create ENTRY_REPORT entities (EntityType.ENTRY_REPORT) linked to the
 submission via REPORT_FOR. The processor_type field discriminates the source.
 
 Progress reports (EntityType.ACTIVITY_REPORT) are macro-level AI reports — the system
@@ -24,15 +24,15 @@ summarises cross-domain activity over a time window. Still a report, broader sco
 The HUMAN and AI halves are SEPARATE protocols implemented by separate services
 (they are not a single-class union — that was split 2026-05-30, PR #128):
 
-    AI report (LLM) + typed reads → ExerciseReportOperations  (ExerciseReportService)
+    AI report (LLM) + typed reads → EntryReportOperations  (EntryReportService)
     Human assessment (teacher)    → AssessmentOperations       (AssessmentService)
 
-``list_for_submission`` (on ExerciseReportOperations) is the authoritative typed
+``list_for_submission`` (on EntryReportOperations) is the authoritative typed
 read for BOTH HUMAN and LLM reports — processor_type discriminates.
 
 Protocol Responsibilities
 --------------------------
-    ExerciseReportOperations     — AI report + typed reads (generate_report, list_for_submission)
+    EntryReportOperations     — AI report + typed reads (generate_report, list_for_submission)
     AssessmentOperations         — Teacher-authored assessments (create_assessment, get_assessments_*)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ProgressScheduleOperations   — Recurring progress report scheduling
@@ -73,7 +73,7 @@ if TYPE_CHECKING:
     from core.models.entity_types import SubmissionEntity
     from core.models.exercises.exercise import Exercise
     from core.models.report.activity_report import ActivityReport
-    from core.models.report.exercise_report import ExerciseReport
+    from core.models.report.entry_report import EntryReport
     from core.models.report_schedule import ReportSchedule
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
@@ -88,8 +88,8 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class ExerciseReportOperations(Protocol):
-    """AI-generated + typed-read reports on submissions (EXERCISE_REPORT entities).
+class EntryReportOperations(Protocol):
+    """AI-generated + typed-read reports on submissions (ENTRY_REPORT entities).
 
     This is the AI/read-model half of the report surface. ``generate_report``
     creates an LLM report (processor_type=ReportSource.LLM) via Exercise
@@ -103,7 +103,7 @@ class ExerciseReportOperations(Protocol):
 
     Route consumers: exercises_api.py (AI reports), teaching_api.py / teaching_ui.py
     / user_entry_ui.py (report history).
-    Implementation: ``ExerciseReportService``.
+    Implementation: ``EntryReportService``.
     """
 
     # ------------------------------------------------------------------
@@ -113,7 +113,7 @@ class ExerciseReportOperations(Protocol):
     async def list_for_submission(
         self,
         submission_uid: str,
-    ) -> "Result[list[ExerciseReport]]":
+    ) -> "Result[list[EntryReport]]":
         """List all reports attached to a submission (ASC by created_at).
 
         Returns both HUMAN (teacher-authored) and LLM (AI-generated) reports —
@@ -133,12 +133,12 @@ class ExerciseReportOperations(Protocol):
         user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> "Result[ExerciseReport]":
+    ) -> "Result[EntryReport]":
         """Generate AI report for a submission using exercise instructions.
 
-        Creates EXERCISE_REPORT entity (processor_type=LLM) in Neo4j, linked
+        Creates ENTRY_REPORT entity (processor_type=LLM) in Neo4j, linked
         to the submission via REPORT_FOR. The typed read path
-        (ExerciseReportService.list_for_submission) is the authoritative
+        (EntryReportService.list_for_submission) is the authoritative
         source for report content.
 
         Args:
@@ -148,7 +148,7 @@ class ExerciseReportOperations(Protocol):
             temperature: LLM sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
 
-        Returns Result[ExerciseReport] — the created EXERCISE_REPORT entity.
+        Returns Result[EntryReport] — the created ENTRY_REPORT entity.
         """
         ...
 
@@ -158,11 +158,11 @@ class AssessmentOperations(Protocol):
     """Teacher-authored assessments — HUMAN feedback on student work.
 
     The human half of the report surface (the AI half is
-    :class:`ExerciseReportOperations`). Assessments are EXERCISE_REPORT entities
+    :class:`EntryReportOperations`). Assessments are ENTRY_REPORT entities
     (ReportSource.HUMAN) created by a teacher, linked to the student via
     ASSESSMENT_OF and auto-shared via SHARES_WITH.
 
-    Route consumers: exercise_report_api.py (assessment CRUD),
+    Route consumers: entry_report_api.py (assessment CRUD),
     profile_orchestrator.py (a student's received assessments).
     Implementation: ``AssessmentService`` (core/services/user_entry/).
     """
@@ -174,13 +174,13 @@ class AssessmentOperations(Protocol):
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> "Result[ExerciseReport]":
-        """Create a teacher assessment (EntityType.EXERCISE_REPORT, ReportSource.HUMAN).
+    ) -> "Result[EntryReport]":
+        """Create a teacher assessment (EntityType.ENTRY_REPORT, ReportSource.HUMAN).
 
         Verifies teacher-student group membership before creating.
         Auto-shares with student via SHARES_WITH {role: 'student'}.
 
-        Returns Result[ExerciseReport].
+        Returns Result[EntryReport].
         """
         ...
 
@@ -188,8 +188,8 @@ class AssessmentOperations(Protocol):
         self,
         student_uid: str,
         limit: int = 50,
-    ) -> "Result[list[ExerciseReport]]":
-        """Get feedback reports received by a student. Returns Result[list[ExerciseReport]]."""
+    ) -> "Result[list[EntryReport]]":
+        """Get feedback reports received by a student. Returns Result[list[EntryReport]]."""
         ...
 
     async def get_assessments_by_teacher(
@@ -202,47 +202,47 @@ class AssessmentOperations(Protocol):
 
 
 @runtime_checkable
-class ExerciseReportBackendOperations(Protocol):
-    """Backend-level protocol for typed ExerciseReport reads.
+class EntryReportBackendOperations(Protocol):
+    """Backend-level protocol for typed EntryReport reads.
 
-    Distinct from the service-level ``ExerciseReportOperations`` (which is
+    Distinct from the service-level ``EntryReportOperations`` (which is
     the route-facing facade): this protocol captures the narrow backend
-    surface used by ``ExerciseReportService`` and anything else that needs
-    typed persistence-layer reads over EXERCISE_REPORT nodes.
+    surface used by ``EntryReportService`` and anything else that needs
+    typed persistence-layer reads over ENTRY_REPORT nodes.
 
     Implemented structurally by
-    ``ExerciseReportBackend(UniversalNeo4jBackend[ExerciseReport])``.
+    ``EntryReportBackend(UniversalNeo4jBackend[EntryReport])``.
     """
 
-    async def create(self, entity: "ExerciseReport") -> "Result[ExerciseReport]":
-        """Create an EXERCISE_REPORT node with ``:Entity:ExerciseReport`` labels.
+    async def create(self, entity: "EntryReport") -> "Result[EntryReport]":
+        """Create an ENTRY_REPORT node with ``:Entity:EntryReport`` labels.
 
         Canonical report-node creation: stamps the correct multi-label so the
-        node is an ExerciseReport, not a UserEntry. Used by teacher-assessment
+        node is an EntryReport, not a UserEntry. Used by teacher-assessment
         creation, which then attaches ASSESSMENT_OF / SHARES_WITH edges itself.
         """
         ...
 
-    async def get(self, uid: str) -> "Result[ExerciseReport | None]":
-        """Typed single-fetch for ExerciseReport by UID.
+    async def get(self, uid: str) -> "Result[EntryReport | None]":
+        """Typed single-fetch for EntryReport by UID.
 
         Returns ``Result.ok(None)`` when no matching node exists.
         """
         ...
 
-    async def list_for_submission(self, submission_uid: str) -> "Result[list[ExerciseReport]]":
+    async def list_for_submission(self, submission_uid: str) -> "Result[list[EntryReport]]":
         """All reports attached to a submission, ASC by created_at."""
         ...
 
     async def get_reports_for_student_exercise(
         self, student_uid: str, exercise_uid: str
-    ) -> "Result[list[ExerciseReport]]":
+    ) -> "Result[list[EntryReport]]":
         """All reports on a student's submissions for a given exercise."""
         ...
 
     async def get_reports_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> "Result[list[ExerciseReport]]":
+    ) -> "Result[list[EntryReport]]":
         """All reports authored by a teacher, newest first.
 
         Filters on ``author_uid`` (explicit authorship field). ``user_uid``
@@ -258,13 +258,13 @@ class ExerciseReportBackendOperations(Protocol):
         ...
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create ExerciseReport node, link via REPORT_FOR, share with student, update submission."""
+        """Create EntryReport node, link via REPORT_FOR, share with student, update submission."""
         ...
 
     async def create_report_and_revised_exercise(
         self, params: dict[str, Any]
     ) -> Result[list[Neo4jProperties]]:
-        """Atomically create ExerciseReport + RevisedExercise in one transaction."""
+        """Atomically create EntryReport + RevisedExercise in one transaction."""
         ...
 
 
@@ -613,7 +613,7 @@ class TeacherReviewOperations(Protocol):
         ...
 
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Get the report_file_path for an ExerciseReport node by UID."""
+        """Get the report_file_path for an EntryReport node by UID."""
         ...
 
     async def request_revision(
@@ -634,7 +634,7 @@ class TeacherReviewOperations(Protocol):
         feedback_points: list[dict[str, str]],
         revision_rationale: str | None,
     ) -> Result[RevisionWithExerciseResult]:
-        """Atomically create ExerciseReport + RevisedExercise in one transaction."""
+        """Atomically create EntryReport + RevisedExercise in one transaction."""
         ...
 
     async def approve_report(

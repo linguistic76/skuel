@@ -175,7 +175,7 @@ Entity (~19 fields)
 │   ├── Task, Goal, Habit, Event, Choice, Principle
 │   ├── ActivityReport                           (activity feedback — no file fields)
 │   ├── UserEntry
-│   ├── ExerciseReport(UserOwnedEntity)
+│   ├── EntryReport(UserOwnedEntity)
 │   └── LifePath
 ├── Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 └── Resource(Entity) +7 fields
@@ -188,7 +188,7 @@ EntityDTO (~18 fields)
 ├── UserOwnedDTO(EntityDTO) +3 fields → TaskDTO, GoalDTO, HabitDTO, EventDTO, ChoiceDTO, PrincipleDTO, LifePathDTO
 ├── UserOwnedDTO → ActivityReportDTO              (activity feedback — no file fields)
 ├── UserOwnedDTO -> UserEntryDTO
-├── UserOwnedDTO -> ExerciseReportDTO
+├── UserOwnedDTO -> EntryReportDTO
 ├── CurriculumDTO(EntityDTO) → PathStepDTO, LearningPathDTO, ExerciseDTO
 └── ResourceDTO(EntityDTO)
 ```
@@ -221,7 +221,7 @@ core/models/ku/                    # Domain models (Tier 3) + DTOs (Tier 2)
 ├── life_path.py / life_path_dto.py # LifePath domain
 ├── user_entry.py / user_entry_dto.py # UserEntry(UserOwnedEntity)
 ├── activity_report.py / activity_report_dto.py # ActivityReport(UserOwnedEntity) — no file fields
-├── exercise_report.py / exercise_report_dto.py  # ExerciseReport(UserOwnedEntity)
+├── entry_report.py / entry_report_dto.py  # EntryReport(UserOwnedEntity)
 ├── curriculum.py / curriculum_dto.py # Curriculum base
 ├── path_step.py / path_step_dto.py # PathStep(Curriculum)
 ├── learning_path.py / learning_path_dto.py # LearningPath(Curriculum)

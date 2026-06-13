@@ -71,7 +71,7 @@ def _submission_row(sub: PathStepSubmissionRow) -> Div:
     if sub.get("report_uid"):
         action = A(
             "View Feedback →",
-            href=f"/exercise-reports/detail?uid={sub['report_uid']}",
+            href=f"/entry-reports/detail?uid={sub['report_uid']}",
             cls="text-xs text-primary hover:underline shrink-0",
         )
 

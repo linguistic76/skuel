@@ -44,7 +44,7 @@ Everything in CORE, plus:
 
 | Feature | Service |
 |---------|---------|
-| LLM-powered report generation | ExerciseReportService |
+| LLM-powered report generation | EntryReportService |
 | AI content processing (journals, transcripts) | ContentEnrichmentService |
 | Embedding generation for semantic search | EmbeddingsService |
 | Vector + hybrid search (70% vector, 30% keyword) | Neo4jVectorSearchService |

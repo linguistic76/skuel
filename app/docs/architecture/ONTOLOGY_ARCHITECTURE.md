@@ -95,7 +95,7 @@ moving through the World Layer:
 | Node | World Layer Anchor |
 |------|-------------------|
 | `UserEntry` | Responds to `Exercise` (or acts as standalone entry) |
-| `ExerciseReport` | Reports on `UserEntry` |
+| `EntryReport` | Reports on `UserEntry` |
 | `Task` | May link to `Ku`, `Goal`, `PathStep` |
 | `Goal` | May align with `LifePath`, link to `Ku` |
 | `Habit` | May reinforce `Ku`, align with `PathStep` |

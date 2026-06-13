@@ -440,7 +440,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 |------|-----------|-----------------|
 | `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
 | `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
-| `report_protocols.py` | 7 protocols | `exercises_api.py`, `exercise_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
+| `report_protocols.py` | 7 protocols | `exercises_api.py`, `entry_report_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
 | `service_protocols.py` | 11 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
@@ -449,11 +449,11 @@ Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
 ### Submission Protocols (3) — `submission_protocols.py`
 
-Map to the **UserEntry** (submission) stage of the 4-phase educational loop (`Exercise → UserEntry → ExerciseReport → RevisedExercise`).
+Map to the **UserEntry** (submission) stage of the 4-phase educational loop (`Exercise → UserEntry → EntryReport → RevisedExercise`).
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `exercise_report_api.py` |
+| `SubmissionOperations` | `submissions`, `submissions_core` | submit_file, list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py`, `entry_report_api.py` |
 | `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
 | `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_report_statistics, get_recent_submissions, get_submissions_with_feedback_status) | consumed by `SubmissionsOrchestrator` — no direct route callers |
 
@@ -469,13 +469,13 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 
 Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
-EXERCISE_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `ExerciseReportOperations` (`ExerciseReportService`); teacher-authored assessments via `AssessmentOperations` (`AssessmentService`). `ExerciseReportService` additionally uses the **backend-level** `ExerciseReportBackendOperations` to type its `self.backend`. Typed reads return `list[ExerciseReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:ExerciseReport` dual labels.
+ENTRY_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `EntryReportOperations` (`EntryReportService`); teacher-authored assessments via `AssessmentOperations` (`AssessmentService`). `EntryReportService` additionally uses the **backend-level** `EntryReportBackendOperations` to type its `self.backend`. Typed reads return `list[EntryReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:EntryReport` dual labels.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `ExerciseReportOperations` (service) | `exercise_report` | generate_report(`UserEntry`, `Exercise`) → `ExerciseReport` `LLM`, list_for_submission → `list[ExerciseReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
-| `AssessmentOperations` (service) | `user_entry_assessment` | create_assessment → `ExerciseReport` `HUMAN`, get_assessments_for_student → `list[ExerciseReport]`, get_assessments_by_teacher | `exercise_report_api.py`, `ProfileOrchestrator` (recent received assessments) |
-| `ExerciseReportBackendOperations` (backend) | `ExerciseReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[ExerciseReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
+| `EntryReportOperations` (service) | `entry_report` | generate_report(`UserEntry`, `Exercise`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
+| `AssessmentOperations` (service) | `user_entry_assessment` | create_assessment → `EntryReport` `HUMAN`, get_assessments_for_student → `list[EntryReport]`, get_assessments_by_teacher | `entry_report_api.py`, `ProfileOrchestrator` (recent received assessments) |
+| `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ProgressScheduleOperations` | `progress_schedule` | 4 (create_schedule, get_user_schedule, update_schedule, deactivate_schedule) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 6 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
@@ -484,7 +484,7 @@ EXERCISE_REPORT entities are produced two ways, behind **separate route-facing p
 | `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |
 
 **Why HUMAN and AI reports are SEPARATE protocols (PR #128):**
-`AssessmentService.create_assessment()` (processor_type=HUMAN) and `ExerciseReportService.generate_report()` (processor_type=LLM) both create `EXERCISE_REPORT` entities linked via `REPORT_FOR` — but **no single class implements both**. The methods used to share one `ExerciseReportOperations` protocol, which was an impl-lie: `compose.py` injected `ExerciseReportService` (which lacks the assessment methods) where the bundled protocol was expected, masking a reachable `AttributeError` in `ProfileOrchestrator`. Splitting into `ExerciseReportOperations` (AI + reads) and `AssessmentOperations` (HUMAN) makes each protocol match its single implementing service — the conformance is now checked by mypy `arg-type` at the wiring root. `generate_report` accepts typed params: `entry: UserEntry`, `exercise: Exercise` (not `Any`); `list_for_submission` remains the unified typed read for both sources.
+`AssessmentService.create_assessment()` (processor_type=HUMAN) and `EntryReportService.generate_report()` (processor_type=LLM) both create `ENTRY_REPORT` entities linked via `REPORT_FOR` — but **no single class implements both**. The methods used to share one `EntryReportOperations` protocol, which was an impl-lie: `compose.py` injected `EntryReportService` (which lacks the assessment methods) where the bundled protocol was expected, masking a reachable `AttributeError` in `ProfileOrchestrator`. Splitting into `EntryReportOperations` (AI + reads) and `AssessmentOperations` (HUMAN) makes each protocol match its single implementing service — the conformance is now checked by mypy `arg-type` at the wiring root. `generate_report` accepts typed params: `entry: UserEntry`, `exercise: Exercise` (not `Any`); `list_for_submission` remains the unified typed read for both sources.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 
@@ -595,7 +595,7 @@ Every field on the `Services` dataclass is typed — zero `Any` fields remain. T
 class Services:
     # Route-facing: ISP protocols (19 fields)
     reports: SubmissionOperations | None = None          # was ReportsSubmissionOperations
-    report_feedback: ExerciseReportOperations | None = None    # was ReportsFeedbackOperations
+    report_feedback: EntryReportOperations | None = None    # was ReportsFeedbackOperations
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

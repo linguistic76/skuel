@@ -379,7 +379,7 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
         uid: $uid,
         user_uid: $user_uid,
         original_filename: "processing.pdf",
-        entity_type: "exercise_report",
+        entity_type: "entry_report",
         status: "processing",
         file_path: "/test/path",
         file_size: 1024,

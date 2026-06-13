@@ -54,7 +54,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | **Curriculum Structure** | PATH_STEP, LEARNING_PATH, EXERCISE | Admin-created, no user_uid | :Entity:PathStep, :Entity:LearningPath, :Entity:Exercise |
 | **Forms** | FORM_TEMPLATE, FORM_SUBMISSION | Template: admin-created; Submission: user-owned | :Entity:FormTemplate, :Entity:FormSubmission |
 | **UserEntry** | USER_ENTRY | User-owned | :Entity:UserEntry |
-| **Reports** | EXERCISE_REPORT, ACTIVITY_REPORT | User-owned | :Entity:ExerciseReport, :Entity:ActivityReport |
+| **Reports** | ENTRY_REPORT, ACTIVITY_REPORT | User-owned | :Entity:EntryReport, :Entity:ActivityReport |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
 | **Hybrid/Destination** | REVISED_EXERCISE, LIFE_PATH | User-owned | :Entity:RevisedExercise, :Entity:LifePath |
 
@@ -65,7 +65,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | A | CURATED | Resource, FormTemplate |
 | B | CURRICULUM | KU, PathStep, LearningPath, Exercise, RevisedExercise |
 | C | USER_CREATED | All 6 Activity types + UserEntry, LifePath, FormSubmission |
-| D | REPORT | ActivityReport, ExerciseReport |
+| D | REPORT | ActivityReport, EntryReport |
 
 **Key methods:**
 
@@ -135,7 +135,7 @@ Non-submission entity types can't use this path — they don't have SUBMITTED in
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Ku, Resource, ExerciseReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
+| Ku, Resource, EntryReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | PathStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | UserEntry | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
 | ActivityReport | COMPLETED (always — created already complete) | COMPLETED |

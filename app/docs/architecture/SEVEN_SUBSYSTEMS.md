@@ -42,7 +42,7 @@ This doc is Model A at the rollup level. It has two companions:
 | 1 | **Ku** | Atomic knowledge units | `Ku`, `Resource` |
 | 2 | **Curriculum Domains** | Composed, ordered curriculum | `PathStep`, `LearningPath`, `Exercise` |
 | 3 | **Activity Domains** | User-authored life data | `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `LifePath` |
-| 4 | **Learning Loop** | The Curriculum→Action→Feedback→Curriculum cycle | `Exercise`, `UserEntry`, `ExerciseReport`, `RevisedExercise`, `Interaction` |
+| 4 | **Learning Loop** | The Curriculum→Action→Feedback→Curriculum cycle | `Exercise`, `UserEntry`, `EntryReport`, `RevisedExercise`, `Interaction` |
 | 5 | **User** | Person, identity, authorship, ownership, state | `User` (cross-cutting `UserContext`) |
 | 6 | **Groups** | Cohorts, classrooms, sharing containers | `Groups`, `FormTemplate`, `FormSubmission` |
 | 7 | **Askesis** | Pedagogical guide / interpretation layer | (no Entity — cross-cutting system) |
@@ -87,7 +87,7 @@ The ✅ and 🟡 cells together describe a shippable product:
 
 **Action layer (user-authored).** A user records Tasks, Goals, Habits, Events, Choices, and Principles. They enroll in a PathStep, engage with its Exercises, and submit `UserEntry`s. Identity and ownership come from User. If the MVP is teacher-led, Groups gates what the student sees and where entries go.
 
-**Feedback layer (interpretation).** A teacher (or the student themselves) produces an `ExerciseReport` on a submitted `UserEntry`. Mastery on the underlying Ku ticks up. Simple ActivityReport rollups let the user see their own patterns. RevisedExercise closes the loop for any entry that needs another pass. Teacher review queue (via Groups) routes the work.
+**Feedback layer (interpretation).** A teacher (or the student themselves) produces an `EntryReport` on a submitted `UserEntry`. Mastery on the underlying Ku ticks up. Simple ActivityReport rollups let the user see their own patterns. RevisedExercise closes the loop for any entry that needs another pass. Teacher review queue (via Groups) routes the work.
 
 **What's off the MVP.** Askesis entirely. Rich AI-authored reports, pedagogical steering, ZPD-driven PathStep recommendations, Socratic dialog. Also deferrable: cross-domain intelligence rollups, advanced ActivityReport shapes, group-level analytics.
 

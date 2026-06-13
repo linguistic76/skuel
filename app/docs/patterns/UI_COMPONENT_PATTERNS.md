@@ -68,7 +68,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **S** (`/study`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Avatar dropdown removed — avatar is a direct link to `/profile`.
 
-**Evolution (2026-03-13):** `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/submit`, `/submissions`, `/exercise-reports`, `/activity-reports`, `/submit-activity-report`) sharing a 5-item Study sidebar. `/study` landing shows vertically-stacked workspace cards. Old `/submissions/*` and `/learn/*` UI paths redirect 301 to the new top-level routes.
+**Evolution (2026-03-13):** `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/submit`, `/submissions`, `/entry-reports`, `/activity-reports`, `/submit-activity-report`) sharing a 5-item Study sidebar. `/study` landing shows vertically-stacked workspace cards. Old `/submissions/*` and `/learn/*` UI paths redirect 301 to the new top-level routes.
 
 **Evolution (2026-03-17a):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/path-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
 
@@ -92,7 +92,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-04):** Explore sidebar evolved from text-only "My Learning" sidebar to **graph-centered sidebar**. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph with hub mode (learning universe) and entity mode (lateral relationships). Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Sidebar widened to `w-96` (384px) via new `sidebar_width` param on `SidebarPage`. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph`. Graph expands to full-screen JS overlay on `document.body` (creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`).
 
-**Evolution (2026-04-05):** Learning loop UI fully wired: ExerciseReport detail page at `/exercise-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
+**Evolution (2026-04-05):** Learning loop UI fully wired: EntryReport detail page at `/entry-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
 
 **Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
 
@@ -157,7 +157,7 @@ from ui.patterns.sidebar import SidebarItem, SidebarPage
 items = [
     SidebarItem("Submit", "/submit", "submit", icon="📤"),
     SidebarItem("History", "/submissions/history", "history", icon="📝"),
-    SidebarItem("Exercise Reports", "/exercise-reports", "exercise-reports", icon="📋"),
+    SidebarItem("Entry Reports", "/entry-reports", "entry-reports", icon="📋"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="📊"),
     SidebarItem("Submit Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
 ]

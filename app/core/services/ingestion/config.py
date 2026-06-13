@@ -140,7 +140,7 @@ class EntityIngestionConfig:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - RESOURCE: Created via API with curated metadata
 #   - FORM_TEMPLATE/FORM_SUBMISSION: Created via API
-#   - EXERCISE_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
+#   - ENTRY_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
 #   - The six Activity Templates: PS-owned, spawned on engagement
 # USER_ENTRY is ingestible via ``type: user_entry`` + an explicit ``pipeline:``;
 # the legacy ``je_input``/``exercise_submission`` type strings are rejected

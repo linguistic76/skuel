@@ -408,7 +408,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 | Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` | Flat |
 
 Ku/Ps/Lp backends in: `/adapters/persistence/neo4j/backends/curriculum_backends.py`
-Exercise/RevisedExercise/ExerciseReport backends in: `/adapters/persistence/neo4j/backends/exercise_backends.py`
+Exercise/RevisedExercise/EntryReport backends in: `/adapters/persistence/neo4j/backends/exercise_backends.py`
 LP mixins in: `_lp_step_mixin.py`, `_lp_progress_mixin.py`, `_lp_intelligence_mixin.py`
 PS mixins in: `_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`
 

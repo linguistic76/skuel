@@ -95,9 +95,9 @@ from core.ports import (
     Closeable,
     ConnectionFetchOperations,
     CrossDomainAnalyticsOperations,
+    EntryReportOperations,
     EventBusOperations,
     ExerciseOperations,
-    ExerciseReportOperations,
     FormSubmissionOperations,
     FormTemplateOperations,
     GoalTaskGeneratorOperations,
@@ -173,8 +173,8 @@ class Services:
     report_mastery: "ReportMasteryService | None" = (
         None  # ReportMasteryService - Explicit mastery propagation
     )
-    exercise_report: ExerciseReportOperations | None = (
-        None  # ExerciseReportService - LLM report on submission content
+    entry_report: EntryReportOperations | None = (
+        None  # EntryReportService - LLM report on submission content
     )
     exercises: ExerciseOperations | None = (
         None  # ExerciseService - Reusable LLM instruction templates

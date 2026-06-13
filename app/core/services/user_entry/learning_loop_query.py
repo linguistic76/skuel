@@ -4,7 +4,7 @@ UserEntry Learning Loop Query Service — ADR-054
 
 Read-only queries that traverse the four-phase learning loop graph:
 
-    Exercise → UserEntry → ExerciseReport → RevisedExercise
+    Exercise → UserEntry → EntryReport → RevisedExercise
 
 PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
 (denormalized as ``Exercise.path_step_uid`` for PERSONAL scope). Interaction

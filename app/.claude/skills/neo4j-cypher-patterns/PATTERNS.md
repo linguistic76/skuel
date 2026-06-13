@@ -41,11 +41,11 @@ RETURN r
 
 **Problem**: A mutation should only execute if the entity is in a valid source state. Pre-fetching then writing is a race condition; two concurrent requests can both read PROCESSING and both write COMPLETED.
 
-**Context**: `ExerciseReportBackend.create_report_node()` and `UserEntryBackend.approve_and_get_linked_kus()` — teacher review actions that set submission status atomically.
+**Context**: `EntryReportBackend.create_report_node()` and `UserEntryBackend.approve_and_get_linked_kus()` — teacher review actions that set submission status atomically.
 
 **Solution**:
 ```cypher
-// TeacherReviewService → ExerciseReportBackend.create_report_node()
+// TeacherReviewService → EntryReportBackend.create_report_node()
 MATCH (submission:Entity {uid: $submission_uid})
 WHERE submission.status IN $allowed_from_statuses   // Cypher-level guard
 OPTIONAL MATCH (student:User)-[:OWNS]->(submission)
@@ -78,7 +78,7 @@ if not records:
 - Zero extra queries — guard is part of the existing MATCH
 - Empty results are ambiguous (not found vs guard rejected) — resolve by checking existence separately first (e.g., `_verify_teacher_has_group_access`)
 
-**Real-world usage**: `ExerciseReportBackend.create_report_node()` (submit_report, request_revision), `UserEntryBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
+**Real-world usage**: `EntryReportBackend.create_report_node()` (submit_report, request_revision), `UserEntryBackend.approve_and_get_linked_kus()` (approve_report). Guards enforce: PROCESSING→COMPLETED, COMPLETED→REVISION_REQUESTED, REVISION_REQUESTED→COMPLETED.
 
 ---
 
@@ -378,7 +378,7 @@ entity types have a `user_uid` node property — only `UserOwnedEntity` subtypes
 
 | Entity hierarchy | `user_uid` property in Neo4j | How to find owner in Cypher |
 |-----------------|----------------------------|-----------------------------|
-| `UserOwnedEntity` (Task, Goal, Habit, Event, Choice, Principle, Submission, ExerciseReport, RevisedExercise, ...) | ✅ Present — stored as node property | `WHERE n.user_uid = $uid` OR `(User)-[:OWNS]->(n)` |
+| `UserOwnedEntity` (Task, Goal, Habit, Event, Choice, Principle, Submission, EntryReport, RevisedExercise, ...) | ✅ Present — stored as node property | `WHERE n.user_uid = $uid` OR `(User)-[:OWNS]->(n)` |
 | `Curriculum` (Exercise, PathStep, LearningPath) | ❌ Missing — `Entity.user_uid` property returns `None` | `(User)-[:OWNS]->(n)` only |
 | `Entity` base (Ku, Resource) | ❌ Missing | `(User)-[:OWNS]->(n)` only |
 
@@ -494,7 +494,7 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 |-------------|----------|---------|
 | Generic CRUD | `UniversalNeo4jBackend` (via mixins) | `create()`, `get()`, `update()`, `delete()` |
 | Domain-specific relationships | Domain backend in `backends/` | `RevisedExerciseBackend.link_to_exercise()` |
-| Atomic multi-entity creation | Domain backend in `backends/` | `ExerciseReportBackend.create_report_and_revised_exercise()` — single Cypher creates ExerciseReport + RevisedExercise + all relationships |
+| Atomic multi-entity creation | Domain backend in `backends/` | `EntryReportBackend.create_report_and_revised_exercise()` — single Cypher creates EntryReport + RevisedExercise + all relationships |
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
@@ -509,7 +509,7 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 |---|---|
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
 | `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
-| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
+| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, EntryReportBackend |
 | `backends/user_entry_backend.py` | UserEntryBackend (shell over 5 `_user_entry_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |

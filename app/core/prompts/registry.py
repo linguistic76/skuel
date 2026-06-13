@@ -18,6 +18,7 @@ Available templates (core/prompts/templates/):
     journal_activity              — Activity tracking formatter for JournalOutputGenerator
     journal_articulation          — Idea articulation formatter for JournalOutputGenerator
     journal_exploration           — Critical thinking formatter for JournalOutputGenerator
+    entry_response                — Reflective response to a journal entry (EntryReportService, ADR-069)
     dsl_domain_recognition        — Full domain recognition prompt for LLMDSLBridgeService
     dsl_domain_recognition_compact — Compact domain recognition prompt for LLMDSLBridgeService
     askesis_guided_redirect       — DIRECT/REDIRECT_TO_CURRICULUM system prompt

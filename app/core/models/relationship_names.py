@@ -332,7 +332,7 @@ class RelationshipName(StrEnum):
     # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
     # Revision cycle (four-phase learning loop)
-    # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(ExerciseReport)
+    # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
     RESPONDS_TO_REPORT = "RESPONDS_TO_REPORT"
     # (RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)
     REVISES_EXERCISE = "REVISES_EXERCISE"

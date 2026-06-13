@@ -220,7 +220,7 @@ from .relationship_backend_protocols import (
 from .report_protocols import (
     ActivityReportOperations,
     AssessmentOperations,
-    ExerciseReportOperations,
+    EntryReportOperations,
     ProgressReportOperations,
     ProgressScheduleOperations,
     ReviewQueueOperations,
@@ -417,7 +417,7 @@ __all__ = [
     # ========== REPORT PROTOCOLS (6) ==========
     "ActivityReportOperations",
     "AssessmentOperations",
-    "ExerciseReportOperations",
+    "EntryReportOperations",
     "ProgressReportOperations",
     "ProgressScheduleOperations",
     "ReviewQueueOperations",

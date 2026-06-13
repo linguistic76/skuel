@@ -1,5 +1,5 @@
 """
-Exercise Report Assessment API Routes
+Entry Report Assessment API Routes
 ======================================
 
 REST API for teacher assessments of students.
@@ -32,7 +32,7 @@ AssessmentListResponse = dict[str, Any]  # {"assessments": list[dict], "count": 
 logger = get_logger("skuel.routes.submissions.assessment")
 
 
-def create_exercise_report_api_routes(
+def create_entry_report_api_routes(
     _app: Any,
     rt: Any,
     report_service: "AssessmentOperations",

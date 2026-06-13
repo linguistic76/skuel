@@ -80,9 +80,9 @@ class MasteryImpact(StrEnum):
 
 class AssessmentOutcome(StrEnum):
     """
-    Outcome of an ExerciseReport assessment.
+    Outcome of an EntryReport assessment.
 
-    Makes each EXERCISE_REPORT self-describing — the report records
+    Makes each ENTRY_REPORT self-describing — the report records
     what decision was made, not just the feedback text.
 
     Values:
@@ -98,7 +98,7 @@ class AssessmentOutcome(StrEnum):
 
 class FeedbackCategory(StrEnum):
     """
-    Category of learning gap identified in an ExerciseReport.
+    Category of learning gap identified in an EntryReport.
 
     Orthogonal to KnowledgeType (what kind of knowledge) — FeedbackCategory
     classifies what kind of gap the teacher observed in the student's work.

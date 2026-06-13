@@ -69,7 +69,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
 │   ├── UserEntry ────── + pipeline, modality, file_path, file_size, file_type, processed_content (forces entity_type=USER_ENTRY)
-│   ├── ExerciseReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (forces entity_type=EXERCISE_REPORT)
+│   ├── EntryReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (forces entity_type=ENTRY_REPORT)
 │   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
@@ -138,7 +138,7 @@ core/models/{domain}/
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
 | `user_entry/` | UserEntry + DTOs | User Entry | + report_schedule.py |
-| `report/` | ActivityReport + ActivityReportDTO, ExerciseReport + ExerciseReportDTO | Report | ActivityReport: no file fields; ExerciseReport: tied to submission via subject_uid |
+| `report/` | ActivityReport + ActivityReportDTO, EntryReport + EntryReportDTO | Report | ActivityReport: no file fields; EntryReport: tied to submission via subject_uid |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |

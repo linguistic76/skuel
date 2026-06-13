@@ -8,7 +8,7 @@ read path as teacher reports.
 
 Cypher-level equivalent of Verification step 3 from the plan:
 
-    MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:ExerciseReport)
+    MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:EntryReport)
     OPTIONAL MATCH (student:User)-[:SHARES_WITH]->(r)
     RETURN r.processor_type, r.assessment_outcome,
            student.uid IS NOT NULL AS shared
@@ -21,15 +21,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.exercise_backends import ExerciseReportBackend
+from adapters.persistence.neo4j.backends.exercise_backends import EntryReportBackend
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import AssessmentOutcome
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import ReportSource
 from core.models.exercises.exercise import Exercise
-from core.models.report.exercise_report import ExerciseReport
+from core.models.report.entry_report import EntryReport
 from core.models.user_entry.user_entry import UserEntry
-from core.services.report.exercise_report_service import ExerciseReportService
+from core.services.report.entry_report_service import EntryReportService
 from core.utils.result_simplified import Result
 
 STUDENT_UID = "user_ai_report_student"
@@ -92,11 +92,11 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
 
 
 @pytest_asyncio.fixture
-async def exercise_report_backend(neo4j_driver):
-    return ExerciseReportBackend(
+async def entry_report_backend(neo4j_driver):
+    return EntryReportBackend(
         driver=neo4j_driver,
-        label=NeoLabel.EXERCISE_REPORT,
-        entity_class=ExerciseReport,
+        label=NeoLabel.ENTRY_REPORT,
+        entity_class=EntryReport,
         base_label=NeoLabel.ENTITY,
     )
 
@@ -137,12 +137,12 @@ def _make_submission() -> UserEntry:
 async def test_ai_report_creates_shares_with_edge_to_student(
     neo4j_driver,
     seeded_submission,
-    exercise_report_backend,
+    entry_report_backend,
 ):
     """End-to-end: AI report is visible to the student via SHARES_WITH."""
-    service = ExerciseReportService(
+    service = EntryReportService(
         llm_caller=_make_llm_caller("Detailed feedback body."),
-        backend=exercise_report_backend,
+        backend=entry_report_backend,
     )
 
     result = await service.generate_report(
@@ -176,13 +176,13 @@ async def test_ai_report_creates_shares_with_edge_to_student(
         record = await cursor.single()
 
     assert record is not None, "REPORT_FOR edge from report to submission is missing"
-    # Multi-label assertion — typed reads via ExerciseReportBackend depend on
+    # Multi-label assertion — typed reads via EntryReportBackend depend on
     # both labels being present on newly-created report nodes.
     labels = set(record["labels"])
-    assert "Entity" in labels and "ExerciseReport" in labels, (
-        f"Report node must carry both :Entity and :ExerciseReport labels, got {labels}"
+    assert "Entity" in labels and "EntryReport" in labels, (
+        f"Report node must carry both :Entity and :EntryReport labels, got {labels}"
     )
-    assert record["entity_type"] == EntityType.EXERCISE_REPORT.value
+    assert record["entity_type"] == EntityType.ENTRY_REPORT.value
     assert record["processor_type"] == ReportSource.LLM.value
     assert record["assessment_outcome"] == AssessmentOutcome.AI_EVALUATED.value
     assert record["content"] == "Detailed feedback body."
@@ -204,16 +204,16 @@ async def test_ai_report_creates_shares_with_edge_to_student(
 async def test_ai_report_is_discoverable_via_typed_read(
     neo4j_driver,
     seeded_submission,
-    exercise_report_backend,
+    entry_report_backend,
 ):
-    """The typed read path (ExerciseReportService.list_for_submission) is the
+    """The typed read path (EntryReportService.list_for_submission) is the
     canonical source of truth for report content after c703a596 — the former
     submission.report_content denormalization was dead weight and has been
     removed. AI reports must appear in the typed list with the expected body,
     and the AI path must leave submission.status unchanged."""
-    service = ExerciseReportService(
+    service = EntryReportService(
         llm_caller=_make_llm_caller("Typed read check."),
-        backend=exercise_report_backend,
+        backend=entry_report_backend,
     )
 
     result = await service.generate_report(
@@ -231,7 +231,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     # subject_uid is projected from the REPORT_FOR edge on read (not stored as
     # a node property). Without projection this silently hydrates to None and
     # breaks the student-subject branch of the ownership check in
-    # exercise_reports_ui.exercise_report_detail.
+    # entry_reports_ui.entry_report_detail.
     assert reports[0].subject_uid == SUBMISSION_UID
 
     # AI path passes submission_status=None → status must be unchanged.
@@ -249,7 +249,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     fetched = await service.get(report_uid)
     assert not fetched.is_error, fetched.error if fetched.is_error else None
     report = fetched.value
-    assert isinstance(report, ExerciseReport)
+    assert isinstance(report, EntryReport)
     assert report.uid == report_uid
     assert report.subject_uid == SUBMISSION_UID
     assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
@@ -260,7 +260,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
     # follow the SHARES_WITH edge.
     async with neo4j_driver.session() as session:
         cursor = await session.run(
-            "MATCH (r:ExerciseReport {uid: $uid}) RETURN r.visibility AS visibility",
+            "MATCH (r:EntryReport {uid: $uid}) RETURN r.visibility AS visibility",
             uid=report_uid,
         )
         record = await cursor.single()

@@ -35,7 +35,7 @@ class EntityType(StrEnum):
         EVENT                → Knowledge about what you attend
         EVENT_TEMPLATE       → PS-owned template that spawns Event instances on engagement
         EXERCISE             → Instruction template for practicing curriculum
-        EXERCISE_REPORT      → Teacher or AI report on an exercise submission
+        ENTRY_REPORT      → Teacher or AI report on an exercise submission
         FORM_SUBMISSION      → User response to a FormTemplate
         FORM_TEMPLATE        → General-purpose form definition (admin-created)
         GOAL                 → Knowledge about where you're heading
@@ -66,7 +66,7 @@ class EntityType(StrEnum):
                           PRINCIPLE_TEMPLATE)
         C  USER_CREATED → Activities (6), USER_ENTRY, LIFE_PATH,
                           FORM_SUBMISSION, INTERACTION
-        D  REPORT       → ACTIVITY_REPORT, EXERCISE_REPORT
+        D  REPORT       → ACTIVITY_REPORT, ENTRY_REPORT
 
     Ownership rules:
         Curriculum (KU, PS, LP, Exercise) + Activity Templates (6) + Resource +
@@ -96,7 +96,7 @@ class EntityType(StrEnum):
 
     # Content processing (user-owned, derivation chain)
     ACTIVITY_REPORT = "activity_report"
-    EXERCISE_REPORT = "exercise_report"
+    ENTRY_REPORT = "entry_report"
 
     # Unified user-authored content (ADR-054) — collapses the former
     # EXERCISE_SUBMISSION, JE_INPUT, JE_OUTPUT into one type. Dispatch
@@ -187,7 +187,7 @@ class EntityType(StrEnum):
             EntityType.USER_ENTRY,
             EntityType.FORM_SUBMISSION,
             EntityType.ACTIVITY_REPORT,
-            EntityType.EXERCISE_REPORT,
+            EntityType.ENTRY_REPORT,
             EntityType.REVISED_EXERCISE,
         }
 
@@ -235,7 +235,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "Learning Path",
     EntityType.ACTIVITY_REPORT: "Activity Report",
-    EntityType.EXERCISE_REPORT: "Exercise Report",
+    EntityType.ENTRY_REPORT: "Entry Report",
     EntityType.TASK: "Task",
     EntityType.GOAL: "Goal",
     EntityType.HABIT: "Habit",
@@ -263,7 +263,7 @@ _CONTENT_PROCESSING_TYPES = frozenset(
     {
         EntityType.USER_ENTRY,
         EntityType.ACTIVITY_REPORT,
-        EntityType.EXERCISE_REPORT,
+        EntityType.ENTRY_REPORT,
     }
 )
 _ACTIVITY_TYPES = frozenset(
@@ -343,7 +343,7 @@ _CONTENT_ORIGIN_BY_TYPE: dict[EntityType, ContentOrigin] = {
     EntityType.USER_ENTRY: ContentOrigin.USER_CREATED,  # ADR-054
     # D — Reports that act on user content
     EntityType.ACTIVITY_REPORT: ContentOrigin.REPORT,
-    EntityType.EXERCISE_REPORT: ContentOrigin.REPORT,
+    EntityType.ENTRY_REPORT: ContentOrigin.REPORT,
 }
 
 _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
@@ -353,7 +353,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "path_step": EntityType.PATH_STEP,
     "learning_path": EntityType.LEARNING_PATH,
     "activity_report": EntityType.ACTIVITY_REPORT,
-    "exercise_report": EntityType.EXERCISE_REPORT,
+    "entry_report": EntityType.ENTRY_REPORT,
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,
     "habit": EntityType.HABIT,
@@ -787,7 +787,7 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.EXERCISE_REPORT: frozenset(
+    EntityType.ENTRY_REPORT: frozenset(
         {
             EntityStatus.DRAFT,
             EntityStatus.COMPLETED,
@@ -920,7 +920,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
     EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
-    EntityType.EXERCISE_REPORT: EntityStatus.DRAFT,
+    EntityType.ENTRY_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,
     EntityType.HABIT: EntityStatus.ACTIVE,

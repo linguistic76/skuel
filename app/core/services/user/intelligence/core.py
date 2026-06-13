@@ -17,7 +17,7 @@ UserContextIntelligence = UserContext + Domain Services
     Activity (6): Tasks, Goals, Habits, Events, Choices, Principles
     Curriculum: Ku, PathStep, LearningPath, Exercise
     Curated Content: Resource
-    Content processing: Submission, Journal, ActivityReport, ExerciseReport
+    Content processing: Submission, Journal, ActivityReport, EntryReport
     Destination: LifePath
     Cross-cutting: Calendar, Analytics, Report
 

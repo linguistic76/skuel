@@ -1,12 +1,12 @@
 """Phase 2→3 bridge: exercise status — status pills, action links, exercise list rendering.
 
-Status reflects both Phase 2 (UserEntry state, ADR-054) and Phase 3 (ExerciseReport
+Status reflects both Phase 2 (UserEntry state, ADR-054) and Phase 3 (EntryReport
 outcome) collapsed into a single display key:
 
     not_submitted     — no UserEntry exists yet → "Submit →" link
     submitted         — UserEntry exists, no report yet → "View Submission →" link
-    feedback_available — ExerciseReport exists (APPROVED or AI_EVALUATED) → "View Report →"
-    revision_requested — ExerciseReport with NEEDS_REVISION → "View Report →"
+    feedback_available — EntryReport exists (APPROVED or AI_EVALUATED) → "View Report →"
+    revision_requested — EntryReport with NEEDS_REVISION → "View Report →"
 
 Used by both the PathStep detail page (/explore/ps/{uid}) and the Library exercises
 tab (/library/exercises) — extracted from library_ui.py for this shared purpose.
@@ -83,7 +83,7 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
     # feedback_available or revision_requested
     return ButtonLink(
         "View Report →",
-        href=f"/exercise-reports/detail?uid={row['report_uid']}",
+        href=f"/entry-reports/detail?uid={row['report_uid']}",
         variant=ButtonT.ghost,
         size=Size.sm,
     )

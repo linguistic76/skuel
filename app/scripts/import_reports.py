@@ -7,7 +7,7 @@ Usage:
     uv run scripts/import_reports.py --teacher-uid <uid>
     uv run scripts/import_reports.py --teacher-uid <uid> --done-dir ~/my-reviews/done
 
-Reads every .md file from <done_dir>, posts each as an ExerciseReport, then
+Reads every .md file from <done_dir>, posts each as an EntryReport, then
 moves the processed file to <done_dir>/../imported/.
 
 Report file format (YAML frontmatter + markdown body):

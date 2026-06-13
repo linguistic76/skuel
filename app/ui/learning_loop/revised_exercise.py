@@ -157,7 +157,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         links.append(
             ButtonLink(
                 "View Report",
-                href=f"/exercise-reports/detail?uid={report_uid}",
+                href=f"/entry-reports/detail?uid={report_uid}",
                 variant=ButtonT.ghost,
                 size=Size.sm,
             )

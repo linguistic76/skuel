@@ -34,7 +34,7 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 | Layer | Nodes |
 |-------|-------|
 | **World (shared, stable)** | KnowledgeDomain, Ku, PathStep, LearningPath, Exercise, Resource |
-| **User (contextual, dynamic)** | UserEntry, ExerciseReport, and all Activity Domains |
+| **User (contextual, dynamic)** | UserEntry, EntryReport, and all Activity Domains |
 
 The interaction edge between layers is where SKUEL's power emerges:
 ```cypher
@@ -197,7 +197,7 @@ See: `core/services/ku/` and `docs/domains/moc.md`
 - [activity-domains](../activity-domains/SKILL.md) - Contrast with user-owned domains
 - [result-pattern](../result-pattern/SKILL.md) - All methods return `Result[T]`
 - [neo4j-cypher-patterns](../neo4j-cypher-patterns/SKILL.md) - Graph queries
-- [learning-loop](../learning-loop/SKILL.md) - Four-phase learning loop (Exercise → UserEntry → ExerciseReport → RevisedExercise)
+- [learning-loop](../learning-loop/SKILL.md) - Four-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise)
 
 ## Related Documentation
 

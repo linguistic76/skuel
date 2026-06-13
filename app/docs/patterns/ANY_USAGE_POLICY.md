@@ -25,7 +25,7 @@ They provide no value and actively undermine type safety.
 - `UserEntryOperations.submit_file()` params — Were `entity_type: Any`, `pipeline: Any`, now `EntityType`, `Pipeline`
 - `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
 - `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
-- `ExerciseReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
+- `EntryReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`
 - `TeacherReviewService.__init__()` — Was `ku_interaction_service: Any`, now `LessonMasteryService`
 - `ReviewQueueOperations.request_review()` — Was `Result[dict[str, Any]]`, now `Result[ReviewRequestResult]`
 - `ReviewQueueOperations.get_pending_reviews()` — Was `Result[list[dict[str, Any]]]`, now `Result[list[PendingReviewItem]]`
@@ -112,7 +112,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 
 **Phase 4 — Return types:** ~170 protocol methods migrated from `Result[Any]` to specific types (0 `Result[Any]` remain in protocols, 2 intentional: `base_service_interface.py` and `OwnershipVerifier.verify_ownership` in `service_protocols.py` — the latter is a narrow internal callback protocol used by `LateralRelationshipService` and `LateralRelationshipsOrchestrator` to accept any domain facade's `verify_ownership(uid, user_uid) -> Result[T]`; `Result[T]` is invariant, each facade returns a different concrete `T`, and callers only branch on `.is_error`):
 
-- **Domain model returns:** `Result[SubmissionEntity]`, `Result[ExerciseReport]`, `Result[Askesis]`,
+- **Domain model returns:** `Result[SubmissionEntity]`, `Result[EntryReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[UserEntry]`, `Result[Exercise]`,
   `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
 - **110 output TypedDicts** in `query_types.py` for structured dict returns:

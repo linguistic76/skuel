@@ -5,7 +5,7 @@ RevisedExercise - Four-Phase Learning Loop Domain Model
 Frozen dataclass for teacher-created revised exercise instructions that
 address specific feedback gaps. Part of the four-phase learning loop:
 
-    Exercise v1 → UserEntry v1 → ExerciseReport v1
+    Exercise v1 → UserEntry v1 → EntryReport v1
                                       ↓
                                 RevisedExercise v2 → UserEntry v2 → ...
 
@@ -61,15 +61,15 @@ class RevisedExercise(UserOwnedEntity):
     Immutable domain model for revised exercise instructions (EntityType.REVISED_EXERCISE).
 
     A RevisedExercise defines targeted revision instructions that address specific
-    feedback gaps from an ExerciseReport entity. It links back to:
+    feedback gaps from an EntryReport entity. It links back to:
     - The original Exercise it revises (via REVISES_EXERCISE)
-    - The ExerciseReport it responds to (via RESPONDS_TO_REPORT)
+    - The EntryReport it responds to (via RESPONDS_TO_REPORT)
     - The UserEntry that was evaluated (via submission_uid)
 
     Fields (12 exercise-specific):
     - revision_number: Which revision iteration (1, 2, 3, ...)
     - original_exercise_uid: UID of the original Exercise being revised
-    - report_uid: UID of the ExerciseReport this addresses
+    - report_uid: UID of the EntryReport this addresses
     - submission_uid: UID of the UserEntry that was evaluated
     - student_uid: UID of the student this revision targets
     - instructions: Plain text instructions for the revision

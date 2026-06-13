@@ -1,7 +1,7 @@
 """GradeBook sidebar navigation.
 
 Renders a collapsible sidebar for GradeBook pages:
-Exercise Reports, Activity Reports, Revisions.
+Entry Reports, Activity Reports, Revisions.
 (My Submissions moved to Submissions sidebar — see ui/workbench/nav.py)
 
 Usage:
@@ -26,9 +26,7 @@ if TYPE_CHECKING:
 GRADEBOOK_STORAGE_KEY = "gradebook-sidebar"
 
 GRADEBOOK_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem(
-        "Exercise Reports", "/exercise-reports", "exercise-reports", icon="clipboard-check"
-    ),
+    SidebarItem("Entry Reports", "/entry-reports", "entry-reports", icon="clipboard-check"),
     SidebarItem("Activity Reports", "/activity-reports", "activity-reports", icon="bar-chart-2"),
     SidebarItem("Revisions", "/revised-exercises", "revised-exercises", icon="refresh-cw"),
 ]

@@ -30,7 +30,7 @@ When working in a file or area of the codebase, address problems you encounter �
 - **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
-- **Learning loop (4 phases):** Exercise -> UserEntry -> ExerciseReport -> RevisedExercise -> UserEntry -> ... PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for PERSONAL scope). The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
+- **Learning loop (4 phases):** Exercise -> UserEntry -> EntryReport -> RevisedExercise -> UserEntry -> ... PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for PERSONAL scope). The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
 
 ## Naming Conventions
 
@@ -109,7 +109,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **Two lenses (ADR-055):** Subsystems (7 subsystems × 3 sections) vs. 3-Layer (Curriculum → Action → Feedback). The **5 Cross-Cutting Systems** (UserContext, Search, Calendar, Askesis, Messaging) are infrastructure orthogonal to both lenses.
 
-**The 25 EntityType values** cluster as: Activity (6: Task, Goal, Habit, Event, Choice, Principle), Activity Templates (6: TaskTemplate, GoalTemplate, HabitTemplate, EventTemplate, ChoiceTemplate, PrincipleTemplate — PS-owned, spawn instances on engagement), Curriculum (4: Ku, PathStep, LearningPath, Exercise), Forms (2: FormTemplate, FormSubmission), Learning loop (4: UserEntry, ExerciseReport, ActivityReport, Interaction), Other (3: RevisedExercise, LifePath, Resource).
+**The 25 EntityType values** cluster as: Activity (6: Task, Goal, Habit, Event, Choice, Principle), Activity Templates (6: TaskTemplate, GoalTemplate, HabitTemplate, EventTemplate, ChoiceTemplate, PrincipleTemplate — PS-owned, spawn instances on engagement), Curriculum (4: Ku, PathStep, LearningPath, Exercise), Forms (2: FormTemplate, FormSubmission), Learning loop (4: UserEntry, EntryReport, ActivityReport, Interaction), Other (3: RevisedExercise, LifePath, Resource).
 
 **Not EntityTypes:** MOC is emergent (any Entity with ORGANIZES edges). Group lives in `NonKuDomain` (ADR-053). Finance is a Firefly III sidecar (ADR-052), admin-only.
 
@@ -161,7 +161,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 +-- UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
 |   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
-|   +-- LifePath, ActivityReport, UserEntry, ExerciseReport
+|   +-- LifePath, ActivityReport, UserEntry, EntryReport
 +-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
 +-- Curriculum(Entity) +21 fields -> PathStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
@@ -330,7 +330,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 | A | `CURATED` | Resource | Admin-curated content |
 | B | `CURRICULUM` | Curriculum, PS, LP | Curriculum structure |
 | C | `USER_CREATED` | Activities, UserEntry, LifePath | User-generated |
-| D | `REPORT` | ActivityReport, ExerciseReport | Analysis/reports |
+| D | `REPORT` | ActivityReport, EntryReport | Analysis/reports |
 
 `ContentScope` controls access, `ContentOrigin` classifies purpose. Derived from `EntityType`.
 
@@ -657,7 +657,7 @@ from core.utils.embedding_text_builder import build_embedding_text
 text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
 ```
 
-**Supported:** 16 content-bearing entity types (all six Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + ExerciseReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** 16 content-bearing entity types (all six Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 

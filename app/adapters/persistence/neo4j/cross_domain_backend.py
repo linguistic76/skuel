@@ -842,7 +842,7 @@ class CrossDomainBackend:
             MATCH (u:User {uid: $user_uid})-[:OWNS]->(sub:Entity:UserEntry)
             WHERE EXISTS { (sub)-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->() }
             OPTIONAL MATCH (sub)-[:FULFILLS_EXERCISE]->(ex:Entity)
-            OPTIONAL MATCH (report:Entity {entity_type: 'exercise_report'})-[:REPORT_FOR]->(sub)
+            OPTIONAL MATCH (report:Entity {entity_type: 'entry_report'})-[:REPORT_FOR]->(sub)
             RETURN sub.uid AS submission_uid,
                    sub.title AS title,
                    sub.status AS status,

@@ -211,7 +211,7 @@ class UserEntryAssessmentOperations(Protocol):
     # -------- teacher review workflow --------
 
     async def get_report_file_path(self, report_uid: str) -> Result[str | None]:
-        """Read ``report_file_path`` for an ``ExerciseReport`` node."""
+        """Read ``report_file_path`` for an ``EntryReport`` node."""
         ...
 
     async def approve_and_get_linked_kus(
@@ -279,13 +279,19 @@ class UserEntryAssessmentOperations(Protocol):
 
 @runtime_checkable
 class UserEntryReportQueryOperations(Protocol):
-    """Cross-joins to ``ExerciseReport`` + learning-loop chain reads.
+    """Cross-joins to ``EntryReport`` + learning-loop chain reads.
 
     Implementation: ``_UserEntryReportQueryMixin``.
     """
 
-    async def get_pending_entries_raw(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Entries without an incoming ``REPORT_FOR`` relationship."""
+    async def get_pending_entries_raw(
+        self, user_uid: UserUID, pipelines: list[str] | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Entries without an incoming ``REPORT_FOR`` relationship.
+
+        ``pipelines`` optionally narrows to entries whose ``pipeline`` is in the
+        given values (e.g. journal pipelines for the response surface).
+        """
         ...
 
     async def get_unsubmitted_exercises_raw(

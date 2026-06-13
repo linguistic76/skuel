@@ -343,10 +343,10 @@ The entity types used in Askesis intelligence:
 
 - **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles
 - **Curriculum (3):** KU, PS, LP
-- **Learning Loop (3):** UserEntry, ExerciseReport, Interaction
+- **Learning Loop (3):** UserEntry, EntryReport, Interaction
 - **Cross-Cutting:** Calendar (aggregation system, not an entity type)
 
-> Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Reports migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → EXERCISE_REPORT`) in March 2026.
+> Pre-February 2026: "Processing Domains" were called "Assignments, Journals, Reports". These were renamed in the Reports → Submissions + Reports migration (February 2026) and the EntityType rename (`AI_FEEDBACK → ACTIVITY_REPORT`, `FEEDBACK_REPORT → ENTRY_REPORT`) in March 2026.
 
 ---
 

@@ -80,7 +80,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [PS (Path Step)](domains/ps.md) | THE curriculum content entity — composes Kus (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
-| [Submissions + Reports](domains/submissions.md) | Exercise→UserEntry→ExerciseReport→RevisedExercise (4-phase learning loop, anchored to PathStep via RELATED_TO) |
+| [Submissions + Reports](domains/submissions.md) | Exercise→UserEntry→EntryReport→RevisedExercise (4-phase learning loop, anchored to PathStep via RELATED_TO) |
 | [Journals](domains/journals.md) | Standalone journal domain (JE_INPUT → JE_OUTPUT, AI-processed) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
 | [MOC (Map of Content)](domains/moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
@@ -405,7 +405,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [ZPDService — Design & Architecture](roadmap/zpd-service-deferred.md) | 2026-03-09 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment |
 | [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | 2026-03-05 | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | 2026-03-05 | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
-| [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, ExerciseReport/ActivityReport search |
+| [Learning Loop Cross-Domain Search](roadmap/learning-loop-cross-domain-search.md) | 2026-03-07 | Level 3 roadmap: cross-loop graph traversal search, EntryReport/ActivityReport search |
 | [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | 2026-03-12 | Deferred enhancements: learning-aware search, PS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 | [Tables — Custom Design](roadmap/tables-custom-design.md) | 2026-03-14 | 3 tables deferred from TableFromDicts migration: hardcoded rows, headerless layout, dynamic columns |
 

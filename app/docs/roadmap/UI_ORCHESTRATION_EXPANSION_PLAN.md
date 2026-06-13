@@ -18,7 +18,7 @@ By isolating view needs into a dedicated Facade layer (`app/core/orchestrator/`)
 All orchestrators follow the **Fail-Fast Dependency Philosophy** — typed `TYPE_CHECKING` imports, no `| None` defaults for required services, no `if not self._service` guards.
 
 - [x] **User Profile Hub** (`user_profile_ui.py`) → `ProfileOrchestrator` — 9 → 1. Intelligence moved in; partial-failure isolation per intelligence call.
-- [x] **UserEntry Hub** (`user_entry_routes.py` + `user_entry_ui.py`) → `UserEntryOrchestrator` — 9 → 1. Superseded both the former Submissions Hub and Journal / Timeline Hub orchestrators (ADR-054 Commit 5c); eliminated the multi-factory injection pattern. `get_exercise_report_view()` collapses fetch → access check → revision lookup; `get_entry()` backs ownership-verified journal download.
+- [x] **UserEntry Hub** (`user_entry_routes.py` + `user_entry_ui.py`) → `UserEntryOrchestrator` — 9 → 1. Superseded both the former Submissions Hub and Journal / Timeline Hub orchestrators (ADR-054 Commit 5c); eliminated the multi-factory injection pattern. `get_entry_report_view()` collapses fetch → access check → revision lookup; `get_entry()` backs ownership-verified journal download.
 - [x] **Explore Hub** (`explore_ui.py`) → `ExploreOrchestrator` — 5 → 1. Absorbed 80-line concurrent loader + 90-line Vis.js graph builder.
 - [x] **Library Hub** (`library_ui.py`) → `LibraryOrchestrator` — 6 → 1. Unified UID-resolve → batch-fetch pattern for bookmarked KUs and enrolled PathSteps.
 - [x] **Teaching & Review Hub** (`teaching_ui.py`) → `TeacherOrchestrator` — 4 → 1. Review queue, student list, groups, KU detail consolidated; `admin_stats` optional (degrades gracefully).

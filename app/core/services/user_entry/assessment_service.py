@@ -5,11 +5,11 @@ Assessment Service
 Teacher assessment workflow operations for the UserEntry domain.
 
 Handles:
-- Creating teacher assessments (EXERCISE_REPORT entities) with authority verification
+- Creating teacher assessments (ENTRY_REPORT entities) with authority verification
 - Querying assessments received by a student
 - Querying assessments authored by a teacher
 
-Assessments are ExerciseReport entities with entity_type=EXERCISE_REPORT,
+Assessments are EntryReport entities with entity_type=ENTRY_REPORT,
 linked to students via ASSESSMENT_OF relationships and auto-shared via SHARES_WITH.
 
 Moved from core/services/submissions/ per ADR-054.
@@ -23,11 +23,11 @@ from core.events.learning_loop_events import AssessmentCreated
 from core.models.entity_types import SubmissionEntity
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
-from core.models.report.exercise_report import ExerciseReport
-from core.models.report.exercise_report_dto import ExerciseReportDTO
+from core.models.report.entry_report import EntryReport
+from core.models.report.entry_report_dto import EntryReportDTO
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
-from core.ports.report_protocols import ExerciseReportBackendOperations
+from core.ports.report_protocols import EntryReportBackendOperations
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -54,12 +54,12 @@ class AssessmentService:
     def __init__(
         self,
         backend: UserEntryOperations,
-        report_backend: ExerciseReportBackendOperations,
+        report_backend: EntryReportBackendOperations,
         event_bus: EventBusOperations | None = None,
     ) -> None:
         self.backend = backend
-        # Canonical report-node creation goes through the ExerciseReport backend
-        # so assessment nodes carry :Entity:ExerciseReport labels (not :UserEntry).
+        # Canonical report-node creation goes through the EntryReport backend
+        # so assessment nodes carry :Entity:EntryReport labels (not :UserEntry).
         # The UserEntry backend still serves the assessment's relationship/query ops.
         self.report_backend = report_backend
         self.event_bus = event_bus
@@ -73,11 +73,11 @@ class AssessmentService:
         title: str,
         content: str,
         metadata: dict[str, Any] | None = None,
-    ) -> Result[ExerciseReport]:
+    ) -> Result[EntryReport]:
         """
         Create a teacher assessment (feedback) for a student.
 
-        Creates a submission with entity_type=EXERCISE_REPORT, auto-shares with student.
+        Creates a submission with entity_type=ENTRY_REPORT, auto-shares with student.
         Verifies teacher has authority over student via shared group membership.
 
         Args:
@@ -111,12 +111,12 @@ class AssessmentService:
                 )
             )
 
-        uid = UIDGenerator.generate_uid("sr")
+        uid = UIDGenerator.generate_uid("er")
 
-        assessment = ExerciseReport(
+        assessment = EntryReport(
             uid=uid,
             title=title,
-            entity_type=EntityType.EXERCISE_REPORT,
+            entity_type=EntityType.ENTRY_REPORT,
             user_uid=UserUID(subject_uid),
             author_uid=teacher_uid,
             status=EntityStatus.COMPLETED,
@@ -174,7 +174,7 @@ class AssessmentService:
     @with_error_handling("get_assessments_for_student", error_type="database")
     async def get_assessments_for_student(
         self, student_uid: str, limit: int = 50
-    ) -> Result[list[ExerciseReport]]:
+    ) -> Result[list[EntryReport]]:
         """
         Get assessments received by a student.
 
@@ -183,7 +183,7 @@ class AssessmentService:
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of EXERCISE_REPORT entities
+            Result containing list of ENTRY_REPORT entities
         """
         result = await self.backend.get_assessments_for_student_raw(student_uid, limit)
 
@@ -195,8 +195,8 @@ class AssessmentService:
             # record["report"] is a nested node-map; the flat Neo4jProperties
             # alias can't express nested dicts. boundary: neo4j-node-map
             node = cast("dict[str, Any]", record["report"])
-            dto = ExerciseReportDTO.from_dict(node)
-            reports.append(ExerciseReport.from_dto(dto))
+            dto = EntryReportDTO.from_dict(node)
+            reports.append(EntryReport.from_dto(dto))
         return Result.ok(reports)
 
     @with_error_handling("get_assessments_by_teacher", error_type="database")
@@ -211,11 +211,11 @@ class AssessmentService:
             limit: Maximum number of assessments to return
 
         Returns:
-            Result containing list of EXERCISE_REPORT entities
+            Result containing list of ENTRY_REPORT entities
         """
         result = await self.backend.find_by(
             author_uid=teacher_uid,
-            entity_type=EntityType.EXERCISE_REPORT.value,
+            entity_type=EntityType.ENTRY_REPORT.value,
         )
         if result.is_error:
             return Result.fail(result)

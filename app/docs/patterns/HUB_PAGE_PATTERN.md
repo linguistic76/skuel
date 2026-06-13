@@ -31,7 +31,7 @@ Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with th
 | `/path-steps` | Enrolled + available path steps | Active |
 | `/exercises` | Practice linked to PathSteps and Kus | Active |
 | `/submissions` | Full submission list + browse | Active |
-| `/exercise-reports` | Teacher and AI feedback on submissions | Active |
+| `/entry-reports` | Teacher and AI feedback on submissions | Active |
 | `/activity-reports` | Activity progress reports | Active |
 
 Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions).
@@ -313,7 +313,7 @@ def HomeHub(active_tab: str = "submissions") -> Div:
 **Preview endpoints:**
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
-- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `exercise_reports_ui.py`, `activity_reports_ui.py`, `revised_exercises_ui.py`)
+- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `entry_reports_ui.py`, `activity_reports_ui.py`, `revised_exercises_ui.py`)
 - Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, journal — in `user_entry_ui.py`); history preview served via `/api/submissions/history/preview` (rendered in Library tab)
 - Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
 

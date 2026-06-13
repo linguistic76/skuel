@@ -117,7 +117,7 @@ adapters/persistence/neo4j/
     backends/
         activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
         curriculum_backends.py    # KuBackend, PsBackend, LpBackend
-        exercise_backends.py      # ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend
+        exercise_backends.py      # ExerciseBackend, RevisedExerciseBackend, EntryReportBackend
         user_entry_backend.py     # UserEntryBackend (shell over 5 _user_entry_*_mixin files)
         sharing_backend.py        # SharingBackend
         forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
@@ -231,7 +231,7 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 **Existing backends extended:**
 | Backend | Methods Added |
 |---------|-------------|
-| `SubmissionsBackend` | +9 teacher review methods: `get_review_queue`, `create_report_node`, `approve_and_get_linked_kus`, `get_submissions_for_exercise_review`, `get_students_summary`, `get_student_submissions_for_teacher`, `get_submission_detail_for_teacher`, `get_dashboard_stats`, `verify_teacher_has_group_access`. Typed report reads live on `ExerciseReportBackend.list_for_submission` (2026-04) — the prior dict-returning `get_report_history` was deleted when ExerciseReport was promoted to a first-class typed read path |
+| `SubmissionsBackend` | +9 teacher review methods: `get_review_queue`, `create_report_node`, `approve_and_get_linked_kus`, `get_submissions_for_exercise_review`, `get_students_summary`, `get_student_submissions_for_teacher`, `get_submission_detail_for_teacher`, `get_dashboard_stats`, `verify_teacher_has_group_access`. Typed report reads live on `EntryReportBackend.list_for_submission` (2026-04) — the prior dict-returning `get_report_history` was deleted when EntryReport was promoted to a first-class typed read path |
 | `ExerciseBackend` | +1: `get_exercises_with_submission_counts` |
 | `GroupBackend` | +2: `get_teacher_groups_with_stats`, `get_group_detail` |
 
@@ -358,7 +358,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 |---|---|
 | `backends/activity_backends.py` | HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend |
 | `backends/curriculum_backends.py` | KuBackend, PsBackend, LpBackend |
-| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, ExerciseReportBackend |
+| `backends/exercise_backends.py` | ExerciseBackend, RevisedExerciseBackend, EntryReportBackend |
 | `backends/submissions_backend.py` | SubmissionsBackend (shell over 5 `_submission_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |

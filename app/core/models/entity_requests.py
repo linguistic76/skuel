@@ -213,7 +213,7 @@ class EntityResponse(ResponseBase):
     processing_error: str | None = None
     priority: Priority | None = None
 
-    # ExerciseReport
+    # EntryReport
     report_generated_at: datetime | None = None
     subject_uid: str | None = None
 
@@ -342,7 +342,7 @@ class EntityResponse(ResponseBase):
             processor_type=dto.processor_type,
             processing_error=dto.processing_error,
             priority=dto.priority,
-            # ExerciseReport
+            # EntryReport
             report_generated_at=dto.report_generated_at,
             subject_uid=dto.subject_uid,
             # Learning

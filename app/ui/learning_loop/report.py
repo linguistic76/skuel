@@ -197,7 +197,7 @@ def render_report_card(assessment: Any) -> Any:
                 P(preview, cls="text-sm"),
                 ButtonLink(
                     "View Full",
-                    href=f"/exercise-reports/detail?uid={uid}",
+                    href=f"/entry-reports/detail?uid={uid}",
                     variant=ButtonT.primary,
                     size=Size.sm,
                     cls="mt-2",
@@ -237,17 +237,17 @@ _OUTCOME_LABELS: dict[str, tuple[str, BadgeT]] = {
 }
 
 
-def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> Any:
-    """Render the full detail view for a single ExerciseReport.
+def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any:
+    """Render the full detail view for a single EntryReport.
 
     Shows report content, outcome, processor type, assessment score,
     and a back link to the reports list.
 
     Args:
-        report: ExerciseReport entity (or SubmissionEntity with report fields)
+        report: EntryReport entity (or SubmissionEntity with report fields)
         revised_exercise: Optional RevisedExercise linked to this report
     """
-    title = getattr(report, "title", "") or "Exercise Report"
+    title = getattr(report, "title", "") or "Entry Report"
     report_content = getattr(report, "processed_content", "") or ""
     created_at = getattr(report, "created_at", None)
     user_uid = getattr(report, "user_uid", "") or ""
@@ -348,8 +348,8 @@ def render_exercise_report_detail(report: Any, revised_exercise: Any = None) -> 
     # Back link
     back = Div(
         ButtonLink(
-            "\u2190 Back to Exercise Reports",
-            href="/exercise-reports",
+            "\u2190 Back to Entry Reports",
+            href="/entry-reports",
             variant=ButtonT.ghost,
         ),
         cls="mt-6",

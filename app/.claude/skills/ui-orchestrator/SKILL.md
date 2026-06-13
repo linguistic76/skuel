@@ -117,7 +117,7 @@ class {Name}Orchestrator:
 - All required services are positional parameters with **no default** — fail at bootstrap if missing
 - Only `INTELLIGENCE_TIER`-gated services are legitimately `| None`
 - Never guard required services with `if not self._service` — they are always present
-- **Typed returns, not `Result[Any]`.** Every method surfaces the typed model its delegated service already returns (`Result[Task]`, `Result[list[ExerciseReport]]`, `Result[MyView]`). `Result[Any]` and `**kwargs: Any` are forbidden at this boundary — they throw away type information the service layer spent effort producing. Declare a local `TypedDict` for composite views rather than falling back to `dict[str, Any]`.
+- **Typed returns, not `Result[Any]`.** Every method surfaces the typed model its delegated service already returns (`Result[Task]`, `Result[list[EntryReport]]`, `Result[MyView]`). `Result[Any]` and `**kwargs: Any` are forbidden at this boundary — they throw away type information the service layer spent effort producing. Declare a local `TypedDict` for composite views rather than falling back to `dict[str, Any]`.
 - **Proxy methods are thin delegations; compositions absorb real multi-step logic.** If you find a route handler running two or more orchestrator calls in sequence to act on related data (fetch → guard → enrich), that composition belongs on the orchestrator, not in the route. A pass-through-only orchestrator is a dependency bag, not an orchestrator.
 - **Cross-Domain Authority Checks.** Orchestrators must enforce UI-level constraints and cross-user context permissions (e.g., verifying a teacher has authority over a given student's timeline) before routing fetching requests to downstream domain services.
 - **No scope leak.** A method belongs on an orchestrator only if the hub actually calls it. Single-caller pass-throughs for logic that lives in a different domain should either be inlined at the call site or folded into a composition that owns the orchestration purpose.
@@ -207,7 +207,7 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
 | `ProfileOrchestrator` | `profile_orchestrator.py` | 9 | User Profile |
-| `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 9 | UserEntry (Submissions + Journals / Timeline; owns `get_exercise_report_view` + `get_entry` compositions) |
+| `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 9 | UserEntry (Submissions + Journals / Timeline; owns `get_entry_report_view` + `get_entry` compositions) |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
 | `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |
