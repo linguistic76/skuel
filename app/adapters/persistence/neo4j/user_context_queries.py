@@ -1068,6 +1068,57 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } END) WHERE x IS NOT NULL][0..5] AS pending_revised_exercises
 
 // ====================================================================
+// ENTRY KNOWLEDGE APPLIED — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)
+// Written by the EXTRACT_ACTIVITIES pipeline (ADR-069); read here for the
+// substance "entries" channel and the ZPD entry_application signal.
+// Same Ku-grain rollup as the task subquery above (ADR-046).
+// ====================================================================
+OPTIONAL MATCH (user)-[:OWNS]->(entry:UserEntry)-[entry_app_rel:APPLIES_KNOWLEDGE]->(entry_applied:Entity)
+WHERE coalesce(entry_app_rel.confidence, 1.0) >= $min_confidence
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
+     pending_revised_exercises,
+     entry, collect(DISTINCT entry_applied) AS entry_applied_nodes
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
+     knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+     active_habit_uids, habit_metadata, habits_rich,
+     upcoming_event_uids, today_event_uids, events_rich,
+     core_principle_uids, principles_rich,
+     pending_choice_uids, choices_rich,
+     enrolled_path_uids, paths_rich,
+     steps_rich,
+     life_path_uid, life_path_designated_at, life_path_alignment_score,
+     active_moc_uids, moc_metadata,
+     latest_ar, active_insights_raw,
+     total_submission_count, total_journal_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
+     pending_revised_exercises,
+     collect(CASE WHEN entry IS NOT NULL THEN {
+         uid: entry.uid,
+         ku_uids: [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
+                  reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid])
+     } END) AS entry_knowledge_raw
+
+// ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
 // ====================================================================
 RETURN {
@@ -1136,6 +1187,7 @@ RETURN {
         user_annotation: latest_ar.user_annotation
     } ELSE null END,
     active_insights_raw: active_insights_raw,
+    entry_knowledge_applied: [x IN entry_knowledge_raw WHERE x IS NOT NULL],
     submission_stats: {
         total_submission_count: total_submission_count,
         total_journal_count: total_journal_count,

@@ -402,6 +402,7 @@ class UserContextBuilder:
         #         submissions_in_window, last_submission_date, feedback_received_count,
         #         feedback_in_window, pending_feedback_count, assigned_exercise_count,
         #         completed_exercise_count, unsubmitted_exercises},
+        #     "entry_knowledge_applied": [{uid, ku_uids}, ...],  <- ADR-069 APPLIES_KNOWLEDGE edges
         # }
         # entities_rich["ku"] is derived Python-side from mastery_timestamps + ku_view_data
         uids_data = mega_data.get("uids", {})
@@ -466,6 +467,11 @@ class UserContextBuilder:
 
         # Populate submission & feedback stats (learning loop engagement)
         self._populator.populate_submission_stats(context, mega_data.get("submission_stats"))
+
+        # Populate entry→Ku applied-knowledge map (ADR-069 — substance + ZPD read side)
+        self._populator.populate_entry_knowledge_applied(
+            context, mega_data.get("entry_knowledge_applied")
+        )
 
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))

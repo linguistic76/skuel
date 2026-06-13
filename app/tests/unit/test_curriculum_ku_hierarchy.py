@@ -77,7 +77,7 @@ class TestCurriculumKuCreation:
         assert cu.times_applied_in_tasks == 0
         assert cu.times_practiced_in_events == 0
         assert cu.times_built_into_habits == 0
-        assert cu.journal_reflections_count == 0
+        assert cu.times_reflected_in_entries == 0
         assert cu.choices_informed_count == 0
         assert cu.last_applied_date is None
         assert cu.last_practiced_date is None
@@ -270,7 +270,7 @@ class TestCurriculumKuSubstance:
             times_applied_in_tasks=100,
             times_practiced_in_events=100,
             times_built_into_habits=100,
-            journal_reflections_count=100,
+            times_reflected_in_entries=100,
             choices_informed_count=100,
             last_applied_date=datetime.now(),
             last_practiced_date=datetime.now(),
@@ -321,7 +321,7 @@ class TestCurriculumKuSubstance:
         assert "No tasks apply this knowledge" not in gaps  # tasks > 0
         assert "No events practice this knowledge" in gaps
         assert "Not built into any habits" in gaps
-        assert "No journal reflections" in gaps
+        assert "No reflective entries" in gaps
         assert "Has not informed any choices/decisions" in gaps
 
     def test_is_theoretical_only(self):

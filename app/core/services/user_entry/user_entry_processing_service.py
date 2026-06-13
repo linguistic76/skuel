@@ -32,6 +32,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
+from core.events.knowledge_substance_events import KnowledgeReflectedInEntry
 from core.events.user_entry_events import (
     UserEntryProcessingCompleted,
     UserEntryProcessingFailed,
@@ -373,7 +374,9 @@ class UserEntryProcessingService:
            source_line_hash}]->(entry)`` batch write.
         4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
            created Ku and resolved ``@ku()`` reference — the substance/ZPD
-           edge (PR-2 consumes it).
+           edge. Each successful write publishes ``KnowledgeReflectedInEntry``
+           (substance fan-out) and feeds UserContext.entry_knowledge_applied
+           + the ZPD entry_application signal on read.
         5. Run summary persisted under ``entry.metadata["activity_extraction"]``.
         """
         if self.activity_extractor is None:
@@ -430,6 +433,23 @@ class UserEntryProcessingService:
             if (line_hash := (rel.get("properties") or {}).get("source_line_hash"))
         )
 
+        # --- Existing APPLIES_KNOWLEDGE targets (substance idempotency) --------
+        # The edge write below is MERGE-idempotent, but the substance event is
+        # NOT — publishing KnowledgeReflectedInEntry for an edge that already
+        # exists would double-count times_reflected_in_entries on a force re-run
+        # or a crash-recovery retry. Read the already-linked Kus up front and
+        # only emit the event for genuinely new links.
+        applied_result = await self.entry_service.backend.get_relationships(
+            entry.uid, rel_type=RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
+        )
+        if applied_result.is_error:
+            return await self._fail(entry, applied_result.expect_error(), phase="read_provenance")
+        already_applied_ku_uids = frozenset(
+            target_uid
+            for rel in applied_result.value or []
+            if (target_uid := rel.get("target_uid"))
+        )
+
         # --- Curriculum-creation gate (fail-closed) ---------------------------
         allow_curriculum_creation = False
         if self.user_service is not None:
@@ -472,6 +492,23 @@ class UserEntryProcessingService:
                 )
                 link_errors.append(message)
                 self.logger.warning(message)
+                continue
+            # Substance fan-out: PsService increments times_reflected_in_entries
+            # on the Ku (+ connected PathSteps) — knowledge_substance_philosophy.
+            # Only for NEW links: the edge MERGE is idempotent but the counter
+            # increment is not, so skip Kus already linked to this entry.
+            if ku_uid in already_applied_ku_uids:
+                continue
+            if self.event_bus is not None:
+                await publish_event(
+                    self.event_bus,
+                    KnowledgeReflectedInEntry(
+                        knowledge_uid=ku_uid,
+                        entry_uid=entry.uid,
+                        user_uid=entry.user_uid,
+                    ),
+                    self.logger,
+                )
 
         # --- Run summary ---------------------------------------------------------
         if extraction.has_errors:

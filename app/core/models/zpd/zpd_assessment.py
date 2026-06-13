@@ -44,15 +44,17 @@ class ZoneEvidence:
     best_submission_score: float = 0.0
     habit_reinforcement: bool = False
     task_application: bool = False
+    entry_application: bool = False  # (UserEntry)-[:APPLIES_KNOWLEDGE] — ADR-069
 
     @property
     def signal_count(self) -> int:
-        """Count distinct evidence types present."""
+        """Count distinct evidence types present (4 possible)."""
         return sum(
             [
                 self.submission_count > 0,
                 self.habit_reinforcement,
                 self.task_application,
+                self.entry_application,
             ]
         )
 
@@ -91,7 +93,7 @@ class ZPDAssessment:
     ------
     current_zone : list[str]
         ku_uids the user has meaningfully engaged — via APPLIES_KNOWLEDGE (Tasks,
-        Journals), REINFORCES_KNOWLEDGE (Habits), or direct habit reinforcement.
+        UserEntries), REINFORCES_KNOWLEDGE (Habits), or direct habit reinforcement.
 
     proximal_zone : list[str]
         ku_uids structurally adjacent to the current zone but not yet engaged.

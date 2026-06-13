@@ -193,7 +193,7 @@ class KuIntelligenceService(
 
         Weights (from CLAUDE.md Knowledge Substance Philosophy):
         - Habits: 0.10 per habit, max 0.30 (lifestyle integration)
-        - Journals: 0.07 per entry, max 0.20 (metacognition)
+        - Entries: 0.07 per reflective entry, max 0.20 (metacognition — ADR-069)
         - Choices: 0.07 per choice, max 0.15 (decision-making)
         - Principles: 0.07 per principle, max 0.15 (value embodiment)
         - Events: 0.05 per event, max 0.25 (dedicated practice)
@@ -234,28 +234,30 @@ class KuIntelligenceService(
             for uid, ku_list in user_context.principle_knowledge_grounded.items()
             if ku_uid in ku_list
         ]
-        # Journals not yet tracked in UserContext — post-ADR-054 they are UserEntry rows
-        # with pipeline=TRANSCRIBE_AND_STRUCTURE; MEGA_QUERY doesn't collect journal→KU yet
-        journal_count = 0
+        entry_uids = [
+            uid
+            for uid, ku_list in user_context.entry_knowledge_applied.items()
+            if ku_uid in ku_list
+        ]
 
         # Apply Knowledge Substance Philosophy weights with per-channel caps
         task_score = min(0.25, len(task_uids) * 0.05)
         habit_score = min(0.30, len(habit_uids) * 0.10)
         event_score = min(0.25, len(event_uids) * 0.05)
-        journal_score = min(0.20, journal_count * 0.07)
+        entry_score = min(0.20, len(entry_uids) * 0.07)
         choice_score = min(0.15, len(choice_uids) * 0.07)
         principle_score = min(0.15, len(principle_uids) * 0.07)
 
         user_substance_score = min(
             1.0,
-            task_score + habit_score + event_score + journal_score + choice_score + principle_score,
+            task_score + habit_score + event_score + entry_score + choice_score + principle_score,
         )
 
         breakdown = {
             "tasks": round(task_score, 3),
             "habits": round(habit_score, 3),
             "events": round(event_score, 3),
-            "journals": round(journal_score, 3),
+            "entries": round(entry_score, 3),
             "choices": round(choice_score, 3),
             "principles": round(principle_score, 3),
         }
@@ -291,6 +293,8 @@ class KuIntelligenceService(
             recommendations.append(f"Record a choice informed by '{ku.title}'")
         if not principle_uids:
             recommendations.append(f"Write a principle grounded in '{ku.title}'")
+        if not entry_uids:
+            recommendations.append(f"Write an entry reflecting on '{ku.title}'")
 
         # Status message based on score range
         if user_substance_score >= 0.7:

@@ -119,11 +119,19 @@ class PsIntelligenceBackend:
         )
 
     async def fetch_taught_ku_uids(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
-        """Return ``ku_uid`` rows for the KUs taught by a PathStep (USES_KU)."""
+        """Return ``ku_uid`` rows for the KUs taught by a PathStep.
+
+        Matches the canonical curriculum-composition triple
+        ``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` — the same set the substance
+        write fan-out (``KuBackend.increment_substance``) and the UserContext
+        MEGA-QUERY Ku-grain rollup traverse. Matching only ``USES_KU`` here
+        would make per-user substance blind to TRAINS_KU/CONTAINS_KNOWLEDGE
+        links that the fan-out already credits — a read/write asymmetry.
+        """
         return await self._executor.execute(
             query="""
-                MATCH (:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity {entity_type: 'ku'})
-                RETURN ku.uid AS ku_uid
+                MATCH (:Entity {uid: $ps_uid})-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity {entity_type: 'ku'})
+                RETURN DISTINCT ku.uid AS ku_uid
             """,
             params={"ps_uid": ps_uid},
             operation="calculate_user_substance",
