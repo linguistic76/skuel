@@ -11,19 +11,15 @@ REQUIRES (Mixin Dependencies):
     - None - This is a foundational mixin with no dependencies
 
 PROVIDES (Methods for Other Mixins):
-    - _ensure_exists: Convert Result[T | None] to Result[T] with null safety
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
-    - _from_domain_model: Convert domain model to DTO
     - _records_to_domain_models: Extract and convert Neo4j query records
     - _validate_required_user_uid: Validate presence of user_uid
     - _create_and_convert: Create entity and convert to domain model
 
 Methods:
-    - _ensure_exists: Convert Result[T | None] to Result[T] with null safety
     - _to_domain_model: Convert backend data to domain model
     - _to_domain_models: Bulk convert backend data to domain models
-    - _from_domain_model: Convert domain model to DTO
     - _records_to_domain_models: Extract and convert Neo4j query records
     - _validate_required_user_uid: Validate presence of user_uid
     - _create_and_convert: Create entity and convert to domain model
@@ -36,9 +32,6 @@ from typing import TYPE_CHECKING, Any
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.type_hints import UserUID
 from core.ports import BackendOperations
-from core.utils.dto_converters import (
-    from_domain_model as _from_domain_model_fn,
-)
 from core.utils.dto_converters import (
     to_domain_model as _to_domain_model_fn,
 )
@@ -73,52 +66,6 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
     _dto_class: type[DTOProtocol] | None
 
     # ========================================================================
-    # RESULT HELPERS - NULL SAFETY
-    # ========================================================================
-
-    def _ensure_exists(
-        self,
-        result: Result[T | None],
-        resource_name: str,
-        identifier: str,
-    ) -> Result[T]:
-        """
-        Convert Result[T | None] to Result[T] with proper null safety.
-
-        This helper solves the "Optional → Non-Optional" pattern where backend
-        operations return Result[T | None] (resource might not exist) but service
-        methods need to guarantee Result[T] (resource must exist).
-
-        Architectural Pattern:
-            Backend.get() → Result[T | None] # Honest about nullability
-                 ↓
-            Service._ensure_exists() → Result[T] # Validates and converts
-                 ↓
-            Service.method() → Result[T] # Fulfills promise
-
-        Args:
-            result: Result that might contain None
-            resource_name: Human-readable resource type (e.g., "MOC", "Task")
-            identifier: Resource identifier for error message
-
-        Returns:
-            Result[T] - guaranteed non-null value or error
-
-        Example:
-            async def get_task(...) -> Result[Task]:
-                ...
-                raw_result = await self.backend.get(task_uid)
-                return self._ensure_exists(raw_result, "Task", task_uid)
-        """
-        if result.is_error:
-            return Result.fail(result)
-
-        if result.value is None:
-            return Result.fail(Errors.not_found(resource=resource_name, identifier=identifier))
-
-        return Result.ok(result.value)
-
-    # ========================================================================
     # DTO CONVERSION HELPERS - DRY PRINCIPLE
     # ========================================================================
     # Mixin interface methods that delegate to standalone conversion functions
@@ -132,10 +79,6 @@ class ConversionHelpersMixin[B: BackendOperations, T: DomainModelProtocol]:
     ) -> builtins.list[T]:
         """Convert list of backend data to domain models."""
         return _to_domain_models_fn(data_list, dto_class, model_class)
-
-    def _from_domain_model(self, model: T, dto_class: type[DTOProtocol]) -> DTOProtocol:
-        """Convert domain model to DTO for backend operations."""
-        return _from_domain_model_fn(model, dto_class)
 
     def _records_to_domain_models(
         self,

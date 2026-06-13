@@ -109,13 +109,13 @@ def __init__(self, backend: B, service_name: str | None = None) -> None:
     self.backend = backend
     self.service_name = service_name
 
-def _ensure_exists(self, result: Result[T | None], resource_name: str, identifier: str) -> Result[T]:
+def _validate_required_user_uid(self, user_uid: UserUID | None, operation: str) -> Result[None]:
     """NO I/O - Pure Result monad operation"""
-    if result.is_error:
-        return Result.fail(result)
-    if result.value is None:
-        return Result.fail(Errors.not_found(resource_name, identifier))
-    return Result.ok(result.value)
+    if not user_uid:
+        return Result.fail(
+            Errors.validation(message=f"user_uid is required for {operation}", field="user_uid")
+        )
+    return Result.ok(None)
 ```
 
 ### 3. Data Conversion Layer (100% Sync)

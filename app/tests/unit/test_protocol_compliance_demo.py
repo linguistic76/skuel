@@ -42,9 +42,7 @@ class TestProtocolComplianceDemonstration:
         """Verify method signatures match between mixin and protocol."""
         protocol_methods = [
             "_to_domain_model",
-            "_from_domain_model",
             "_to_domain_models",
-            "_ensure_exists",
             "_records_to_domain_models",
             "_create_and_convert",
         ]
@@ -148,7 +146,7 @@ class TestProtocolComplianceExplanation:
         # But it still satisfies the protocol structurally
         # (MyPy verifies this at type-check time)
         assert hasattr(ConversionHelpersMixin, "_to_domain_model")
-        assert hasattr(ConversionHelpersMixin, "_from_domain_model")
+        assert hasattr(ConversionHelpersMixin, "_to_domain_models")
         # ... etc
 
     def test_example_of_what_mypy_catches(self):
