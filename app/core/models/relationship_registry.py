@@ -2112,6 +2112,16 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
             fields=("uid", "title"),
             single=True,
         ),
+        # Outgoing: UserEntry → Ku — knowledge applied/reflected in the entry.
+        # Written by the EXTRACT_ACTIVITIES pipeline (ADR-069); THE substance/ZPD
+        # contract edge, same as (Task)-[:APPLIES_KNOWLEDGE]->(Ku).
+        UnifiedRelationshipDefinition(
+            RelationshipName.APPLIES_KNOWLEDGE,
+            "Entity",
+            "outgoing",
+            "applied_knowledge",
+            "knowledge",
+        ),
     ),
     bidirectional_relationships=(),
     default_context_intent=QueryIntent.HIERARCHICAL,

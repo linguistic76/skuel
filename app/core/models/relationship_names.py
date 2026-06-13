@@ -371,6 +371,15 @@ class RelationshipName(StrEnum):
     TRANSFORMS = "TRANSFORMS"  # (UserEntry structured)-[:TRANSFORMS]->(UserEntry source) - Output derived from input
 
     # =========================================================================
+    # DSL EXTRACTION PROVENANCE (ADR-069)
+    # =========================================================================
+    # (created Entity)-[:EXTRACTED_FROM {extracted_at, source_line_hash}]->(UserEntry source)
+    # — DSL extraction provenance. Written via the dedicated batch method
+    # `create_extracted_from_links` (source label varies per created entity, so
+    # this edge is NOT registered per-domain in the relationship registry).
+    EXTRACTED_FROM = "EXTRACTED_FROM"
+
+    # =========================================================================
     # EVIDENCE RELATIONSHIPS
     # Observable connections between knowledge units
     # =========================================================================

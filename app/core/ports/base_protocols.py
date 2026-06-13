@@ -815,6 +815,16 @@ class RelationshipCrudOperations(Protocol):
         """Create multiple relationships in a single transaction."""
         ...
 
+    async def create_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+    ) -> ResultType[int]:
+        """Batch-write ``(created)-[:EXTRACTED_FROM]->(entry)`` provenance edges.
+
+        ``links`` is ``(created_uid, source_line_hash)`` pairs (ADR-069).
+        Backend: ``_RelationshipCrudMixin.create_extracted_from_links``.
+        """
+        ...
+
     async def delete_relationship(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> ResultType[bool]:

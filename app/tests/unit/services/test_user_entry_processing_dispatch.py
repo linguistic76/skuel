@@ -62,3 +62,60 @@ class TestEveryPipelineValueIsHandled:
         if result.is_error:
             err_str = str(result.expect_error())
             assert "Unknown pipeline" not in err_str
+
+
+class TestExtractActivitiesGuards:
+    """EXTRACT_ACTIVITIES setup guard + completed-run guard (guard 1)."""
+
+    @pytest.mark.asyncio
+    async def test_missing_extractor_is_system_error(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES)
+        result = await _make_dispatcher().process(entry)
+        assert result.is_error
+        assert "ActivityExtractorService not configured" in str(result.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_completed_run_is_noop_without_force(self):
+        entry = UserEntry(
+            uid="ue_done",
+            title="Done",
+            user_uid="user_1",
+            pipeline=Pipeline.EXTRACT_ACTIVITIES,
+            content="- [ ] Something @context(task)",
+            metadata={"activity_extraction": {"status": "completed"}},
+        )
+        result = await _make_dispatcher().process(entry)
+        assert result.is_ok
+        assert result.value is entry
+
+    @pytest.mark.asyncio
+    async def test_force_bypasses_completed_run_guard(self):
+        entry = UserEntry(
+            uid="ue_done",
+            title="Done",
+            user_uid="user_1",
+            pipeline=Pipeline.EXTRACT_ACTIVITIES,
+            content="- [ ] Something @context(task)",
+            metadata={"activity_extraction": {"status": "completed"}},
+        )
+        # With force=True the guard is bypassed and processing proceeds —
+        # here into the missing-extractor setup error, proving it ran.
+        result = await _make_dispatcher().process(entry, force=True)
+        assert result.is_error
+        assert "ActivityExtractorService not configured" in str(result.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_json_string_summary_counts_as_completed(self):
+        # backend.update JSON-serializes nested metadata dicts; a re-read
+        # entry may carry the summary as a JSON string.
+        entry = UserEntry(
+            uid="ue_done_json",
+            title="Done",
+            user_uid="user_1",
+            pipeline=Pipeline.EXTRACT_ACTIVITIES,
+            content="- [ ] Something @context(task)",
+            metadata={"activity_extraction": '{"status": "completed"}'},
+        )
+        result = await _make_dispatcher().process(entry)
+        assert result.is_ok
+        assert result.value is entry

@@ -454,6 +454,57 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         self.logger.debug(f"Created relationship: {from_uid} --[{relationship_type}]-> {to_uid}")
         return Result.ok(True)
 
+    @safe_backend_operation("create_extracted_from_links")
+    async def create_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+    ) -> Result[int]:
+        """
+        Batch-write DSL extraction provenance edges (ADR-069).
+
+        Writes ``(created)-[:EXTRACTED_FROM {extracted_at, source_line_hash}]->(entry)``
+        for each ``(created_uid, line_hash)`` pair. Dedicated writer rather than
+        ``create_relationship``: the source label is whichever entity the DSL
+        line produced (Task, Habit, Ku, ...), so routing through registry
+        validation would force registering provenance into every domain config.
+        MERGE keeps re-runs idempotent; ``extracted_at`` is set server-side as a
+        native Cypher datetime (SPAWNED_FROM precedent).
+
+        Args:
+            entry_uid: Source UserEntry UID the entities were extracted from
+            links: ``(created_uid, source_line_hash)`` pairs
+
+        Returns:
+            Result[int]: number of provenance edges now present for the pairs
+        """
+        if not links:
+            return Result.ok(0)
+
+        query = """
+        MATCH (entry:UserEntry {uid: $entry_uid})
+        UNWIND $links AS link
+        MATCH (e {uid: link.uid})
+        MERGE (e)-[r:EXTRACTED_FROM]->(entry)
+        ON CREATE SET r.extracted_at = datetime()
+        SET r.source_line_hash = link.line_hash
+        RETURN count(r) AS link_count
+        """
+        params = {
+            "entry_uid": entry_uid,
+            "links": [{"uid": uid, "line_hash": line_hash} for uid, line_hash in links],
+        }
+
+        async with self.driver.session() as session:
+            result = await session.run(query, params)
+            record = await result.single()
+            link_count = int(record["link_count"]) if record else 0
+
+        if link_count < len(links):
+            self.logger.warning(
+                f"EXTRACTED_FROM provenance: wrote {link_count}/{len(links)} edges "
+                f"for entry {entry_uid} (missing created nodes?)"
+            )
+        return Result.ok(link_count)
+
     @safe_backend_operation("delete_relationship")
     async def delete_relationship(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName

@@ -5,14 +5,29 @@ Activity Domain Converters
 Converter functions for the 6 Activity Domains:
 Task, Habit, Goal, Event, Principle, Choice.
 
-Each function converts a ParsedActivityLine to a domain-specific
-create request (TaskCreateRequest) or dict.
+Each function converts a ParsedActivityLine to the domain's typed
+``*CreateRequest`` — the exact object the domain facade's create method
+accepts (``TasksService.create_task(request, user_uid)`` et al.). The
+intermediate "creation dict" layer was removed with the EXTRACT_ACTIVITIES
+pipeline wiring (ADR-069): one conversion, one shape, validated by Pydantic
+at the boundary.
 """
 
 from datetime import date, datetime, timedelta
 
-from core.models.enums import EntityStatus
-from core.models.enums.entity_enums import EntityType
+from core.models.choice.choice_request import ChoiceCreateRequest
+from core.models.enums import EntityStatus, RecurrencePattern
+from core.models.enums.choice_enums import ChoiceType
+from core.models.enums.entity_enums import Domain, EntityType
+from core.models.enums.principle_enums import (
+    PrincipleCategory,
+    PrincipleSource,
+    PrincipleStrength,
+)
+from core.models.event.event_request import EventCreateRequest
+from core.models.goal.goal_request import GoalCreateRequest
+from core.models.habit.habit_request import HabitCreateRequest
+from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task_request import TaskCreateRequest
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine
 from core.services.dsl.dsl_mappings import (
@@ -27,6 +42,19 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.dsl.converter")
 
 
+def _not_a(activity: ParsedActivityLine, entity_type: EntityType) -> Result[ConversionResult]:
+    """Shared validation failure for a context mismatch."""
+    return Result.fail(
+        Errors.validation(
+            message=(
+                f"Activity is not a {entity_type.value} (missing '{entity_type.value}' in @context)"
+            ),
+            field="context",
+            value=",".join(activity.context_values),
+        )
+    )
+
+
 # ============================================================================
 # TASK CONVERTER
 # ============================================================================
@@ -37,7 +65,7 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
     """
     Convert ParsedActivityLine to TaskCreateRequest.
 
-    The resulting request can be passed to TasksCoreService.create_task().
+    The resulting request can be passed to TasksService.create_task().
 
     Args:
         activity: Parsed activity line with context containing "task"
@@ -46,13 +74,7 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
         Result containing TaskCreateRequest (as ConversionResult for type compatibility)
     """
     if not activity.is_task():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not a task (missing '{EntityType.TASK.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.TASK)
 
     # Extract due date from @when
     due_date: date | None = None
@@ -90,56 +112,37 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_habit_dict")
-def activity_to_habit_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_habit_request")
+def activity_to_habit_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to habit creation dict.
+    Convert ParsedActivityLine to HabitCreateRequest.
 
-    Since HabitCreateRequest may vary, this returns a dict that can be
-    adapted to your specific habit service.
+    The resulting request can be passed to HabitsService.create_habit().
 
     Args:
         activity: Parsed activity line with context containing "habit"
 
     Returns:
-        Result containing dict for habit creation
+        Result containing HabitCreateRequest
     """
     if not activity.is_habit():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not a habit (missing '{EntityType.HABIT.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.HABIT)
 
-    # Map recurrence to frequency string
-    frequency = "daily"  # default
-    if activity.repeat_pattern:
-        pattern_type = activity.repeat_pattern.get("type", "daily")
-        if pattern_type == "weekly":
-            days = activity.repeat_pattern.get("days", [])
-            frequency = f"weekly:{','.join(days)}" if days else "weekly"
-        elif pattern_type == "interval":
-            interval = activity.repeat_pattern.get("interval", 1)
-            unit = activity.repeat_pattern.get("unit", "days")
-            frequency = f"every_{interval}_{unit}"
-        else:
-            frequency = pattern_type
+    request = HabitCreateRequest(
+        title=activity.description,
+        recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern)
+        or RecurrencePattern.DAILY,
+        duration_minutes=activity.duration_minutes or 15,
+        preferred_time=activity.energy_states[0] if activity.energy_states else None,
+        linked_knowledge_uids=activity.get_linked_knowledge(),
+        linked_goal_uids=activity.get_linked_goals(),
+        linked_principle_uids=activity.get_linked_principles(),
+        priority=map_dsl_priority_to_enum(activity.priority),
+        tags=activity.energy_states if activity.energy_states else [],
+    )
 
-    habit_dict = {
-        "title": activity.description,
-        "frequency": frequency,
-        "duration_minutes": activity.duration_minutes,
-        "energy_required": activity.energy_states[0] if activity.energy_states else None,
-        "linked_knowledge_uids": activity.get_linked_knowledge(),
-        "linked_goal_uids": activity.get_linked_goals(),
-        "linked_principle_uids": activity.get_linked_principles(),
-        "tags": activity.energy_states,
-    }
-
-    logger.debug(f"Converted activity to habit dict: {habit_dict['title']}")
-    return Result.ok(habit_dict)
+    logger.debug(f"Converted activity to HabitCreateRequest: {request.title}")
+    return Result.ok(request)
 
 
 # ============================================================================
@@ -147,42 +150,38 @@ def activity_to_habit_dict(activity: ParsedActivityLine) -> Result[ConversionRes
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_goal_dict")
-def activity_to_goal_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_goal_request")
+def activity_to_goal_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to goal creation dict.
+    Convert ParsedActivityLine to GoalCreateRequest.
+
+    The resulting request can be passed to GoalsService.create_goal().
 
     Args:
         activity: Parsed activity line with context containing "goal"
 
     Returns:
-        Result containing dict for goal creation
+        Result containing GoalCreateRequest
     """
     if not activity.is_goal():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not a goal (missing '{EntityType.GOAL.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.GOAL)
 
     # Extract target date if provided
     target_date: date | None = None
     if activity.when:
         target_date = activity.when.date()
 
-    goal_dict = {
-        "title": activity.description,
-        "target_date": target_date,
-        "priority": activity.priority,
-        "linked_knowledge_uids": activity.get_linked_knowledge(),
-        "linked_principle_uids": activity.get_linked_principles(),
-        "tags": activity.energy_states,
-    }
+    request = GoalCreateRequest(
+        title=activity.description,
+        target_date=target_date,
+        priority=map_dsl_priority_to_enum(activity.priority),
+        required_knowledge_uids=activity.get_linked_knowledge(),
+        guiding_principle_uids=activity.get_linked_principles(),
+        tags=activity.energy_states if activity.energy_states else [],
+    )
 
-    logger.debug(f"Converted activity to goal dict: {goal_dict['title']}")
-    return Result.ok(goal_dict)
+    logger.debug(f"Converted activity to GoalCreateRequest: {request.title}")
+    return Result.ok(request)
 
 
 # ============================================================================
@@ -190,25 +189,21 @@ def activity_to_goal_dict(activity: ParsedActivityLine) -> Result[ConversionResu
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_event_dict")
-def activity_to_event_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_event_request")
+def activity_to_event_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to event creation dict.
+    Convert ParsedActivityLine to EventCreateRequest.
+
+    The resulting request can be passed to EventsService.create_event().
 
     Args:
         activity: Parsed activity line with context containing "event"
 
     Returns:
-        Result containing dict for event creation
+        Result containing EventCreateRequest
     """
     if not activity.is_event():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not an event (missing '{EntityType.EVENT.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.EVENT)
 
     # Events require a datetime
     event_datetime = activity.when or datetime.now()
@@ -217,20 +212,19 @@ def activity_to_event_dict(activity: ParsedActivityLine) -> Result[ConversionRes
     duration = activity.duration_minutes or 60
     end_datetime = event_datetime + timedelta(minutes=duration)
 
-    event_dict = {
-        "title": activity.description,
-        "start_datetime": event_datetime,
-        "end_datetime": end_datetime,
-        "duration_minutes": duration,
-        "priority": activity.priority,
-        "linked_knowledge_uids": activity.get_linked_knowledge(),
-        "linked_goal_uids": activity.get_linked_goals(),
-        "recurrence_pattern": map_repeat_to_recurrence(activity.repeat_pattern),
-        "tags": activity.energy_states,
-    }
+    request = EventCreateRequest(
+        title=activity.description,
+        event_date=event_datetime.date(),
+        start_time=event_datetime.time(),
+        end_time=end_datetime.time(),
+        priority=map_dsl_priority_to_enum(activity.priority),
+        practices_knowledge_uids=activity.get_linked_knowledge(),
+        recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern),
+        tags=activity.energy_states if activity.energy_states else [],
+    )
 
-    logger.debug(f"Converted activity to event dict: {event_dict['title']}")
-    return Result.ok(event_dict)
+    logger.debug(f"Converted activity to EventCreateRequest: {request.title}")
+    return Result.ok(request)
 
 
 # ============================================================================
@@ -238,10 +232,10 @@ def activity_to_event_dict(activity: ParsedActivityLine) -> Result[ConversionRes
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_principle_dict")
-def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_principle_request")
+def activity_to_principle_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to principle creation dict.
+    Convert ParsedActivityLine to PrincipleCreateRequest.
 
     Principles represent values, beliefs, and guiding philosophies that
     inform goals, choices, and habits.
@@ -250,16 +244,10 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
         activity: Parsed activity line with context containing "principle"
 
     Returns:
-        Result containing dict for principle creation
+        Result containing PrincipleCreateRequest
     """
     if not activity.is_principle():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not a principle (missing '{EntityType.PRINCIPLE.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.PRINCIPLE)
 
     # Extract principle title (first part before any dash or colon)
     description = activity.description
@@ -274,49 +262,46 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
 
     # Map energy states to principle category
     # spiritual → SPIRITUAL, focus/creative → INTELLECTUAL, etc.
-    principle_category = "personal"  # default
+    principle_category = PrincipleCategory.PERSONAL
     if activity.energy_states:
         energy_to_category = {
-            "spiritual": "spiritual",
-            "emotion": "relational",
-            "focus": "intellectual",
-            "creative": "creative",
-            "physical": "health",
-            "social": "relational",
+            "spiritual": PrincipleCategory.SPIRITUAL,
+            "emotion": PrincipleCategory.RELATIONAL,
+            "focus": PrincipleCategory.INTELLECTUAL,
+            "creative": PrincipleCategory.CREATIVE,
+            "physical": PrincipleCategory.HEALTH,
+            "social": PrincipleCategory.RELATIONAL,
         }
         for energy in activity.energy_states:
             if energy.lower() in energy_to_category:
                 principle_category = energy_to_category[energy.lower()]
                 break
 
-    # Map priority to principle strength
-    strength = "moderate"  # default
+    # Map DSL priority (1-5) to principle strength
+    strength = PrincipleStrength.MODERATE
     if activity.priority:
         priority_to_strength = {
-            1: "core",  # Priority 1 = Core principle
-            2: "strong",  # Priority 2 = Strong
-            3: "moderate",  # Priority 3 = Moderate
-            4: "developing",
-            5: "exploring",
+            1: PrincipleStrength.CORE,
+            2: PrincipleStrength.STRONG,
+            3: PrincipleStrength.MODERATE,
+            4: PrincipleStrength.DEVELOPING,
+            5: PrincipleStrength.EXPLORING,
         }
-        strength = priority_to_strength.get(activity.priority, "moderate")
+        strength = priority_to_strength.get(activity.priority, PrincipleStrength.MODERATE)
 
-    principle_dict = {
-        "title": title,
-        "statement": statement,
-        "description": description if description != statement else None,
-        "principle_category": principle_category,
-        "principle_source": "personal",  # DSL entries are personal by default
-        "strength": strength,
-        "priority": activity.priority or 3,
-        "linked_knowledge_uids": activity.get_linked_knowledge(),
-        "linked_goal_uids": activity.get_linked_goals(),
-        "tags": activity.energy_states if activity.energy_states else [],
-        "key_behaviors": [],  # Can be extracted from description if needed
-    }
+    request = PrincipleCreateRequest(
+        title=title,
+        statement=statement,
+        description=description if description != statement else None,
+        principle_category=principle_category,
+        principle_source=PrincipleSource.PERSONAL,  # DSL entries are personal by default
+        strength=strength,
+        priority=map_dsl_priority_to_enum(activity.priority),
+        tags=activity.energy_states if activity.energy_states else [],
+    )
 
-    logger.debug(f"Converted activity to principle dict: {principle_dict['title']}")
-    return Result.ok(principle_dict)
+    logger.debug(f"Converted activity to PrincipleCreateRequest: {request.title}")
+    return Result.ok(request)
 
 
 # ============================================================================
@@ -324,10 +309,10 @@ def activity_to_principle_dict(activity: ParsedActivityLine) -> Result[Conversio
 # ============================================================================
 
 
-@with_error_handling(error_type="system", operation="activity_to_choice_dict")
-def activity_to_choice_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
+@with_error_handling(error_type="system", operation="activity_to_choice_request")
+def activity_to_choice_request(activity: ParsedActivityLine) -> Result[ConversionResult]:
     """
-    Convert ParsedActivityLine to choice creation dict.
+    Convert ParsedActivityLine to ChoiceCreateRequest.
 
     Choices represent decisions to be made, with options to evaluate
     and criteria to consider.
@@ -336,37 +321,25 @@ def activity_to_choice_dict(activity: ParsedActivityLine) -> Result[ConversionRe
         activity: Parsed activity line with context containing "choice"
 
     Returns:
-        Result containing dict for choice creation
+        Result containing ChoiceCreateRequest
     """
     if not activity.is_choice():
-        return Result.fail(
-            Errors.validation(
-                message=f"Activity is not a choice (missing '{EntityType.CHOICE.value}' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
+        return _not_a(activity, EntityType.CHOICE)
 
     # Title from description
     title = activity.description
     if len(title) > 200:
         title = title[:197] + "..."
 
-    # Decision deadline from @when
-    deadline = activity.when
-
-    # Map priority (1-5) to Priority enum
-    priority = map_dsl_priority_to_enum(activity.priority)
-
-    # Infer domain from linked entities or energy states
-    domain = "personal"  # default
+    # Infer domain from energy states
+    domain = Domain.PERSONAL
     if activity.energy_states:
         energy_to_domain = {
-            "focus": "tech",
-            "creative": "creative",
-            "social": "social",
-            "physical": "health",
-            "spiritual": "personal",
+            "focus": Domain.TECH,
+            "creative": Domain.CREATIVE,
+            "social": Domain.SOCIAL,
+            "physical": Domain.HEALTH,
+            "spiritual": Domain.PERSONAL,
         }
         for energy in activity.energy_states:
             if energy.lower() in energy_to_domain:
@@ -376,25 +349,20 @@ def activity_to_choice_dict(activity: ParsedActivityLine) -> Result[ConversionRe
     # Determine choice type from context
     # If binary keywords detected, mark as binary
     binary_keywords = ["whether", "or not", "should i", "yes or no"]
-    choice_type = "multiple"  # default
+    choice_type = ChoiceType.MULTIPLE
     if any(kw in activity.description.lower() for kw in binary_keywords):
-        choice_type = "binary"
+        choice_type = ChoiceType.BINARY
 
-    choice_dict = {
-        "title": title,
-        "description": activity.description,
-        "choice_type": choice_type,
-        "priority": priority.value if priority else "medium",
-        "domain": domain,
-        "decision_deadline": deadline,
-        "decision_criteria": [],  # Can be extracted from description
-        "constraints": [],
-        "stakeholders": [],
-        "informed_by_knowledge_uids": activity.get_linked_knowledge(),
-        "linked_goal_uids": activity.get_linked_goals(),
-        "linked_principle_uids": activity.get_linked_principles(),
-        "tags": activity.energy_states if activity.energy_states else [],
-    }
+    request = ChoiceCreateRequest(
+        title=title,
+        description=activity.description,
+        choice_type=choice_type,
+        priority=map_dsl_priority_to_enum(activity.priority),
+        domain=domain,
+        decision_deadline=activity.when,
+        informed_by_knowledge_uids=activity.get_linked_knowledge(),
+        tags=activity.energy_states if activity.energy_states else [],
+    )
 
-    logger.debug(f"Converted activity to choice dict: {choice_dict['title']}")
-    return Result.ok(choice_dict)
+    logger.debug(f"Converted activity to ChoiceCreateRequest: {request.title}")
+    return Result.ok(request)

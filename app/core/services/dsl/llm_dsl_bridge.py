@@ -171,29 +171,15 @@ class LLMDSLBridgeService:
         # - @context(habit) Exercise @repeat(daily)
     ```
 
-    **Integration with Pipeline (staged — see PLANNED tier):**
+    **Pipeline integration (wired — ADR-069):**
 
-    ```python
-    # In a future UserEntry processing pipeline step
-
-    # 1. Transform raw text to DSL format
-    transform_result = await llm_bridge.transform(raw_journal_text, user_uid)
-    if transform_result.is_error:
-        return transform_result
-
-    dsl_text = transform_result.value.transformed_text
-
-    # 2. Append DSL activities to formatted content
-    formatted_content = (
-        original_content + "\\n\\n## Extracted Activities\\n" + dsl_text
-    )
-
-    # 3. Parse with DSL parser
-    parse_result = dsl_parser.parse_journal(formatted_content)
-
-    # 4. Create entities
-    extraction_result = await extractor.extract_and_create(...)
-    ```
+    `UserEntryProcessingService._run_extract_activities` runs transform() as
+    the optional pre-pass of `Pipeline.EXTRACT_ACTIVITIES`: on success the
+    returned `activity_lines` are appended to the working text under an
+    `## Extracted Activities` heading before the Analog parser runs; on
+    failure the run degrades to parser-only over the original text (the
+    bridge enhances, never gates). The compose root injects the bridge on
+    FULL tier with a configured key, else None.
     """
 
     def __init__(

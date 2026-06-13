@@ -146,3 +146,7 @@ class UserEntryProcessRequest(CreateRequestBase):
         ),
     )
     instructions: str | None = Field(default=None, description="Override pipeline instructions")
+    force: bool = Field(
+        default=False,
+        description="Re-run override for the completed-extraction guard (EXTRACT_ACTIVITIES)",
+    )

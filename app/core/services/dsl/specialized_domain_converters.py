@@ -15,7 +15,7 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine
 from core.services.dsl.dsl_mappings import ConversionResult
 from core.utils.decorators import with_error_handling
@@ -175,15 +175,17 @@ def activity_to_ku_dict(activity: ParsedActivityLine) -> Result[ConversionResult
     # Content defaults to description (can be enhanced later)
     content = activity.description
 
-    # Infer domain from energy states or default to TECH
-    domain = "TECH"  # default for knowledge
+    # Infer domain from energy states or default to tech.
+    # Values are Domain enum values (lowercase) — KuCoreService.create_ku
+    # raises on anything that doesn't cross the Domain enum boundary.
+    domain = Domain.TECH.value
     if activity.energy_states:
         energy_to_domain = {
-            "spiritual": "SPIRITUAL",
-            "physical": "HEALTH",
-            "creative": "CREATIVE",
-            "social": "SOCIAL",
-            "focus": "TECH",
+            "spiritual": Domain.SPIRITUAL.value,
+            "physical": Domain.HEALTH.value,
+            "creative": Domain.CREATIVE.value,
+            "social": Domain.SOCIAL.value,
+            "focus": Domain.TECH.value,
         }
         for energy in activity.energy_states:
             if energy.lower() in energy_to_domain:
@@ -359,63 +361,6 @@ def activity_to_lp_dict(activity: ParsedActivityLine) -> Result[ConversionResult
 # ============================================================================
 # META DOMAIN CONVERTERS (3)
 # ============================================================================
-
-
-@with_error_handling(error_type="system", operation="activity_to_report_dict")
-def activity_to_report_dict(activity: ParsedActivityLine) -> Result[ConversionResult]:
-    """
-    Convert ParsedActivityLine to Report creation dict.
-
-    Reports are file uploads and processing requests - the entry point
-    for content into SKUEL.
-
-    Args:
-        activity: Parsed activity line with context containing "report"
-
-    Returns:
-        Result containing dict for Report creation
-    """
-    if not activity.is_report():
-        return Result.fail(
-            Errors.validation(
-                message="Activity is not a Report (missing 'report' in @context)",
-                field="context",
-                value=",".join(activity.context_values),
-            )
-        )
-
-    # Infer report type from description keywords
-    # NOTE (January 2026): Default changed from "journal" to "transcript"
-    # Journal is now a separate domain (JournalsCoreService).
-    report_type = "transcript"  # default
-    type_keywords = {
-        "voice": "transcript",
-        "audio": "transcript",
-        "memo": "transcript",
-        "recording": "transcript",
-        "transcript": "transcript",
-        "report": "report",
-        "image": "image_analysis",
-        "video": "video_summary",
-    }
-    desc_lower = activity.description.lower()
-    for keyword, rtype in type_keywords.items():
-        if keyword in desc_lower:
-            report_type = rtype
-            break
-
-    report_dict = {
-        "report_type": report_type,
-        "processor_type": "automatic",  # LLM processing
-        "metadata": {
-            "description": activity.description,
-            "linked_goals": activity.get_linked_goals(),
-            "tags": activity.energy_states if activity.energy_states else [],
-        },
-    }
-
-    logger.debug(f"Converted activity to Report dict: {report_type}")
-    return Result.ok(report_dict)
 
 
 @with_error_handling(error_type="system", operation="activity_to_calendar_dict")

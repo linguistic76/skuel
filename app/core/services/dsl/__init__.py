@@ -40,10 +40,10 @@ UIDs (`applies_knowledge_uids`, `fulfills_goal_uid`, `linked_*_uids`) that the
 graph-aware create paths persist as edges. There is no separate post-create
 connection step.
 
-**Wiring status:** the DSL pipeline is staged (PLANNED tier), not wired. Its
-production wiring was retired with the journal pipeline in ADR-054 Commit 6a;
-the forward direction is extraction as a step on the unified ingestion path
-(UserEntry processing), not a resurrection of the submission-metadata flow.
+**Wiring status:** wired (ADR-069). Extraction runs as the
+`Pipeline.EXTRACT_ACTIVITIES` branch of `UserEntryProcessingService.process()`
+on the unified ingestion path — the original submission-metadata wiring
+(retired in ADR-054 Commit 6a) was not resurrected.
 
 **Usage:**
 
@@ -99,7 +99,7 @@ extractor = ActivityExtractorService(
     habits_service=habits_service,
     ku_service=ku_service,
 )
-result = await extractor.extract_and_create(assignment, user_uid)
+result = await extractor.extract_and_create(entry, user_uid)
 ```
 
 **Complete Pipeline:**
@@ -125,9 +125,11 @@ SKUEL Entities (Tasks, Habits, Goals, KUs, etc.)
 # Re-export EntityType and NonKuDomain for convenient access
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.services.dsl.activity_domain_converters import (
-    activity_to_event_dict,
-    activity_to_goal_dict,
-    activity_to_habit_dict,
+    activity_to_choice_request,
+    activity_to_event_request,
+    activity_to_goal_request,
+    activity_to_habit_request,
+    activity_to_principle_request,
     activity_to_task_request,
 )
 from core.services.dsl.activity_dsl_parser import (
@@ -165,9 +167,11 @@ __all__ = [
     "ParsedJournal",
     # Extractor
     "ActivityExtractorService",
-    "activity_to_event_dict",
-    "activity_to_goal_dict",
-    "activity_to_habit_dict",
+    "activity_to_choice_request",
+    "activity_to_event_request",
+    "activity_to_goal_request",
+    "activity_to_habit_request",
+    "activity_to_principle_request",
     "activity_to_task_request",
     "is_activity_line",
     "parse_activity_line",
