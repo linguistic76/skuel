@@ -590,10 +590,21 @@ def create_user_entry_ui_routes(
 
         result = await orchestrator.generate_entry_response(entry_uid, user_uid)
         if result.is_error:
-            existing = await orchestrator.get_entry_responses(entry_uid)
+            # Owner-scope the response fetch: `get_entry_responses` is NOT
+            # ownership-aware, so on a failed attempt (e.g. not-found for an
+            # entry the caller does not own) we must NOT render that entry's
+            # reports — re-verify ownership before surfacing any responses.
+            owned = await orchestrator.get_entry(entry_uid, user_uid)
+            existing = (
+                await orchestrator.get_entry_responses(entry_uid)
+                if owned.is_ok and owned.value is not None
+                else None
+            )
             return Div(
                 render_inline_error(result.expect_error().message),
-                _render_entry_responses(existing.value if existing.is_ok else []),
+                _render_entry_responses(
+                    existing.value if existing is not None and existing.is_ok else []
+                ),
                 id="entry-responses",
             )
 
