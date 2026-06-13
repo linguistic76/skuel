@@ -137,6 +137,7 @@ class ZPDService:
             blocking_gaps,
             task_engaged,
             habit_engaged,
+            entry_engaged,
             submission_data,
         ) = graph_result.value
 
@@ -148,7 +149,7 @@ class ZPDService:
 
         # Build compound zone evidence from per-source engagement data
         zone_evidence = self._build_zone_evidence(
-            current_zone, task_engaged, habit_engaged, submission_data
+            current_zone, task_engaged, habit_engaged, entry_engaged, submission_data
         )
 
         # Parse submission scores
@@ -223,7 +224,7 @@ class ZPDService:
         if engagement_result.is_error:
             return Result.fail(engagement_result)
 
-        task_engaged, habit_engaged, submission_data = engagement_result.value
+        task_engaged, habit_engaged, entry_engaged, submission_data = engagement_result.value
 
         # Build ZoneEvidence for each requested KU
         sub_lookup: dict[str, SubmissionScore] = {
@@ -232,6 +233,7 @@ class ZPDService:
 
         task_set = set(task_engaged)
         habit_set = set(habit_engaged)
+        entry_set = set(entry_engaged)
 
         evidence: dict[str, ZoneEvidence] = {}
         for ku_uid in ku_uids:
@@ -242,6 +244,7 @@ class ZPDService:
                 best_submission_score=sub_entry["best_score"],
                 habit_reinforcement=ku_uid in habit_set,
                 task_application=ku_uid in task_set,
+                entry_application=ku_uid in entry_set,
             )
 
         return Result.ok(evidence)
@@ -282,6 +285,7 @@ class ZPDService:
         current_zone: list[str],
         task_engaged: list[str],
         habit_engaged: list[str],
+        entry_engaged: list[str],
         submission_data: list[SubmissionScore],
     ) -> dict[str, ZoneEvidence]:
         """Build compound evidence for each KU in the current zone.
@@ -295,6 +299,7 @@ class ZPDService:
 
         task_set = set(task_engaged)
         habit_set = set(habit_engaged)
+        entry_set = set(entry_engaged)
 
         evidence: dict[str, ZoneEvidence] = {}
         for ku_uid in current_zone:
@@ -305,6 +310,7 @@ class ZPDService:
                 best_submission_score=sub_entry["best_score"],
                 habit_reinforcement=ku_uid in habit_set,
                 task_application=ku_uid in task_set,
+                entry_application=ku_uid in entry_set,
             )
         return evidence
 

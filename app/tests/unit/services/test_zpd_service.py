@@ -46,6 +46,7 @@ def _make_backend(
             [],  # blocking_gaps
             ["ku_a"],  # task_engaged
             ["ku_a"],  # habit_engaged
+            [],  # entry_engaged
             [  # submission_data
                 {"ku_uid": "ku_a", "best_score": 0.9, "count": 2},
             ],
@@ -74,6 +75,7 @@ class TestBuildZoneEvidence:
             current_zone=["ku_a", "ku_b"],
             task_engaged=["ku_a"],
             habit_engaged=["ku_a"],
+            entry_engaged=[],
             submission_data=[{"ku_uid": "ku_a", "best_score": 0.9, "count": 2}],
         )
         # ku_a: task + habit + submission = 3 signals -> confirmed
@@ -84,9 +86,23 @@ class TestBuildZoneEvidence:
         # ku_b: no signals -> not confirmed
         assert not evidence["ku_b"].is_confirmed
 
+    def test_entry_application_signal(self) -> None:
+        """(UserEntry)-[:APPLIES_KNOWLEDGE] engagement is the 4th evidence type (ADR-069)."""
+        service = ZPDService(backend=_make_backend())
+        evidence = service._build_zone_evidence(
+            current_zone=["ku_a"],
+            task_engaged=["ku_a"],
+            habit_engaged=[],
+            entry_engaged=["ku_a"],
+            submission_data=[],
+        )
+        assert evidence["ku_a"].entry_application
+        assert evidence["ku_a"].signal_count == 2  # task + entry
+        assert evidence["ku_a"].is_confirmed
+
     def test_empty_zone(self) -> None:
         service = ZPDService(backend=_make_backend())
-        evidence = service._build_zone_evidence([], [], [], [])
+        evidence = service._build_zone_evidence([], [], [], [], [])
         assert evidence == {}
 
 

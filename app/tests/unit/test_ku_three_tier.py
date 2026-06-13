@@ -54,7 +54,7 @@ class TestKuThreeTierRoundTrip:
             times_applied_in_tasks=5,
             times_practiced_in_events=3,
             times_built_into_habits=2,
-            journal_reflections_count=4,
+            times_reflected_in_entries=4,
             choices_informed_count=1,
             last_applied_date=now - timedelta(days=2),
             last_practiced_date=now - timedelta(days=5),
@@ -89,7 +89,7 @@ class TestKuThreeTierRoundTrip:
         assert ku.times_applied_in_tasks == 5
         assert ku.times_practiced_in_events == 3
         assert ku.times_built_into_habits == 2
-        assert ku.journal_reflections_count == 4
+        assert ku.times_reflected_in_entries == 4
         assert ku.choices_informed_count == 1
         # Substance timestamps
         assert ku.last_applied_date == dto.last_applied_date
@@ -126,7 +126,7 @@ class TestKuThreeTierRoundTrip:
         assert dto2.times_applied_in_tasks == dto.times_applied_in_tasks
         assert dto2.times_practiced_in_events == dto.times_practiced_in_events
         assert dto2.times_built_into_habits == dto.times_built_into_habits
-        assert dto2.journal_reflections_count == dto.journal_reflections_count
+        assert dto2.times_reflected_in_entries == dto.times_reflected_in_entries
         assert dto2.choices_informed_count == dto.choices_informed_count
         # Substance timestamps
         assert dto2.last_applied_date == dto.last_applied_date
@@ -272,14 +272,14 @@ class TestCurriculumDTOToDict:
             times_applied_in_tasks=3,
             times_practiced_in_events=2,
             times_built_into_habits=1,
-            journal_reflections_count=5,
+            times_reflected_in_entries=5,
             choices_informed_count=4,
         )
         d = dto.to_dict()
         assert d["times_applied_in_tasks"] == 3
         assert d["times_practiced_in_events"] == 2
         assert d["times_built_into_habits"] == 1
-        assert d["journal_reflections_count"] == 5
+        assert d["times_reflected_in_entries"] == 5
         assert d["choices_informed_count"] == 4
 
 
@@ -347,7 +347,7 @@ class TestCurriculumFieldSeparation:
             "times_applied_in_tasks",
             "times_practiced_in_events",
             "times_built_into_habits",
-            "journal_reflections_count",
+            "times_reflected_in_entries",
             "choices_informed_count",
             "last_applied_date",
             "last_practiced_date",
@@ -376,7 +376,7 @@ class TestCurriculumFieldSeparation:
             "times_applied_in_tasks",
             "times_practiced_in_events",
             "times_built_into_habits",
-            "journal_reflections_count",
+            "times_reflected_in_entries",
             "choices_informed_count",
             "last_applied_date",
             "last_practiced_date",

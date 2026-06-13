@@ -51,14 +51,25 @@ class TestZoneEvidence:
         assert ev.signal_count == 3
         assert ev.is_confirmed
 
+    def test_entry_application_signal(self) -> None:
+        """Entry reflection (ADR-069) counts as its own evidence type."""
+        ev = ZoneEvidence(ku_uid="ku_1", entry_application=True)
+        assert ev.signal_count == 1
+        assert not ev.is_confirmed
+
+        ev = ZoneEvidence(ku_uid="ku_1", entry_application=True, task_application=True)
+        assert ev.signal_count == 2
+        assert ev.is_confirmed
+
     def test_all_signals(self) -> None:
         ev = ZoneEvidence(
             ku_uid="ku_1",
             submission_count=2,
             habit_reinforcement=True,
             task_application=True,
+            entry_application=True,
         )
-        assert ev.signal_count == 3
+        assert ev.signal_count == 4
         assert ev.is_confirmed
 
 

@@ -91,6 +91,7 @@ def _wire_event_subscribers(
         KnowledgeBulkInformedChoice,
         KnowledgeInformedChoice,
         KnowledgePracticedInEvent,
+        KnowledgeReflectedInEntry,
     )
     from core.events.learning_loop_events import (
         ReportSubmitted,
@@ -397,6 +398,7 @@ def _wire_event_subscribers(
     event_bus.subscribe(KnowledgePracticedInEvent, ku_service.handle_knowledge_practiced_in_event)
     event_bus.subscribe(KnowledgeBuiltIntoHabit, ku_service.handle_knowledge_built_into_habit)
     event_bus.subscribe(KnowledgeInformedChoice, ku_service.handle_knowledge_informed_choice)
+    event_bus.subscribe(KnowledgeReflectedInEntry, ku_service.handle_knowledge_reflected_in_entry)
 
     # Subscribe to BATCH substance tracking events (O(1) vs O(n))
     event_bus.subscribe(
@@ -414,6 +416,7 @@ def _wire_event_subscribers(
     logger.info("   - KnowledgePracticedInEvent (weight: 0.05)")
     logger.info("   - KnowledgeBuiltIntoHabit (weight: 0.10, lifestyle integration)")
     logger.info("   - KnowledgeInformedChoice (weight: 0.07, decision-making)")
+    logger.info("   - KnowledgeReflectedInEntry (weight: 0.07, metacognition)")
     logger.info(
         "   - Bulk events: KnowledgeBulkAppliedInTask, KnowledgeBulkBuiltIntoHabit, KnowledgeBulkInformedChoice"
     )

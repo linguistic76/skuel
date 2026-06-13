@@ -16,7 +16,7 @@ Adds ~23 fields to Entity:
   learning_objectives, structured_learning_objectives
 - Substance tracking (10): 5 counters + 5 last-dates — tracks how knowledge is
   LIVED (applied in tasks, practiced in events, built into habits, reflected in
-  journals, informed choices). Data flows from Neo4j via event-driven fan-out:
+  entries, informed choices). Data flows from Neo4j via event-driven fan-out:
   KuBackend.increment_substance() writes to Ku nodes AND propagates to connected
   PathStep nodes via USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU relationships.
 - Cache (2): _cached_substance_score, _substance_cache_timestamp
@@ -63,7 +63,7 @@ class Curriculum(Entity):
     confidence is about content quality, substance is about user application.
 
     Substance: Tracks how knowledge is LIVED — applied in tasks, practiced in
-    events, built into habits, reflected in journals, informed choices. Data
+    events, built into habits, reflected in entries, informed choices. Data
     is written to Neo4j by event handlers and propagated from Ku nodes to
     connected PathStep nodes. See: /docs/architecture/knowledge_substance_philosophy.md
 
@@ -107,7 +107,7 @@ class Curriculum(Entity):
     times_applied_in_tasks: int = 0
     times_practiced_in_events: int = 0
     times_built_into_habits: int = 0
-    journal_reflections_count: int = 0
+    times_reflected_in_entries: int = 0
     choices_informed_count: int = 0
 
     last_applied_date: datetime | None = None
@@ -254,7 +254,7 @@ class Curriculum(Entity):
 
         Weighting:
             Habits  0.10/habit  (max 0.30) — lifestyle integration
-            Journals 0.07/entry (max 0.20) — metacognition
+            Entries 0.07/entry (max 0.20) — metacognition (reflection)
             Events  0.05/event  (max 0.25) — dedicated practice
             Tasks   0.05/task   (max 0.25) — practical application
             Choices 0.07/choice (max 0.15) — decision wisdom
@@ -285,9 +285,9 @@ class Curriculum(Entity):
             w = self._decay_weight(self.last_built_into_habit_date, now, half_life_days)
             score += min(0.30, self.times_built_into_habits * 0.10 * w)
 
-        if self.journal_reflections_count > 0:
+        if self.times_reflected_in_entries > 0:
             w = self._decay_weight(self.last_reflected_date, now, half_life_days)
-            score += min(0.20, self.journal_reflections_count * 0.07 * w)
+            score += min(0.20, self.times_reflected_in_entries * 0.07 * w)
 
         if self.times_practiced_in_events > 0:
             w = self._decay_weight(self.last_practiced_date, now, half_life_days)
@@ -336,8 +336,8 @@ class Curriculum(Entity):
             gaps.append("No events practice this knowledge")
         if self.times_built_into_habits == 0:
             gaps.append("Not built into any habits")
-        if self.journal_reflections_count == 0:
-            gaps.append("No journal reflections")
+        if self.times_reflected_in_entries == 0:
+            gaps.append("No reflective entries")
         if self.choices_informed_count == 0:
             gaps.append("Has not informed any choices/decisions")
         return gaps
@@ -390,7 +390,7 @@ class Curriculum(Entity):
         task_progress = min(1.0, (self.times_applied_in_tasks * 0.05) / 0.25)
         event_progress = min(1.0, (self.times_practiced_in_events * 0.05) / 0.25)
         habit_progress = min(1.0, (self.times_built_into_habits * 0.10) / 0.30)
-        journal_progress = min(1.0, (self.journal_reflections_count * 0.07) / 0.20)
+        entry_progress = min(1.0, (self.times_reflected_in_entries * 0.07) / 0.20)
         choice_progress = min(1.0, (self.choices_informed_count * 0.07) / 0.15)
 
         recommendations = []
@@ -410,10 +410,10 @@ class Curriculum(Entity):
                     "impact": "+0.10 substance per habit (max +0.30)",
                 }
             )
-        if "No journal reflections" in gaps:
+        if "No reflective entries" in gaps:
             recommendations.append(
                 {
-                    "type": "journal",
+                    "type": "entry",
                     "message": f"Reflect on your experience with: {self.title}",
                     "impact": "+0.07 substance per reflection (max +0.20)",
                 }
@@ -448,9 +448,9 @@ class Curriculum(Entity):
                     "progress": round(habit_progress, 2),
                     "max_score": 0.30,
                 },
-                "journals": {
-                    "count": self.journal_reflections_count,
-                    "progress": round(journal_progress, 2),
+                "entries": {
+                    "count": self.times_reflected_in_entries,
+                    "progress": round(entry_progress, 2),
                     "max_score": 0.20,
                 },
                 "choices": {

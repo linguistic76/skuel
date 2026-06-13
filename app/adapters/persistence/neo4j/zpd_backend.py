@@ -43,9 +43,11 @@ _ZONE_QUERY = """
 MATCH (u:User {uid: $user_uid})
 OPTIONAL MATCH (u)-[:OWNS]->(t:Entity {entity_type: 'task'})-[:APPLIES_KNOWLEDGE]->(applied_t:Entity)
 OPTIONAL MATCH (u)-[:OWNS]->(h:Entity {entity_type: 'habit'})-[:REINFORCES_KNOWLEDGE]->(applied_h:Entity)
+OPTIONAL MATCH (u)-[:OWNS]->(ue:Entity:UserEntry)-[:APPLIES_KNOWLEDGE]->(applied_e:Entity)
 WITH u,
      collect(DISTINCT applied_t) AS task_applied_nodes,
-     collect(DISTINCT applied_h) AS habit_applied_nodes
+     collect(DISTINCT applied_h) AS habit_applied_nodes,
+     collect(DISTINCT applied_e) AS entry_applied_nodes
 // GRAIN CAVEAT: engaged_uids below is atomic Ku grain — correct for current-zone
 // evidence (ZoneEvidence) and the Ku↔Ku PREREQUISITE_FOR readiness traversal.
 // The LP traversal (Step 2 path-next, Step 4 engaged_paths) matches engaged_uids
@@ -57,19 +59,22 @@ WITH u,
      [n IN task_applied_nodes WHERE n:Ku | n.uid] +
      reduce(acc = [], p IN task_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS task_engaged_raw,
      [n IN habit_applied_nodes WHERE n:Ku | n.uid] +
-     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS habit_engaged_raw
+     reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS habit_engaged_raw,
+     [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
+     reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS entry_engaged_raw
 WITH u,
      [uid IN task_engaged_raw WHERE uid IS NOT NULL | uid] AS task_engaged_uids,
-     [uid IN habit_engaged_raw WHERE uid IS NOT NULL | uid] AS habit_engaged_uids
+     [uid IN habit_engaged_raw WHERE uid IS NOT NULL | uid] AS habit_engaged_uids,
+     [uid IN entry_engaged_raw WHERE uid IS NOT NULL | uid] AS entry_engaged_uids
 
 // Combine all engaged UIDs (deduplicated via UNWIND + DISTINCT, no APOC)
 CALL {
-    WITH task_engaged_uids, habit_engaged_uids
-    UNWIND (task_engaged_uids + habit_engaged_uids) AS uid
+    WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids
+    UNWIND (task_engaged_uids + habit_engaged_uids + entry_engaged_uids) AS uid
     WITH DISTINCT uid WHERE uid IS NOT NULL
     RETURN collect(uid) AS engaged_uids
 }
-WITH u, task_engaged_uids, habit_engaged_uids, engaged_uids
+WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
@@ -79,12 +84,12 @@ OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Ent
 OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
 WHERE (lp)-[:ORGANIZES]->(:Entity {uid: engaged_uid})
 
-WITH task_engaged_uids, habit_engaged_uids, engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
      collect(DISTINCT next.uid) + collect(DISTINCT adj.uid) + collect(DISTINCT path_next.uid)
      AS candidate_uids_raw
 
 // Proximal = adjacent candidates NOT already in current zone, and non-null
-WITH task_engaged_uids, habit_engaged_uids, engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
      [uid IN candidate_uids_raw
       WHERE uid IS NOT NULL AND NOT uid IN engaged_uids] AS proximal_uids
 
@@ -93,13 +98,13 @@ WITH task_engaged_uids, habit_engaged_uids, engaged_uids,
 // are in the current zone
 UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS proximal_uid
 OPTIONAL MATCH (prox:Entity {uid: proximal_uid})<-[:PREREQUISITE_FOR]-(prereq:Entity)
-WITH task_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
      engaged_uids, proximal_uids,
      proximal_uid,
      count(prereq) AS total_prereqs,
      count(CASE WHEN prereq.uid IN engaged_uids THEN 1 END) AS met_prereqs
 
-WITH task_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
      engaged_uids, proximal_uids,
      collect({
          ku_uid: proximal_uid,
@@ -113,7 +118,7 @@ WITH task_engaged_uids, habit_engaged_uids,
 // when LP data lands, match against the original PathStep target uids instead.
 OPTIONAL MATCH (lp:Entity {entity_type: 'learning_path'})-[:ORGANIZES]->(step:Entity)
 WHERE step.uid IN engaged_uids
-WITH task_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
      engaged_uids, proximal_uids, prereq_data,
      collect(DISTINCT lp.uid) AS engaged_path_uids
 
@@ -124,7 +129,7 @@ UNWIND CASE WHEN size(proximal_uids) = 0 THEN [null] ELSE proximal_uids END AS p
 OPTIONAL MATCH (p:Entity {uid: p_uid})<-[:PREREQUISITE_FOR]-(gap:Entity)
 WHERE gap.uid IS NOT NULL AND NOT gap.uid IN engaged_uids
 
-WITH task_engaged_uids, habit_engaged_uids,
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
      engaged_uids, proximal_uids, prereq_data, engaged_path_uids,
      collect(DISTINCT gap.uid) AS blocking_gap_uids
 
@@ -146,6 +151,7 @@ RETURN
     blocking_gap_uids  AS blocking_gaps,
     task_engaged_uids  AS task_engaged,
     habit_engaged_uids AS habit_engaged,
+    entry_engaged_uids AS entry_engaged,
     submission_data    AS submission_data
 LIMIT 1
 """
@@ -175,6 +181,14 @@ WITH u, task_engaged_uids,
      reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
      AS habit_engaged_uids
 
+// Entry engagement — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku), ADR-069
+OPTIONAL MATCH (u)-[:OWNS]->(ue:Entity:UserEntry)-[:APPLIES_KNOWLEDGE]->(applied_e:Entity)
+WITH u, task_engaged_uids, habit_engaged_uids, collect(DISTINCT applied_e) AS entry_applied_nodes
+WITH u, task_engaged_uids, habit_engaged_uids,
+     [n IN entry_applied_nodes WHERE n:Ku AND n.uid IN $ku_uids | n.uid] +
+     reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) WHERE k.uid IN $ku_uids | k.uid])
+     AS entry_engaged_uids
+
 // Submission scores for target KUs
 CALL {
     WITH u
@@ -187,6 +201,7 @@ CALL {
 RETURN
     task_engaged_uids    AS task_engaged,
     habit_engaged_uids   AS habit_engaged,
+    entry_engaged_uids   AS entry_engaged,
     submission_data      AS submission_data
 LIMIT 1
 """
@@ -226,7 +241,7 @@ class ZPDBackend:
 
     async def get_targeted_ku_engagement(
         self, user_uid: UserUID, ku_uids: list[str]
-    ) -> Result[tuple[list[str], list[str], list[SubmissionScore]]]:
+    ) -> Result[tuple[list[str], list[str], list[str], list[SubmissionScore]]]:
         """Fetch engagement data for specific KU UIDs only.
 
         Lightweight alternative to get_zone_data() — queries only the target
@@ -237,10 +252,11 @@ class ZPDBackend:
             Result containing a tuple of:
                 - task_engaged: KU UIDs engaged via tasks
                 - habit_engaged: KU UIDs engaged via habits
+                - entry_engaged: KU UIDs engaged via user entries (ADR-069)
                 - submission_data: Submission scores per KU
         """
         if not ku_uids:
-            return Result.ok(([], [], []))
+            return Result.ok(([], [], [], []))
 
         try:
             records, _, _ = await self._driver.execute_query(
@@ -257,18 +273,19 @@ class ZPDBackend:
             )
 
         if not records:
-            return Result.ok(([], [], []))
+            return Result.ok(([], [], [], []))
 
         row = records[0]
         task_engaged: list[str] = list(row.get("task_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
+        entry_engaged: list[str] = list(row.get("entry_engaged") or [])
         # boundary: Neo4j Record row shape is fixed by the RETURN projection
         # in _TARGETED_KU_ENGAGEMENT_QUERY's submission_data collect{...}.
         submission_data: list[SubmissionScore] = [
             cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
         ]
 
-        return Result.ok((task_engaged, habit_engaged, submission_data))
+        return Result.ok((task_engaged, habit_engaged, entry_engaged, submission_data))
 
     async def get_zone_data(
         self, user_uid: UserUID
@@ -278,6 +295,7 @@ class ZPDBackend:
             list[str],
             list[str],
             list[PrereqCount],
+            list[str],
             list[str],
             list[str],
             list[str],
@@ -295,6 +313,7 @@ class ZPDBackend:
                 - blocking_gaps: Prerequisite KU UIDs not yet met
                 - task_engaged: KU UIDs engaged via tasks
                 - habit_engaged: KU UIDs engaged via habits
+                - entry_engaged: KU UIDs engaged via user entries (ADR-069)
                 - submission_data: Submission scores per KU
         """
         try:
@@ -309,7 +328,7 @@ class ZPDBackend:
             )
 
         if not records:
-            return Result.ok(([], [], [], [], [], [], [], []))
+            return Result.ok(([], [], [], [], [], [], [], [], []))
 
         row = records[0]
         current_zone: list[str] = list(row.get("current_zone") or [])
@@ -323,6 +342,7 @@ class ZPDBackend:
         ]
         task_engaged: list[str] = list(row.get("task_engaged") or [])
         habit_engaged: list[str] = list(row.get("habit_engaged") or [])
+        entry_engaged: list[str] = list(row.get("entry_engaged") or [])
         submission_data: list[SubmissionScore] = [
             cast("SubmissionScore", item) for item in (row.get("submission_data") or [])
         ]
@@ -336,6 +356,7 @@ class ZPDBackend:
                 blocking_gaps,
                 task_engaged,
                 habit_engaged,
+                entry_engaged,
                 submission_data,
             )
         )

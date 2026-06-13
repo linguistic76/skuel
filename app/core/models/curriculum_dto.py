@@ -69,7 +69,7 @@ class CurriculumDTO(EntityDTO):
     times_applied_in_tasks: int = 0
     times_practiced_in_events: int = 0
     times_built_into_habits: int = 0
-    journal_reflections_count: int = 0
+    times_reflected_in_entries: int = 0
     choices_informed_count: int = 0
 
     last_applied_date: datetime | None = None
@@ -180,7 +180,7 @@ class CurriculumDTO(EntityDTO):
                 "times_applied_in_tasks",
                 "times_practiced_in_events",
                 "times_built_into_habits",
-                "journal_reflections_count",
+                "times_reflected_in_entries",
                 "choices_informed_count",
                 "last_applied_date",
                 "last_practiced_date",

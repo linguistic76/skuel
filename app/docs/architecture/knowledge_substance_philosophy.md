@@ -26,7 +26,7 @@ Path Steps (ps) - curated knowledge + practice bundles
     ↑ built from
 Kus (atomic knowledge units, composed into PathSteps via USES_KU)
     ↕ BIDIRECTIONAL enrichment
-Supporting Domains - tasks, events, habits, journals, choices, principles
+Supporting Domains - tasks, events, habits, entries, choices, principles
 ```
 
 **Philosophy:** Everything in SKUEL ultimately flows toward your life path — the ONE ultimate vision of who you want to become.
@@ -47,7 +47,7 @@ Supporting Domains - tasks, events, habits, journals, choices, principles
 - Tasks give knowledge substance (practical application)
 - Events provide practice opportunities (repetition)
 - Habits integrate knowledge into lifestyle (automaticity)
-- Journals demonstrate metacognition (reflection)
+- Entries demonstrate metacognition (reflection)
 - Choices show decision-making capacity (judgment)
 
 **Implementation:** Event-driven architecture enables this bidirectionality without coupling.
@@ -109,7 +109,7 @@ When Ku or PathStep models are constructed from Neo4j (`from_neo4j_node()`), the
 | Type | Weight per Instance | Max Contribution | Rationale |
 |------|-------------------|------------------|-----------|
 | **Habits** | 0.10 | 0.30 (3 habits) | Lifestyle integration = highest substance |
-| **Journals** | 0.07 | 0.20 (3 reflections) | Metacognition = deep understanding |
+| **Entries (reflection)** | 0.07 | 0.20 (3 reflections) | Metacognition = deep understanding |
 | **Choices** | 0.07 | 0.15 (2 decisions) | Decision-making = practical wisdom |
 | **Principles** | 0.07 | 0.15 (2 principles) | Value embodiment = living by knowledge |
 | **Events** | 0.05 | 0.25 (5 events) | Practice = embodiment |
@@ -188,7 +188,7 @@ Based on substance score:
 | **Event** | `connections.applies_knowledge` | `APPLIES_KNOWLEDGE` | Events (0.05/event, max 0.25) |
 | **Choice** | `connections.informed_by_knowledge` | `INFORMED_BY_KNOWLEDGE` | Choices (0.07/choice, max 0.15) |
 | **Principle** | `connections.grounded_in_knowledge` | `GROUNDED_IN_KNOWLEDGE` | Principles (0.07/principle, max 0.15) |
-| **Journal** | *(deferred)* | — | Journals (0.07/entry, max 0.20) |
+| **UserEntry** | *(extraction-driven — `EXTRACT_ACTIVITIES` pipeline, not YAML)* | `APPLIES_KNOWLEDGE` | Entries (0.07/entry, max 0.20) |
 
 ### Examples
 
@@ -320,6 +320,7 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 | Event | `KnowledgePracticedInEvent` | *(always single — events link one KU at a time)* |
 | Habit | `KnowledgeBuiltIntoHabit` | `KnowledgeBulkBuiltIntoHabit` |
 | Choice | `KnowledgeInformedChoice` | `KnowledgeBulkInformedChoice` |
+| UserEntry | `KnowledgeReflectedInEntry` | *(always single — published per APPLIES_KNOWLEDGE edge write)* |
 
 ### 1. KnowledgeAppliedInTask / KnowledgeBulkAppliedInTask
 - **Increments:** `times_applied_in_tasks`
@@ -347,7 +348,14 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Published by:** `ChoicesCoreService` — single when 1 KU, bulk when 2+
 - **Rationale:** Applying knowledge to real decisions demonstrates practical wisdom
 
-> **Journal channel (not yet implemented):** The substance philosophy reserves weight 0.07 (max 0.20) for journal reflections. No `KnowledgeReflectedInJournal` event exists yet — the Journal domain uses a separate submission pipeline. Implement when UserEntry journal processing is wired to substance tracking.
+### 5. KnowledgeReflectedInEntry
+- **Increments:** `times_reflected_in_entries`
+- **Updates:** `last_reflected_date`
+- **Weight:** 0.07 per entry (max 0.20)
+- **Published by:** `UserEntryProcessingService` — once per successful
+  `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` edge write in the `EXTRACT_ACTIVITIES`
+  pipeline (ADR-069)
+- **Rationale:** Written reflection is metacognition — consciously processing the knowledge
 
 ---
 
@@ -373,7 +381,7 @@ task_uids = [uid for uid, ku_list in user_context.task_knowledge_applied.items()
              if ku_uid in ku_list]
 habit_uids = [uid for uid, ku_list in user_context.habit_knowledge_applied.items()
               if ku_uid in ku_list]
-# ... same for events, choices, principles
+# ... same for events, choices, principles, entries
 
 # Calculate user's substance score (6 channels, capped at 1.0)
 task_score = min(0.25, len(task_uids) * 0.05)
@@ -395,12 +403,13 @@ user_substance_score = min(1.0, sum_of_scores)
 
 ### UserContext Knowledge Fields
 
-All 6 activity channels tracked (journals deferred — submissions, not activities):
+All 6 channels tracked:
 - `task_knowledge_applied` - Tasks applying KU
 - `habit_knowledge_applied` - Habits reinforcing KU
 - `event_knowledge_applied` - Events practicing KU
 - `choice_knowledge_informed` - Choices informed by KU
 - `principle_knowledge_grounded` - Principles grounded in KU
+- `entry_knowledge_applied` - UserEntries reflecting on KU (EXTRACT_ACTIVITIES, ADR-069)
 
 ---
 
@@ -421,7 +430,7 @@ All 6 activity channels tracked (journals deferred — submissions, not activiti
 |-----------|----------|---------|
 | **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class |
 | **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition |
-| **Domain Events** | `/core/events/knowledge_substance_events.py` | 8 substance events (4 channels × single + bulk) |
+| **Domain Events** | `/core/events/knowledge_substance_events.py` | 9 substance events (5 channels; task/habit/choice also have bulk forms) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
 | **Backend Write** | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | `KuBackend.increment_substance()` + PathStep fan-out |
 | **Event Wiring** | `/services_bootstrap/_event_wiring.py` | Subscribe PsService to substance events |
@@ -439,7 +448,7 @@ All 6 activity channels tracked (journals deferred — submissions, not activiti
 
 ### Why weighted scoring?
 - Not all practice demonstrates equal understanding
-- Habits > Journals > Tasks reflects ontological hierarchy
+- Habits > Entries > Tasks reflects ontological hierarchy
 - Lifestyle integration > metacognition > application
 
 ### Why time decay?

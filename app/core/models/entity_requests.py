@@ -233,7 +233,7 @@ class EntityResponse(ResponseBase):
     times_applied_in_tasks: int = 0
     times_practiced_in_events: int = 0
     times_built_into_habits: int = 0
-    journal_reflections_count: int = 0
+    times_reflected_in_entries: int = 0
     choices_informed_count: int = 0
 
     # Scheduling
@@ -359,7 +359,7 @@ class EntityResponse(ResponseBase):
             times_applied_in_tasks=dto.times_applied_in_tasks,
             times_practiced_in_events=dto.times_practiced_in_events,
             times_built_into_habits=dto.times_built_into_habits,
-            journal_reflections_count=dto.journal_reflections_count,
+            times_reflected_in_entries=dto.times_reflected_in_entries,
             choices_informed_count=dto.choices_informed_count,
             # Scheduling
             due_date=dto.due_date,
