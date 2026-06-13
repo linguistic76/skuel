@@ -663,8 +663,6 @@ def test_live_known_dead_events_are_flagged(live_analysis):
     # entry alongside the dead event when it is removed.
     _, _, findings = live_analysis
     for event in [
-        "ExerciseCreated",
-        "ExerciseSubmitted",
         "PrerequisitesAnalyzed",
     ]:
         finding = finding_for(findings, event)

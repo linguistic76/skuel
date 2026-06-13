@@ -617,15 +617,6 @@ class ExerciseService(BaseService):
     # DELETE
     # ========================================================================
 
-    @with_error_handling("delete_exercise", error_type="database")
-    async def delete_exercise(self, uid: str) -> Result[bool]:
-        """Delete an Exercise."""
-        result = await self.backend.delete(uid)
-        if result.is_error:
-            return result
-        self.logger.info(f"Exercise deleted: {uid}")
-        return Result.ok(True)
-
     async def deactivate_exercise(self, uid: str) -> Result[Exercise]:
         """Soft-delete by archiving exercise."""
         updates: dict[str, Any] = {
