@@ -107,9 +107,10 @@ class ActivityReportService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
-        # Publish audit event so the subject_uid can see when their data was accessed.
-        # This enables the privacy audit endpoint (GET /api/privacy/audit) to surface
-        # admin access history to the subject user. See ADR-042.
+        # Publish audit event so the subject_uid can later see when their data was accessed.
+        # This is the producer feeding the staged privacy-transparency surface
+        # (get_privacy_summary, PLANNED tier per ADR-069 §3); a /privacy route + UI will
+        # surface this admin access history to the subject user. See ADR-042.
         event = ActivitySnapshotAccessed(
             subject_uid=subject_uid,
             admin_uid=admin_uid,
