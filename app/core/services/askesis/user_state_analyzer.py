@@ -34,9 +34,6 @@ from core.constants import ConfidenceLevel
 from core.models.enums import Domain
 from core.services.askesis.state_scoring import (
     calculate_domain_balance,
-    calculate_momentum,
-    find_key_blocker,
-    score_current_state,
 )
 from core.services.askesis.types import (
     AskesisAnalysis,
@@ -467,18 +464,6 @@ class UserStateAnalyzer:
     # ========================================================================
     # PRIVATE - STATE SCORING
     # ========================================================================
-
-    def _score_current_state(self, user_context: UserContext) -> float:
-        """Delegate to pure function. See state_scoring.score_current_state for details."""
-        return score_current_state(user_context)
-
-    def _find_key_blocker(self, user_context: UserContext) -> str | None:
-        """Delegate to pure function. See state_scoring.find_key_blocker for details."""
-        return find_key_blocker(user_context)
-
-    def _calculate_momentum(self, user_context: UserContext) -> float:
-        """Delegate to pure function. See state_scoring.calculate_momentum for details."""
-        return calculate_momentum(user_context)
 
     def _calculate_domain_balance(self, user_context: UserContext) -> float:
         """Delegate to pure function. See state_scoring.calculate_domain_balance for details."""

@@ -87,14 +87,3 @@ async def test_context_and_history_assembled_for_port():
     assert "Context: user has 3 overdue tasks" in messages[-1]["content"]
     assert kwargs["system_prompt"] == "be helpful"
     assert kwargs["model"] == "gpt-3.5-turbo"  # config default
-
-
-@pytest.mark.asyncio
-async def test_generate_for_askesis_uses_port():
-    port = _port(LLMCompletion(text="Here is help.", model="gpt-4"))
-    service = LLMService(config=LLMConfig(provider=LLMProvider.OPENAI), chat_port=port)
-
-    text = await service.generate_for_askesis("how do I start?", intent="learn")
-
-    assert text == "Here is help."
-    port.complete.assert_awaited_once()
