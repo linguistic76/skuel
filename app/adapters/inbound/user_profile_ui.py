@@ -259,7 +259,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                 Div(
                     A(
                         title,
-                        href=f"/entry-reports?uid={uid}",
+                        href=f"/entry-reports/detail?uid={uid}",
                         cls="text-sm font-medium text-foreground hover:text-primary truncate",
                     ),
                     Span(
