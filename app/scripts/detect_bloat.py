@@ -419,8 +419,48 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
     "UserContext→relevant-KU discovery entry point; wire instance-aware intelligence "
     "routes + a 'relevant knowledge for you' recommendation (Mike ruled PLANNED 2026-06-13)"
 )
+# Shared BaseService-mixin dead-code campaign (2026-06-13, campaign 16): the 6
+# common mixins (ConversionHelpers, CRUD, Search, Relationships, TimeQuery,
+# Context) are inherited by all domains, so a flagged base-mixin method is
+# genuinely uncalled across every inheritor (Vulture name-collision would have
+# masked any same-named call). Two pure-plumbing helpers were DELETED (live
+# winners exist: inline None-guard / standalone from_domain_model fn); these
+# three are feature-shaped surfaces with no superseded loser.
+_MIXIN_PREREQUISITE_WRITE = (
+    "config-driven prerequisite-write half staged — the write twin of the LIVE "
+    "get_prerequisites/get_enables read pair (PsService + GraphQL curriculum "
+    "traversal, both read via the domain's _prerequisite_relationships config). "
+    "No superseded loser: add_relationship is the primitive it composes, and the "
+    "lateral create_lateral_relationship writes a route-chosen RelationshipName, "
+    "not via the domain prereq config; live prereq edges currently come only from "
+    "ingestion (Edge YAML). Wire a prerequisite-edit control on entity detail "
+    "pages (Mike ruled PLANNED 2026-06-13)"
+)
+_MIXIN_GENERIC_HIERARCHY = (
+    "generic parents/children hierarchy read staged — the base-mixin entry point "
+    "over backend.hierarchy_query_raw (whose only caller is this method); the "
+    "per-domain get_*_hierarchy methods use the richer get_hierarchy_raw and are "
+    "themselves PLANNED, and campaign-14's get_hierarchical_children is the "
+    "curriculum multi-hop twin. No live consumer of either; wire a hierarchy "
+    "explorer/breadcrumb consuming the unified surface (Mike ruled PLANNED 2026-06-13)"
+)
+_MIXIN_ARRAY_SEARCH = (
+    "generic array-field search staged — the 'any array field contains value' "
+    "generalization of the live search_by_tags (which covers the tags case); no "
+    "production caller, in the same unwired-search-surface family as the PLANNED "
+    "intelligent_search NL entry point. Wire a faceted array-field filter or fold "
+    "into the search box (Mike ruled PLANNED 2026-06-13)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
+    # --- Shared BaseService mixins (campaign 16) ---
+    "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
+        _MIXIN_PREREQUISITE_WRITE
+    ),
+    "core/services/mixins/relationship_operations_mixin.py::get_hierarchy": (
+        _MIXIN_GENERIC_HIERARCHY
+    ),
+    "core/services/mixins/search_operations_mixin.py::search_array_field": _MIXIN_ARRAY_SEARCH,
     # --- Habits: due-today machinery ---
     "core/services/habits_service.py::get_habits_due_today": _HABITS_DUE_TODAY,
     "core/services/habits_service.py::get_all_habits_due_today": _HABITS_DUE_TODAY,

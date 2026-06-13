@@ -204,7 +204,7 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 
 | Mixin | Location | Responsibility |
 |-------|----------|----------------|
-| `ConversionHelpersMixin` | `mixins/conversion_helpers_mixin.py` | DTO conversion, `_to_domain_model`, `_ensure_exists` |
+| `ConversionHelpersMixin` | `mixins/conversion_helpers_mixin.py` | DTO conversion, `_to_domain_model`, `_create_and_convert` |
 | `CrudOperationsMixin` | `mixins/crud_operations_mixin.py` | `create`, `get`, `update`, `delete`, `verify_ownership` + pre-validation hooks (`_validate_create`, `_validate_update`) + post-lifecycle hooks (`_post_create`, `_post_update`, `_post_delete`) |
 | `SearchOperationsMixin` | `mixins/search_operations_mixin.py` | `search`, `get_by_status`, `graph_aware_faceted_search` |
 | `RelationshipOperationsMixin` | `mixins/relationship_operations_mixin.py` | `add_relationship`, `traverse`, `get_prerequisites` |
