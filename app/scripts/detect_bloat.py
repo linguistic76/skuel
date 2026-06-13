@@ -383,6 +383,42 @@ _RELATIONSHIPS_LINK_GEN = (
     "extended_config/DomainRelationships unadopted-apparatus forward thread) "
     "(Mike ruled PLANNED 2026-06-13)"
 )
+# Askesis dead-code campaign (2026-06-13): Askesis is a LIVE subsystem (the
+# answer_user_question conversation pipeline is wired to /api/askesis/ask and
+# /askesis/api/submit), but its instance-persistence/management layer and several
+# AI/citation/context lenses were never wired. Flagship-maintained direction
+# (feedback: Askesis = ZPD-aware companion) — staged, not deleted.
+_ASKESIS_INSTANCE_MANAGEMENT = (
+    "askesis instance persistence/management surface staged — the live conversation "
+    "flow only uses get_or_create_for_user (auto-create) + in-memory ConversationContext; "
+    "the explicit-create (configured AskesisCreateRequest), settings-update, delete, "
+    "multi-instance listing, and conversation-metrics-persist half was never wired. "
+    "No superseded loser — these back the placeholder /askesis/settings form (no persist), "
+    "/askesis/history, and /askesis/analytics ('coming soon') UIs. Wire settings "
+    "persistence + conversation-history/analytics consumers (Mike ruled PLANNED 2026-06-13)"
+)
+_ASKESIS_AI_INSIGHTS = (
+    "askesis behavioral-insight surface staged — AskesisAIService.get_behavioral_insights "
+    "returns placeholder discipline/willpower analysis with no live caller (sibling of the "
+    "task/goal/habit get_behavioral_insights surfaces, all PLANNED); wire real "
+    "discipline-pattern analysis + an insights panel or Askesis consumer "
+    "(Mike ruled PLANNED 2026-06-13)"
+)
+_ASKESIS_CITATION_QUALITY = (
+    "askesis citation-quality lens staged — the live citation path is "
+    "format_citations_for_askesis → get_citations_for_knowledge_unit (query_processor); "
+    "the evidence-count-filtered 'well-supported' selector and the citation-quality "
+    "analyzer are unwired lenses over that live bundle with no caller; wire a "
+    "citation-quality display / 'well-supported sources' filter (Mike ruled PLANNED 2026-06-13)"
+)
+_ASKESIS_CONTEXT_ORCHESTRATION = (
+    "askesis context-orchestration surface staged — load_askesis_context centralises the "
+    "get_askesis → get_rich_unified_context bundle (AskesisContext) for instance-aware "
+    "intelligence API routes that were never wired (the live pipeline loads UserContext "
+    "inline, instance-free), and find_relevant_from_user_context is the unwired "
+    "UserContext→relevant-KU discovery entry point; wire instance-aware intelligence "
+    "routes + a 'relevant knowledge for you' recommendation (Mike ruled PLANNED 2026-06-13)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -755,6 +791,30 @@ PLANNED_METHODS: dict[str, str] = {
     # --- Relationships: config-driven typed-link-method generation ---
     "core/services/relationships/extended_config.py::get_link_method_by_target": (
         _RELATIONSHIPS_LINK_GEN
+    ),
+    # --- Askesis: instance persistence/management surface ---
+    "core/services/askesis/askesis_core_service.py::create_askesis": (_ASKESIS_INSTANCE_MANAGEMENT),
+    "core/services/askesis/askesis_core_service.py::update_askesis": (_ASKESIS_INSTANCE_MANAGEMENT),
+    "core/services/askesis/askesis_core_service.py::delete_askesis": (_ASKESIS_INSTANCE_MANAGEMENT),
+    "core/services/askesis/askesis_core_service.py::list_user_instances": (
+        _ASKESIS_INSTANCE_MANAGEMENT
+    ),
+    "core/services/askesis/askesis_core_service.py::record_conversation": (
+        _ASKESIS_INSTANCE_MANAGEMENT
+    ),
+    # --- Askesis: behavioral-insight surface ---
+    "core/services/askesis_ai_service.py::get_behavioral_insights": _ASKESIS_AI_INSIGHTS,
+    # --- Askesis: citation-quality lenses ---
+    "core/services/askesis_citation_service.py::get_well_supported_citations": (
+        _ASKESIS_CITATION_QUALITY
+    ),
+    "core/services/askesis_citation_service.py::analyze_citation_quality": (
+        _ASKESIS_CITATION_QUALITY
+    ),
+    # --- Askesis: context-orchestration surface ---
+    "core/services/askesis_service.py::load_askesis_context": _ASKESIS_CONTEXT_ORCHESTRATION,
+    "core/services/askesis_service.py::find_relevant_from_user_context": (
+        _ASKESIS_CONTEXT_ORCHESTRATION
     ),
 }
 
