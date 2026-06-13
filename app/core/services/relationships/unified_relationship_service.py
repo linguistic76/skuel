@@ -577,56 +577,6 @@ class UnifiedRelationshipService[
         return Result.ok(total_created)
 
     # =========================================================================
-    # DOMAIN RELATIONSHIPS FETCHING
-    # =========================================================================
-    # These methods support the TaskRelationships/GoalRelationships pattern
-    # by providing parallel fetching of all relationship UIDs.
-
-    @with_error_handling("fetch_all_relationships", error_type="database", uid_param="entity_uid")
-    async def fetch_all_relationships(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[dict[str, list[str]]]:
-        """
-        Fetch all relationship UIDs for an entity in parallel.
-
-        This method supports the domain relationships pattern (TaskRelationships,
-        GoalRelationships, etc.) by fetching all configured relationships
-        in a single parallel operation.
-
-        Args:
-            entity_uid: Entity UID
-
-        Returns:
-            Result containing dict of {relationship_key: [uids]}
-
-        Example:
-            rels = await service.fetch_all_relationships("task:123")
-            # rels.value = {
-            #     "knowledge": ["ku:1", "ku:2"],
-            #     "principles": ["principle:1"],
-            #     "subtasks": ["task:456", "task:789"],
-            # }
-        """
-        import asyncio
-
-        # Build list of relationship keys to fetch
-        all_keys = self.config.get_all_relationship_methods()
-
-        # Create coroutines for parallel execution
-        coroutines = [self.get_related_uids(key, entity_uid) for key in all_keys]
-
-        # Execute all in parallel
-        results = await asyncio.gather(*coroutines)
-
-        # Build result dict
-        data: dict[str, list[str]] = {}
-        for key, result in zip(all_keys, results, strict=False):
-            data[key] = result.value if result.is_ok else []
-
-        return Result.ok(data)
-
-    # =========================================================================
     # USER CONTEXT PLANNING METHODS
     # =========================================================================
     # These methods leverage UserContext (~240 fields) for personalized queries.
