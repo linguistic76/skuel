@@ -294,10 +294,8 @@ class TestProtocolComplianceExamples:
 
         # But it still has all the protocol methods
         protocol_methods = [
-            "_ensure_exists",
             "_to_domain_model",
             "_to_domain_models",
-            "_from_domain_model",
             "_records_to_domain_models",
             "_validate_required_user_uid",
             "_create_and_convert",

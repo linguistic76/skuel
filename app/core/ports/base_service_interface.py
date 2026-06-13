@@ -122,25 +122,6 @@ class ConversionOperations(Protocol[T]):
     Updated: 2026-01-29 - Signatures now match actual mixin implementation.
     """
 
-    def _ensure_exists(
-        self,
-        result: Result[T | None],
-        resource_name: str,
-        identifier: str,
-    ) -> Result[T]:
-        """
-        Convert Result[T | None] to Result[T] with proper null safety.
-
-        Args:
-            result: Result that might contain None
-            resource_name: Human-readable resource type (e.g., "MOC", "Task")
-            identifier: Resource identifier for error message
-
-        Returns:
-            Result[T] - guaranteed non-null value or error
-        """
-        ...
-
     def _to_domain_model(
         self,
         data: Any,
@@ -176,19 +157,6 @@ class ConversionOperations(Protocol[T]):
 
         Returns:
             List of domain model instances
-        """
-        ...
-
-    def _from_domain_model(self, model: T, dto_class: type) -> Any:
-        """
-        Convert domain model to DTO for backend operations.
-
-        Args:
-            model: Domain model instance
-            dto_class: Target DTO class
-
-        Returns:
-            DTO instance
         """
         ...
 
