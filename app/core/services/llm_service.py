@@ -200,56 +200,6 @@ class LLMService:
 
         return LLMResponse(content=content, provider=LLMProvider.MOCK, model="mock-model")
 
-    async def generate_for_askesis(
-        self,
-        query: str,
-        search_results: list[dict] | None = None,
-        conversation_history: list[dict] | None = None,
-        intent: str | None = None,
-    ) -> str:
-        """
-        Generate a response specifically for Askesis chat.
-
-        Args:
-            query: User's query,
-            search_results: Search results to incorporate,
-            conversation_history: Previous messages,
-            intent: Detected user intent
-
-        Returns:
-            Generated response text
-        """
-        # Build context from search results
-        context = ""
-        if search_results:
-            context = "Search Results:\n"
-            for i, result in enumerate(search_results[:3], 1):
-                if isinstance(result, dict):
-                    title = result.get("title", "Untitled")
-                    summary = result.get("summary", result.get("description", ""))
-                    context += f"{i}. {title}: {summary}\n"
-
-        # Build conversation context
-        if conversation_history:
-            context += "\n\nConversation History:\n"
-            for msg in conversation_history[-3:]:  # Last 3 messages
-                role = msg.get("role", "unknown")
-                content = msg.get("content", "")[:100]
-                context += f"{role}: {content}...\n"
-
-        # Create system prompt based on intent
-        system_prompt = self._get_askesis_system_prompt(intent)
-
-        # Generate response
-        response = await self.generate(
-            prompt=query, context=context, system_prompt=system_prompt, temperature=0.7
-        )
-
-        if response.error:
-            return f"I understand you're asking about '{query}'. Let me help you explore this topic based on the available information."
-
-        return response.content
-
     async def generate_context_aware_answer(
         self,
         query: str,
@@ -421,33 +371,3 @@ class LLMService:
                 context_lines.append(f"{formatted_key}: {value}")
 
         return "\n".join(context_lines)
-
-    def _get_askesis_system_prompt(self, intent: str | None) -> str:
-        """Get appropriate system prompt for Askesis based on intent."""
-        base_prompt = "You are Askesis, a helpful learning assistant. "
-
-        if intent == "learn":
-            return (
-                base_prompt
-                + "Explain concepts clearly and provide educational value. Be thorough but accessible."
-            )
-        elif intent == "practice":
-            return (
-                base_prompt
-                + "Provide practical exercises and hands-on guidance. Be encouraging and supportive."
-            )
-        elif intent == "explore":
-            return (
-                base_prompt
-                + "Help the user discover connections and explore topics broadly. Be curious and insightful."
-            )
-        elif intent == "clarify":
-            return (
-                base_prompt
-                + "Clarify confusion and provide clear explanations. Be patient and thorough."
-            )
-        else:
-            return (
-                base_prompt
-                + "Provide helpful, accurate, and relevant information. Be professional and clear."
-            )
