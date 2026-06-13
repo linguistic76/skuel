@@ -122,19 +122,6 @@ class ExtendedRelationshipConfig(DomainRelationshipConfig):
     # UserContext planning method specifications
     planning_method_specs: list[PlanningMethodSpec] = field(default_factory=list)
 
-    def get_query_spec_tuples(self) -> list[tuple[str, str]]:
-        """
-        Get query specs in the format used by fetch_relationships_parallel().
-
-        Returns:
-            List of (field_name, method_name) tuples
-        """
-        entity_name = self.entity_label.lower()
-        return [
-            (spec.field_name, f"get_{entity_name}_{spec.method_suffix}")
-            for spec in self.query_specs
-        ]
-
     def get_link_method_by_target(self, target_domain: Domain) -> LinkMethodSpec | None:
         """
         Get link method spec for a target domain.

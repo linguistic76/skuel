@@ -66,7 +66,6 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 - `count_related(relationship_key, entity_uid)` → `Result[int]`
 - `create_relationship(relationship_key, from_uid, to_uid, properties)` → `Result[bool]` — **the single cross-domain link write path.** Routes through `backend.create_relationships_batch` with the registry `spec` for `relationship_key`, orients direction via `_orient_edge`, and **fails closed** on an unknown key. Facade `link_{domain}_to_{key}` methods call this with their explicit key. (Root-fixed PR #197: historically it dispatched to a dynamic `link_{domain}_to_{key}` backend method that existed for only two habit cases — that dispatch is gone.) See [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md).
 - `delete_relationship(relationship_key, from_uid, to_uid)` → `Result[bool]`
-- `fetch_all_relationships(entity_uid)` → `Result[dict[str, list[str]]]`
 
 > The `link_to_knowledge` / `link_to_goal` / `link_to_principle` candidate-list wrappers were **removed** — they guessed the key from a hand-maintained list and silently `Result.fail`-ed on a coverage gap or picked the wrong edge when a domain had several to the same target. Facades call `create_relationship` with the explicit key instead; coverage is guarded by `tests/test_cross_domain_link_keys.py`.
 

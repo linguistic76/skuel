@@ -350,6 +350,39 @@ _SHARING_MANAGEMENT = (
     "PRIVATE→SHARED→TEAM→PUBLIC visibility selector, 'shared with' list) "
     "(Mike ruled PLANNED 2026-06-13)"
 )
+# Relationships dead-code campaign (2026-06-13): staged relationship capabilities
+# kept by deliberate decision — each reason names the wiring that completes it.
+_RELATIONSHIPS_DAILY_PLANNING = (
+    "generic UserContext planning surface on UnifiedRelationshipService — the "
+    "domain-agnostic counterparts of the phantom *_for_user methods the flagship "
+    "daily plan calls (get_actionable_for_user ≈ get_actionable_tasks_for_user, "
+    "get_goal_aligned_for_user ≈ get_advancing_goals_for_user); no live winner "
+    "(the domain-specific names are phantoms), complete by the cross-domain "
+    "daily-plan phantom-dispatch repair thread that wires the intelligence-hub "
+    "planning injection (Mike ruled PLANNED 2026-06-13)"
+)
+_RELATIONSHIPS_HIERARCHY = (
+    "curriculum multi-hop hierarchy traversal staged (universal hierarchical "
+    "pattern) — OrderedRelationshipsMixin is mixed into UnifiedRelationshipService "
+    "and the backend impls (get_hierarchical_children_single/two_level/deep) are "
+    "live, but no caller invokes the service entry point; wire a curriculum "
+    "tree/hierarchy explorer consumer (Mike ruled PLANNED 2026-06-13)"
+)
+_RELATIONSHIPS_EXISTS = (
+    "generic relationship existence-check staged — config-keyed has-any-related "
+    "boolean (sibling of the live count_related / get_related_uids); integration-"
+    "tested on live Neo4j (LP relationships) but no production caller; wire where "
+    "a cheap exists check beats loading UIDs, or fold into the domain relationship "
+    "containers (Mike ruled PLANNED 2026-06-13)"
+)
+_RELATIONSHIPS_LINK_GEN = (
+    "config-driven typed-link-method generation staged — ExtendedRelationshipConfig "
+    "link-spec lookup by target domain; link_method_specs is never populated and "
+    "link methods are currently hand-written (link_task_to_knowledge), so this "
+    "awaits the config-driven link-method apparatus being adopted (see the "
+    "extended_config/DomainRelationships unadopted-apparatus forward thread) "
+    "(Mike ruled PLANNED 2026-06-13)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -700,6 +733,28 @@ PLANNED_METHODS: dict[str, str] = {
         "INTELLIGENCE_TIER ceiling + UserRole (REGISTERED→CORE free trial, MEMBER+→system "
         "tier); wire into the bootstrap AI-gating points once the ChargeKeep billing model "
         "defines which subscription tier gets AI features"
+    ),
+    # --- Relationships: generic UserContext planning surface (daily-plan phantom-dispatch thread) ---
+    "core/services/relationships/unified_relationship_service.py::get_actionable_for_user": (
+        _RELATIONSHIPS_DAILY_PLANNING
+    ),
+    "core/services/relationships/unified_relationship_service.py::get_blocked_for_user": (
+        _RELATIONSHIPS_DAILY_PLANNING
+    ),
+    "core/services/relationships/unified_relationship_service.py::get_goal_aligned_for_user": (
+        _RELATIONSHIPS_DAILY_PLANNING
+    ),
+    # --- Relationships: curriculum multi-hop hierarchy traversal ---
+    "core/services/relationships/_ordered_relationships_mixin.py::get_hierarchical_children": (
+        _RELATIONSHIPS_HIERARCHY
+    ),
+    # --- Relationships: generic relationship existence-check ---
+    "core/services/relationships/unified_relationship_service.py::has_relationship": (
+        _RELATIONSHIPS_EXISTS
+    ),
+    # --- Relationships: config-driven typed-link-method generation ---
+    "core/services/relationships/extended_config.py::get_link_method_by_target": (
+        _RELATIONSHIPS_LINK_GEN
     ),
 }
 
