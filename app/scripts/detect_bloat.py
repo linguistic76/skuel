@@ -340,6 +340,16 @@ _REVIEW_REQUEST_PRODUCER = (
     "because no user-facing route calls request_review; wire a 'request a review' "
     "button/route to complete the loop (ADR-069 §3)"
 )
+_SHARING_MANAGEMENT = (
+    "sharing-management surface staged — the unwired half of UnifiedSharingService (ADR-038): "
+    "the create/check half is LIVE and wired (share, check_access, get_shared_with_me, "
+    "share_with_group, get_user_entries_shared_with_group all have routes/UI), but the "
+    "revoke / visibility-ladder / 'who is this shared with' management half was never wired. "
+    "No superseded loser — each is the unwired inverse or owner-view twin of a live op. "
+    "Wire a sharing-management panel on entity detail pages (revoke button, "
+    "PRIVATE→SHARED→TEAM→PUBLIC visibility selector, 'shared with' list) "
+    "(Mike ruled PLANNED 2026-06-13)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
     # --- Habits: due-today machinery ---
@@ -671,6 +681,16 @@ PLANNED_METHODS: dict[str, str] = {
         _REPORT_SCHEDULE_PRODUCER
     ),
     "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
+    # --- Sharing: revoke / visibility-ladder / management-view surface (ADR-038) ---
+    "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::set_visibility": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::verify_shareable": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::get_shared_with": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::unshare_from_group": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::get_groups_shared_with": _SHARING_MANAGEMENT,
+    "core/services/sharing/unified_sharing_service.py::get_shared_with_me_via_groups": (
+        _SHARING_MANAGEMENT
+    ),
     # --- Reports: privacy-transparency surface ---
     "core/services/report/activity_report_service.py::get_privacy_summary": (_REPORT_PRIVACY_AUDIT),
     # --- Intelligence tier: per-user entitlement (ADR-043 billing stub) ---
