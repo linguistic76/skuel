@@ -74,6 +74,7 @@ _VALID_SUBSTANCE_METRICS: frozenset[str] = frozenset(
         "times_applied_in_tasks",
         "times_practiced_in_events",
         "times_built_into_habits",
+        "times_reflected_in_entries",
         "choices_informed_count",
     }
 )
@@ -83,6 +84,7 @@ _VALID_SUBSTANCE_TIMESTAMP_FIELDS: frozenset[str] = frozenset(
         "last_applied_date",
         "last_practiced_date",
         "last_built_into_habit_date",
+        "last_reflected_date",
         "last_choice_informed_date",
     }
 )
@@ -834,6 +836,15 @@ class PsService:
             ku_uid=event.knowledge_uid,
             metric="times_built_into_habits",
             timestamp_field="last_built_into_habit_date",
+            timestamp=event.occurred_at,
+        )
+
+    @safe_event_handler("knowledge.reflected_in_entry")
+    async def handle_knowledge_reflected_in_entry(self, event: Any) -> None:
+        await self.increment_substance_metric(
+            ku_uid=event.knowledge_uid,
+            metric="times_reflected_in_entries",
+            timestamp_field="last_reflected_date",
             timestamp=event.occurred_at,
         )
 

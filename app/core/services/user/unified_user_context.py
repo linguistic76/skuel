@@ -337,6 +337,10 @@ class UserContext:
     # Event knowledge metadata (from [:APPLIES_KNOWLEDGE] relationships)
     event_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # event -> ku_uids
 
+    # UserEntry knowledge metadata (from [:APPLIES_KNOWLEDGE] relationships,
+    # written by the EXTRACT_ACTIVITIES pipeline — ADR-069)
+    entry_knowledge_applied: dict[str, list[str]] = field(default_factory=dict)  # entry -> ku_uids
+
     # Choice knowledge metadata (from [:INFORMS_CHOICE] relationships)
     choice_knowledge_informed: dict[str, list[str]] = field(
         default_factory=dict

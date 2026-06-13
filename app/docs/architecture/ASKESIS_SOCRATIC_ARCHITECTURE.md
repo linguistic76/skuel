@@ -128,7 +128,7 @@ The PsBundle is a frozen dataclass containing the complete context for a Path St
 - `submission_count` — exercise submissions touching this KU
 - `habit_reinforcement` — habit linked to this KU is active
 - `task_application` — task linked to this KU is in progress
-- `journal_application` — journal reflections on this KU
+- `entry_application` — UserEntry reflects on this KU (`APPLIES_KNOWLEDGE`, ADR-069)
 - `signal_count` — sum of boolean evidence types (0-4)
 - `is_confirmed` — True when signal_count >= 2
 

@@ -13,7 +13,7 @@ Event Catalog:
 - knowledge.applied_in_task - Task applies knowledge
 - knowledge.practiced_in_event - Event practices knowledge
 - knowledge.built_into_habit - Habit builds on knowledge
-- knowledge.reflected_in_journal - Journal reflects on knowledge
+- knowledge.reflected_in_entry - UserEntry reflects on knowledge (ADR-069)
 - knowledge.informed_choice - Choice informed by knowledge
 
 Subscribers:
@@ -155,6 +155,34 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
     @property
     def event_type(self) -> str:
         return "knowledge.built_into_habit"
+
+
+@dataclass(frozen=True)
+class KnowledgeReflectedInEntry(BaseEvent):
+    """
+    Published when a UserEntry reflects on / applies knowledge.
+
+    Increments: times_reflected_in_entries
+    Updates: last_reflected_date
+
+    HIGH WEIGHT event (0.07 per entry) because written reflection is
+    metacognition — the user is consciously processing the knowledge.
+
+    Subscribers:
+    - PsService (increment substance metric)
+
+    Published by:
+    - UserEntryProcessingService (EXTRACT_ACTIVITIES pipeline, after each
+      ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge write — ADR-069)
+    """
+
+    knowledge_uid: str
+    entry_uid: str
+    user_uid: UserUID
+
+    @property
+    def event_type(self) -> str:
+        return "knowledge.reflected_in_entry"
 
 
 @dataclass(frozen=True)

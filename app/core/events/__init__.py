@@ -160,6 +160,7 @@ from core.events.knowledge_substance_events import (
     KnowledgeInformedChoice,
     KnowledgePracticed,
     KnowledgePracticedInEvent,
+    KnowledgeReflectedInEntry,
 )
 
 # Learning events
@@ -298,6 +299,7 @@ __all__ = [
     "KnowledgeBuiltIntoHabit",
     "KnowledgeCreated",
     "KnowledgeInformedChoice",
+    "KnowledgeReflectedInEntry",
     # Learning
     "KnowledgeMastered",
     "KnowledgePracticed",
@@ -412,6 +414,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "knowledge.practiced_in_event": KnowledgePracticedInEvent,
     "knowledge.practiced": KnowledgePracticed,
     "knowledge.built_into_habit": KnowledgeBuiltIntoHabit,
+    "knowledge.reflected_in_entry": KnowledgeReflectedInEntry,
     "knowledge.informed_choice": KnowledgeInformedChoice,
     "knowledge.bulk_applied_in_task": KnowledgeBulkAppliedInTask,
     "knowledge.bulk_built_into_habit": KnowledgeBulkBuiltIntoHabit,
@@ -603,6 +606,7 @@ KNOWLEDGE_SUBSTANCE_EVENTS = [
     KnowledgePracticedInEvent,
     KnowledgePracticed,
     KnowledgeBuiltIntoHabit,
+    KnowledgeReflectedInEntry,
     KnowledgeInformedChoice,
     KnowledgeBulkAppliedInTask,
     KnowledgeBulkBuiltIntoHabit,

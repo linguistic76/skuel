@@ -318,6 +318,34 @@ class UserContextPopulator:
         context.prerequisite_counts = graph_data.knowledge.prerequisite_counts
         context.ready_to_learn_uids = graph_data.knowledge.ready_to_learn_uids
 
+    def populate_entry_knowledge_applied(
+        self, context: UserContext, raw: list[dict[str, Any]] | None
+    ) -> None:
+        """
+        Populate entry→Ku applied-knowledge map from MEGA-QUERY results.
+
+        Source edges are ``(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)``, written by
+        the EXTRACT_ACTIVITIES pipeline (ADR-069). Consumed by the substance
+        "entries" channel and the ZPD entry_application signal.
+
+        Args:
+            context: UserContext to populate
+            raw: The "entry_knowledge_applied" section from MEGA-QUERY results
+                 Shape: [{"uid": entry_uid, "ku_uids": [...]}, ...]
+        """
+        if not raw:
+            return
+        applied: dict[str, list[str]] = {}
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            entry_uid = item.get("uid")
+            ku_uids = [uid for uid in (item.get("ku_uids") or []) if uid]
+            if entry_uid and ku_uids:
+                # Preserve order, drop duplicates (PathStep rollup can repeat Kus)
+                applied[entry_uid] = list(dict.fromkeys(ku_uids))
+        context.entry_knowledge_applied = applied
+
     def populate_from_consolidated_data(self, context: UserContext, data: dict[str, Any]) -> None:
         """
         Populate UserContext from consolidated query results (standard path).

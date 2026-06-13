@@ -1385,7 +1385,7 @@ class RelationshipSummaryResult(TypedDict, total=False):
 
 
 class SubstantiationBreakdownDomain(TypedDict):
-    """Per-domain substantiation breakdown (tasks, events, habits, journals, choices)."""
+    """Per-domain substantiation breakdown (tasks, events, habits, entries, choices)."""
 
     count: int
     progress: float
@@ -1403,7 +1403,7 @@ class SubstantiationSummaryResult(TypedDict, total=False):
     """Return shape for CurriculumOperations.get_substantiation_summary().
 
     Detailed breakdown of how a KU is substantiated through lived experience:
-    tasks applied, events practiced, habits built, journal reflections, and choices.
+    tasks applied, events practiced, habits built, reflective entries, and choices.
     """
 
     substance_score: float

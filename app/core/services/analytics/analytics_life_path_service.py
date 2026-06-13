@@ -360,7 +360,7 @@ class AnalyticsLifePathService:
 
         Calculates the proportion of substance that comes from each domain:
         - Habits (weight 0.10 per instance)
-        - Journals (weight 0.07 per instance)
+        - Entries (weight 0.07 per reflective entry)
         - Choices (weight 0.07 per instance)
         - Events (weight 0.05 per instance)
         - Tasks (weight 0.05 per instance)
@@ -380,7 +380,7 @@ class AnalyticsLifePathService:
 
         domain_totals = {
             "habits": 0.0,
-            "journals": 0.0,
+            "entries": 0.0,
             "choices": 0.0,
             "events": 0.0,
             "tasks": 0.0,

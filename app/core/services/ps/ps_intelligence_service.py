@@ -71,7 +71,6 @@ class PsIntelligenceService(
         graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
-        executor: Any | None = None,
         intelligence_backend: PsIntelligenceBackend | None = None,
     ) -> None:
         """
@@ -86,11 +85,10 @@ class PsIntelligenceService(
             event_bus=event_bus,
         )
 
-        # Query executor for direct Cypher access. The executor-backed
-        # PsIntelligenceBackend (whose Cypher lives below the boundary, ADR-044)
-        # is built at the composition root and injected — this service never
-        # imports the adapter (SKUEL022).
-        self.executor = executor
+        # The executor-backed PsIntelligenceBackend (whose Cypher lives below the
+        # boundary, ADR-044) is built at the composition root and injected — this
+        # service never imports the adapter (SKUEL022). The executor is
+        # encapsulated inside the backend; backend presence is the readiness gate.
         self._backend = intelligence_backend
 
     # ========================================================================
@@ -202,7 +200,7 @@ class PsIntelligenceService(
 
     def _require_backend(self) -> Result[PsIntelligenceBackend]:
         """Fail-fast guard for backend (executor) availability."""
-        if not self.executor or self._backend is None:
+        if self._backend is None:
             return Result.fail(
                 Errors.system(
                     message="GraphQueryExecutor not initialized - backend driver required",
@@ -429,7 +427,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has prerequisites")
         """
-        if not self.executor or self._backend is None:
+        if self._backend is None:
             return Result.fail(
                 Errors.system(message="Query executor not available", operation="has_prerequisites")
             )
@@ -454,7 +452,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has guidance")
         """
-        if not self.executor or self._backend is None:
+        if self._backend is None:
             return Result.fail(
                 Errors.system(message="Query executor not available", operation="has_guidance")
             )
@@ -479,7 +477,7 @@ class PsIntelligenceService(
             if result.is_ok and result.value:
                 print("This step has practice opportunities")
         """
-        if not self.executor or self._backend is None:
+        if self._backend is None:
             return Result.fail(
                 Errors.system(
                     message="Query executor not available",
@@ -535,14 +533,16 @@ class PsIntelligenceService(
             principle_uid_count = sum(
                 1 for kus in user_context.principle_knowledge_grounded.values() if ku_uid in kus
             )
-            journal_count = 0  # not yet built in UserContext MEGA_QUERY
+            entry_uid_count = sum(
+                1 for kus in user_context.entry_knowledge_applied.values() if ku_uid in kus
+            )
 
             task_score = min(0.25, task_uid_count * 0.05)
             habit_score = min(0.30, habit_uid_count * 0.10)
             event_score = min(0.25, event_uid_count * 0.05)
             choice_score = min(0.15, choice_uid_count * 0.07)
             principle_score = min(0.15, principle_uid_count * 0.07)
-            journal_score = min(0.20, journal_count * 0.07)
+            entry_score = min(0.20, entry_uid_count * 0.07)
 
             substance_score = min(
                 1.0,
@@ -551,7 +551,7 @@ class PsIntelligenceService(
                 + event_score
                 + choice_score
                 + principle_score
-                + journal_score,
+                + entry_score,
             )
             mastery_score = user_context.knowledge_mastery.get(ku_uid, 0.0)
 

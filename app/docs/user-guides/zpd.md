@@ -47,7 +47,7 @@ Your current zone is everything you've meaningfully engaged with. SKUEL detects 
 
 | Relationship | Source | What it means |
 |-------------|--------|--------------|
-| APPLIES_KNOWLEDGE | Tasks, Journals | You applied this knowledge in your work or reflections |
+| APPLIES_KNOWLEDGE | Tasks, Entries | You applied this knowledge in your work or reflections |
 | REINFORCES_KNOWLEDGE | Habits | You're building this knowledge through repeated practice |
 
 If you wrote a journal entry about Stoic ethics, and that journal is linked to the "Stoic Ethics" knowledge unit, that KU enters your current zone. If you have a daily habit of practicing mindfulness and it's linked to "Meditation Basics," that KU is reinforced in your zone.
@@ -61,7 +61,7 @@ A single activity isn't enough to confirm mastery. ZPD requires **compound evide
 | Submission | You submitted work against an exercise linked to this KU |
 | Habit reinforcement | An active habit reinforces this KU |
 | Task application | A completed task applies this KU |
-| Journal application | A journal reflection references this KU |
+| Entry reflection | A reflective entry references this KU |
 
 A KU with only one signal type is in your current zone but not yet confirmed. ZPD may recommend **reinforcement** — engaging with that knowledge through a different activity type to build compound mastery.
 

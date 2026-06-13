@@ -277,7 +277,7 @@ HTTP -> FastHTML Route -> Pydantic -> Service -> Domain -> Repository -> Neo4j
 
 **Core Principle:** "Applied knowledge, not pure theory"
 
-SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (journal pipeline, ADR-054), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
+SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activity across Habits, UserEntry (EXTRACT_ACTIVITIES pipeline, ADR-069), Choices, Principles, Events, and Tasks — each with a per-contribution weight and a per-domain cap. Total capped at 1.0.
 
 **See:** `/docs/architecture/knowledge_substance_philosophy.md`
 

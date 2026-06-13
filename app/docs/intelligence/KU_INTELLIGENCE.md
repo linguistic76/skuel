@@ -265,7 +265,7 @@ The method implements SKUEL's Knowledge Substance Philosophy:
 
 **Application Types & Weights:**
 - **Habits** (0.10/event, max 0.30) - Lifestyle integration (highest weight)
-- **Journals** (0.07/event, max 0.20) - Metacognition and reflection
+- **Entries** (0.07/entry, max 0.20) - Metacognition and reflection
 - **Choices** (0.07/event, max 0.15) - Decision-making wisdom
 - **Events** (0.05/event, max 0.25) - Practice and embodiment
 - **Tasks** (0.05/event, max 0.25) - Real-world application
@@ -300,7 +300,7 @@ async def calculate_user_substance(
         "tasks": {"count": 3, "uids": ["task.001", "task.002", "task.003"], "score": 0.15},
         "habits": {"count": 1, "uids": ["habit.daily-python"], "score": 0.10},
         "events": {"count": 2, "uids": ["event.001", "event.002"], "score": 0.10},
-        "journals": {"count": 0, "uids": [], "score": 0.00},
+        "entries": {"count": 0, "uids": [], "score": 0.00},
         "choices": {"count": 1, "uids": ["choice.001"], "score": 0.07},
         "principles": {"count": 1, "uids": ["principle.001"], "score": 0.07}
     },
@@ -313,8 +313,8 @@ async def calculate_user_substance(
             "impact": "+0.05 per event (max +0.25)"
         },
         {
-            "type": "journal",
-            "message": "Reflect on this knowledge in a journal entry",
+            "type": "entry",
+            "message": "Write an entry reflecting on this knowledge",
             "impact": "+0.07 per reflection (max +0.20)"
         }
     ],
@@ -366,11 +366,11 @@ The method implements the Knowledge Substance Philosophy with weighted scoring:
 task_score = min(0.25, len(task_uids) * 0.05)
 habit_score = min(0.30, len(habit_uids) * 0.10)
 event_score = min(0.25, len(event_uids) * 0.05)
-journal_score = min(0.20, len(journal_uids) * 0.07)
+entry_score = min(0.20, len(entry_uids) * 0.07)
 choice_score = min(0.15, len(choice_uids) * 0.07)
 principle_score = min(0.15, len(principle_uids) * 0.07)
 
-user_substance_score = min(1.0, task_score + habit_score + event_score + journal_score + choice_score + principle_score)
+user_substance_score = min(1.0, task_score + habit_score + event_score + entry_score + choice_score + principle_score)
 ```
 
 **Status Messages by Score:**
@@ -390,10 +390,9 @@ user_substance_score = min(1.0, task_score + habit_score + event_score + journal
 - `event_knowledge_applied: dict[str, list[str]]` - Maps event UID to KU UIDs
 - `choice_knowledge_informed: dict[str, list[str]]` - Maps choice UID to KU UIDs
 - `principle_knowledge_grounded: dict[str, list[str]]` - Maps principle UID to KU UIDs
+- `entry_knowledge_applied: dict[str, list[str]]` - Maps UserEntry UID to KU UIDs (EXTRACT_ACTIVITIES, ADR-069)
 - `knowledge_mastery: dict[str, float]` - KU UID to mastery score
 - `ready_to_learn_uids: list[str]` - KUs ready to learn
-
-**Note:** Journal knowledge tracking is deferred — journals are submissions (not activities), so the MEGA_QUERY doesn't collect journal→KU relationships.
 
 **Dependencies:**
 - UserContext (REQUIRED)
@@ -511,7 +510,7 @@ KuIntelligenceService implements SKUEL's core principle: **"Applied knowledge, n
 **Substance Tracking:**
 Measures how knowledge is LIVED through 5 domain types:
 1. **Habits** - Daily lifestyle integration (highest weight)
-2. **Journals** - Metacognitive reflection
+2. **Entries** - Metacognitive reflection (EXTRACT_ACTIVITIES, ADR-069)
 3. **Choices** - Decision-making application
 4. **Events** - Practice and embodiment
 5. **Tasks** - Real-world application
