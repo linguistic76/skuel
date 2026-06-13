@@ -19,13 +19,18 @@ allowed-tools: Read, Grep, Glob
 > **ADR-054 update (2026-04-17).** `ExerciseSubmission`, `JeInput`, and `JeOutput` were
 > collapsed into a single `UserEntry(UserOwnedEntity)` entity type discriminated by the
 > `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
-> `TRANSCRIBE_AND_STRUCTURE`). Revision count moved onto the edge:
+> `TRANSCRIBE_AND_STRUCTURE`, and since ADR-069 `EXTRACT_ACTIVITIES`).
+> Revision count moved onto the edge:
 > `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports use a new
 > `ReportSource` enum (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`) in place of `ProcessorType`. The
 > journal track is now a *pipeline*, not a domain: audio uploads create a source
 > `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is then transformed into a
 > structured second `UserEntry` via `(structured)-[:TRANSFORMS]->(source)`. Activity
-> extraction from journals (DSL auto-creating Tasks/Goals) was **dropped**.
+> extraction from journals (DSL auto-creating Tasks/Goals) was **dropped** —
+> and later returned on one path forward as `Pipeline.EXTRACT_ACTIVITIES`
+> (ADR-069, 2026-06): an explicit processing branch over UserEntry content
+> with `EXTRACTED_FROM` provenance, NOT a resurrection of the retired
+> submission-metadata flow.
 > Services live in `core/services/user_entry/`; the legacy `core/services/submissions/`
 > and `core/services/journal/` packages were deleted (SKUEL deletes, it does not
 > shelve). Historical references to

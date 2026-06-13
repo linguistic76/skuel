@@ -224,6 +224,20 @@ structured second `UserEntry` linked by `TRANSFORMS`.
 |--------------|------|-----|---------|
 | `TRANSFORMS` | UserEntry (structured) | UserEntry (source) | LLM-processed output transforms raw input |
 
+### DSL Extraction Provenance (ADR-069)
+
+`Pipeline.EXTRACT_ACTIVITIES` parses Activity Lines in a `UserEntry` into real
+entities. Each created entity gets a provenance edge back to its source entry
+(written by the dedicated batch method `create_extracted_from_links` — the
+source label varies per created entity, so this edge is not in the
+relationship registry). Resolved `@ku()` references write the canonical
+substance/ZPD edge from the entry itself.
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `EXTRACTED_FROM` | created Entity (Task, Habit, ...) | UserEntry (source) | Extraction provenance; carries `extracted_at`, `source_line_hash` (sha256 of the whitespace-normalized DSL line — the re-run dedup key) |
+| `APPLIES_KNOWLEDGE` | UserEntry | Ku | Knowledge applied/reflected in the entry (same contract edge as Task→Ku) |
+
 ### Authentication Relationships
 
 Graph-native session and auth event tracking.

@@ -353,7 +353,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> ExerciseReport -> Re
 
 | EntityType | Inherits | Pipeline / ReportSource | Description |
 |------------|---------|------------------------|-------------|
-| `USER_ENTRY` | `UserOwnedEntity` | `Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`) | Unified user-authored content — exercise submissions, journal audio, uploads |
+| `USER_ENTRY` | `UserOwnedEntity` | `Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`) | Unified user-authored content — exercise submissions, journal audio, uploads |
 | `EXERCISE_REPORT` | `UserOwnedEntity` | `ReportSource` (`HUMAN`, `LLM`) | Assessment tied to a `UserEntry` via `subject_uid` |
 | `ACTIVITY_REPORT` | `UserOwnedEntity` **directly** | `ReportSource` (`AUTOMATIC`, `LLM`, `HUMAN`) | Activity-level feedback (no file fields; covers a time window) |
 
@@ -366,7 +366,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> ExerciseReport -> Re
 **Ingestion aliases:** `exercise_submission`, `submission`, `journal`, `je_input`, `je_output` still parse via `_ENTITY_TYPE_ALIASES` — all of them map to `EntityType.USER_ENTRY`, with `pipeline` inferred from the alias. Legacy YAMLs in `/home/mike/0bsidian/0vault/` continue ingesting without rewrites.
 
 **Services:**
-- `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure), `AssessmentService`, `ReviewQueueService`, relationship + exercise linking helpers.
+- `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure, DSL activity extraction per ADR-069), `AssessmentService`, `ReviewQueueService`, relationship + exercise linking helpers.
 - `core/services/report/` — `ExerciseReportService`, `ProgressReportGenerator`, `ProgressScheduleService`.
 
 **See:** `/docs/architecture/REPORT_ARCHITECTURE.md`, [ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
@@ -377,7 +377,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> ExerciseReport -> Re
 
 | Enum | Applies to | Values | Purpose |
 |------|-----------|--------|---------|
-| `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
+| `Pipeline` | `UserEntry` nodes | `NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES` | How a user entry is processed after creation. Drives `UserEntryProcessingService` dispatch. |
 | `ReportSource` | `ExerciseReport`, `ActivityReport` | `HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC` | Who or what produced the report. Stored as `report_source` on the report node. |
 
 Both `Pipeline` and `ReportSource` live in `core/models/enums/pipeline.py`. `SubmissionModality` and `EnrichmentMode` live in `core/models/enums/user_entry_enums.py` (formerly `submissions_enums.py`) — both still load-bearing.
