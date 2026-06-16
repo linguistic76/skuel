@@ -85,6 +85,7 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_progress_service import UserProgressService
     from core.services.user_service import UserService
+    from core.services.vault.vault_reconciler import VaultReconciler
     from ui.today.orchestrator import TodayOrchestrator
 
 from core.ports import (
@@ -366,6 +367,9 @@ class Services:
 
     # Interaction audit (User Interaction Contract — EntityType.INTERACTION)
     interaction_service: "InteractionService | None" = None
+
+    # Vault bridge (ADR-070) — bidirectional Obsidian ↔ SKUEL sync
+    vault_reconciler: "VaultReconciler | None" = None
 
     # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
     intelligence_tier: "IntelligenceTier | None" = None

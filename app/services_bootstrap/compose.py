@@ -1164,14 +1164,44 @@ async def compose_services(
             dsl_bridge=dsl_bridge,
             user_service=user_service,
         )
+
+        # Wire the processor into the ingestion service so a `pipeline:
+        # extract_activities` periodic note auto-extracts its `- [ ]` lines into
+        # Tasks on ingest (ADR-069). Same late-binding pattern as
+        # `unified_ingestion.user_entry_service` above — `unified_ingestion` is
+        # built earlier (:588), the processor depends on it, so this closes the
+        # cycle without a circular import.
+        unified_ingestion.user_entry_processor = user_entry_processor
+
         user_entry_assessment = AssessmentService(
             backend=user_entry_backend,
             report_backend=entry_report_backend,
             event_bus=event_bus,
         )
+
+        # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync
+        import pathlib
+
+        from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
+        from core.services.vault.vault_reconciler import VaultReconciler
+
+        _vault_allowed_root = (
+            config.vault.vault_path
+            if config
+            else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
+        )
+        vault_bridge = FilesystemVaultAdapter(allowed_root=_vault_allowed_root)
+        vault_reconciler = VaultReconciler(
+            vault_bridge=vault_bridge,
+            unified_ingestion=unified_ingestion,
+            user_entry_service=user_entry_service,
+            tasks_service=activity_services["tasks"],
+            user_service=user_service,
+        )
         logger.info(
             "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
         )
+        logger.info("✅ VaultReconciler wired (ADR-070)")
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
@@ -1484,6 +1514,7 @@ async def compose_services(
             user_entry=user_entry_service,
             user_entry_processor=user_entry_processor,
             user_entry_assessment=user_entry_assessment,
+            vault_reconciler=vault_reconciler,
             # Progress report (February 2026)
             progress_report_generator=progress_generator,
             progress_schedule=progress_schedule_service,

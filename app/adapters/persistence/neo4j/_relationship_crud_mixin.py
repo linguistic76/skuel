@@ -456,22 +456,24 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("create_extracted_from_links")
     async def create_extracted_from_links(
-        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None]]
     ) -> Result[int]:
         """
-        Batch-write DSL extraction provenance edges (ADR-069).
+        Batch-write DSL extraction provenance edges (ADR-069, ADR-070).
 
-        Writes ``(created)-[:EXTRACTED_FROM {extracted_at, source_line_hash}]->(entry)``
-        for each ``(created_uid, line_hash)`` pair. Dedicated writer rather than
+        Writes ``(created)-[:EXTRACTED_FROM {extracted_at, source_line_hash,
+        vault_id}]->(entry)`` for each ``(created_uid, line_hash, vault_id)``
+        triple. ``vault_id`` is the obsidian-tasks 🆔 join key (ADR-070); None
+        for @context() DSL lines. Dedicated writer rather than
         ``create_relationship``: the source label is whichever entity the DSL
         line produced (Task, Habit, Ku, ...), so routing through registry
         validation would force registering provenance into every domain config.
         MERGE keeps re-runs idempotent; ``extracted_at`` is set server-side as a
-        native Cypher datetime (SPAWNED_FROM precedent).
+        native Cypher datetime.
 
         Args:
             entry_uid: Source UserEntry UID the entities were extracted from
-            links: ``(created_uid, source_line_hash)`` pairs
+            links: ``(created_uid, source_line_hash, vault_id)`` triples
 
         Returns:
             Result[int]: number of provenance edges now present for the pairs
@@ -485,12 +487,16 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         MATCH (e {uid: link.uid})
         MERGE (e)-[r:EXTRACTED_FROM]->(entry)
         ON CREATE SET r.extracted_at = datetime()
-        SET r.source_line_hash = link.line_hash
+        SET r.source_line_hash = link.line_hash,
+            r.vault_id = link.vault_id
         RETURN count(r) AS link_count
         """
         params = {
             "entry_uid": entry_uid,
-            "links": [{"uid": uid, "line_hash": line_hash} for uid, line_hash in links],
+            "links": [
+                {"uid": uid, "line_hash": line_hash, "vault_id": vault_id}
+                for uid, line_hash, vault_id in links
+            ],
         }
 
         async with self.driver.session() as session:
@@ -504,6 +510,38 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
                 f"for entry {entry_uid} (missing created nodes?)"
             )
         return Result.ok(link_count)
+
+    @safe_backend_operation("update_extracted_from_vault_id")
+    async def update_extracted_from_vault_id(
+        self, entry_uid: str, entity_uid: str, vault_id: str
+    ) -> Result[None]:
+        """Set vault_id on an existing EXTRACTED_FROM edge (ADR-070 ID injection).
+
+        Called by VaultReconciler after injecting a 🆔 token into a vault file
+        for a task that was initially created without one.
+
+        Args:
+            entry_uid: UserEntry UID (target of EXTRACTED_FROM)
+            entity_uid: Extracted entity UID (source of EXTRACTED_FROM)
+            vault_id: The injected 🆔 ID (e.g. ``sk_abc123``)
+        """
+        query = """
+        MATCH (e {uid: $entity_uid})-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
+        SET r.vault_id = $vault_id
+        RETURN count(r) AS updated
+        """
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {"entity_uid": entity_uid, "entry_uid": entry_uid, "vault_id": vault_id},
+            )
+            record = await result.single()
+            if not record or int(record["updated"]) == 0:
+                self.logger.warning(
+                    f"update_extracted_from_vault_id: no EXTRACTED_FROM edge "
+                    f"{entity_uid} → {entry_uid}"
+                )
+        return Result.ok(None)
 
     @safe_backend_operation("delete_relationship")
     async def delete_relationship(

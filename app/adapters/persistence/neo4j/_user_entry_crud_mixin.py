@@ -302,6 +302,34 @@ class _UserEntryCrudMixin:
             return Result.ok({})
         return Result.ok(result.value[0])
 
+    async def get_extracted_entities_for_entry(
+        self, entry_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Return extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
+
+        Returns a list of dicts with keys: entity_uid, source_line_hash, vault_id.
+        Used by VaultReconciler for outbound ID injection and status round-trip (ADR-070).
+        """
+        query = """
+        MATCH (e)-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
+        RETURN e.uid AS entity_uid,
+               r.source_line_hash AS source_line_hash,
+               r.vault_id AS vault_id
+        """
+        result = await self.execute_query(query, {"entry_uid": entry_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "entity_uid": rec.get("entity_uid", ""),
+                    "source_line_hash": rec.get("source_line_hash") or "",
+                    "vault_id": rec.get("vault_id"),
+                }
+                for rec in (result.value or [])
+            ]
+        )
+
     async def update_teacher_feedback_state(
         self, teacher_uid: str, properties: Neo4jProperties
     ) -> Result[bool]:

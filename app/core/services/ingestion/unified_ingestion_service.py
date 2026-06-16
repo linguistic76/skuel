@@ -37,6 +37,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
+    from core.services.user_entry.user_entry_processing_service import (
+        UserEntryProcessingService,
+    )
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -124,6 +127,7 @@ class UnifiedIngestionService:
         ingestion_backend: Any | None = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
+        user_entry_processor: UserEntryProcessingService | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -155,6 +159,12 @@ class UnifiedIngestionService:
                           (gates ``audience: public`` on TEACHER role). When not
                           wired, ``audience: public`` uploads are rejected as
                           forbidden.
+            user_entry_processor: UserEntryProcessingService that runs the
+                          entry's ``pipeline`` after persistence. When wired, a
+                          ``pipeline: extract_activities`` periodic note has its
+                          ``- [ ]`` lines extracted into Tasks on ingest (ADR-069).
+                          Extraction failures are isolated — the journal node
+                          persists regardless. Late-bound at the composition root.
         """
         if write_backend is None or bulk_backend is None:
             raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
@@ -177,6 +187,9 @@ class UnifiedIngestionService:
         self.event_bus = event_bus  # Can be None - graceful degradation
         self.user_entry_service = user_entry_service
         self.user_service = user_service
+        # Late-bound at the composition root (UserEntryProcessingService is built
+        # after this service); runs entry.pipeline after persistence.
+        self.user_entry_processor = user_entry_processor
         self.logger = logger
 
         # Log embedding availability
@@ -446,6 +459,7 @@ class UnifiedIngestionService:
                 user_entry_service=self.user_entry_service,
                 user_service=self.user_service,
                 body=body,
+                user_entry_processor=self.user_entry_processor,
             )
 
         # Validate UID format before preparation (early fail-fast)
@@ -620,7 +634,16 @@ class UnifiedIngestionService:
             Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
 
         Delegates to batch.ingest_directory.
+
+        USER_ENTRY files are routed through ``self.ingest_file`` (per-file
+        pipeline) instead of the bulk upsert engine so the OWNS edge, audience
+        resolution, and post-persist extraction (EXTRACT_ACTIVITIES) all run.
         """
+        effective_user_uid = user_uid or self.default_user_uid
+
+        async def _ingest_file_for_batch(path: Path) -> Result[Any]:
+            return await self.ingest_file(path, user_uid=effective_user_uid)
+
         return await ingest_directory(
             directory=directory,
             write_backend=self._write_backend,
@@ -629,12 +652,13 @@ class UnifiedIngestionService:
             pattern=pattern,
             batch_size=batch_size,
             max_concurrent=max_concurrent,
-            default_user_uid=user_uid or self.default_user_uid,
+            default_user_uid=effective_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
             ingestion_mode=ingestion_mode,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
             dry_run=dry_run,
+            ingest_file_fn=_ingest_file_for_batch,
         )
 
     async def ingest_vault(

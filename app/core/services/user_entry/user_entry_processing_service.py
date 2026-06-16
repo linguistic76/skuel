@@ -28,6 +28,7 @@ ingestion path; the ADR-054-retired submission-metadata flow stays retired).
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -58,6 +59,9 @@ if TYPE_CHECKING:
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
+
+# Matches any markdown checkbox line (ADR-070 double-extraction guard).
+_CHECKBOX_RE = re.compile(r"^[-*]\s*\[[xX ]?\]")
 
 
 class UserEntryProcessingService:
@@ -404,7 +408,15 @@ class UserEntryProcessingService:
         working_text = source_text
         bridge_error: str | None = None
         if self.dsl_bridge is not None:
-            bridge_result = await self.dsl_bridge.transform(source_text, user_uid=entry.user_uid)
+            # Strip checkbox lines before the LLM bridge: the obsidian-tasks
+            # adapter owns them (ADR-070). Sending them to the bridge causes
+            # double extraction — the LLM sees a task-shaped line and emits an
+            # @context(task) annotation, then the parser ALSO parses the original
+            # checkbox line, creating a duplicate Task on the same hash.
+            bridge_text = "\n".join(
+                ln for ln in source_text.splitlines() if not _CHECKBOX_RE.match(ln)
+            )
+            bridge_result = await self.dsl_bridge.transform(bridge_text, user_uid=entry.user_uid)
             if bridge_result.is_error:
                 # Degrade, don't fail: the Analog parser still runs over the
                 # original text; tagged lines extract regardless.
