@@ -34,6 +34,7 @@ import re
 from datetime import date, datetime
 
 from core.models.enums.entity_enums import EntityType
+from core.ports.vault_bridge_protocol import VAULT_ID_RE
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine
 
 # Checkbox gate — reuse the parser's patterns so the two paths agree on what a
@@ -53,10 +54,6 @@ _VS = r"️?"
 _DUE_RE = re.compile(rf"📅{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 _SCHEDULED_RE = re.compile(rf"⏳{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 
-# obsidian-tasks 🆔 join key (ADR-070): `🆔 <id>` where id is a 6-char base-36
-# alphanumeric (e.g. `🆔 sk_abc123`). The full token — emoji + id — is stripped
-# from raw_line so the dedup hash is stable across ID injection.
-_VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 
 # Description cleanup: drop date-emoji+date pairs, drop standalone markers, drop
 # #tags, then collapse whitespace (mirrors ActivityDSLParser._extract_description).
@@ -111,7 +108,7 @@ def obsidian_task_line_to_parsed(
         return None
 
     # obsidian-tasks 🆔 join key (ADR-070)
-    vault_id_match = _VAULT_ID_RE.search(line)
+    vault_id_match = VAULT_ID_RE.search(line)
     vault_id = vault_id_match.group(1) if vault_id_match else None
 
     # Dates
@@ -136,7 +133,7 @@ def obsidian_task_line_to_parsed(
 
     # Description — strip checkbox, 🆔 token, emoji/date markers, and #tags; collapse ws.
     description = _CHECKED.sub("", line) if is_checked else _UNCHECKED.sub("", line)
-    description = _VAULT_ID_RE.sub(" ", description)
+    description = VAULT_ID_RE.sub(" ", description)
     description = _DATE_EMOJI_PAIR_RE.sub(" ", description)
     description = _MARKER_RE.sub(" ", description)
     description = _TAG_RE.sub(" ", description)
@@ -154,7 +151,7 @@ def obsidian_task_line_to_parsed(
     # treats the task as new and creates a duplicate.
     checkbox_re = _CHECKED if is_checked else _UNCHECKED
     normalized_raw = checkbox_re.sub("- [ ] ", line, count=1)
-    normalized_raw = _VAULT_ID_RE.sub("", normalized_raw)
+    normalized_raw = VAULT_ID_RE.sub("", normalized_raw)
     normalized_raw = " ".join(normalized_raw.split())
 
     return ParsedActivityLine(
