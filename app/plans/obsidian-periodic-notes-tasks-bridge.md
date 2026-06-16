@@ -186,15 +186,23 @@ merge: reset context.**
 
 **Depends on PR-1 + PR-2.** Wires the entry-from-ingest to the extractor.
 - Add `user_entry_processor: UserEntryProcessingService | None = None` to
-  `UnifiedIngestionService.__init__`.
-- In `services_bootstrap/compose.py` (~line 1166, after the processor is built) set
-  `unified_ingestion.user_entry_processor = user_entry_processor` (order already works;
-  no circular import).
-- In `ingest_user_entry`, after a successful `create_entry`, if a processor is present
-  and `entry.pipeline == Pipeline.EXTRACT_ACTIVITIES`, call
-  `await processor.process(entry, force=True)`. `force=True` is required so edits
-  re-extract (the completed-run guard, `user_entry_processing_service.py:122`, would
-  else no-op); line-hash dedup remains the real idempotency guard.
+  `UnifiedIngestionService.__init__` (store as `self.user_entry_processor`).
+- In `services_bootstrap/compose.py` (~line 1166, after `user_entry_processor` is
+  built) set `unified_ingestion.user_entry_processor = user_entry_processor` — same
+  late-binding pattern as the existing `unified_ingestion.user_entry_service = …`
+  assignment (`compose.py:1114`); `unified_ingestion` is built earlier (`:588`), so no
+  circular import.
+- Thread the processor into the module function: the USER_ENTRY branch
+  (`unified_ingestion_service.py:442`) must pass
+  `user_entry_processor=self.user_entry_processor` into `ingest_user_entry` (a new
+  keyword param alongside `body`/`user_service`).
+- In `ingest_user_entry`, the entry is **already in hand** — `entry, outcome =
+  create_result.value` unpacks it (`user_entry_ingestion.py:301`). After that unpack,
+  if a processor is present and `entry.pipeline == Pipeline.EXTRACT_ACTIVITIES`, call
+  `await processor.process(entry, force=True)` before building the result dict.
+  `force=True` is required so edits re-extract (the completed-run guard,
+  `user_entry_processing_service.py:122`, would else no-op); line-hash dedup remains
+  the real idempotency guard.
 - **Failure isolation:** an extraction error must not fail persistence of the journal
   node — log + surface in the result dict; return node-create success. Re-sync retries.
 
@@ -204,7 +212,10 @@ merge: reset context.**
 **Verify (full PoC end-to-end; local Docker Neo4j; neo4j-cypher MCP; CI runs no pytest):**
 1. With S0 done, drop `0vault/Daily/2026-06-16.md` from the template with a couple of
    `- [ ] … 📅 <today> ⏫ #work` lines (today/future dates).
-2. `uv run python scripts/vault_watch.py` (one-shot) over `INGESTION_PATH`.
+2. With the app running (the watcher ingests via `POST /api/ingest/directory`, so the
+   server must be up), one-shot the watcher over `INGESTION_PATH`:
+   `uv run python scripts/vault_watch.py --once` (default mode is continuous;
+   `--once` does a single incremental ingest then exits).
 3. ```cypher
    MATCH (e:Entity {uid:'ue:daily:2026-06-16'})
    OPTIONAL MATCH (t:Task)-[r:EXTRACTED_FROM]->(e)
