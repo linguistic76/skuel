@@ -815,13 +815,31 @@ async def ingest_directory(
                             entity_type=EntityType.USER_ENTRY.value,
                         ).to_dict()
                     )
+                    # Remove from file_entity_map so smart-mode does NOT record a
+                    # success hash — the next sync will retry this file.
+                    file_entity_map.pop(str(ue_path), None)
                 else:
-                    # Count the per-file write as one node created/updated
                     result_data = ue_result.value or {}
-                    if result_data.get("nodes_created", 0):
-                        total_nodes_created += result_data["nodes_created"]
+                    if result_data.get("extraction_error"):
+                        # Persistence succeeded but post-persist extraction failed.
+                        # Surface as an error and exclude from smart-mode tracking so
+                        # the next incremental sync retries extraction.
+                        errors.append(
+                            IngestionError(
+                                file=str(ue_path),
+                                error=result_data["extraction_error"],
+                                stage="extract_activities",
+                                error_type="service",
+                                entity_type=EntityType.USER_ENTRY.value,
+                            ).to_dict()
+                        )
+                        file_entity_map.pop(str(ue_path), None)
                     else:
-                        total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+                        # Count the per-file write as one node created/updated
+                        if result_data.get("nodes_created", 0):
+                            total_nodes_created += result_data["nodes_created"]
+                        else:
+                            total_nodes_updated += result_data.get("nodes_updated", 0) or 1
         else:
             logger.warning(
                 f"{len(user_entry_entities)} UserEntry file(s) found in directory ingest "
