@@ -188,9 +188,10 @@ class ActivityExtractionResult:
     # ========================================================================
     # PROVENANCE & KNOWLEDGE LINKS (ADR-069)
     # ========================================================================
-    # (created_uid, source_line_hash) pairs across all domains — the input to
-    # the EXTRACTED_FROM batch edge write.
-    created_links: list[tuple[str, str]] = field(default_factory=list)
+    # (created_uid, source_line_hash, vault_id) triples across all domains — the
+    # input to the EXTRACTED_FROM batch edge write. vault_id is the obsidian-tasks
+    # 🆔 join key (ADR-070); None for @context() DSL lines.
+    created_links: list[tuple[str, str, str | None]] = field(default_factory=list)
     # Deduped Ku UIDs referenced via @ku()/linked-knowledge tags on any parsed
     # line (including dedup-skipped ones) — APPLIES_KNOWLEDGE candidates.
     referenced_ku_uids: list[str] = field(default_factory=list)
@@ -293,7 +294,9 @@ class ActivityExtractionResult:
             # ================================================================
             # Provenance & knowledge links (ADR-069)
             # ================================================================
-            "created_links": [[uid, line_hash] for uid, line_hash in self.created_links],
+            "created_links": [
+                [uid, line_hash, vault_id] for uid, line_hash, vault_id in self.created_links
+            ],
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
             # ================================================================
@@ -729,7 +732,7 @@ class ActivityExtractorService:
             if result.is_ok and result.value:
                 created += 1
                 uids.append(result.value)
-                extraction.created_links.append((result.value, line_hash))
+                extraction.created_links.append((result.value, line_hash, activity.vault_id))
             elif result.is_error:
                 extraction.creation_errors.append(
                     f"{label} '{activity.description[:30]}...': {result.error}"

@@ -58,6 +58,8 @@ from .validator import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
     from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
 
 logger = get_logger("skuel.services.ingestion.batch")
@@ -451,6 +453,7 @@ async def ingest_directory(
     validate_targets: bool = False,
     progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
+    ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -478,6 +481,12 @@ async def ingest_directory(
         validate_targets: If True, validate relationship targets exist before ingestion
         progress_callback: Optional callback for progress reporting (current, total, current_file)
         dry_run: If True, validates and previews changes without writing to Neo4j
+        ingest_file_fn: Optional per-file ingest callback for entity types that
+            require a service pipeline (e.g. ``EntityType.USER_ENTRY``). When
+            supplied, USER_ENTRY files bypass the bulk upsert engine and are
+            routed through this callback instead — ensuring the OWNS edge,
+            audience resolution, and post-persist pipeline (EXTRACT_ACTIVITIES)
+            all run. Callback signature: ``async (path) -> Result[Any]``.
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -663,6 +672,9 @@ async def ingest_directory(
         elif entity_type is not None and entity_data is not None:
             if entity_type not in entities_by_type:
                 entities_by_type[entity_type] = []
+            # Embed the source file path so per-file routing can recover it
+            # (e.g. USER_ENTRY entities handled by ingest_file_fn below).
+            entity_data["_file_path"] = str(files_to_process[i])
             entities_by_type[entity_type].append(entity_data)
             # Track file -> entity mapping for ingestion metadata updates
             file_entity_map[str(files_to_process[i])] = (entity_type, entity_data.get("uid", ""))
@@ -768,6 +780,55 @@ async def ingest_directory(
 
         return Result.ok(preview)
 
+    total_nodes_created = 0
+    total_nodes_updated = 0
+    total_relationships_created = 0
+
+    # USER_ENTRY routing: bypass the bulk upsert engine.  UserEntry requires the
+    # full UserEntryService pipeline (OWNS edge, audience resolution, extraction).
+    # When ingest_file_fn is wired (from UnifiedIngestionService), call it for
+    # each UserEntry file; otherwise warn and skip (no orphan nodes created).
+    user_entry_entities = entities_by_type.pop(EntityType.USER_ENTRY, [])
+    if user_entry_entities:
+        if ingest_file_fn is not None:
+            for ue_entity in user_entry_entities:
+                ue_path = Path(ue_entity.get("_file_path", ""))
+                if not ue_path.exists():
+                    errors.append(
+                        IngestionError(
+                            file=str(ue_path),
+                            error="UserEntry file not found for per-file routing",
+                            stage="routing",
+                            error_type="not_found",
+                            entity_type=EntityType.USER_ENTRY.value,
+                        ).to_dict()
+                    )
+                    continue
+                ue_result = await ingest_file_fn(ue_path)
+                if ue_result.is_error:
+                    errors.append(
+                        IngestionError(
+                            file=str(ue_path),
+                            error=str(ue_result.expect_error()),
+                            stage="user_entry_pipeline",
+                            error_type="service",
+                            entity_type=EntityType.USER_ENTRY.value,
+                        ).to_dict()
+                    )
+                else:
+                    # Count the per-file write as one node created/updated
+                    result_data = ue_result.value or {}
+                    if result_data.get("nodes_created", 0):
+                        total_nodes_created += result_data["nodes_created"]
+                    else:
+                        total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+        else:
+            logger.warning(
+                f"{len(user_entry_entities)} UserEntry file(s) found in directory ingest "
+                "but ingest_file_fn is not wired — skipping (no OWNS edge or pipeline). "
+                "Wire UnifiedIngestionService.user_entry_service to enable UserEntry routing."
+            )
+
     # Batch ingest by entity type
     if entities_by_type and bulk_backend is None:
         return Result.fail(
@@ -776,10 +837,6 @@ async def ingest_directory(
                 field="bulk_backend",
             )
         )
-
-    total_nodes_created = 0
-    total_nodes_updated = 0
-    total_relationships_created = 0
 
     for entity_type, entities in entities_by_type.items():
         config = ENTITY_CONFIGS.get(entity_type)

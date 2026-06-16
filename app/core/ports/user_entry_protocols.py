@@ -103,6 +103,22 @@ class UserEntryCrudOperations(Protocol):
         """Write feedback EMA state to ``User``."""
         ...
 
+    async def get_extracted_entities_for_entry(
+        self, entry_uid: str
+    ) -> Result[list[dict[str, Any]]]:
+        """Extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
+
+        Returns dicts with keys: entity_uid, source_line_hash, vault_id.
+        Used by VaultReconciler for outbound ID injection (ADR-070).
+        """
+        ...
+
+    async def update_extracted_from_vault_id(
+        self, entry_uid: str, entity_uid: str, vault_id: str
+    ) -> Result[bool]:
+        """Set vault_id on an existing EXTRACTED_FROM edge (ADR-070 ID injection)."""
+        ...
+
 
 # ============================================================================
 # ISP parent 2 — lifecycle: create-with-link + revision resolution

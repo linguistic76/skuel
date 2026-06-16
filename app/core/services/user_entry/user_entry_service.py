@@ -488,6 +488,26 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         return await self.backend.update(uid, updates)
 
     # =========================================================================
+    # VAULT BRIDGE (ADR-070)
+    # =========================================================================
+
+    async def get_extracted_entities(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
+        """Return extracted entity UIDs + EXTRACTED_FROM edge properties.
+
+        Backend: UserEntryBackend.get_extracted_entities_for_entry.
+        """
+        return await self.backend.get_extracted_entities_for_entry(entry_uid)
+
+    async def update_extracted_vault_id(
+        self, entry_uid: str, entity_uid: str, vault_id: str
+    ) -> Result[bool]:
+        """Set vault_id on an EXTRACTED_FROM edge after ID injection (ADR-070).
+
+        Backend: UniversalNeo4jBackend (via _RelationshipCrudMixin).update_extracted_from_vault_id.
+        """
+        return await self.backend.update_extracted_from_vault_id(entry_uid, entity_uid, vault_id)
+
+    # =========================================================================
     # DELETE
     # =========================================================================
 

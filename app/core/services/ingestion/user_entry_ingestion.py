@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from core.services.user_entry.audience_resolver import AudienceResolver
+    from core.services.user_entry.user_entry_processing_service import (
+        UserEntryProcessingService,
+    )
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -204,12 +207,20 @@ async def build_user_entry_request(
     # key presence, not truthiness; otherwise the parsed body becomes the entry
     # content (so EXTRACT_ACTIVITIES has the `- [ ]` lines to work with).
     content = data.get("content", body)
+
+    # Stamp the vault file path in metadata so VaultReconciler can write back
+    # (ID injection, status round-trip). Only for vault/ingested entries that
+    # have an absolute file path — upload-side callers pass a temp path.
+    ingestion_metadata = dict(metadata)
+    if file_path.is_absolute():
+        ingestion_metadata["vault_file_path"] = str(file_path)
+
     request = UserEntryCreateRequest(
         uid=data.get("uid"),
         title=str(title),
         content=content,
         tags=tags,
-        metadata=dict(metadata),
+        metadata=ingestion_metadata,
         pipeline=pipeline,
         instructions=data.get("instructions"),
         fulfills_exercise_uid=fulfills_exercise_uid,
@@ -270,12 +281,21 @@ async def ingest_user_entry(
     user_entry_service: UserEntryService,
     user_service: UserService | None = None,
     body: str | None = None,
+    user_entry_processor: UserEntryProcessingService | None = None,
 ) -> Result[dict[str, Any]]:
     """Ingest a single UserEntry through ``UserEntryService.create_entry()``.
 
     ``body`` is the parsed markdown body (None for YAML files); it becomes the
     entry ``content`` when no explicit ``content:`` field is present, so a
     periodic note's checkbox lines survive ingestion.
+
+    ``user_entry_processor``, when supplied, runs the entry's pipeline after
+    persistence. For ``Pipeline.EXTRACT_ACTIVITIES`` this turns the captured
+    ``- [ ]`` body lines into Tasks (ADR-069, ``EXTRACTED_FROM`` edges).
+    ``force=True`` makes edits re-extract (line-hash dedup is the real
+    idempotency guard). Extraction is **failure-isolated**: an error there is
+    logged and surfaced in the result dict's ``extraction_error`` field but does
+    not fail persistence of the journal node — a re-sync retries.
 
     Returns the standard ingestion result dict (uid, title, entity_type, ...)
     so callers don't need to reach into ``ShareOutcome`` to format a response.
@@ -304,6 +324,26 @@ async def ingest_user_entry(
         f"shared_groups={len(outcome.shared_groups)})"
     )
 
+    # Post-persist pipeline trigger (ADR-069). EXTRACT_ACTIVITIES turns the
+    # captured `- [ ]` body lines into Tasks linked back via EXTRACTED_FROM.
+    # Failure-isolated: an extraction error never fails the journal node that is
+    # already committed — log it and surface it, let a re-sync retry.
+    extraction_error: str | None = None
+    if user_entry_processor is not None and entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
+        try:
+            # force=True: edits must re-extract (the completed-run guard would
+            # else no-op); line-hash dedup remains the idempotency guard.
+            process_result = await user_entry_processor.process(entry, force=True)
+            if process_result.is_error:
+                extraction_error = str(process_result.expect_error())
+                logger.warning(
+                    f"EXTRACT_ACTIVITIES failed for {entry.uid} (journal persisted): "
+                    f"{extraction_error}"
+                )
+        except Exception as exc:  # safety-net: extraction must not unwind persistence
+            extraction_error = str(exc)
+            logger.exception(f"EXTRACT_ACTIVITIES raised for {entry.uid} (journal persisted)")
+
     return Result.ok(
         {
             "uid": entry.uid,
@@ -320,6 +360,7 @@ async def ingest_user_entry(
             ),
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
+            "extraction_error": extraction_error,
         }
     )
 

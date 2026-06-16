@@ -816,11 +816,11 @@ class RelationshipCrudOperations(Protocol):
         ...
 
     async def create_extracted_from_links(
-        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None]]
     ) -> ResultType[int]:
         """Batch-write ``(created)-[:EXTRACTED_FROM]->(entry)`` provenance edges.
 
-        ``links`` is ``(created_uid, source_line_hash)`` pairs (ADR-069).
+        ``links`` is ``(created_uid, source_line_hash, vault_id)`` triples (ADR-070).
         Backend: ``_RelationshipCrudMixin.create_extracted_from_links``.
         """
         ...

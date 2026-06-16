@@ -167,6 +167,9 @@ class ParsedActivityLine:
     # Checkbox state
     is_checked: bool = False  # [x] vs [ ]
 
+    # obsidian-tasks 🆔 join key (ADR-070); None for @context() DSL lines.
+    vault_id: str | None = None
+
     # ========================================================================
     # ACTIVITY DOMAINS (7) - Type-Safe Checks
     # ========================================================================

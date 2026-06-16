@@ -80,6 +80,10 @@ class UserPreferences:
     daily_habit_goal: int = 3
     monthly_learning_hours: int = 20
 
+    # Vault bridge (ADR-070) — user must acknowledge one-time notice before
+    # SKUEL writes 🆔 IDs or [x] status back to their vault files.
+    vault_write_consent: bool = False
+
 
 # ============================================================================
 # SIMPLIFIED USER MODEL

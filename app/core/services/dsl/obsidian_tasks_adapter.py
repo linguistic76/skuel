@@ -53,6 +53,11 @@ _VS = r"️?"
 _DUE_RE = re.compile(rf"📅{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 _SCHEDULED_RE = re.compile(rf"⏳{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 
+# obsidian-tasks 🆔 join key (ADR-070): `🆔 <id>` where id is a 6-char base-36
+# alphanumeric (e.g. `🆔 sk_abc123`). The full token — emoji + id — is stripped
+# from raw_line so the dedup hash is stable across ID injection.
+_VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
+
 # Description cleanup: drop date-emoji+date pairs, drop standalone markers, drop
 # #tags, then collapse whitespace (mirrors ActivityDSLParser._extract_description).
 _DATE_EMOJI_PAIR_RE = re.compile(rf"[{_DATE_EMOJI}]{_VS}\s*\d{{4}}-\d{{2}}-\d{{2}}")
@@ -105,6 +110,10 @@ def obsidian_task_line_to_parsed(
     if not is_checked and not _UNCHECKED.match(line):
         return None
 
+    # obsidian-tasks 🆔 join key (ADR-070)
+    vault_id_match = _VAULT_ID_RE.search(line)
+    vault_id = vault_id_match.group(1) if vault_id_match else None
+
     # Dates
     due_match = _DUE_RE.search(line)
     due_date = _parse_iso_date(due_match.group(1)) if due_match else None
@@ -125,8 +134,9 @@ def obsidian_task_line_to_parsed(
     if entry_kind:
         extra_tags = [*extra_tags, f"period:{entry_kind}"]
 
-    # Description — strip checkbox, emoji/date markers, and #tags; collapse ws.
+    # Description — strip checkbox, 🆔 token, emoji/date markers, and #tags; collapse ws.
     description = _CHECKED.sub("", line) if is_checked else _UNCHECKED.sub("", line)
+    description = _VAULT_ID_RE.sub(" ", description)
     description = _DATE_EMOJI_PAIR_RE.sub(" ", description)
     description = _MARKER_RE.sub(" ", description)
     description = _TAG_RE.sub(" ", description)
@@ -137,8 +147,15 @@ def obsidian_task_line_to_parsed(
     # check/uncheck and bullet style (the active flip-to-COMPLETED round-trip is
     # deferred). Normalizing only the checked branch would leave a '* [ ]' task
     # hashing differently from its '* [x]' twin and let a force re-run duplicate it.
+    #
+    # Also strip 🆔 from raw_line so the hash is stable across ID injection
+    # (ADR-070): a line without an ID and the same line after SKUEL injects
+    # '🆔 sk_abc123' must hash identically — otherwise re-sync after injection
+    # treats the task as new and creates a duplicate.
     checkbox_re = _CHECKED if is_checked else _UNCHECKED
     normalized_raw = checkbox_re.sub("- [ ] ", line, count=1)
+    normalized_raw = _VAULT_ID_RE.sub("", normalized_raw)
+    normalized_raw = " ".join(normalized_raw.split())
 
     return ParsedActivityLine(
         description=description,
@@ -151,4 +168,5 @@ def obsidian_task_line_to_parsed(
         source_line=source_line,
         raw_line=normalized_raw,
         is_checked=is_checked,
+        vault_id=vault_id,
     )
