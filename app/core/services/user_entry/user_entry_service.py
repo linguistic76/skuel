@@ -163,11 +163,20 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             if public_check.is_error:
                 return Result.fail(public_check)
 
-        # A caller-supplied uid (deterministic vault-note ids like
+        # Exercise-linked turn-ins must ALWAYS create fresh, so they mint a
+        # random uid even if the caller supplied one (a deterministic uid +
+        # FULFILLS_EXERCISE would otherwise CREATE on a fixed uid and trip the
+        # uniqueness constraint on the second turn-in). Otherwise a
+        # caller-supplied uid (deterministic vault-note ids like
         # ``ue:daily:2026-06-16``) routes to an idempotent upsert below so
         # re-syncing an edited note updates in place; absent one we mint a
         # random uid and create fresh (the /submit form path).
-        uid = EntityUID(request.uid) if request.uid else UIDGenerator.generate_random_uid("ue")
+        if request.fulfills_exercise_uid:
+            uid = UIDGenerator.generate_random_uid("ue")
+        elif request.uid:
+            uid = EntityUID(request.uid)
+        else:
+            uid = UIDGenerator.generate_random_uid("ue")
         now = datetime.now()
 
         entry = UserEntry(
@@ -207,6 +216,19 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             # uid constraint. Exercise-linked turn-ins always create fresh (they
             # mint a random uid), so this branch is mutually exclusive with the
             # FULFILLS_EXERCISE path above.
+            #
+            # Ownership guard: upsert MERGEs on uid alone, so without this an
+            # uploader could target another user's deterministic uid (these are
+            # predictable, e.g. ``ue:daily:2026-06-16``) and overwrite their
+            # entry. If a node with this uid already exists under a different
+            # owner, return not-found — 404-not-403 keeps us from leaking that
+            # the uid belongs to someone else.
+            existing_result = await self.backend.get(str(uid))
+            if existing_result.is_error:
+                return Result.fail(existing_result)
+            existing = existing_result.value
+            if existing is not None and existing.user_uid != user_uid:
+                return Result.fail(Errors.not_found(resource="UserEntry", identifier=str(uid)))
             create_result = await self.backend.upsert(entry)
         else:
             create_result = await self.backend.create(entry)
