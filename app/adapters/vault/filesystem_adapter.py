@@ -202,24 +202,35 @@ class FilesystemVaultAdapter:
 
 
 def _apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
-    """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``."""
+    """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``.
+
+    Idempotent only when BOTH the checkbox is already ``[x]`` AND the ``✅ date`` token is
+    present.  An already-checked line that is missing the done-date (e.g. checked directly
+    in Obsidian without the tasks plugin) still receives the token so SKUEL and the vault
+    stay in sync.
+    """
     for i, line in enumerate(lines):
         m = _VAULT_ID_RE.search(line)
         if not m or m.group(1) != vault_id:
             continue
-        if _CHECKED_RE.match(line):
-            # Already checked — idempotent
-            return lines, False
-        if not (_UNCHECKED_RE.match(line)):
+        checked = bool(_CHECKED_RE.match(line))
+        if not checked and not _UNCHECKED_RE.match(line):
             return lines, False
 
-        # Flip checkbox
-        line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
-        # Append ✅ date if not already present
+        # True no-op: already checked AND already has a done-date
+        if checked and _DONE_DATE_RE.search(line):
+            return lines, False
+
+        # Flip checkbox if needed
+        if not checked:
+            line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
+
+        # Append ✅ date if still absent
         if not _DONE_DATE_RE.search(line):
             stripped = line.rstrip("\n")
             eol = line[len(stripped) :]
             line = f"{stripped} ✅ {done_date}{eol}"
+
         lines[i] = line
         return lines, True
     return lines, False
