@@ -54,14 +54,11 @@ def create_vault_routes(
             user_uid=user_uid, vault_path=str(vault_reconciler.vault_root)
         )
         if result.is_error:
-            err = result.expect_error()
-            if getattr(err, "message", "") == "first_run_notice" or (
-                hasattr(err, "code") and "first_run_notice" in str(err.code)
-            ):
-                return Result.ok({"first_run_notice": True})
             return Result.fail(result)
 
         stats = result.value
+        if stats.first_run_notice:
+            return Result.ok({"first_run_notice": True})
         return Result.ok(asdict(stats))
 
     @rt("/api/vault/sync/consent", methods=["POST"])
