@@ -1,7 +1,7 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
 updated: 2026-06-16
-status: proposed
+status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
 related: [ADR-014, ADR-044, ADR-054, ADR-069]
@@ -10,7 +10,7 @@ related_skills: []
 
 # ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync
 
-**Status:** Proposed
+**Status:** Accepted — implemented in PR-3 (#319)
 
 **Date:** 2026-06-16
 
