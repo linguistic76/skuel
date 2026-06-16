@@ -39,6 +39,15 @@ class UserEntryCreateRequest(CreateRequestBase):
     # -------------------------------------------------------------------------
     # Core content
     # -------------------------------------------------------------------------
+    uid: str | None = Field(
+        default=None,
+        description=(
+            "Caller-supplied deterministic UID (e.g. vault note 'ue:daily:2026-06-16'). "
+            "When set, the service upserts (MERGE-on-uid) so re-syncing an edited note "
+            "updates in place; when None a random 'ue_<...>' UID is minted and the entry "
+            "is created fresh."
+        ),
+    )
     title: str = Field(min_length=1, max_length=200, description="Entry title")
     content: str | None = Field(default=None, description="Text content (if any)")
     domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
