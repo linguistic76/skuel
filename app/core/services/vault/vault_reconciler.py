@@ -166,24 +166,36 @@ class VaultReconciler:
 
     async def _run_outbound(self, user_uid: str, stats: VaultSyncStats) -> None:
         """Inject IDs and write done-status for all vault-ingested UserEntries."""
-        entries_result = await self._user_entry.list_for_user(
-            user_uid=UserUID(user_uid),
-            pipeline=Pipeline.EXTRACT_ACTIVITIES,
-            limit=500,
-        )
-        if entries_result.is_error:
-            stats.errors.append(f"list_for_user failed: {entries_result.expect_error()}")
-            return
+        page_size = 500
+        offset = 0
+        resolved_vault_root = self.vault_root.resolve()
 
-        for entry in entries_result.value or []:
-            vault_file_path = (entry.metadata or {}).get("vault_file_path")
-            if not vault_file_path:
-                continue
-            # Guard: skip entries whose source path is outside this vault root
-            # (upload entries stamped with a temp path should never be written back)
-            if not Path(vault_file_path).is_relative_to(self.vault_root):
-                continue
-            await self._process_entry_outbound(user_uid, entry, vault_file_path, stats)
+        while True:
+            entries_result = await self._user_entry.list_for_user(
+                user_uid=UserUID(user_uid),
+                pipeline=Pipeline.EXTRACT_ACTIVITIES,
+                limit=page_size,
+                offset=offset,
+            )
+            if entries_result.is_error:
+                stats.errors.append(f"list_for_user failed: {entries_result.expect_error()}")
+                return
+
+            entries = entries_result.value or []
+            for entry in entries:
+                vault_file_path = (entry.metadata or {}).get("vault_file_path")
+                if not vault_file_path:
+                    continue
+                # Guard: resolve both paths so ".." segments cannot bypass the check,
+                # and skip upload entries whose source path is outside this vault root.
+                resolved_vfp = Path(vault_file_path).resolve()
+                if not resolved_vfp.is_relative_to(resolved_vault_root):
+                    continue
+                await self._process_entry_outbound(user_uid, entry, str(resolved_vfp), stats)
+
+            if len(entries) < page_size:
+                break
+            offset += page_size
 
     async def _process_entry_outbound(
         self,
@@ -219,7 +231,8 @@ class VaultReconciler:
             line_hash = rel.get("source_line_hash", "")
 
             if not vault_id:
-                # No 🆔 yet — inject one
+                # No 🆔 in Neo4j yet — check if the vault file already has one
+                # (possible if a previous sync wrote the file but the DB update failed).
                 if not line_hash:
                     continue
                 line_idx = _find_line_by_hash(snapshot.content, line_hash)
@@ -228,16 +241,24 @@ class VaultReconciler:
                         f"ID injection: line not found in {vault_file_path} for entity {entity_uid}"
                     )
                     continue
-                new_vault_id = _mint_vault_id()
-                updates.append(
-                    TaskLineUpdate(
-                        vault_id=new_vault_id,
-                        inject_vault_id=True,
-                        source_line_hash=line_hash,
+                found_line = snapshot.content.splitlines()[line_idx]
+                existing_id_match = _VAULT_ID_RE.search(found_line)
+                if existing_id_match:
+                    # Recovery: vault already has this ID; sync it to Neo4j without
+                    # touching the file.  Prevents a new mint from permanently
+                    # diverging Neo4j from the vault after a partial-write failure.
+                    inject_pairs.append((entity_uid, existing_id_match.group(1)))
+                else:
+                    new_vault_id = _mint_vault_id()
+                    updates.append(
+                        TaskLineUpdate(
+                            vault_id=new_vault_id,
+                            inject_vault_id=True,
+                            source_line_hash=line_hash,
+                        )
                     )
-                )
-                inject_pairs.append((entity_uid, new_vault_id))
-                stats.ids_injected += 1
+                    inject_pairs.append((entity_uid, new_vault_id))
+                    stats.ids_injected += 1
             else:
                 # Has 🆔 — check if COMPLETED in SKUEL
                 task_result = await self._tasks.get_task(entity_uid)
