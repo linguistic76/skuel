@@ -531,9 +531,9 @@ Target the latest stable CPython (currently **3.14**, pinned in `.python-version
 
 ## PR Review Workflow
 
-**Core Principle:** "Reviews are advisory on a timer, not unbounded gates"
+**Core Principle:** "Reviews are advisory and a flaky service can't deadlock a merge — but the gate is never cleared by a timer, only by a read verdict"
 
-CI Gate is the sole automatic check. Codex review is on-demand via `scripts/request_codex_review.sh <PR#>` — timeboxed summon + poll across all three verdict surfaces (exit 0 clean / 2 findings / 3 no-show; run AFTER the final push — the gate drops the label on synchronize). The required `Codex Review Gate` clears via a PR-side consideration note (accept/reject + why) plus the `codex-considered` label — *considered*, not necessarily agreed with.
+CI Gate is the sole automatic check. Codex review is on-demand via `scripts/request_codex_review.sh <PR#>` — summon + patient in-script poll across all three verdict surfaces (exit 0 clean+labeled / 2 findings-read / 3 timeout; run AFTER the final push — the gate drops the label on synchronize). Patience lives in the bash primitive, not a harness scheduler, so the workflow stays agent/LLM-agnostic (Codex here can take >13min — #317). The script **never labels without a real verdict**: on timeout the gate stays RED (exit 3) and proceeding past a genuine outage is a deliberate human call, not a timer. The required `Codex Review Gate` clears via a PR-side consideration note (accept/reject + why) plus the `codex-considered` label — *considered*, not necessarily agreed with.
 
 **See:** `/docs/development/PR_WORKFLOW.md`, `.github/workflows/README.md` (repo root), `AGENTS.md` (repo root)
 
