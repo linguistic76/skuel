@@ -52,7 +52,7 @@ The `@context()` tag values are now parsed to `EntityType` or `NonKuDomain` enum
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
@@ -98,10 +98,12 @@ class ParsedActivityLine:
         description: Human-readable activity description
         contexts: List of EntityType/NonKuDomain values from @context() tag (type-safe)
         when: Optional datetime from @when() tag
+        scheduled_date: Optional scheduled date from the obsidian-tasks ⏳ marker
         duration_minutes: Optional duration in minutes from @duration() tag
         repeat_pattern: Optional repeat configuration from @repeat() tag
         priority: Optional priority 1-5 from @priority() tag
         energy_states: List of energy states from @energy() tag
+        extra_tags: Free-form tags from the obsidian-tasks adapter (#tag, period:{kind})
         primary_ku: Optional primary KnowledgeUnit UID from @ku() tag
         links: List of graph links from @link() tag
         source_file: Optional source file path for tracking
@@ -140,6 +142,7 @@ class ParsedActivityLine:
 
     # Temporal
     when: datetime | None = None  # @when(2025-11-27T09:30)
+    scheduled_date: date | None = None  # obsidian-tasks ⏳ scheduled date
     duration_minutes: int | None = None  # @duration(90m)
     repeat_pattern: dict[str, Any] | None = None  # @repeat(daily)
 
@@ -148,6 +151,9 @@ class ParsedActivityLine:
 
     # Energy/behavioral
     energy_states: list[str] = field(default_factory=list)  # @energy(focus,creative)
+    # Free-form tags from the obsidian-tasks adapter (#tag, period:{kind}); the
+    # @context DSL leaves this empty, so behavior is unchanged there.
+    extra_tags: list[str] = field(default_factory=list)
 
     # Knowledge graph connections
     primary_ku: str | None = None  # @ku(ku:sel/mindfulness)
@@ -655,16 +661,23 @@ class ActivityDSLParser:
                 )
             )
 
-    def parse_journal(self, text: str, source_file: str | None = None) -> Result[ParsedJournal]:
+    def parse_journal(
+        self, text: str, source_file: str | None = None, entry_kind: str | None = None
+    ) -> Result[ParsedJournal]:
         """
         Parse a full journal/document for Activity Lines.
 
-        Scans all lines and extracts those containing @context().
-        Each context value is validated against EntityType and NonKuDomain enums.
+        Scans all lines: `@context()` lines parse via the SKUEL DSL; any other
+        markdown checkbox line (`- [ ]` / `- [x]`) gets a second pass through the
+        obsidian-tasks adapter, so periodic notes authored in Obsidian extract
+        Tasks without `@context` tags.
 
         Args:
             text: Full document text
             source_file: Optional source file path
+            entry_kind: Periodic-note kind (daily/weekly/...) stamped as a
+                ``period:{kind}`` tag on obsidian-tasks lines (see
+                `obsidian_task_line_to_parsed`)
 
         Returns:
             Result containing ParsedJournal with all activities (type-safe contexts)
@@ -679,13 +692,25 @@ class ActivityDSLParser:
                 )
             )
 
+        # Local import avoids a module-load cycle: the adapter constructs
+        # ParsedActivityLine, defined above in this module.
+        from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
+
         lines = text.split("\n")
         activities: list[ParsedActivityLine] = []
         errors: list[str] = []
 
         for line_num, line in enumerate(lines, start=1):
-            # Skip lines without @context
+            # Non-@context lines: try the obsidian-tasks checkbox adapter.
             if "@context(" not in line:
+                obsidian = obsidian_task_line_to_parsed(
+                    line,
+                    entry_kind=entry_kind,
+                    source_file=source_file,
+                    source_line=line_num,
+                )
+                if obsidian is not None:
+                    activities.append(obsidian)
                 continue
 
             result = self.parse_line(line, source_file, line_num)

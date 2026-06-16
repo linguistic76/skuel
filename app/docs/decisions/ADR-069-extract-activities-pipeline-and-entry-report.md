@@ -97,10 +97,12 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    not wired), this is **not an error** — skip the pre-pass.
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
-   parser only matches explicit `@context(...)` lines, so at CORE tier a user who
-   hand-writes DSL tags gets full extraction with zero API keys — the
-   Analog-layer-complete principle holds because the *parser* is the engine and
-   the LLM is only a tagger.
+   parser matches explicit `@context(...)` lines plus, via a second pass,
+   obsidian-tasks checkbox lines (`- [ ] … 📅 … ⏫ #tag` →
+   `core/services/dsl/obsidian_tasks_adapter.py`), so at CORE tier a user who
+   hand-writes DSL tags *or* authors a periodic note in Obsidian gets full
+   extraction with zero API keys — the Analog-layer-complete principle holds
+   because the *parser* is the engine and the LLM is only a tagger.
 4. **Failure semantics:** bridge *call failure* at FULL tier (LLM exception)
    degrades to parser-only over the original text, records the bridge error in
    `processing_error`, and still succeeds if extraction does — the
