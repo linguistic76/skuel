@@ -199,10 +199,11 @@ async def build_user_entry_request(
         )
 
     # Markdown body capture: a periodic note carries its checkbox lines / prose
-    # in the body, not a `content:` field. Explicit `content:` wins; otherwise
-    # the parsed body becomes the entry content (so EXTRACT_ACTIVITIES has the
-    # `- [ ]` lines to work with downstream).
-    content = data.get("content") or body
+    # in the body, not a `content:` field. Explicit `content:` wins — even when
+    # falsy (an intentional ``content: ""`` suppresses body capture), so we test
+    # key presence, not truthiness; otherwise the parsed body becomes the entry
+    # content (so EXTRACT_ACTIVITIES has the `- [ ]` lines to work with).
+    content = data.get("content", body)
     request = UserEntryCreateRequest(
         uid=data.get("uid"),
         title=str(title),

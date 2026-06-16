@@ -788,7 +788,8 @@ class Neo4jSchemaManager:
         Idempotent — uses IF NOT EXISTS. Safe to call on every startup.
 
         Creates:
-        - UID indexes for all entity types (22)
+        - Entity.uid UNIQUENESS constraint (base label — globally unique uid)
+        - UID indexes for the per-type labels (21)
         - user_uid indexes for all UserOwnedEntity types (14)
         - Status indexes for time-sensitive domains (4)
         - Date indexes for temporal queries (4)
@@ -796,6 +797,27 @@ class Neo4jSchemaManager:
         - Composite indexes for hot query paths (3)
         """
         results: dict[str, Any] = {"created": [], "failed": []}
+
+        # Entity.uid is GLOBALLY UNIQUE — enforce it with a uniqueness
+        # constraint, not a plain index. The constraint (a) makes MERGE-on-uid
+        # race-safe, so the UserEntry deterministic-uid upsert can't be
+        # double-created or cross-tenant-overwritten under concurrent writes
+        # (Codex P2 on #317), and (b) guarantees backend.get(uid) can never
+        # silently return one of several same-uid nodes. Neo4j refuses a
+        # uniqueness constraint while a plain range index covers the same key,
+        # so migrate: drop the legacy entity_uid_idx first (no-op on a fresh
+        # DB), then create the constraint — its own backing index serves
+        # :Entity {uid} lookups identically, so query speed is unchanged.
+        try:
+            async with self.driver.session() as session:
+                await session.run("DROP INDEX entity_uid_idx IF EXISTS")
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.warning(f"Could not drop legacy entity_uid_idx (will retry next boot): {e}")
+        uid_unique = await self._create_unique_constraint(NeoLabel.ENTITY, "uid")
+        if uid_unique.is_ok:
+            results["created"].append("Entity_uid_unique")
+        else:
+            results["failed"].append("Entity_uid_unique")
 
         async def _idx(name: str, label: NeoLabel, field: str) -> None:
             """Create a single named index and track result."""
@@ -813,9 +835,10 @@ class Neo4jSchemaManager:
             else:
                 results["failed"].append(name)
 
-        # UID indexes — one per entity type + base Entity label
+        # UID indexes — one per entity type. The base :Entity label uses a
+        # uniqueness CONSTRAINT instead (created above), whose backing index
+        # serves :Entity {uid} lookups, so it is intentionally absent here.
         uid_labels: list[tuple[str, NeoLabel]] = [
-            ("entity_uid_idx", NeoLabel.ENTITY),
             ("task_uid_idx", NeoLabel.TASK),
             ("goal_uid_idx", NeoLabel.GOAL),
             ("habit_uid_idx", NeoLabel.HABIT),
