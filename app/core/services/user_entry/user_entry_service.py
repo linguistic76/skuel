@@ -38,7 +38,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
 from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_dto import UserEntryDTO
 from core.models.user_entry.user_entry_request import (
@@ -163,7 +163,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             if public_check.is_error:
                 return Result.fail(public_check)
 
-        uid = UIDGenerator.generate_random_uid("ue")
+        # A caller-supplied uid (deterministic vault-note ids like
+        # ``ue:daily:2026-06-16``) routes to an idempotent upsert below so
+        # re-syncing an edited note updates in place; absent one we mint a
+        # random uid and create fresh (the /submit form path).
+        uid = EntityUID(request.uid) if request.uid else UIDGenerator.generate_random_uid("ue")
         now = datetime.now()
 
         entry = UserEntry(
@@ -197,6 +201,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 exercise_uid=request.fulfills_exercise_uid,
                 revision=revision,
             )
+        elif request.uid:
+            # Deterministic uid → idempotent MERGE-on-uid so vault re-sync of an
+            # edited note updates in place instead of duplicating / violating the
+            # uid constraint. Exercise-linked turn-ins always create fresh (they
+            # mint a random uid), so this branch is mutually exclusive with the
+            # FULFILLS_EXERCISE path above.
+            create_result = await self.backend.upsert(entry)
         else:
             create_result = await self.backend.create(entry)
 
