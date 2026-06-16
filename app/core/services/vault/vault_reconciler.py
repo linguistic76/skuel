@@ -25,7 +25,6 @@ See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 
 from __future__ import annotations
 
-import hashlib
 import re
 import secrets
 import string
@@ -37,7 +36,12 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
-from core.ports.vault_bridge_protocol import TaskLineUpdate, VaultSyncStats
+from core.ports.vault_bridge_protocol import (
+    VAULT_ID_RE,
+    TaskLineUpdate,
+    VaultSyncStats,
+    normalize_vault_line_hash,
+)
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -54,7 +58,6 @@ logger = get_logger("skuel.services.vault.reconciler")
 _BASE36 = string.ascii_lowercase + string.digits
 _UNCHECKED_RE = re.compile(r"^[-*]\s*\[\s*\]")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
-_VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 
 
 def _mint_vault_id() -> str:
@@ -62,19 +65,11 @@ def _mint_vault_id() -> str:
     return "sk_" + "".join(secrets.choice(_BASE36) for _ in range(6))
 
 
-def _normalized_hash(line: str) -> str:
-    """Replicates the obsidian-tasks adapter hash for VaultWriter line lookup."""
-    line = re.sub(r"^[-*]\s*\[[xX]\]\s*", "- [ ] ", line)
-    line = re.sub(r"^[-*]\s*\[\s*\]\s*", "- [ ] ", line)
-    line = _VAULT_ID_RE.sub("", line)
-    return hashlib.sha256(" ".join(line.split()).encode("utf-8")).hexdigest()
-
-
 def _find_line_by_hash(content: str, target_hash: str) -> int | None:
     """Return 0-based index of the checkbox line whose normalized hash matches."""
     for i, line in enumerate(content.splitlines()):
         if _UNCHECKED_RE.match(line) or _CHECKED_RE.match(line):
-            if _normalized_hash(line) == target_hash:
+            if normalize_vault_line_hash(line) == target_hash:
                 return i
     return None
 
@@ -242,7 +237,7 @@ class VaultReconciler:
                     )
                     continue
                 found_line = snapshot.content.splitlines()[line_idx]
-                existing_id_match = _VAULT_ID_RE.search(found_line)
+                existing_id_match = VAULT_ID_RE.search(found_line)
                 if existing_id_match:
                     # Recovery: vault already has this ID; sync it to Neo4j without
                     # touching the file.  Prevents a new mint from permanently

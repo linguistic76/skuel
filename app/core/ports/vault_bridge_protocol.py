@@ -17,8 +17,39 @@ See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from typing import Protocol
+
+# ============================================================================
+# VAULT-LINE NORMALIZATION CONTRACT (ADR-070 Decision 1 + Decision 4)
+# ============================================================================
+# Single definition used by all three sites that must agree on line identity:
+#   - obsidian_tasks_adapter  (produces source_line_hash stored on EXTRACTED_FROM)
+#   - VaultReconciler         (looks up lines by hash for ID injection)
+#   - FilesystemVaultAdapter  (targets the right line inside _apply_inject_id)
+#
+# A divergence here silently injects IDs into the wrong lines — keep it here.
+
+VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
+"""Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).
+
+The optional ``️`` is a Unicode variation selector some editors append.
+"""
+
+
+def normalize_vault_line_hash(line: str) -> str:
+    """Stable hash for a vault task line used as ``source_line_hash`` on EXTRACTED_FROM edges.
+
+    Normalizes the checkbox prefix to ``- [ ] ``, strips the 🆔 token so
+    the hash is stable across ID injection, then sha256s the
+    whitespace-collapsed result.
+    """
+    line = re.sub(r"^[-*]\s*\[[xX]\]\s*", "- [ ] ", line)
+    line = re.sub(r"^[-*]\s*\[\s*\]\s*", "- [ ] ", line)
+    line = VAULT_ID_RE.sub("", line)
+    return hashlib.sha256(" ".join(line.split()).encode("utf-8")).hexdigest()
+
 
 # ============================================================================
 # DATA STRUCTURES

@@ -31,16 +31,16 @@ import tempfile
 from pathlib import Path
 
 from core.ports.vault_bridge_protocol import (
+    VAULT_ID_RE,
     NoteSnapshot,
     TaskLineUpdate,
     WriteResult,
+    normalize_vault_line_hash,
 )
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.adapters.vault.filesystem")
 
-# obsidian-tasks 🆔 pattern (ADR-070 Decision 1)
-_VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 # Checkbox detection
 _UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
@@ -51,23 +51,6 @@ _DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
 def _file_sha256(path: Path) -> str:
     content = path.read_text(encoding="utf-8")
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-
-def _normalize_line_hash(line: str) -> str:
-    """Compute the same hash the obsidian-tasks adapter uses (ADR-070).
-
-    Strips the checkbox prefix (normalising to ``- [ ] ``), strips the 🆔
-    token (hash is stable across ID injection), then sha256 of the
-    whitespace-collapsed result.
-    """
-    # Normalize checked → unchecked
-    line = re.sub(r"^[-*]\s*\[[xX]\]\s*", "- [ ] ", line)
-    line = re.sub(r"^[-*]\s*\[\s*\]\s*", "- [ ] ", line)
-    # Strip 🆔 token
-    line = _VAULT_ID_RE.sub("", line)
-    # Collapse whitespace
-    normalized = " ".join(line.split())
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 class FilesystemVaultAdapter:
@@ -181,7 +164,7 @@ class FilesystemVaultAdapter:
         stored line number.
         """
         for i, line in enumerate(content.splitlines()):
-            if (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)) and _normalize_line_hash(
+            if (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)) and normalize_vault_line_hash(
                 line
             ) == target_hash:
                 return i
@@ -190,7 +173,7 @@ class FilesystemVaultAdapter:
     def find_line_by_vault_id(self, content: str, vault_id: str) -> int | None:
         """Return 0-based line index of the task line carrying the given 🆔 vault_id."""
         for i, line in enumerate(content.splitlines()):
-            m = _VAULT_ID_RE.search(line)
+            m = VAULT_ID_RE.search(line)
             if m and m.group(1) == vault_id:
                 return i
         return None
@@ -210,7 +193,7 @@ def _apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[l
     stay in sync.
     """
     for i, line in enumerate(lines):
-        m = _VAULT_ID_RE.search(line)
+        m = VAULT_ID_RE.search(line)
         if not m or m.group(1) != vault_id:
             continue
         checked = bool(_CHECKED_RE.match(line))
@@ -249,9 +232,9 @@ def _apply_inject_id(
     for i, line in enumerate(lines):
         if not (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)):
             continue
-        if _VAULT_ID_RE.search(line):
+        if VAULT_ID_RE.search(line):
             continue  # Already has a 🆔
-        if source_line_hash is not None and _normalize_line_hash(line) != source_line_hash:
+        if source_line_hash is not None and normalize_vault_line_hash(line) != source_line_hash:
             continue
         stripped = line.rstrip("\n")
         eol = line[len(stripped) :]
