@@ -90,7 +90,7 @@ class FilesystemVaultAdapter:
         resolved = (
             (self._root / path).resolve() if not Path(path).is_absolute() else Path(path).resolve()
         )
-        if not str(resolved).startswith(str(self._root)):
+        if not resolved.is_relative_to(self._root):
             raise ValueError(f"Path {path!r} escapes vault root {self._root}")
         return resolved
 
