@@ -91,6 +91,7 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
     request = TaskCreateRequest(
         title=activity.description,
         due_date=due_date,
+        scheduled_date=activity.scheduled_date,
         duration_minutes=activity.duration_minutes or 30,
         priority=priority,
         status=EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
@@ -99,8 +100,8 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
         applies_knowledge_uids=activity.get_linked_knowledge(),
         # Goal connections
         fulfills_goal_uid=activity.get_linked_goals()[0] if activity.get_linked_goals() else None,
-        # Tags from energy states
-        tags=activity.energy_states if activity.energy_states else [],
+        # Tags from energy states (@energy) + obsidian-tasks #tags / period marker
+        tags=list(dict.fromkeys(activity.energy_states + activity.extra_tags)),
     )
 
     logger.debug(f"Converted activity to TaskCreateRequest: {request.title}")
