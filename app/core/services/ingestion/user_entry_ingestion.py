@@ -131,6 +131,7 @@ async def build_user_entry_request(
     user_uid: UserUID,
     audience_resolver: AudienceResolver,
     user_service: UserService | None = None,
+    body: str | None = None,
 ) -> Result[UserEntryCreateRequest]:
     """Validate YAML + build a ``UserEntryCreateRequest`` ready for the service.
 
@@ -197,9 +198,15 @@ async def build_user_entry_request(
             )
         )
 
+    # Markdown body capture: a periodic note carries its checkbox lines / prose
+    # in the body, not a `content:` field. Explicit `content:` wins; otherwise
+    # the parsed body becomes the entry content (so EXTRACT_ACTIVITIES has the
+    # `- [ ]` lines to work with downstream).
+    content = data.get("content") or body
     request = UserEntryCreateRequest(
+        uid=data.get("uid"),
         title=str(title),
-        content=data.get("content"),
+        content=content,
         tags=tags,
         metadata=dict(metadata),
         pipeline=pipeline,
@@ -261,8 +268,13 @@ async def ingest_user_entry(
     user_uid: UserUID,
     user_entry_service: UserEntryService,
     user_service: UserService | None = None,
+    body: str | None = None,
 ) -> Result[dict[str, Any]]:
-    """Ingest a single UserEntry YAML through ``UserEntryService.create_entry()``.
+    """Ingest a single UserEntry through ``UserEntryService.create_entry()``.
+
+    ``body`` is the parsed markdown body (None for YAML files); it becomes the
+    entry ``content`` when no explicit ``content:`` field is present, so a
+    periodic note's checkbox lines survive ingestion.
 
     Returns the standard ingestion result dict (uid, title, entity_type, ...)
     so callers don't need to reach into ``ShareOutcome`` to format a response.
@@ -273,6 +285,7 @@ async def ingest_user_entry(
         user_uid=user_uid,
         audience_resolver=user_entry_service.audience_resolver,
         user_service=user_service,
+        body=body,
     )
     if request_result.is_error:
         return Result.fail(request_result)

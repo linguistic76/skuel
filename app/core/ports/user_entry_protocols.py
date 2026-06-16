@@ -54,6 +54,14 @@ class UserEntryCrudOperations(Protocol):
     Implementation: ``_UserEntryCrudMixin`` (renamed from ``_SubmissionCrudMixin``).
     """
 
+    async def upsert(self, entry: UserEntry) -> Result[UserEntry]:
+        """Create-or-update a ``UserEntry`` keyed on its caller-supplied uid.
+
+        MERGE-on-uid: re-syncing a deterministic-uid vault note updates the
+        node in place (preserving ``created_at``) instead of duplicating it.
+        """
+        ...
+
     async def search_entry_content(
         self,
         user_uid: UserUID,

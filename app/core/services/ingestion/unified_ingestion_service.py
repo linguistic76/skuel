@@ -445,6 +445,7 @@ class UnifiedIngestionService:
                 user_uid=effective_user_uid,
                 user_entry_service=self.user_entry_service,
                 user_service=self.user_service,
+                body=body,
             )
 
         # Validate UID format before preparation (early fail-fast)

@@ -18,13 +18,17 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    import logging
+
     from neo4j import AsyncDriver
 
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.user_entry.user_entry import UserEntry
 
 _USER_ENTRY = EntityType.USER_ENTRY.value
 
@@ -39,10 +43,86 @@ class _UserEntryCrudMixin:
     if TYPE_CHECKING:
         driver: AsyncDriver
         label: NeoLabel
+        logger: logging.Logger
+        entity_class: type[UserEntry]
+        _create_labels: str
+        default_filters: Neo4jProperties
 
         async def execute_query(
             self, query: str, params: dict[str, Any] | None = None
         ) -> Result[list[dict[str, Any]]]: ...
+
+        async def create_user_relationship(
+            self,
+            user_uid: UserUID,
+            entity_uid: EntityUID,
+            relationship_type: RelationshipName | None = None,
+            metadata: dict[str, Any] | None = None,
+        ) -> Result[bool]: ...
+
+    # ------------------------------------------------------------------
+    # Deterministic upsert (MERGE-on-uid)
+    # ------------------------------------------------------------------
+
+    async def upsert(self, entry: UserEntry) -> Result[UserEntry]:
+        """Create-or-update a ``UserEntry`` keyed on its (caller-supplied) uid.
+
+        Mirrors the bulk-ingestion MERGE-on-uid pattern
+        (``bulk_upsert_backend.py``): re-syncing a vault note with a
+        deterministic uid (e.g. ``ue:daily:2026-06-16``) updates the existing
+        node in place rather than minting a duplicate or tripping the uid
+        constraint that the always-``CREATE`` ``create()`` path would.
+
+        ``created_at`` is preserved across re-syncs (set only ``ON CREATE``);
+        every other property — including ``updated_at`` and the note body in
+        ``content`` — is refreshed from ``entry``. Like ``create()``, the
+        ``(User)-[:OWNS]->(entry)`` edge is MERGEd when ``entry`` carries a
+        ``user_uid`` (warning-only on failure, never fails the node write).
+
+        Backend: MERGE on the generic ``UserEntryBackend``.
+        """
+        node_data = to_neo4j_node(entry)
+        node_data.update(self.default_filters)
+        user_uid = node_data.get("user_uid")
+
+        # ON MATCH must not clobber the original created_at — drop it from the
+        # match-side payload so re-sync keeps the first-seen timestamp.
+        on_match_props = {k: v for k, v in node_data.items() if k != "created_at"}
+
+        query = f"""
+        MERGE (n:{self._create_labels} {{uid: $uid}})
+          ON CREATE SET n = $props
+          ON MATCH SET n += $on_match_props
+        RETURN n
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(
+                query,
+                {
+                    "uid": node_data["uid"],
+                    "props": node_data,
+                    "on_match_props": on_match_props,
+                },
+            )
+            record = await result.single()
+            if not record:
+                return Result.fail(Errors.database("upsert", f"Failed to upsert {self.label}"))
+            upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
+
+        if user_uid:
+            rel_result = await self.create_user_relationship(
+                user_uid=UserUID(str(user_uid)),
+                entity_uid=EntityUID(upserted.uid),
+                relationship_type=RelationshipName.OWNS,
+            )
+            if rel_result.is_error:
+                self.logger.warning(
+                    f"Upserted {self.label} {upserted.uid} but failed to MERGE OWNS edge: "
+                    f"{rel_result.expect_error()}"
+                )
+
+        return Result.ok(upserted)
 
     # ------------------------------------------------------------------
     # Content search

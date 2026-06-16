@@ -102,6 +102,25 @@ when omitted. Accepted values:
 Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 **rejected** with an ADR-054 error (no compat shim — One Path Forward).
 
+### Optional field: `uid` (deterministic upsert)
+
+By default a UserEntry is minted a random `ue_<...>` UID and **created**
+fresh on every ingest. Supply an explicit `uid:` (e.g. a periodic-note id
+like `ue:daily:2026-06-16`) and the service switches to **MERGE-on-uid
+upsert** instead: re-ingesting an edited file updates the existing node in
+place rather than duplicating it or tripping the uid constraint.
+`created_at` is preserved across re-syncs; `updated_at` and content are
+refreshed. The exercise-linked turn-in path (`fulfills_exercise_uid`)
+always mints a random UID and is unaffected.
+
+### Markdown body → `content`
+
+For a `type: user_entry` **markdown** file, the parsed body (everything
+after the frontmatter) becomes `content` when no explicit `content:` field
+is present (explicit `content:` wins). This keeps the note prose — and the
+`- [ ]` checkbox lines a periodic note carries — available to downstream
+processing instead of being discarded.
+
 ### Example
 
 ```yaml
