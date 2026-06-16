@@ -24,6 +24,7 @@ See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import re
@@ -132,8 +133,6 @@ class FilesystemVaultAdapter:
         new_sha256 = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
 
         # Atomic write via temp-file + rename()
-        import contextlib
-
         try:
             fd, tmp_path_str = tempfile.mkstemp(dir=p.parent, suffix=".skuel_tmp")
             tmp_path = Path(tmp_path_str)
@@ -156,27 +155,6 @@ class FilesystemVaultAdapter:
     ) -> list[str]:
         base = self._resolve(vault_path)
         return [str(p) for p in base.glob(pattern) if p.is_file()]
-
-    def find_line_by_hash(self, content: str, target_hash: str) -> int | None:
-        """Return the 0-based line index whose normalized hash matches target_hash.
-
-        Used by VaultReconciler to locate lines for ID injection without a
-        stored line number.
-        """
-        for i, line in enumerate(content.splitlines()):
-            if (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)) and normalize_vault_line_hash(
-                line
-            ) == target_hash:
-                return i
-        return None
-
-    def find_line_by_vault_id(self, content: str, vault_id: str) -> int | None:
-        """Return 0-based line index of the task line carrying the given 🆔 vault_id."""
-        for i, line in enumerate(content.splitlines()):
-            m = VAULT_ID_RE.search(line)
-            if m and m.group(1) == vault_id:
-                return i
-        return None
 
 
 # ============================================================================

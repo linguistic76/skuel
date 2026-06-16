@@ -104,10 +104,10 @@ class VaultSyncStats:
     """Aggregate results of a VaultReconciler.sync() call."""
 
     entries_ingested: int = 0
-    tasks_extracted: int = 0
     ids_injected: int = 0
     tasks_marked_done: int = 0
     errors: list[str] = field(default_factory=list)
+    first_run_notice: bool = False
 
 
 # ============================================================================

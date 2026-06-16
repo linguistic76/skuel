@@ -14,11 +14,11 @@ changing any logic here.
 
 **First-run notice** (ADR-070 Decision 6):
 Before performing any outbound vault write, checks
-``user.preferences.vault_write_consent``.  Returns ``Result.fail`` with
-``reason="first_run_notice"`` on the first call; the route renders the
-first-run consent modal.  After the user grants consent, a separate
-``POST /api/vault/sync/consent`` endpoint sets the preference flag and
-subsequent sync calls proceed normally.
+``user.preferences.vault_write_consent``.  Returns
+``Result.ok(VaultSyncStats(first_run_notice=True))`` on the first call so
+the route can render the consent modal without treating it as an error.
+After the user grants consent, ``POST /api/vault/sync/consent`` sets the
+preference flag and subsequent sync calls proceed normally.
 
 See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 """
@@ -30,7 +30,7 @@ import secrets
 import string
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -42,11 +42,13 @@ from core.ports.vault_bridge_protocol import (
     VaultSyncStats,
     normalize_vault_line_hash,
 )
+from core.services.ingestion.types import DryRunPreview, IncrementalStats, IngestionStats
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.user_entry.user_entry import UserEntry
     from core.ports.vault_bridge_protocol import VaultBridgePort
     from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
     from core.services.tasks_service import TasksService
@@ -134,13 +136,7 @@ class VaultReconciler:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
 
         if not user.preferences.vault_write_consent:
-            return Result.fail(
-                Errors.forbidden(
-                    action="vault_write",
-                    reason="first_run_notice",
-                    required_role="vault_write_consent",
-                )
-            )
+            return Result.ok(VaultSyncStats(first_run_notice=True))
 
         # Step 3: outbound — ID injection + status round-trip
         await self._run_outbound(user_uid, stats)
@@ -195,7 +191,7 @@ class VaultReconciler:
     async def _process_entry_outbound(
         self,
         user_uid: str,
-        entry: Any,
+        entry: UserEntry,
         vault_file_path: str,
         stats: VaultSyncStats,
     ) -> None:
@@ -319,8 +315,8 @@ class VaultReconciler:
 # =========================================================================
 
 
-def _count_ingested(stats: Any) -> int:
+def _count_ingested(stats: IngestionStats | IncrementalStats | DryRunPreview | None) -> int:
     """Extract a meaningful node count from IngestionStats | IncrementalStats."""
-    if hasattr(stats, "nodes_created"):
+    if isinstance(stats, (IngestionStats, IncrementalStats)):
         return int(stats.nodes_created or 0) + int(stats.nodes_updated or 0)
     return 0
