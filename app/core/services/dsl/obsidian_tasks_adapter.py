@@ -132,9 +132,13 @@ def obsidian_task_line_to_parsed(
     description = _TAG_RE.sub(" ", description)
     description = " ".join(description.split())
 
-    # Normalize the checkbox to '- [ ]' so the dedup hash is stable across
-    # check/uncheck (the active flip-to-COMPLETED round-trip is deferred).
-    normalized_raw = _CHECKED.sub("- [ ] ", line, count=1) if is_checked else line
+    # Canonicalize the checkbox prefix to '- [ ] ' — collapsing BOTH the checked
+    # state AND the bullet char ('-' vs '*') — so the dedup hash is stable across
+    # check/uncheck and bullet style (the active flip-to-COMPLETED round-trip is
+    # deferred). Normalizing only the checked branch would leave a '* [ ]' task
+    # hashing differently from its '* [x]' twin and let a force re-run duplicate it.
+    checkbox_re = _CHECKED if is_checked else _UNCHECKED
+    normalized_raw = checkbox_re.sub("- [ ] ", line, count=1)
 
     return ParsedActivityLine(
         description=description,

@@ -54,6 +54,19 @@ class TestCheckedState:
         parsed = obsidian_task_line_to_parsed("- [x] Closed ⏬")
         assert parsed.raw_line == "- [ ] Closed ⏬"
 
+    def test_raw_line_canonicalizes_star_bullet(self):
+        """'*' bullets normalize to '- [ ]' too (checked and unchecked)."""
+        assert obsidian_task_line_to_parsed("* [ ] Star").raw_line == "- [ ] Star"
+        assert obsidian_task_line_to_parsed("* [x] Star").raw_line == "- [ ] Star"
+
+    def test_hash_stable_across_check_for_star_bullet(self):
+        """Star-bullet check/uncheck must hash identically (no duplicate on re-sync)."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        unchecked = obsidian_task_line_to_parsed("* [ ] Star task 📅 2026-06-25")
+        checked = obsidian_task_line_to_parsed("* [x] Star task 📅 2026-06-25")
+        assert normalized_line_hash(unchecked.raw_line) == normalized_line_hash(checked.raw_line)
+
 
 class TestDates:
     def test_due_date_via_calendar_emoji(self):
