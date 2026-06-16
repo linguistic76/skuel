@@ -17,7 +17,6 @@ See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 
 from __future__ import annotations
 
-import os
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
@@ -26,16 +25,12 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.vault.vault_reconciler import VaultReconciler
 
 logger = get_logger("skuel.routes.vault")
-
-
-def _vault_path_from_env() -> str | None:
-    return os.getenv("INGESTION_PATH") or os.getenv("VAULT_ROOT")
 
 
 def create_vault_routes(
@@ -55,15 +50,9 @@ def create_vault_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        vault_path = _vault_path_from_env()
-        if not vault_path:
-            return Result.fail(
-                Errors.system(
-                    "INGESTION_PATH or VAULT_ROOT env var is not set — cannot locate vault."
-                )
-            )
-
-        result = await vault_reconciler.sync(user_uid=user_uid, vault_path=vault_path)
+        result = await vault_reconciler.sync(
+            user_uid=user_uid, vault_path=str(vault_reconciler.vault_root)
+        )
         if result.is_error:
             err = result.expect_error()
             if getattr(err, "message", "") == "first_run_notice" or (
@@ -89,11 +78,9 @@ def create_vault_routes(
         if consent_result.is_error:
             return Result.fail(consent_result)
 
-        vault_path = _vault_path_from_env()
-        if not vault_path:
-            return Result.ok({"consented": True, "synced": False})
-
-        sync_result = await vault_reconciler.sync(user_uid=user_uid, vault_path=vault_path)
+        sync_result = await vault_reconciler.sync(
+            user_uid=user_uid, vault_path=str(vault_reconciler.vault_root)
+        )
         if sync_result.is_error:
             return Result.fail(sync_result)
 

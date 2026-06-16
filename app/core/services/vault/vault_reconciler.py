@@ -88,12 +88,14 @@ class VaultReconciler:
 
     def __init__(
         self,
+        vault_root: Path,
         vault_bridge: VaultBridgePort,
         unified_ingestion: UnifiedIngestionService,
         user_entry_service: UserEntryService,
         tasks_service: TasksService,
         user_service: UserService,
     ) -> None:
+        self.vault_root = vault_root
         self._bridge = vault_bridge
         self._ingestion = unified_ingestion
         self._user_entry = user_entry_service
@@ -176,6 +178,10 @@ class VaultReconciler:
         for entry in entries_result.value or []:
             vault_file_path = (entry.metadata or {}).get("vault_file_path")
             if not vault_file_path:
+                continue
+            # Guard: skip entries whose source path is outside this vault root
+            # (upload entries stamped with a temp path should never be written back)
+            if not Path(vault_file_path).is_relative_to(self.vault_root):
                 continue
             await self._process_entry_outbound(user_uid, entry, vault_file_path, stats)
 
