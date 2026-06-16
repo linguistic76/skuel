@@ -7,8 +7,13 @@
 // Run manually only if needed: paste into Neo4j Browser or cypher-shell.
 // =============================================================================
 
-// UID indexes (19 — one per indexed entity type + Entity base)
-CREATE INDEX entity_uid_idx IF NOT EXISTS FOR (n:Entity) ON (n.uid);
+// Entity.uid is GLOBALLY UNIQUE — a uniqueness constraint (not a plain index)
+// backs it; its own backing index serves :Entity {uid} lookups. Neo4j refuses
+// the constraint while a plain entity_uid_idx exists, so drop that first.
+DROP INDEX entity_uid_idx IF EXISTS;
+CREATE CONSTRAINT Entity_uid_unique IF NOT EXISTS FOR (n:Entity) REQUIRE n.uid IS UNIQUE;
+
+// UID indexes (18 — one per indexed per-type label; :Entity uses the constraint above)
 CREATE INDEX task_uid_idx IF NOT EXISTS FOR (n:Task) ON (n.uid);
 CREATE INDEX goal_uid_idx IF NOT EXISTS FOR (n:Goal) ON (n.uid);
 CREATE INDEX habit_uid_idx IF NOT EXISTS FOR (n:Habit) ON (n.uid);

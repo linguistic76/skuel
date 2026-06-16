@@ -70,8 +70,18 @@ class _UserEntryCrudMixin:
         Mirrors the bulk-ingestion MERGE-on-uid pattern
         (``bulk_upsert_backend.py``): re-syncing a vault note with a
         deterministic uid (e.g. ``ue:daily:2026-06-16``) updates the existing
-        node in place rather than minting a duplicate or tripping the uid
-        constraint that the always-``CREATE`` ``create()`` path would.
+        node in place rather than minting a duplicate.
+
+        **Ownership is enforced atomically inside the MERGE.** The ``ON MATCH``
+        write is gated on ``n.user_uid = $owner``, so a caller cannot overwrite
+        a UserEntry that already belongs to someone else (deterministic uids are
+        predictable, e.g. ``ue:daily:2026-06-16``). A mismatch returns not-found
+        — 404-not-403, so we never leak that the uid is taken. Doing this in one
+        statement (rather than a separate read + write) closes the TOCTOU race a
+        preflight check leaves open: the ``Entity.uid`` uniqueness constraint
+        (``Neo4jSchemaManager.sync_domain_indexes``) serializes concurrent
+        MERGEs on the same uid, so the loser observes the winner's node and the
+        ownership gate rejects it (Codex P2 on #317).
 
         ``created_at`` is preserved across re-syncs (set only ``ON CREATE``);
         every other property — including ``updated_at`` and the note body in
@@ -89,11 +99,13 @@ class _UserEntryCrudMixin:
         # match-side payload so re-sync keeps the first-seen timestamp.
         on_match_props = {k: v for k, v in node_data.items() if k != "created_at"}
 
+        # ON CREATE stamps the owner from $props; ON MATCH only writes when the
+        # existing owner matches $owner, else it is a no-op and `owned` is false.
         query = f"""
         MERGE (n:{self._create_labels} {{uid: $uid}})
           ON CREATE SET n = $props
-          ON MATCH SET n += $on_match_props
-        RETURN n
+          ON MATCH SET n += (CASE WHEN n.user_uid = $owner THEN $on_match_props ELSE {{}} END)
+        RETURN n, coalesce(n.user_uid = $owner, false) AS owned
         """
 
         async with self.driver.session() as session:
@@ -103,11 +115,18 @@ class _UserEntryCrudMixin:
                     "uid": node_data["uid"],
                     "props": node_data,
                     "on_match_props": on_match_props,
+                    "owner": user_uid,
                 },
             )
             record = await result.single()
             if not record:
                 return Result.fail(Errors.database("upsert", f"Failed to upsert {self.label}"))
+            if not record["owned"]:
+                # A different user already owns this uid — reject without writing
+                # and without leaking that it exists (404-not-403).
+                return Result.fail(
+                    Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
+                )
             upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
 
         if user_uid:

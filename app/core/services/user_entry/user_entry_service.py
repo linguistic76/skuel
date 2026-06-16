@@ -212,23 +212,14 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             )
         elif request.uid:
             # Deterministic uid → idempotent MERGE-on-uid so vault re-sync of an
-            # edited note updates in place instead of duplicating / violating the
-            # uid constraint. Exercise-linked turn-ins always create fresh (they
-            # mint a random uid), so this branch is mutually exclusive with the
-            # FULFILLS_EXERCISE path above.
+            # edited note updates in place instead of duplicating. Exercise-linked
+            # turn-ins always create fresh (they mint a random uid), so this branch
+            # is mutually exclusive with the FULFILLS_EXERCISE path above.
             #
-            # Ownership guard: upsert MERGEs on uid alone, so without this an
-            # uploader could target another user's deterministic uid (these are
-            # predictable, e.g. ``ue:daily:2026-06-16``) and overwrite their
-            # entry. If a node with this uid already exists under a different
-            # owner, return not-found — 404-not-403 keeps us from leaking that
-            # the uid belongs to someone else.
-            existing_result = await self.backend.get(str(uid))
-            if existing_result.is_error:
-                return Result.fail(existing_result)
-            existing = existing_result.value
-            if existing is not None and existing.user_uid != user_uid:
-                return Result.fail(Errors.not_found(resource="UserEntry", identifier=str(uid)))
+            # Ownership is enforced atomically inside `backend.upsert` (the MERGE
+            # gates its write on the existing owner and returns not-found on a
+            # mismatch). A separate preflight read here would reintroduce the
+            # TOCTOU race the constraint-backed MERGE exists to close.
             create_result = await self.backend.upsert(entry)
         else:
             create_result = await self.backend.create(entry)
