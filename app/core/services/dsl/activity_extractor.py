@@ -447,8 +447,13 @@ class ActivityExtractorService:
             extraction.extraction_completed_at = datetime.now()
             return Result.ok(extraction)
 
-        # Step 1: Parse for Activity Lines
-        parse_result = self.parser.parse_journal(content, source_file=entry.uid)
+        # Step 1: Parse for Activity Lines. `entry_kind` (daily/weekly/...) rides
+        # the entry metadata onto obsidian-tasks lines as a period:{kind} tag.
+        entry_kind_raw = (entry.metadata or {}).get("entry_kind")
+        entry_kind = str(entry_kind_raw) if entry_kind_raw else None
+        parse_result = self.parser.parse_journal(
+            content, source_file=entry.uid, entry_kind=entry_kind
+        )
 
         if parse_result.is_error:
             return Result.fail(parse_result)
