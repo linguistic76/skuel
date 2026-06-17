@@ -28,6 +28,7 @@ SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Upload", "/upload", "upload", icon="upload-cloud"),
     SidebarItem("Submit", "/submit", "submit", icon="send"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
+    SidebarItem("Obsidian Sync", "/settings/vault", "vault-sync", icon="refresh-cw"),
 ]
 
 
