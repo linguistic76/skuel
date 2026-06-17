@@ -67,8 +67,8 @@ class HabitCreateRequest(BaseModel):
         default=None,
         description="Preferred time of day: 'morning', 'afternoon', 'evening', or null for any time",
     )
-    duration_minutes: int = Field(
-        default=15, ge=1, le=480, description="Expected duration in minutes per occurrence"
+    duration_minutes: int | None = Field(
+        default=None, ge=1, le=480, description="Expected duration in minutes per occurrence"
     )
 
     # Learning Integration
