@@ -20,11 +20,10 @@ Architecture:
 - See `/core/services/ps/` for architecture overview
 """
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from core.models.pathways.path_step import PathStep
 from core.models.ps_content.content import CurriculumContent
-from core.models.ps_content.content_chunks import ContentChunk, ContentChunkType
 from core.models.ps_content.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -202,107 +201,6 @@ class EntityChunkingService:
                 Errors.system(f"Content processing failed: {e!s}", operation="process_ps_content")
             )
 
-    async def update_path_step_content(
-        self, knowledge: PathStep, new_content_body: str
-    ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
-        """
-        Update existing PathStep content with new text.
-
-        This will:
-        1. Create new CurriculumContent with fresh chunks
-        2. Regenerate metadata
-        3. Update caches
-
-        Args:
-            knowledge: The Knowledge domain model,
-            new_content_body: The new content text
-
-        Returns:
-            Result containing updated (CurriculumContent, ContentMetadata)
-        """
-        # Get existing content to preserve format and source
-        existing = self._content_cache.get(knowledge.uid)
-        format = existing.format if existing else "markdown"
-        source_path = existing.source_path if existing else None
-
-        return await self.process_ps_content(
-            knowledge=knowledge,
-            content_body=new_content_body,
-            format=format,
-            source_path=source_path,
-        )
-
-    # ==========================================================================
-    # CHUNK OPERATIONS
-    # ==========================================================================
-
-    async def get_chunks_for_knowledge(
-        self, knowledge_uid: str, chunk_type: ContentChunkType | None = None
-    ) -> Result[list[ContentChunk]]:
-        """
-        Get chunks for a knowledge unit, optionally filtered by type.
-
-        Args:
-            knowledge_uid: UID of the knowledge unit,
-            chunk_type: Optional chunk type filter
-
-        Returns:
-            Result containing list of ContentChunk objects
-        """
-        content = self._content_cache.get(knowledge_uid)
-        if not content:
-            return Result.fail(
-                Errors.not_found(f"Content not found for knowledge: {knowledge_uid}")
-            )
-
-        if chunk_type:
-            chunks = list(content.get_chunks_by_type(chunk_type))
-        else:
-            chunks = list(content.chunks)
-
-        return Result.ok(chunks)
-
-    # In-memory keyword chunk search is gone: chunk retrieval lives in
-    # Neo4jVectorSearchService.find_similar_chunks_by_text (vector search over
-    # contentchunk_embedding_idx). This service still owns the chunk *generator*
-    # (process_content_for_ingestion) and per-PathStep read methods.
-
-    async def get_learning_chunks(
-        self, knowledge_uid: str
-    ) -> Result[dict[str, list[ContentChunk]]]:
-        """
-        Get chunks organized by learning type.
-
-        Returns chunks categorized for learning purposes:
-        - definitions: For understanding concepts
-        - explanations: For deeper understanding
-        - examples: For practical understanding
-        - exercises: For practice
-        - code: For implementation reference
-
-        Args:
-            knowledge_uid: UID of the knowledge unit
-
-        Returns:
-            Result containing categorized chunks
-        """
-        content = self._content_cache.get(knowledge_uid)
-        if not content:
-            return Result.fail(
-                Errors.not_found(f"Content not found for knowledge: {knowledge_uid}")
-            )
-
-        categorized = {
-            "definitions": list(content.get_definitions()),
-            "explanations": list(content.get_chunks_by_type(ContentChunkType.EXPLANATION)),
-            "examples": list(content.get_examples()),
-            "exercises": list(content.get_exercises()),
-            "code": list(content.get_code_blocks()),
-            "summaries": list(content.get_chunks_by_type(ContentChunkType.SUMMARY)),
-        }
-
-        return Result.ok(categorized)
-
     # ==========================================================================
     # METADATA OPERATIONS
     # ==========================================================================
@@ -325,99 +223,9 @@ class EntityChunkingService:
 
         return Result.ok(metadata)
 
-    async def get_content_statistics(self, knowledge_uids: list[str]) -> Result[ContentStatistics]:
-        """
-        Get aggregated statistics for multiple knowledge units.
-
-        Args:
-            knowledge_uids: List of knowledge UIDs
-
-        Returns:
-            Result containing aggregated statistics (typed structure)
-        """
-        # Initialize with ContentStatistics type (fixes MyPy index errors)
-        stats: ContentStatistics = {
-            "total_units": len(knowledge_uids),
-            "total_words": 0,
-            "total_chunks": 0,
-            "total_reading_time": 0.0,
-            "chunk_type_distribution": {},
-            "complexity_distribution": {"basic": 0, "intermediate": 0, "advanced": 0},
-            "content_features": {
-                "with_code": 0,
-                "with_examples": 0,
-                "with_exercises": 0,
-                "with_media": 0,
-                "comprehensive": 0,
-            },
-            "average_words_per_unit": 0.0,
-            "average_chunks_per_unit": 0.0,
-            "average_reading_time": 0.0,
-        }
-
-        for uid in knowledge_uids:
-            content = self._content_cache.get(uid)
-            metadata = self._metadata_cache.get(uid)
-
-            if content:
-                stats["total_words"] += content.word_count
-                stats["total_chunks"] += content.chunk_count
-
-                # Count chunk types
-                for chunk in content.chunks:
-                    chunk_type = chunk.chunk_type.value
-                    stats["chunk_type_distribution"][chunk_type] = (
-                        stats["chunk_type_distribution"].get(chunk_type, 0) + 1
-                    )
-
-            if metadata:
-                stats["total_reading_time"] += metadata.reading_time_minutes
-
-                # Complexity distribution
-                complexity = metadata.complexity_level()
-                complexity_dist = stats["complexity_distribution"]
-                if complexity in complexity_dist:
-                    complexity_dist[complexity] += 1  # type: ignore[literal-required]
-
-                # Content features
-                if metadata.has_code:
-                    stats["content_features"]["with_code"] += 1
-                if metadata.has_examples:
-                    stats["content_features"]["with_examples"] += 1
-                if metadata.has_exercises:
-                    stats["content_features"]["with_exercises"] += 1
-                if metadata.has_media:
-                    stats["content_features"]["with_media"] += 1
-                if metadata.is_comprehensive():
-                    stats["content_features"]["comprehensive"] += 1
-
-        # Calculate averages
-        if stats["total_units"] > 0:
-            stats["average_words_per_unit"] = stats["total_words"] / stats["total_units"]
-            stats["average_chunks_per_unit"] = stats["total_chunks"] / stats["total_units"]
-            stats["average_reading_time"] = stats["total_reading_time"] / stats["total_units"]
-
-        return Result.ok(stats)
-
     # ==========================================================================
     # CACHE MANAGEMENT
     # ==========================================================================
-
-    def clear_cache(self, knowledge_uid: str | None = None) -> None:
-        """
-        Clear cached content and metadata.
-
-        Args:
-            knowledge_uid: Optional specific UID to clear, otherwise clear all
-        """
-        if knowledge_uid:
-            self._content_cache.pop(knowledge_uid, None)
-            self._metadata_cache.pop(knowledge_uid, None)
-            self.logger.debug(f"Cleared cache for {knowledge_uid}")
-        else:
-            self._content_cache.clear()
-            self._metadata_cache.clear()
-            self.logger.debug("Cleared all content caches")
 
     def get_cache_stats(self) -> dict[str, int]:
         """Get statistics about cached content"""
@@ -427,52 +235,6 @@ class EntityChunkingService:
             "total_chunks": sum(content.chunk_count for content in self._content_cache.values()),
             "total_words": sum(content.word_count for content in self._content_cache.values()),
         }
-
-    # ==========================================================================
-    # BATCH OPERATIONS
-    # ==========================================================================
-
-    async def process_batch(
-        self, knowledge_items: list[tuple[PathStep, str]], format: str = "markdown"
-    ) -> Result[dict[str, Any]]:
-        """
-        Process multiple knowledge items in batch.
-
-        Args:
-            knowledge_items: List of (PathStep, content_body) tuples,
-            format: Content format for all items
-
-        Returns:
-            Result containing processing statistics and any errors
-        """
-        processed = 0
-        errors = []
-        total_chunks = 0
-        total_words = 0
-
-        for knowledge, content_body in knowledge_items:
-            result = await self.process_ps_content(
-                knowledge=knowledge, content_body=content_body, format=format
-            )
-
-            if result.is_ok:
-                content, _metadata = result.value
-                processed += 1
-                total_chunks += content.chunk_count
-                total_words += content.word_count
-            else:
-                error = result.expect_error()
-                errors.append({"knowledge_uid": knowledge.uid, "error": error.message})
-
-        return Result.ok(
-            {
-                "processed": processed,
-                "failed": len(errors),
-                "total_chunks": total_chunks,
-                "total_words": total_words,
-                "errors": errors,
-            }
-        )
 
     def __str__(self) -> str:
         """String representation"""
