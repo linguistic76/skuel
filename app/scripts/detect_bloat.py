@@ -715,14 +715,6 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Choices: outcome evaluation write path ---
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
-    # --- UserEntry: edit-my-entry surface ---
-    "core/services/user_entry/user_entry_service.py::update_entry": (
-        "edit-my-entry capability staged — ownership-verified content-field update "
-        "(title/content/tags/metadata) with no route or UI; resubmission covers the "
-        "exercise flow, but PERSONAL-pipeline uploads have no edit path — wire an "
-        "edit route/UI or decide entries are immutable and delete with "
-        "UserEntryUpdateRequest"
-    ),
     # --- Goals: sub-goal hierarchy ---
     "core/services/goals/goals_core_service.py::get_subgoals": _GOALS_HIERARCHY,
     "core/services/goals/goals_core_service.py::get_parent_goal": _GOALS_HIERARCHY,
