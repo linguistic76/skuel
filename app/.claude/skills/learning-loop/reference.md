@@ -72,17 +72,23 @@ await backend.get_ps_exercises_with_status(ps_uid, user_uid)   # Exercises for a
 **PathStep detail page — the learning loop anchor (2026-04-03):**
 
 The PathStep detail page at `/explore/ps/{uid}` is where students experience the full
-learning loop in one place. For authenticated users, three HTMX fragment endpoints
-lazy-load exercises (with status pills), submissions, and feedback:
+learning loop in one place. For authenticated users, four HTMX fragment endpoints
+lazy-load exercises (with status pills), submissions, feedback, and embedded forms:
 
 | Fragment Endpoint | Service Method | Renderer |
 |---|---|---|
 | `GET /learning-loop/ps/{ps_uid}/exercises` | `ExerciseService.get_exercises_for_path_step_with_status()` | `render_exercise_list()` with `from_ps` context |
 | `GET /learning-loop/ps/{ps_uid}/submissions-and-feedback` | `LearningLoopQueryService.get_submissions_for_path_step()` | `render_ps_submissions()` + `render_ps_feedback()` (single query) |
+| `GET /learning-loop/ps/{ps_uid}/forms` | `ExploreOrchestrator.get_forms_for_path_step()` → `FormTemplateService` | `render_embedded_forms()` — empty div when no forms linked |
+| `POST /learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | `FormSubmissionService.submit_form()` | success card (outerHTML swap) or form re-render with error banner |
 
 Routes wired in `adapters/inbound/learning_loop_routes.py` (`create_learning_loop_fragment_routes`). Renderers in `ui/learning_loop/`
-(`exercise_status.py`, `submissions_section.py`, `feedback_section.py`). The exercise status
+(`exercise_status.py`, `submissions_section.py`, `feedback_section.py`, `embedded_forms.py`). The exercise status
 helpers are shared with the Library exercises tab (`/library/exercises`).
+
+Forms are linked to PathSteps via `(PathStep)-[:EMBEDS_FORM]->(FormTemplate)`. Admin wires the relationship via
+`POST /api/form-templates/link-path-step`. The fragment returns an empty `<div>` when no forms are linked, so the
+section only renders when content exists.
 
 Submissions are discovered via the Interaction graph:
 `(user)-[:OWNS]->(sub)-[:RECORDS]<-(interaction)-[:INTERACTION_DURING]->(ps)`.
@@ -698,6 +704,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 |-------|-------|--------|-----|
 | **PS exercises (HTMX)** | `/learning-loop/ps/{ps_uid}/exercises` | GET | Student |
 | **PS submissions + feedback (HTMX)** | `/learning-loop/ps/{ps_uid}/submissions-and-feedback` | GET | Student |
+| **PS embedded forms (HTMX)** | `/learning-loop/ps/{ps_uid}/forms` | GET | Student |
+| **PS embedded form submit (HTMX)** | `/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | POST | Student |
 | **Student assignments** | `/exercises` | GET | Student |
 | **Submission** | `/submit` | POST | Student |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) |
@@ -753,8 +761,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
        ↓
 1b. Student browses /explore, clicks a PathStep card        → ui/explore/cards.py
     GET /explore/ps/{uid} renders the learning-loop anchor  → adapters/inbound/explore_ui.py
-    HTMX fragments load exercises/submissions/feedback via
-      /learning-loop/ps/{ps_uid}/{exercises,submissions,feedback} → ui/learning_loop/
+    HTMX fragments load exercises/submissions/feedback/forms via
+      /learning-loop/ps/{ps_uid}/{exercises,submissions-and-feedback,forms} → ui/learning_loop/
     (Learning state: NONE → VIEWED → IN_PROGRESS → MASTERED)
        ↓
 2. ExerciseBackend.link_to_curriculum()             → adapters/persistence/neo4j/backends/exercise_backends.py

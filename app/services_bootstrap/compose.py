@@ -1338,6 +1338,7 @@ async def compose_services(
             user_relationship_service=user_relationships,
             exercises_service=exercise_service,
             learning_loop_query_service=learning_loop_query_service,
+            form_template_service=form_template_service,
         )
         logger.info("✅ Explore Orchestrator created")
 
