@@ -13,6 +13,7 @@ Two layers:
 import ast
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -661,10 +662,12 @@ def test_live_known_published_events_are_never_flagged_dead(live_analysis):
 def test_live_known_dead_events_are_flagged(live_analysis):
     # Verified by hand (zero production references). Delete each sentinel
     # entry alongside the dead event when it is removed.
+    # PrerequisitesAnalyzed moved to PLANNED_EVENTS (campaign 18) — add a new
+    # sentinel here when the next truly-dead event surfaces.
     _, _, findings = live_analysis
-    for event in [
-        "PrerequisitesAnalyzed",
-    ]:
+    for event in cast(list[str], [
+        # (no WARNING-severity dead events currently — add sentinels as needed)
+    ]):
         finding = finding_for(findings, event)
         assert finding is not None and finding.severity is BloatSeverity.WARNING, (
             f"{event} should be flagged structurally dead"
@@ -755,13 +758,14 @@ def test_live_ai_route_spec_methods_suppressed_or_absent(live_methods):
 
 
 def test_live_error_label_does_not_shield_dead_method(live_methods):
-    # get_inference_statistics' only string occurrence is its own
+    # create_instruction_set's only string occurrence is its own
     # @with_error_handling label — a label is not dispatch evidence, so the
-    # finding stays WARNING. (Was get_subtasks until the tasks campaign moved
-    # it to the PLANNED tier.) Delete this sentinel alongside the method when
-    # it is removed, or repoint it at another label-only dead method.
-    finding = finding_for(live_methods.findings, "get_inference_statistics")
-    assert finding is not None and finding.severity is BloatSeverity.WARNING
+    # method is still flagged (PLANNED, because it's in PLANNED_METHODS).
+    # (Was get_inference_statistics until campaign 18 moved it to PLANNED.)
+    # Delete this sentinel alongside the method when it is removed, or repoint
+    # it at another label-only dead/planned method.
+    finding = finding_for(live_methods.findings, "create_instruction_set")
+    assert finding is not None and finding.severity is BloatSeverity.PLANNED
 
 
 def test_live_string_table_dispatch_demoted_not_dead(live_methods):
@@ -772,12 +776,13 @@ def test_live_string_table_dispatch_demoted_not_dead(live_methods):
 
 
 def test_live_known_dead_facade_method_flagged(live_methods):
-    # Hand-verified dead (zero references of any kind). Delete this sentinel
-    # alongside the method when it is removed, or repoint it at another
-    # reference-free dead method. (Was list_user_knowledge until the
-    # curriculum campaign deleted it.)
-    finding = finding_for(live_methods.findings, "pure_to_dict")
-    assert finding is not None and finding.severity is BloatSeverity.WARNING
+    # Hand-verified dead (zero references of any kind outside the definition).
+    # Delete this sentinel alongside the method when it is removed, or repoint
+    # it at another reference-free dead/planned method.
+    # (Was pure_to_dict until campaign 18 deleted it; was list_user_knowledge
+    # until the curriculum campaign deleted it.)
+    finding = finding_for(live_methods.findings, "get_proximal_ku_uids")
+    assert finding is not None and finding.severity is BloatSeverity.PLANNED
 
 
 def test_live_method_self_diagnostic(live_methods):
