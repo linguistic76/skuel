@@ -78,7 +78,6 @@ def completion_trend():
 ### Multi-Series Line (Trend Comparison)
 
 ```python
-# VisualizationService.format_trend_chart()
 config = {
     "type": "line",
     "data": {
@@ -441,7 +440,7 @@ dataset = {
 
 | Metric | Chart Type | Config |
 |--------|------------|--------|
-| Progress over time | Line | `format_trend_chart()` |
+| Progress over time | Line | Custom |
 | Milestone completion | Bar | Custom |
 | Goal status | Doughnut | `format_distribution_chart()` |
 
@@ -475,7 +474,7 @@ dataset = {
 |--------|------------|--------|
 | Alignment by category | Radar | Custom |
 | Strength distribution | Doughnut | `format_distribution_chart()` |
-| Alignment trends | Line | `format_trend_chart()` |
+| Alignment trends | Line | Custom |
 
 ---
 

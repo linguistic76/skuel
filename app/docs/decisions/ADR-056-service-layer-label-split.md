@@ -72,10 +72,10 @@ Split the single attribute into two:
    in `get_with_context()`. Cypher base-label usage continues to call
    `self.entity_label`.
 
-**Fail-fast over fall-back.** `DomainConfig.get_config_lookup_label()`
-raises `ValueError` when it cannot resolve a key, rather than returning
-a sentinel like `"Entity"` that would silently re-introduce the old
-alias behavior for any service that bypasses the factory.
+**Fail-fast over fall-back.** The domain config factories (`create_activity_domain_config`,
+`create_curriculum_domain_config`) validate `config_lookup_label` against `LABEL_CONFIGS`
+at construction time and raise `ValueError` when the key is missing, rather than returning
+a sentinel like `"Entity"` that would silently re-introduce the old alias behavior.
 
 ## Consequences
 
