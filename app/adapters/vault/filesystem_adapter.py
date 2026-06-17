@@ -140,7 +140,7 @@ class FilesystemVaultAdapter:
                 with os.fdopen(fd, "w", encoding="utf-8") as fh:
                     fh.write(new_content)
                 tmp_path.rename(p)
-            except Exception:
+            except Exception:  # intentional-broad: cleanup handler, always re-raises
                 with contextlib.suppress(OSError):
                     tmp_path.unlink()
                 raise

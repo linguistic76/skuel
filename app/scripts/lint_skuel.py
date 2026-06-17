@@ -255,7 +255,7 @@ if hasattr(user, 'preferences'):
         "description": """Use named functions instead of lambda expressions. Named functions
 are self-documenting, testable, and reusable.
 
-Exceptions: tests/, examples/.
+Exceptions: tests/, examples/, scripts/.
 Suppress: # skuel-lint: disable=SKUEL012 -- <reason>
 File-level: # skuel-lint: disable-file=SKUEL012 -- <reason>""",
         "good": """from core.utils.sort_functions import get_priority_value
@@ -1617,7 +1617,7 @@ class SkuelLinter:
             return
 
         file_str = str(file_path)
-        if "/examples/" in file_str:
+        if "/examples/" in file_str or "/scripts/" in file_str:
             return
 
         pattern = r"\blambda\s+\w*\s*:"
