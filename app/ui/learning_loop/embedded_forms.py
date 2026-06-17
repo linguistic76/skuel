@@ -13,7 +13,7 @@ from fasthtml.common import Input as FTInput
 from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import LabelInput, LabelSelect, LabelTextArea
+from ui.forms import LabelCheckbox, LabelInput, LabelSelect, LabelTextArea
 from ui.layout import Size
 from ui.patterns.error_banner import render_inline_error
 
@@ -137,6 +137,12 @@ def _render_field(spec: dict[str, Any]) -> Any:
             cls="mb-4",
             **extra,
         )
+
+    if field_type == "checkbox":
+        return LabelCheckbox(label, name=name, value="true", cls="mb-4")
+
+    if field_type == "date":
+        return LabelInput(label, name=name, required=required, type="date", cls="mb-4")
 
     # default: text
     text_extra: dict[str, Any] = {}
