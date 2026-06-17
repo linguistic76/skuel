@@ -196,7 +196,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
     primary_service_attr="{domain}_service",
     api_factory=create_{domain}_api_routes,
     ui_factory=create_{domain}_ui_routes,
-    api_related_services={"user_service": "user_service"},
+    api_related_services={"user_service": "user"},
     crud=CRUDRouteConfig(
         create_schema={Domain}CreateRequest,
         update_schema={Domain}UpdateRequest,
@@ -204,7 +204,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
         role_gates_reads=False,  # True = role gates all; False = role gates mutations only
-        user_service_attr="user_service",
+        user_service_attr="user",
     ),
 )
 
@@ -245,7 +245,7 @@ api_related_services={
 
 | Kwarg Name | Container Attr | When to Use |
 |------------|----------------|-------------|
-| `"user_service"` | `"user_service"` | Auth / ownership checks |
+| `"user_service"` | `"user"` | Auth / ownership checks (`Services.user`) |
 | `"goals_service"` | `"goals"` | Cross-domain goal linking |
 | `"habits_service"` | `"habits"` | Cross-domain habit linking |
 | `"tasks_service"` | `"tasks"` | Cross-domain task linking |

@@ -40,7 +40,7 @@ GROUPS_CONFIG = DomainRouteConfig(
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
         role_gates_reads=False,
-        user_service_attr="user_service",
+        user_service_attr="user",
     ),
 )
 

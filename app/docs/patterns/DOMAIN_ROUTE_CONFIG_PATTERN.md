@@ -165,9 +165,9 @@ Both `api_related_services` and `ui_related_services` use the same `{kwarg_name:
 **Example:**
 ```python
 api_related_services={
-    "user_service": "user_service",  # user_service=getattr(services, "user_service")
-    "goals_service": "goals",        # goals_service=getattr(services, "goals")
-    "habits_service": "habits",      # habits_service=getattr(services, "habits")
+    "user_service": "user",    # user_service=getattr(services, "user")  ← Services.user
+    "goals_service": "goals",  # goals_service=getattr(services, "goals")
+    "habits_service": "habits",  # habits_service=getattr(services, "habits")
 }
 ```
 
@@ -578,7 +578,7 @@ KU_CONFIG = DomainRouteConfig(
     primary_service_attr="ku",  # services.ku
     api_factory=create_ku_api_routes,
     ui_factory=create_ku_ui_routes,
-    api_related_services={"user_service": "user_service"},
+    api_related_services={"user_service": "user"},  # Services.user
 )
 ```
 
@@ -733,7 +733,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
     primary_service_attr="lp",
     api_factory=create_pathways_api_routes,
     ui_factory=create_pathways_ui_routes,
-    api_related_services={"user_service": "user_service", "user_progress": "user_progress"},
+    api_related_services={"user_service": "user", "user_progress": "user_progress"},
     ui_related_services={"user_progress": "user_progress", "ps_service": "ls"},
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
@@ -751,7 +751,7 @@ PS_CONFIG = DomainRouteConfig(
     domain_name="path-steps",
     primary_service_attr="ps",
     api_factory=create_path_steps_api_routes,
-    api_related_services={"user_service": "user_service"},
+    api_related_services={"user_service": "user"},  # Services.user
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 )
 ```
@@ -1103,7 +1103,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 | Kwarg Name | Container Attr | Service Type |
 |------------|----------------|--------------|
-| `user_service` | `user_service` | UserService (all domains) |
+| `user_service` | `user` | UserService — `Services.user` (all domains) |
 | `goals_service` | `goals` | GoalsService |
 | `habits_service` | `habits` | HabitsService |
 | `tasks_service` | `tasks` | TasksService |
@@ -1112,7 +1112,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 | `principles_service` | `principles` | PrinciplesService |
 | `prometheus_metrics` | `prometheus_metrics` | PrometheusMetrics (HTTP instrumentation) |
 
-**Pattern:** Activity domains use short names (`goals`, `tasks`), shared services use full names (`user_service`). Infrastructure services (`prometheus_metrics`, `event_bus`) follow the same mapping contract — they live on `Services` alongside domain services and are resolved identically by `api_related_services`.
+**Pattern:** Activity domains use short names (`goals`, `tasks`); `UserService` is `"user"` (not `"user_service"`). Infrastructure services (`prometheus_metrics`, `event_bus`) follow the same mapping contract — they live on `Services` alongside domain services and are resolved identically by `api_related_services`.
 
 ## Troubleshooting
 

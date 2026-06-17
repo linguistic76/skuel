@@ -40,7 +40,7 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
         uid_prefix="re",
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
-        user_service_attr="user_service",
+        user_service_attr="user",
     ),
 )
 
