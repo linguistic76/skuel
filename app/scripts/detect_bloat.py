@@ -111,6 +111,24 @@ PLANNED_EVENTS: dict[str, str] = {
         "review_queue.request_review — wire when the assignment-notification / "
         "Messaging surface lands, or delete the chain"
     ),
+    # Campaign 18 (2026-06): events with subscribers but no publisher — staging
+    "KnowledgeCreated": (
+        "publish-side never built; subscribers wired in metrics_event_handler + "
+        "_event_wiring — fire when a Ku or PS is created/ingested and downstream "
+        "knowledge-tracking consumers need it, or delete the chain"
+    ),
+    "PrerequisitesAnalyzed": (
+        "publish-side never built — fire from PrerequisiteChecker after an "
+        "analysis run to cache results downstream, or delete"
+    ),
+    "UserContextInvalidated": (
+        "publish-side never built — fire when user state changes invalidating "
+        "the cached UserContext (role change, entity delete), or delete"
+    ),
+    "UserPreferencesChanged": (
+        "publish-side never built — fire when user preferences are updated to "
+        "propagate to intelligence services, or delete"
+    ),
 }
 # Habits dead-code campaign (2026-06): staged habit capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
@@ -883,6 +901,53 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/askesis_service.py::load_askesis_context": _ASKESIS_CONTEXT_ORCHESTRATION,
     "core/services/askesis_service.py::find_relevant_from_user_context": (
         _ASKESIS_CONTEXT_ORCHESTRATION
+    ),
+    # --- Campaign 18 (2026-06): standalone service staged capabilities ---
+    "core/services/neo4j_vector_search_service.py::hybrid_search": (
+        "public API with integration test coverage but no production route wiring; "
+        "combines vector + fulltext search — wire into SearchRouter hybrid path or "
+        "a direct route when the vector-search surface is promoted"
+    ),
+    "core/services/content_enrichment_service.py::process_audio": (
+        "audio transcription pipeline staged — wire a /upload-audio route that "
+        "accepts an audio file, calls process_audio, then routes the transcript "
+        "through the UserEntry pipeline (ADR-054)"
+    ),
+    "core/services/content_enrichment_service.py::create_instruction_set": (
+        "instruction-set management write path — pair with list_instruction_sets "
+        "and wire an admin UI/API once the instruction-set editing surface lands"
+    ),
+    "core/services/content_enrichment_service.py::list_instruction_sets": (
+        "instruction-set management read path — see create_instruction_set"
+    ),
+    "core/services/embeddings_service.py::calculate_similarity": (
+        "cosine similarity utility with test coverage; no production caller yet — "
+        "wire into a similarity-comparison route or search re-ranking when needed"
+    ),
+    "core/services/embeddings_service.py::get_or_create_embedding": (
+        "embedding with idempotent caching; test-covered but not wired in "
+        "production — wire into bulk-embed or on-demand embed routes"
+    ),
+    "core/services/entity_inference_service.py::_infer_from_content": (
+        "private helper for the inference pipeline — becomes live when "
+        "get_inference_statistics / analyze_inference_confidence are wired"
+    ),
+    "core/services/entity_inference_service.py::get_inference_statistics": (
+        "inference stats surface — wire into an admin/debug route to expose "
+        "inference accuracy and throughput metrics"
+    ),
+    "core/services/entity_inference_service.py::analyze_inference_confidence": (
+        "confidence analysis surface — wire into the inference result detail "
+        "view or a teacher-facing confidence dashboard"
+    ),
+    "core/services/zpd/zpd_service.py::get_proximal_ku_uids": (
+        "ZPD proximal-zone read — returns Ku UIDs in the learner's zone of "
+        "proximal development; wire into PS recommendations or the daily-plan "
+        "surface once the ZPD→UI path is built"
+    ),
+    "core/services/zpd/zpd_service.py::get_readiness_score": (
+        "ZPD readiness score for a specific Ku — wire into the PS detail page "
+        "or the prerequisite-checker surface when per-Ku readiness is needed"
     ),
 }
 
