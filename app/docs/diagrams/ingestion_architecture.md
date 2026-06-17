@@ -207,9 +207,6 @@ entries = await history.get_history(limit=50, offset=0)
 
 # Get specific entry
 entry = await history.get_entry(operation_id)
-
-# Total count (for pagination)
-total = await history.get_total_count()
 ```
 
 ---

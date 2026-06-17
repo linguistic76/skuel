@@ -136,9 +136,6 @@ domains = await services.knowledge_domains.get_all_domains()
 
 # Get all Ku UIDs in a domain
 ku_uids = await services.knowledge_domains.get_ku_uids_in_domain("kd.self_awareness")
-
-# Get domains for a Ku
-domains = await services.knowledge_domains.get_domain_for_ku(ku_uid)
 ```
 
 ## PS AI Sub-Service (FULL tier only)

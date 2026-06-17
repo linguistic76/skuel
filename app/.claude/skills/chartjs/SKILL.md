@@ -129,7 +129,6 @@ Alpine.data('chartVis', function(dataUrl, chartType) {
 |--------|---------|----------|
 | `format_completion_chart(completed, total, labels)` | Line/bar config | Completion rates over time |
 | `format_distribution_chart(data, title, chart_type)` | Pie/doughnut/bar config | Category distributions |
-| `format_trend_chart(series, labels, title)` | Multi-series line config | Trend comparisons |
 | `format_streak_chart(streaks)` | Horizontal bar config | Habit streaks |
 
 ### API Endpoints
