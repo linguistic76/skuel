@@ -40,7 +40,7 @@ class TaskCreateRequest(CreateRequestBase):
     # Scheduling
     due_date: date | None = Field(default=None, description="Due date")
     scheduled_date: date | None = Field(default=None, description="Scheduled work date")
-    duration_minutes: int = Field(default=30, ge=5, le=480, description="Estimated duration")
+    duration_minutes: int | None = Field(default=None, ge=5, le=480, description="Estimated duration")
 
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
