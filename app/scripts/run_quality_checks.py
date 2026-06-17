@@ -140,7 +140,15 @@ def main():
     ):
         all_passed = False
 
-    # 7. Type Checking (optional - slow)
+    # 7. Dead-code gate (PLANNED tier is the escape hatch for staged work)
+    if not run_command(
+        ["uv", "run", "python", "scripts/detect_bloat.py", "--check"],
+        "Dead-Code Gate",
+        check=False,
+    ):
+        all_passed = False
+
+    # 8. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 
