@@ -406,8 +406,6 @@ POST /api/events/assess-engagement
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available
-- `_require_relationship_service()` - Ensures relationships available
 
 **Standard Attributes:**
 - `self.backend` - EventsOperations (REQUIRED)

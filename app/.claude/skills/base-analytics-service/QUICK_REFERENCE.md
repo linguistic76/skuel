@@ -117,16 +117,6 @@ class BaseAnalyticsService(Generic[B, T]):
 
 ## Method Signatures
 
-### Fail-Fast Guards
-
-```python
-def _require_graph_intelligence(self, operation: str) -> None:
-    """Raises ValueError if graph_intel unavailable."""
-
-def _require_relationship_service(self, operation: str) -> None:
-    """Raises ValueError if relationships unavailable."""
-```
-
 ### Helpers
 
 ```python

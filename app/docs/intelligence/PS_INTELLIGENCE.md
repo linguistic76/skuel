@@ -398,8 +398,6 @@ Result[dict[str, Any]]  # Aggregated substance metrics
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available (not used by PS)
-- `_require_relationship_service()` - Ensures relationships available (not used by PS)
 
 **Standard Attributes:**
 - `self.backend` - BackendOperations[Ls] (REQUIRED)

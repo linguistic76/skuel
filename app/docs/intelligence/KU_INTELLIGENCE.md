@@ -78,7 +78,7 @@ result = await ku_service.intelligence.get_knowledge_suggestions(
 ```
 
 **Dependencies:**
-- GraphIntelligenceService (REQUIRED - uses `_require_graph_intelligence()`)
+- GraphIntelligenceService (REQUIRED)
 - EmbeddingsService (optional - enhanced semantic analysis if available)
 
 **Graph Intelligence Usage:**
@@ -154,7 +154,7 @@ if result.is_ok:
 ```
 
 **Dependencies:**
-- GraphIntelligenceService (REQUIRED - uses `_require_graph_intelligence()`)
+- GraphIntelligenceService (REQUIRED)
 
 **Graph Intelligence Usage:**
 Uses `graph_intel.get_entity_context()` with `GraphDepth.DEFAULT`:
@@ -405,7 +405,6 @@ user_substance_score = min(1.0, task_score + habit_score + event_score + entry_s
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available (used in methods 1 & 2)
 - `_require_embeddings()` - Ensures embeddings available (optional enhancement)
 - `_require_llm()` - Ensures LLM available (not currently used)
 
