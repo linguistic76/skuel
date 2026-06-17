@@ -1,18 +1,20 @@
 name: Codex Review Gate
 
 # ============================================================================
-# Required merge gate, scoped to ON-REQUEST Codex reviews.
+# Required merge gate enforcing Codex review on app-code (Python) PRs.
 #
-# The gate only bites when a human posts `@codex review` on the PR. Until that
-# requested review is considered (the `codex-considered` label is applied), the
-# gate is RED. PRs where no one posted `@codex review` pass automatically — no
-# friction on routine PRs. (Codex may still AUTO-review via the dashboard; those
-# auto-reviews are advisory and do NOT gate — only an explicit request does.)
+# TWO-TIER GATE:
+#   Tier 1 — Python files changed: gate is RED until `codex-considered` label
+#     is applied, regardless of whether `@codex review` was posted. Codex
+#     review is mandatory for any PR touching .py files.
+#   Tier 2 — No Python files (docs/tooling only): gate passes unless a human
+#     posted `@codex review` and it hasn't been considered yet. No friction on
+#     routine non-code PRs.
 #
 # Codex is ADVISORY — the gate requires its review was *considered*, never that
 # it was *agreed with*. Claude (the LLM) arbitrates what is actually true and
 # clears the gate by:
-#   1. reading the requested Codex review,
+#   1. reading the Codex review (via scripts/request_codex_review.sh <PR#>),
 #   2. posting a short "Codex consideration" note (accept / reject + why),
 #   3. applying the label:  gh pr edit <PR#> --add-label codex-considered
 # A new commit drops the label (changed code must be re-considered).
@@ -78,16 +80,30 @@ jobs:
               c.user && c.user.type === 'User' && /@codex\s+review/i.test(c.body || '')
             );
 
+            // Does this PR touch Python (app-code) files? If so, Codex review
+            // is mandatory — the gate is RED until codex-considered is applied,
+            // regardless of whether @codex review was explicitly posted.
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: prNumber, per_page: 100,
+            });
+            const hasPythonFiles = files.some(f => f.filename.endsWith('.py'));
+
             let state, description;
-            if (!requested) {
+            if (considered) {
               state = 'success';
-              description = 'No Codex review requested — gate not applicable.';
-            } else if (considered) {
-              state = 'success';
-              description = 'Requested Codex review considered (codex-considered label set).';
-            } else {
+              description = 'Codex review considered (codex-considered label set).';
+            } else if (requested) {
+              // Codex was summoned but the verdict hasn't been read yet.
               state = 'failure';
               description = 'Codex review requested — read it, then add the codex-considered label.';
+            } else if (hasPythonFiles) {
+              // Python files changed: Codex review is required even if not yet requested.
+              state = 'failure';
+              description = 'Python files changed — run scripts/request_codex_review.sh to summon Codex before merging.';
+            } else {
+              // Docs/tooling only: no Codex request → gate passes.
+              state = 'success';
+              description = 'No Python files changed and no Codex review requested — gate not applicable.';
             }
 
             await github.rest.repos.createCommitStatus({
