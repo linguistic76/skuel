@@ -295,8 +295,7 @@ UnifiedIngestionService (orchestrator)
           └─ Methods:
               ├─ process_content_for_ingestion() ← Used by ingestion
               ├─ process_ku_content() ← Used by KuService
-              ├─ get_chunks_for_knowledge()
-              └─ search_chunks()
+              └─ get_cache_stats()
 ```
 
 ---
