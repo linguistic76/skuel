@@ -228,8 +228,15 @@ class VaultReconciler:
                     continue
                 line_idx = _find_line_by_hash(snapshot.content, line_hash)
                 if line_idx is None:
-                    stats.errors.append(
-                        f"ID injection: line not found in {vault_file_path} for entity {entity_uid}"
+                    # Entity was extracted from non-checkbox content (LLM bridge
+                    # augmentation, DSL prose, or Markwhen blocks).  Those lines
+                    # have no physical counterpart in the vault file and can't
+                    # participate in the 🆔 round-trip — skip silently.
+                    logger.debug(
+                        "ID injection: skipping %s — no matching checkbox line in %s"
+                        " (bridge/DSL entity, not a vault checkbox line)",
+                        entity_uid,
+                        vault_file_path,
                     )
                     continue
                 found_line = snapshot.content.splitlines()[line_idx]

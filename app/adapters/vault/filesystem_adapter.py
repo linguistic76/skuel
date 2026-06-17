@@ -78,14 +78,14 @@ class FilesystemVaultAdapter:
             raise ValueError(f"Path {path!r} escapes vault root {self._root}")
         return resolved
 
-    async def read_note(self, _user_uid: str, path: str) -> NoteSnapshot:
+    async def read_note(self, user_uid: str, path: str) -> NoteSnapshot:
         p = self._resolve(path)
         content = p.read_text(encoding="utf-8")
         return NoteSnapshot.from_content(str(p), content)
 
     async def write_task_updates(
         self,
-        _user_uid: str,
+        user_uid: str,
         path: str,
         updates: list[TaskLineUpdate],
         expected_sha256: str,
@@ -151,7 +151,7 @@ class FilesystemVaultAdapter:
         return WriteResult(success=True, new_sha256=new_sha256)
 
     async def list_vault_notes(
-        self, _user_uid: str, vault_path: str, pattern: str = "**/*.md"
+        self, user_uid: str, vault_path: str, pattern: str = "**/*.md"
     ) -> list[str]:
         base = self._resolve(vault_path)
         return [str(p) for p in base.glob(pattern) if p.is_file()]
