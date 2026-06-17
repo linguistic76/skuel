@@ -903,11 +903,6 @@ PLANNED_METHODS: dict[str, str] = {
         _ASKESIS_CONTEXT_ORCHESTRATION
     ),
     # --- Campaign 18 (2026-06): standalone service staged capabilities ---
-    "core/services/neo4j_vector_search_service.py::hybrid_search": (
-        "public API with integration test coverage but no production route wiring; "
-        "combines vector + fulltext search — wire into SearchRouter hybrid path or "
-        "a direct route when the vector-search surface is promoted"
-    ),
     "core/services/content_enrichment_service.py::process_audio": (
         "audio transcription pipeline staged — wire a /upload-audio route that "
         "accepts an audio file, calls process_audio, then routes the transcript "
@@ -969,10 +964,6 @@ PLANNED_METHODS: dict[str, str] = {
         "hybrid_search wrapper that captures SearchMetrics; full integration test "
         "coverage in test_search_metrics_tracking.py; wire alongside hybrid_search "
         "when metrics collection is needed"
-    ),
-    "core/services/neo4j_vector_search_service.py::_create_metrics": (
-        "private helper for find_similar_by_text_with_metrics and "
-        "hybrid_search_with_metrics — becomes live when those wrappers are wired"
     ),
     # Restored — test-covered, no production caller (same pattern as vector search above)
     "core/services/base_service.py::ensure_backend_available": (
