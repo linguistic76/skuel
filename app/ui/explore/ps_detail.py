@@ -134,8 +134,10 @@ def render_ps_detail_content(
     # Exercises stay visible with an empty state (the workflow entry point).
     # Submissions + Feedback collapse to an empty Div when the user has no
     # activity yet — see render_ps_submissions_and_feedback.
+    # Forms section collapses to an empty Div when no forms are embedded.
     submissions_section: Any = Div()
     feedback_section: Any = Div()
+    forms_section: Any = Div()
     if user_uid:
         exercises_section: Any = Div(
             H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
@@ -154,6 +156,12 @@ def render_ps_detail_content(
             hx_swap="innerHTML",
         )
         feedback_section = Div()
+        forms_section = Div(
+            id=f"ps-forms-container-{uid}",
+            hx_get=f"/learning-loop/ps/{uid}/forms",
+            hx_trigger="load",
+            hx_swap="innerHTML",
+        )
     else:
         exercises_section = _render_unauthenticated_exercises(uid, exercises)
 
@@ -211,6 +219,7 @@ def render_ps_detail_content(
         exercises_section,
         submissions_section,
         feedback_section,
+        forms_section,
         action_area,
         templates_panel,
         Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),

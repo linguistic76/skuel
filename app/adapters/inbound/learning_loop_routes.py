@@ -35,6 +35,11 @@ from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.ku_mastery import render_ku_mastery_result
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
+from ui.learning_loop.embedded_forms import (
+    render_embedded_forms,
+    render_embedded_forms_error,
+    render_embedded_forms_success,
+)
 from ui.learning_loop.exercise_status import render_exercise_list
 from ui.learning_loop.submissions_section import render_ps_submissions_and_feedback
 from ui.patterns.error_banner import render_inline_error
@@ -44,6 +49,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
+    from core.ports.form_protocols import FormSubmissionOperations
     from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
 logger = get_logger("skuel.routes.learning_loop")
@@ -333,6 +339,7 @@ def create_learning_loop_fragment_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     orchestrator: "ExploreOrchestrator",
+    form_submission_service: "FormSubmissionOperations | None" = None,
 ) -> None:
     """Register /learning-loop/* HTMX fragment routes.
 
@@ -340,6 +347,7 @@ def create_learning_loop_fragment_routes(
         _app: FastHTML application instance.
         rt: Route decorator.
         orchestrator: ExploreOrchestrator for cross-service reads.
+        form_submission_service: Optional — when present, enables inline form submission.
     """
 
     @rt("/learning-loop/ps/{ps_uid}/exercises")
@@ -360,6 +368,43 @@ def create_learning_loop_fragment_routes(
             return render_inline_error("Could not load submissions")
         return render_ps_submissions_and_feedback(result.value or [])
 
+    @rt("/learning-loop/ps/{ps_uid}/forms")
+    async def get_ps_embedded_forms(request: Request, ps_uid: str) -> Any:
+        """HTMX fragment: FormTemplates embedded in this PathStep (authenticated)."""
+        require_authenticated_user(request)
+        result = await orchestrator.get_forms_for_path_step(ps_uid)
+        forms = result.value if result.is_ok else []
+        return render_embedded_forms(forms, ps_uid)
+
+    @rt("/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit", methods=["POST"])
+    @csrf_protected
+    async def submit_embedded_form(request: Request, ps_uid: str, template_uid: str) -> Any:
+        """HTMX POST: submit an inline form embedded in a PathStep."""
+        if form_submission_service is None:
+            return render_inline_error("Form submission is unavailable")
+
+        user_uid = require_authenticated_user(request)
+
+        # Fetch the template so we can validate and show it on error
+        template_result = await orchestrator.get_forms_for_path_step(ps_uid)
+        template = next((f for f in (template_result.value or []) if f.uid == template_uid), None)
+        if template is None:
+            return render_inline_error("Form not found")
+
+        form = await request.form()
+        form_data = {k: str(v) for k, v in form.multi_items() if k != "csrf_token"}
+
+        result = await form_submission_service.submit_form(
+            user_uid=user_uid,
+            form_template_uid=template_uid,
+            form_data=form_data,
+        )
+        if result.is_error:
+            error_msg = result.expect_error().message
+            return render_embedded_forms_error(template, ps_uid, error_msg)
+
+        return render_embedded_forms_success(template, ps_uid)
+
     logger.info("Learning loop fragment routes registered: /learning-loop/ps/{ps_uid}/*")
 
 
@@ -374,6 +419,7 @@ def create_learning_loop_routes(
     orchestrator: "ExploreOrchestrator",
     ps_engagement_service: "PsEngagementService | None" = None,
     user_service: Any = None,
+    form_submission_service: "FormSubmissionOperations | None" = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 
@@ -382,7 +428,9 @@ def create_learning_loop_routes(
     create_learning_loop_detail_routes(
         app, rt, orchestrator, ps_engagement_service, user_service=user_service
     )
-    create_learning_loop_fragment_routes(app, rt, orchestrator)
+    create_learning_loop_fragment_routes(
+        app, rt, orchestrator, form_submission_service=form_submission_service
+    )
 
 
 __all__ = [
