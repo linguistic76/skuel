@@ -304,36 +304,6 @@ class JupyterNeo4jSync:
         # Generate YAML
         return yaml.dump(yaml_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
-    async def _check_for_conflicts(self, uid: str, _new_hash: str) -> Result[bool]:
-        """
-        Check for edit conflicts.
-
-        Args:
-            uid: Ku unit UID,
-            new_hash: New content hash
-
-        Returns:
-            True if no conflicts, error if conflicts exist
-        """
-        result = await self.backend.get_conflict_state(uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-        record = records[0] if records else None
-
-        if record and record["pending_sync"]:
-            return Result.fail(
-                Errors.business(
-                    rule="sync_conflict",
-                    message="Unsynchronized changes exist",
-                    uid=uid,
-                    pending_sync=True,
-                )
-            )
-
-        return Result.ok(True)
-
     async def _handle_conflict(
         self, ku_data: dict[str, Any], file_path: Path, _existing_content: str
     ) -> Result[Path]:

@@ -22,7 +22,6 @@ Architecture:
 
 from typing import TypedDict
 
-from core.models.pathways.path_step import PathStep
 from core.models.ps_content.content import CurriculumContent
 from core.models.ps_content.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
@@ -147,58 +146,6 @@ class EntityChunkingService:
                 Errors.system(
                     f"Content processing failed: {e!s}", operation="process_content_for_ingestion"
                 )
-            )
-
-    async def process_ps_content(
-        self,
-        knowledge: PathStep,
-        content_body: str,
-        format: str = "markdown",
-        source_path: str | None = None,
-    ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
-        """
-        Process knowledge content to create rich content and metadata.
-
-        Args:
-            knowledge: The Knowledge domain model,
-            content_body: The raw content text,
-            format: Content format (markdown/html/text),
-            source_path: Original file path if imported
-
-        Returns:
-            Result containing tuple of (CurriculumContent, ContentMetadata)
-        """
-        try:
-            # Create CurriculumContent with automatic chunking
-            content = CurriculumContent.create(
-                unit_uid=knowledge.uid, body=content_body, format=format, source_path=source_path
-            )
-
-            # Generate metadata from content
-            metadata = ContentMetadata.from_content(content)
-
-            # Cache for quick retrieval
-            self._content_cache[knowledge.uid] = content
-            self._metadata_cache[knowledge.uid] = metadata
-
-            self.logger.info(
-                f"Processed content for {knowledge.uid}: "
-                f"{content.word_count} words, {content.chunk_count} chunks"
-            )
-
-            return Result.ok((content, metadata))
-
-        except ValueError as e:
-            return Result.fail(Errors.validation(f"Invalid content: {e!s}", field="content_body"))
-        except (TypeError, AttributeError, KeyError) as e:
-            self.logger.error(f"Failed to process content: {e}")
-            return Result.fail(
-                Errors.system(f"Content processing failed: {e!s}", operation="process_ps_content")
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Failed to process content: {e}")
-            return Result.fail(
-                Errors.system(f"Content processing failed: {e!s}", operation="process_ps_content")
             )
 
     # ==========================================================================
