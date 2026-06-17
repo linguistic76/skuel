@@ -66,6 +66,11 @@ def render_status_badge(status: KnowledgeStatus | None, oob: bool = False) -> An
             replaces the in-page badge when the handler returns it alongside
             another swap (publish success).
     """
+    if isinstance(status, str):
+        try:
+            status = KnowledgeStatus(status)
+        except ValueError:
+            status = KnowledgeStatus.DRAFT
     effective = status or KnowledgeStatus.DRAFT
     variant = _STATUS_VARIANT.get(effective, BadgeT.secondary)
     label = _STATUS_LABEL.get(effective, effective.value.title())

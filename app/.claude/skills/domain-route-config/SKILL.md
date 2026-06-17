@@ -64,14 +64,14 @@ api_related_services={
 ```python
 # Config declares the mapping:
 api_related_services={
-    "user_service": "user_service",  # kwarg matches attr (common)
-    "goals_service": "goals",        # kwarg differs from attr (also common)
+    "user_service": "user",    # kwarg name → Services.user (UserService)
+    "goals_service": "goals",  # kwarg name → Services.goals
 }
 
 # register_domain_routes() resolves it at runtime:
 api_factory(
     app, rt, primary_service,
-    user_service=services.user,   # getattr(services, "user")
+    user_service=services.user,    # getattr(services, "user")
     goals_service=services.goals,  # getattr(services, "goals")
 )
 ```
@@ -250,7 +250,7 @@ STUDY_CONFIG = DomainRouteConfig(
     ui_factory=create_study_ui_routes,
     ui_related_services={
         "processing_service": "user_entry_processor",
-        "user_service": "user_service",
+        "user_service": "user",
         "exercises_service": "exercises",
         "activity_report_service": "activity_report",
         "teacher_review_service": "teacher_review",
@@ -351,22 +351,22 @@ def create_upload_routes(
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,
-    user_service_attr="user_service",
+    user_service_attr="user",  # Services.user
 )
 
 # Teacher-only user-owned (Exercises, RevisedExercise)
 crud=CRUDRouteConfig(
     scope=ContentScope.USER_OWNED,
     require_role=UserRole.TEACHER,
-    user_service_attr="user_service",
+    user_service_attr="user",  # Services.user
 )
 
 # Teacher mutations, any-auth reads (Groups)
 crud=CRUDRouteConfig(
     scope=ContentScope.USER_OWNED,
     require_role=UserRole.TEACHER,
-    role_gates_reads=False,          # Students can GET groups
-    user_service_attr="user_service",
+    role_gates_reads=False,    # Students can GET groups
+    user_service_attr="user",  # Services.user
 )
 ```
 
@@ -378,7 +378,7 @@ crud=CRUDRouteConfig(
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,
-    user_service_attr="user_service",
+    user_service_attr="user",  # Services.user
 ),
 intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 ```

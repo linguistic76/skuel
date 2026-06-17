@@ -39,7 +39,7 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
         uid_prefix="ft",
         scope=ContentScope.SHARED,
         require_role=UserRole.ADMIN,
-        user_service_attr="user_service",
+        user_service_attr="user",
     ),
 )
 
