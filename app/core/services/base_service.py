@@ -119,7 +119,6 @@ from core.services.mixins import (
     SearchOperationsMixin,
     TimeQueryMixin,
 )
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -575,20 +574,6 @@ class BaseService(
         """
         return Result.ok(None)
 
-    def _validate_content(self, content: str) -> Result[None]:
-        """
-        Optional hook for content validation.
-
-        Override in subclasses to add content-specific validation rules.
-
-        Args:
-            content: The content being stored
-
-        Returns:
-            Result.ok(None) if valid, Result.fail() if validation fails
-        """
-        return Result.ok(None)
-
     def _validate_prerequisites(
         self,
         entity_uid: EntityUID,
@@ -669,47 +654,3 @@ class BaseService(
 
         # raw-write: generic system field bump (see update_progress).
         return await self.backend.update(uid, {"status": new_status})
-
-    # ========================================================================
-    # CONTENT HANDLING
-    # ========================================================================
-
-    async def update_content(self, uid: str, content: str) -> Result[T]:
-        """
-        Update entity content (markdown, description, notes, etc).
-
-        Generic content field - many entities have content:
-        - KnowledgeUnits have markdown content
-        - Tasks have descriptions
-        - Events have notes
-        - Goals have detailed plans
-        """
-        if not uid:
-            return Result.fail(Errors.validation(message="UID is required", field="uid"))
-
-        if not content:
-            return Result.fail(
-                Errors.validation(message="Content cannot be empty", field="content")
-            )
-
-        # raw-write: generic system field bump (see update_progress).
-        return await self.backend.update(uid, {"content": content})
-
-    # ========================================================================
-    # INFRASTRUCTURE
-    # ========================================================================
-
-    async def ensure_backend_available(self) -> Result[bool]:
-        """
-        Check that backend is available and working.
-
-        Note: Backend is guaranteed to exist at initialization (fail-fast)
-        but this method verifies it's actually functioning.
-        """
-        try:
-            await self.backend.health_check()
-            return Result.ok(True)
-        except (*NEO4J_EXCEPTIONS, ConnectionError, OSError) as e:
-            return Result.fail(
-                Errors.integration(service="backend", operation="health_check", message=str(e))
-            )
