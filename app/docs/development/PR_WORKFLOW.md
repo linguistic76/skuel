@@ -42,10 +42,10 @@ The trade is deliberate: a few minutes of latency per change buys a reviewer SKU
 1. **Branch off `main`.** `git checkout -b kind/short-description` (e.g. `docs/pr-workflow`, `fix/ownership-404`). `main` is protected — you cannot push to it directly.
 2. **Commit and push the branch.** `git push -u origin <branch>`.
 3. **Open the PR** against `main`: `gh pr create`. Write a real description — when Kody is later summoned it *concatenates* its summary onto yours rather than replacing it, so a meaningful description survives.
-4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy when Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. (The **Codex Review Gate** status from `codex-gate.yml` also posts automatically, but it only turns RED once a `@codex review` is requested and not yet considered — see below.)
-5. **Summon a reviewer when ready.** Neither AI reviewer runs automatically (since 2026-05-24). Comment **`@kody start-review`** for Kody's gating review, and/or **`@codex review`** for a Codex second opinion. Do this once a PR is substantive, not on every intermediate commit.
-6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / `@codex review` to re-review the updated diff.
-7. **Merge** once CI Gate is green and no summoned reviewer is blocking. Delete the branch.
+4. **CI runs automatically.** `ci.yml` runs path-guarded jobs (MyPy when Python changed, doc validation when docs/skills changed) and aggregates them into the **CI Gate** check. The **Codex Review Gate** (`codex-gate.yml`) also fires: for PRs touching `.py` files it is RED until `codex-considered` is applied — Codex review is mandatory on app-code PRs; for docs/tooling-only PRs it passes unless `@codex review` was posted and not yet considered.
+5. **Summon a reviewer when ready.** Neither AI reviewer runs automatically (since 2026-05-24). Comment **`@kody start-review`** for Kody's gating review. For any PR touching Python files, also run **`scripts/request_codex_review.sh <PR#>`** — the Codex Review Gate is RED until you do. Do this once a PR is substantive, not on every intermediate commit.
+6. **Address feedback.** Push fixes to the same branch — CI re-runs automatically on the new commit; re-comment `@kody start-review` / re-run the script to re-review the updated diff.
+7. **Run `./dev pre-merge <PR#>`** to confirm all gates are green before merging. Then: `gh pr merge <PR#> --squash --admin --delete-branch`.
 
 ---
 
@@ -56,7 +56,7 @@ Three reviewers can run on a PR, gated by **two required status checks** (CI Gat
 | Participant | What it checks | Posts | Trigger | Blocks merge? |
 |---|---|---|---|---|
 | **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Automatic** — every PR/push | **Yes** — required check |
-| **Codex Review Gate** (`codex-gate.yml`) | That a *requested* Codex review was **considered** — not Codex's verdict | A required status check | **Automatic**, but RED only once `@codex review` was posted and not yet considered; PRs with no request pass automatically | **Yes** — required check; cleared by applying the `codex-considered` label (auto-dropped on every new commit, so changed code is re-considered) |
+| **Codex Review Gate** (`codex-gate.yml`) | That Codex review was **considered** — not Codex's verdict | A required status check | **Automatic** — two tiers: (1) **Python files changed** → RED until `codex-considered` label applied, regardless of whether `@codex review` was posted; (2) **docs/tooling only** → RED only once `@codex review` was posted and not yet considered; passes automatically with no request | **Yes** — required check; cleared by applying the `codex-considered` label (auto-dropped on every new commit, so changed code is re-considered) |
 | **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check **and** a real PR review | **On demand** — `@kody start-review` (auto-review turned off in the Kodus dashboard, not via the repo file) | **Yes, when summoned** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
 | **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never itself a status check** (the *Codex Review Gate* above is the check) | **On demand** — `@codex review` | **No** — its *verdict* is advisory; the *gate* enforces only that you considered it |
 
@@ -97,7 +97,21 @@ This is intentional for a solo project (no second person exists to unblock you),
 ### Drafts and on-demand review
 
 - Open a PR as a **draft** to iterate before inviting review; mark it *ready for review* when it's done. (No AI reviewer auto-fires regardless, so a draft is purely a signal to humans.)
-- Both AI reviewers are **on demand** — neither runs on its own. Comment **`@kody start-review`** to run Kody (the gating reviewer) and **`@codex review`** for a Codex second opinion. Re-comment after pushing fixes to re-review the updated diff.
+- Both AI reviewers are **on demand** — neither runs on its own. Comment **`@kody start-review`** to run Kody (the gating reviewer) and run `scripts/request_codex_review.sh <PR#>` for Codex. Re-comment / re-run after pushing fixes to re-review the updated diff.
+
+### Never commit directly to `main`
+
+All work goes through a branch + PR — no exceptions except a genuine production emergency. Direct pushes to `main` skip every gate (CI, Codex, Kody) and leave no review audit trail. The `enforce_admins=false` setting makes direct pushes technically possible for the admin, but they are not part of the normal workflow.
+
+### Closing orphaned PRs after a cherry-pick
+
+When commits are cherry-picked to `main` directly (e.g. because the branch diverged after a prior session landed commits on `main`), the PR remains open on GitHub with `mergedAt: null` — a confusing audit trail. After cherry-picking, **close the PR with a note** citing the SHAs that landed:
+
+```bash
+gh pr close <PR#> --comment "Work landed via cherry-pick: <sha1>, <sha2>, <sha3>. Branch had conflicts due to prior direct commits on main."
+```
+
+This closes the record cleanly so the PR history accurately reflects what shipped.
 
 ---
 
