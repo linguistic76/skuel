@@ -345,5 +345,30 @@ class IngestionHistoryService:
 
         return Result.ok(entry)
 
+    # -------------------------------------------------------------------------
+    # Test-covered count API — no production caller yet (PLANNED)
+    # -------------------------------------------------------------------------
+
+    async def get_total_count(self) -> "Result[int]":
+        """
+        Get total count of ingestion history entries.
+
+        Returns:
+            Result with total count
+        """
+        result = await self.backend.get_history_count()
+
+        if result.is_error:
+            self.logger.error(f"Failed to get ingestion history count: {result.error}")
+            return Result.fail(
+                Errors.database(
+                    "get_ingestion_count",
+                    "Failed to get ingestion history count",
+                )
+            )
+
+        total = result.value[0]["total"] if result.value else 0
+        return Result.ok(total)
+
 
 __all__ = ["IngestionHistoryEntry", "IngestionHistoryService"]

@@ -974,6 +974,17 @@ PLANNED_METHODS: dict[str, str] = {
         "private helper for find_similar_by_text_with_metrics and "
         "hybrid_search_with_metrics — becomes live when those wrappers are wired"
     ),
+    # Restored — test-covered, no production caller (same pattern as vector search above)
+    "core/services/base_service.py::ensure_backend_available": (
+        "backend health-check method; unit test coverage in "
+        "tests/unit/test_base_service.py::TestInfrastructure; no production "
+        "call site yet — wire into a /health route or startup check"
+    ),
+    "core/services/ingestion/ingestion_history.py::get_total_count": (
+        "count query for ingestion history entries; unit test coverage in "
+        "tests/unit/test_ingestion_history.py; no production caller yet — "
+        "wire into the ingestion admin dashboard or a /status route"
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is

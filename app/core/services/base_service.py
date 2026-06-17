@@ -119,6 +119,7 @@ from core.services.mixins import (
     SearchOperationsMixin,
     TimeQueryMixin,
 )
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -654,3 +655,22 @@ class BaseService(
 
         # raw-write: generic system field bump (see update_progress).
         return await self.backend.update(uid, {"status": new_status})
+
+    # -------------------------------------------------------------------------
+    # Test-covered health API — no production caller yet (PLANNED)
+    # -------------------------------------------------------------------------
+
+    async def ensure_backend_available(self) -> "Result[bool]":
+        """
+        Check that backend is available and working.
+
+        Note: Backend is guaranteed to exist at initialization (fail-fast)
+        but this method verifies it's actually functioning.
+        """
+        try:
+            await self.backend.health_check()
+            return Result.ok(True)
+        except (*NEO4J_EXCEPTIONS, ConnectionError, OSError) as e:
+            return Result.fail(
+                Errors.integration(service="backend", operation="health_check", message=str(e))
+            )
