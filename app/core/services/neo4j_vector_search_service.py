@@ -17,10 +17,14 @@ ARCHITECTURE:
 See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
+import time
+from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.config.unified_config import VectorSearchConfig
+from core.models.enums.neo_labels import NeoLabel
+from core.models.semantic import SearchMetrics
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import SemanticSearchChunkResult
 
@@ -706,3 +710,233 @@ class Neo4jVectorSearchService:
             states[record["ku_uid"]] = state
 
         return Result.ok(states)
+
+    # -------------------------------------------------------------------------
+    # Test-covered public API — no production route caller yet (PLANNED)
+    # -------------------------------------------------------------------------
+
+    async def find_similar_to_node(
+        self,
+        label: str,
+        uid: str,
+        limit: int | None = None,
+        min_score: float | None = None,
+        exclude_self: bool = True,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Find nodes similar to a specific node.
+
+        Args:
+            label: Node label (e.g., "Entity", "Task", "Goal")
+            uid: UID of source node
+            limit: Max results to return (uses config default if None)
+            min_score: Minimum similarity score (uses entity-specific threshold if None)
+            exclude_self: Exclude source node from results
+
+        Returns:
+            Result containing list of {node, score} dicts sorted by similarity
+        """
+        if limit is None:
+            limit = self.config.default_limit
+        if min_score is None:
+            min_score = self.config.get_min_score_for_entity(label)
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
+        result = await self.backend.get_node_embedding(NeoLabel(label), uid)
+
+        if result.is_error:
+            self.logger.error(f"Failed to get source embedding: {result.error}")
+            return Result.fail(
+                Errors.database(
+                    operation="get_embedding",
+                    message=f"Failed to retrieve embedding: {result.error}",
+                )
+            )
+
+        records = result.value
+        if not records or not records[0].get("embedding"):
+            return Result.fail(
+                Errors.not_found(
+                    resource=label,
+                    identifier=uid,
+                )
+            )
+
+        source_embedding = records[0]["embedding"]
+
+        similar_result = await self.find_similar_by_vector(
+            label=label,
+            embedding=source_embedding,
+            limit=limit + 1 if exclude_self else limit,
+            min_score=min_score,
+        )
+
+        if similar_result.is_error:
+            return similar_result
+
+        similar = similar_result.value
+
+        if exclude_self:
+            similar = [s for s in similar if s["node"].get("uid") != uid][:limit]
+
+        return Result.ok(similar)
+
+    async def find_cross_domain_similar(
+        self,
+        embedding: list[float],
+        labels: list[str],
+        limit_per_label: int | None = None,
+        min_score: float | None = None,
+    ) -> Result[dict[str, list[dict[str, Any]]]]:
+        """
+        Find similar nodes across multiple domains/labels.
+
+        Uses entity-specific thresholds for each label.
+
+        Args:
+            embedding: Query embedding vector
+            labels: List of node labels to search (e.g., ["Entity", "Task", "Goal"])
+            limit_per_label: Max results per label (uses config default if None)
+            min_score: Minimum similarity score — overrides entity-specific if provided
+
+        Returns:
+            Result containing dict mapping label -> list of {node, score} dicts
+        """
+        if limit_per_label is None:
+            limit_per_label = self.config.default_limit
+
+        results = {}
+
+        for label in labels:
+            label_min_score = (
+                min_score if min_score is not None else self.config.get_min_score_for_entity(label)
+            )
+
+            search_result = await self.find_similar_by_vector(
+                label=label, embedding=embedding, limit=limit_per_label, min_score=label_min_score
+            )
+
+            if search_result.is_ok:
+                results[label] = search_result.value
+            else:
+                self.logger.warning(
+                    f"Search failed for label {label}: {search_result.expect_error()}"
+                )
+                results[label] = []
+
+        return Result.ok(results)
+
+    async def find_similar_by_text_with_metrics(
+        self,
+        label: str,
+        text: str,
+        limit: int | None = None,
+        min_score: float | None = None,
+    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+        """
+        Find similar nodes by text with metrics tracking.
+
+        Wrapper around find_similar_by_text that collects performance metrics.
+        """
+        start_time = time.perf_counter()
+
+        result = await self.find_similar_by_text(
+            label=label, text=text, limit=limit, min_score=min_score
+        )
+
+        latency_ms = (time.perf_counter() - start_time) * 1000
+
+        if result.is_error:
+            return result, None
+
+        metrics = self._create_metrics(
+            query=text,
+            search_type="vector",
+            label=label,
+            results=result.value,
+            latency_ms=latency_ms,
+            min_score_threshold=min_score,
+        )
+
+        self.logger.info(metrics.to_log_string())
+
+        return result, metrics
+
+    async def hybrid_search_with_metrics(
+        self,
+        label: str,
+        query_text: str,
+        vector_weight: float | None = None,
+        limit: int | None = None,
+        min_rrf_score: float | None = None,
+    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+        """
+        Hybrid search with metrics tracking.
+
+        Wrapper around hybrid_search that collects performance metrics.
+        """
+        start_time = time.perf_counter()
+
+        result = await self.hybrid_search(
+            label=label,
+            query_text=query_text,
+            vector_weight=vector_weight,
+            limit=limit,
+            min_rrf_score=min_rrf_score,
+        )
+
+        latency_ms = (time.perf_counter() - start_time) * 1000
+
+        if result.is_error:
+            return result, None
+
+        metrics = self._create_metrics(
+            query=query_text,
+            search_type="hybrid",
+            label=label,
+            results=result.value,
+            latency_ms=latency_ms,
+            vector_weight=vector_weight or self.config.vector_weight,
+            min_score_threshold=min_rrf_score,
+        )
+
+        self.logger.info(metrics.to_log_string())
+
+        return result, metrics
+
+    def _create_metrics(
+        self,
+        query: str,
+        search_type: str,
+        label: str,
+        results: list[dict[str, Any]],
+        latency_ms: float,
+        vector_weight: float | None = None,
+        min_score_threshold: float | None = None,
+    ) -> SearchMetrics:
+        """Create search metrics from search results."""
+        num_results = len(results)
+
+        if num_results > 0:
+            scores = [r["score"] for r in results]
+            avg_similarity = sum(scores) / len(scores)
+            min_similarity = min(scores)
+            max_similarity = max(scores)
+        else:
+            avg_similarity = 0.0
+            min_similarity = 0.0
+            max_similarity = 0.0
+
+        return SearchMetrics(
+            query=query,
+            search_type=search_type,
+            label=label,
+            num_results=num_results,
+            avg_similarity=avg_similarity,
+            min_similarity=min_similarity,
+            max_similarity=max_similarity,
+            latency_ms=latency_ms,
+            timestamp=datetime.now(),
+            vector_weight=vector_weight,
+            min_score_threshold=min_score_threshold,
+        )
