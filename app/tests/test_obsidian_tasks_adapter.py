@@ -188,3 +188,60 @@ class TestParseJournalSecondPass:
         (task,) = result.value.get_tasks()
         assert task.source_file == "ue:abc"
         assert task.source_line == 1
+
+
+class TestVaultIdInjectionHashStability:
+    """Guard 2 (EXTRACTED_FROM dedup) requires the line hash to be identical
+    before and after the outbound pass injects a 🆔 vault ID.
+
+    Without this guarantee, re-ingesting a vault file after ID injection
+    produces a different hash → Guard 2 sees no matching EXTRACTED_FROM edge
+    → duplicate entity created.  Both hash functions must strip 🆔 tokens.
+    """
+
+    def test_normalized_line_hash_stable_after_id_injection(self):
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        before = "- [ ] move furniture📅 2026-06-17 ⏫"
+        after = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
+        assert normalized_line_hash(before) == normalized_line_hash(after)
+
+    def test_extractor_hash_matches_protocol_hash(self):
+        """normalized_line_hash delegates to normalize_vault_line_hash — both
+        must produce the same digest so reconciler and extractor agree."""
+        from core.ports.vault_bridge_protocol import normalize_vault_line_hash
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] Ship vault sync 📅 2026-06-20 🔺  🆔 sk_abc123"
+        assert normalized_line_hash(line) == normalize_vault_line_hash(line)
+
+    def test_hash_stable_across_extra_whitespace_and_id(self):
+        """Whitespace normalisation and 🆔 stripping compose correctly."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        bare = "- [ ] Review PR #322 ⏫"
+        with_spaces = "-  [  ]  Review PR #322  ⏫"
+        with_id = "- [ ] Review PR #322 ⏫ 🆔 sk_zzz999"
+        both = "-  [  ]  Review PR #322  ⏫  🆔 sk_zzz999"
+        h = normalized_line_hash(bare)
+        assert normalized_line_hash(with_spaces) == h
+        assert normalized_line_hash(with_id) == h
+        assert normalized_line_hash(both) == h
+
+    def test_filesystem_adapter_methods_accept_user_uid_keyword(self):
+        """FilesystemVaultAdapter.read_note / write_task_updates / list_vault_notes
+        must accept ``user_uid=`` as a keyword argument (not ``_user_uid=``).
+        The protocol calls them with explicit keyword arguments; the old
+        ``_user_uid`` placeholder name caused TypeError at runtime.
+        """
+        import inspect
+        from pathlib import Path
+
+        from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
+
+        adapter = FilesystemVaultAdapter(allowed_root=Path("/tmp"))
+        for method_name in ("read_note", "write_task_updates", "list_vault_notes"):
+            sig = inspect.signature(getattr(adapter, method_name))
+            assert "user_uid" in sig.parameters, (
+                f"{method_name} must expose 'user_uid' parameter, not '_user_uid'"
+            )
