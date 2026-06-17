@@ -660,7 +660,7 @@ class BaseService(
     # Test-covered health API — no production caller yet (PLANNED)
     # -------------------------------------------------------------------------
 
-    async def ensure_backend_available(self) -> "Result[bool]":
+    async def ensure_backend_available(self) -> Result[bool]:
         """
         Check that backend is available and working.
 

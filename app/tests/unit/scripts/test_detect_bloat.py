@@ -666,7 +666,7 @@ def test_live_known_dead_events_are_flagged(live_analysis):
     # sentinel here when the next truly-dead event surfaces.
     _, _, findings = live_analysis
     for event in cast(
-        list[str],
+        "list[str]",
         [
             # (no WARNING-severity dead events currently — add sentinels as needed)
         ],
