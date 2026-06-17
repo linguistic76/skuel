@@ -17,7 +17,6 @@ ARCHITECTURE:
 See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
-from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
@@ -27,7 +26,6 @@ from core.ports.query_types import SemanticSearchChunkResult
 
 if TYPE_CHECKING:
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
-from core.models.semantic import SearchMetrics
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -296,58 +294,6 @@ class Neo4jVectorSearchService:
         nodes = [{"node": record["node"], "score": record["score"]} for record in records]
 
         return Result.ok(nodes)
-
-    def _create_metrics(
-        self,
-        query: str,
-        search_type: str,
-        label: str,
-        results: list[dict[str, Any]],
-        latency_ms: float,
-        vector_weight: float | None = None,
-        min_score_threshold: float | None = None,
-    ) -> SearchMetrics:
-        """
-        Create search metrics from search results.
-
-        Args:
-            query: Search query text
-            search_type: Type of search ("vector", "fulltext", "hybrid")
-            label: Entity label searched
-            results: Search results
-            latency_ms: Query execution time in milliseconds
-            vector_weight: Vector weight for hybrid search
-            min_score_threshold: Minimum score threshold applied
-
-        Returns:
-            SearchMetrics instance
-        """
-        num_results = len(results)
-
-        # Calculate similarity statistics
-        if num_results > 0:
-            scores = [r["score"] for r in results]
-            avg_similarity = sum(scores) / len(scores)
-            min_similarity = min(scores)
-            max_similarity = max(scores)
-        else:
-            avg_similarity = 0.0
-            min_similarity = 0.0
-            max_similarity = 0.0
-
-        return SearchMetrics(
-            query=query,
-            search_type=search_type,
-            label=label,
-            num_results=num_results,
-            avg_similarity=avg_similarity,
-            min_similarity=min_similarity,
-            max_similarity=max_similarity,
-            latency_ms=latency_ms,
-            timestamp=datetime.now(),
-            vector_weight=vector_weight,
-            min_score_threshold=min_score_threshold,
-        )
 
     async def find_similar_chunks_by_text(
         self,

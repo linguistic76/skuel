@@ -260,11 +260,6 @@ class AdvancedCache:
         self.frequency_heap.clear()
         self.stats = {"hits": 0, "misses": 0, "evictions": 0, "size_bytes": 0}
 
-    def get_hit_rate(self) -> float:
-        """Calculate cache hit rate."""
-        total = self.stats["hits"] + self.stats["misses"]
-        return self.stats["hits"] / total if total > 0 else 0.0
-
     async def _evict(self) -> None:
         """Evict entries based on strategy."""
         if not self.cache:
@@ -869,20 +864,6 @@ class PerformanceOptimizationService:
         """Close service - cleanup hook for ServiceContainer."""
         await self.shutdown()
 
-    async def fast_inference(self, request: InferenceRequest) -> InferenceResult:
-        """Perform sub-100ms knowledge inference."""
-        result = await self.inference_engine.infer(request)
-
-        # Track performance metrics
-        self.response_times.append(result.processing_time_ms)
-        self.throughput_counter += 1
-
-        # Keep only recent response times
-        if len(self.response_times) > 1000:
-            self.response_times = self.response_times[-500:]
-
-        return result
-
     async def submit_background_task(
         self,
         task_type: str,
@@ -927,13 +908,3 @@ class PerformanceOptimizationService:
             await self.submit_background_task(
                 task_config["task_type"], task_config["payload"], task_config["priority"]
             )
-
-    def _get_memory_usage(self) -> float:
-        """Get current memory usage in MB."""
-        # Demo implementation - would use psutil in production
-        return 128.5
-
-    def _get_cpu_utilization(self) -> float:
-        """Get current CPU utilization percentage."""
-        # Demo implementation - would use psutil in production
-        return 45.2
