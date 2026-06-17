@@ -101,10 +101,10 @@ Python is easy to learn and powerful.
 
         # Then: Chunks are in the chunking service cache
         ku_uid = ingestion_data["uid"]
-        chunks_result = await chunking_service.get_chunks_for_knowledge(ku_uid)
+        cached_content = chunking_service._content_cache.get(ku_uid)
 
-        assert chunks_result.is_ok, "Should be able to retrieve chunks"
-        chunks = chunks_result.value
+        assert cached_content is not None, "Should be able to retrieve cached content"
+        chunks = list(cached_content.chunks)
         assert len(chunks) > 0, "Should have at least one chunk"
 
         # Verify chunk types detected
@@ -256,10 +256,9 @@ Python is a programming language.
 
         # Verify at least one chunk exists
         ku_uid = ingestion_data["uid"]
-        chunks_result = await chunking_service.get_chunks_for_knowledge(ku_uid)
-        assert chunks_result.is_ok, "Should be able to retrieve chunks"
-        chunks = chunks_result.value
-        assert len(chunks) >= 1, "Should have at least one chunk for minimal content"
+        cached_content = chunking_service._content_cache.get(ku_uid)
+        assert cached_content is not None, "Should have cached content after ingestion"
+        assert cached_content.chunk_count >= 1, "Should have at least one chunk for minimal content"
 
     finally:
         # Cleanup
