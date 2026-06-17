@@ -58,7 +58,6 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
 
     Inherits from BasePlanningService:
     - Constructor with backend + relationship_service
-    - set_relationship_service() for post-construction wiring
     - _get_entities_by_uids() for batch entity fetching
     - _get_related_uids() for relationship queries
     """
