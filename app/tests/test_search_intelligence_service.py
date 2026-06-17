@@ -17,10 +17,7 @@ Validates:
 import pytest
 
 from core.models.enums import Domain
-from core.services.search.search_intelligence_service import (
-    SearchIntelligenceService,
-    get_search_intelligence,
-)
+from core.services.search.search_intelligence_service import SearchIntelligenceService
 
 # ============================================================================
 # TEST SERVICE INITIALIZATION
@@ -33,14 +30,6 @@ def test_search_intelligence_service_initialization():
 
     assert service.base_intelligence is not None
     assert service.logger is not None
-
-
-def test_get_search_intelligence_singleton():
-    """Test get_search_intelligence returns singleton instance."""
-    service1 = get_search_intelligence()
-    service2 = get_search_intelligence()
-
-    assert service1 is service2  # Same instance
 
 
 # ============================================================================

@@ -285,54 +285,6 @@ class VisualizationService:
 
         return Result.ok(self._chart_config_to_dict(config))
 
-    def format_trend_chart(
-        self,
-        series: list[dict[str, Any]],
-        labels: list[str],
-        title: str = "Trends",
-    ) -> Result[ChartJsConfig]:
-        """
-        Format multi-series trend data for Chart.js line chart.
-
-        Args:
-            series: List of {"name": str, "data": list[float], "color": str (optional)}
-            labels: X-axis labels (dates, periods)
-            title: Chart title
-
-        Returns:
-            Chart.js configuration dict
-        """
-        if not series:
-            return Result.fail(Errors.validation("Series cannot be empty"))
-
-        color_cycle = SemanticColor.ALL
-        datasets = [
-            ChartDataset(
-                label=s["name"],
-                data=s["data"],
-                borderColor=s.get("color", color_cycle[i % len(color_cycle)]),
-                backgroundColor="transparent",
-                tension=0.3,
-            )
-            for i, s in enumerate(series)
-        ]
-
-        config = ChartConfig(
-            type="line",
-            data=ChartData(labels=labels, datasets=datasets),
-            options={
-                "responsive": True,
-                "maintainAspectRatio": False,
-                "interaction": {"intersect": False, "mode": "index"},
-                "plugins": {
-                    "legend": {"display": True, "position": "top"},
-                    "title": {"display": True, "text": title},
-                },
-            },
-        )
-
-        return Result.ok(self._chart_config_to_dict(config))
-
     def format_streak_chart(
         self,
         streaks: list[dict[str, Any]],

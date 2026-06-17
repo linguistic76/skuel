@@ -103,22 +103,3 @@ class KnowledgeDomainService:
             return Result.fail(result)
         rows: list[dict[str, Any]] = result.value
         return Result.ok([row["uid"] for row in rows if row.get("uid")])
-
-    async def get_domain_for_ku(self, ku_uid: str) -> Result[list[KnowledgeDomain]]:
-        """
-        Get all domains a Ku belongs to.
-
-        Args:
-            ku_uid: The Ku uid
-
-        Returns:
-            List of KnowledgeDomain nodes this Ku is classified under.
-        """
-        result = await self.backend.get_domains_for_ku(ku_uid)
-        if result.is_error:
-            return Result.fail(result)
-        rows: list[dict[str, Any]] = result.value
-        domains = [
-            KnowledgeDomain(uid=row["uid"], title=row["uid"]) for row in rows if row.get("uid")
-        ]
-        return Result.ok(domains)

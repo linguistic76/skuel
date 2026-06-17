@@ -27,12 +27,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.query_types import AIInsightsResult
     from core.services.embeddings_service import EmbeddingsService
     from core.services.infrastructure.graph_intelligence_service import (
         GraphIntelligenceService,
@@ -89,20 +88,6 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
         # Store graph for convenience
         self.graph = graph_intel
 
-    async def get_behavioral_insights(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """
-        Analyze context-aware behavioral patterns.
-
-        Not yet implemented — requires LLM integration for narrative synthesis.
-        """
-        return Result.fail(
-            Errors.business(
-                "not_implemented", "Context-aware behavioral insights not yet implemented"
-            )
-        )
-
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
@@ -115,27 +100,4 @@ class ContextAwareAIService(BaseAIService[Any, Any]):
             Errors.business(
                 "not_implemented", "Context-aware performance analytics not yet implemented"
             )
-        )
-
-    async def get_ai_insights(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID | None = None,
-        query: str | None = None,
-    ) -> Result[AIInsightsResult]:
-        """
-        Get AI-powered context-aware recommendations.
-
-        Not yet implemented — requires LLM integration with entity-specific context.
-
-        Args:
-            user_uid: User identifier
-            entity_uid: Optional entity to provide context-aware insights for
-            query: Optional specific query to answer
-
-        Returns:
-            Result.fail with business error (not yet implemented)
-        """
-        return Result.fail(
-            Errors.business("not_implemented", "Context-aware AI insights not yet implemented")
         )

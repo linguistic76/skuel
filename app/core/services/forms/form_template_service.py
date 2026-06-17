@@ -21,7 +21,6 @@ from core.events.form_events import (
 )
 from core.models.forms.form_template import FormTemplate
 from core.models.forms.form_template_dto import FormTemplateDTO
-from core.models.type_hints import Neo4jProperties
 from core.ports.form_protocols import FormTemplateBackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
@@ -171,7 +170,3 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
     async def unlink_from_path_step(self, form_template_uid: str, ps_uid: str) -> Result[bool]:
         """Remove EMBEDS_FORM link between FormTemplate and PathStep."""
         return await self.backend.unlink_from_path_step(form_template_uid, ps_uid)
-
-    async def get_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get all FormTemplates embedded in a path step."""
-        return await self.backend.get_forms_for_path_step(ps_uid)

@@ -231,43 +231,6 @@ class DomainConfig:
             return self.model_class.__name__
         return "Entity"
 
-    def get_config_lookup_label(self) -> str:
-        """
-        Get the LABEL_CONFIGS registry key (domain-specific).
-
-        Distinct from ``entity_label``: the Neo4j base-label is ``"Entity"`` for the
-        unified scheme, but the registry key is the domain name (``"Task"``, etc.).
-
-        Returns:
-            Config lookup label (e.g., "Task", "Goal", "PathStep")
-
-        Raises:
-            ValueError: If no ``config_lookup_label`` is set and no ``model_class``
-                is available to infer one from. The factories fail-fast at
-                construction time; this guards services that bypass the factories.
-        """
-        if self.config_lookup_label:
-            return self.config_lookup_label
-        if self.model_class:
-            return self.model_class.__name__
-        raise ValueError(
-            "DomainConfig.config_lookup_label is unresolvable: "
-            "pass config_lookup_label explicitly or set model_class."
-        )
-
-    def get_service_name(self) -> str:
-        """
-        Get service name for logging.
-
-        Returns:
-            Service name string (e.g., "tasks.search")
-        """
-        if self.service_name:
-            return self.service_name
-        # Infer from model class
-        label = self.get_entity_label().lower()
-        return f"{label}.service"
-
 
 # ============================================================================
 # PRE-DEFINED CONFIGURATIONS
