@@ -39,13 +39,16 @@ Additional type checkers run during `./dev quality`:
 
 ## How `./dev quality` Works
 
-`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates five checks in order:
+`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates eight checks in order:
 
 1. **Ruff format check** — `uv run ruff format --check`
 2. **Ruff lint** — `uv run ruff check`
-3. **SKUEL pattern lint** — `uv run python scripts/lint_skuel.py --check`
-4. **Cypher lint** — `uv run python scripts/cypher_linter.py --check`
-5. **MyPy type check** — `uv run mypy` (optional, slow)
+3. **SKUEL pattern lint** — `uv run python scripts/lint_skuel.py`
+4. **Cypher lint** — `uv run python scripts/cypher_linter.py --errors-only --strict`
+5. **Route security audit** — `uv run python scripts/audit_route_security.py`
+6. **Skills validation** — `uv run python scripts/skills_validator.py`
+7. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
+8. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
 
 `./dev quality-fix` passes `--fix` to auto-fixable steps.
 
