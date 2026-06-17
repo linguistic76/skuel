@@ -721,6 +721,7 @@ fixable = ["ALL"]
 "core/models/query/_cypher_generator.py" = ["ARG002", "ARG004", "RUF002", "PERF401"]  # Query builder signatures + math symbols in docs
 "core/models/query/cypher/*.py" = ["ARG001", "ARG002", "RUF002", "PERF401"]  # Cypher query modules + math symbols
 "adapters/persistence/neo4j_adapter.py" = ["ARG002"]  # Adapter method signatures
+"adapters/vault/*.py" = ["ARG002"]  # Filesystem adapter implements VaultBridgePort; user_uid unused in single-user local impl
 "core/services/*_service.py" = ["ARG002", "PERF401"]  # Service method signatures implement protocols
 "core/services/unified_ingestion_service.py" = ["E402", "F402"]  # Imports after constants + loop var shadowing
 "core/services/*/[!_]*.py" = ["ARG002", "ARG004", "RUF012", "PERF401", "SIM102", "SIM108", "SIM116"]  # Nested service modules + class config
