@@ -372,32 +372,6 @@ class ProgressCalculator:
         )
 
     @staticmethod
-    def check_achievement_threshold(
-        old_progress: float,
-        new_progress: float,
-        threshold: float = 100.0,
-    ) -> bool:
-        """
-        Check if progress just crossed the achievement threshold.
-
-        Args:
-            old_progress: Previous progress percentage
-            new_progress: New progress percentage
-            threshold: Achievement threshold (default 100.0)
-
-        Returns:
-            True if threshold was just crossed (was below, now at or above)
-
-        Example:
-            achieved = ProgressCalculator.check_achievement_threshold(
-                old_progress=95.0,
-                new_progress=100.0,
-            )
-            # achieved = True
-        """
-        return old_progress < threshold <= new_progress
-
-    @staticmethod
     def normalize_progress(progress: float) -> float:
         """
         Normalize progress to 0-100 range.

@@ -382,14 +382,6 @@ class SchemaChangeDetector:
             f"Added schema change handler, total handlers: {len(self._change_handlers)}"
         )
 
-    def remove_change_handler(self, handler: SchemaChangeHandler) -> None:
-        """Remove a schema change handler"""
-        if handler in self._change_handlers:
-            self._change_handlers.remove(handler)
-            self.logger.debug(
-                f"Removed schema change handler, remaining handlers: {len(self._change_handlers)}"
-            )
-
     async def _notify_change_handlers(self, report: SchemaChangeReport) -> None:
         """Notify all registered change handlers"""
         if not self._change_handlers or not report.changes:
@@ -488,31 +480,12 @@ class SchemaChangeDetector:
         except _HISTORY_SAVE_EXCEPTIONS as e:
             self.logger.error(f"Failed to save migration history: {e}")
 
-    def get_migration_history(self) -> SchemaMigrationHistory | None:
-        """Get the current migration history"""
-        return self._migration_history
-
     def get_evolution_stats(self) -> SchemaEvolutionStats | None:
         """Get statistics about schema evolution"""
         if not self._migration_history:
             return None
 
         return SchemaEvolutionStats.from_history(self._migration_history)
-
-    @with_error_handling("force_schema_refresh", error_type="database")
-    async def force_schema_refresh(self) -> Result[bool]:
-        """Force a schema refresh and invalidate caches"""
-        # Force refresh schema service cache
-        schema_result = await self.schema_service.get_schema_context(force_refresh=True)
-        if schema_result.is_error:
-            return schema_result
-
-        # Update fingerprint
-        new_schema = schema_result.value
-        self._current_fingerprint = SchemaFingerprint.from_schema_context(new_schema)
-
-        self.logger.info("Forced schema refresh completed")
-        return Result.ok(True)
 
 
 # Adaptive optimization handler that responds to schema changes

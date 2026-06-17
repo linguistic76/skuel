@@ -138,72 +138,8 @@ class ConversionServiceV2:
         # Create the pure model instance
         return pure_class(**schema_data)
 
-    @classmethod
-    def pure_to_dict(
-        cls, pure_model: object, exclude_none: bool = True, exclude_fields: set[str] | None = None
-    ) -> dict[str, Any]:
-        """
-        Generic method to convert pure model to dictionary.
-
-        Args:
-            pure_model: The pure model to convert,
-            exclude_none: Whether to exclude None values,
-            exclude_fields: Set of field names to exclude
-
-        Returns:
-            Dictionary representation
-        """
-        if exclude_fields is None:
-            exclude_fields = set()
-
-        result = {}
-
-        if isinstance(pure_model, PydanticModel):
-            # Pydantic model
-            result = pure_model.model_dump(exclude_none=exclude_none)
-        elif is_dataclass(pure_model) and not isinstance(pure_model, type):
-            # Dataclass instance (not the class itself — asdict requires an instance)
-            from dataclasses import asdict
-
-            result = asdict(pure_model)
-        elif isinstance(pure_model, dict):
-            # Already a dict
-            result = pure_model
-        else:
-            # Regular object with __dict__
-            result = {k: v for k, v in pure_model.__dict__.items() if not k.startswith("_")}
-
-        # Apply exclusions
-        if exclude_none:
-            result = {k: v for k, v in result.items() if v is not None}
-
-        # Exclude specified fields
-        for field in exclude_fields:
-            result.pop(field, None)
-
-        return result
-
-    @classmethod
-    def dict_to_pure(cls, data: dict[str, Any], pure_class: type[T]) -> T:
-        """
-        Generic method to create pure model from dictionary.
-
-        Args:
-            data: Dictionary with model data,
-            pure_class: The pure model class to instantiate
-
-        Returns:
-            Instance of the pure model
-        """
-        # Filter to only fields that exist in the target class
-        if is_dataclass(pure_class):
-            field_names = {f.name for f in fields(pure_class)}
-            data = {k: v for k, v in data.items() if k in field_names}
-
-        return pure_class(**data)
-
     # ========================================================================
-    # SPECIFIC CONVERSIONS (Using Generic Methods)
+    # SPECIFIC CONVERSIONS
     # ========================================================================
 
     # --- Task Conversions --
