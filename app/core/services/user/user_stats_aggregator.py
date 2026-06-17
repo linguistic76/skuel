@@ -8,7 +8,6 @@ Responsibilities:
 - Generating ProfileHubData from UserContext
 - Querying recent activities across domains
 - Generating recommendations from context
-- Aggregating domain statistics (LEGACY - to be removed)
 
 This service is part of the refactored UserService architecture:
 - UserCoreService: CRUD + Auth
