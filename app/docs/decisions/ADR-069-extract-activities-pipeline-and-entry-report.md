@@ -118,12 +118,12 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    this). This is a metadata write on the live UserEntry path, NOT the retired
    ADR-054 submission-metadata flow.
 
-**`transform_sync` (rule-based no-LLM tagger) is NOT wired as a default CORE-tier
-fallback.** Its substring patterns ("should", "must", "$") would silently create
-junk entities from ordinary prose — auto-creating entities from a heuristic the
-user never sees violates the default-deny ingestion posture. It stays PLANNED,
-claimable later behind an explicit opt-in (`instructions`/metadata flag) or for
-preview-only UI. CORE tier extraction = explicit tags only.
+**`transform_sync` (rule-based no-LLM tagger) was NOT wired as a default CORE-tier
+fallback and has since been deleted.** Its substring patterns ("should", "must", "$")
+would silently create junk entities from ordinary prose — auto-creating entities from
+a heuristic the user never sees violates the default-deny ingestion posture. No
+rule-based fallback is planned; LLM is a required dependency. CORE tier extraction =
+explicit tags only.
 
 ### 1.2 Provenance: `EXTRACTED_FROM` edges
 
@@ -324,7 +324,7 @@ Each PR is independently shippable and verified on live Neo4j (CI runs no pytest
    writes for Ku references; extractor docstring rewritten to the real
    idempotency mechanism. De-register the completed DSL PLANNED entries
    (`extract_and_create`, `preview_extraction`, `has_errors`, `transform`);
-   `transform_with_context`/`transform_sync` stay PLANNED.
+   `transform_with_context` stays PLANNED (`transform_sync` deleted — rule-based path abandoned).
    *Verify:* tagged-prose extraction at CORE tier (no keys), bridge pre-pass at
    FULL tier, re-process no-op, edges in the graph.
 2. **PR-2 — intelligence consumers.**
@@ -357,5 +357,6 @@ Each PR is independently shippable and verified on live Neo4j (CI runs no pytest
   (aggregate), with exercise assessment as a *mode*, not an identity.
 - The rename touches ~the usual sweep of files but zero data; deferring it would
   convert a free rename into a paid migration.
-- `transform_sync`'s noisy auto-tagging is explicitly kept out of the default
-  path — CORE tier stays deterministic and default-deny.
+- The rule-based sync tagger (`transform_sync`) was deleted — its noisy
+  auto-tagging had no place in the default path. CORE tier stays deterministic
+  and default-deny; LLM is a required dependency.
