@@ -949,6 +949,31 @@ PLANNED_METHODS: dict[str, str] = {
         "ZPD readiness score for a specific Ku — wire into the PS detail page "
         "or the prerequisite-checker surface when per-Ku readiness is needed"
     ),
+    # Restored from campaign-18 deletion — test-covered, no production caller
+    "core/services/neo4j_vector_search_service.py::find_similar_to_node": (
+        "find similar nodes to a given node via its stored embedding; integration "
+        "test coverage in test_vector_search.py + test_embedding_fixtures_usage.py; "
+        "wire into a 'more like this' route or recommendation surface"
+    ),
+    "core/services/neo4j_vector_search_service.py::find_cross_domain_similar": (
+        "cross-domain vector similarity across multiple labels in one call; "
+        "integration test coverage in test_vector_search.py + test_embedding_fixtures_usage.py; "
+        "wire into a cross-domain search route when the multi-domain surface lands"
+    ),
+    "core/services/neo4j_vector_search_service.py::find_similar_by_text_with_metrics": (
+        "find_similar_by_text wrapper that captures SearchMetrics; full integration "
+        "test coverage in test_search_metrics_tracking.py; wire when metrics "
+        "collection is needed on the vector search path"
+    ),
+    "core/services/neo4j_vector_search_service.py::hybrid_search_with_metrics": (
+        "hybrid_search wrapper that captures SearchMetrics; full integration test "
+        "coverage in test_search_metrics_tracking.py; wire alongside hybrid_search "
+        "when metrics collection is needed"
+    ),
+    "core/services/neo4j_vector_search_service.py::_create_metrics": (
+        "private helper for find_similar_by_text_with_metrics and "
+        "hybrid_search_with_metrics — becomes live when those wrappers are wired"
+    ),
 }
 
 # Method findings are scoped to the service layer; the rest of the tree is
