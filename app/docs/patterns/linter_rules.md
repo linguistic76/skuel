@@ -207,6 +207,7 @@ tasks.sort(key=get_priority_value, reverse=True)
 **Exceptions:**
 - `tests/**/*.py` - Tests can use lambdas for mocking
 - `examples/**/*.py` - Examples can use lambdas for demonstration
+- `scripts/**/*.py` - Scripts can use lambdas (non-production, matches SKUEL015 exemption)
 
 ## Rule: SKUEL013 - RelationshipName Enum
 
