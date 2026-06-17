@@ -14,7 +14,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Skipped" check when not summoned; "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) when summoned | **On-demand only** — `@kody start-review` (auto-review toggle OFF, 2026-05-25). The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone neither enables nor stops it. |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only: a bot-posted `@codex review` draws only the "create a Codex account" prompt; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **On-demand only** — manual `@codex review` from a human account (auto-review OFF, 2026-05-25: dashboard "Personal auto review preferences" off + repo "Follow personal preferences") |
-| **Codex Review Gate** | `codex-gate.yml` (commit status) | This repo | ✅ status check (**required**) | **Scoped to on-request:** RED only when a human posted `@codex review` and it isn't yet considered (`codex-considered` label); PRs with no request pass automatically. Cleared on new commits. See below. |
+| **Codex Review Gate** | `codex-gate.yml` (commit status) | This repo | ✅ status check (**required**) | **Two-tier:** (1) **Python files changed** → RED until `codex-considered` label applied, regardless of whether `@codex review` was posted; (2) **docs/tooling only** → RED only when a human posted `@codex review` and it isn't yet considered. Cleared on new commits. See below. |
 
 ### ⚠️ Codex does not appear in `gh pr checks`
 
@@ -130,23 +130,28 @@ gh pr view <PR#> --json comments \
 # want: linguistic76 (a User account) — NOT github-actions[bot] (cosmetic-only)
 ```
 
-## Codex Review Gate (`codex-gate.yml`) — making "consider Codex" enforceable, on request
+## Codex Review Gate (`codex-gate.yml`) — mandatory on Python PRs, on-request for docs/tooling
 
 Codex posts reviews/comments but **never a status check**, so it can't itself be
 required in branch protection. `codex-gate.yml` bridges that with the required
-status **`Codex Review Gate`**, **scoped to explicit requests**:
+status **`Codex Review Gate`**, operating in **two tiers**:
 
-- A PR with **no `@codex review` request** → 🟢 **GREEN automatically** (gate not
-  applicable; no friction on routine PRs).
-- Once a **human posts `@codex review`** → 🔴 **RED** until the PR carries the
-  **`codex-considered`** label → 🟢 **GREEN** when it does.
-- A **new commit (`synchronize`) auto-removes the label**, so changed code must be
-  re-considered.
+**Tier 1 — Python files changed (app code):**
+- Gate is 🔴 **RED** immediately when the PR opens, regardless of whether `@codex review`
+  was posted.
+- Clears to 🟢 **GREEN** only when the **`codex-considered`** label is applied.
+- Run `scripts/request_codex_review.sh <PR#>` to summon Codex and wait for its verdict.
 
-(Codex auto-review is off, so there are no ambient auto-reviews; the gate keys
-purely on an explicit `@codex review`. If you ever re-enable dashboard auto-review,
-those auto-reviews stay advisory FYI and **do not gate** — only an explicit
-`@codex review` does.)
+**Tier 2 — Docs/tooling only (no `.py` files):**
+- A PR with **no `@codex review` request** → 🟢 **GREEN automatically** (no friction).
+- Once a **human posts `@codex review`** → 🔴 **RED** until `codex-considered` is applied.
+
+**Both tiers:** A **new commit (`synchronize`) auto-removes the label**, so changed
+code must be re-considered.
+
+(Codex auto-review is off, so there are no ambient auto-reviews. If you ever re-enable
+dashboard auto-review, those auto-reviews stay advisory and **do not gate** — only an
+explicit `@codex review` does.)
 
 **Codex is advisory** — the gate requires the requested review was *considered*,
 never that it was *agreed with*. Claude (the LLM) arbitrates what's actually true.

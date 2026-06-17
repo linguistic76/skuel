@@ -52,6 +52,10 @@ case "$1" in
     uv run python scripts/run_quality_checks.py --fix
     ;;
 
+  pre-merge)
+    bash scripts/pre_merge_check.sh "${@:2}"
+    ;;
+
   typecheck-strict)
     echo -e "${YELLOW}Running pyright (opt-in strict type check)...${NC}"
     uv run pyright
@@ -234,6 +238,7 @@ case "$1" in
     echo "  ./dev lint-fix       - Auto-fix linting issues"
     echo "  ./dev quality        - Run ALL quality checks (format + lint + patterns + Cypher + skills)"
     echo "  ./dev quality-fix    - Run quality checks with auto-fix"
+    echo "  ./dev pre-merge <PR#> - Verify PR is ready to merge (CI Gate + Codex + Kody)"
     echo "  ./dev audit-routes   - Audit @rt handlers for CSRF + auth gaps (--form-only, --verbose)"
     echo ""
     echo "Bloat Detection:"
