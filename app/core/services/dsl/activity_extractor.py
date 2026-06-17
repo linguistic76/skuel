@@ -37,13 +37,13 @@ Wired as the `Pipeline.EXTRACT_ACTIVITIES` branch of
 `UserEntryProcessingService.process()` (ADR-069 Decision 1).
 """
 
-import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
+from core.ports.vault_bridge_protocol import normalize_vault_line_hash
 from core.services.dsl.activity_domain_converters import (
     # Activity Domains (6)
     activity_to_choice_request,
@@ -78,13 +78,14 @@ from core.utils.result_simplified import Errors, Result
 
 
 def normalized_line_hash(raw_line: str) -> str:
-    """SHA-256 of the whitespace-normalized DSL line.
+    """SHA-256 of the vault-normalized DSL line.
 
-    The `source_line_hash` provenance/dedup key on `EXTRACTED_FROM` edges:
-    stable across re-indentation and whitespace edits, distinct per line
-    content.
+    Delegates to ``normalize_vault_line_hash`` so the hash is stable across
+    both whitespace edits AND 🆔 ID injection.  Without stripping the vault
+    token, Guard 2 (EXTRACTED_FROM dedup) would miss already-extracted lines
+    after injection and create duplicate tasks on re-ingestion.
     """
-    return hashlib.sha256(" ".join(raw_line.split()).encode("utf-8")).hexdigest()
+    return normalize_vault_line_hash(raw_line)
 
 
 # ============================================================================
