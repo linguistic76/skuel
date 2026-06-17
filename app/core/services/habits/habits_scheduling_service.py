@@ -315,7 +315,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             capacity_result = await self.check_habit_capacity(
                 user_uid=user_context.user_uid,
                 proposed_difficulty=habit_data.habit_difficulty,
-                proposed_duration=habit_data.duration_minutes,
+                proposed_duration=habit_data.duration_minutes or 15,
             )
             if capacity_result.is_error:
                 return Result.fail(capacity_result)
@@ -407,7 +407,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
         capacity_result = await self.check_habit_capacity(
             user_uid=user_context.user_uid,
             proposed_difficulty=habit_data.habit_difficulty,
-            proposed_duration=habit_data.duration_minutes,
+            proposed_duration=habit_data.duration_minutes or 15,
         )
         if capacity_result.is_error:
             return Result.fail(capacity_result)
