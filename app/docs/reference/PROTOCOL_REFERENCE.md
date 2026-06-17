@@ -503,7 +503,7 @@ Two-tier protocols for the general-purpose form system.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `FormTemplateOperations` | `form_template_service` | 8 (create, get, list, update, delete, link/unlink path_step, get_for_path_step) | `form_templates_api.py` |
+| `FormTemplateOperations` | `form_template_service` | 7 (create, get, list, update, delete, link/unlink path_step) | `form_templates_api.py` |
 | `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
 ### Group Protocol (1) — `group_protocols.py`

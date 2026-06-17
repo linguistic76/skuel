@@ -90,7 +90,7 @@ result.
 - `core/models/enums/interaction_enums.py` — `InteractionType` + `InteractionResult`
 - `core/models/interaction/interaction.py` — `Interaction(UserOwnedEntity)`, 6 fields
 - `core/models/interaction/interaction_dto.py` — `InteractionDTO(UserOwnedDTO)`
-- `core/services/interaction/interaction_service.py` — `create_interaction()` + `list_interactions_for_user()`
+- `core/services/interaction/interaction_service.py` — `create_interaction()`
 
 **Modified files (key):**
 - `entity_enums.py` — `INTERACTION = "interaction"` added (22nd value)
@@ -114,7 +114,7 @@ result.
 **Phase 1 (shipped, UI enhanced 2026-04-02):**
 - Every ExerciseSubmission creates an Interaction node capturing the user's curriculum
   position at submission time.
-- Interaction nodes are queryable via `InteractionService.list_interactions_for_user()`.
+- Interaction nodes are created via `InteractionService.create_interaction()`.
 - PathStep context is now captured **deterministically** via `from_ps` UI navigation:
   PathStep detail page → exercise card → submit form → hidden field → upload handler.
   Before 2026-04-02, context used `next(iter(UserContext.current_ps_uids))`, which was
