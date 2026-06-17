@@ -773,8 +773,6 @@ result = await lp_intelligence.search_by_content_features(
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available (not currently used by LP)
-- `_require_relationship_service()` - Ensures relationships available (not currently used by LP)
 
 **Standard Attributes:**
 - `self.backend` - Primary backend (optional)

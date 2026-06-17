@@ -158,25 +158,6 @@ async def get_semantic_similar(self, uid: str) -> Result[list[T]]:
 
 ## 4. AI Helper Methods
 
-### `_get_embedding(text)` - Generate Embedding Vector
-
-```python
-async def _get_embedding(self, text: str) -> Result[list[float]]:
-    """
-    Get embedding vector for text using embeddings service.
-
-    Returns:
-        Result containing embedding vector or error
-    """
-```
-
-**Usage:**
-```python
-result = await self._get_embedding("machine learning basics")
-if result.is_ok:
-    embedding = result.value  # list[float]
-```
-
 ### `_generate_insight(prompt, context, max_tokens)` - LLM Generation
 
 ```python
@@ -502,27 +483,24 @@ async def get_task_analysis(task_uid: str) -> dict[str, Any]:
 
 ## 8. Error Handling
 
-All AI methods return `Result[T]`:
+All AI methods return `Result[T]`. Call `self.embeddings.create_embedding(text)` directly
+(wrapping with `Result.fail` on error) — the `_get_embedding` helper was removed in
+bloat campaign 18b as it had no callers:
 
 ```python
-async def _get_embedding(self, text: str) -> Result[list[float]]:
+async def my_ai_method(self, text: str) -> Result[list[float]]:
     if not self.embeddings:
         return Result.fail(
-            Errors.system(
-                message="Embeddings service not available",
-                operation="get_embedding",
-            )
+            Errors.unavailable(feature="embeddings", operation="my_ai_method")
         )
-
     try:
-        embedding = await self.embeddings.embed_text(text)
-        return Result.ok(embedding)
-    except Exception as e:
+        result = await self.embeddings.create_embedding(text)
+        if result.is_error:
+            return result
+        return result
+    except Exception as e:  # safety-net: embeddings service raises varied exceptions
         return Result.fail(
-            Errors.integration(
-                message=f"Embedding generation failed: {e}",
-                service="embeddings",
-            )
+            Errors.integration(message=f"Embedding failed: {e}", service="embeddings")
         )
 ```
 
@@ -537,7 +515,7 @@ async def _get_embedding(self, text: str) -> Result[list[float]]:
 | **Purpose** | Graph analytics | AI enhancements |
 | **App Runs Without?** | Yes (full capacity) | Yes (limited features) |
 | **Logger Prefix** | `skuel.analytics.*` | `skuel.ai.*` |
-| **Fail-Fast Guards** | `_require_graph_intelligence()` | `_require_llm_service()` |
+| **Fail-Fast Guards** | inline `if not self.graph_intel` | `_require_llm_service()` |
 
 ---
 

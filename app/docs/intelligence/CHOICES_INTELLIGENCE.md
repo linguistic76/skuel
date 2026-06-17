@@ -752,8 +752,6 @@ ChoicesIntelligenceService extends `BaseAnalyticsService[ChoicesOperations, Choi
 - AI features go in separate BaseAIService subclasses (not used for Choices)
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available
-- `_require_relationship_service()` - Ensures relationships available (REQUIRED)
 
 **Standard Attributes (from BaseAnalyticsService):**
 - `self.backend` - ChoicesOperations (REQUIRED)

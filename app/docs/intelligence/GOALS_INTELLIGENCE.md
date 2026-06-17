@@ -672,8 +672,6 @@ POST /api/goals/assess-progress
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available
-- `_require_relationship_service()` - Ensures relationships available (REQUIRED)
 
 **Standard Attributes:**
 - `self.backend` - GoalsOperations (REQUIRED)

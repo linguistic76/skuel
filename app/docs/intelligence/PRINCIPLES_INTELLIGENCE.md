@@ -164,7 +164,7 @@ if result.is_ok:
 
 **Dependencies:**
 - PrinciplesOperations backend (REQUIRED)
-- BaseRelationshipOperations relationship service (REQUIRED - uses `_require_relationship_service()`)
+- BaseRelationshipOperations relationship service (REQUIRED)
 - Uses the canonical typed reader `get_cross_domain_context_typed` via
   `BaseAnalyticsService._analyze_entity_with_typed_context` (path-aware context)
 - Uses `calculate_principle_alignment_metrics()` for alignment metrics
@@ -671,8 +671,6 @@ POST /api/principles/assess-alignment
 ### Inherited Infrastructure
 
 **Fail-Fast Validation:**
-- `_require_graph_intelligence()` - Ensures graph_intel available
-- `_require_relationship_service()` - Ensures relationships available (REQUIRED for most methods)
 
 **Standard Attributes:**
 - `self.backend` - PrinciplesOperations (REQUIRED)
