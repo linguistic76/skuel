@@ -116,7 +116,7 @@ All 10 domain intelligence services correctly extend `BaseAnalyticsService` - th
 
 **Benefits:**
 - Standardized initialization and logging
-- Fail-fast validation (`_require_graph_intelligence()`, `_require_relationship_service()`)
+- Dependency checks via inline `if not self.graph_intel` / `if not self.relationships` guards
 - Consistent error handling via `Result[T]`
 - Helper methods (`_to_domain_model()`)
 - App runs without LLM dependencies (analytics-first design)
@@ -486,10 +486,12 @@ Extracted from TasksIntelligenceService (March 2026). These methods are domain-a
 
 All domain intelligence services (except UserContext) inherit from `BaseAnalyticsService`:
 
-**Fail-Fast Validation:**
+**Dependency Checks** (inline guards — no helper methods):
 ```python
-self._require_graph_intelligence("method_name")  # Ensures graph_intel available
-self._require_relationship_service("method_name") # Ensures relationships available
+if not self.graph_intel:
+    raise ValueError(f"{self.__class__.__name__}.method_name() requires graph_intel")
+if not self.relationships:
+    raise ValueError(f"{self.__class__.__name__}.method_name() requires relationship_service")
 ```
 
 **Standard Attributes:**
@@ -738,7 +740,8 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 3. Follow the pattern:
    ```python
    async def get_new_insight(self, user_uid: UserUID, ...) -> Result[dict[str, Any]]:
-       self._require_graph_intelligence("get_new_insight")
+       if not self.graph_intel:
+           raise ValueError(f"{self.__class__.__name__}.get_new_insight() requires graph_intel")
        # Implementation
        return Result.ok({"insight": data})
    ```

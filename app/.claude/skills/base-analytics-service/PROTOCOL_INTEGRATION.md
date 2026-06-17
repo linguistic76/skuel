@@ -155,7 +155,8 @@ async def get_domain_insights(
     self, uid: str, min_confidence: float = 0.7
 ) -> Result[dict[str, Any]]:
     """Get domain-specific insights."""
-    self._require_graph_intelligence("get_domain_insights")
+    if not self.graph_intel:
+        return Result.fail(Errors.unavailable(feature="graph_intel", operation="get_domain_insights"))
 
     entity = await self.backend.get(uid)
     if entity.is_error:
@@ -361,7 +362,8 @@ class TasksIntelligenceService(
         self, uid: str, min_confidence: float = 0.7
     ) -> Result[dict[str, Any]]:
         """Get task-specific insights."""
-        self._require_graph_intelligence("get_domain_insights")
+        if not self.graph_intel:
+        return Result.fail(Errors.unavailable(feature="graph_intel", operation="get_domain_insights"))
 
         task_result = await self.backend.get(uid)
         if task_result.is_error:

@@ -289,9 +289,9 @@ class KuEmbeddingService(BaseAIService[KuOperations, Ku]):
 
             ku = ku_result.value
 
-            # Generate embedding
+            # Generate embedding (call embeddings service directly)
             text = f"{ku.title} {ku.content[:1000]}"
-            embedding_result = await self._get_embedding(text)
+            embedding_result = await self.embeddings.create_embedding(text)
 
             if embedding_result.is_ok:
                 results[uid] = embedding_result.value
