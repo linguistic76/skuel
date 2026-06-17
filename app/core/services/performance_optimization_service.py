@@ -338,89 +338,6 @@ class FastInferenceEngine:
         self.inference_rules: dict[str, Any] = {}
         self.logger = get_logger(__name__)
 
-    async def infer(self, request: InferenceRequest) -> InferenceResult:
-        """Perform fast knowledge inference."""
-        start_time = time.time()
-
-        try:
-            # Generate cache key
-            cache_key = self._generate_cache_key(request)
-
-            # Check cache first
-            cached_result = await self.cache.get(cache_key)
-            if cached_result:
-                processing_time = (time.time() - start_time) * 1000
-                return InferenceResult(
-                    request_id=request.request_id,
-                    inference=cached_result["inference"],
-                    confidence_score=cached_result["confidence"],
-                    processing_time_ms=processing_time,
-                    cache_hit=True,
-                    explanation=cached_result.get("explanation"),
-                    related_knowledge=cached_result.get("related_knowledge", []),
-                )
-
-            # Perform fast inference
-            inference_result = await self._fast_inference(request)
-
-            # Cache the result
-            cache_value = {
-                "inference": inference_result["inference"],
-                "confidence": inference_result["confidence"],
-                "explanation": inference_result.get("explanation"),
-                "related_knowledge": inference_result.get("related_knowledge", []),
-            }
-            await self.cache.set(cache_key, cache_value, ttl=1800)  # 30 min TTL
-
-            processing_time = (time.time() - start_time) * 1000
-
-            return InferenceResult(
-                request_id=request.request_id,
-                inference=inference_result["inference"],
-                confidence_score=inference_result["confidence"],
-                processing_time_ms=processing_time,
-                cache_hit=False,
-                explanation=inference_result.get("explanation"),
-                related_knowledge=inference_result.get("related_knowledge", []),
-                computation_path=inference_result.get("computation_path", []),
-            )
-
-        except DATA_CONVERSION_EXCEPTIONS as e:
-            self.logger.error(f"Inference error: {e}")
-            processing_time = (time.time() - start_time) * 1000
-            return InferenceResult(
-                request_id=request.request_id,
-                inference={"error": str(e)},
-                confidence_score=0.0,
-                processing_time_ms=processing_time,
-                cache_hit=False,
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Unexpected inference error: {type(e).__name__}: {e}")
-            processing_time = (time.time() - start_time) * 1000
-            return InferenceResult(
-                request_id=request.request_id,
-                inference={"error": str(e)},
-                confidence_score=0.0,
-                processing_time_ms=processing_time,
-                cache_hit=False,
-            )
-
-    async def _fast_inference(self, request: InferenceRequest) -> dict[str, Any]:
-        """Perform optimized inference computation."""
-        # Simulate fast inference with realistic computation
-        query_hash = hashlib.md5(request.query.encode()).hexdigest()[:8]
-
-        # Use precomputed patterns for common queries
-        if query_hash in self.precomputed_patterns:
-            base_result = self.precomputed_patterns[query_hash]
-        else:
-            # Fast heuristic-based inference
-            base_result = await self._heuristic_inference(request)
-
-        # Apply contextual adjustments
-        return await self._apply_context(base_result, request.context)
-
     async def _heuristic_inference(self, request: InferenceRequest) -> dict[str, Any]:
         """Fast heuristic-based inference."""
         # Demo implementation with realistic response
@@ -462,45 +379,6 @@ class FastInferenceEngine:
             "related_knowledge": [f"ku_{detected_domain}_{i}" for i in range(3)],
             "computation_path": ["domain_detection", "relevance_scoring", "action_generation"],
         }
-
-    async def _apply_context(
-        self, base_result: dict[str, Any], context: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Apply user context to adjust inference results."""
-        # Adjust based on user's learning history and preferences
-        user_level = context.get("user_level", "intermediate")
-        user_goals = context.get("goals", [])
-
-        # Adjust confidence based on user context
-        context_boost = 0.0
-        if user_goals:
-            context_boost += 0.1
-        if user_level in ["advanced", "expert"]:
-            context_boost += 0.05
-
-        base_result["confidence"] = min(0.95, base_result["confidence"] + context_boost)
-
-        # Add contextual suggestions
-        if user_level == "beginner":
-            base_result["inference"]["suggested_actions"].insert(
-                0, "Start with foundational concepts"
-            )
-        elif user_level == "advanced":
-            base_result["inference"]["suggested_actions"].append("Explore advanced applications")
-
-        return base_result
-
-    def _generate_cache_key(self, request: InferenceRequest) -> str:
-        """Generate unique cache key for request."""
-        key_components = [
-            request.query,
-            request.user_uid,
-            str(sorted(request.context.items())),
-            str(request.require_explanation),
-            str(request.include_confidence),
-        ]
-        combined = "|".join(key_components)
-        return hashlib.md5(combined.encode()).hexdigest()
 
     async def precompute_patterns(self, common_queries: list[str]) -> None:
         """Precompute inference results for common queries."""
