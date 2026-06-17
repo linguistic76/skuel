@@ -345,23 +345,6 @@ class AnalyticsAggregationService:
 
         return rankings
 
-    def _detect_basic_patterns(self, domains: dict[str, dict]) -> dict[str, Any]:
-        """Detect basic cross-domain patterns"""
-        patterns = {}
-
-        # Check principle-choice alignment
-        principles_count = domains["principles"].get("active_principles", 0)
-        choices_count = domains["choices"].get("total_choices", 0)
-
-        if principles_count > 0 and choices_count > 0:
-            patterns["principle_guided_decisions"] = {
-                "detected": True,
-                "principles": principles_count,
-                "choices": choices_count,
-            }
-
-        return patterns
-
     def _analyze_monthly_trends(self, domains: dict[str, dict]) -> dict[str, Any]:
         """Analyze trends over the month"""
         return {

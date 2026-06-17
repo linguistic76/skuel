@@ -194,48 +194,6 @@ class FinanceInvoiceService:
         return await self.backend.delete(uid)
 
     # ========================================================================
-    # STATUS MANAGEMENT
-    # ========================================================================
-
-    async def mark_sent(self, uid: str) -> Result[InvoicePure]:
-        """
-        Mark an outgoing invoice as sent.
-
-        Args:
-            uid: Invoice UID
-
-        Returns:
-            Result containing updated invoice
-        """
-        existing_result = await self.backend.get(uid)
-        if existing_result.is_error:
-            return Result.fail(existing_result)
-
-        if existing_result.value is None:
-            return Result.fail(Errors.not_found("Invoice", uid))
-
-        invoice = existing_result.value
-
-        if invoice.invoice_type != InvoiceType.OUTGOING:
-            return Result.fail(
-                Errors.business("invoice_sent", "Only outgoing invoices can be marked as sent")
-            )
-
-        return await self.update(uid, {"status": InvoiceStatus.SENT.value})
-
-    async def mark_paid(self, uid: str) -> Result[InvoicePure]:
-        """
-        Mark an invoice as paid.
-
-        Args:
-            uid: Invoice UID
-
-        Returns:
-            Result containing updated invoice
-        """
-        return await self.update(uid, {"status": InvoiceStatus.PAID.value})
-
-    # ========================================================================
     # PDF GENERATION
     # ========================================================================
 

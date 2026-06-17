@@ -266,15 +266,3 @@ class SearchIntelligenceService:
             Dictionary with insights and recommendations
         """
         return self.base_intelligence.generate_search_insights(query_text, results, facets)
-
-
-# Singleton instance for easy access
-_search_intelligence = None
-
-
-def get_search_intelligence() -> SearchIntelligenceService:
-    """Get or create singleton SearchIntelligenceService instance."""
-    global _search_intelligence
-    if _search_intelligence is None:
-        _search_intelligence = SearchIntelligenceService()
-    return _search_intelligence

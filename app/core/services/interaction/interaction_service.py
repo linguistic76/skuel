@@ -16,11 +16,10 @@ Does NOT handle:
 - Updating result_status after report generation (deferred to Phase 2)
 """
 
-from core.models.enums.entity_enums import EntityType
 from core.models.interaction.interaction import Interaction
 from core.models.interaction.interaction_dto import InteractionDTO
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties
 from core.ports import BackendOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
@@ -133,45 +132,3 @@ class InteractionService(BaseService[BackendOperations[Interaction], Interaction
         return create_result
 
     # =========================================================================
-    # QUERY
-    # =========================================================================
-
-    @with_error_handling("list_interactions_for_user")
-    async def list_interactions_for_user(
-        self,
-        user_uid: UserUID,
-        limit: int = 50,
-    ) -> Result[list[Interaction]]:
-        """
-        List recent Interactions for a user, newest first.
-
-        Args:
-            user_uid: User to query
-            limit: Maximum number of interactions to return (default: 50)
-
-        Returns:
-            Result containing list of Interaction instances.
-        """
-        result = await self.backend.get_user_entities(
-            user_uid=user_uid,
-            filters={"entity_type": EntityType.INTERACTION.value},
-            limit=limit,
-            sort_by="created_at",
-            sort_order="desc",
-        )
-        if result.is_error:
-            return Result.fail(result)
-
-        interactions: list[Interaction] = []
-        for item in result.value or []:
-            try:
-                if isinstance(item, dict):
-                    dto = InteractionDTO.from_dict(item)
-                    interactions.append(Interaction.from_interaction_dto(dto))
-                elif isinstance(item, Interaction):
-                    interactions.append(item)
-            except (KeyError, TypeError, ValueError):  # deserialization failures
-                uid = item.get("uid") if isinstance(item, dict) else getattr(item, "uid", "?")
-                self.logger.warning(f"Failed to deserialize interaction: {uid}")
-
-        return Result.ok(interactions)
