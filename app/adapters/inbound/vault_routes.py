@@ -20,10 +20,10 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    H3,
     Button,
     Div,
     Form,
-    H3,
     Li,
     P,
     Span,
