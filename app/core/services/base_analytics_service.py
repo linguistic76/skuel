@@ -197,34 +197,6 @@ class BaseAnalyticsService(Generic[B, T]):
     # COMMON HELPERS
     # ========================================================================
 
-    def _require_graph_intelligence(self, operation: str) -> None:
-        """
-        Validate that graph intelligence service is available.
-
-        Args:
-            operation: Name of the operation for error message
-
-        Raises:
-            ValueError: If graph_intel is not available
-        """
-        if not self.graph_intel:
-            raise ValueError(f"{self.__class__.__name__}.{operation}() requires graph_intel")
-
-    def _require_relationship_service(self, operation: str) -> None:
-        """
-        Validate that relationship service is available.
-
-        Args:
-            operation: Name of the operation for error message
-
-        Raises:
-            ValueError: If relationships is not available
-        """
-        if not self.relationships:
-            raise ValueError(
-                f"{self.__class__.__name__}.{operation}() requires relationship_service"
-            )
-
     def _to_domain_model[MT](self, dto_or_dict: Any, dto_class: type, model_class: type[MT]) -> MT:
         """
         Convert DTO or dict to domain model.

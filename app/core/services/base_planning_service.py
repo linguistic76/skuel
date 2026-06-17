@@ -16,7 +16,6 @@ UserContext (~240 fields) for personalized, filtered, and ranked queries.
 
 **Extracted Common Patterns:**
 - Constructor initialization with backend + optional relationship service
-- Post-construction wiring via set_relationship_service()
 - Batch entity fetching via _get_entities_by_uids()
 - Relationship querying via _get_related_uids()
 - Logger initialization
@@ -83,7 +82,6 @@ class BasePlanningService(ABC, Generic[BackendT, EntityT]):
         Args:
             backend: Domain-specific Operations backend for entity retrieval
             relationship_service: UnifiedRelationshipService for relationship queries
-                                 (can be wired post-construction via set_relationship_service)
 
         Raises:
             ValueError: If backend is not provided (fail-fast philosophy)
@@ -94,18 +92,6 @@ class BasePlanningService(ABC, Generic[BackendT, EntityT]):
         self.backend: BackendT = backend
         self._relationship_service: UnifiedRelationshipService | None = relationship_service
         self.logger = logging.getLogger(self.__class__.__module__)
-
-    def set_relationship_service(self, service: UnifiedRelationshipService) -> None:
-        """
-        Set relationship service reference (for post-construction wiring).
-
-        This enables circular dependency resolution by allowing the relationship
-        service to be injected after initial construction.
-
-        Args:
-            service: UnifiedRelationshipService instance
-        """
-        self._relationship_service = service
 
     # ========================================================================
     # PROTECTED HELPER METHODS
@@ -158,8 +144,3 @@ class BasePlanningService(ABC, Generic[BackendT, EntityT]):
             return []
 
         return result.value or []
-
-    @property
-    def has_relationship_service(self) -> bool:
-        """Check if relationship service is available."""
-        return self._relationship_service is not None
