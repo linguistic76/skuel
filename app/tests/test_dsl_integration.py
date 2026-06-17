@@ -190,13 +190,13 @@ Some reflections on the day...
 
     @pytest.mark.asyncio
     async def test_extract_records_line_provenance(self, extractor, mock_ku):
-        """Each created entity carries a (uid, line_hash) provenance pair."""
+        """Each created entity carries a (uid, line_hash, vault_id) provenance triple."""
         result = await extractor.extract_and_create(mock_ku, "user_mike")
 
         assert result.is_ok
         extraction = result.value
         assert len(extraction.created_links) == extraction.total_created
-        for uid, line_hash in extraction.created_links:
+        for uid, line_hash, _vault_id in extraction.created_links:
             assert uid == "task:123"
             assert len(line_hash) == 64  # sha256 hex digest
 
@@ -205,7 +205,7 @@ Some reflections on the day...
         """Guard 2: lines whose hash already has an EXTRACTED_FROM edge skip."""
         first = await extractor.extract_and_create(mock_ku, "user_mike")
         assert first.is_ok
-        existing = frozenset(line_hash for _, line_hash in first.value.created_links)
+        existing = frozenset(line_hash for _, line_hash, _vault_id in first.value.created_links)
 
         second = await extractor.extract_and_create(
             mock_ku, "user_mike", existing_line_hashes=existing
