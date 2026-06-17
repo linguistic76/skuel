@@ -28,7 +28,7 @@ def create_llm_dsl_bridge(
     Returns:
         A configured ``LLMDSLBridgeService``. If no API key is available, the
         bridge is returned without a chat port — its async ``transform`` then
-        returns an integration error (use ``transform_sync`` for rule-based).
+        returns an integration error (LLM is required; no rule-based fallback).
     """
     from core.config.credential_store import get_credential
 

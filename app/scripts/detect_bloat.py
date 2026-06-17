@@ -323,12 +323,10 @@ _DSL_EXTRACTION_PREVIEW = (
     "detail page calling preview_extraction before the user commits to processing"
 )
 _DSL_BRIDGE_VARIANTS = (
-    "LLM DSL bridge variant staged — transform() is the maintained entry "
+    "LLM DSL bridge context-enhanced variant staged — transform() is the maintained entry "
     "(adapters/external/llm factory + PROMPT_REGISTRY dsl_domain_recognition templates); "
-    "context-enhanced and rule-based-sync variants await wiring beyond ADR-069 PR-1 "
-    "(context variant = feed UserContext goals/topics/principles; sync variant is explicitly "
-    "NOT the CORE-tier default — ADR-069 ruled its substring heuristics too noisy for "
-    "auto-create; wire only behind an explicit opt-in flag or preview-only UI)"
+    "transform_with_context awaits wiring beyond ADR-069 PR-1: prepend UserContext "
+    "(active goals/topics/principles) to the prompt for better domain recognition"
 )
 _LIFEPATH_WORD_ACTION = (
     "words-vs-actions integrity lens staged — the concept-defining LifePath check "
@@ -806,7 +804,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/dsl/activity_extractor.py::preview_extraction": _DSL_EXTRACTION_PREVIEW,
     # --- DSL: LLM bridge variants (Analog-to-Digital flagship, phase 1) ---
     "core/services/dsl/llm_dsl_bridge.py::transform_with_context": _DSL_BRIDGE_VARIANTS,
-    "core/services/dsl/llm_dsl_bridge.py::transform_sync": _DSL_BRIDGE_VARIANTS,
     # --- LifePath: word-action alignment lens ---
     "core/services/lifepath/lifepath_service.py::check_word_action_alignment": (
         _LIFEPATH_WORD_ACTION

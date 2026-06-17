@@ -193,8 +193,7 @@ class LLMDSLBridgeService:
 
         Args:
             chat_port: Chat-completion adapter for LLM calls. When None,
-                transform() returns an integration error (use transform_sync
-                for the rule-based path).
+                transform() returns an integration error — LLM is required.
             model: Model to use for transformation (default: gpt-4o-mini)
             use_compact_prompt: Use shorter prompt to reduce tokens
         """
@@ -321,41 +320,6 @@ class LLMDSLBridgeService:
 
         return await self.transform(enhanced_text, user_uid)
 
-    def transform_sync(
-        self,
-        text: str,
-        user_uid: UserUID | None = None,
-    ) -> Result[DSLTransformResult]:
-        """
-        Synchronous transformation (for non-async contexts).
-
-        This is a simpler rule-based fallback when LLM is not available
-        or for testing purposes.
-
-        Args:
-            text: Natural language journal text
-            user_uid: Optional user UID
-
-        Returns:
-            Result containing DSLTransformResult with transformed text
-        """
-        transform_result = DSLTransformResult(
-            original_text=text,
-            transformed_text="",
-        )
-
-        # Simple rule-based extraction (fallback)
-        activity_lines = self._rule_based_extraction(text)
-
-        self._count_domains(activity_lines, transform_result)
-
-        transform_result.activity_lines = activity_lines
-        transform_result.transformed_text = "\n".join(activity_lines)
-        transform_result.activities_identified = len(activity_lines)
-        transform_result.transform_completed_at = datetime.now()
-
-        return Result.ok(transform_result)
-
     # ========================================================================
     # PRIVATE METHODS
     # ========================================================================
@@ -473,82 +437,6 @@ class LLMDSLBridgeService:
             return "## USER CONTEXT\n" + "\n".join(parts)
 
         return ""
-
-    def _rule_based_extraction(self, text: str) -> list[str]:
-        """
-        Simple rule-based extraction as fallback.
-
-        This is a basic pattern matcher for common activity phrases.
-        Not as accurate as LLM but works offline.
-        """
-        lines = []
-
-        # Task patterns
-        task_patterns = [
-            "need to",
-            "have to",
-            "should",
-            "must",
-            "deadline",
-            "by friday",
-            "by monday",
-            "by tomorrow",
-            "due",
-        ]
-
-        # Habit patterns
-        habit_patterns = [
-            "every day",
-            "daily",
-            "weekly",
-            "each morning",
-            "start doing",
-            "build a habit",
-            "regularly",
-        ]
-
-        # Finance patterns
-        finance_patterns = [
-            "spent",
-            "paid",
-            "cost",
-            "bought",
-            "purchased",
-            "$",
-            "dollars",
-            "budget",
-        ]
-
-        # Event patterns
-        event_patterns = [
-            "meeting",
-            "appointment",
-            "call with",
-            "lunch with",
-            "at 3pm",
-            "at 2pm",
-            "tomorrow at",
-        ]
-
-        # Simple sentence extraction (very basic)
-        sentences = text.replace(".", ". ").split(". ")
-
-        for sentence in sentences:
-            sentence_lower = sentence.lower().strip()
-            if not sentence_lower:
-                continue
-
-            # Check patterns
-            if any(p in sentence_lower for p in task_patterns):
-                lines.append(f"- @context(task) {sentence.strip()}")
-            elif any(p in sentence_lower for p in habit_patterns):
-                lines.append(f"- @context(habit) {sentence.strip()}")
-            elif any(p in sentence_lower for p in finance_patterns):
-                lines.append(f"- @context(finance) {sentence.strip()}")
-            elif any(p in sentence_lower for p in event_patterns):
-                lines.append(f"- @context(event) {sentence.strip()}")
-
-        return lines
 
 
 # NOTE: the create_llm_dsl_bridge() factory moved below the hexagonal boundary
