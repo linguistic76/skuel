@@ -45,6 +45,7 @@ def create_explore_routes(
         orchestrator=orchestrator,
         ps_engagement_service=services.ps_engagement,
         user_service=services.user,
+        form_submission_service=services.form_submissions,
     )
 
 

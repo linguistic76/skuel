@@ -22,7 +22,9 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from core.models.enums import MasteryLevel
+    from core.models.forms.form_template import FormTemplate
     from core.models.shared.dual_track import DualTrackResult
+    from core.ports.form_protocols import FormTemplateOperations
     from core.ports.relationship_backend_protocols import UserRelationshipOperations
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.ku_service import KuService
@@ -46,12 +48,14 @@ class ExploreOrchestrator:
         user_relationship_service: "UserRelationshipOperations",
         exercises_service: "ExerciseService",
         learning_loop_query_service: "LearningLoopQueryService",
+        form_template_service: "FormTemplateOperations | None" = None,
     ) -> None:
         self._ku = ku_service
         self._ps = ps_service
         self._user_relationships = user_relationship_service
         self._exercises = exercises_service
         self._learning_loop_queries = learning_loop_query_service
+        self._form_templates = form_template_service
 
     # ------------------------------------------------------------------
     # Ku operations
@@ -125,6 +129,12 @@ class ExploreOrchestrator:
     async def get_submissions_for_path_step(self, user_uid: UserUID, ps_uid: str) -> Result[list]:
         """Get a user's submissions + feedback for a specific PathStep."""
         return await self._learning_loop_queries.get_submissions_for_path_step(user_uid, ps_uid)
+
+    async def get_forms_for_path_step(self, ps_uid: str) -> "Result[list[FormTemplate]]":
+        """Get FormTemplates embedded in a PathStep via EMBEDS_FORM."""
+        if self._form_templates is None:
+            return Result.ok([])
+        return await self._form_templates.get_forms_for_path_step(ps_uid)
 
     # ------------------------------------------------------------------
     # Index data aggregation (was _load_explore_data)

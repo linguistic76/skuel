@@ -665,9 +665,12 @@ def test_live_known_dead_events_are_flagged(live_analysis):
     # PrerequisitesAnalyzed moved to PLANNED_EVENTS (campaign 18) — add a new
     # sentinel here when the next truly-dead event surfaces.
     _, _, findings = live_analysis
-    for event in cast(list[str], [
-        # (no WARNING-severity dead events currently — add sentinels as needed)
-    ]):
+    for event in cast(
+        list[str],
+        [
+            # (no WARNING-severity dead events currently — add sentinels as needed)
+        ],
+    ):
         finding = finding_for(findings, event)
         assert finding is not None and finding.severity is BloatSeverity.WARNING, (
             f"{event} should be flagged structurally dead"
