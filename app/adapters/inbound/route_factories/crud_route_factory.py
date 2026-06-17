@@ -59,7 +59,7 @@ from typing import Any, Protocol, TypedDict, TypeVar, cast
 
 from pydantic import BaseModel
 
-from adapters.inbound.auth.session import get_current_user, require_authenticated_user
+from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
@@ -624,15 +624,9 @@ class CRUDRouteFactory[T]:
 
             # FastHTML extracts query params via type hints
 
-            # Extract user_uid from session (for user-specific filtering)
-            if verify_ownership:
-                # Require authentication for user-owned entities
-                user_uid = require_authenticated_user(request)
-            else:
-                # Shared domains: pass actual user (or None if unauthenticated)
-                # Service MUST treat None as "return shared/public content"
-                # (not "return everything" - that would be a security issue)
-                user_uid = get_current_user(request)  # type: ignore[assignment]  # UserUID | None accepted by service.list
+            # USER_OWNED: filter by ownership; SHARED: no user filter (OWNS-filtered query
+            # would return 0 for shared entities that have no owner relationship).
+            user_uid = require_authenticated_user(request) if verify_ownership else None
 
             # Call service with user filtering
             result = await service.list(

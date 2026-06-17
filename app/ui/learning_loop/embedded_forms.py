@@ -7,13 +7,13 @@ and swaps itself out with a success/error fragment.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, Div, Form, Option, P
+from fasthtml.common import H3, H4, Div, Form, Label, Option, P, Select
 from fasthtml.common import Input as FTInput
 
 from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import LabelCheckbox, LabelInput, LabelSelect, LabelTextArea
+from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.layout import Size
 from ui.patterns.error_banner import render_inline_error
 
@@ -85,7 +85,7 @@ def _render_form(form: "FormTemplate", ps_uid: str) -> Div:
                         cls="mt-4",
                     ),
                     hx_post=f"/learning-loop/ps/{ps_uid}/forms/{form.uid}/submit",
-                    hx_target=f"#form-{form.uid}",
+                    hx_target=f'[id="form-{form.uid}"]',
                     hx_swap="outerHTML",
                 ),
             ),
@@ -113,13 +113,19 @@ def _render_field(spec: dict[str, Any]) -> Any:
 
     if field_type == "select":
         options: list[str] = spec.get("options", [])
-        return LabelSelect(
-            Option("-- Select --", value=""),
-            *[Option(o, value=o) for o in options],
-            label=label,
-            name=name,
-            required=required,
-            cls="mb-4",
+        # Use plain <select> not LabelSelect (web-component wrapper): HTMX serializes
+        # the native select directly; uk-select hides the native element and blocks it.
+        return Div(
+            Label(label, fr=name, cls="uk-form-label"),
+            Select(
+                Option("Select an option", value=""),
+                *[Option(o, value=o) for o in options],
+                name=name,
+                id=name,
+                required=required,
+                cls="uk-select",
+            ),
+            cls="space-y-2 mb-4",
         )
 
     if field_type == "number":

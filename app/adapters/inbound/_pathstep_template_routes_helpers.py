@@ -141,7 +141,7 @@ def make_pathstep_template_route_config(
     - scope=SHARED (curriculum content, not user content)
     - require_role=TEACHER (admins satisfy teacher)
     - api_factory=PS-attachment endpoints
-    - user_service_attr="user_service" (role check needs UserService)
+    - user_service_attr="user" (Services.user is the UserService attr)
     """
     return DomainRouteConfig(
         domain_name=domain_name,
@@ -155,6 +155,6 @@ def make_pathstep_template_route_config(
             uid_prefix=uid_prefix,
             scope=ContentScope.SHARED,
             require_role=UserRole.TEACHER,
-            user_service_attr="user_service",
+            user_service_attr="user",
         ),
     )
