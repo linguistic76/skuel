@@ -517,7 +517,7 @@ One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. 
 
 ## EntityTimestampMixin
 
-Use for consistent timestamp/metadata handling: `timestamp_properties()`, `update_properties()`, `set_entity_metadata()`.
+Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), `timestamp_properties()` (creation). Only `TranscriptionService` currently inherits it.
 
 **See:** `/docs/patterns/entity_timestamp_mixin.md`
 
