@@ -20,15 +20,6 @@ from enum import Enum
 from typing import Any, TypedDict
 
 from core.models.type_hints import UserUID
-from core.services.performance_types import (
-    CacheOptimization,
-    CachePerformance,
-    PerformanceResults,
-    ResourceUtilization,
-    ScaleTestResult,
-    SLACompliance,
-    TestConfiguration,
-)
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -133,10 +124,6 @@ class InferenceResult:
     related_knowledge: list[str] = field(default_factory=list)
     computation_path: list[str] = field(default_factory=list)
 
-    def meets_performance_target(self, target_ms: int = 100) -> bool:
-        """Check if response meets performance target."""
-        return self.processing_time_ms <= target_ms
-
 
 @dataclass
 class BackgroundTask:
@@ -186,15 +173,6 @@ class PerformanceMetrics:
     active_connections: int
     queue_depth: int
     error_rate: float
-
-    def meets_sla(self) -> bool:
-        """Check if metrics meet service level agreement."""
-        return (
-            self.avg_response_time_ms <= 100
-            and self.p95_response_time_ms <= 200
-            and self.cache_hit_rate >= 0.8
-            and self.error_rate <= 0.01
-        )
 
 
 class AdvancedCache:
@@ -580,13 +558,6 @@ class BackgroundProcessingEngine:
 
         self.logger.info("Background processing engine started")
 
-    async def stop(self) -> None:
-        """Stop background processing engine."""
-        self.is_running = False
-        self.thread_pool.shutdown(wait=True)
-        self.process_pool.shutdown(wait=True)
-        self.logger.info("Background processing engine stopped")
-
     async def shutdown(self) -> None:
         """Gracefully shutdown background processing and cancel all tasks."""
         self.logger.info("Shutting down background processing engine")
@@ -931,218 +902,6 @@ class PerformanceOptimizationService:
 
         success = await self.background_engine.submit_task(task)
         return task_id if success else ""
-
-    async def get_performance_metrics(self) -> PerformanceMetrics:
-        """Get current performance metrics."""
-        now = datetime.now()
-
-        # Calculate response time percentiles
-        if self.response_times:
-            sorted_times = sorted(self.response_times)
-            avg_response = sum(sorted_times) / len(sorted_times)
-            p95_index = int(len(sorted_times) * 0.95)
-            p99_index = int(len(sorted_times) * 0.99)
-            p95_response = (
-                sorted_times[p95_index] if p95_index < len(sorted_times) else sorted_times[-1]
-            )
-            p99_response = (
-                sorted_times[p99_index] if p99_index < len(sorted_times) else sorted_times[-1]
-            )
-        else:
-            avg_response = p95_response = p99_response = 0.0
-
-        # Calculate throughput
-        elapsed_seconds = (now - self.start_time).total_seconds()
-        throughput = self.throughput_counter / elapsed_seconds if elapsed_seconds > 0 else 0.0
-
-        # Get cache hit rate
-        cache_hit_rate = self.inference_engine.cache.get_hit_rate()
-
-        metrics = PerformanceMetrics(
-            timestamp=now,
-            avg_response_time_ms=avg_response,
-            p95_response_time_ms=p95_response,
-            p99_response_time_ms=p99_response,
-            throughput_requests_per_second=throughput,
-            cache_hit_rate=cache_hit_rate,
-            memory_usage_mb=self._get_memory_usage(),
-            cpu_utilization_percent=self._get_cpu_utilization(),
-            active_connections=len(self.background_engine.running_tasks),
-            queue_depth=len(self.background_engine.task_queue),
-            error_rate=0.02,  # Demo error rate
-        )
-
-        # Store metrics history
-        self.metrics_history.append(metrics)
-        if len(self.metrics_history) > 1000:
-            self.metrics_history = self.metrics_history[-500:]
-
-        return metrics
-
-    async def run_scale_test(
-        self,
-        concurrent_users: int = 100,
-        requests_per_user: int = 10,
-        test_duration_seconds: int = 60,
-    ) -> ScaleTestResult:
-        """Run scale test for 10x knowledge volume."""
-        self.logger.info(
-            f"Starting scale test: {concurrent_users} users, {requests_per_user} requests each"
-        )
-
-        start_time = time.time()
-
-        # Initialize result variables (no dict indexing - fixes MyPy errors)
-        # Performance results
-        avg_response_time_ms = 0.0
-        p95_response_time_ms = 0.0
-        p99_response_time_ms = 0.0
-        throughput_rps = 0.0
-        cache_hit_rate = 0.0
-        error_rate = 0.0
-
-        # SLA compliance
-        sub_100ms_responses = 0
-        sub_200ms_responses = 0
-        target_met = False
-
-        # Resource utilization
-        peak_memory_mb = 0.0
-        avg_cpu_percent = 0.0
-        max_queue_depth = 0
-
-        # Generate test queries
-        test_queries = [
-            f"test query {i} about {['python', 'javascript', 'design', 'management', 'productivity'][i % 5]}"
-            for i in range(concurrent_users * requests_per_user)
-        ]
-
-        # Run concurrent inference requests
-        response_times = []
-        successful_requests = 0
-        failed_requests = 0
-
-        async def run_user_requests(user_id: int) -> None:
-            nonlocal successful_requests, failed_requests
-            for req_id in range(requests_per_user):
-                try:
-                    query_index = user_id * requests_per_user + req_id
-                    request = InferenceRequest(
-                        request_id=f"test_{user_id}_{req_id}",
-                        user_uid=UserUID(f"test_user_{user_id}"),
-                        query=test_queries[query_index],
-                        context={"test_mode": True},
-                        requested_at=datetime.now(),
-                        max_response_time_ms=200,  # Relaxed for scale test
-                    )
-
-                    result = await self.fast_inference(request)
-                    response_times.append(result.processing_time_ms)
-                    successful_requests += 1
-
-                except Exception as e:  # safety-net: catch unexpected errors
-                    failed_requests += 1
-                    self.logger.error(f"Test request failed: {type(e).__name__}: {e}")
-
-        # Execute concurrent requests
-        tasks = [run_user_requests(user_id) for user_id in range(concurrent_users)]
-        await asyncio.gather(*tasks)
-
-        test_duration = time.time() - start_time
-
-        # Calculate results
-        if response_times:
-            sorted_times = sorted(response_times)
-            avg_response_time_ms = sum(sorted_times) / len(sorted_times)
-            p95_response_time_ms = sorted_times[int(len(sorted_times) * 0.95)]
-            p99_response_time_ms = sorted_times[int(len(sorted_times) * 0.99)]
-
-            # SLA compliance
-            sub_100ms = sum(1 for t in sorted_times if t <= 100)
-            sub_200ms = sum(1 for t in sorted_times if t <= 200)
-            sub_100ms_responses = sub_100ms
-            sub_200ms_responses = sub_200ms
-            target_met = sub_100ms / len(sorted_times) >= 0.95
-
-        throughput_rps = successful_requests / test_duration
-        cache_hit_rate = self.inference_engine.cache.get_hit_rate()
-        error_rate = (
-            failed_requests / (successful_requests + failed_requests)
-            if (successful_requests + failed_requests) > 0
-            else 0
-        )
-
-        # Resource utilization (demo values)
-        peak_memory_mb = 512.0
-        avg_cpu_percent = 65.0
-        max_queue_depth = 25
-
-        self.logger.info(
-            f"Scale test completed: {successful_requests} successful, {failed_requests} failed"
-        )
-
-        # Construct frozen dataclass result (direct variable access - no dict indexing)
-        return ScaleTestResult(
-            test_configuration=TestConfiguration(
-                concurrent_users=concurrent_users,
-                requests_per_user=requests_per_user,
-                test_duration_seconds=test_duration_seconds,
-                total_requests=concurrent_users * requests_per_user,
-            ),
-            performance_results=PerformanceResults(
-                requests_completed=successful_requests,
-                requests_failed=failed_requests,
-                avg_response_time_ms=avg_response_time_ms,
-                p95_response_time_ms=p95_response_time_ms,
-                p99_response_time_ms=p99_response_time_ms,
-                throughput_rps=throughput_rps,
-                cache_hit_rate=cache_hit_rate,
-                error_rate=error_rate,
-            ),
-            resource_utilization=ResourceUtilization(
-                peak_memory_mb=peak_memory_mb,
-                avg_cpu_percent=avg_cpu_percent,
-                max_queue_depth=max_queue_depth,
-            ),
-            sla_compliance=SLACompliance(
-                sub_100ms_responses=sub_100ms_responses,
-                sub_200ms_responses=sub_200ms_responses,
-                target_met=target_met,
-            ),
-        )
-
-    async def optimize_cache_strategy(self) -> CacheOptimization:
-        """Optimize caching strategy based on usage patterns."""
-        current_hit_rate = self.inference_engine.cache.get_hit_rate()
-
-        # Analyze cache performance
-        cache_stats = self.inference_engine.cache.stats
-
-        optimization_suggestions = []
-
-        if current_hit_rate < 0.8:
-            optimization_suggestions.append("Increase cache size")
-            optimization_suggestions.append("Extend TTL for stable data")
-
-        if cache_stats["evictions"] > cache_stats["hits"] * 0.1:
-            optimization_suggestions.append("Switch to adaptive eviction strategy")
-
-        if cache_stats["size_bytes"] > 100 * 1024 * 1024:  # 100MB
-            optimization_suggestions.append("Implement cache compression")
-
-        # Construct frozen dataclass result
-        return CacheOptimization(
-            current_performance=CachePerformance(
-                hit_rate=current_hit_rate,
-                total_hits=cache_stats["hits"],
-                total_misses=cache_stats["misses"],
-                evictions=cache_stats["evictions"],
-                size_bytes=cache_stats["size_bytes"],
-            ),
-            optimization_suggestions=optimization_suggestions,
-            recommended_strategy="adaptive" if current_hit_rate < 0.8 else "current",
-            estimated_improvement=0.15 if current_hit_rate < 0.8 else 0.05,
-        )
 
     async def _schedule_optimization_tasks(self) -> None:
         """Schedule periodic optimization tasks."""
