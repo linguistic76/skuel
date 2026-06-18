@@ -47,6 +47,8 @@ def create_principles_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     principles_service: PrinciplesService,
+    goals_service: Any = None,
+    habits_service: Any = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Principles API routes."""
@@ -270,6 +272,22 @@ def create_principles_api_routes(
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
+        # Knowledge (Ku) is SHARED — no ownership check required.
+        # User-owned targets (goal, habit, principle) must 404 for wrong owner.
+        if req.link_type == "goal" and goals_service is not None:
+            target_err = await verify_entity_ownership(goals_service, req.uid, user_uid, "goal")
+            if target_err:
+                return target_err
+        elif req.link_type == "habit" and habits_service is not None:
+            target_err = await verify_entity_ownership(habits_service, req.uid, user_uid, "habit")
+            if target_err:
+                return target_err
+        elif req.link_type == "principle":
+            target_err = await verify_entity_ownership(
+                principles_service, req.uid, user_uid, "principle"
+            )
+            if target_err:
+                return target_err
         return await principles_service.create_principle_link(
             {"principle_uid": uid, "target_uid": req.uid, "link_type": req.link_type}
         )
@@ -314,10 +332,16 @@ def create_principles_api_routes(
     @boundary_handler()
     async def principle_batch_impact(request: Request) -> Result[dict[str, dict[str, Any]]]:
         """Batch-analyze adoption metrics for multiple principles."""
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, PrincipleBatchImpactRequest)
         if parsed.is_error:
             return Result.fail(parsed)
+        for uid in parsed.value.principle_uids:
+            ownership_error = await verify_entity_ownership(
+                principles_service, uid, user_uid, "principle"
+            )
+            if ownership_error:
+                return ownership_error
         return await principles_service.batch_analyze_principle_adoption(
             parsed.value.principle_uids
         )
@@ -369,6 +393,12 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
+        if req.conflicting_principle_uid:
+            conflict_ownership_error = await verify_entity_ownership(
+                principles_service, req.conflicting_principle_uid, user_uid, "principle"
+            )
+            if conflict_ownership_error:
+                return conflict_ownership_error
         return await principles_service.record_principle_reflection(
             principle_uid=req.principle_uid,
             user_uid=user_uid,

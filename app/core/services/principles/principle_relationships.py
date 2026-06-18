@@ -14,12 +14,13 @@ from dataclasses import dataclass, field
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Query specifications: (field_name, service_method_name)
+# Query specifications: (field_name, PRINCIPLES_CONFIG relationship method key).
+# Keys must match PRINCIPLES_CONFIG exactly — validated by tests/test_cross_domain_link_keys.py.
 PRINCIPLE_QUERY_SPECS: list[tuple[str, str]] = [
     ("grounded_knowledge_uids", "knowledge"),
-    ("guided_goal_uids", "goals"),
-    ("inspired_habit_uids", "habits"),
-    ("related_principle_uids", "related_principles"),
+    ("guided_goal_uids", "guided_goals"),
+    ("inspired_habit_uids", "inspired_habits"),
+    ("related_principle_uids", "supporting_principles"),
     ("guided_choice_uids", "guided_choices"),
     ("guided_task_uids", "aligned_tasks"),
     ("serves_life_path_uids", "life_path"),
