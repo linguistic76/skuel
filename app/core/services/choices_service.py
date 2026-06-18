@@ -57,6 +57,7 @@ if TYPE_CHECKING:
     from datetime import date
 
     from core.models.choice.choice_request import ChoiceCreateRequest
+    from core.models.context_types import ContextualChoice
     from core.models.enums import Domain, Priority
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -68,6 +69,7 @@ if TYPE_CHECKING:
     from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
     from core.services.choices.choices_types import ChoiceImpactAnalysis, DecisionIntelligence
     from core.services.cross_domain import CrossDomainQueryService
+    from core.services.user import UserContext
 
 
 def _get_choice_enum_value(obj: Any, attr: str, default: str = "") -> str:
@@ -292,6 +294,43 @@ class ChoicesService(
         self, user_uid: UserUID, deadline_days: int = 7
     ) -> Result[list[Choice]]:
         return await self.search.get_needing_decision(user_uid, deadline_days)
+
+    async def get_pending_decisions_for_user(
+        self,
+        context: UserContext,
+        limit: int = 5,
+    ) -> Result[list[ContextualChoice]]:
+        """Pending choices with deadline-based priority. For the daily plan P7 slot."""
+        from datetime import datetime
+
+        from core.models.context_types import ContextualChoice
+
+        result = await self.get_pending_choices(context.user_uid, limit)
+        if result.is_error:
+            return Result.fail(result)
+        now = datetime.now()
+        contextual: list[ContextualChoice] = []
+        for choice in result.value or []:
+            deadline = choice.decision_deadline
+            if deadline is not None:
+                days_until = (deadline.replace(tzinfo=None) - now).days
+                if days_until <= 2:
+                    priority_level = "urgent"
+                elif days_until <= 7:
+                    priority_level = "high"
+                else:
+                    priority_level = "medium"
+            else:
+                priority_level = "medium"
+            contextual.append(
+                ContextualChoice.from_entity_and_context(
+                    uid=choice.uid,
+                    title=choice.title,
+                    context=context,
+                    priority_level=priority_level,
+                )
+            )
+        return Result.ok(contextual)
 
     def __init__(
         self,

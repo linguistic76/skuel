@@ -138,12 +138,14 @@ async def _create_intelligence_hub(
             "UserContextIntelligence factory requires services.exercises (ExerciseService). "
             "compose_services must wire ExerciseService before _create_intelligence_hub."
         )
-    activity_relationships = {
-        name: activity_services[name].relationships
-        for name in ("tasks", "goals", "habits", "events", "choices", "principles")
-    }
     context_intelligence_factory = UserContextIntelligenceFactory(
-        **activity_relationships,
+        # Activity Domains (6) — facade services (not .relationships)
+        tasks=activity_services["tasks"],
+        goals=activity_services["goals"],
+        habits=activity_services["habits"],
+        events=activity_services["events"],
+        choices=activity_services["choices"],
+        principles=activity_services["principles"],
         # Curriculum Domains (3)
         ps=learning_services["ps"],
         lp=learning_services["learning_paths"].relationships,  # factory param name

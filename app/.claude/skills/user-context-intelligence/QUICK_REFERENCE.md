@@ -95,12 +95,12 @@ from core.models.context_types import (
 | # | Domain | Service Type | Attribute |
 |---|--------|--------------|-----------|
 | **Activity (6)** |
-| 1 | Tasks | `UnifiedRelationshipService` | `self.tasks` |
-| 2 | Goals | `UnifiedRelationshipService` | `self.goals` |
-| 3 | Habits | `UnifiedRelationshipService` | `self.habits` |
-| 4 | Events | `UnifiedRelationshipService` | `self.events` |
-| 5 | Choices | `UnifiedRelationshipService` | `self.choices` |
-| 6 | Principles | `UnifiedRelationshipService` | `self.principles` |
+| 1 | Tasks | `TasksService` (facade) | `self.tasks` |
+| 2 | Goals | `GoalsService` (facade) | `self.goals` |
+| 3 | Habits | `HabitsService` (facade) | `self.habits` |
+| 4 | Events | `EventsService` (facade) | `self.events` |
+| 5 | Choices | `ChoicesService` (facade) | `self.choices` |
+| 6 | Principles | `PrinciplesService` (facade) | `self.principles` |
 | **Curriculum (3)** |
 | 7 | PS | `PsService` (facade) | `self.ps` |
 | 8 | LP | `UnifiedRelationshipService` | `self.lp` |
@@ -317,13 +317,13 @@ class ScheduleAwareRecommendation:
 class UserContextIntelligenceFactory:
     def __init__(
         self,
-        # Activity (6)
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
+        # Activity (6) — concrete facade services (NOT .relationships)
+        tasks: TasksService,
+        goals: GoalsService,
+        habits: HabitsService,
+        events: EventsService,
+        choices: ChoicesService,
+        principles: PrinciplesService,
         # Curriculum (3)
         ku: KuGraphService,
         ls: UnifiedRelationshipService,
@@ -347,9 +347,9 @@ class UserContextIntelligenceFactory:
 ### Usage Pattern
 
 ```python
-# At bootstrap
+# At bootstrap — pass facade services directly (not .relationships)
 factory = UserContextIntelligenceFactory(
-    tasks=tasks_service.relationships,
+    tasks=tasks_service,
     # ... 12 more services
 )
 services.context_intelligence = factory

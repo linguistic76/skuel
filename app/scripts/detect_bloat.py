@@ -229,13 +229,6 @@ _GOAL_TASK_AUTOMATION = (
     "generate_tasks_for_goal is routed via orchestration_routes.py); wire bulk/"
     "critical-task/template routes or a planner cron"
 )
-_GOALS_DAILY_PLANNING = (
-    "intended producers of the flagship daily plan, MISWIRED — GoalsPlanningService is "
-    "never instantiated and get_ready_to_work_on_today PRIORITY 6 calls "
-    "get_advancing_goals_for_user on goals_service.relationships (a "
-    "UnifiedRelationshipService) which lacks it; complete by repairing the "
-    "intelligence-hub planning injection (cross-domain daily-plan phantom-dispatch repair)"
-)
 # Tasks dead-code campaign (2026-06): staged task capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _TASKS_ASSIGNMENT = (
@@ -350,13 +343,10 @@ _SHARING_MANAGEMENT = (
 # Relationships dead-code campaign (2026-06-13): staged relationship capabilities
 # kept by deliberate decision — each reason names the wiring that completes it.
 _RELATIONSHIPS_DAILY_PLANNING = (
-    "generic UserContext planning surface on UnifiedRelationshipService — the "
-    "domain-agnostic counterparts of the phantom *_for_user methods the flagship "
-    "daily plan calls (get_actionable_for_user ≈ get_actionable_tasks_for_user, "
-    "get_goal_aligned_for_user ≈ get_advancing_goals_for_user); no live winner "
-    "(the domain-specific names are phantoms), complete by the cross-domain "
-    "daily-plan phantom-dispatch repair thread that wires the intelligence-hub "
-    "planning injection (Mike ruled PLANNED 2026-06-13)"
+    "generic UserContext planning surface on UnifiedRelationshipService — "
+    "get_blocked_for_user has no live caller after the phantom-dispatch repair "
+    "(the facade services now supply domain-specific planning methods directly); "
+    "wire a cross-domain blocked-item surface or delete (Mike ruled PLANNED 2026-06-13)"
 )
 _RELATIONSHIPS_HIERARCHY = (
     "curriculum multi-hop hierarchy traversal staged (universal hierarchical "
@@ -687,14 +677,9 @@ PLANNED_METHODS: dict[str, str] = {
         "tier); wire into the bootstrap AI-gating points once the ChargeKeep billing model "
         "defines which subscription tier gets AI features"
     ),
-    # --- Relationships: generic UserContext planning surface (daily-plan phantom-dispatch thread) ---
-    "core/services/relationships/unified_relationship_service.py::get_actionable_for_user": (
-        _RELATIONSHIPS_DAILY_PLANNING
-    ),
+    # --- Relationships: generic UserContext planning surface ---
+    # get_blocked_for_user: no live caller after phantom-dispatch repair (keep PLANNED)
     "core/services/relationships/unified_relationship_service.py::get_blocked_for_user": (
-        _RELATIONSHIPS_DAILY_PLANNING
-    ),
-    "core/services/relationships/unified_relationship_service.py::get_goal_aligned_for_user": (
         _RELATIONSHIPS_DAILY_PLANNING
     ),
     # --- Relationships: curriculum multi-hop hierarchy traversal ---

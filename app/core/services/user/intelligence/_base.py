@@ -34,18 +34,17 @@ class IntelligenceMixinBase:
     consistent types. Concrete values are assigned in
     `UserContextIntelligence.__init__` — this base contributes annotations only.
 
-    Activity / curriculum services are typed `Any` (boundary): the wiring in
-    `services_bootstrap/_intelligence_hub.py` passes `.relationships`
-    (UnifiedRelationshipService), while several call sites invoke planning
-    methods that live on the parent facade. The shape is duck-typed at runtime;
-    tightening it would surface a separate architectural issue beyond this
-    base class.
+    Activity services are typed `Any` (boundary): the constructor parameter types
+    are declared as concrete facades (TasksService, GoalsService, etc.) in
+    `UserContextIntelligence.__init__`, so MyPy validates call sites there. The
+    base class uses `Any` to avoid importing 6 concrete facades into this shared
+    module, which would widen the import fan and risk cycles.
     """
 
     # User state
     context: RichUserContext
 
-    # Activity Domains (6) — boundary: duck-typed facade/relationships
+    # Activity Domains (6) — boundary: concrete facades at init, Any here avoids import fan
     tasks: Any
     goals: Any
     habits: Any

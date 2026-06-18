@@ -15,7 +15,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -32,8 +32,8 @@ from core.models.entity_requests import (
     LinkEventToGoalRequest,
     RemoveHierarchyChildRequest,
 )
-from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.event.event import Event
+from core.models.event.event_update_intent import EventUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.events_views import EventCard
 
@@ -88,7 +88,7 @@ def create_events_api_routes(
 
     @rt("/api/events/parent", methods=["GET"])
     @boundary_handler()
-    async def event_parent(request: Request) -> Result[Optional[Event]]:
+    async def event_parent(request: Request) -> Result[Event | None]:
         """Immediate parent of a subevent (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
