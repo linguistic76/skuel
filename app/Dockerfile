@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Copy dependency files and install (cached layer)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-root
+RUN uv sync --no-install-project
 
 # App code is bind-mounted via docker-compose volumes
 # No COPY of application code here
