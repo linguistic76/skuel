@@ -451,6 +451,22 @@ class ChoicesService(
     # provided by _RelationshipMixin.
 
     # ========================================================================
+    # HIERARCHY DELEGATIONS
+    # ========================================================================
+
+    async def get_subchoices(self, parent_uid: str, depth: int = 1) -> Result[list[Choice]]:
+        return await self.core.get_subchoices(parent_uid, depth)
+
+    async def get_parent_choice(self, subchoice_uid: str) -> Result[Choice | None]:
+        return await self.core.get_parent_choice(subchoice_uid)
+
+    async def get_choice_hierarchy(self, choice_uid: str) -> Result[dict[str, Any]]:
+        return await self.core.get_choice_hierarchy(choice_uid)
+
+    async def remove_subchoice_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.remove_subchoice_relationship(parent_uid, child_uid)
+
+    # ========================================================================
     # QUERY LAYER
     # ========================================================================
 

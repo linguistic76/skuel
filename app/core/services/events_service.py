@@ -727,6 +727,22 @@ class EventsService(
     # ========================================================================
 
     # ========================================================================
+    # HIERARCHY DELEGATIONS
+    # ========================================================================
+
+    async def get_subevents(self, parent_uid: str, depth: int = 1) -> Result[list[Event]]:
+        return await self.core.get_subevents(parent_uid, depth)
+
+    async def get_parent_event(self, subevent_uid: str) -> Result[Event | None]:
+        return await self.core.get_parent_event(subevent_uid)
+
+    async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
+        return await self.core.get_event_hierarchy(event_uid)
+
+    async def remove_subevent_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.remove_subevent_relationship(parent_uid, child_uid)
+
+    # ========================================================================
     # QUERY LAYER
     # ========================================================================
     # Graph relationships, attendee management, recurring instances, and

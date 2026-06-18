@@ -612,3 +612,13 @@ class SmartDismissRequest(BaseModel):
 
     filter_type: str = Field(..., description="Filter type: impact, domain, or type")
     filter_value: str = Field(..., description="Filter value to match")
+
+
+class RemoveHierarchyChildRequest(BaseModel):
+    """Remove a parent-child hierarchy relationship.
+
+    Shared by all 6 Activity Domains (tasks, goals, habits, events, choices, principles).
+    """
+
+    parent_uid: str = Field(..., min_length=1, description="Parent entity UID")
+    child_uid: str = Field(..., min_length=1, description="Child entity UID")

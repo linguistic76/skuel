@@ -619,6 +619,22 @@ class HabitsService(
     # Custom backend property removed November 2025 - was unnecessary indirection
 
     # ========================================================================
+    # HIERARCHY DELEGATIONS
+    # ========================================================================
+
+    async def get_subhabits(self, parent_uid: str, depth: int = 1) -> Result[list[Habit]]:
+        return await self.core.get_subhabits(parent_uid, depth)
+
+    async def get_parent_habit(self, subhabit_uid: str) -> Result[Habit | None]:
+        return await self.core.get_parent_habit(subhabit_uid)
+
+    async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
+        return await self.core.get_habit_hierarchy(habit_uid)
+
+    async def remove_subhabit_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.remove_subhabit_relationship(parent_uid, child_uid)
+
+    # ========================================================================
     # QUERY LAYER
     # ========================================================================
 
