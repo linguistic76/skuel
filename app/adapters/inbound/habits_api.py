@@ -154,6 +154,12 @@ def create_habits_api_routes(
         parsed = await parse_json_body(request, BulkCompleteHabitsRequest)
         if parsed.is_error:
             return Result.fail(parsed)
+        for habit_uid in parsed.value.habit_uids:
+            ownership_error = await verify_entity_ownership(
+                habits_service, habit_uid, user_uid, "habit"
+            )
+            if ownership_error:
+                return ownership_error
         result = await habits_service.completions.record_completions_bulk(
             parsed.value.habit_uids, user_uid
         )
