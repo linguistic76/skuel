@@ -47,9 +47,15 @@ if TYPE_CHECKING:
     from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
+    from core.services.tasks_service import TasksService
     from core.services.user.unified_user_context import RichUserContext
 
 
@@ -76,8 +82,8 @@ class UserContextIntelligenceFactory:
     ```python
     # At bootstrap (services_bootstrap.py)
     factory = UserContextIntelligenceFactory(
-        tasks=tasks_service.relationships,
-        goals=goals_service.relationships,
+        tasks=tasks_service,
+        goals=goals_service,
         # ... 11 more services
     )
     services.context_intelligence = factory
@@ -91,13 +97,13 @@ class UserContextIntelligenceFactory:
 
     def __init__(
         self,
-        # Activity Domains (6) - REQUIRED (UnifiedRelationshipService with domain configs)
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
+        # Activity Domains (6) - REQUIRED (concrete facade services)
+        tasks: TasksService,
+        goals: GoalsService,
+        habits: HabitsService,
+        events: EventsService,
+        choices: ChoicesService,
+        principles: PrinciplesService,
         # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
@@ -118,13 +124,13 @@ class UserContextIntelligenceFactory:
         Initialize factory with all 12 required domain services.
 
         Args:
-            Activity Domains (6) - All UnifiedRelationshipService with domain configs:
-                tasks: Tasks relationship service
-                goals: Goals relationship service
-                habits: Habits relationship service
-                events: Events relationship service
-                choices: Choices relationship service
-                principles: Principles relationship service
+            Activity Domains (6) - Concrete facade services:
+                tasks: TasksService facade
+                goals: GoalsService facade
+                habits: HabitsService facade
+                events: EventsService facade
+                choices: ChoicesService facade
+                principles: PrinciplesService facade
 
             Curriculum Domains (3):
                 ps: PathStep service facade

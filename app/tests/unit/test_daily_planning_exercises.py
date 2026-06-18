@@ -76,7 +76,26 @@ def make_context(
 
 
 def make_no_op_service() -> AsyncMock:
-    """Service that returns empty success (no items)."""
+    """Service that returns empty success (no items).
+
+    Method names are spec-checked against the real facade classes at call time —
+    accessing the attribute raises AttributeError if a method is renamed in production.
+    """
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
+    from core.services.tasks_service import TasksService
+
+    # Raises AttributeError if a method is renamed in the facade — spec guard.
+    _ = HabitsService.get_at_risk_habits_for_user
+    _ = EventsService.get_upcoming_events_for_user
+    _ = TasksService.get_actionable_tasks_for_user
+    _ = GoalsService.get_advancing_goals_for_user
+    _ = ChoicesService.get_pending_decisions_for_user
+    _ = PrinciplesService.get_aligned_principles_for_user
+
     mock = AsyncMock()
     mock.get_at_risk_habits_for_user = AsyncMock(return_value=Result.ok([]))
     mock.get_upcoming_events_for_user = AsyncMock(return_value=Result.ok([]))

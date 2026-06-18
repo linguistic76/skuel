@@ -49,9 +49,15 @@ if TYPE_CHECKING:
     from core.ports.relationship_backend_protocols import AnalyticsRelationshipOperations
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.calendar_service import CalendarService
+    from core.services.choices_service import ChoicesService
+    from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
+    from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
     from core.services.relationships import UnifiedRelationshipService
     from core.services.report import ReportRelationshipService
+    from core.services.tasks_service import TasksService
     from core.services.user.unified_user_context import RichUserContext
 
 
@@ -73,13 +79,13 @@ class UserContextIntelligence(
 
     **Required Dependencies (entity types):**
 
-    Activity Domains (6) - All use UnifiedRelationshipService with domain configs:
-    - tasks: UnifiedRelationshipService - What can I do now?
-    - goals: UnifiedRelationshipService - What goals need attention?
-    - habits: UnifiedRelationshipService - What streaks are at risk?
-    - events: UnifiedRelationshipService - What's scheduled?
-    - choices: UnifiedRelationshipService - What decisions await?
-    - principles: UnifiedRelationshipService - What values guide this?
+    Activity Domains (6) - Concrete facade services:
+    - tasks: TasksService - What can I do now?
+    - goals: GoalsService - What goals need attention?
+    - habits: HabitsService - What streaks are at risk?
+    - events: EventsService - What's scheduled?
+    - choices: ChoicesService - What decisions await?
+    - principles: PrinciplesService - What values guide this?
 
     Curriculum Domains (3):
     - ps: PsService - What knowledge is ready?
@@ -115,13 +121,13 @@ class UserContextIntelligence(
     def __init__(
         self,
         context: RichUserContext,
-        # Activity Domains (6) - REQUIRED (UnifiedRelationshipService with domain configs)
-        tasks: UnifiedRelationshipService,
-        goals: UnifiedRelationshipService,
-        habits: UnifiedRelationshipService,
-        events: UnifiedRelationshipService,
-        choices: UnifiedRelationshipService,
-        principles: UnifiedRelationshipService,
+        # Activity Domains (6) - REQUIRED (concrete facade services)
+        tasks: TasksService,
+        goals: GoalsService,
+        habits: HabitsService,
+        events: EventsService,
+        choices: ChoicesService,
+        principles: PrinciplesService,
         # Curriculum Domains (3) - REQUIRED
         ps: PsService,
         lp: UnifiedRelationshipService,  # January 2026: Unified
@@ -144,13 +150,13 @@ class UserContextIntelligence(
         Args:
             context: Complete UserContext snapshot (~240 fields)
 
-            Activity Domains (6) - All UnifiedRelationshipService with domain configs:
-                tasks: Tasks relationship service for actionable tasks
-                goals: Goals relationship service for advancing goals
-                habits: Habits relationship service for at-risk habits
-                events: Events relationship service for upcoming events
-                choices: Choices relationship service for pending decisions
-                principles: Principles relationship service for value alignment
+            Activity Domains (6) - Concrete facade services:
+                tasks: TasksService facade for actionable tasks
+                goals: GoalsService facade for advancing goals
+                habits: HabitsService facade for at-risk habits
+                events: EventsService facade for upcoming events
+                choices: ChoicesService facade for pending decisions
+                principles: PrinciplesService facade for value alignment
 
             Curriculum Domains (2):
                 ps: PathStep service facade for learning readiness
