@@ -37,6 +37,7 @@ from adapters.inbound.auth import (
     set_current_user,
 )
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.rate_limit import rate_limited_ip
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
 from core.models.auth import (
@@ -120,6 +121,7 @@ def create_auth_ui_routes(
 
     @rt("/register/submit")
     @csrf_protected
+    @rate_limited_ip(bucket="register", per_ip=5, window_s=300)
     async def register_submit(request: Request) -> Any:
         """Process registration with graph-native auth"""
         logger.info("POST /register/submit - Registration form submitted")
@@ -247,6 +249,7 @@ def create_auth_ui_routes(
 
     @rt("/login/submit")
     @csrf_protected
+    @rate_limited_ip(bucket="login", per_ip=10, window_s=60)
     async def login_submit(request: Request) -> Any:
         """Process login with graph-native auth"""
         try:
@@ -346,6 +349,7 @@ def create_auth_ui_routes(
 
     @rt("/forgot-password")
     @csrf_protected
+    @rate_limited_ip(bucket="forgot-password", per_ip=5, window_s=300)
     async def forgot_password_submit(request: Request) -> Any:
         """Process forgot password request — send reset email"""
         form_data = await request.form()
@@ -380,6 +384,7 @@ def create_auth_ui_routes(
 
     @rt("/reset-password/submit")
     @csrf_protected
+    @rate_limited_ip(bucket="reset-password", per_ip=5, window_s=300)
     async def reset_password_submit(request: Request) -> Any:
         """Process password reset with token"""
         try:
