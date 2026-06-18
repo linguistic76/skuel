@@ -2,7 +2,7 @@
 Completion Mixin — HabitsService
 =================================
 
-Completion tracking, status lifecycle, and reminder configuration.
+Completion tracking and reminder configuration.
 
 Part of habits_service.py decomposition (April 2026).
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
@@ -13,17 +13,13 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import EntityStatus
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.habit.habit_request import (
-        ArchiveHabitRequest,
         DeleteHabitReminderRequest,
-        PauseHabitRequest,
-        ResumeHabitRequest,
         SetHabitReminderRequest,
         TrackHabitRequest,
         UntrackHabitRequest,
@@ -32,7 +28,7 @@ if TYPE_CHECKING:
 
 class _CompletionMixin:
     """
-    Completion tracking, status lifecycle, and reminder configuration for HabitsService.
+    Completion tracking and reminder configuration for HabitsService.
 
     Declares class-level attributes used by these methods so mypy
     resolves them without runtime cost.
@@ -281,58 +277,6 @@ class _CompletionMixin:
         }
 
         return Result.ok(calendar_data)
-
-    # ========================================================================
-    # STATUS MANAGEMENT
-    # ========================================================================
-
-    async def pause_habit(self, request: PauseHabitRequest) -> Result[Any]:
-        """
-        Pause a habit temporarily using typed request object.
-
-        Args:
-            request: PauseHabitRequest containing habit_uid, reason, until_date
-
-        Returns:
-            Result with the updated habit
-        """
-        # ``reason`` / ``paused_until`` are not Habit columns (the prior funnel dropped
-        # them); only the status transition is persisted.
-        return await self.core.update_habit(
-            request.habit_uid, HabitUpdateIntent(status=EntityStatus.PAUSED.value)
-        )
-
-    async def resume_habit(self, request: ResumeHabitRequest) -> Result[Any]:
-        """
-        Resume a paused habit using typed request object.
-
-        Args:
-            request: ResumeHabitRequest containing habit_uid
-
-        Returns:
-            Result with the updated habit
-        """
-        # ``paused_until`` is not a Habit column (the prior funnel dropped it); only the
-        # status transition is persisted.
-        return await self.core.update_habit(
-            request.habit_uid, HabitUpdateIntent(status=EntityStatus.ACTIVE.value)
-        )
-
-    async def archive_habit(self, request: ArchiveHabitRequest) -> Result[Any]:
-        """
-        Archive a completed or discontinued habit using typed request object.
-
-        Args:
-            request: ArchiveHabitRequest containing habit_uid, reason
-
-        Returns:
-            Result with the updated habit
-        """
-        # ``reason`` is not a Habit column (the prior funnel dropped it); only the status
-        # transition is persisted.
-        return await self.core.update_habit(
-            request.habit_uid, HabitUpdateIntent(status=EntityStatus.ARCHIVED.value)
-        )
 
     # ========================================================================
     # REMINDERS

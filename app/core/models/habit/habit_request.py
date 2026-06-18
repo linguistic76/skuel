@@ -417,6 +417,12 @@ class GetHabitProgressRequest(BaseModel):
     period: str = Field(default="month", description="Time period: 'week', 'month', or 'year'")
 
 
+class BulkCompleteHabitsRequest(BaseModel):
+    """Request for recording completions for multiple habits at once."""
+
+    habit_uids: list[str] = Field(description="UIDs of habits to mark complete", min_length=1)
+
+
 # Type literal for context-aware quality validation
 ContextualQualityLiteral = Literal["poor", "fair", "good", "excellent"]
 

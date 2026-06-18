@@ -513,35 +513,14 @@ PLANNED_METHODS: dict[str, str] = {
     # --- Exercises: teacher-management half (campaign 17) ---
     "core/services/exercises/exercise_service.py::list_group_exercises": (_EXERCISES_GROUP_LISTING),
     "core/services/exercises/exercise_service.py::deactivate_exercise": _EXERCISES_ARCHIVE,
-    # --- Habits: due-today machinery ---
-    "core/services/habits_service.py::get_habits_due_today": _HABITS_DUE_TODAY,
+    # --- Habits: due-today machinery (get_all_habits_due_today + by_frequency remain unwired
+    # — admin/scheduler scope, not per-user API) ---
     "core/services/habits_service.py::get_all_habits_due_today": _HABITS_DUE_TODAY,
     "core/services/habits_service.py::get_habits_by_frequency": _HABITS_DUE_TODAY,
     # --- Habits: scheduling-aware creation ---
     "core/services/habits_service.py::create_habit_with_scheduling_context": (_HABITS_SCHED_CREATE),
     "core/services/habits_service.py::create_habit_with_learning_scheduling_context": (
         _HABITS_SCHED_CREATE
-    ),
-    # --- Habits: lifecycle + reminders ---
-    "core/services/habits/_completion_mixin.py::untrack_habit": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::get_habit_streak": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::get_habit_progress": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::get_habit_history": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::get_completion_calendar": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::pause_habit": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::resume_habit": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::archive_habit": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::set_habit_reminder": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::get_habit_reminders": _HABITS_LIFECYCLE,
-    "core/services/habits/_completion_mixin.py::delete_habit_reminder": _HABITS_LIFECYCLE,
-    # --- Habits: badges / export / bulk completions ---
-    "core/services/habits/habits_completion_service.py::record_completions_bulk": (_HABITS_BADGES),
-    "core/services/habits/habits_completion_service.py::calculate_completed_today_count": (
-        _HABITS_BADGES
-    ),
-    "core/services/habits/habits_completion_service.py::get_badge_progress": _HABITS_BADGES,
-    "core/services/habits/habits_completion_service.py::export_completion_history": (
-        _HABITS_BADGES
     ),
     # --- Habits: sub-habit hierarchy ---
     "core/services/habits/habits_core_service.py::get_subhabits": _HABITS_HIERARCHY,
