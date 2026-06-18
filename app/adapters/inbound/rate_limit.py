@@ -91,6 +91,46 @@ def rate_limited(
     return decorator
 
 
+def rate_limited_ip(
+    *,
+    bucket: str,
+    per_ip: int,
+    window_s: float,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
+    """Per-IP sliding-window limit for unauthenticated endpoints.
+
+    Uses namespaced keys ("ip:<bucket>:<ip>") in the shared _BUCKETS store so
+    IP and user-uid buckets never collide. Requests from 'unknown' IP pass through.
+    """
+    from starlette.responses import Response
+
+    def decorator(handler: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        @wraps(handler)
+        async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
+            ip = _extract_ip(request)
+            if ip != "unknown":
+                key = f"ip:{bucket}:{ip}"
+                if not _check_and_record(key, per_ip, window_s):
+                    logger.warning(
+                        "IP rate limit exceeded for %s on %s (limit=%d, window=%ss)",
+                        ip,
+                        getattr(request, "url", "<unknown>"),
+                        per_ip,
+                        window_s,
+                    )
+                    retry_after = max(1, int(window_s))
+                    return Response(
+                        f"Rate limit exceeded: max {per_ip} requests per {int(window_s)}s",
+                        status_code=429,
+                        headers={"Retry-After": str(retry_after)},
+                    )
+            return await handler(request, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def _extract_user_uid(request: Request) -> str | None:
     """Read ``user_uid`` from the session without throwing for unauth requests."""
     session = getattr(request, "session", None)
@@ -100,9 +140,17 @@ def _extract_user_uid(request: Request) -> str | None:
     return str(uid) if uid else None
 
 
+def _extract_ip(request: Request) -> str:
+    """Read the client IP, falling back to 'unknown'."""
+    client = getattr(request, "client", None)
+    if client and hasattr(client, "host"):
+        return str(client.host)
+    return "unknown"
+
+
 def reset_buckets_for_testing() -> None:
     """Clear the module-level bucket store. Tests only."""
     _BUCKETS.clear()
 
 
-__all__ = ["rate_limited", "reset_buckets_for_testing"]
+__all__ = ["rate_limited", "rate_limited_ip", "reset_buckets_for_testing"]
