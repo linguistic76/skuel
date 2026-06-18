@@ -85,19 +85,6 @@ PLANNED_EVENTS: dict[str, str] = {
         "services_bootstrap/_event_wiring.py is intentional staging — wire a "
         "scheduler/cron detector that publishes it, or delete the chain"
     ),
-    # Principles dead-code campaign (2026-06): publish side of the reflection
-    # surface never built (PrinciplesReflectionService shelved 2026-03-28);
-    # handlers in PrincipleEventHandlerService are intentional staging.
-    "PrincipleReflectionRecorded": (
-        "publish-side reflection recording never built; handler wiring in "
-        "services_bootstrap/_event_wiring.py is intentional staging — wire a "
-        "reflection entry point that publishes it, or delete the chain"
-    ),
-    "PrincipleConflictRevealed": (
-        "only ever fires FROM a reflection (publish side never built); handler "
-        "wiring is intentional staging — completes together with "
-        "PrincipleReflectionRecorded, or delete the chain"
-    ),
     # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
     # notification hook. Neither published nor subscribed — its sibling
     # ExerciseSubmitted was deleted (superseded by the live UserEntryCreated
@@ -570,16 +557,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/principles/principles_core_service.py::create_subprinciple_relationship": (
         _PRINCIPLES_HIERARCHY
     ),
-    # --- Principles: embodiment (expressions / portfolio / integrity) ---
-    "core/services/principles/_embodiment_mixin.py::create_principle_expression": (
-        _PRINCIPLES_EMBODIMENT
-    ),
-    "core/services/principles/_embodiment_mixin.py::get_user_principle_portfolio": (
-        _PRINCIPLES_EMBODIMENT
-    ),
-    "core/services/principles/_embodiment_mixin.py::calculate_principle_integrity": (
-        _PRINCIPLES_EMBODIMENT
-    ),
     # --- Principles: single-track alignment self-assessment ---
     "core/services/principles/principles_alignment_service.py::assess_with_user_input": (
         _PRINCIPLES_ASSESS
@@ -588,19 +565,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/principles/_gravity_mixin.py::create_user_principle_relationship": (
         _PRINCIPLES_GRAVITY
     ),
-    "core/services/principles/_gravity_mixin.py::create_principle_link": _PRINCIPLES_GRAVITY,
-    "core/services/principles/_gravity_mixin.py::get_principle_links": _PRINCIPLES_GRAVITY,
     # --- Principles: analytics / AI insights ---
     "core/services/principles/_enrichment_mixin.py::get_analytics_summary": (_PRINCIPLES_INSIGHTS),
-    "core/services/principles/_influence_mixin.py::get_quick_principle_impact": (
-        _PRINCIPLES_INSIGHTS
-    ),
-    "core/services/principles/_influence_mixin.py::batch_analyze_principle_adoption": (
-        _PRINCIPLES_INSIGHTS
-    ),
-    "core/services/principles/_influence_mixin.py::get_choice_guidance_effectiveness": (
-        _PRINCIPLES_INSIGHTS
-    ),
     # --- Events: attendee surface ---
     "core/services/events/_orchestration_mixin.py::get_event_attendees": _EVENTS_ATTENDEES,
     "core/services/events/_orchestration_mixin.py::add_attendee": _EVENTS_ATTENDEES,

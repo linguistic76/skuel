@@ -71,7 +71,7 @@ is embedded inline in `/profile` via `ActivityHubView()`.
 - Has `make_decision()` method to select option
 
 ### Principles
-- Has `PrincipleReflection` sub-entity for tracking
+- Reflection is event-driven: `POST /api/principles/reflection` → `record_principle_reflection()` publishes `PrincipleReflectionRecorded` (no graph node)
 - Uses `is_active: bool` instead of `status` enum
 - `PrincipleCategory` enum for categorization
 

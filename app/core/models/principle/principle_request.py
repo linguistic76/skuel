@@ -196,6 +196,32 @@ class PrincipleLinkRequest(BaseModel):
     bidirectional: bool = Field(default=False, description="Create reverse link")
 
 
+class PrincipleReflectionRequest(BaseModel):
+    """Request to record a principle reflection."""
+
+    principle_uid: str = Field(..., min_length=1)
+    alignment_level: AlignmentLevel = Field(..., description="How well you lived this principle")
+    evidence: str = Field(..., min_length=1, max_length=1000, description="Supporting evidence")
+    trigger_type: str | None = Field(
+        default=None,
+        pattern="^(goal|habit|event|choice|manual)$",
+        description="What prompted this reflection",
+    )
+    trigger_uid: str | None = Field(default=None, description="UID of triggering entity")
+    conflicting_principle_uid: str | None = Field(
+        default=None, description="Principle in tension with this one"
+    )
+    reflection_quality_score: float = Field(
+        default=0.0, ge=0.0, le=1.0, description="Self-assessed reflection quality"
+    )
+
+
+class PrincipleBatchImpactRequest(BaseModel):
+    """Request to batch-analyze principle adoption."""
+
+    principle_uids: list[str] = Field(..., min_length=1, max_length=50)
+
+
 class PrincipleFilterRequest(BaseModel):
     """Request for filtering principles."""
 
