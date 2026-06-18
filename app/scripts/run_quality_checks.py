@@ -10,7 +10,9 @@ Runs all code quality checks in sequence:
 4. Cypher query validation
 5. Route security audit
 6. Skills validation (.claude/skills/*/SKILL.md structure)
-7. MyPy + Pyright type checking (optional)
+7. Dead-code gate
+8. npm audit (JS dependency vulnerabilities)
+9. MyPy + Pyright type checking (optional)
 
 `./dev typecheck-strict` runs only Pyright. See [tool.pyright] in pyproject.toml.
 
@@ -148,7 +150,15 @@ def main():
     ):
         all_passed = False
 
-    # 8. Type Checking (optional - slow)
+    # 8. npm Audit (security vulnerabilities in JS dependencies)
+    if not run_command(
+        ["npm", "audit", "--audit-level=moderate"],
+        "npm Audit (JS dependency vulnerabilities)",
+        check=False,
+    ):
+        all_passed = False
+
+    # 9. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 
