@@ -71,7 +71,10 @@ def create_events_api_routes(
         ownership_error = await verify_entity_ownership(events_service, uid, user_uid, "event")
         if ownership_error:
             return ownership_error
-        return await events_service.get_subevents(uid)
+        result = await events_service.get_subevents(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([e for e in result.value if e.user_uid == user_uid])
 
     @rt("/api/events/parent", methods=["GET"])
     @boundary_handler()
@@ -84,7 +87,12 @@ def create_events_api_routes(
         ownership_error = await verify_entity_ownership(events_service, uid, user_uid, "event")
         if ownership_error:
             return ownership_error
-        return await events_service.get_parent_event(uid)
+        result = await events_service.get_parent_event(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/events/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -97,7 +105,20 @@ def create_events_api_routes(
         ownership_error = await verify_entity_ownership(events_service, uid, user_uid, "event")
         if ownership_error:
             return ownership_error
-        return await events_service.get_event_hierarchy(uid)
+        result = await events_service.get_event_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [ev for ev in h["ancestors"] if ev.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [ev for ev in h["siblings"] if ev.user_uid == user_uid],
+                "children": [ev for ev in h["children"] if ev.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/events/remove-child", methods=["POST"])
     @csrf_protected
@@ -114,6 +135,11 @@ def create_events_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            events_service, req.child_uid, user_uid, "event"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await events_service.remove_subevent_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)

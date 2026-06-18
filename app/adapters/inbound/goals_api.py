@@ -71,7 +71,10 @@ def create_goals_api_routes(
         ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        return await goals_service.get_subgoals(uid)
+        result = await goals_service.get_subgoals(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([g for g in result.value if g.user_uid == user_uid])
 
     @rt("/api/goals/parent", methods=["GET"])
     @boundary_handler()
@@ -84,7 +87,12 @@ def create_goals_api_routes(
         ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        return await goals_service.get_parent_goal(uid)
+        result = await goals_service.get_parent_goal(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/goals/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -97,7 +105,20 @@ def create_goals_api_routes(
         ownership_error = await verify_entity_ownership(goals_service, uid, user_uid, "goal")
         if ownership_error:
             return ownership_error
-        return await goals_service.get_goal_hierarchy(uid)
+        result = await goals_service.get_goal_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [g for g in h["ancestors"] if g.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [g for g in h["siblings"] if g.user_uid == user_uid],
+                "children": [g for g in h["children"] if g.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/goals/remove-child", methods=["POST"])
     @csrf_protected
@@ -114,6 +135,11 @@ def create_goals_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            goals_service, req.child_uid, user_uid, "goal"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await goals_service.remove_subgoal_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)
