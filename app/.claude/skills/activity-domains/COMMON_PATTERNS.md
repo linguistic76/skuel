@@ -148,33 +148,62 @@ Calendar cross-cutting system still works (reads service protocols, not UI route
 
 ## Hierarchy Delegation Pattern
 
-All 6 Activity Domain backends extend `_HierarchyMixin` with a per-domain `HierarchyConfig`. Core services delegate hierarchy operations to the backend — **no inline Cypher in services**.
+All 6 Activity Domain backends extend `_HierarchyMixin` with a per-domain `HierarchyConfig`. The full stack is: backend Cypher → core service model conversion → facade delegation → API route.
 
 ```python
-# Backend (backends/activity_backends.py) — owns the Cypher via _HierarchyMixin
+# 1. Backend (backends/activity_backends.py) — owns the Cypher via _HierarchyMixin
 class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     _hierarchy_config = HierarchyConfig(
         forward_rel="HAS_SUBTASK", inverse_rel="SUBTASK_OF",
         node_label="Entity", domain_name="subtask",
     )
 
-# Service (tasks_core_service.py) — thin delegation + model conversion
+# 2. Core service (tasks_core_service.py) — model conversion, no Cypher
 async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
     result = await self.backend.get_children_raw(parent_uid, depth)
     if result.is_error:
         return Result.fail(result)
     return Result.ok([self._to_domain_model(data, TaskDTO, Task) for data in result.value])
 
-async def create_subtask_relationship(self, parent_uid, subtask_uid, progress_weight=1.0):
-    return await self.backend.create_hierarchy_relationship(
-        parent_uid, subtask_uid, {"progress_weight": progress_weight}
-    )
+async def remove_subtask_relationship(self, parent_uid: str, subtask_uid: str) -> Result[bool]:
+    return await self.backend.remove_hierarchy_relationship(parent_uid, subtask_uid)
 
-async def get_stats_for_user(self, user_uid: UserUID) -> Result[dict[str, int]]:
-    return await self.backend.get_stats_for_user(user_uid)
+# 3. Facade (tasks_service.py) — thin delegation, no logic
+async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
+    return await self.core.get_subtasks(parent_uid, depth)
+
+async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+    return await self.core.remove_subtask_relationship(parent_uid, child_uid)
+
+# 4. API routes (tasks_api.py) — ownership check + delegate to facade
+@rt("/api/tasks/children", methods=["GET"])
+@boundary_handler()
+async def task_children(request: Request) -> Result[list[Task]]:
+    user_uid = require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
+    if ownership_error:
+        return ownership_error
+    return await tasks_service.get_subtasks(uid)
+
+@rt("/api/tasks/remove-child", methods=["POST"])
+@csrf_protected
+@boundary_handler()
+async def task_remove_child(request: Request) -> Result[dict[str, Any]]:
+    user_uid = require_authenticated_user(request)
+    parsed = await parse_json_body(request, RemoveHierarchyChildRequest)  # {parent_uid, child_uid}
+    ...
+    result = await tasks_service.remove_subtask_relationship(req.parent_uid, req.child_uid)
+    return Result.ok({"removed": result.value})
 ```
 
-**Mixin methods** (return raw dicts — services convert to domain models):
+**Live API routes per domain** (`GET` ownership-verified on the queried uid; `POST` on parent_uid):
+- `GET  /api/{domain}s/children?uid=<uid>` → direct children
+- `GET  /api/{domain}s/parent?uid=<uid>` → immediate parent (or null)
+- `GET  /api/{domain}s/hierarchy?uid=<uid>` → `{ancestors, current, siblings, children, depth}`
+- `POST /api/{domain}s/remove-child` → body `{parent_uid, child_uid}` — removes edge, not nodes
+
+**HierarchyMixin backend methods** (return raw dicts — core services convert to domain models):
 - `get_children_raw(parent_uid, depth)` → list of child node dicts
 - `get_parent_raw(child_uid)` → parent node dict or None
 - `get_hierarchy_raw(entity_uid)` → `{ancestors, siblings, children}` dicts
