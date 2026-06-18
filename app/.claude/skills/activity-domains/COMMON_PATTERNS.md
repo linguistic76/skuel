@@ -175,7 +175,7 @@ async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Tas
 async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
     return await self.core.remove_subtask_relationship(parent_uid, child_uid)
 
-# 4. API routes (tasks_api.py) — ownership check + delegate to facade
+# 4. API routes (tasks_api.py) — ownership check, user-scoped filtering, delegate to facade
 @rt("/api/tasks/children", methods=["GET"])
 @boundary_handler()
 async def task_children(request: Request) -> Result[list[Task]]:
@@ -184,7 +184,10 @@ async def task_children(request: Request) -> Result[list[Task]]:
     ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
     if ownership_error:
         return ownership_error
-    return await tasks_service.get_subtasks(uid)
+    result = await tasks_service.get_subtasks(uid)
+    if result.is_error:
+        return Result.fail(result)
+    return Result.ok([t for t in result.value if t.user_uid == user_uid])  # P1: scope to caller
 
 @rt("/api/tasks/remove-child", methods=["POST"])
 @csrf_protected
@@ -193,11 +196,15 @@ async def task_remove_child(request: Request) -> Result[dict[str, Any]]:
     user_uid = require_authenticated_user(request)
     parsed = await parse_json_body(request, RemoveHierarchyChildRequest)  # {parent_uid, child_uid}
     ...
+    ownership_error = await verify_entity_ownership(tasks_service, req.parent_uid, user_uid, "task")
+    if ownership_error: return ownership_error
+    child_ownership_error = await verify_entity_ownership(tasks_service, req.child_uid, user_uid, "task")
+    if child_ownership_error: return child_ownership_error  # P2: verify both endpoints
     result = await tasks_service.remove_subtask_relationship(req.parent_uid, req.child_uid)
     return Result.ok({"removed": result.value})
 ```
 
-**Live API routes per domain** (`GET` ownership-verified on the queried uid; `POST` on parent_uid):
+**Live API routes per domain** (`GET` ownership-verified on the queried uid; `POST` verifies both parent_uid **and** child_uid):
 - `GET  /api/{domain}s/children?uid=<uid>` → direct children
 - `GET  /api/{domain}s/parent?uid=<uid>` → immediate parent (or null)
 - `GET  /api/{domain}s/hierarchy?uid=<uid>` → `{ancestors, current, siblings, children, depth}`

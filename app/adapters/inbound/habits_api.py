@@ -408,7 +408,10 @@ def create_habits_api_routes(
         ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
         if ownership_error:
             return ownership_error
-        return await habits_service.get_subhabits(uid)
+        result = await habits_service.get_subhabits(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([h for h in result.value if h.user_uid == user_uid])
 
     @rt("/api/habits/parent", methods=["GET"])
     @boundary_handler()
@@ -421,7 +424,12 @@ def create_habits_api_routes(
         ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
         if ownership_error:
             return ownership_error
-        return await habits_service.get_parent_habit(uid)
+        result = await habits_service.get_parent_habit(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/habits/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -434,7 +442,20 @@ def create_habits_api_routes(
         ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
         if ownership_error:
             return ownership_error
-        return await habits_service.get_habit_hierarchy(uid)
+        result = await habits_service.get_habit_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [hab for hab in h["ancestors"] if hab.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [hab for hab in h["siblings"] if hab.user_uid == user_uid],
+                "children": [hab for hab in h["children"] if hab.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/habits/remove-child", methods=["POST"])
     @csrf_protected
@@ -451,6 +472,11 @@ def create_habits_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            habits_service, req.child_uid, user_uid, "habit"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await habits_service.remove_subhabit_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)

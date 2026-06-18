@@ -71,7 +71,10 @@ def create_tasks_api_routes(
         ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
         if ownership_error:
             return ownership_error
-        return await tasks_service.get_subtasks(uid)
+        result = await tasks_service.get_subtasks(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([t for t in result.value if t.user_uid == user_uid])
 
     @rt("/api/tasks/parent", methods=["GET"])
     @boundary_handler()
@@ -84,7 +87,12 @@ def create_tasks_api_routes(
         ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
         if ownership_error:
             return ownership_error
-        return await tasks_service.get_parent_task(uid)
+        result = await tasks_service.get_parent_task(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/tasks/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -97,7 +105,20 @@ def create_tasks_api_routes(
         ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
         if ownership_error:
             return ownership_error
-        return await tasks_service.get_task_hierarchy(uid)
+        result = await tasks_service.get_task_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [t for t in h["ancestors"] if t.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [t for t in h["siblings"] if t.user_uid == user_uid],
+                "children": [t for t in h["children"] if t.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/tasks/remove-child", methods=["POST"])
     @csrf_protected
@@ -114,6 +135,11 @@ def create_tasks_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            tasks_service, req.child_uid, user_uid, "task"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await tasks_service.remove_subtask_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)

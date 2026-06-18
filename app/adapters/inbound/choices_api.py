@@ -74,7 +74,10 @@ def create_choices_api_routes(
         ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
         if ownership_error:
             return ownership_error
-        return await choices_service.get_subchoices(uid)
+        result = await choices_service.get_subchoices(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([c for c in result.value if c.user_uid == user_uid])
 
     @rt("/api/choices/parent", methods=["GET"])
     @boundary_handler()
@@ -87,7 +90,12 @@ def create_choices_api_routes(
         ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
         if ownership_error:
             return ownership_error
-        return await choices_service.get_parent_choice(uid)
+        result = await choices_service.get_parent_choice(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/choices/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -100,7 +108,20 @@ def create_choices_api_routes(
         ownership_error = await verify_entity_ownership(choices_service, uid, user_uid, "choice")
         if ownership_error:
             return ownership_error
-        return await choices_service.get_choice_hierarchy(uid)
+        result = await choices_service.get_choice_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [ch for ch in h["ancestors"] if ch.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [ch for ch in h["siblings"] if ch.user_uid == user_uid],
+                "children": [ch for ch in h["children"] if ch.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/choices/remove-child", methods=["POST"])
     @csrf_protected
@@ -117,6 +138,11 @@ def create_choices_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            choices_service, req.child_uid, user_uid, "choice"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await choices_service.remove_subchoice_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)
