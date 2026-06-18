@@ -302,7 +302,7 @@ class DailyPlanningMixin(IntelligenceMixinBase):
         # =====================================================================
         choices_result = await self.choices.get_pending_decisions_for_user(self.context)
         if choices_result.is_ok and choices_result.value:
-            high_priority = [c for c in choices_result.value if c.priority_score > 0.7]
+            high_priority = [c for c in choices_result.value if c.priority_score >= 0.7]
             choices_uids = [c.uid for c in high_priority[:2]]
 
         # =====================================================================

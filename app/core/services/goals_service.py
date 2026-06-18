@@ -665,7 +665,7 @@ class GoalsService(
         limit: int = 2,
     ) -> Result[list[ContextualGoal]]:
         """Goals with active momentum — for the daily plan P6 slot. See GoalsPlanningService."""
-        return await self.planning.get_advancing_goals_for_user(context, limit)
+        return await self.planning.get_advancing_goals_for_user(context, limit=limit)
 
     # ========================================================================
     # QUERY LAYER
