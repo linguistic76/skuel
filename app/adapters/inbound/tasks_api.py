@@ -15,7 +15,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -32,13 +32,13 @@ from core.models.entity_requests import (
     LinkTaskToGoalRequest,
     RemoveHierarchyChildRequest,
 )
+from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.tasks_views import TaskCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-    from core.models.task.task import Task
     from core.services.goals_service import GoalsService
     from core.services.tasks_service import TasksService
 
@@ -88,7 +88,7 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/parent", methods=["GET"])
     @boundary_handler()
-    async def task_parent(request: Request) -> Result[Task | None]:
+    async def task_parent(request: Request) -> Result[Optional[Task]]:
         """Immediate parent of a subtask (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
