@@ -31,6 +31,10 @@ Reminders:
 
 Export:
     GET  /api/habits/export            — Download completion history (CSV/JSON)
+
+Cross-domain links:
+    POST /api/habits/link-knowledge    — Link habit to the knowledge/skill it develops
+    POST /api/habits/link-principle    — Link habit to the principle/value it embodies
 """
 
 from __future__ import annotations
@@ -50,7 +54,11 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
     verify_entity_ownership,
 )
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    LinkHabitToKnowledgeRequest,
+    LinkHabitToPrincipleRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.habit.habit_request import (
     BulkCompleteHabitsRequest,
     DeleteHabitReminderRequest,
@@ -66,12 +74,14 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.habit.habit import Habit
     from core.services.habits_service import HabitsService
+    from core.services.principles_service import PrinciplesService
 
 
 def create_habits_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
+    principles_service: PrinciplesService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Habits API routes."""
@@ -482,6 +492,60 @@ def create_habits_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/habits/link-knowledge", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def habit_link_knowledge(request: Request) -> Result[dict[str, Any]]:
+        """Link habit to knowledge/skill it develops (REINFORCES_KNOWLEDGE). Ku is shared content."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkHabitToKnowledgeRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            habits_service, req.habit_uid, user_uid, "habit"
+        )
+        if ownership_error:
+            return ownership_error
+        result = await habits_service.link_habit_to_knowledge(
+            req.habit_uid, req.knowledge_uid, req.skill_level, req.proficiency_gain_rate
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
+    @rt("/api/habits/link-principle", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def habit_link_principle(request: Request) -> Result[dict[str, Any]]:
+        """Link habit to principle/value it embodies (EMBODIES_PRINCIPLE)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkHabitToPrincipleRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            habits_service, req.habit_uid, user_uid, "habit"
+        )
+        if ownership_error:
+            return ownership_error
+        if principles_service:
+            principle_ownership_error = await verify_entity_ownership(
+                principles_service, req.principle_uid, user_uid, "principle"
+            )
+            if principle_ownership_error:
+                return principle_ownership_error
+        result = await habits_service.link_habit_to_principle(
+            req.habit_uid, req.principle_uid, req.embodiment_strength
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
     return [
         *status_routes,
         habit_track,
@@ -502,4 +566,6 @@ def create_habits_api_routes(
         habit_parent,
         habit_hierarchy,
         habit_remove_child,
+        habit_link_knowledge,
+        habit_link_principle,
     ]

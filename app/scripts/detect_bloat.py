@@ -530,12 +530,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habits/_orchestration_mixin.py::create_user_habit_relationship": (
         _HABITS_ORCHESTRATION
     ),
-    "core/services/habits/_orchestration_mixin.py::link_habit_to_knowledge": (
-        _HABITS_ORCHESTRATION
-    ),
-    "core/services/habits/_orchestration_mixin.py::link_habit_to_principle": (
-        _HABITS_ORCHESTRATION
-    ),
     "core/services/habits/_orchestration_mixin.py::get_skills_developed_by_habits": (
         _HABITS_ORCHESTRATION
     ),
@@ -594,9 +588,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/principles/_gravity_mixin.py::create_user_principle_relationship": (
         _PRINCIPLES_GRAVITY
     ),
-    "core/services/principles/_gravity_mixin.py::link_principle_to_knowledge": (
-        _PRINCIPLES_GRAVITY
-    ),
     "core/services/principles/_gravity_mixin.py::create_principle_link": _PRINCIPLES_GRAVITY,
     "core/services/principles/_gravity_mixin.py::get_principle_links": _PRINCIPLES_GRAVITY,
     # --- Principles: analytics / AI insights ---
@@ -618,7 +609,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/_orchestration_mixin.py::create_user_event_relationship": (
         _EVENTS_ORCHESTRATION
     ),
-    "core/services/events/_orchestration_mixin.py::link_event_to_goal": _EVENTS_ORCHESTRATION,
     "core/services/events/_orchestration_mixin.py::link_event_to_knowledge": (
         _EVENTS_ORCHESTRATION
     ),
@@ -658,13 +648,8 @@ PLANNED_METHODS: dict[str, str] = {
         _CHOICES_HIERARCHY
     ),
     # --- Choices: gravity links ---
-    "core/services/choices/_relationship_mixin.py::link_choice_to_goal": _CHOICES_GRAVITY,
     "core/services/choices/_relationship_mixin.py::link_choice_to_habit": _CHOICES_GRAVITY,
-    "core/services/choices/_relationship_mixin.py::link_choice_to_principle": _CHOICES_GRAVITY,
     "core/services/choices/_relationship_mixin.py::create_semantic_choice_relationship": (
-        _CHOICES_GRAVITY
-    ),
-    "core/services/choices/_relationship_mixin.py::find_choices_aligned_with_principle": (
         _CHOICES_GRAVITY
     ),
     # --- Choices: fast-path decision screening ---
@@ -680,8 +665,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/goals/goals_core_service.py::create_subgoal_relationship": _GOALS_HIERARCHY,
     # --- Goals: gravity links ---
     "core/services/goals/_relationship_mixin.py::create_user_goal_relationship": _GOALS_GRAVITY,
-    "core/services/goals/_relationship_mixin.py::link_goal_to_knowledge": _GOALS_GRAVITY,
-    "core/services/goals/_relationship_mixin.py::link_goal_to_principle": _GOALS_GRAVITY,
     "core/services/goals/_relationship_mixin.py::create_semantic_goal_relationship": (
         _GOALS_GRAVITY
     ),
@@ -707,7 +690,6 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Tasks: dependency write path + gravity links ---
     "core/services/tasks/_relationship_mixin.py::create_task_dependency": (_TASKS_DEPENDENCY_WRITE),
-    "core/services/tasks/_relationship_mixin.py::link_task_to_goal": _TASKS_GRAVITY,
     "core/services/tasks/_relationship_mixin.py::create_semantic_knowledge_relationship": (
         _TASKS_GRAVITY
     ),

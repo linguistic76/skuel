@@ -37,6 +37,7 @@ EVENTS_CONFIG = create_activity_domain_route_config(
     supports_habit_filter=True,
     api_related_services={
         "habits_service": "habits",
+        "goals_service": "goals",
     },
     ui_related_services={
         "connection_fetch_backend": "connection_fetch_backend",

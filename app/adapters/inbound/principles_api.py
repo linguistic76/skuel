@@ -7,6 +7,9 @@ Hierarchy (ownership-verified):
     GET  /api/principles/parent       — Immediate parent of a subprinciple
     GET  /api/principles/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/principles/remove-child — Remove a subprinciple relationship
+
+Cross-domain links:
+    POST /api/principles/link-knowledge — Link principle to knowledge it is grounded in
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import LinkPrincipleToKnowledgeRequest, RemoveHierarchyChildRequest
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.principles_views import PrincipleCard
@@ -158,10 +161,37 @@ def create_principles_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/principles/link-knowledge", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_link_knowledge(request: Request) -> Result[dict[str, Any]]:
+        """Link principle to knowledge it is grounded in (GROUNDED_IN_KNOWLEDGE). Ku is shared."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkPrincipleToKnowledgeRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            principles_service, req.principle_uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        result = await principles_service.link_principle_to_knowledge(
+            req.principle_uid, req.knowledge_uid, req.relevance
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
     return [
         *status_routes,
         principle_children,
         principle_parent,
         principle_hierarchy,
         principle_remove_child,
+        principle_link_knowledge,
     ]

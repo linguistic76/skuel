@@ -19,6 +19,10 @@ Planning (user-scoped reads, full UserContext required):
 Scheduling-aware creation:
     POST /api/goals/create-with-scheduling          — Create goal with capacity check
     POST /api/goals/create-with-learning-scheduling — Create goal aligned to learning path
+
+Cross-domain links:
+    POST /api/goals/link-knowledge — Link goal to required knowledge/skill
+    POST /api/goals/link-principle — Link goal to a guiding principle
 """
 
 from __future__ import annotations
@@ -35,7 +39,11 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    LinkGoalToKnowledgeRequest,
+    LinkGoalToPrincipleRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.goal.goal_request import GoalCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.activities.goals_views import GoalCard
@@ -45,6 +53,7 @@ if TYPE_CHECKING:
     from core.models.context_types import ContextualGoal
     from core.models.goal.goal import Goal
     from core.services.goals_service import GoalsService
+    from core.services.principles_service import PrinciplesService
     from core.services.user_service import UserService
 
 
@@ -53,6 +62,7 @@ def create_goals_api_routes(
     rt: RouteDecorator,
     goals_service: GoalsService,
     user_service: UserService | None = None,
+    principles_service: PrinciplesService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Goals API routes."""
@@ -264,6 +274,60 @@ def create_goals_api_routes(
             parsed.value, None, ctx_result.value
         )
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/goals/link-knowledge", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def goal_link_knowledge(request: Request) -> Result[dict[str, Any]]:
+        """Link goal to required knowledge/skill (REQUIRES_KNOWLEDGE). Ku is shared content."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkGoalToKnowledgeRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            goals_service, req.goal_uid, user_uid, "goal"
+        )
+        if ownership_error:
+            return ownership_error
+        result = await goals_service.link_goal_to_knowledge(
+            req.goal_uid, req.knowledge_uid, req.proficiency_required, req.priority
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
+    @rt("/api/goals/link-principle", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def goal_link_principle(request: Request) -> Result[dict[str, Any]]:
+        """Link goal to a guiding principle/value (GUIDED_BY_PRINCIPLE)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkGoalToPrincipleRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            goals_service, req.goal_uid, user_uid, "goal"
+        )
+        if ownership_error:
+            return ownership_error
+        if principles_service:
+            principle_ownership_error = await verify_entity_ownership(
+                principles_service, req.principle_uid, user_uid, "principle"
+            )
+            if principle_ownership_error:
+                return principle_ownership_error
+        result = await goals_service.link_goal_to_principle(
+            req.goal_uid, req.principle_uid, req.alignment_strength
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
     return [
         *status_routes,
         goal_children,
@@ -274,4 +338,6 @@ def create_goals_api_routes(
         goals_achievable,
         goal_create_with_scheduling,
         goal_create_with_learning_scheduling,
+        goal_link_knowledge,
+        goal_link_principle,
     ]
