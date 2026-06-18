@@ -78,7 +78,10 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        return await principles_service.get_subprinciples(uid)
+        result = await principles_service.get_subprinciples(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([p for p in result.value if p.user_uid == user_uid])
 
     @rt("/api/principles/parent", methods=["GET"])
     @boundary_handler()
@@ -93,7 +96,12 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        return await principles_service.get_parent_principle(uid)
+        result = await principles_service.get_parent_principle(uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is not None and result.value.user_uid != user_uid:
+            return Result.ok(None)
+        return result
 
     @rt("/api/principles/hierarchy", methods=["GET"])
     @boundary_handler()
@@ -108,7 +116,20 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
-        return await principles_service.get_principle_hierarchy(uid)
+        result = await principles_service.get_principle_hierarchy(uid)
+        if result.is_error:
+            return Result.fail(result)
+        h = result.value
+        ancestors = [pr for pr in h["ancestors"] if pr.user_uid == user_uid]
+        return Result.ok(
+            {
+                "ancestors": ancestors,
+                "current": h["current"],
+                "siblings": [pr for pr in h["siblings"] if pr.user_uid == user_uid],
+                "children": [pr for pr in h["children"] if pr.user_uid == user_uid],
+                "depth": len(ancestors),
+            }
+        )
 
     @rt("/api/principles/remove-child", methods=["POST"])
     @csrf_protected
@@ -125,6 +146,11 @@ def create_principles_api_routes(
         )
         if ownership_error:
             return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            principles_service, req.child_uid, user_uid, "principle"
+        )
+        if child_ownership_error:
+            return child_ownership_error
         result = await principles_service.remove_subprinciple_relationship(
             req.parent_uid, req.child_uid
         )
