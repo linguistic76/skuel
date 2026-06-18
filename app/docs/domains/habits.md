@@ -69,7 +69,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 
 ```python
 class HabitsService(
-    _CompletionMixin,       # track/untrack, streak/progress/history, pause/resume/archive, reminders
+    _CompletionMixin,       # track/untrack, streak/progress/history, reminders
     _EnrichmentMixin,       # analytics + enriched metadata views
     _OrchestrationMixin,    # graph relationships + cross-domain orchestration
     KnowledgeIntelligenceDelegationMixin,
@@ -88,7 +88,7 @@ class HabitsService(
 
 | Mixin | File | Methods |
 |-------|------|---------|
-| `_CompletionMixin` | `_completion_mixin.py` | `track_habit`, `untrack_habit`, `get_habit_streak/progress/history`, `get_completion_calendar`, `pause/resume/archive_habit`, `set/get/delete_habit_reminder` |
+| `_CompletionMixin` | `_completion_mixin.py` | `track_habit`, `untrack_habit`, `get_habit_streak/progress/history`, `get_completion_calendar`, `set/get/delete_habit_reminder` |
 | `_EnrichmentMixin` | `_enrichment_mixin.py` | `get_habit_analytics`, `get_habits_summary_analytics`, `get_habit_trends`, `get_enriched_learning/curriculum/prerequisite_metadata` |
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `complete_with_goal_impacts`, `create_with_goal_links`, `create_user_habit_relationship`, `link_habit_to_knowledge/principle`, `get_skills_developed_by_habits`, `create_habit_with_context` |
 
