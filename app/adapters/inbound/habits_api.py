@@ -527,9 +527,9 @@ def create_habits_api_routes(
         existing_parent = await habits_service.get_parent_habit(req.child_uid)
         if existing_parent.is_error:
             return Result.fail(existing_parent)
-        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+        if existing_parent.value is not None:
             return Result.fail(
-                Errors.validation("habit already has a different parent", field="child_uid")
+                Errors.validation("habit already has a parent — remove it first", field="child_uid")
             )
         result = await habits_service.create_subhabit_relationship(
             req.parent_uid, req.child_uid, req.progress_weight

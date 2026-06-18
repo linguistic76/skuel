@@ -182,9 +182,9 @@ def create_events_api_routes(
         existing_parent = await events_service.get_parent_event(req.child_uid)
         if existing_parent.is_error:
             return Result.fail(existing_parent)
-        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+        if existing_parent.value is not None:
             return Result.fail(
-                Errors.validation("event already has a different parent", field="child_uid")
+                Errors.validation("event already has a parent — remove it first", field="child_uid")
             )
         result = await events_service.create_subevent_relationship(req.parent_uid, req.child_uid)
         if result.is_error:

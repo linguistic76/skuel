@@ -196,9 +196,9 @@ def create_goals_api_routes(
         existing_parent = await goals_service.get_parent_goal(req.child_uid)
         if existing_parent.is_error:
             return Result.fail(existing_parent)
-        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+        if existing_parent.value is not None:
             return Result.fail(
-                Errors.validation("goal already has a different parent", field="child_uid")
+                Errors.validation("goal already has a parent — remove it first", field="child_uid")
             )
         result = await goals_service.create_subgoal_relationship(
             req.parent_uid, req.child_uid, req.progress_weight

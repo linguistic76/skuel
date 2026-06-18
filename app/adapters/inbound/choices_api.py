@@ -190,9 +190,11 @@ def create_choices_api_routes(
         existing_parent = await choices_service.get_parent_choice(req.child_uid)
         if existing_parent.is_error:
             return Result.fail(existing_parent)
-        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+        if existing_parent.value is not None:
             return Result.fail(
-                Errors.validation("choice already has a different parent", field="child_uid")
+                Errors.validation(
+                    "choice already has a parent — remove it first", field="child_uid"
+                )
             )
         result = await choices_service.create_subchoice_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
