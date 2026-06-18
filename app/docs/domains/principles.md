@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-04-10
+updated: 2026-06-18
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -33,9 +33,8 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | Intelligence Service | `/core/services/principles/principles_intelligence_service.py` |
 | Intelligence Mixins | `_core_intelligence_mixin.py`, `_alignment_intelligence_mixin.py`, `_influence_mixin.py` |
 | Facade Mixins | `_embodiment_mixin.py`, `_gravity_mixin.py`, `_enrichment_mixin.py` |
-| Reflection Model | `/core/models/principle/reflection.py` |
-| Reflection DTO | `/core/models/principle/reflection_dto.py` |
-| Reflection Service | `/core/services/principles/principles_reflection_service.py` |
+| Event Handler | `/core/services/principles/principle_event_handler_service.py` |
+| Request Models | `/core/models/principle/principle_request.py` |
 | **Planning Service** | `/core/services/principles/principles_planning_service.py` |
 | Facade | `/core/services/principles_service.py` |
 | Config | `PRINCIPLES_CONFIG` in `/core/models/relationship_registry.py` |
@@ -420,17 +419,18 @@ principle = result.value
 ### Record a Reflection
 
 ```python
-from core.models.principle.reflection import AlignmentLevel
+from core.models.enums.principle_enums import AlignmentLevel
 
-result = await principles_service.save_reflection(
+result = await principles_service.record_principle_reflection(
     principle_uid=principle.uid,
     user_uid=user_uid,
-    alignment_level=AlignmentLevel.ALIGNED,
+    alignment_level=AlignmentLevel.ALIGNED.value,
     evidence="Spent 2 hours studying new Python patterns today",
-    reflection_notes="Feeling energized by the learning",
     trigger_type="habit",
     trigger_uid="habit.daily-learning",
 )
+# Publishes PrincipleReflectionRecorded; supply conflicting_principle_uid
+# to also publish PrincipleConflictRevealed.
 ```
 
 ### Get Alignment Trend
@@ -458,190 +458,40 @@ print(f"Aligned principles: {assessment.aligned_principles}")
 
 ---
 
-## PrincipleReflection Feature (January 2026)
+## API Routes (June 2026)
 
-### Overview
-
-The PrincipleReflection feature enables users to track how well their actions align with their principles over time. Following the HabitCompletion pattern, reflections are graph-connected entities that capture moments of alignment assessment.
-
-**Key Capabilities:**
-- Persist reflections to Neo4j with full graph connectivity
-- Track triggering entities (goals, habits, events, choices)
-- Detect principle conflicts through reflections
-- Calculate alignment trends over time
-- Generate cross-domain insights
-
-### PrincipleReflection Model
-
-**Entity Label:** `PrincipleReflection`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `uid` | `str` | Unique identifier (auto-generated) |
-| `principle_uid` | `str` | UID of the principle being reflected on |
-| `user_uid` | `str` | Owner user |
-| `reflection_date` | `date` | Date of reflection |
-| `alignment_level` | `AlignmentLevel` | ALIGNED, MOSTLY_ALIGNED, PARTIAL, MISALIGNED, UNKNOWN |
-| `evidence` | `str` | What was observed (required, min 5 chars) |
-| `reflection_notes` | `str?` | Additional thoughts/insights |
-| `reflection_quality_score` | `float` | 0.0-1.0 quality score |
-| `trigger_type` | `str?` | "goal", "habit", "event", "choice", "manual" |
-| `trigger_uid` | `str?` | UID of triggering entity |
-| `trigger_context` | `str?` | Situation description |
-| `created_at` | `datetime` | When created |
-| `updated_at` | `datetime` | When updated |
-
-### AlignmentLevel Enum
-
-8-level spectrum with canonical scores via `AlignmentLevel.to_score()`:
-
-```python
-class AlignmentLevel(StrEnum):
-    FLOURISHING = "flourishing"        # 1.0 — Principle deeply embedded
-    ALIGNED = "aligned"                # 0.85 — Fully lived this principle
-    MOSTLY_ALIGNED = "mostly_aligned"  # 0.7 — Minor deviations
-    EXPLORING = "exploring"            # 0.5 — Actively working on it
-    PARTIAL = "partial"                # 0.35 — Some alignment, room for growth
-    DRIFTING = "drifting"              # 0.2 — Losing touch
-    MISALIGNED = "misaligned"          # 0.1 — Actions contradicted principle
-    UNKNOWN = "unknown"                # 0.0 — Unsure how to assess
-```
-
-**Single source of truth:** Always use `level.to_score()` and `AlignmentLevel.from_score(score)` — never define custom mappings in services.
-
-### Quality Scoring
-
-Reflection quality (0.0-1.0) is calculated based on:
-
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Evidence depth | 0.4 | Length/detail of evidence (>100 chars = full points) |
-| Notes provided | 0.3 | Additional reflection notes present |
-| Trigger context | 0.2 | Situation context provided |
-| Trigger UID | 0.1 | Specific entity reference |
-
-### Graph Schema
-
-```
-(User)-[:MADE_REFLECTION]->(PrincipleReflection)-[:REFLECTS_ON]->(Principle)
-                                    |
-                                    +-[:TRIGGERED_BY]->(Goal|Habit|Event|Choice)
-                                    |
-                                    +-[:REVEALS_CONFLICT]->(Principle)
-```
-
-### Reflection Relationships
-
-| Relationship | Direction | Description |
-|--------------|-----------|-------------|
-| `MADE_REFLECTION` | (User)→(Reflection) | User created this reflection |
-| `REFLECTS_ON` | (Reflection)→(Principle) | Reflection is about this principle |
-| `TRIGGERED_BY` | (Reflection)→(Entity) | What prompted the reflection |
-| `REVEALS_CONFLICT` | (Reflection)→(Principle) | Conflict detected with another principle |
-| `HAS_REFLECTION` | (Principle)→(Reflection) | Principle has this reflection |
-
-### Reflection Service Methods
-
-**Service:** `PrinciplesReflectionService` (`/core/services/principles/principles_reflection_service.py`)
-
-| Method | Description |
-|--------|-------------|
-| `save_reflection(...)` | Create reflection with full graph connectivity |
-| `get_reflections_for_principle(uid, user_uid, limit)` | Fetch reflection history for a principle |
-| `get_recent_reflections(user_uid, days, limit)` | Get recent reflections across all principles |
-| `calculate_alignment_trend(uid, user_uid, days)` | Analyze alignment trend over time |
-| `get_cross_domain_insights(uid, user_uid)` | Which domains align best with this principle |
-| `get_reflection_frequency(user_uid, days)` | Reflection frequency metrics |
-| `get_conflict_analysis(uid, user_uid)` | Analyze principle conflicts revealed through reflections |
-
-### Facade Delegations
-
-All reflection methods are delegated through `PrinciplesService`:
-
-```python
-# Via facade
-await principles_service.save_reflection(...)
-await principles_service.get_reflections_for_principle(...)
-await principles_service.get_alignment_trend(...)  # Maps to calculate_alignment_trend
-await principles_service.get_cross_domain_insights(...)
-await principles_service.get_reflection_frequency(...)
-await principles_service.get_conflict_analysis(...)
-```
-
-### Events
-
-**PrincipleReflectionRecorded** - Published when a reflection is saved:
-```python
-@dataclass(frozen=True)
-class PrincipleReflectionRecorded(BaseEvent):
-    reflection_uid: str
-    principle_uid: str
-    user_uid: UserUID
-    alignment_level: str
-    evidence: str
-    trigger_type: str | None = None
-    trigger_uid: str | None = None
-    reflection_quality_score: float = 0.0
-```
-
-**PrincipleConflictRevealed** - Published when a conflict is detected:
-```python
-@dataclass(frozen=True)
-class PrincipleConflictRevealed(BaseEvent):
-    reflection_uid: str
-    principle_uid: str
-    conflicting_principle_uid: str
-    user_uid: UserUID
-    conflict_context: str | None = None
-```
-
-### UI Routes
+All ownership-verified unless otherwise noted.
 
 | Route | Method | Description |
 |-------|--------|-------------|
-| `/principles/{uid}/reflect` | GET | Show reflection form (modal) |
-| `/principles/{uid}/reflect/save` | POST | Save reflection |
-| `/principles/{uid}/reflections` | GET | Reflection history view |
-| `/principles/{uid}/alignment-trend` | GET | Alignment trend visualization |
+| `/api/principles/expression?uid=` | POST | Append a lived expression (context + behavior) |
+| `/api/principles/portfolio` | GET | Authenticated user's complete principle portfolio |
+| `/api/principles/integrity?uid=` | GET | Action-alignment integrity score for a principle |
+| `/api/principles/link?uid=` | POST | Link principle → goal / habit / Ku / principle |
+| `/api/principles/links?uid=&link_type=` | GET | Cross-domain links (all or filtered by type) |
+| `/api/principles/impact?uid=` | GET | Quick impact metrics (adoption level, counts) |
+| `/api/principles/batch-impact` | POST | Parallel adoption analysis for N principles |
+| `/api/principles/choice-effectiveness?uid=&period_days=` | GET | How effectively principle guides choices |
+| `/api/principles/reflection` | POST | Record alignment evidence; publishes events |
+| `/api/principles/link-knowledge` | POST | Link principle to a Ku (GROUNDED_IN_KNOWLEDGE) |
+| `/api/principles/children?uid=` | GET | Direct sub-principles |
+| `/api/principles/parent?uid=` | GET | Immediate parent principle |
+| `/api/principles/hierarchy?uid=` | GET | Full ancestor/sibling/child context |
+| `/api/principles/remove-child` | POST | Remove a sub-principle relationship |
 
-### UI Components
-
-**PrinciplesViewComponents** (`/ui/principles/views.py`):
-
-| Component | Description |
-|-----------|-------------|
-| `render_reflect_form(principle)` | Reflection form with alignment, evidence, trigger fields |
-| `render_reflection_history(principle, reflections)` | List of past reflections |
-| `_render_reflection_card(reflection)` | Single reflection card |
-| `render_alignment_trend(trend)` | Trend stats and visualization |
-
-### AlignmentTrend Data Structure
-
-```python
-@dataclass
-class AlignmentTrend:
-    principle_uid: str
-    period_start: date
-    period_end: date
-    reflection_count: int
-    average_alignment: float  # 0-4 scale
-    trend_direction: str      # "improving", "declining", "stable"
-    quality_average: float    # 0-1 scale
-    trigger_distribution: dict[str, int]  # Count by trigger type
+**Reflection request body** (`PrincipleReflectionRequest`):
+```json
+{
+  "principle_uid": "principle:integrity",
+  "alignment_level": "aligned",
+  "evidence": "Kept my commitment despite pressure to cut corners",
+  "trigger_type": "choice",
+  "trigger_uid": "choice:...",
+  "conflicting_principle_uid": null,
+  "reflection_quality_score": 0.8
+}
 ```
-
-### Verification Steps
-
-1. Navigate to `/principles` and click "Reflect" on a principle
-2. Fill in the form with evidence, notes, and trigger info
-3. Click "Save Reflection" - should persist and close modal
-4. Click "View" on the principle - should show recent reflections
-5. Click "History" - should show full reflection history
-6. Verify in Neo4j:
-   ```cypher
-   MATCH (r:PrincipleReflection) RETURN r
-   MATCH (r:PrincipleReflection)-[rel]->(n) RETURN r, type(rel), n
-   ```
+Publishes `PrincipleReflectionRecorded`. Supply `conflicting_principle_uid` to also fire `PrincipleConflictRevealed`.
 
 ---
 

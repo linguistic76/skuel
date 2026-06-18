@@ -318,6 +318,85 @@ class PrinciplesService(
     async def get_principle_conflict_analysis(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         return await self.intelligence.get_principle_conflict_analysis(user_uid)
 
+    async def get_quick_principle_impact(self, principle_uid: str) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_quick_principle_impact(principle_uid)
+
+    async def batch_analyze_principle_adoption(
+        self, principle_uids: list[str]
+    ) -> Result[dict[str, dict[str, Any]]]:
+        return await self.intelligence.batch_analyze_principle_adoption(principle_uids)
+
+    async def get_choice_guidance_effectiveness(
+        self, principle_uid: str, user_uid: UserUID, period_days: int = 90
+    ) -> Result[dict[str, Any]]:
+        return await self.intelligence.get_choice_guidance_effectiveness(
+            principle_uid, user_uid, period_days
+        )
+
+    async def record_principle_reflection(
+        self,
+        principle_uid: str,
+        user_uid: UserUID,
+        alignment_level: str,
+        evidence: str,
+        trigger_type: str | None = None,
+        trigger_uid: str | None = None,
+        conflicting_principle_uid: str | None = None,
+        reflection_quality_score: float = 0.0,
+    ) -> Result[dict[str, Any]]:
+        """
+        Record a principle reflection and publish domain events.
+
+        Publishes PrincipleReflectionRecorded. If conflicting_principle_uid is
+        supplied, also publishes PrincipleConflictRevealed.
+        """
+        import contextlib
+
+        from core.events import publish_event
+        from core.events.principle_events import (
+            PrincipleConflictRevealed,
+            PrincipleReflectionRecorded,
+        )
+        from core.models.enums.principle_enums import TriggerType
+        from core.utils.uid_generator import UIDGenerator
+
+        trigger: TriggerType | None = None
+        if trigger_type:
+            with contextlib.suppress(ValueError):
+                trigger = TriggerType(trigger_type)
+
+        reflection_uid = str(UIDGenerator.generate_uid("refl"))
+
+        reflection_event = PrincipleReflectionRecorded(
+            reflection_uid=reflection_uid,
+            principle_uid=principle_uid,
+            user_uid=user_uid,
+            alignment_level=alignment_level,
+            evidence=evidence,
+            trigger_type=trigger,
+            trigger_uid=trigger_uid,
+            reflection_quality_score=reflection_quality_score,
+        )
+        await publish_event(self.event_bus, reflection_event, self.logger)
+
+        if conflicting_principle_uid:
+            conflict_event = PrincipleConflictRevealed(
+                reflection_uid=reflection_uid,
+                principle_uid=principle_uid,
+                conflicting_principle_uid=conflicting_principle_uid,
+                user_uid=user_uid,
+            )
+            await publish_event(self.event_bus, conflict_event, self.logger)
+
+        return Result.ok(
+            {
+                "reflection_uid": reflection_uid,
+                "principle_uid": principle_uid,
+                "alignment_level": alignment_level,
+                "conflict_revealed": conflicting_principle_uid is not None,
+            }
+        )
+
     # Search delegations
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
