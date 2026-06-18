@@ -96,7 +96,7 @@ class GoalsService(
 | `intelligence` | Analytics, predictions, dual-track assessment (decomposed into 5 mixins — see below) |
 | `event_handler` | Event-driven reactive handlers (achievements, abandonment, progress) |
 
-Created via `create_common_sub_services()` factory in facade `__init__` (core and intelligence skipped — built manually with extra dependencies).
+Created via `create_common_sub_services()` factory in facade `__init__` (core, intelligence, planning, and scheduling skipped — built manually with extra dependencies).
 
 ## Event Handler — Insight Persistence (March 2026)
 
