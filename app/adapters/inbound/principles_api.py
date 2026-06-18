@@ -27,6 +27,12 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import LinkPrincipleToKnowledgeRequest, RemoveHierarchyChildRequest
+from core.models.principle.principle_request import (
+    PrincipleBatchImpactRequest,
+    PrincipleExpressionRequest,
+    PrincipleLinkRequest,
+    PrincipleReflectionRequest,
+)
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.principles_views import PrincipleCard
@@ -187,6 +193,193 @@ def create_principles_api_routes(
             return Result.fail(result)
         return Result.ok({"linked": result.value})
 
+    # ================================================================
+    # EMBODIMENT — expressions, portfolio, integrity
+    # ================================================================
+
+    @rt("/api/principles/expression", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_create_expression(request: Request) -> Result[dict[str, Any]]:
+        """Append a lived expression (context + behavior) to a principle."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, PrincipleExpressionRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(
+                Errors.validation(message="uid query param is required", field="uid")
+            )
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        return await principles_service.create_principle_expression(
+            {
+                "principle_uid": uid,
+                "context": req.context,
+                "behavior": req.behavior,
+                "example": req.example,
+            }
+        )
+
+    @rt("/api/principles/portfolio", methods=["GET"])
+    @boundary_handler()
+    async def principle_portfolio(request: Request) -> Result[dict[str, Any]]:
+        """Return the authenticated user's complete principle portfolio."""
+        user_uid = require_authenticated_user(request)
+        return await principles_service.get_user_principle_portfolio(user_uid)
+
+    @rt("/api/principles/integrity", methods=["GET"])
+    @boundary_handler()
+    async def principle_integrity(request: Request) -> Result[dict[str, Any]]:
+        """Calculate how well user's actions align with a stated principle."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        return await principles_service.calculate_principle_integrity(user_uid, uid)
+
+    # ================================================================
+    # GRAVITY — cross-domain links
+    # ================================================================
+
+    @rt("/api/principles/link", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_create_link(request: Request) -> Result[dict[str, Any]]:
+        """Link a principle to a goal, habit, knowledge unit, or another principle."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        parsed = await parse_json_body(request, PrincipleLinkRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        return await principles_service.create_principle_link(
+            {"principle_uid": uid, "target_uid": req.uid, "link_type": req.link_type}
+        )
+
+    @rt("/api/principles/links", methods=["GET"])
+    @boundary_handler()
+    async def principle_get_links(request: Request) -> Result[list[dict[str, Any]]]:
+        """Return all cross-domain links for a principle, optionally filtered by link_type."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        link_type = request.query_params.get("link_type") or None
+        return await principles_service.get_principle_links(uid, link_type)
+
+    # ================================================================
+    # ANALYTICS — impact, batch adoption, choice effectiveness
+    # ================================================================
+
+    @rt("/api/principles/impact", methods=["GET"])
+    @boundary_handler()
+    async def principle_quick_impact(request: Request) -> Result[dict[str, Any]]:
+        """Return quick impact metrics for a principle (relationship counts, adoption level)."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        return await principles_service.get_quick_principle_impact(uid)
+
+    @rt("/api/principles/batch-impact", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_batch_impact(request: Request) -> Result[dict[str, dict[str, Any]]]:
+        """Batch-analyze adoption metrics for multiple principles."""
+        require_authenticated_user(request)
+        parsed = await parse_json_body(request, PrincipleBatchImpactRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        return await principles_service.batch_analyze_principle_adoption(
+            parsed.value.principle_uids
+        )
+
+    @rt("/api/principles/choice-effectiveness", methods=["GET"])
+    @boundary_handler()
+    async def principle_choice_effectiveness(request: Request) -> Result[dict[str, Any]]:
+        """Analyze how effectively a principle guides user choices."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(
+            principles_service, uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        period_str = request.query_params.get("period_days", "90")
+        try:
+            period_days = int(period_str)
+        except ValueError:
+            period_days = 90
+        return await principles_service.get_choice_guidance_effectiveness(
+            uid, user_uid, period_days
+        )
+
+    # ================================================================
+    # REFLECTION — publishes PrincipleReflectionRecorded + optionally
+    #               PrincipleConflictRevealed
+    # ================================================================
+
+    @rt("/api/principles/reflection", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_record_reflection(request: Request) -> Result[dict[str, Any]]:
+        """
+        Record a principle reflection (how well you lived it today).
+
+        Publishes PrincipleReflectionRecorded. Supply conflicting_principle_uid
+        to also fire PrincipleConflictRevealed.
+        """
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, PrincipleReflectionRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            principles_service, req.principle_uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        return await principles_service.record_principle_reflection(
+            principle_uid=req.principle_uid,
+            user_uid=user_uid,
+            alignment_level=req.alignment_level.value,
+            evidence=req.evidence,
+            trigger_type=req.trigger_type,
+            trigger_uid=req.trigger_uid,
+            conflicting_principle_uid=req.conflicting_principle_uid,
+            reflection_quality_score=req.reflection_quality_score,
+        )
+
     return [
         *status_routes,
         principle_children,
@@ -194,4 +387,13 @@ def create_principles_api_routes(
         principle_hierarchy,
         principle_remove_child,
         principle_link_knowledge,
+        principle_create_expression,
+        principle_portfolio,
+        principle_integrity,
+        principle_create_link,
+        principle_get_links,
+        principle_quick_impact,
+        principle_batch_impact,
+        principle_choice_effectiveness,
+        principle_record_reflection,
     ]
