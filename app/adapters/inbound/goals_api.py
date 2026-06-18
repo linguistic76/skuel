@@ -28,7 +28,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -47,13 +47,13 @@ from core.models.entity_requests import (
     RemoveHierarchyChildRequest,
 )
 from core.models.goal.goal_request import GoalCreateRequest
+from core.models.context_types import ContextualGoal
+from core.models.goal.goal import Goal
 from core.utils.result_simplified import Errors, Result
 from ui.activities.goals_views import GoalCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-    from core.models.context_types import ContextualGoal
-    from core.models.goal.goal import Goal
     from core.services.goals_service import GoalsService
     from core.services.principles_service import PrinciplesService
     from core.services.user_service import UserService
@@ -102,7 +102,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/parent", methods=["GET"])
     @boundary_handler()
-    async def goal_parent(request: Request) -> Result[Goal | None]:
+    async def goal_parent(request: Request) -> Result[Optional[Goal]]:
         """Immediate parent of a subgoal (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

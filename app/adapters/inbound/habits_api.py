@@ -46,7 +46,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from starlette.responses import Response
 
@@ -75,12 +75,12 @@ from core.models.habit.habit_request import (
     UntrackHabitRequest,
 )
 from core.models.habit.habit_update_intent import HabitUpdateIntent
+from core.models.habit.habit import Habit
 from core.utils.result_simplified import Errors, Result
 from ui.activities.habits_views import HabitCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
-    from core.models.habit.habit import Habit
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
 
@@ -433,7 +433,7 @@ def create_habits_api_routes(
 
     @rt("/api/habits/parent", methods=["GET"])
     @boundary_handler()
-    async def habit_parent(request: Request) -> Result[Habit | None]:
+    async def habit_parent(request: Request) -> Result[Optional[Habit]]:
         """Immediate parent of a subhabit (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
