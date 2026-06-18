@@ -49,8 +49,8 @@ def create_choices_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
-    goals_service: GoalsService | None = None,
-    principles_service: PrinciplesService | None = None,
+    goals_service: GoalsService,
+    principles_service: PrinciplesService,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Choices API routes."""
@@ -180,12 +180,11 @@ def create_choices_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if goals_service:
-            goal_ownership_error = await verify_entity_ownership(
-                goals_service, req.goal_uid, user_uid, "goal"
-            )
-            if goal_ownership_error:
-                return goal_ownership_error
+        goal_ownership_error = await verify_entity_ownership(
+            goals_service, req.goal_uid, user_uid, "goal"
+        )
+        if goal_ownership_error:
+            return goal_ownership_error
         result = await choices_service.link_choice_to_goal(
             req.choice_uid, req.goal_uid, req.contribution_score
         )
@@ -208,12 +207,11 @@ def create_choices_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if principles_service:
-            principle_ownership_error = await verify_entity_ownership(
-                principles_service, req.principle_uid, user_uid, "principle"
-            )
-            if principle_ownership_error:
-                return principle_ownership_error
+        principle_ownership_error = await verify_entity_ownership(
+            principles_service, req.principle_uid, user_uid, "principle"
+        )
+        if principle_ownership_error:
+            return principle_ownership_error
         result = await choices_service.link_choice_to_principle(
             req.choice_uid, req.principle_uid, req.alignment_score
         )
@@ -226,18 +224,23 @@ def create_choices_api_routes(
     async def choices_aligned_with_principle(request: Request) -> Result[list[Choice]]:
         """Choices semantically aligned with a given principle (min_confidence threshold)."""
         user_uid = require_authenticated_user(request)
-        principle_uid = request.query_params.get("principle_uid", "")
+        principle_uid = request.query_params.get("principle_uid", "").strip()
         if not principle_uid:
             return Result.fail(
                 Errors.validation(message="principle_uid is required", field="principle_uid")
             )
-        if principles_service:
-            principle_ownership_error = await verify_entity_ownership(
-                principles_service, principle_uid, user_uid, "principle"
+        principle_ownership_error = await verify_entity_ownership(
+            principles_service, principle_uid, user_uid, "principle"
+        )
+        if principle_ownership_error:
+            return principle_ownership_error
+        raw_confidence = request.query_params.get("min_confidence", "0.8")
+        try:
+            min_confidence = float(raw_confidence)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(message="min_confidence must be a number", field="min_confidence")
             )
-            if principle_ownership_error:
-                return principle_ownership_error
-        min_confidence = float(request.query_params.get("min_confidence", "0.8"))
         result = await choices_service.find_choices_aligned_with_principle(
             principle_uid, min_confidence
         )

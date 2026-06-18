@@ -42,7 +42,7 @@ def create_tasks_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
-    goals_service: GoalsService | None = None,
+    goals_service: GoalsService,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Tasks API routes."""
@@ -169,12 +169,11 @@ def create_tasks_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if goals_service:
-            goal_ownership_error = await verify_entity_ownership(
-                goals_service, req.goal_uid, user_uid, "goal"
-            )
-            if goal_ownership_error:
-                return goal_ownership_error
+        goal_ownership_error = await verify_entity_ownership(
+            goals_service, req.goal_uid, user_uid, "goal"
+        )
+        if goal_ownership_error:
+            return goal_ownership_error
         result = await tasks_service.link_task_to_goal(
             req.task_uid, req.goal_uid, req.contribution_percentage, req.milestone_uid
         )

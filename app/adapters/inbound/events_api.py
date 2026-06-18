@@ -42,7 +42,7 @@ def create_events_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
-    goals_service: GoalsService | None = None,
+    goals_service: GoalsService,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Events API routes."""
@@ -169,12 +169,11 @@ def create_events_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if goals_service:
-            goal_ownership_error = await verify_entity_ownership(
-                goals_service, req.goal_uid, user_uid, "goal"
-            )
-            if goal_ownership_error:
-                return goal_ownership_error
+        goal_ownership_error = await verify_entity_ownership(
+            goals_service, req.goal_uid, user_uid, "goal"
+        )
+        if goal_ownership_error:
+            return goal_ownership_error
         result = await events_service.link_event_to_goal(
             req.event_uid, req.goal_uid, req.contribution_weight
         )
