@@ -634,6 +634,13 @@ class HabitsCompletionService:
         Returns:
             Result[str] with exported data as string
         """
+        if format not in ("csv", "json"):
+            return Result.fail(
+                Errors.validation(
+                    message=f"Unsupported export format: {format}", field="format", value=format
+                )
+            )
+
         # Scope through the habits backend — HabitCompletion has no user_uid field,
         # so filtering completions_backend by user_uid is silently a no-op. The
         # correct path is: fetch the user's habit UIDs (habits_backend IS scoped),
@@ -676,14 +683,7 @@ class HabitsCompletionService:
 
         if format == "csv":
             return self._export_csv(completions)
-        elif format == "json":
-            return self._export_json(completions)
-        else:
-            return Result.fail(
-                Errors.validation(
-                    message=f"Unsupported export format: {format}", field="format", value=format
-                )
-            )
+        return self._export_json(completions)
 
     def _export_csv(self, completions: list[HabitCompletion]) -> Result[str]:
         """Export completions as CSV. Delegates to presentation layer."""
