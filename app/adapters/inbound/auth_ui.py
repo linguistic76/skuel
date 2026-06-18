@@ -220,7 +220,9 @@ def create_auth_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
             return AuthPage(
-                AuthComponents.render_registration_page(error_message=f"An error occurred: {e!s}"),
+                AuthComponents.render_registration_page(
+                    error_message="Registration failed, please try again."
+                ),
                 title="Create Account",
             )
 
@@ -331,7 +333,7 @@ def create_auth_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Login error: {e}", exc_info=True)
-            return AuthComponents.render_login_error(str(e))
+            return AuthComponents.render_login_error("Login failed, please try again.")
 
     # ========================================================================
     # PASSWORD RESET
@@ -430,7 +432,7 @@ def create_auth_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Password reset error: {e}")
             return AuthComponents.render_reset_password_page(
-                error_message=f"An error occurred: {e!s}"
+                error_message="Password reset failed, please try again."
             )
 
     # ========================================================================
