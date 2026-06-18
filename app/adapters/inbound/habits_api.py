@@ -46,7 +46,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from starlette.responses import Response
 
@@ -67,6 +67,7 @@ from core.models.entity_requests import (
     LinkHabitToPrincipleRequest,
     RemoveHierarchyChildRequest,
 )
+from core.models.habit.habit import Habit
 from core.models.habit.habit_request import (
     BulkCompleteHabitsRequest,
     DeleteHabitReminderRequest,
@@ -75,7 +76,6 @@ from core.models.habit.habit_request import (
     UntrackHabitRequest,
 )
 from core.models.habit.habit_update_intent import HabitUpdateIntent
-from core.models.habit.habit import Habit
 from core.utils.result_simplified import Errors, Result
 from ui.activities.habits_views import HabitCard
 
@@ -433,7 +433,7 @@ def create_habits_api_routes(
 
     @rt("/api/habits/parent", methods=["GET"])
     @boundary_handler()
-    async def habit_parent(request: Request) -> Result[Optional[Habit]]:
+    async def habit_parent(request: Request) -> Result[Habit | None]:
         """Immediate parent of a subhabit (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

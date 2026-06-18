@@ -557,6 +557,14 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.search.get_in_range(start_date, end_date, user_uid, limit)
 
+    async def get_upcoming_events_for_user(
+        self,
+        context: UserContext,
+        limit: int = 5,
+    ) -> Result[list[Event]]:
+        """Today's events for the daily plan P2 slot."""
+        return await self.get_upcoming(days_ahead=1, user_uid=context.user_uid, limit=limit)
+
     # Intelligence delegations
     async def analyze_event_performance(self, uid: str) -> Result[dict[str, Any]]:
         return await self.intelligence.analyze_event_performance(uid)

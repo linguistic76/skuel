@@ -61,7 +61,6 @@ from core.services.relationships._intelligence_mixin import IntelligenceMixin
 from core.services.relationships._ordered_relationships_mixin import OrderedRelationshipsMixin
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_result_score
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
@@ -581,104 +580,6 @@ class UnifiedRelationshipService[
     # =========================================================================
     # These methods leverage UserContext (~240 fields) for personalized queries.
 
-    @with_error_handling("get_actionable_for_user", error_type="database")
-    async def get_actionable_for_user(
-        self,
-        context: UserContext,
-        limit: int = 10,
-        include_learning: bool = True,
-    ) -> Result[list[Model]]:
-        """
-        Get actionable entities for user based on their context.
-
-        "Actionable" means:
-        - No blocking prerequisites
-        - User has required knowledge mastery
-        - Not already completed
-        - Relevant to active goals
-
-        Context Fields Used:
-        - knowledge_mastery: Filter by user's mastery levels
-        - completed_*_uids: Exclude completed items
-        - active_goal_uids: Prioritize goal-aligned items
-        - overdue_*_uids: Boost urgency
-
-        Args:
-            context: User's complete context (~240 fields)
-            limit: Maximum number of items to return
-            include_learning: Include learning-related items
-
-        Returns:
-            Result containing list of actionable entities, ranked by relevance
-        """
-        domain_name = self.config.domain.value.rstrip("s")
-        user_uid = context.user_uid
-
-        # Get all user entities for this domain
-        list_result = await self.backend.list(
-            filters={"user_uid": user_uid},
-            limit=limit * 3,  # Get extra for filtering
-        )
-
-        if list_result.is_error:
-            return Result.fail(list_result)
-
-        # list() returns tuple[list[T], int]
-        entities, _ = list_result.value
-
-        # Filter and score each entity
-        scored_entities = []
-        for entity in entities:
-            entity_model = self._context_to_domain_model(entity)
-
-            # Skip completed entities
-            if self._is_completed(entity_model, context):
-                continue
-
-            # Calculate readiness score
-            readiness = await self._calculate_readiness_score(entity_model, context)
-            if readiness < 0.5:  # Not ready
-                continue
-
-            # Calculate relevance score
-            relevance = self._calculate_relevance_score(entity_model, context)
-
-            # Combined score
-            score = readiness * 0.4 + relevance * 0.6
-
-            # Urgency boost
-            if self._is_urgent(entity_model, context):
-                score *= 1.3
-
-            # Learning relevance boost
-            if include_learning:
-                in_progress = getattr(context, "in_progress_knowledge_uids", None) or set()
-                if in_progress:
-                    entity_uid = getattr(entity_model, "uid", "")
-                    if entity_uid:
-                        entity_uid_typed = EntityUID(str(entity_uid))
-                        for key in ["knowledge", "applied_knowledge", "prerequisite_knowledge"]:
-                            knowledge_result = await self.get_related_uids(key, entity_uid_typed)
-                            if knowledge_result.is_ok and knowledge_result.value:
-                                overlap = set(knowledge_result.value) & in_progress
-                                if overlap:
-                                    score *= 1.2  # 20% boost for learning-relevant entities
-                                break
-
-            scored_entities.append((entity_model, score))
-
-        # Sort by score descending
-        scored_entities.sort(key=get_result_score, reverse=True)
-
-        # Return top N
-        result_entities = [e for e, _ in scored_entities[:limit]]
-
-        self.logger.debug(
-            f"Found {len(result_entities)} actionable {domain_name}s for user {user_uid}"
-        )
-
-        return Result.ok(result_entities)
-
     @with_error_handling("get_blocked_for_user", error_type="database")
     async def get_blocked_for_user(
         self,
@@ -733,47 +634,6 @@ class UnifiedRelationshipService[
                 )
 
         return Result.ok(blocked[:limit])
-
-    @with_error_handling("get_goal_aligned_for_user", error_type="database")
-    async def get_goal_aligned_for_user(
-        self,
-        context: UserContext,
-        goal_uid: str | None = None,
-        limit: int = 10,
-    ) -> Result[list[Model]]:
-        """
-        Get entities aligned with user's goals.
-
-        Args:
-            context: User's complete context
-            goal_uid: Optional specific goal to filter by
-            limit: Maximum number of items
-
-        Returns:
-            Result containing goal-aligned entities
-        """
-        domain_name = self.config.domain.value.rstrip("s")
-        user_uid = context.user_uid
-        entity_label = self.config.entity_label
-
-        result = await self.backend.get_goal_aligned_entities(
-            user_uid=user_uid,
-            domain_name=domain_name,
-            entity_label=entity_label,
-            goal_uid=goal_uid,
-            limit=limit,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-
-        entities = [
-            self._context_to_domain_model(record.get("e"))
-            for record in result.value
-            if record.get("e")
-        ]
-
-        return Result.ok(entities)
 
     # =========================================================================
     # SCORING HELPERS (for UserContext methods)
@@ -875,22 +735,6 @@ class UnifiedRelationshipService[
         completed_uids = set(getattr(context, completed_field, []) or [])
 
         return entity_uid in completed_uids
-
-    def _is_urgent(self, entity: Model, context: UserContext) -> bool:
-        """Check if entity is urgent based on context."""
-        entity_uid = getattr(entity, "uid", None)
-
-        # Check overdue
-        domain_name = self.config.domain.value.rstrip("s")
-        overdue_field = f"overdue_{domain_name}_uids"
-        overdue_uids = set(getattr(context, overdue_field, []) or [])
-
-        if entity_uid in overdue_uids:
-            return True
-
-        # Check priority
-        priority = getattr(entity, "priority", None)
-        return bool(priority and str(priority).lower() == "urgent")
 
     async def _identify_blocking_reasons(
         self,

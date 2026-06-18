@@ -423,6 +423,12 @@ class HabitsService(
     ) -> Result[ContextualDependencies]:
         return await self.planning.get_habit_readiness_for_user(habit_uid, context)
 
+    async def get_at_risk_habits_for_user(
+        self, context: UserContext, limit: int = 5
+    ) -> Result[list[ContextualHabit]]:
+        """Habits with at-risk streaks, ranked by urgency. For the daily plan P1 slot."""
+        return await self.planning.get_habit_priorities_for_user(context, limit)
+
     # Scheduling delegations
     async def check_habit_capacity(
         self,

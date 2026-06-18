@@ -89,6 +89,7 @@ if TYPE_CHECKING:
     from core.services.goals_types import GoalLearningProgress
     from core.services.insight.insight_store import InsightStore
     from core.services.user import UserContext
+    from core.services.user.unified_user_context import RichUserContext
 
 
 def _get_goal_status_str(goal: Any) -> str:
@@ -657,6 +658,14 @@ class GoalsService(
     ) -> Result[list[ContextualGoal]]:
         """Goals near completion — prioritised for finishing. See GoalsPlanningService."""
         return await self.planning.get_achievable_goals_for_user(context, min_progress, limit)
+
+    async def get_advancing_goals_for_user(
+        self,
+        context: RichUserContext,
+        limit: int = 2,
+    ) -> Result[list[ContextualGoal]]:
+        """Goals with active momentum — for the daily plan P6 slot. See GoalsPlanningService."""
+        return await self.planning.get_advancing_goals_for_user(context, limit)
 
     # ========================================================================
     # QUERY LAYER

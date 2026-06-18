@@ -28,7 +28,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -40,15 +40,15 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
+from core.models.context_types import ContextualGoal
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
     LinkGoalToKnowledgeRequest,
     LinkGoalToPrincipleRequest,
     RemoveHierarchyChildRequest,
 )
-from core.models.goal.goal_request import GoalCreateRequest
-from core.models.context_types import ContextualGoal
 from core.models.goal.goal import Goal
+from core.models.goal.goal_request import GoalCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.activities.goals_views import GoalCard
 
@@ -102,7 +102,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/parent", methods=["GET"])
     @boundary_handler()
-    async def goal_parent(request: Request) -> Result[Optional[Goal]]:
+    async def goal_parent(request: Request) -> Result[Goal | None]:
         """Immediate parent of a subgoal (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -254,6 +254,25 @@ def create_goals_api_routes(
         return await goals_service.get_achievable_goals_for_user(
             ctx_result.value, min_progress, limit
         )
+
+    @rt("/api/goals/advancing", methods=["GET"])
+    @boundary_handler()
+    async def goals_advancing(request: Request) -> Result[list[ContextualGoal]]:
+        """Goals with active momentum, for the daily plan P6 slot.
+
+        Query params:
+            limit: Max results (default 2)
+        """
+        user_uid = require_authenticated_user(request)
+        if not user_service:
+            return Result.fail(
+                Errors.system(message="user_service not available", operation="goals_advancing")
+            )
+        limit = int(request.query_params.get("limit", "2"))
+        ctx_result = await user_service.get_rich_unified_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goals_service.get_advancing_goals_for_user(ctx_result.value, limit)
 
     # ================================================================
     # SCHEDULING-AWARE CREATION

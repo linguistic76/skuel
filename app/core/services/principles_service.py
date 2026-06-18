@@ -464,6 +464,14 @@ class PrinciplesService(
             context, principle_uid, limit
         )
 
+    async def get_aligned_principles_for_user(
+        self,
+        context: UserContext,
+        limit: int = 5,
+    ) -> Result[list[ContextualPrinciple]]:
+        """Context-relevant principles to embody today. For the daily plan P8 slot."""
+        return await self.planning.get_contextual_principles_for_user(context, limit)
+
     def __init__(
         self,
         backend: PrinciplesOperations,
