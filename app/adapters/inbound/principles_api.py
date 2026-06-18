@@ -7,6 +7,7 @@ Hierarchy (ownership-verified):
     GET  /api/principles/parent       — Immediate parent of a subprinciple
     GET  /api/principles/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/principles/remove-child — Remove a subprinciple relationship
+    POST /api/principles/add-child   — Add a subprinciple relationship
 
 Cross-domain links:
     POST /api/principles/link-knowledge — Link principle to knowledge it is grounded in
@@ -26,7 +27,11 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import LinkPrincipleToKnowledgeRequest, RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    AddHierarchyChildRequest,
+    LinkPrincipleToKnowledgeRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.principle.principle_request import (
     PrincipleBatchImpactRequest,
     PrincipleExpressionRequest,
@@ -168,6 +173,46 @@ def create_principles_api_routes(
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"removed": result.value})
+
+    @rt("/api/principles/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subprinciple relationship between two principles."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
+        ownership_error = await verify_entity_ownership(
+            principles_service, req.parent_uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            principles_service, req.child_uid, user_uid, "principle"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        existing_parent = await principles_service.get_parent_principle(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None:
+            return Result.fail(
+                Errors.validation(
+                    "principle already has a parent — remove it first", field="child_uid"
+                )
+            )
+        result = await principles_service.create_subprinciple_relationship(
+            req.parent_uid, req.child_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
 
     # ================================================================
     # CROSS-DOMAIN LINKS
@@ -416,6 +461,7 @@ def create_principles_api_routes(
         principle_parent,
         principle_hierarchy,
         principle_remove_child,
+        principle_add_child,
         principle_link_knowledge,
         principle_create_expression,
         principle_portfolio,

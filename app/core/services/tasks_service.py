@@ -846,6 +846,11 @@ class TasksService(
     async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_task_hierarchy(task_uid)
 
+    async def create_subtask_relationship(
+        self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
+    ) -> Result[bool]:
+        return await self.core.create_subtask_relationship(parent_uid, child_uid, progress_weight)
+
     async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subtask_relationship(parent_uid, child_uid)
 

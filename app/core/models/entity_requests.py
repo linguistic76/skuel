@@ -625,6 +625,20 @@ class RemoveHierarchyChildRequest(BaseModel):
     child_uid: str = Field(..., min_length=1, description="Child entity UID")
 
 
+class AddHierarchyChildRequest(BaseModel):
+    """Add a parent-child hierarchy relationship.
+
+    Shared by all 6 Activity Domains (tasks, goals, habits, events, choices, principles).
+    progress_weight is only used by Tasks, Goals, and Habits; other domains ignore it.
+    """
+
+    parent_uid: str = Field(..., min_length=1, description="Parent entity UID")
+    child_uid: str = Field(..., min_length=1, description="Child entity UID")
+    progress_weight: float = Field(
+        default=1.0, ge=0.0, le=1.0, description="Weight of child's contribution to parent progress"
+    )
+
+
 # ============================================================================
 # CROSS-DOMAIN LINK REQUESTS — Theme D (motivational web)
 # ============================================================================

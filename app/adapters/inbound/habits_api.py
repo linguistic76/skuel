@@ -32,6 +32,13 @@ Reminders:
 Export:
     GET  /api/habits/export            — Download completion history (CSV/JSON)
 
+Hierarchy (ownership-verified):
+    GET  /api/habits/children     — Direct subhabits of a parent habit
+    GET  /api/habits/parent       — Immediate parent of a subhabit
+    GET  /api/habits/hierarchy    — Full hierarchy context (ancestors, siblings, children)
+    POST /api/habits/remove-child — Remove a subhabit relationship
+    POST /api/habits/add-child    — Add a subhabit relationship
+
 Cross-domain links:
     POST /api/habits/link-knowledge    — Link habit to the knowledge/skill it develops
     POST /api/habits/link-principle    — Link habit to the principle/value it embodies
@@ -55,6 +62,7 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
+    AddHierarchyChildRequest,
     LinkHabitToKnowledgeRequest,
     LinkHabitToPrincipleRequest,
     RemoveHierarchyChildRequest,
@@ -492,6 +500,44 @@ def create_habits_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    @rt("/api/habits/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def habit_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subhabit relationship between two habits."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
+        ownership_error = await verify_entity_ownership(
+            habits_service, req.parent_uid, user_uid, "habit"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            habits_service, req.child_uid, user_uid, "habit"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        existing_parent = await habits_service.get_parent_habit(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None:
+            return Result.fail(
+                Errors.validation("habit already has a parent — remove it first", field="child_uid")
+            )
+        result = await habits_service.create_subhabit_relationship(
+            req.parent_uid, req.child_uid, req.progress_weight
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
+
     # ================================================================
     # CROSS-DOMAIN LINKS
     # ================================================================
@@ -565,6 +611,7 @@ def create_habits_api_routes(
         habit_parent,
         habit_hierarchy,
         habit_remove_child,
+        habit_add_child,
         habit_link_knowledge,
         habit_link_principle,
     ]

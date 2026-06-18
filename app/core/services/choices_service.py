@@ -463,6 +463,9 @@ class ChoicesService(
     async def get_choice_hierarchy(self, choice_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_choice_hierarchy(choice_uid)
 
+    async def create_subchoice_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.create_subchoice_relationship(parent_uid, child_uid)
+
     async def remove_subchoice_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subchoice_relationship(parent_uid, child_uid)
 

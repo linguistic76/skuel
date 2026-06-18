@@ -593,6 +593,11 @@ class PrinciplesService(
     async def get_principle_hierarchy(self, principle_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_principle_hierarchy(principle_uid)
 
+    async def create_subprinciple_relationship(
+        self, parent_uid: str, child_uid: str
+    ) -> Result[bool]:
+        return await self.core.create_subprinciple_relationship(parent_uid, child_uid)
+
     async def remove_subprinciple_relationship(
         self, parent_uid: str, child_uid: str
     ) -> Result[bool]:
