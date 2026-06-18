@@ -415,7 +415,7 @@ class TestExport:
     """Test export functionality."""
 
     @pytest.mark.asyncio
-    async def test_export_csv(self, completion_service, mock_completions_backend):
+    async def test_export_csv(self, completion_service, mock_habits_backend, mock_completions_backend):
         """Test CSV export."""
         # Create completions
         completions = []
@@ -432,6 +432,7 @@ class TestExport:
             )
             completions.append(comp.to_dto().to_dict())
 
+        mock_habits_backend.find_by.return_value = Result.ok([{"uid": f"habit.{i}"} for i in range(3)])
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
         # Export as CSV
@@ -447,7 +448,7 @@ class TestExport:
         assert "habit.0" in csv_data
 
     @pytest.mark.asyncio
-    async def test_export_json(self, completion_service, mock_completions_backend):
+    async def test_export_json(self, completion_service, mock_habits_backend, mock_completions_backend):
         """Test JSON export."""
         # Create completions
         completions = []
@@ -464,6 +465,7 @@ class TestExport:
             )
             completions.append(comp.to_dto().to_dict())
 
+        mock_habits_backend.find_by.return_value = Result.ok([{"uid": f"habit.{i}"} for i in range(3)])
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
         # Export as JSON
