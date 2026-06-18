@@ -61,8 +61,8 @@ def create_goals_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
+    principles_service: PrinciplesService,
     user_service: UserService | None = None,
-    principles_service: PrinciplesService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Goals API routes."""
@@ -315,12 +315,11 @@ def create_goals_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if principles_service:
-            principle_ownership_error = await verify_entity_ownership(
-                principles_service, req.principle_uid, user_uid, "principle"
-            )
-            if principle_ownership_error:
-                return principle_ownership_error
+        principle_ownership_error = await verify_entity_ownership(
+            principles_service, req.principle_uid, user_uid, "principle"
+        )
+        if principle_ownership_error:
+            return principle_ownership_error
         result = await goals_service.link_goal_to_principle(
             req.goal_uid, req.principle_uid, req.alignment_strength
         )

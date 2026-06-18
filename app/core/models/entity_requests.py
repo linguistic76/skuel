@@ -32,6 +32,7 @@ from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitP
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import ReportSource
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleSource, PrincipleStrength
+from core.models.enums.relationship_enums import KnowledgeRelevance, ProficiencyLevel
 from core.models.request_base import (
     ListResponseBase,
     ResponseBase,
@@ -643,7 +644,7 @@ class LinkGoalToKnowledgeRequest(BaseModel):
 
     goal_uid: str = Field(..., min_length=1)
     knowledge_uid: str = Field(..., min_length=1)
-    proficiency_required: str = Field(default="intermediate")
+    proficiency_required: ProficiencyLevel = ProficiencyLevel.INTERMEDIATE
     priority: int = Field(default=1, ge=1)
 
 
@@ -660,7 +661,7 @@ class LinkHabitToKnowledgeRequest(BaseModel):
 
     habit_uid: str = Field(..., min_length=1)
     knowledge_uid: str = Field(..., min_length=1)
-    skill_level: str = Field(default="beginner")
+    skill_level: ProficiencyLevel = ProficiencyLevel.BEGINNER
     proficiency_gain_rate: float = Field(default=0.1, ge=0.0, le=1.0)
 
 
@@ -701,4 +702,4 @@ class LinkPrincipleToKnowledgeRequest(BaseModel):
 
     principle_uid: str = Field(..., min_length=1)
     knowledge_uid: str = Field(..., min_length=1)
-    relevance: str = Field(default="fundamental")
+    relevance: KnowledgeRelevance = KnowledgeRelevance.FUNDAMENTAL

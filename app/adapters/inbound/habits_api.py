@@ -81,7 +81,7 @@ def create_habits_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     habits_service: HabitsService,
-    principles_service: PrinciplesService | None = None,
+    principles_service: PrinciplesService,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Habits API routes."""
@@ -533,12 +533,11 @@ def create_habits_api_routes(
         )
         if ownership_error:
             return ownership_error
-        if principles_service:
-            principle_ownership_error = await verify_entity_ownership(
-                principles_service, req.principle_uid, user_uid, "principle"
-            )
-            if principle_ownership_error:
-                return principle_ownership_error
+        principle_ownership_error = await verify_entity_ownership(
+            principles_service, req.principle_uid, user_uid, "principle"
+        )
+        if principle_ownership_error:
+            return principle_ownership_error
         result = await habits_service.link_habit_to_principle(
             req.habit_uid, req.principle_uid, req.embodiment_strength
         )
