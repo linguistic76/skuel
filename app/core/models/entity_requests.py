@@ -622,3 +622,83 @@ class RemoveHierarchyChildRequest(BaseModel):
 
     parent_uid: str = Field(..., min_length=1, description="Parent entity UID")
     child_uid: str = Field(..., min_length=1, description="Child entity UID")
+
+
+# ============================================================================
+# CROSS-DOMAIN LINK REQUESTS — Theme D (motivational web)
+# ============================================================================
+
+
+class LinkTaskToGoalRequest(BaseModel):
+    """Link a task to the goal it contributes to (CONTRIBUTES_TO_GOAL)."""
+
+    task_uid: str = Field(..., min_length=1)
+    goal_uid: str = Field(..., min_length=1)
+    contribution_percentage: float = Field(default=0.1, ge=0.0, le=1.0)
+    milestone_uid: str | None = None
+
+
+class LinkGoalToKnowledgeRequest(BaseModel):
+    """Link a goal to required knowledge/skill (REQUIRES_KNOWLEDGE)."""
+
+    goal_uid: str = Field(..., min_length=1)
+    knowledge_uid: str = Field(..., min_length=1)
+    proficiency_required: str = Field(default="intermediate")
+    priority: int = Field(default=1, ge=1)
+
+
+class LinkGoalToPrincipleRequest(BaseModel):
+    """Link a goal to a guiding principle/value (GUIDED_BY_PRINCIPLE)."""
+
+    goal_uid: str = Field(..., min_length=1)
+    principle_uid: str = Field(..., min_length=1)
+    alignment_strength: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class LinkHabitToKnowledgeRequest(BaseModel):
+    """Link a habit to the knowledge/skill it develops (REINFORCES_KNOWLEDGE)."""
+
+    habit_uid: str = Field(..., min_length=1)
+    knowledge_uid: str = Field(..., min_length=1)
+    skill_level: str = Field(default="beginner")
+    proficiency_gain_rate: float = Field(default=0.1, ge=0.0, le=1.0)
+
+
+class LinkHabitToPrincipleRequest(BaseModel):
+    """Link a habit to the principle/value it embodies (EMBODIES_PRINCIPLE)."""
+
+    habit_uid: str = Field(..., min_length=1)
+    principle_uid: str = Field(..., min_length=1)
+    embodiment_strength: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class LinkEventToGoalRequest(BaseModel):
+    """Link an event to the goal it contributes to (CONTRIBUTES_TO_GOAL)."""
+
+    event_uid: str = Field(..., min_length=1)
+    goal_uid: str = Field(..., min_length=1)
+    contribution_weight: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class LinkChoiceToGoalRequest(BaseModel):
+    """Link a choice to the goal it affects/advances (AFFECTS_GOAL)."""
+
+    choice_uid: str = Field(..., min_length=1)
+    goal_uid: str = Field(..., min_length=1)
+    contribution_score: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class LinkChoiceToPrincipleRequest(BaseModel):
+    """Link a choice to the principle it is informed by (INFORMED_BY_PRINCIPLE)."""
+
+    choice_uid: str = Field(..., min_length=1)
+    principle_uid: str = Field(..., min_length=1)
+    alignment_score: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class LinkPrincipleToKnowledgeRequest(BaseModel):
+    """Link a principle to the knowledge it is grounded in (GROUNDED_IN_KNOWLEDGE)."""
+
+    principle_uid: str = Field(..., min_length=1)
+    knowledge_uid: str = Field(..., min_length=1)
+    relevance: str = Field(default="fundamental")

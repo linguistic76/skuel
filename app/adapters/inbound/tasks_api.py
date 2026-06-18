@@ -7,6 +7,9 @@ Hierarchy (ownership-verified):
     GET  /api/tasks/parent       — Immediate parent of a subtask
     GET  /api/tasks/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/tasks/remove-child — Remove a subtask relationship
+
+Cross-domain links:
+    POST /api/tasks/link-goal    — Link task to a goal it contributes to
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import LinkTaskToGoalRequest, RemoveHierarchyChildRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.tasks_views import TaskCard
@@ -31,6 +34,7 @@ from ui.activities.tasks_views import TaskCard
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.task.task import Task
+    from core.services.goals_service import GoalsService
     from core.services.tasks_service import TasksService
 
 
@@ -38,6 +42,7 @@ def create_tasks_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     tasks_service: TasksService,
+    goals_service: GoalsService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Tasks API routes."""
@@ -145,10 +150,43 @@ def create_tasks_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/tasks/link-goal", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def task_link_goal(request: Request) -> Result[dict[str, Any]]:
+        """Link task to a goal it contributes to (CONTRIBUTES_TO_GOAL)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkTaskToGoalRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            tasks_service, req.task_uid, user_uid, "task"
+        )
+        if ownership_error:
+            return ownership_error
+        if goals_service:
+            goal_ownership_error = await verify_entity_ownership(
+                goals_service, req.goal_uid, user_uid, "goal"
+            )
+            if goal_ownership_error:
+                return goal_ownership_error
+        result = await tasks_service.link_task_to_goal(
+            req.task_uid, req.goal_uid, req.contribution_percentage, req.milestone_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
     return [
         *status_routes,
         task_children,
         task_parent,
         task_hierarchy,
         task_remove_child,
+        task_link_goal,
     ]

@@ -7,6 +7,11 @@ Hierarchy (ownership-verified):
     GET  /api/choices/parent       — Immediate parent of a subchoice
     GET  /api/choices/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/choices/remove-child — Remove a subchoice relationship
+
+Cross-domain links:
+    POST /api/choices/link-goal              — Link choice to a goal it affects/advances
+    POST /api/choices/link-principle         — Link choice to the principle that informs it
+    GET  /api/choices/aligned-with-principle — Choices semantically aligned with a principle
 """
 
 from __future__ import annotations
@@ -24,7 +29,11 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    LinkChoiceToGoalRequest,
+    LinkChoiceToPrincipleRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.utils.result_simplified import Errors, Result
 from ui.activities.choices_views import ChoiceCard
 
@@ -32,12 +41,16 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.choice.choice import Choice
     from core.services.choices_service import ChoicesService
+    from core.services.goals_service import GoalsService
+    from core.services.principles_service import PrinciplesService
 
 
 def create_choices_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     choices_service: ChoicesService,
+    goals_service: GoalsService | None = None,
+    principles_service: PrinciplesService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Choices API routes."""
@@ -148,10 +161,97 @@ def create_choices_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/choices/link-goal", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def choice_link_goal(request: Request) -> Result[dict[str, Any]]:
+        """Link choice to a goal it affects/advances (AFFECTS_GOAL)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkChoiceToGoalRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            choices_service, req.choice_uid, user_uid, "choice"
+        )
+        if ownership_error:
+            return ownership_error
+        if goals_service:
+            goal_ownership_error = await verify_entity_ownership(
+                goals_service, req.goal_uid, user_uid, "goal"
+            )
+            if goal_ownership_error:
+                return goal_ownership_error
+        result = await choices_service.link_choice_to_goal(
+            req.choice_uid, req.goal_uid, req.contribution_score
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
+    @rt("/api/choices/link-principle", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def choice_link_principle(request: Request) -> Result[dict[str, Any]]:
+        """Link choice to the principle that informs it (INFORMED_BY_PRINCIPLE)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkChoiceToPrincipleRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            choices_service, req.choice_uid, user_uid, "choice"
+        )
+        if ownership_error:
+            return ownership_error
+        if principles_service:
+            principle_ownership_error = await verify_entity_ownership(
+                principles_service, req.principle_uid, user_uid, "principle"
+            )
+            if principle_ownership_error:
+                return principle_ownership_error
+        result = await choices_service.link_choice_to_principle(
+            req.choice_uid, req.principle_uid, req.alignment_score
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
+    @rt("/api/choices/aligned-with-principle", methods=["GET"])
+    @boundary_handler()
+    async def choices_aligned_with_principle(request: Request) -> Result[list[Choice]]:
+        """Choices semantically aligned with a given principle (min_confidence threshold)."""
+        user_uid = require_authenticated_user(request)
+        principle_uid = request.query_params.get("principle_uid", "")
+        if not principle_uid:
+            return Result.fail(
+                Errors.validation(message="principle_uid is required", field="principle_uid")
+            )
+        if principles_service:
+            principle_ownership_error = await verify_entity_ownership(
+                principles_service, principle_uid, user_uid, "principle"
+            )
+            if principle_ownership_error:
+                return principle_ownership_error
+        min_confidence = float(request.query_params.get("min_confidence", "0.8"))
+        result = await choices_service.find_choices_aligned_with_principle(
+            principle_uid, min_confidence
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([c for c in result.value if c.user_uid == user_uid])
+
     return [
         *status_routes,
         choice_children,
         choice_parent,
         choice_hierarchy,
         choice_remove_child,
+        choice_link_goal,
+        choice_link_principle,
+        choices_aligned_with_principle,
     ]

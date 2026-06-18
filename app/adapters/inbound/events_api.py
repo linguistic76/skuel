@@ -7,6 +7,9 @@ Hierarchy (ownership-verified):
     GET  /api/events/parent       — Immediate parent of a subevent
     GET  /api/events/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/events/remove-child — Remove a subevent relationship
+
+Cross-domain links:
+    POST /api/events/link-goal    — Link event to a goal it contributes to
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.entity_requests import LinkEventToGoalRequest, RemoveHierarchyChildRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.events_views import EventCard
@@ -32,12 +35,14 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.event.event import Event
     from core.services.events_service import EventsService
+    from core.services.goals_service import GoalsService
 
 
 def create_events_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     events_service: EventsService,
+    goals_service: GoalsService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Events API routes."""
@@ -145,10 +150,43 @@ def create_events_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # CROSS-DOMAIN LINKS
+    # ================================================================
+
+    @rt("/api/events/link-goal", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def event_link_goal(request: Request) -> Result[dict[str, Any]]:
+        """Link event to a goal it contributes to (CONTRIBUTES_TO_GOAL)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, LinkEventToGoalRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            events_service, req.event_uid, user_uid, "event"
+        )
+        if ownership_error:
+            return ownership_error
+        if goals_service:
+            goal_ownership_error = await verify_entity_ownership(
+                goals_service, req.goal_uid, user_uid, "goal"
+            )
+            if goal_ownership_error:
+                return goal_ownership_error
+        result = await events_service.link_event_to_goal(
+            req.event_uid, req.goal_uid, req.contribution_weight
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"linked": result.value})
+
     return [
         *status_routes,
         event_children,
         event_parent,
         event_hierarchy,
         event_remove_child,
+        event_link_goal,
     ]
