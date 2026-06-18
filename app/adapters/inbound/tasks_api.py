@@ -27,7 +27,11 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import LinkTaskToGoalRequest, RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    AddHierarchyChildRequest,
+    LinkTaskToGoalRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.tasks_views import TaskCard
@@ -157,10 +161,14 @@ def create_tasks_api_routes(
     async def task_add_child(request: Request) -> Result[dict[str, Any]]:
         """Add a subtask relationship between two tasks."""
         user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
         ownership_error = await verify_entity_ownership(
             tasks_service, req.parent_uid, user_uid, "task"
         )
@@ -171,7 +179,16 @@ def create_tasks_api_routes(
         )
         if child_ownership_error:
             return child_ownership_error
-        result = await tasks_service.create_subtask_relationship(req.parent_uid, req.child_uid)
+        existing_parent = await tasks_service.get_parent_task(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+            return Result.fail(
+                Errors.validation("task already has a different parent", field="child_uid")
+            )
+        result = await tasks_service.create_subtask_relationship(
+            req.parent_uid, req.child_uid, req.progress_weight
+        )
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"added": result.value})

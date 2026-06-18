@@ -62,6 +62,7 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
+    AddHierarchyChildRequest,
     LinkHabitToKnowledgeRequest,
     LinkHabitToPrincipleRequest,
     RemoveHierarchyChildRequest,
@@ -505,10 +506,14 @@ def create_habits_api_routes(
     async def habit_add_child(request: Request) -> Result[dict[str, Any]]:
         """Add a subhabit relationship between two habits."""
         user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
         ownership_error = await verify_entity_ownership(
             habits_service, req.parent_uid, user_uid, "habit"
         )
@@ -519,7 +524,16 @@ def create_habits_api_routes(
         )
         if child_ownership_error:
             return child_ownership_error
-        result = await habits_service.create_subhabit_relationship(req.parent_uid, req.child_uid)
+        existing_parent = await habits_service.get_parent_habit(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+            return Result.fail(
+                Errors.validation("habit already has a different parent", field="child_uid")
+            )
+        result = await habits_service.create_subhabit_relationship(
+            req.parent_uid, req.child_uid, req.progress_weight
+        )
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"added": result.value})

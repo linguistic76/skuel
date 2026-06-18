@@ -27,7 +27,11 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import LinkPrincipleToKnowledgeRequest, RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    AddHierarchyChildRequest,
+    LinkPrincipleToKnowledgeRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.principle.principle_request import (
     PrincipleBatchImpactRequest,
     PrincipleExpressionRequest,
@@ -176,10 +180,14 @@ def create_principles_api_routes(
     async def principle_add_child(request: Request) -> Result[dict[str, Any]]:
         """Add a subprinciple relationship between two principles."""
         user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
         ownership_error = await verify_entity_ownership(
             principles_service, req.parent_uid, user_uid, "principle"
         )
@@ -190,6 +198,13 @@ def create_principles_api_routes(
         )
         if child_ownership_error:
             return child_ownership_error
+        existing_parent = await principles_service.get_parent_principle(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+            return Result.fail(
+                Errors.validation("principle already has a different parent", field="child_uid")
+            )
         result = await principles_service.create_subprinciple_relationship(
             req.parent_uid, req.child_uid
         )

@@ -27,7 +27,11 @@ from adapters.inbound.route_factories import (
     create_activity_status_api_routes,
     verify_entity_ownership,
 )
-from core.models.entity_requests import LinkEventToGoalRequest, RemoveHierarchyChildRequest
+from core.models.entity_requests import (
+    AddHierarchyChildRequest,
+    LinkEventToGoalRequest,
+    RemoveHierarchyChildRequest,
+)
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.events_views import EventCard
@@ -157,10 +161,14 @@ def create_events_api_routes(
     async def event_add_child(request: Request) -> Result[dict[str, Any]]:
         """Add a subevent relationship between two events."""
         user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
         ownership_error = await verify_entity_ownership(
             events_service, req.parent_uid, user_uid, "event"
         )
@@ -171,6 +179,13 @@ def create_events_api_routes(
         )
         if child_ownership_error:
             return child_ownership_error
+        existing_parent = await events_service.get_parent_event(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None and existing_parent.value.uid != req.parent_uid:
+            return Result.fail(
+                Errors.validation("event already has a different parent", field="child_uid")
+            )
         result = await events_service.create_subevent_relationship(req.parent_uid, req.child_uid)
         if result.is_error:
             return Result.fail(result)
