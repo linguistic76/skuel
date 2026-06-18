@@ -634,27 +634,42 @@ class HabitsCompletionService:
         Returns:
             Result[str] with exported data as string
         """
-        # Build filters with user_uid
-        filters: dict[str, str | datetime] = {"user_uid": user_uid}
-        if start_date:
-            filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
-        if end_date:
-            filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
-
-        # Get user's completions
-        completions_result = await self.completions_backend.find_by(
-            **filters, limit=QueryLimit.BULK
+        # Scope through the habits backend — HabitCompletion has no user_uid field,
+        # so filtering completions_backend by user_uid is silently a no-op. The
+        # correct path is: fetch the user's habit UIDs (habits_backend IS scoped),
+        # then pull completions only for those UIDs.
+        habits_result = await self.habits_backend.find_by(
+            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
         )
-        if completions_result.is_error:
-            return completions_result
+        if habits_result.is_error:
+            return habits_result
 
-        completions = []
-        for item in completions_result.value:
-            if isinstance(item, dict):
-                dto = HabitCompletionDTO.from_dict(item)
-                completions.append(HabitCompletion.from_dto(dto))
-            else:
-                completions.append(item)
+        habit_uids = [
+            (item["uid"] if isinstance(item, dict) else item.uid)
+            for item in habits_result.value
+            if (item.get("uid") if isinstance(item, dict) else item.uid)
+        ]
+        if not habit_uids:
+            return self._export_csv([]) if format == "csv" else self._export_json([])
+
+        date_filters: dict[str, datetime] = {}
+        if start_date:
+            date_filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
+        if end_date:
+            date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
+
+        completions: list[HabitCompletion] = []
+        for habit_uid in habit_uids:
+            per_habit = await self.completions_backend.find_by(
+                habit_uid=habit_uid, **date_filters, limit=QueryLimit.BULK
+            )
+            if per_habit.is_error:
+                continue
+            for item in per_habit.value:
+                if isinstance(item, dict):
+                    completions.append(HabitCompletion.from_dto(HabitCompletionDTO.from_dict(item)))
+                else:
+                    completions.append(item)
 
         # Sort by date
         completions.sort(key=get_completed_at)
