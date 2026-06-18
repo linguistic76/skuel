@@ -117,63 +117,35 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 
 **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` (full table, traits, UID formats), `/docs/architecture/SEVEN_SUBSYSTEMS.md`, `/docs/architecture/THREE_LAYER_LENS.md`, `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md`, `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 
-## Type Safety Architecture
+## Type System
 
-**Core Principle:** "A type error from MyPy reveals a real design problem, not an annotation oversight"
+**Core Principle:** "Pydantic at the edges, pure Python at the core; a type error from MyPy reveals a real design problem"
 
-| System | What it does |
-|--------|-------------|
-| **Three-Tier Type System** | Pydantic at edges, frozen dataclasses at core, DTOs between |
-| **Protocol-Based DI** | Zero concrete dependencies in route signatures — all services injected as protocols |
-| **Typed Protocol Returns** | Protocol methods return specific models/TypedDicts, not `Result[Any]`; service-layer `Result[Any]` also narrowed. Handlers: `Result[FT]` for rendered HTML, `Result[Goal]`/`Result[Event]` for models. The route-factory generics in `adapters/inbound/route_factories/` are the only legitimate `Result[Any]` sites (T genuinely erased). |
-| **Any Usage Policy** | Every `Any` is justified (Category C boundary) or eliminated (Categories A + B). At the FastHTML boundary: use the `FastHTMLApp` / `RouteDecorator` protocols for `app` / `rt` parameters; use `FT` for HTML fragment returns; `*c: Any, **kwargs: Any` inside FT factories stay (HTML is structurally heterogeneous). |
-| **Search Protocol Generics** | All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, etc.), not `Entity` |
-| **Enum-Enforced Boundaries** | `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `Pipeline`, `ReportSource`, `Visibility`, `EnrichmentMode` — zero raw string comparisons for roles, scopes, modalities, status checks, feedback categorization, mastery scoring, user-entry pipelines, report provenance, visibility levels, enrichment modes |
+**Three tiers:** Pydantic (external validation) → DTOs (data movement) → frozen dataclasses (core domain).
 
-**Key type aliases** (from `core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`
-
-**Protocol return TypedDicts** (from `core/ports/query_types.py`): inputs (filters, payloads) + outputs (domain stats, system health, teacher review, intelligence, life path, lateral relationships, curriculum/PS backend Cypher returns, etc.). New protocol methods and route handlers return a specific model or TypedDict, not `Result[Any]`; use `Result.fail(result)` to propagate errors across type boundaries (not `return result`).
-
-**FastHTML boundary** (no `py.typed`) — four surfaces, four policies:
-
-1. Route signatures (`app`, `rt`): `RouteDecorator` / `FastHTMLApp` / `Request` from `adapters.inbound.fasthtml_types`. No `# boundary:` — the protocol *is* the typed boundary.
-2. Handler returns: concrete type — `Result[FT]` (HTMX fragments), `Result[Goal]` (models), `Response` (redirects). `Result[Any]` here is a regression.
-3. FT element internals (`*c: Any`, `**kwargs: Any` inside `Div(...)`): permanent Category C, mark `# boundary: fasthtml-elements`.
-4. ASGI plumbing (`__call__(scope, receive, send) -> None`): permanent Category C, mark `# boundary: fasthtml-app`.
-
-**`Any` policy:** Category A (eliminate), B (specific type like `Neo4jProperties`), C (permanent boundary — `# boundary:` comment). The rule isn't "ban `Any`" but "`Any` must mean *genuinely heterogeneous*" — if `FT`/`Event`/`Neo4jProperties` would type-check, use it.
-
-**See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md` (why), `docs/patterns/TYPE_SAFETY_OVERVIEW.md` (how), `docs/patterns/ANY_USAGE_POLICY.md`, `docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
-
-## Three-Tier Type System
-
-**Core Principle:** "Pydantic at the edges, pure Python at the core"
-
-| Tier | Type | Mutability | Purpose |
-|------|------|------------|---------|
-| External | Pydantic Models | N/A | Validation & serialization |
-| Transfer | DTOs | Mutable | Data movement between layers |
-| Core | Domain Models | **Frozen** | Immutable business entities |
-
-### Domain-First Model Hierarchy
-
+**Domain-First Model Hierarchy:**
 ```
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
-+-- UserOwnedEntity(Entity) +3 fields (user_uid, visibility, priority)
-|   +-- Task, Goal, Habit, Event, Choice, Principle  (Activity)
-|   +-- LifePath, ActivityReport, UserEntry, EntryReport
-+-- Ku(Entity) -- atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
-+-- Curriculum(Entity) +21 fields -> PathStep, LearningPath, Exercise
++-- UserOwnedEntity(Entity) — Task, Goal, Habit, Event, Choice, Principle, LifePath, ActivityReport, UserEntry, EntryReport
++-- Ku(Entity) — atomic knowledge unit (namespace, ku_category, aliases, source, sel_category)
++-- Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
 ```
+DTOs mirror the hierarchy: `EntityDTO → UserOwnedDTO, KuDTO, CurriculumDTO → PathStepDTO, ResourceDTO`
 
-**DTOs** mirror the hierarchy: `EntityDTO -> UserOwnedDTO, KuDTO, CurriculumDTO -> PathStepDTO, ResourceDTO`
+**Key enums:** `EntityType` (25 values), `EntityStatus` (16 values) — `entity_enums.py`. **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
 
-**Key enums:** `EntityType` (25 values), `EntityStatus` (16 values) — both in `entity_enums.py`.
+**Enum-Enforced Boundaries:** `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `Pipeline`, `ReportSource`, `Visibility`, `EnrichmentMode` — zero raw string comparisons.
 
-**Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
+**Search Protocol Generics:** All 6 `DomainSearchOperations` extensions parameterized with domain model type (`Goal`, `Event`, etc.), not `Entity`.
 
-**See:** `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/DOMAIN_PATTERNS_CATALOG.md`, `/docs/tutorials/DATA_FLOW_WALKTHROUGH.md`
+**Type aliases** (`core/models/type_hints.py`): `Neo4jProperties`, `FilterParams`, `RelationshipMetadata`. **Protocol return TypedDicts** (`core/ports/query_types.py`): all domain stats, system health, intelligence outputs — handlers return `Result[FT]` (fragments), `Result[Goal]` (models), or `Response` (redirects). `Result[Any]` in a handler is a regression.
+
+**FastHTML boundary** (no `py.typed`): `RouteDecorator`/`FastHTMLApp`/`Request` protocols for signatures; `Result[FT]` for fragment returns; `*c: Any, **kwargs: Any` inside FT factories = `# boundary: fasthtml-elements`; ASGI plumbing = `# boundary: fasthtml-app`.
+
+**`Any` policy:** A = eliminate, B = use specific type (e.g. `Neo4jProperties`), C = permanent boundary (`# boundary:` comment). The rule: "`Any` must mean *genuinely heterogeneous*."
+
+**See:** `docs/architecture/TYPE_SAFETY_DESIGN_PHILOSOPHY.md`, `docs/patterns/TYPE_SAFETY_OVERVIEW.md`, `docs/patterns/ANY_USAGE_POLICY.md`, `/docs/patterns/three_tier_type_system.md`, `/docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md`
 
 ## User Roles & Authentication
 
@@ -233,35 +205,22 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 **Core Principle:** "Right type at the right boundary — concrete for facades, protocol for thin services"
 
-**Protocol Location:** `core/ports/` — protocol files covering all domains.
-
-**Route-facing type strategy:**
+**Protocol Location:** `core/ports/`. Two layers with distinct suffixes:
+- **`*BackendOperations`** — type `self.backend` inside services
+- **`*Operations`** — route-facing API that thin services expose
 
 | Tier | Services | Type Used | Why |
 |------|----------|-----------|-----|
 | **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, UserEntry, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
-**Two protocol layers, two suffixes:**
-- **Backend-level** protocols end in `*BackendOperations` (e.g. `SharingBackendOperations`, `UserProgressBackendOperations`, `ActivityReportBackendOperations`) — type `self.backend` inside services. The `*Operations` protocols in `domain_protocols.py` are the canonical backend-level set; three hierarchies (BackendOperations, UserOperations, IntelligenceOperations) compose narrow ISP slices.
-- **Route-facing** protocols end in `*Operations` (e.g. `SharingOperations`, `GroupOperations`, `ActivityReportOperations`) — describe the API thin services expose to routes. Same root word as the backend protocol is intentional and not a typo.
-
-Same suffix at both layers is a known trap (memory: `project_operations_protocol_layer_inconsistent.md`) — verify the layer before retyping `self.backend` against an `*Operations` protocol; if the service-layer and backend-layer method names diverge, you need a `*BackendOperations` protocol, not the route-facing one.
+**Trap:** same root word at both layers — verify the layer before retyping `self.backend` against an `*Operations` protocol; if service-layer and backend-layer method names diverge, you need a `*BackendOperations` protocol.
 
 **See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
 ## Async/Sync Design Pattern
 
-**Core Principle:** "Async for I/O, sync for computation"
-
-| Layer | Async | Sync |
-|-------|-------|------|
-| Database/Persistence | 100% | 0% |
-| Service Layer | ~95% | ~5% |
-| Data Conversion | 0% | 100% |
-| Domain Models | 0% | 100% |
-
-**Rule:** If you need `await` inside the function, make it `async def`. Otherwise use `def`.
+**Rule:** async for I/O (database, service calls), sync for computation and data conversion. If you need `await` inside the function, make it `async def`. Otherwise use `def`.
 
 ## Data Flow Architecture
 
@@ -364,7 +323,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 | Helper | Purpose |
 |--------|---------|
-| `PrerequisiteChecker` | Unified prerequisite checking — `check_prerequisites()` → `PrerequisiteResult` (score, is_ready, missing_knowledge, missing_tasks, blocking_reasons). Pure helper `build_learning_requirements()` → `LearningRequirements` (mastery-aware Goal+Task lens, same split as readiness). **See:** `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` |
+| `PrerequisiteChecker` | `check_prerequisites()` → `PrerequisiteResult` (score, is_ready, missing_knowledge, blocking_reasons); `build_learning_requirements()` → `LearningRequirements`. **See:** `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md` |
 | `LearningAlignmentBridge` | LP integration for any domain |
 | `SemanticRelationshipLinker` | Semantic relationship ops |
 
@@ -434,16 +393,11 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **Core Principle:** "Events over dependencies"
 
-**Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`)
+**Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`). **Location:** `/core/events/`
 
 **Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
 
-```python
-from core.events.utils import publish_event
-await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)
-```
-
-**Location:** `/core/events/` — events across all domains
+**Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events.utils`.
 
 ## 100% Dynamic Backend Pattern
 
@@ -477,9 +431,9 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **6 Mixins:** ConversionHelpers, CRUD, Search, Relationships, TimeQuery, Context.
 
-**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) provides domain-agnostic knowledge intelligence for all 6 domains — 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`), inherited by all 6 facades.
+**6 Activity Domains:** Tasks, Goals, Habits, Events, Choices, Principles. All use facade pattern with explicit `async def` delegation methods. Factory: `create_common_sub_services()` (supports `skip` parameter for facades that override sub-services). Active sub-services: `.core`, `.search`, `.ai` (optional, FULL tier). **Shared:** `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — 4 delegation methods via `KnowledgeIntelligenceDelegationMixin`, inherited by all 6 facades.
 
-**Design principle — harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. That shared shape is the contract enabling unified search, context aggregation, cross-domain queries, and ZPD. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it. See: `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization".
+**Harmony without over-generalization:** All 6 domains share the same 7 common sub-services (`core`, `search`, `relationships`, `intelligence`, `event_handler`, `learning`, `knowledge_intelligence`) — no domain opts out. Domain-specific sub-services (Habits `completions`, Events `habit_integration`, Principles `alignment`) preserve uniqueness inside it.
 
 **Decomposition rule:** Intelligence services >350 lines → extract mixins. Facade services >700 lines + 4+ coherent methods → extract facade mixins.
 
@@ -500,6 +454,18 @@ One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. 
 **API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/upload`, `WS /ws/ingest/progress/{operation_id}`
 
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, per-user upload, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
+
+## Obsidian VaultBridge (ADR-070)
+
+**Core Principle:** "Obsidian is the personal knowledge layer; SKUEL is the structured backbone"
+
+Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; completions (`[x]` + `✅ date`) propagate back to SKUEL. The `🆔 sk_<6>` suffix is the join key — never strip it.
+
+- `VAULT_ROOT` — personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
+- `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
+- First-run consent gate guards outbound writes; vault-root containment guard prevents upload-entry contamination
+
+**See:** `/docs/decisions/ADR-070-obsidian-vaultbridge.md`
 
 ## Curriculum Grouping Patterns
 
@@ -539,31 +505,39 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 
 ## Code Quality & Formatting
 
-**Formatting:** Ruff. Run `./dev format` to format, `./dev quality` for full checks.
+**Formatting:** Ruff. `./dev format` to format, `./dev quality` for full checks (Ruff + MyPy + audit scripts).
 
-**Dead-code detection (advisory):** `./dev bloat` — AST-sound event-lifecycle + Vulture-backed method liveness with SKUEL dispatch knowledge. Verify WARNING findings before deleting; staged-but-unwired work belongs in the PLANNED tier (`PLANNED_EVENTS`/`PLANNED_METHODS`), not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
+**Dead-code detection (advisory):** `./dev bloat` — staged-but-unwired work belongs in `PLANNED_EVENTS`/`PLANNED_METHODS` in `scripts/detect_bloat.py`, not the trash. **See:** `/docs/tools/BLOAT_DETECTION.md`
 
-**Docs-staleness check (automatic):** a Claude Code PostToolUse hook (`.claude/hooks/post-commit-docs.sh`) fires after any Bash command invoking `git commit` and flags docs/skills that reference the changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
+**Docs-staleness check (automatic):** `.claude/hooks/post-commit-docs.sh` fires after `git commit` and flags docs/skills that reference changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
 
-**Key SKUEL Linter Rules:**
-- SKUEL001: No banned APOC procedures anywhere in `core/` [CRITICAL] — APOC is adapter-only (ADR-044). Docstring-aware (APOC named in docstrings/comments is prose, not a violation); unsuppressable.
-- SKUEL003: Use `.is_error` (not `.is_err`)
-- SKUEL007: Use `Errors` factory
-- SKUEL011: No `hasattr()` — use Protocol/isinstance/getattr
-- SKUEL012: No lambda expressions — use named functions
-- SKUEL013: Use `RelationshipName` enum
-- SKUEL014: Use `EntityType`/`NonKuDomain` enum
-- SKUEL015: No `print()` in production
-- SKUEL016: No stale Poetry references — SKUEL uses uv
-- SKUEL017: No bare `except Exception` — use specific types from `exception_types.py`
-- SKUEL019: Credential reads must use `get_credential()` — never raw `os.getenv()` on catalog/credential-shaped names
-- SKUEL020: FastHTML `@rt`/`@app.get|post|...` handlers must annotate `request: Request` (not `request: Any`) [ERROR] — `Any` makes FastHTML 400 "Missing required field: request" before any gate runs (AST rule; mypy/ruff/route audit don't catch it)
-- SKUEL021: No raw Cypher anywhere in `core/` [ERROR] — all Cypher lives below the boundary in `adapters/persistence/neo4j/` (ADR-044). AST-based + docstring-aware (Cypher in docstrings / `USAGE EXAMPLES` blocks is skipped; only *used* strings, incl. f-strings, are flagged). SKUEL001 bans only APOC; SKUEL021 covers raw Cypher generally. Relocate queries to an adapter backend behind a `core/ports` protocol.
-- SKUEL022: No `adapters/` imports in `core/` [ERROR] — the hexagonal dependency direction is core → adapter (ADR-044), never the reverse. AST rule; flags module-level AND function-local `import adapters`/`from adapters import` in any `core/` file. `TYPE_CHECKING`-only imports are exempt (they never execute, so they can't create a runtime dependency). Depend on a `core/ports` protocol and inject the concrete adapter at the composition root (`services_bootstrap/` or a factory below the boundary).
-- SKUEL024: No `cls=` + `**kwargs` collision in FT helpers [ERROR] — a helper that hardcodes `cls="..."` AND splats `**kwargs` into the same call without an explicit `cls` param raises `TypeError: got multiple values for keyword argument 'cls'` the moment a caller passes `cls=` (this 500'd `/insights`). AST rule (non-test files); no `kwargs.pop("cls")` exemption (a conditional/post-splat pop is unsound to prove), so pop-based helpers are flagged too. Fix: add `cls: str = ""` and merge — `cls=f"...base... {cls}".strip()`; suppress only for a genuinely-sound pop form. Contract guarded by `tests/unit/ui/test_cls_merge_contract.py`.
-- SKUEL025: No deleted Activity `*UpdatePayload` [ERROR] — ADR-066 (Phase 7a) replaced the six activity `*UpdatePayload` TypedDicts (`Task`/`Goal`/`Habit`/`Event`/`Choice`/`Principle`) with frozen `*UpdateIntent` dataclasses; referencing a deleted name resurrects the abandoned dict write-path (One Path Forward). AST rule (non-test files), trivially sound — flags only those six fixed names as import alias / `Name` / `Attribute` (a string literal is never flagged); curriculum (Ku/Ps/Lp), finance, and report payloads remain valid and are NOT forbidden. Fix: use the domain `*UpdateIntent` or build it via `*UpdateRequest.to_intent()`.
+**SKUEL Linter Rules** — full detail in `/docs/patterns/linter_rules.md`:
 
-**MyPy:** `./dev quality` enforces **0 MyPy errors**. Per-module strictness overrides in `pyproject.toml`. No error codes are globally disabled. `arg-type` is enforced on **all first-party trees** (`core/`, `services_bootstrap/`, `adapters/`, `ui/`) — it enforces frozen-model / enum-NewType / typed-payload boundaries per the functional-direction roadmap, and at the composition root catches service↔protocol conformance gaps. Only `tests`/`scripts` scope-disable `arg-type` (alongside `type-var`/`misc`/`method-assign` — framework-mock noise). `assignment` is **enabled** — catches trailing-comma tuple bugs and real type mismatches. `core.services.*`, `core.ports.*` enforce `disallow_untyped_defs`. Domain backends suppress `misc` (MRO mixin conflicts). Narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic. Every new `Any` needs a `# boundary:` comment or should use a specific type.
+| Rule | Guards | Severity |
+|------|--------|----------|
+| SKUEL001 | No APOC in `core/` (docstring-aware; unsuppressable) | CRITICAL |
+| SKUEL003 | `.is_error` not `.is_err` | ERROR |
+| SKUEL007 | `Errors` factory | ERROR |
+| SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
+| SKUEL012 | No lambda — named functions | ERROR |
+| SKUEL013 | `RelationshipName` enum | ERROR |
+| SKUEL014 | `EntityType`/`NonKuDomain` enum | ERROR |
+| SKUEL015 | No `print()` in production | ERROR |
+| SKUEL016 | No Poetry refs — SKUEL uses uv | ERROR |
+| SKUEL017 | No bare `except Exception` — specific types from `exception_types.py` | ERROR |
+| SKUEL019 | `get_credential()` not raw `os.getenv()` on credential names | ERROR |
+| SKUEL020 | `request: Request` not `request: Any` in handlers (causes FastHTML 400) | ERROR |
+| SKUEL021 | No raw Cypher in `core/` — all Cypher in `adapters/persistence/neo4j/` (docstring-aware) | ERROR |
+| SKUEL022 | No `adapters/` imports in `core/` — `TYPE_CHECKING`-only imports exempt | ERROR |
+| SKUEL024 | No `cls=` + `**kwargs` collision in FT helpers — fix: `cls=f"...{cls}".strip()` | ERROR |
+| SKUEL025 | No deleted Activity `*UpdatePayload` — use `*UpdateIntent` or `*UpdateRequest.to_intent()` | ERROR |
+
+**MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
+- `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt
+- `assignment` enabled — catches trailing-comma tuple bugs and real type mismatches
+- `disallow_untyped_defs` on `core.services.*`, `core.ports.*`
+- Domain backends suppress `misc` (MRO mixin conflicts)
+- Every new `Any` needs `# boundary:` comment; narrow Neo4j property types with `int()`/`float()`/`str()` casts before arithmetic
 
 **See:** `/docs/patterns/linter_rules.md`, `docs/patterns/mypy_pragmatic_strategy.md`
 
@@ -640,24 +614,17 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 | Analytics | `BaseAnalyticsService` | Graph + Python (NO AI) |
 | AI | `BaseAIService` | LLM + Embeddings (optional) |
 
-**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default, everything + AI). All 6 Activity Domain facades + 2 Curriculum facades (PS, LP) have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
+**Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default). All 6 Activity Domain + 2 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
 
-**UserContextIntelligence (Central Hub):** `get_ready_to_work_on_today()`, `get_optimal_next_path_steps()`, `calculate_life_path_alignment()`, `get_schedule_aware_recommendations()`
-
-**LLM/embedding SDK clients (ADR-063):** the `openai`/`anthropic`/`huggingface_hub` clients live below the hexagonal boundary in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; `core/` is SDK-client-free (only `exception_types.py` imports the SDK exception classes). Guarded by `tests/test_llm_sdk_boundary.py`, which enforces a **third-party import allowlist** for all of `core/` (fails closed on any new vendor import — `stripe`/`requests`/`httpx`-client/etc.), not a denylist of named SDKs.
+**LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
 
 ## Embedding Text Extraction
 
-**Location:** `/core/utils/embedding_text_builder.py`
+**Location:** `/core/utils/embedding_text_builder.py` — `build_embedding_text(EntityType, dict) -> str`
 
-```python
-from core.utils.embedding_text_builder import build_embedding_text
-text = build_embedding_text(EntityType.TASK, {"title": "Fix bug", "description": "Details"})
-```
-
-**Supported:** 16 content-bearing entity types (all six Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
 
 ## Quick Reference: Key Files
 
