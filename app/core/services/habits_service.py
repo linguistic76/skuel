@@ -169,7 +169,7 @@ class HabitsService(
 
     Mixin methods (see habits/ package):
     - _CompletionMixin: track_habit, untrack_habit, get_habit_streak/progress/history,
-      get_completion_calendar, pause/resume/archive_habit, set/get/delete_habit_reminder
+      get_completion_calendar, set/get/delete_habit_reminder
     - _EnrichmentMixin: get_habit_analytics, get_habits_summary_analytics, get_habit_trends,
       get_enriched_learning/curriculum/prerequisite_metadata
     - _OrchestrationMixin: complete_with_goal_impacts, create_with_goal_links,
