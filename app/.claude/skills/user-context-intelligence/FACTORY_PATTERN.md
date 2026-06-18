@@ -169,13 +169,13 @@ Factory creation, ZPD wiring, and Askesis creation are handled by `_create_intel
 ```python
 # _create_intelligence_hub() creates the factory with all 12 domain services:
 context_intelligence_factory = UserContextIntelligenceFactory(
-    # Activity (6) - from facade .relationships
-    tasks=activity_services["tasks"].relationships,
-    goals=activity_services["goals"].relationships,
-    habits=activity_services["habits"].relationships,
-    events=activity_services["events"].relationships,
-    choices=activity_services["choices"].relationships,
-    principles=activity_services["principles"].relationships,
+    # Activity (6) — facade services directly (NOT .relationships)
+    tasks=activity_services["tasks"],
+    goals=activity_services["goals"],
+    habits=activity_services["habits"],
+    events=activity_services["events"],
+    choices=activity_services["choices"],
+    principles=activity_services["principles"],
     # Curriculum (3)
     ps=learning_services["ps"],  # PsService facade
     lp=learning_services["learning_paths"].relationships,

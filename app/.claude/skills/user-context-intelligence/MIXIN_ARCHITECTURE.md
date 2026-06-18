@@ -48,7 +48,7 @@ class UserContextIntelligence(
 ```python
 class LearningIntelligenceMixin:
     context: UserContext      # User state
-    tasks: Any                # UnifiedRelationshipService
+    tasks: Any                # TasksService facade (Any avoids import fan in mixin base)
     ku: Any                   # KuGraphService
     vector_search: Any        # Neo4jVectorSearchService (optional, may be None)
     zpd_service: Any          # ZPDOperations (optional, may be None — FULL tier only)
@@ -97,8 +97,8 @@ async def get_optimal_next_path_steps(
 ```python
 class LifePathIntelligenceMixin:
     context: UserContext
-    goals: Any      # UnifiedRelationshipService
-    habits: Any     # UnifiedRelationshipService
+    goals: Any      # GoalsService facade
+    habits: Any     # HabitsService facade
     ku: Any         # KuGraphService
 ```
 
@@ -134,9 +134,9 @@ async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]:
 ```python
 class SynergyIntelligenceMixin:
     context: UserContext
-    habits: Any     # UnifiedRelationshipService
-    goals: Any      # UnifiedRelationshipService
-    tasks: Any      # UnifiedRelationshipService
+    habits: Any     # HabitsService facade
+    goals: Any      # GoalsService facade
+    tasks: Any      # TasksService facade
     ku: Any         # KuGraphService
 ```
 
