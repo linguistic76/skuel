@@ -677,7 +677,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         except ValueError as e:
             from starlette.responses import JSONResponse
 
-            return JSONResponse({"error": str(e)}, status_code=500)
+            logger.error(f"Alignment chart error: {e}")
+            return JSONResponse({"error": "Chart data unavailable"}, status_code=500)
 
         def _empty_alignment_chart(title_suffix: str) -> Any:
             """Return an empty radar chart with zeroed data."""
@@ -798,7 +799,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         except ValueError as e:
             from starlette.responses import JSONResponse
 
-            return JSONResponse({"error": str(e)}, status_code=500)
+            logger.error(f"Domain progress chart error: {e}")
+            return JSONResponse({"error": "Chart data unavailable"}, status_code=500)
 
         # Generate 30-day timeline (mock data for now - would come from analytics)
         # In production, this would query completion events from Neo4j

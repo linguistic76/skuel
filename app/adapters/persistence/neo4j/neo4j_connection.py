@@ -70,8 +70,9 @@ class Neo4jConnection:
         self.username = (
             username
             or getattr(db_config, "neo4j_username", None)
-            or os.getenv("NEO4J_USERNAME")
-            or os.getenv("NEO4J_USER", "neo4j")
+            or get_credential("NEO4J_USERNAME", fallback_to_env=True)
+            or get_credential("NEO4J_USER", fallback_to_env=True)
+            or "neo4j"
         )
 
         # Use encrypted credential store for password (with env fallback for migration)

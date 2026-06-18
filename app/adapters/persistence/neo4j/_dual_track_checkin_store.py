@@ -38,6 +38,10 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
+_ALLOWED_CHECKIN_PROPERTIES: frozenset[str] = frozenset(
+    {"dual_track_checkins", "knowledge_checkins"}
+)
+
 
 def _apply_append(
     raw: Any, snapshot: dict[str, Any], history_limit: int, dimension: str | None
@@ -90,6 +94,11 @@ async def atomic_append_checkin(
             Knowledge dimension uses ``knowledge_checkins`` (keyed by Ku uid) so a
             per-Ku self-rating never collides with the three fixed user-level dims.
     """
+    if property_name not in _ALLOWED_CHECKIN_PROPERTIES:
+        raise ValueError(
+            f"Invalid property name: {property_name!r}. "
+            f"Must be one of {sorted(_ALLOWED_CHECKIN_PROPERTIES)}"
+        )
     lock_token = uuid4().hex
     # Statement 1 acquires the node write-lock (a real property write) *before* the
     # read, so a concurrent appender blocks here until we commit. Statement 2 writes

@@ -9,7 +9,7 @@ intelligence services based on user behavior patterns.
 
 from typing import Any
 
-from fasthtml.common import H3, Div, Form, Li, NotStr, P, Span, Ul
+from fasthtml.common import H3, Div, Form, Li, P, Span, Strong, Ul
 
 from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -74,12 +74,14 @@ def InsightCard(insight: PersistedInsight) -> Div:
             action_text = action_dict.get("action", "")
             rationale = action_dict.get("rationale", "")
             if action_text:
-                action_html = f"<strong>{action_text}</strong>"
-                if rationale:
-                    action_html += f": {rationale}"
                 action_items.append(
                     Div(
-                        NotStr(f'<span class="text-xs text-foreground/80">• {action_html}</span>'),
+                        Span(
+                            "• ",
+                            Strong(f"{action_text!s}"),
+                            f": {rationale!s}" if rationale else "",
+                            cls="text-xs text-foreground/80",
+                        ),
                         cls="mt-1",
                     )
                 )
@@ -251,7 +253,7 @@ def DismissedInsightMessage() -> Div:
     """Message shown when an insight is dismissed."""
     return Div(
         Alert(
-            NotStr("✓ Insight dismissed"),
+            "✓ Insight dismissed",
             variant=AlertT.success,
         ),
         cls="mb-4",

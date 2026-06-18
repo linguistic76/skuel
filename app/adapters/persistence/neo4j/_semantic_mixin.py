@@ -184,7 +184,7 @@ class _SemanticMixin:
         self, domain: str | None, min_hub_score: int, limit: int
     ) -> Result[list[Neo4jProperties]]:
         """Query high-hub-score KUs (foundational concepts)."""
-        where_clauses = [f"ku.hub_score >= {min_hub_score}"]
+        where_clauses = ["ku.hub_score >= $min_hub_score"]
         if domain:
             where_clauses.append("ku.domain = $domain")
         where_clause = " AND ".join(where_clauses)
@@ -196,7 +196,7 @@ class _SemanticMixin:
         ORDER BY ku.hub_score DESC
         LIMIT $limit
         """
-        params: dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit, "min_hub_score": min_hub_score}
         if domain:
             params["domain"] = domain
         return await self.execute_query(query, params)
