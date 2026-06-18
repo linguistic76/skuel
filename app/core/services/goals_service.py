@@ -628,6 +628,11 @@ class GoalsService(
     async def get_goal_hierarchy(self, goal_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_goal_hierarchy(goal_uid)
 
+    async def create_subgoal_relationship(
+        self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
+    ) -> Result[bool]:
+        return await self.core.create_subgoal_relationship(parent_uid, child_uid, progress_weight)
+
     async def remove_subgoal_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subgoal_relationship(parent_uid, child_uid)
 

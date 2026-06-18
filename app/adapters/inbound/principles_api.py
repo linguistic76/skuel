@@ -7,6 +7,7 @@ Hierarchy (ownership-verified):
     GET  /api/principles/parent       — Immediate parent of a subprinciple
     GET  /api/principles/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/principles/remove-child — Remove a subprinciple relationship
+    POST /api/principles/add-child   — Add a subprinciple relationship
 
 Cross-domain links:
     POST /api/principles/link-knowledge — Link principle to knowledge it is grounded in
@@ -168,6 +169,33 @@ def create_principles_api_routes(
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"removed": result.value})
+
+    @rt("/api/principles/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def principle_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subprinciple relationship between two principles."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            principles_service, req.parent_uid, user_uid, "principle"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            principles_service, req.child_uid, user_uid, "principle"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        result = await principles_service.create_subprinciple_relationship(
+            req.parent_uid, req.child_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
 
     # ================================================================
     # CROSS-DOMAIN LINKS
@@ -416,6 +444,7 @@ def create_principles_api_routes(
         principle_parent,
         principle_hierarchy,
         principle_remove_child,
+        principle_add_child,
         principle_link_knowledge,
         principle_create_expression,
         principle_portfolio,

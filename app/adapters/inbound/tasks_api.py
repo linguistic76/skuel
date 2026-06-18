@@ -7,6 +7,7 @@ Hierarchy (ownership-verified):
     GET  /api/tasks/parent       — Immediate parent of a subtask
     GET  /api/tasks/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/tasks/remove-child — Remove a subtask relationship
+    POST /api/tasks/add-child   — Add a subtask relationship
 
 Cross-domain links:
     POST /api/tasks/link-goal    — Link task to a goal it contributes to
@@ -150,6 +151,31 @@ def create_tasks_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    @rt("/api/tasks/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def task_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subtask relationship between two tasks."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            tasks_service, req.parent_uid, user_uid, "task"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            tasks_service, req.child_uid, user_uid, "task"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        result = await tasks_service.create_subtask_relationship(req.parent_uid, req.child_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
+
     # ================================================================
     # CROSS-DOMAIN LINKS
     # ================================================================
@@ -187,5 +213,6 @@ def create_tasks_api_routes(
         task_parent,
         task_hierarchy,
         task_remove_child,
+        task_add_child,
         task_link_goal,
     ]

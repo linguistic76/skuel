@@ -7,6 +7,7 @@ Hierarchy (ownership-verified):
     GET  /api/events/parent       — Immediate parent of a subevent
     GET  /api/events/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/events/remove-child — Remove a subevent relationship
+    POST /api/events/add-child   — Add a subevent relationship
 
 Cross-domain links:
     POST /api/events/link-goal    — Link event to a goal it contributes to
@@ -150,6 +151,31 @@ def create_events_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    @rt("/api/events/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def event_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subevent relationship between two events."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            events_service, req.parent_uid, user_uid, "event"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            events_service, req.child_uid, user_uid, "event"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        result = await events_service.create_subevent_relationship(req.parent_uid, req.child_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
+
     # ================================================================
     # CROSS-DOMAIN LINKS
     # ================================================================
@@ -187,5 +213,6 @@ def create_events_api_routes(
         event_parent,
         event_hierarchy,
         event_remove_child,
+        event_add_child,
         event_link_goal,
     ]

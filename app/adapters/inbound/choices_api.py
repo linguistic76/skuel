@@ -7,6 +7,7 @@ Hierarchy (ownership-verified):
     GET  /api/choices/parent       — Immediate parent of a subchoice
     GET  /api/choices/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/choices/remove-child — Remove a subchoice relationship
+    POST /api/choices/add-child   — Add a subchoice relationship
 
 Cross-domain links:
     POST /api/choices/link-goal              — Link choice to a goal it affects/advances
@@ -161,6 +162,31 @@ def create_choices_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    @rt("/api/choices/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def choice_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subchoice relationship between two choices."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            choices_service, req.parent_uid, user_uid, "choice"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            choices_service, req.child_uid, user_uid, "choice"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        result = await choices_service.create_subchoice_relationship(req.parent_uid, req.child_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
+
     # ================================================================
     # CROSS-DOMAIN LINKS
     # ================================================================
@@ -254,6 +280,7 @@ def create_choices_api_routes(
         choice_parent,
         choice_hierarchy,
         choice_remove_child,
+        choice_add_child,
         choice_link_goal,
         choice_link_principle,
         choices_aligned_with_principle,
