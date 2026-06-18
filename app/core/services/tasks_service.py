@@ -833,6 +833,22 @@ class TasksService(
     # QUERY LAYER
     # ========================================================================
 
+    # ========================================================================
+    # HIERARCHY DELEGATIONS
+    # ========================================================================
+
+    async def get_subtasks(self, parent_uid: str, depth: int = 1) -> Result[list[Task]]:
+        return await self.core.get_subtasks(parent_uid, depth)
+
+    async def get_parent_task(self, subtask_uid: str) -> Result[Task | None]:
+        return await self.core.get_parent_task(subtask_uid)
+
+    async def get_task_hierarchy(self, task_uid: str) -> Result[dict[str, Any]]:
+        return await self.core.get_task_hierarchy(task_uid)
+
+    async def remove_subtask_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.remove_subtask_relationship(parent_uid, child_uid)
+
     async def get_filtered_context(
         self,
         user_uid: UserUID,

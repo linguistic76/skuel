@@ -50,6 +50,7 @@ from adapters.inbound.route_factories import (
     parse_int_query_param,
     verify_entity_ownership,
 )
+from core.models.entity_requests import RemoveHierarchyChildRequest
 from core.models.habit.habit_request import (
     BulkCompleteHabitsRequest,
     DeleteHabitReminderRequest,
@@ -392,6 +393,69 @@ def create_habits_api_routes(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
+    # ================================================================
+    # HIERARCHY — read-paths and relationship removal
+    # ================================================================
+
+    @rt("/api/habits/children", methods=["GET"])
+    @boundary_handler()
+    async def habit_children(request: Request) -> Result[list[Habit]]:
+        """Direct subhabits of a parent habit."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
+        if ownership_error:
+            return ownership_error
+        return await habits_service.get_subhabits(uid)
+
+    @rt("/api/habits/parent", methods=["GET"])
+    @boundary_handler()
+    async def habit_parent(request: Request) -> Result[Habit | None]:
+        """Immediate parent of a subhabit (None if root-level)."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
+        if ownership_error:
+            return ownership_error
+        return await habits_service.get_parent_habit(uid)
+
+    @rt("/api/habits/hierarchy", methods=["GET"])
+    @boundary_handler()
+    async def habit_hierarchy(request: Request) -> Result[dict[str, Any]]:
+        """Full hierarchy context: ancestors, current, siblings, children, depth."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return Result.fail(Errors.validation(message="uid is required", field="uid"))
+        ownership_error = await verify_entity_ownership(habits_service, uid, user_uid, "habit")
+        if ownership_error:
+            return ownership_error
+        return await habits_service.get_habit_hierarchy(uid)
+
+    @rt("/api/habits/remove-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def habit_remove_child(request: Request) -> Result[dict[str, Any]]:
+        """Remove a subhabit relationship (does not delete the habit nodes)."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        ownership_error = await verify_entity_ownership(
+            habits_service, req.parent_uid, user_uid, "habit"
+        )
+        if ownership_error:
+            return ownership_error
+        result = await habits_service.remove_subhabit_relationship(req.parent_uid, req.child_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"removed": result.value})
+
     return [
         *status_routes,
         habit_track,
@@ -408,4 +472,8 @@ def create_habits_api_routes(
         habit_get_reminders,
         habit_delete_reminder,
         habit_export,
+        habit_children,
+        habit_parent,
+        habit_hierarchy,
+        habit_remove_child,
     ]

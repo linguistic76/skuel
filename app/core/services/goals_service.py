@@ -608,6 +608,22 @@ class GoalsService(
     # Note: Orchestration methods provided by _OrchestrationMixin
 
     # ========================================================================
+    # HIERARCHY DELEGATIONS
+    # ========================================================================
+
+    async def get_subgoals(self, parent_uid: str, depth: int = 1) -> Result[list[Goal]]:
+        return await self.core.get_subgoals(parent_uid, depth)
+
+    async def get_parent_goal(self, subgoal_uid: str) -> Result[Goal | None]:
+        return await self.core.get_parent_goal(subgoal_uid)
+
+    async def get_goal_hierarchy(self, goal_uid: str) -> Result[dict[str, Any]]:
+        return await self.core.get_goal_hierarchy(goal_uid)
+
+    async def remove_subgoal_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.remove_subgoal_relationship(parent_uid, child_uid)
+
+    # ========================================================================
     # QUERY LAYER
     # ========================================================================
 

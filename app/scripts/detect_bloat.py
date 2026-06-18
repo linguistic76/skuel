@@ -266,10 +266,6 @@ _GOALS_DAILY_PLANNING = (
 )
 # Tasks dead-code campaign (2026-06): staged task capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_TASKS_HIERARCHY = (
-    "sub-task hierarchy staged (universal hierarchical pattern; the WRITE path is "
-    "live — the create flow calls create_subtask_relationship); wire hierarchy routes/UI"
-)
 _TASKS_ASSIGNMENT = (
     "task-assignment surface staged — reads (Task)-[:ASSIGNED_TO]->(User); the writer "
     "assign_task_to_user (progress service + facade) is its staged dependency with no "
@@ -522,14 +518,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habits_service.py::create_habit_with_learning_scheduling_context": (
         _HABITS_SCHED_CREATE
     ),
-    # --- Habits: sub-habit hierarchy ---
-    "core/services/habits/habits_core_service.py::get_subhabits": _HABITS_HIERARCHY,
-    "core/services/habits/habits_core_service.py::get_parent_habit": _HABITS_HIERARCHY,
-    "core/services/habits/habits_core_service.py::get_habit_hierarchy": _HABITS_HIERARCHY,
+    # --- Habits: sub-habit hierarchy (create still unwired) ---
     "core/services/habits/habits_core_service.py::create_subhabit_relationship": (
-        _HABITS_HIERARCHY
-    ),
-    "core/services/habits/habits_core_service.py::remove_subhabit_relationship": (
         _HABITS_HIERARCHY
     ),
     # --- Habits: goal/Ku orchestration ---
@@ -582,20 +572,8 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/ps/ps_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
     "core/services/lp/lp_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    # --- Principles: sub-principle hierarchy ---
-    "core/services/principles/principles_core_service.py::get_subprinciples": (
-        _PRINCIPLES_HIERARCHY
-    ),
-    "core/services/principles/principles_core_service.py::get_parent_principle": (
-        _PRINCIPLES_HIERARCHY
-    ),
-    "core/services/principles/principles_core_service.py::get_principle_hierarchy": (
-        _PRINCIPLES_HIERARCHY
-    ),
+    # --- Principles: sub-principle hierarchy (create still unwired) ---
     "core/services/principles/principles_core_service.py::create_subprinciple_relationship": (
-        _PRINCIPLES_HIERARCHY
-    ),
-    "core/services/principles/principles_core_service.py::remove_subprinciple_relationship": (
         _PRINCIPLES_HIERARCHY
     ),
     # --- Principles: embodiment (expressions / portfolio / integrity) ---
@@ -651,14 +629,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/_scheduling_mixin.py::check_conflicts": _EVENTS_SCHEDULING,
     "core/services/events/_scheduling_mixin.py::create_recurring_instances": (_EVENTS_SCHEDULING),
     "core/services/events/events_search_service.py::get_conflicting": _EVENTS_SCHEDULING,
-    # --- Events: sub-event hierarchy ---
-    "core/services/events/events_core_service.py::get_subevents": _EVENTS_HIERARCHY,
-    "core/services/events/events_core_service.py::get_parent_event": _EVENTS_HIERARCHY,
-    "core/services/events/events_core_service.py::get_event_hierarchy": _EVENTS_HIERARCHY,
+    # --- Events: sub-event hierarchy (create still unwired) ---
     "core/services/events/events_core_service.py::create_subevent_relationship": (
-        _EVENTS_HIERARCHY
-    ),
-    "core/services/events/events_core_service.py::remove_subevent_relationship": (
         _EVENTS_HIERARCHY
     ),
     # --- Events: bulk habit→event automation ---
@@ -681,14 +653,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
-    # --- Choices: sub-choice hierarchy ---
-    "core/services/choices/choices_core_service.py::get_subchoices": _CHOICES_HIERARCHY,
-    "core/services/choices/choices_core_service.py::get_parent_choice": _CHOICES_HIERARCHY,
-    "core/services/choices/choices_core_service.py::get_choice_hierarchy": _CHOICES_HIERARCHY,
+    # --- Choices: sub-choice hierarchy (create still unwired) ---
     "core/services/choices/choices_core_service.py::create_subchoice_relationship": (
-        _CHOICES_HIERARCHY
-    ),
-    "core/services/choices/choices_core_service.py::remove_subchoice_relationship": (
         _CHOICES_HIERARCHY
     ),
     # --- Choices: gravity links ---
@@ -710,12 +676,8 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Choices: outcome evaluation write path ---
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
-    # --- Goals: sub-goal hierarchy ---
-    "core/services/goals/goals_core_service.py::get_subgoals": _GOALS_HIERARCHY,
-    "core/services/goals/goals_core_service.py::get_parent_goal": _GOALS_HIERARCHY,
-    "core/services/goals/goals_core_service.py::get_goal_hierarchy": _GOALS_HIERARCHY,
+    # --- Goals: sub-goal hierarchy (create still unwired) ---
     "core/services/goals/goals_core_service.py::create_subgoal_relationship": _GOALS_HIERARCHY,
-    "core/services/goals/goals_core_service.py::remove_subgoal_relationship": _GOALS_HIERARCHY,
     # --- Goals: daily-plan producers (miswired flagship consumers) ---
     "core/services/goals/goals_planning_service.py::get_stalled_goals_for_user": (
         _GOALS_DAILY_PLANNING
@@ -748,10 +710,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/goal_task_generator.py::generate_tasks_for_all_goals": _GOAL_TASK_AUTOMATION,
     "core/services/goal_task_generator.py::generate_next_critical_tasks": _GOAL_TASK_AUTOMATION,
     "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
-    # --- Tasks: sub-task hierarchy ---
-    "core/services/tasks/tasks_core_service.py::get_subtasks": _TASKS_HIERARCHY,
-    "core/services/tasks/tasks_core_service.py::get_parent_task": _TASKS_HIERARCHY,
-    "core/services/tasks/tasks_core_service.py::get_task_hierarchy": _TASKS_HIERARCHY,
     # --- Tasks: assignment surface ---
     "core/services/tasks/tasks_search_service.py::get_user_assigned_tasks": _TASKS_ASSIGNMENT,
     # --- Tasks: bulk completion ---

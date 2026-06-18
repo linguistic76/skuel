@@ -614,6 +614,10 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
             parent_uid, subtask_uid, {"progress_weight": progress_weight}
         )
 
+    async def remove_subtask_relationship(self, parent_uid: str, subtask_uid: str) -> Result[bool]:
+        """Remove bidirectional HAS_SUBTASK/SUBTASK_OF relationship."""
+        return await self.backend.remove_hierarchy_relationship(parent_uid, subtask_uid)
+
     # ========================================================================
     # QUERY LAYER — Cypher-level filtering for get_filtered_context
     # ========================================================================
