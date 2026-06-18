@@ -592,26 +592,29 @@ KU_CONFIG = DomainRouteConfig(
 **File:** `/adapters/inbound/habits_routes.py`
 
 ```python
-HABITS_CONFIG = DomainRouteConfig(
+HABITS_CONFIG = create_activity_domain_route_config(
     domain_name="habits",
     primary_service_attr="habits",
     api_factory=create_habits_api_routes,
     ui_factory=create_habits_ui_routes,
+    create_schema=HabitCreateRequest,
+    update_schema=HabitUpdateRequest,
+    uid_prefix="habit",
     api_related_services={
         # Format: {kwarg_name: container_attr}
         # Each entry is passed to api_factory as: kwarg_name=getattr(services, container_attr)
-        "user_service": "user",  # user_service=services.user
-        "goals_service": "goals",  # goals_service=services.goals
+        "principles_service": "principles",  # for link_habit_to_principle ownership check
     },
     ui_related_services={
-        "connection_fetch_backend": "connection_fetch_backend",  # → UI factory kwarg (PR #75)
+        "connection_fetch_backend": "connection_fetch_backend",
+        "choices_ownership": "choices",  # owner-scopes INFORMS_CHOICE / IMPACTS_HABIT fragments
     },
 )
 ```
 
 **Key features:**
-- API factory needs user_service and goals_service (via `api_related_services`)
-- UI factory receives `connection_fetch_backend` (the `ConnectionFetchOperations` port) as a named kwarg via `ui_related_services` — same mapping mechanism, UI side
+- API factory receives `principles_service` (for cross-domain `POST /api/habits/link-principle` ownership check on the target principle)
+- UI factory receives `connection_fetch_backend` and `choices_ownership` as named kwargs via `ui_related_services` — same mapping mechanism, UI side
 
 ### Example 3: Multi-Service with UI Dependencies (Finance)
 
