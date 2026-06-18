@@ -37,9 +37,9 @@ from adapters.inbound.auth import (
     set_current_user,
 )
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.rate_limit import rate_limited_ip
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_string
+from adapters.inbound.rate_limit import rate_limited_ip
 from core.models.auth import (
     ForgotPasswordRequest,
     LoginRequest,

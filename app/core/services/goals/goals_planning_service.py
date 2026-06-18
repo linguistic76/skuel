@@ -262,6 +262,9 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))
 
+            readiness = GoalsPlanningService._calculate_readiness_score_static(
+                knowledge_uids, [], context
+            )
             contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
@@ -269,7 +272,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 contributing_task_uids=contributing_tasks,
                 contributing_habit_uids=contributing_habits,
                 required_knowledge_uids=knowledge_uids,
-                relevance_override=0.7,
+                readiness_override=readiness,
                 priority_override=0.7 * (1 - progress),
             )
             stalled_goals.append(contextual)
@@ -340,6 +343,9 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
             # Get title safely
             title = getattr(goal, "title", str(goal_uid))
 
+            relevance = GoalsPlanningService._calculate_relevance_score_static(
+                [goal_uid], [], context
+            )
             contextual = ContextualGoal.from_entity_and_context(
                 uid=goal_uid,
                 title=title,
@@ -348,7 +354,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
                 contributing_habit_uids=contributing_habits,
                 required_knowledge_uids=knowledge_uids,
                 readiness_override=1.0,
-                relevance_override=0.9,
+                relevance_override=relevance,
                 priority_override=min(1.0, progress * 1.2),
             )
             achievable_goals.append(contextual)

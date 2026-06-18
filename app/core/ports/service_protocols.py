@@ -454,7 +454,7 @@ class GraphAuthOperations(Protocol):
 class GoalTaskGeneratorOperations(Protocol):
     """Goal-to-Task generation operations.
 
-    Route consumer: orchestration_routes.py (create_goal_task_routes)
+    Route consumer: orchestration_routes.py (create_goal_task_routes, create_goal_task_bulk_routes)
     Implementation: GoalTaskGenerator
     """
 
@@ -464,7 +464,23 @@ class GoalTaskGeneratorOperations(Protocol):
         user_context: "UserContext",
         auto_create: bool = False,
     ) -> "Result[list[TaskDTO]]":
-        """Generate tasks for a goal."""
+        """Generate tasks for a single goal."""
+        ...
+
+    async def generate_tasks_for_all_goals(
+        self,
+        user_context: "UserContext",
+        auto_create: bool = False,
+    ) -> "Result[dict[str, list[TaskDTO]]]":
+        """Generate tasks for all active goals, skipping those already at capacity."""
+        ...
+
+    async def generate_next_critical_tasks(
+        self,
+        user_context: "UserContext",
+        limit: int = 5,
+    ) -> "Result[list[TaskDTO]]":
+        """Generate the next critical tasks across all goals, prioritised by urgency."""
         ...
 
 

@@ -678,19 +678,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
     # --- Goals: sub-goal hierarchy (create still unwired) ---
     "core/services/goals/goals_core_service.py::create_subgoal_relationship": _GOALS_HIERARCHY,
-    # --- Goals: daily-plan producers (miswired flagship consumers) ---
-    "core/services/goals/goals_planning_service.py::get_stalled_goals_for_user": (
-        _GOALS_DAILY_PLANNING
-    ),
-    "core/services/goals/goals_planning_service.py::get_achievable_goals_for_user": (
-        _GOALS_DAILY_PLANNING
-    ),
-    "core/services/goals/goals_planning_service.py::_calculate_readiness_score_static": (
-        _GOALS_DAILY_PLANNING
-    ),
-    "core/services/goals/goals_planning_service.py::_calculate_relevance_score_static": (
-        _GOALS_DAILY_PLANNING
-    ),
     # --- Goals: gravity links ---
     "core/services/goals/_relationship_mixin.py::create_user_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals/_relationship_mixin.py::link_goal_to_knowledge": _GOALS_GRAVITY,
@@ -699,16 +686,11 @@ PLANNED_METHODS: dict[str, str] = {
         _GOALS_GRAVITY
     ),
     "core/services/goals/_relationship_mixin.py::unlink_goal_from_habit": _GOALS_GRAVITY,
-    # --- Goals: scheduling-aware creation ---
-    "core/services/goals_service.py::create_goal_with_scheduling_context": _GOALS_SCHED_CREATE,
-    "core/services/goals_service.py::create_goal_with_learning_scheduling": _GOALS_SCHED_CREATE,
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,
     "core/services/goals/goals_ai_service.py::suggest_achievement_strategy": _GOALS_INSIGHTS,
     # --- Goals: bulk goal→task automation (LIVE GoalTaskGenerator) ---
-    "core/services/goal_task_generator.py::generate_tasks_for_all_goals": _GOAL_TASK_AUTOMATION,
-    "core/services/goal_task_generator.py::generate_next_critical_tasks": _GOAL_TASK_AUTOMATION,
     "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
     # --- Tasks: assignment surface ---
     "core/services/tasks/tasks_search_service.py::get_user_assigned_tasks": _TASKS_ASSIGNMENT,
