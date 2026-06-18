@@ -143,9 +143,8 @@ def _extract_user_uid(request: Request) -> str | None:
 def _extract_ip(request: Request) -> str:
     """Read the client IP, falling back to 'unknown'."""
     client = getattr(request, "client", None)
-    if client and hasattr(client, "host"):
-        return str(client.host)
-    return "unknown"
+    host = getattr(client, "host", None) if client else None
+    return str(host) if host else "unknown"
 
 
 def reset_buckets_for_testing() -> None:
