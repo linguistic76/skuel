@@ -39,7 +39,7 @@ Additional type checkers run during `./dev quality`:
 
 ## How `./dev quality` Works
 
-`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates eight checks in order:
+`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates nine checks in order:
 
 1. **Ruff format check** — `uv run ruff format --check`
 2. **Ruff lint** — `uv run ruff check`
@@ -48,7 +48,8 @@ Additional type checkers run during `./dev quality`:
 5. **Route security audit** — `uv run python scripts/audit_route_security.py`
 6. **Skills validation** — `uv run python scripts/skills_validator.py`
 7. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
-8. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
+8. **npm audit** — `npm audit --audit-level=moderate` (JS dependency vulnerabilities)
+9. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
 
 `./dev quality-fix` passes `--fix` to auto-fixable steps.
 
