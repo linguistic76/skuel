@@ -631,6 +631,11 @@ class HabitsService(
     async def get_habit_hierarchy(self, habit_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_habit_hierarchy(habit_uid)
 
+    async def create_subhabit_relationship(
+        self, parent_uid: str, child_uid: str, progress_weight: float = 1.0
+    ) -> Result[bool]:
+        return await self.core.create_subhabit_relationship(parent_uid, child_uid, progress_weight)
+
     async def remove_subhabit_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subhabit_relationship(parent_uid, child_uid)
 

@@ -739,6 +739,9 @@ class EventsService(
     async def get_event_hierarchy(self, event_uid: str) -> Result[dict[str, Any]]:
         return await self.core.get_event_hierarchy(event_uid)
 
+    async def create_subevent_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
+        return await self.core.create_subevent_relationship(parent_uid, child_uid)
+
     async def remove_subevent_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subevent_relationship(parent_uid, child_uid)
 

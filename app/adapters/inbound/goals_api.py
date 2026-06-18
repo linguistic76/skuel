@@ -11,6 +11,7 @@ Hierarchy (ownership-verified):
     GET  /api/goals/parent       — Immediate parent of a subgoal
     GET  /api/goals/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/goals/remove-child — Remove a subgoal relationship
+    POST /api/goals/add-child   — Add a subgoal relationship
 
 Planning (user-scoped reads, full UserContext required):
     GET  /api/goals/stalled      — Goals with minimal progress needing attention
@@ -40,6 +41,7 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
+    AddHierarchyChildRequest,
     LinkGoalToKnowledgeRequest,
     LinkGoalToPrincipleRequest,
     RemoveHierarchyChildRequest,
@@ -166,6 +168,44 @@ def create_goals_api_routes(
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"removed": result.value})
+
+    @rt("/api/goals/add-child", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def goal_add_child(request: Request) -> Result[dict[str, Any]]:
+        """Add a subgoal relationship between two goals."""
+        user_uid = require_authenticated_user(request)
+        parsed = await parse_json_body(request, AddHierarchyChildRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        if req.parent_uid == req.child_uid:
+            return Result.fail(
+                Errors.validation("parent_uid and child_uid must differ", field="child_uid")
+            )
+        ownership_error = await verify_entity_ownership(
+            goals_service, req.parent_uid, user_uid, "goal"
+        )
+        if ownership_error:
+            return ownership_error
+        child_ownership_error = await verify_entity_ownership(
+            goals_service, req.child_uid, user_uid, "goal"
+        )
+        if child_ownership_error:
+            return child_ownership_error
+        existing_parent = await goals_service.get_parent_goal(req.child_uid)
+        if existing_parent.is_error:
+            return Result.fail(existing_parent)
+        if existing_parent.value is not None:
+            return Result.fail(
+                Errors.validation("goal already has a parent — remove it first", field="child_uid")
+            )
+        result = await goals_service.create_subgoal_relationship(
+            req.parent_uid, req.child_uid, req.progress_weight
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok({"added": result.value})
 
     # ================================================================
     # PLANNING — stalled and achievable goal reads
@@ -333,6 +373,7 @@ def create_goals_api_routes(
         goal_parent,
         goal_hierarchy,
         goal_remove_child,
+        goal_add_child,
         goals_stalled,
         goals_achievable,
         goal_create_with_scheduling,

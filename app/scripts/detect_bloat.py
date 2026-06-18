@@ -132,9 +132,6 @@ _HABITS_LIFECYCLE = (
     "archive/untrack, streak/progress/history, completion calendar, reminders"
 )
 _HABITS_BADGES = "completion bulk/badge/export surface staged; wire gamification and export routes"
-_HABITS_HIERARCHY = (
-    "sub-habit hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
-)
 _HABITS_ORCHESTRATION = (
     "goal/Ku/principle orchestration surface staged; wire link + skill routes "
     "or fold into relationship routes"
@@ -150,9 +147,6 @@ _INTELLIGENT_SEARCH = (
 )
 # Principles dead-code campaign (2026-06): staged principle capabilities kept
 # by deliberate decision — each reason names the wiring that completes it.
-_PRINCIPLES_HIERARCHY = (
-    "sub-principle hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
-)
 _PRINCIPLES_EMBODIMENT = (
     "embodiment surface staged (post-create expression append, portfolio, integrity); "
     "wire an add-expression UI on the detail page — create-time expressions and the "
@@ -185,9 +179,6 @@ _EVENTS_SCHEDULING = (
     "UI and a recurrence expansion route, or fold conflicts into "
     "CalendarOptimizationOrchestrator (cross-domain slot view)"
 )
-_EVENTS_HIERARCHY = (
-    "sub-event hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
-)
 _HABIT_EVENT_AUTOMATION = (
     "bulk habit→event automation staged on the LIVE HabitEventScheduler (single-habit "
     "schedule_events_for_habit is routed via orchestration_routes.py); wire bulk-scheduling/"
@@ -206,9 +197,6 @@ _USER_PRINCIPLE_INTEGRATION = (
 )
 # Choices dead-code campaign (2026-06): staged choice capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_CHOICES_HIERARCHY = (
-    "sub-choice hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
-)
 _CHOICES_GRAVITY = (
     "goal/habit/principle link surface staged; wire link routes/UI or fold into relationship routes"
 )
@@ -224,9 +212,6 @@ _CHOICES_OUTCOME = (
 )
 # Goals dead-code campaign (2026-06): staged goal capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_GOALS_HIERARCHY = (
-    "sub-goal hierarchy staged (universal hierarchical pattern); wire hierarchy routes/UI"
-)
 _GOALS_GRAVITY = (
     "user/Ku/principle link surface staged (link_goal_to_habit is the LIVE essentiality "
     "write path); wire link routes/UI or fold into relationship routes"
@@ -505,10 +490,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habits_service.py::create_habit_with_learning_scheduling_context": (
         _HABITS_SCHED_CREATE
     ),
-    # --- Habits: sub-habit hierarchy (create still unwired) ---
-    "core/services/habits/habits_core_service.py::create_subhabit_relationship": (
-        _HABITS_HIERARCHY
-    ),
     # --- Habits: goal/Ku orchestration ---
     "core/services/habits/_orchestration_mixin.py::complete_with_goal_impacts": (
         _HABITS_ORCHESTRATION
@@ -553,10 +534,6 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     "core/services/ps/ps_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
     "core/services/lp/lp_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    # --- Principles: sub-principle hierarchy (create still unwired) ---
-    "core/services/principles/principles_core_service.py::create_subprinciple_relationship": (
-        _PRINCIPLES_HIERARCHY
-    ),
     # --- Principles: single-track alignment self-assessment ---
     "core/services/principles/principles_alignment_service.py::assess_with_user_input": (
         _PRINCIPLES_ASSESS
@@ -585,10 +562,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/_scheduling_mixin.py::check_conflicts": _EVENTS_SCHEDULING,
     "core/services/events/_scheduling_mixin.py::create_recurring_instances": (_EVENTS_SCHEDULING),
     "core/services/events/events_search_service.py::get_conflicting": _EVENTS_SCHEDULING,
-    # --- Events: sub-event hierarchy (create still unwired) ---
-    "core/services/events/events_core_service.py::create_subevent_relationship": (
-        _EVENTS_HIERARCHY
-    ),
     # --- Events: bulk habit→event automation ---
     "core/services/habit_event_scheduler.py::schedule_events_for_all_habits": (
         _HABIT_EVENT_AUTOMATION
@@ -609,10 +582,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
-    # --- Choices: sub-choice hierarchy (create still unwired) ---
-    "core/services/choices/choices_core_service.py::create_subchoice_relationship": (
-        _CHOICES_HIERARCHY
-    ),
     # --- Choices: gravity links ---
     "core/services/choices/_relationship_mixin.py::link_choice_to_habit": _CHOICES_GRAVITY,
     "core/services/choices/_relationship_mixin.py::create_semantic_choice_relationship": (
@@ -627,8 +596,6 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Choices: outcome evaluation write path ---
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
-    # --- Goals: sub-goal hierarchy (create still unwired) ---
-    "core/services/goals/goals_core_service.py::create_subgoal_relationship": _GOALS_HIERARCHY,
     # --- Goals: gravity links ---
     "core/services/goals/_relationship_mixin.py::create_user_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals/_relationship_mixin.py::create_semantic_goal_relationship": (
