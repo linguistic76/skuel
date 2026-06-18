@@ -45,6 +45,7 @@ from core.services.goals import (
     GoalEventHandlerService,
     GoalsIntelligenceService,
     GoalsLearningService,
+    GoalsPlanningService,
     GoalsProgressService,
     GoalsSchedulingService,
 )
@@ -68,6 +69,7 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
+    from core.models.context_types import ContextualGoal
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
     from core.models.pathways.lp_position import LpPosition
@@ -592,12 +594,18 @@ class GoalsService(
             event_bus=event_bus,
         )
 
+        # Context-first planning (stalled/achievable goal queries)
+        self.planning = GoalsPlanningService(
+            backend=backend,
+            relationship_service=self.relationships,
+        )
+
         # Knowledge intelligence (shared singleton — domain-agnostic)
         self.knowledge_intelligence = common.knowledge_intelligence  # always passed by bootstrap
 
         self.logger.info(
-            "GoalsService facade initialized with 9 sub-services: "
-            "core, search, progress, learning, scheduling, relationships, "
+            "GoalsService facade initialized with 10 sub-services: "
+            "core, search, progress, learning, scheduling, planning, relationships, "
             "intelligence, event_handler, knowledge_intelligence"
         )
 
@@ -622,6 +630,28 @@ class GoalsService(
 
     async def remove_subgoal_relationship(self, parent_uid: str, child_uid: str) -> Result[bool]:
         return await self.core.remove_subgoal_relationship(parent_uid, child_uid)
+
+    # ========================================================================
+    # PLANNING DELEGATIONS
+    # ========================================================================
+
+    async def get_stalled_goals_for_user(
+        self,
+        context: UserContext,
+        max_progress: float = 0.1,
+        limit: int = 10,
+    ) -> Result[list[ContextualGoal]]:
+        """Goals with minimal progress — blocked or stalled. See GoalsPlanningService."""
+        return await self.planning.get_stalled_goals_for_user(context, max_progress, limit)
+
+    async def get_achievable_goals_for_user(
+        self,
+        context: UserContext,
+        min_progress: float = 0.7,
+        limit: int = 5,
+    ) -> Result[list[ContextualGoal]]:
+        """Goals near completion — prioritised for finishing. See GoalsPlanningService."""
+        return await self.planning.get_achievable_goals_for_user(context, min_progress, limit)
 
     # ========================================================================
     # QUERY LAYER

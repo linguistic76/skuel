@@ -98,6 +98,57 @@ def create_goal_task_routes(
 
 
 # ---------------------------------------------------------------------------
+# Goal → Task Bulk Generation (extension)
+# ---------------------------------------------------------------------------
+
+
+def create_goal_task_bulk_routes(
+    _app: Any,
+    rt: Any,
+    goal_task_generator: "GoalTaskGeneratorOperations",
+    user_service: Any,
+) -> list[Any]:
+    """Register bulk Goal→Task generation endpoints.
+
+    Routes:
+        POST /goals/generate-tasks-all  — Generate tasks for all active goals
+        GET  /goals/critical-tasks      — Next critical tasks across all goals
+    """
+
+    @rt("/goals/generate-tasks-all")
+    @boundary_handler()
+    async def generate_tasks_all(
+        request: Request, auto_create: bool = False
+    ) -> Result[dict[str, list["TaskDTO"]]]:
+        """Generate tasks for all active goals.
+
+        Query params:
+            auto_create: If True, create tasks; if False return templates only
+        """
+        user_uid = require_authenticated_user(request)
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goal_task_generator.generate_tasks_for_all_goals(ctx_result.value, auto_create)
+
+    @rt("/goals/critical-tasks")
+    @boundary_handler()
+    async def critical_tasks(request: Request, limit: int = 5) -> Result[list["TaskDTO"]]:
+        """Next critical tasks across all active goals, prioritised by urgency.
+
+        Query params:
+            limit: Max results (default 5)
+        """
+        user_uid = require_authenticated_user(request)
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goal_task_generator.generate_next_critical_tasks(ctx_result.value, limit)
+
+    return [generate_tasks_all, critical_tasks]
+
+
+# ---------------------------------------------------------------------------
 # Habit → Event Scheduling (extension)
 # ---------------------------------------------------------------------------
 
@@ -296,6 +347,11 @@ def create_orchestration_routes(
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
     routes = register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+
+    if services and services.goal_task_generator and services.user:
+        routes.extend(
+            create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
+        )
 
     if services and services.habit_event_scheduler:
         routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))

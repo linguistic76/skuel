@@ -11,6 +11,14 @@ Hierarchy (ownership-verified):
     GET  /api/goals/parent       — Immediate parent of a subgoal
     GET  /api/goals/hierarchy    — Full hierarchy context (ancestors, siblings, children)
     POST /api/goals/remove-child — Remove a subgoal relationship
+
+Planning (user-scoped reads, full UserContext required):
+    GET  /api/goals/stalled      — Goals with minimal progress needing attention
+    GET  /api/goals/achievable   — Goals near completion, prioritised for finishing
+
+Scheduling-aware creation:
+    POST /api/goals/create-with-scheduling          — Create goal with capacity check
+    POST /api/goals/create-with-learning-scheduling — Create goal aligned to learning path
 """
 
 from __future__ import annotations
@@ -28,19 +36,23 @@ from adapters.inbound.route_factories import (
     verify_entity_ownership,
 )
 from core.models.entity_requests import RemoveHierarchyChildRequest
+from core.models.goal.goal_request import GoalCreateRequest
 from core.utils.result_simplified import Errors, Result
 from ui.activities.goals_views import GoalCard
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.context_types import ContextualGoal
     from core.models.goal.goal import Goal
     from core.services.goals_service import GoalsService
+    from core.services.user_service import UserService
 
 
 def create_goals_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     goals_service: GoalsService,
+    user_service: UserService | None = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Register Goals API routes."""
@@ -145,10 +157,121 @@ def create_goals_api_routes(
             return Result.fail(result)
         return Result.ok({"removed": result.value})
 
+    # ================================================================
+    # PLANNING — stalled and achievable goal reads
+    # ================================================================
+
+    @rt("/api/goals/stalled", methods=["GET"])
+    @boundary_handler()
+    async def goals_stalled(request: Request) -> Result[list[ContextualGoal]]:
+        """Goals with minimal progress that need attention.
+
+        Query params:
+            max_progress: Upper progress threshold (default 0.1 = 10%)
+            limit: Max results (default 10)
+        """
+        user_uid = require_authenticated_user(request)
+        if not user_service:
+            return Result.fail(
+                Errors.system(message="user_service not available", operation="goals_stalled")
+            )
+        max_progress = float(request.query_params.get("max_progress", "0.1"))
+        limit = int(request.query_params.get("limit", "10"))
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
+
+    @rt("/api/goals/achievable", methods=["GET"])
+    @boundary_handler()
+    async def goals_achievable(request: Request) -> Result[list[ContextualGoal]]:
+        """Goals near completion, prioritised for finishing.
+
+        Query params:
+            min_progress: Lower progress threshold (default 0.7 = 70%)
+            limit: Max results (default 5)
+        """
+        user_uid = require_authenticated_user(request)
+        if not user_service:
+            return Result.fail(
+                Errors.system(message="user_service not available", operation="goals_achievable")
+            )
+        min_progress = float(request.query_params.get("min_progress", "0.7"))
+        limit = int(request.query_params.get("limit", "5"))
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goals_service.get_achievable_goals_for_user(
+            ctx_result.value, min_progress, limit
+        )
+
+    # ================================================================
+    # SCHEDULING-AWARE CREATION
+    # ================================================================
+
+    @rt("/api/goals/create-with-scheduling", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def goal_create_with_scheduling(request: Request) -> Result[Goal]:
+        """Create a goal with capacity check and timeline validation.
+
+        Body: GoalCreateRequest JSON
+        Query params:
+            check_capacity: Whether to enforce capacity limits (default true)
+        """
+        user_uid = require_authenticated_user(request)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service not available", operation="goal_create_with_scheduling"
+                )
+            )
+        check_capacity_str = request.query_params.get("check_capacity", "true")
+        check_capacity = check_capacity_str.lower() not in ("false", "0")
+        parsed = await parse_json_body(request, GoalCreateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goals_service.create_goal_with_scheduling_context(
+            parsed.value, ctx_result.value, check_capacity
+        )
+
+    @rt("/api/goals/create-with-learning-scheduling", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def goal_create_with_learning_scheduling(request: Request) -> Result[Goal]:
+        """Create a goal aligned with the user's active learning paths.
+
+        Body: GoalCreateRequest JSON
+        """
+        user_uid = require_authenticated_user(request)
+        if not user_service:
+            return Result.fail(
+                Errors.system(
+                    message="user_service not available",
+                    operation="goal_create_with_learning_scheduling",
+                )
+            )
+        parsed = await parse_json_body(request, GoalCreateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        ctx_result = await user_service.get_user_context(user_uid)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
+        return await goals_service.create_goal_with_learning_scheduling(
+            parsed.value, None, ctx_result.value
+        )
+
     return [
         *status_routes,
         goal_children,
         goal_parent,
         goal_hierarchy,
         goal_remove_child,
+        goals_stalled,
+        goals_achievable,
+        goal_create_with_scheduling,
+        goal_create_with_learning_scheduling,
     ]
