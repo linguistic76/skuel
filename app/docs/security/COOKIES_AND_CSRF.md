@@ -216,7 +216,7 @@ Full detail in [`docs/roadmap/security-hardening-deferred.md`](../roadmap/securi
 |---|---|---|
 | 1 | Pin `langchain-*` dependency versions | Before any langchain upgrade; before production |
 | 2 | CI CVE scanning (`pip-audit` against OSV) | When a CI pipeline exists |
-| 3 | Rate limiting on `/api/auth/*` (`slowapi` + Redis) | First public deployment |
+| 3 | ~~Rate limiting on auth endpoints~~ **Done (in-process):** `rate_limited_ip` on all four auth POST handlers (login 10/60s, register/forgot-password/reset-password 5/300s). **Remaining:** Redis-backed cluster-wide limiting for multi-worker deployments | Multi-worker deployment |
 | 4 | Pre-commit `detect-secrets` | When a second developer joins |
 | 5 | Session rotation on role change | Before exposing role management to non-admins |
 | 6 | HTTP security headers middleware — `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS | Before public deployment |

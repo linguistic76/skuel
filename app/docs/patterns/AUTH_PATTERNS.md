@@ -405,6 +405,7 @@ return create_docs_page(
 |------|---------|
 | `/adapters/inbound/auth/session.py` | Session helpers, `UserUID` type, decorators, WebSocket auth |
 | `/adapters/inbound/auth_ui.py` | Auth UI routes (register, login, password reset) |
+| `/adapters/inbound/rate_limit.py` | `rate_limited` (per-user) + `rate_limited_ip` (per-IP) sliding-window decorators |
 | `/core/auth/roles.py` | Role-based decorators, permission checking |
 | `/core/auth/graph_auth.py` | `GraphAuthService` for sign_in/sign_up |
 | `/core/auth/__init__.py` | Public API exports |
@@ -564,7 +565,11 @@ Cross-field validation (password matching, terms acceptance) uses `@model_valida
 
 ## Rate Limiting
 
-SKUEL implements **two-axis** login rate limiting via graph queries over `AuthEvent` nodes — no separate cache or external counter.
+SKUEL enforces rate limiting at **two independent layers**:
+
+**HTTP layer (in-process):** `rate_limited_ip` in `adapters/inbound/rate_limit.py` — a sliding-window, per-IP decorator applied directly to the four auth POST handlers before the request reaches any service. Keys are namespaced (`ip:<bucket>:<ip>`) in the module-level `_BUCKETS` store. Limits: login 10/60s, register/forgot-password/reset-password 5/300s. Returns HTTP 429 with `Retry-After`. Unknown IPs pass through.
+
+**Graph layer:** SKUEL implements **two-axis** login rate limiting via graph queries over `AuthEvent` nodes — no separate cache or external counter.
 
 ### Per-Account Lockout
 
