@@ -22,6 +22,7 @@ data:
   APP_PORT: "5001"
   APP_DEBUG: "false"
   APP_ENV: "production"
+  SKUEL_ENVIRONMENT: "production"
   ENABLE_ORCHESTRATION: "true"
   ENABLE_CACHING: "true"
   ENABLE_METRICS: "true"
