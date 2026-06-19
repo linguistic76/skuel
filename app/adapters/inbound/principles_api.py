@@ -15,7 +15,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -101,7 +101,7 @@ def create_principles_api_routes(
 
     @rt("/api/principles/parent", methods=["GET"])
     @boundary_handler()
-    async def principle_parent(request: Request) -> Result[Principle | None]:
+    async def principle_parent(request: Request) -> Result[Optional[Principle]]:  # noqa: UP045
         """Immediate parent of a subprinciple (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
