@@ -1009,9 +1009,12 @@ class UserBackend:
             Result[bool]: Success status
         """
         try:
+            import json
             from uuid import uuid4
 
             message_uid = f"msg_{uuid4().hex[:12]}"
+            # Neo4j node properties cannot be maps; serialize metadata as a JSON string.
+            metadata_json: str | None = json.dumps(metadata) if metadata else None
 
             query = """
             MATCH (u:User {uid: $user_uid})
@@ -1020,7 +1023,7 @@ class UserBackend:
                 role: $role,
                 content: $content,
                 timestamp: datetime(),
-                metadata: $metadata
+                metadata: $metadata_json
             })
             CREATE (u)-[:HAS_MESSAGE]->(m)
             RETURN m
@@ -1034,7 +1037,7 @@ class UserBackend:
                         "message_uid": message_uid,
                         "role": role,
                         "content": content,
-                        "metadata": metadata or {},
+                        "metadata_json": metadata_json,
                     },
                 )
                 record = await result.single()
