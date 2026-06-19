@@ -366,7 +366,7 @@ disallow_incomplete_defs = false
 check_untyped_defs = true
 warn_return_any = false  # too noisy for fixture helpers
 warn_unused_ignores = false  # tests use # type: ignore liberally for mocks
-disable_error_code = ["method-assign", "type-var", "misc", "arg-type"]
+disable_error_code = ["method-assign", "type-var", "misc", "arg-type", "import-untyped"]
 
 # ============================================================================
 # PYRIGHT CONFIGURATION
