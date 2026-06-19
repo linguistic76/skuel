@@ -77,22 +77,21 @@ class _TemplateLoader:
                 return Result.fail(uids_res)
 
             instances: list[Any] = []
-            for uid in uids_res.value:
-                inst_res = await backend.get(uid)
-                if inst_res.is_error:
-                    return Result.fail(inst_res)
-                if inst_res.value is None:
+            many_res = await backend.get_many(uids_res.value)
+            if many_res.is_error:
+                return Result.fail(many_res)
+            for inst in many_res.value or []:
+                if inst is None:
                     return Result.fail(
                         Errors.database(
                             operation="load_template",
                             message=(
-                                f"Template UID {uid} attached to PS {ps_uid} via "
-                                f"{rel.value} but the node could not be loaded — "
-                                f"possible orphan edge."
+                                f"PS {ps_uid} has an orphan {rel.value} edge — "
+                                f"linked template node could not be loaded."
                             ),
                         )
                     )
-                instances.append(inst_res.value)
+                instances.append(inst)
             results[cls] = instances
 
         return Result.ok(
