@@ -20,7 +20,6 @@ Design Principles:
 from pathlib import Path
 from typing import Any
 
-import httpx
 from fasthtml.common import Link, Script
 from monsterui.core import HEADER_URLS
 from monsterui.core import Theme as MonsterTheme
@@ -30,15 +29,13 @@ Theme = MonsterTheme
 
 
 def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: Any) -> list[Any]:
-    """Drop-in for ``theme.local_headers`` that doesn't hit the network when vendor files exist.
+    """Build MonsterUI header tags from committed vendor files.
 
-    Upstream ``monsterui.Theme.local_headers`` unconditionally re-downloads every file in
-    ``HEADER_URLS`` on every call, which crashes app startup whenever DNS or the CDN is
-    unreachable. The vendor files are downloaded to ``static/vendor/monsterui/`` on first
-    run (gitignored by design); subsequent startups reuse them without any network call.
+    Files live in ``static/vendor/monsterui/`` and are committed to git alongside
+    all other vendor files (Alpine, HTMX, Chart.js). After ``uv upgrade monsterui``
+    run ``./dev sync-monsterui-vendor`` to re-download and commit the updated files.
     """
     static_path = Path(static_dir)
-    static_path.mkdir(exist_ok=True)
     local_urls: dict[str, str] = {}
     for name, url in HEADER_URLS.items():
         # Extension comes from the URL path's actual suffix, not substring match —
@@ -48,7 +45,10 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
         ext = "css" if url.rsplit("?", 1)[0].endswith(".css") else "js"
         fname = static_path / f"{name}.{ext}"
         if not fname.exists():
-            fname.write_bytes(httpx.get(url, follow_redirects=True).content)
+            raise FileNotFoundError(
+                f"MonsterUI vendor file missing: {fname}\n"
+                f"Run: ./dev sync-monsterui-vendor"
+            )
         local_urls[name] = f"/{static_dir}/{fname.name}"
     return theme._create_headers(local_urls, **kwargs)
 
