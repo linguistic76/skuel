@@ -15,7 +15,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -88,7 +88,7 @@ def create_events_api_routes(
 
     @rt("/api/events/parent", methods=["GET"])
     @boundary_handler()
-    async def event_parent(request: Request) -> Result[Event | None]:
+    async def event_parent(request: Request) -> Result[Optional[Event]]:  # noqa: UP045
         """Immediate parent of a subevent (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

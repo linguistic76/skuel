@@ -46,7 +46,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from starlette.responses import Response
 
@@ -433,7 +433,7 @@ def create_habits_api_routes(
 
     @rt("/api/habits/parent", methods=["GET"])
     @boundary_handler()
-    async def habit_parent(request: Request) -> Result[Habit | None]:
+    async def habit_parent(request: Request) -> Result[Optional[Habit]]:  # noqa: UP045
         """Immediate parent of a subhabit (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
