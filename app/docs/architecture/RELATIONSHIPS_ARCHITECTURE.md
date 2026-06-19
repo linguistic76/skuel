@@ -138,7 +138,7 @@ class DomainRelationshipConfig:
 | Choice | 8 | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
 | User / Ownership | 12 | `OWNS`, `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
 | Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
-| Life Path | 2 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH` |
+| Life Path | 3 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
 | Resource | 1 | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
 | Content / Processing | 4 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `ASSESSMENT_OF`, `HAS_SCHEDULE` |
@@ -153,7 +153,7 @@ class DomainRelationshipConfig:
 | **Activity (6)** | Tasks, Goals, Habits, Events, Choices, Principles | ✅ | Config-driven via registry |
 | **Curriculum (3)** | KU, PS, LP | ✅ | `is_shared_content=True`; ordered relationships for hierarchy |
 | **UserEntry** | UserEntry | ✅ | SHARES_WITH owned by the entity-agnostic `SharingBackend` (ADR-042) |
-| **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH |
+| **Life Path** | LifePath | ✅ | ULTIMATE_PATH + SERVES_LIFE_PATH + ALIGNMENT_SNAPSHOT |
 | **Finance** | Finance | ❌ | Standalone bookkeeping — no relationship service |
 
 ---

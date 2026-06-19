@@ -189,7 +189,8 @@ See: [DomainRouteConfig Pattern](../patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md)
 | Relationship | Direction | Source | Description |
 |--------------|-----------|--------|-------------|
 | `SERVES_LIFE_PATH` | Incoming | All Domains | Everything flows toward life path |
-| `ULTIMATE_PATH` | `(User)-[:ULTIMATE_PATH]->(Lp)` | User → LP | User's designated life path |
+| `ULTIMATE_PATH` | `(User)-[:ULTIMATE_PATH]->(Lp)` | User → LP | User's designated life path; carries current alignment score + dimension scores |
+| `ALIGNMENT_SNAPSHOT` | `(User)-[:ALIGNMENT_SNAPSHOT {date, score}]->(Lp)` | User → LP | Daily alignment history — one per day, idempotent; powers trend analysis |
 
 ## Usage Example
 
