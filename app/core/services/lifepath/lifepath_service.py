@@ -412,3 +412,9 @@ class LifePathService:
             list(designation.vision_themes),
             user_context,
         )
+
+    async def get_alignment_trend_data(
+        self, user_uid: UserUID, days: int = 31
+    ) -> Result[list[dict[str, Any]]]:
+        """Get historical alignment snapshots for trend analysis, newest first."""
+        return await self.core.get_alignment_trend_data(user_uid=user_uid, days=days)

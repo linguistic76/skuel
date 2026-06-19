@@ -313,6 +313,7 @@ class RelationshipName(StrEnum):
     # "Everything flows toward the life path"
     # =========================================================================
     ULTIMATE_PATH = "ULTIMATE_PATH"  # (user)-[:ULTIMATE_PATH]->(lp) - User's designated life path
+    ALIGNMENT_SNAPSHOT = "ALIGNMENT_SNAPSHOT"  # (user)-[:ALIGNMENT_SNAPSHOT {date, score}]->(lp) - daily alignment history
     SERVES_LIFE_PATH = (
         "SERVES_LIFE_PATH"  # (entity)-[:SERVES_LIFE_PATH]->(lp) - Entity contributes to life path
     )
@@ -556,6 +557,7 @@ class RelationshipName(StrEnum):
         """
         life_path_types = {
             self.ULTIMATE_PATH,
+            self.ALIGNMENT_SNAPSHOT,
             self.SERVES_LIFE_PATH,
         }
         return self in life_path_types
