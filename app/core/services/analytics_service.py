@@ -72,6 +72,7 @@ class AnalyticsService:
         user_service=None,
         ku_service=None,
         lp_service=None,
+        lifepath_service=None,
         report_dir: Path | None = None,
         event_bus=None,
         cross_domain_backend=None,
@@ -89,7 +90,8 @@ class AnalyticsService:
             content_enrichment: ContentEnrichmentService (Layer 2)
             user_service: UserService for getting UserContext (Layer 3 - for Life Path)
             ku_service: PsService for knowledge substance scores (Layer 0)
-            lp_service: LpService for Learning Path details (Layer 0)
+            lp_service: LpService for Learning Path CRUD (Layer 0)
+            lifepath_service: LifePathService for designation + alignment history
             report_dir: Directory for storing generated analytics
             event_bus: Event bus for automatic analytics generation
             cross_domain_backend: CrossDomainBackend for cross-domain queries
@@ -118,7 +120,10 @@ class AnalyticsService:
 
         # NEW: Life Path alignment tracking (Layer 3 cross-layer metric!)
         self.life_path = AnalyticsLifePathService(
-            user_service=user_service, ku_service=ku_service, lp_service=lp_service
+            user_service=user_service,
+            ku_service=ku_service,
+            lp_service=lp_service,
+            lifepath_service=lifepath_service,
         )
 
         # Analytics storage

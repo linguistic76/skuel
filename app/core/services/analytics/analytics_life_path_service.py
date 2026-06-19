@@ -56,18 +56,26 @@ class AnalyticsLifePathService:
     Substance tracking measures whether knowledge is LIVED, not just learned.
     """
 
-    def __init__(self, user_service: Any, ku_service: Any, lp_service: Any) -> None:
+    def __init__(
+        self,
+        user_service: Any,
+        ku_service: Any,
+        lp_service: Any,
+        lifepath_service: Any = None,
+    ) -> None:
         """
         Initialize Life Path analytics service.
 
         Args:
             user_service: UserService for getting UserContext
             ku_service: PsService for knowledge substance scores
-            lp_service: LpService for Learning Path details
+            lp_service: LpService for Learning Path CRUD (get, get_path_steps)
+            lifepath_service: LifePathService for designation + alignment history
         """
         self.user_service = user_service
         self.ku_service = ku_service
         self.lp_service = lp_service
+        self.lifepath_service = lifepath_service
 
     async def calculate_life_path_alignment(self, user_uid: UserUID) -> Result[dict[str, Any]]:
         """
@@ -430,7 +438,16 @@ class AnalyticsLifePathService:
         Returns:
             Dict with historical alignment scores and trend direction
         """
-        snapshots_result = await self.lp_service.get_alignment_trend_data(user_uid=user_uid)
+        if not self.lifepath_service:
+            return {
+                "user_uid": user_uid,
+                "life_path_uid": life_path_uid,
+                "7_days_ago": None,
+                "30_days_ago": None,
+                "direction": "unknown",
+                "snapshot_count": 0,
+            }
+        snapshots_result = await self.lifepath_service.get_alignment_trend_data(user_uid=user_uid)
         if snapshots_result.is_error or not snapshots_result.value:
             return {
                 "user_uid": user_uid,

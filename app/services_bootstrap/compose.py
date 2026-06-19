@@ -1270,6 +1270,7 @@ async def compose_services(
             user_service=user_service,  # Life path alignment
             ku_service=learning_services["ps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
+            lifepath_service=lifepath_service,  # alignment snapshot history
             event_bus=event_bus,  # Event-driven report generation
             cross_domain_backend=cross_domain_backend,  # Cross-domain analytics queries
         )
