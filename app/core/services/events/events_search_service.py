@@ -154,7 +154,10 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         active_events = await enrich_events_with_habit_links(self.backend, active_events)
         # Populate the derived contributes_to_goal_uid from the CONTRIBUTES_TO_GOAL edge
         # so the goal-alignment scorer can read it (graph is source of truth).
-        active_events = await enrich_events_with_goal_links(self.backend, active_events)
+        # Pass active_goal_uids so multi-goal events prefer the active goal.
+        active_events = await enrich_events_with_goal_links(
+            self.backend, active_events, user_context.active_goal_uids
+        )
 
         scored_events = [(event, score_event(event, user_context).total) for event in active_events]
         scored_events.sort(key=get_result_score, reverse=True)
