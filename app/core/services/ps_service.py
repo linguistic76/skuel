@@ -622,12 +622,10 @@ class PsService:
                             related_uids.append(node["uid"])
                         elif isinstance(node, HasUID):
                             related_uids.append(node.uid)
-        results = []
-        for step_uid in related_uids[:limit]:
-            r = await self.core.get(step_uid)
-            if r.is_ok and r.value:
-                results.append(r.value)
-        return Result.ok(results)
+        many_result = await self.core.backend.get_many(related_uids[:limit])
+        if many_result.is_error:
+            return Result.fail(many_result)
+        return Result.ok([ps for ps in (many_result.value or []) if ps is not None])
 
     # ============================================================================
     # ADAPTIVE CURRICULUM - Delegated to PsAdaptiveService

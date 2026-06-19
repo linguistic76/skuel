@@ -235,14 +235,11 @@ class GoalTaskGenerator:
         """
         critical_tasks = []
 
-        # Check each active goal
-        for goal_uid in user_context.active_goal_uids:
-            goal_result = await self.goals_backend.get_goal(goal_uid)
-            if goal_result.is_error:
-                continue
-
-            goal = to_domain_model(goal_result.value, GoalDTO, Goal)
-
+        # Fetch all active goals in one batch query
+        many_result = await self.goals_backend.get_many(list(user_context.active_goal_uids))
+        if many_result.is_error:
+            return Result.fail(many_result)
+        for goal in [g for g in (many_result.value or []) if g is not None]:
             # Check if goal is at risk
             if goal.days_remaining() and goal.days_remaining() < 30:
                 # Generate urgent milestone tasks
