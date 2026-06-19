@@ -987,31 +987,15 @@ def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
         )
     )
 
-    # Priority level (weight: 0.25) - use existing priority field instead of urgency
-    from core.ports import get_enum_value
-
-    priority_value = get_enum_value(choice.priority) if choice.priority else None
-
-    priority_scores = {
-        "critical": (1.0, "Critical priority"),
-        "high": (0.8, "High priority"),
-        "medium": (0.5, "Medium priority"),
-        "low": (0.25, "Low priority"),
-    }
-    if priority_value is None:
-        priority_normalized, priority_reason = (0.5, "No priority set")
-    else:
-        priority_normalized, priority_reason = priority_scores.get(
-            priority_value, (0.5, "No priority set")
-        )
-
+    # Priority level (weight: 0.25)
+    priority_component = score_priority_level(choice.priority)
     components.append(
         ComponentScore(
-            component=ScoringComponent.URGENCY_LEVEL,
-            raw_value=1.0 if priority_value == "critical" else 0.5,
+            component=ScoringComponent.PRIORITY_LEVEL,
+            raw_value=priority_component.raw_value,
             weight=0.25,
-            normalized=priority_normalized,
-            reason=priority_reason,
+            normalized=priority_component.normalized,
+            reason=priority_component.reason,
         )
     )
 
