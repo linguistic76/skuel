@@ -88,7 +88,7 @@ def create_tasks_api_routes(
 
     @rt("/api/tasks/parent", methods=["GET"])
     @boundary_handler()
-    async def task_parent(request: Request) -> Result[Optional[Task]]:
+    async def task_parent(request: Request) -> Result[Optional[Task]]:  # noqa: UP045
         """Immediate parent of a subtask (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

@@ -101,7 +101,7 @@ def create_principles_api_routes(
 
     @rt("/api/principles/parent", methods=["GET"])
     @boundary_handler()
-    async def principle_parent(request: Request) -> Result[Optional[Principle]]:
+    async def principle_parent(request: Request) -> Result[Optional[Principle]]:  # noqa: UP045
         """Immediate parent of a subprinciple (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

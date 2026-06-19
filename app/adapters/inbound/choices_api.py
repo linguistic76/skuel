@@ -96,7 +96,7 @@ def create_choices_api_routes(
 
     @rt("/api/choices/parent", methods=["GET"])
     @boundary_handler()
-    async def choice_parent(request: Request) -> Result[Optional[Choice]]:
+    async def choice_parent(request: Request) -> Result[Optional[Choice]]:  # noqa: UP045
         """Immediate parent of a subchoice (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

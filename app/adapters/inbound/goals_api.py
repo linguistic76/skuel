@@ -102,7 +102,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/parent", methods=["GET"])
     @boundary_handler()
-    async def goal_parent(request: Request) -> Result[Optional[Goal]]:
+    async def goal_parent(request: Request) -> Result[Optional[Goal]]:  # noqa: UP045
         """Immediate parent of a subgoal (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
