@@ -57,7 +57,7 @@ This ADR records the policy and the structure that enforces it.
 | Type checking | `[tool.mypy]` `python_version`, `[tool.pyright]` `pythonVersion` | `3.14` |
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
-| **Lint/format syntax target** | `[tool.ruff]` `target-version` | **`py314`** (TC002/TC003/UP037 explicitly suppressed — see Deferred) |
+| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
 
