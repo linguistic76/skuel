@@ -28,7 +28,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -102,7 +102,7 @@ def create_goals_api_routes(
 
     @rt("/api/goals/parent", methods=["GET"])
     @boundary_handler()
-    async def goal_parent(request: Request) -> Result[Goal | None]:
+    async def goal_parent(request: Request) -> Result[Optional[Goal]]:
         """Immediate parent of a subgoal (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")

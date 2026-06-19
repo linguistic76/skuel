@@ -17,7 +17,7 @@ Cross-domain links:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -96,7 +96,7 @@ def create_choices_api_routes(
 
     @rt("/api/choices/parent", methods=["GET"])
     @boundary_handler()
-    async def choice_parent(request: Request) -> Result[Choice | None]:
+    async def choice_parent(request: Request) -> Result[Optional[Choice]]:
         """Immediate parent of a subchoice (None if root-level)."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
