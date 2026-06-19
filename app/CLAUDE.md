@@ -331,7 +331,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 **Core Principle:** "All dependencies are REQUIRED - no graceful degradation"
 
-**Required at bootstrap:** Neo4j, OpenAI, Deepgram. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
+**Required at bootstrap:** Neo4j (always). OpenAI and Deepgram are FULL-tier only — not read in CORE mode. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
 
 ## UI Component Pattern
 
