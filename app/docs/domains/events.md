@@ -124,18 +124,30 @@ Also handles: attendance time-of-day tracking, goal alignment checks, rescheduli
 |-----|--------------|--------|-------------|
 | `knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied at event |
 | `goals` | `CONTRIBUTES_TO_GOAL` | Goal | Goals event contributes to |
-| `habits` | `PRACTICED_AT_EVENT` | Habit | Habits practiced at event |
-| `celebrated_goals` | `CELEBRATED_BY_EVENT` | Goal | Goals celebrated by event |
+| `habits` | `REINFORCES_HABIT` | Habit | Habit this event reinforces |
+| `celebrated_goals` | `CELEBRATES_GOAL` | Goal | Goals celebrated by event |
 
 ### Incoming (Other → Event)
 
 | Key | Relationship | Source | Description |
 |-----|--------------|--------|-------------|
 | `conflicting_events` | `CONFLICTS_WITH` | Event | Events that conflict |
+| — | `PRACTICED_AT_EVENT` | Habit | Habits recorded as practiced at event |
 
 ### Bidirectional
 
 - `CONFLICTS_WITH` - Event scheduling conflicts
+
+### Derived fields (populated at fetch time, never persisted)
+
+Two fields are populated from graph edges at read time rather than stored as Neo4j properties:
+
+| Field | Edge | Populated by |
+|-------|------|--------------|
+| `reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` | `enrich_events_with_habit_links()` |
+| `contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` | `enrich_events_with_goal_links()` |
+
+Both helpers live in `core/services/events/_habit_links.py` and `_goal_links.py` respectively and are called by `EventsSearchService.get_prioritized()` before scoring so the priority scorer can read them.
 
 ## Cross-Domain Mappings
 
