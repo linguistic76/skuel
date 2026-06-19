@@ -78,7 +78,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |
 | `default_status()` | EntityStatus | What status does a new entity get? |
 | `content_origin()` | ContentOrigin | Which content tier (A-D)? |
-| `from_string(text)` | EntityType \| None | Parse with alias support ("ku" -> KU, "moc" -> KU) |
+| `from_string(text)` | EntityType \| None | Parse with alias support ("ps" → PATH_STEP, "lp" → LEARNING_PATH, "ku" → KU, "book"/"film"/"talk" → RESOURCE) |
 
 ### EntityStatus — Where Is It? (14 values)
 

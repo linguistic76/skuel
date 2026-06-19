@@ -219,10 +219,8 @@ class EntityType(StrEnum):
         """
         Parse EntityType from string (case-insensitive, alias-aware).
 
-        Supports aliases for backward compatibility with DSL and ingestion:
-            "ku" -> KU (canonical)
-            "ps" -> PATH_STEP
-            "lp" -> LEARNING_PATH
+        Canonical DSL shorthands: "ps" → PATH_STEP, "lp" → LEARNING_PATH,
+        "ku" → KU, "book"/"film"/"talk" → RESOURCE, "step" → PATH_STEP.
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)
