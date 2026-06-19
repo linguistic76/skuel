@@ -43,6 +43,7 @@ type: Opaque
 stringData:
   NEO4J_PASSWORD: "your-neo4j-password"
   REDIS_PASSWORD: "your-redis-password"
+  SESSION_SECRET_KEY: "your-session-secret-key"
   JWT_SECRET: "your-jwt-secret"
   ENCRYPTION_KEY: "your-encryption-key"
   OPENAI_API_KEY: "your-openai-key"
@@ -252,6 +253,11 @@ spec:
             secretKeyRef:
               name: skuel-secrets
               key: NEO4J_PASSWORD
+        - name: SESSION_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: skuel-secrets
+              key: SESSION_SECRET_KEY
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:

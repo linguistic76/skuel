@@ -37,6 +37,7 @@ services:
       SKUEL_ENVIRONMENT: production
 
       # Security
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
