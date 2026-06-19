@@ -475,7 +475,6 @@ def create_ingestion_api_routes(
                 "article": EntityType.PATH_STEP,
                 "ku": EntityType.KU,
                 "ps": EntityType.PATH_STEP,
-                "ls": EntityType.PATH_STEP,  # backward-compat alias
                 "lp": EntityType.LEARNING_PATH,
                 "tasks": EntityType.TASK,
                 "goals": EntityType.GOAL,

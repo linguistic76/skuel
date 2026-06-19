@@ -113,20 +113,7 @@ async def _build_navbar(
 ) -> "FT":
     """Build slim top navbar, preferring request-based for auto-detection."""
     if request is not None:
-        # Get notification_service from app state if available
-        notification_service = getattr(
-            getattr(getattr(request, "app", None), "state", None),
-            "services",
-            None,
-        )
-        ns = (
-            getattr(notification_service, "notification_service", None)
-            if notification_service
-            else None
-        )
-        return await create_navbar_for_request(
-            request, active_page=active_page, notification_service=ns
-        )
+        return await create_navbar_for_request(request, active_page=active_page)
     return create_navbar(
         current_user=user_display_name,
         is_authenticated=is_authenticated,

@@ -621,7 +621,6 @@ class SearchRouter:
             "ku": EntityType.PATH_STEP,
             "lesson": EntityType.PATH_STEP,
             "ps": EntityType.PATH_STEP,
-            "ls": EntityType.PATH_STEP,  # backward-compat alias
             "lp": EntityType.LEARNING_PATH,
             "exercises": EntityType.EXERCISE,
             "exercise": EntityType.EXERCISE,

@@ -25,7 +25,7 @@ Four structural patterns for organizing knowledge:
 **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
 `(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives.
 
-**Note on Lesson (2026-04):** `Lesson` was merged into `PathStep`. The strings `"lesson"` and `"l"` are aliases in `_ENTITY_TYPE_ALIASES` for backward compatibility with existing Cypher data.
+**Note on Lesson (2026-04):** `Lesson` was merged into `PathStep`. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"pathstep"` for DSL parsing; `"lesson"` is ingestion-only.
 
 ## World Layer vs User Layer
 

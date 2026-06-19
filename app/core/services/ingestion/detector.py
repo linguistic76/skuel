@@ -46,8 +46,7 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "learningpath": EntityType.LEARNING_PATH,
     "ps": EntityType.PATH_STEP,
     "pathstep": EntityType.PATH_STEP,
-    "ls": EntityType.PATH_STEP,  # backward-compat alias
-    "learningstep": EntityType.PATH_STEP,  # backward-compat alias
+    "learningstep": EntityType.PATH_STEP,
     # Finance
     "expense": NonKuDomain.FINANCE,
     "finance": NonKuDomain.FINANCE,

@@ -398,8 +398,6 @@ def create_bottom_nav(
 async def create_navbar_for_request(
     request: Request,
     active_page: str = "",
-    insight_store: Any = None,
-    notification_service: Any = None,
 ) -> Nav:
     """
     Create top navbar with automatic user/admin detection from session.
@@ -410,8 +408,6 @@ async def create_navbar_for_request(
     Args:
         request: Starlette/FastHTML request object
         active_page: Current page slug for highlighting
-        insight_store: Unused — retained for signature compatibility
-        notification_service: Unused — retained for signature compatibility
 
     Returns:
         FastHTML Nav element (slim top bar)

@@ -338,9 +338,7 @@ async def test_intelligent_search_recurring_postfilter(search_service, mock_back
 async def test_get_prioritized_returns_scored_events(search_service, mock_backend, sample_events):
     """Active events are returned (COMPLETED filtered out) when no enrichment links exist."""
     scheduled = [e for e in sample_events if e.status != EntityStatus.COMPLETED]
-    mock_backend.find_by.return_value = Result.ok(
-        [e.to_dto().to_dict() for e in sample_events]
-    )
+    mock_backend.find_by.return_value = Result.ok([e.to_dto().to_dict() for e in sample_events])
 
     ctx = UserContext(user_uid="user_demo")
     result = await search_service.get_prioritized(ctx, limit=10)
@@ -388,9 +386,7 @@ async def test_get_prioritized_goal_link_error_is_nonfatal(
 ):
     """Backend error on get_goal_links_for_events → events still returned without goal enrichment."""
     scheduled = [e for e in sample_events if e.status != EntityStatus.COMPLETED]
-    mock_backend.find_by.return_value = Result.ok(
-        [e.to_dto().to_dict() for e in sample_events]
-    )
+    mock_backend.find_by.return_value = Result.ok([e.to_dto().to_dict() for e in sample_events])
     mock_backend.get_goal_links_for_events.return_value = Result.fail(
         Errors.database("get_goal_links_for_events", "neo4j timeout")
     )

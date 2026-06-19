@@ -107,7 +107,7 @@ content: |
 
 **What it is:** A unit for learning that composes Kus into coherent content and sits within LearningPaths.
 
-**Note (2026-04):** The former `Lesson` entity type was merged into `PathStep`. PathStep IS the curriculum content entity. `"lesson"` and `"l"` are backward-compatible aliases in `_ENTITY_TYPE_ALIASES`.
+**Note (2026-04):** The former `Lesson` entity type was merged into `PathStep`. PathStep IS the curriculum content entity. `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`); use `"ps"` or `"pathstep"` for DSL/`from_string()` parsing.
 
 **Characteristics:**
 - Composes atomic Kus into a coherent learning narrative
