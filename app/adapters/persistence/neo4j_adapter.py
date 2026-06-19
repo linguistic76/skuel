@@ -475,53 +475,6 @@ class Neo4jAdapter:
                 Errors.database(operation="execute_query", message=f"Query execution failed: {e!s}")
             )
 
-    async def get_query_suggestions(self, _partial_query: str) -> Any:
-        """
-        Get suggestions for completing a partial query.
-
-        Args:
-            _partial_query: Partial query text (prefixed with _ as this is a stub)
-
-        Note: This feature is not yet implemented. A query suggestion engine
-        would analyze the partial query and provide autocomplete suggestions
-        based on schema elements and common patterns.
-        """
-        from core.utils.result_simplified import Errors
-
-        return Result.fail(
-            Errors.system(
-                message="Query suggestions not yet implemented", operation="get_query_suggestions"
-            )
-        )
-
-    # Enhanced Template Methods
-    async def smart_search(
-        self, _search_term: str, _labels: list[str] | None = None, _limit: int = 25
-    ) -> Any:
-        """
-        Smart search that automatically selects the best search strategy.
-
-        This would intelligently choose between fulltext search, indexed search,
-        or basic CONTAINS search based on available schema features.
-
-        Args:
-            _search_term: Text to search for (prefixed with _ as this is a stub)
-            _labels: Optional list of labels to search within (prefixed with _ as this is a stub)
-            _limit: Maximum results to return (prefixed with _ as this is a stub)
-
-        Returns:
-            Result[List[Dict]] with search results
-
-        Note: This feature is not yet implemented. Enhanced search functionality
-        would analyze available indexes and automatically select the optimal
-        search strategy (fulltext, vector, or basic text search).
-        """
-        from core.utils.result_simplified import Errors
-
-        return Result.fail(
-            Errors.system(message="Smart search not yet implemented", operation="smart_search")
-        )
-
     async def build_template_query(self, template_name: str, parameters: dict[str, Any]) -> Any:
         """
         Build an optimized query using a specific template.
@@ -535,31 +488,6 @@ class Neo4jAdapter:
         """
         builder = self.get_index_aware_builder()
         return await builder.from_template(template_name, parameters)
-
-    async def recommend_templates(self, _search_criteria: Any) -> Any:
-        """
-        Get template recommendations based on search criteria.
-
-        Args:
-            _search_criteria: SearchCriteria object describing the search
-                (prefixed with _ as this is a stub)
-
-        Returns:
-            Result[List[TemplateRecommendation]] ordered by confidence
-
-        Note: This feature is not yet implemented. A recommendation engine
-        would analyze search criteria and suggest the most appropriate
-        query templates based on the requested operations, filters, and
-        available schema features.
-        """
-        from core.utils.result_simplified import Errors
-
-        return Result.fail(
-            Errors.system(
-                message="Template recommendations not yet implemented",
-                operation="recommend_templates",
-            )
-        )
 
     async def execute_template(self, template_name: str, parameters: dict[str, Any]) -> Any:
         """
