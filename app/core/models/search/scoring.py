@@ -782,15 +782,17 @@ def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
     )
 
     # Goal support (weight: 0.20)
-    habit_streaks = context.habit_streaks or {}
-    if habit.uid and habit.uid in habit_streaks:
+    is_goal_linked = (
+        habit.supports_goal_uid in context.active_goal_uids if habit.supports_goal_uid else False
+    )
+    if is_goal_linked:
         components.append(
             ComponentScore(
                 component=ScoringComponent.ACTIVE_GOAL_SUPPORT,
                 raw_value=1.0,
                 weight=0.20,
                 normalized=0.8,
-                reason="Supporting active goals",
+                reason=f"Linked to active goal {habit.supports_goal_uid}",
             )
         )
     else:
@@ -800,7 +802,7 @@ def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
                 raw_value=0.0,
                 weight=0.20,
                 normalized=0.0,
-                reason="No active goal support",
+                reason="Not linked to an active goal",
             )
         )
 

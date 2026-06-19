@@ -744,7 +744,7 @@ class SearchRouter:
 
                     # Score with unified framework if user_context available
                     if user_context:
-                        items = self._score_results(items, user_context)
+                        items = await self._score_results(items, user_context)
 
                     results_by_domain[entity_type] = items
                     total_count += len(items)
@@ -869,7 +869,7 @@ class SearchRouter:
                 if items:
                     # Apply scoring if user context available
                     if user_context:
-                        items = self._score_results(items, user_context)
+                        items = await self._score_results(items, user_context)
 
                     results_by_domain[entity_type] = items
                     total_count += len(items)
@@ -1292,7 +1292,7 @@ class SearchRouter:
 
         return filtered
 
-    def _score_results(
+    async def _score_results(
         self,
         items: list[SearchResultItem],
         user_context: "UserContext",
@@ -1308,6 +1308,20 @@ class SearchRouter:
             score_principle,
             score_task,
         )
+        from core.services.habits._goal_links import enrich_habits_with_goal_links
+
+        # Enrich habits with SUPPORTS_GOAL edge before scoring so ACTIVE_GOAL_SUPPORT
+        # uses the real graph edge rather than scoring 0.0 for every habit.
+        enriched_habits: dict[str, Any] = {}
+        habit_items = [item for item in items if item.entity_type == EntityType.HABIT]
+        if habit_items:
+            habits_service = self.get_service(EntityType.HABIT)
+            backend = getattr(habits_service, "backend", None) if habits_service else None
+            if backend is not None:
+                enriched = await enrich_habits_with_goal_links(
+                    backend, [item.entity for item in habit_items], user_context.active_goal_uids
+                )
+                enriched_habits = {h.uid: h for h in enriched}
 
         scored_items = []
         for item in items:
@@ -1323,7 +1337,8 @@ class SearchRouter:
                         priority_score = score_goal(item.entity, user_context)
                         score = priority_score.total
                     case EntityType.HABIT:
-                        priority_score = score_habit(item.entity, user_context)
+                        habit = enriched_habits.get(item.uid, item.entity)
+                        priority_score = score_habit(habit, user_context)
                         score = priority_score.total
                     case EntityType.EVENT:
                         priority_score = score_event(item.entity, user_context)

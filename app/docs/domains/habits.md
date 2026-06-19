@@ -154,6 +154,14 @@ Common sub-services created via `create_common_sub_services()` factory (with `sk
 | `reinforcing_habits` | `REINFORCES_HABIT` | Habit | Habits that reinforce this one |
 | `enabling_habits` | `ENABLES_HABIT` | Habit | Habits that enable this one |
 
+### Derived fields (populated at fetch time, never persisted)
+
+| Field | Edge | Populated by |
+|-------|------|--------------|
+| `supports_goal_uid` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` | `enrich_habits_with_goal_links()` |
+
+The helper lives in `core/services/habits/_goal_links.py` and is called by `HabitsSearchService.get_prioritized()` before scoring so the priority scorer can read the edge-derived field rather than using streak presence as a proxy for goal linkage.
+
 ## Cross-Domain Mappings
 
 | Field | Target Label | Relationships |

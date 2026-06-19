@@ -140,6 +140,13 @@ class Habit(UserOwnedEntity):
     engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
 
     # =========================================================================
+    # DERIVED FROM EDGE — never persisted.
+    # (Habit)-[:SUPPORTS_GOAL]->(Goal); populated at fetch time via
+    # enrich_habits_with_goal_links for scoring.
+    # =========================================================================
+    supports_goal_uid: str | None = None  # DERIVED
+
+    # =========================================================================
     # HABIT-SPECIFIC METHODS
     # =========================================================================
 
