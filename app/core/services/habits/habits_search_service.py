@@ -30,6 +30,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.habits._goal_links import enrich_habits_with_goal_links
 from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
@@ -150,6 +151,9 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
+        habits = await enrich_habits_with_goal_links(
+            self.backend, habits, user_context.active_goal_uids
+        )
         scored = [(habit, score_habit(habit, user_context).total) for habit in habits]
         scored.sort(key=get_result_score, reverse=True)
         prioritized = [habit for habit, _ in scored[:limit]]
