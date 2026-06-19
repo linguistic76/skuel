@@ -20,7 +20,6 @@ Design Principles:
 from pathlib import Path
 from typing import Any
 
-import httpx
 from fasthtml.common import Link, Script
 from monsterui.core import HEADER_URLS
 from monsterui.core import Theme as MonsterTheme
@@ -30,12 +29,13 @@ Theme = MonsterTheme
 
 
 def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: Any) -> list[Any]:
-    """Drop-in for ``theme.local_headers`` that doesn't hit the network when vendor files exist.
+    """Drop-in for ``theme.local_headers`` that never hits the network at startup.
 
     Upstream ``monsterui.Theme.local_headers`` unconditionally re-downloads every file in
     ``HEADER_URLS`` on every call, which crashes app startup whenever DNS or the CDN is
     unreachable. The vendor files are committed under ``static/vendor/monsterui/``, so we
-    reuse them and only fall back to download for anything genuinely missing.
+    serve them locally. If a vendor file is somehow absent, we emit the CDN URL so the
+    browser fetches it client-side — no server-side network call at startup in any case.
     """
     static_path = Path(static_dir)
     static_path.mkdir(exist_ok=True)
@@ -47,9 +47,7 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
         # with a JS-extension URL when MIME enforcement is on).
         ext = "css" if url.rsplit("?", 1)[0].endswith(".css") else "js"
         fname = static_path / f"{name}.{ext}"
-        if not fname.exists():
-            fname.write_bytes(httpx.get(url, follow_redirects=True).content)
-        local_urls[name] = f"/{static_dir}/{fname.name}"
+        local_urls[name] = f"/{static_dir}/{fname.name}" if fname.exists() else url
     return theme._create_headers(local_urls, **kwargs)
 
 

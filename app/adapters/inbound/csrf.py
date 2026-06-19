@@ -32,9 +32,11 @@ subresource minting a replacement would desync the form/cookie pair.
 Rollout
 -------
 `SKUEL_CSRF_ENFORCE=false` disables verification while leaving token issuance
-in place. Default is `true` for new installs; staging/production must run
-with enforcement on. The flag is a revert lever for the 88-route cutover,
-not a permanent knob — delete after staging is green.
+in place. Default is `true` for new installs. The flag is a revert lever for
+the 88-route cutover, not a permanent knob — delete after staging is green.
+
+**Production override:** when ``SKUEL_ENVIRONMENT=production`` the flag is
+ignored and CSRF is always enforced, regardless of ``SKUEL_CSRF_ENFORCE``.
 
 See: `plans/user-entry-deferred-security-items.md` § Commit G
 """
@@ -258,16 +260,17 @@ def _forbidden_response(reason: str = "invalid") -> JSONResponse:
 def csrf_protected(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
     """Reject state-changing requests that lack a matching CSRF token.
 
-    GET/HEAD/OPTIONS pass through unchecked. When `SKUEL_CSRF_ENFORCE=false`
-    the decorator is a no-op — useful for the transition commit that lands
-    this module before all 88 POST routes are wired.
+    GET/HEAD/OPTIONS pass through unchecked. When ``SKUEL_CSRF_ENFORCE=false``
+    the decorator is a no-op in non-production environments — useful for the
+    transition commit that lands this module before all 88 POST routes are
+    wired. Production always enforces regardless of the flag.
     """
 
     @wraps(func)
     async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
         if request.method in _SAFE_METHODS:
             return await func(request, *args, **kwargs)
-        if not is_csrf_enforced():
+        if not is_csrf_enforced() and not _is_production():
             return await func(request, *args, **kwargs)
         ok, reason = await verify_csrf(request)
         if not ok:
