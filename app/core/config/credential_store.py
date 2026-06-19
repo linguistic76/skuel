@@ -41,14 +41,20 @@ logger = get_logger(__name__)
 
 
 # Values that auto-migration should *not* copy into the backend. Captures the
-# common placeholder patterns from `.env.example` so a half-filled template
-# doesn't end up persisting "your-openai-api-key-here" into the keychain.
+# common placeholder patterns from `.env.example` and k8s-secrets.yml.example
+# so a half-filled template doesn't end up persisting into the keychain.
 _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
     {
         "",
         "your-openai-api-key-here",
         "your-deepgram-api-key-here",
         "your-neo4j-password",
+        "your-redis-password",
+        "your-session-secret-key",
+        "your-jwt-secret",
+        "your-encryption-key",
+        "your-openai-key",
+        "your-anthropic-key",
         "your-key",
         "your-api-key",
         "test-key",
@@ -59,6 +65,9 @@ _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
 def _is_placeholder(value: str | None) -> bool:
     """True if `value` is empty or a known template placeholder."""
     if not value:
+        return True
+    # Catch any "your-*" pattern so new templates don't require a list update.
+    if value.startswith("your-"):
         return True
     return value in _PLACEHOLDER_VALUES
 
@@ -335,7 +344,7 @@ class KeyringBackend:
         try:
             data = json.loads(self.INDEX_PATH.read_text())
             return list(data) if isinstance(data, list) else []
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             return []
 
     def _index_save(self, keys: list[str]) -> None:
