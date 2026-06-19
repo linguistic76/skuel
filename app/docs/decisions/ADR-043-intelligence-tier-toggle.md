@@ -52,7 +52,7 @@ These blocks naturally skip when their dependencies are `None`:
 - `REGISTERED` always gets CORE (free trial)
 - `MEMBER+` gets system tier
 
-Not wired into routes yet — exists as a decision point for billing integration.
+Wired into `adapters/inbound/ai_routes.py:_ai_route` (June 2026): after the system-level 503 guard, `REGISTERED` users on a FULL-tier system receive a 403 with an upgrade prompt; `MEMBER+` receive the system tier.
 
 ### Route Protection
 
@@ -68,7 +68,7 @@ Not wired into routes yet — exists as a decision point for billing integration
 - Single env var controls all AI costs
 - Zero code changes for FULL mode (backward-compatible default)
 - CORE mode works perfectly for development, testing, demos
-- Clear billing integration point via per-user stub
+- Per-user tier gate live in AI routes: REGISTERED→403, MEMBER+→system tier
 - Bug fix: OpenAIService no longer created with invalid/missing keys
 
 ### Negative
