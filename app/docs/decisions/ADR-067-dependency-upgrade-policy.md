@@ -31,8 +31,8 @@ principle was stated but never *operationalized* for dependencies:
   invocation.
 - The only versioning rule that existed was an inline comment pinning the neo4j driver. The
   rationale for the deepgram cap lived nowhere.
-- CI runs **no pytest** (memory: "CI runs NO pytest"), so a careless bump can land green in CI and
-  break only at runtime. Upgrades need a *local* verification ritual, written down.
+- CI runs **unit tests only** (not integration tests), so a careless bump can pass CI and break only
+  at runtime against a real database. Upgrades need a *local* verification ritual, written down.
 
 This ADR records the policy and the structure that enforces it.
 
@@ -57,7 +57,7 @@ This ADR records the policy and the structure that enforces it.
 | Type checking | `[tool.mypy]` `python_version`, `[tool.pyright]` `pythonVersion` | `3.14` |
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
-| **Lint/format syntax target** | `[tool.ruff]`/`[tool.black]` `target-version` | **`py312` (intentionally lags — see Deferred)** |
+| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
 
@@ -85,14 +85,15 @@ test for "is this a pin or a stale floor?" is: a pin says **why** and references
 7. ./dev test-integration     # LOCAL Docker Neo4j — the layer CI does not cover
 ```
 
-Steps 5–7 are mandatory because **CI runs no pytest**: a mock-only pass proves nothing about a
-real driver/runtime bump. Verify against local Docker Neo4j.
+Steps 5–7 are mandatory because **CI runs unit tests only** (not integration tests): a unit-only
+pass proves nothing about a real driver/runtime bump. Verify against local Docker Neo4j.
 
 ### 5. Automation: Renovate opens PRs, never auto-merges
 
 `renovate.json` is configured to **open update PRs for human review only** (no auto-merge). Given CI
-has no pytest gate, an unattended merge could ship a runtime break. Renovate groups minor/patch
-updates, and is explicitly told to **leave the intentional pins alone**.
+covers only unit tests (not integration), an unattended merge could ship a runtime break against the
+real database. Renovate groups minor/patch updates, and is explicitly told to **leave the intentional
+pins alone**.
 
 ---
 
@@ -102,7 +103,7 @@ updates, and is explicitly told to **leave the intentional pins alone**.
 
 - "Latest stable" is now a checkable state, not an aspiration: `./dev deps` answers it in one line.
 - The two pins are explained once, in code comments *and* here — no more archaeology.
-- The upgrade ritual encodes the "CI runs no pytest" reality so bumps are verified where it matters.
+- The upgrade ritual encodes the "CI covers unit tests only" reality so bumps are verified where it matters (integration layer).
 
 **Negative / trade-offs**
 
@@ -110,14 +111,16 @@ updates, and is explicitly told to **leave the intentional pins alone**.
   documentation of reality.
 - Renovate adds PR noise. Mitigated by grouping and PR-only (no auto-merge) mode.
 
-### Deferred: the py314 lint-modernization sweep
+### Deferred: TC/UP037 annotation-modernization sweep
 
-Bumping `[tool.ruff]`/`[tool.black]` `target-version` to `py314` surfaces a **codebase-wide
-modernization** (~1024 lints: 890 `UP037` quoted-annotation removals + 134 `TC002`/`TC003`
-move-import-into-`TYPE_CHECKING`). The `TC` rules are **runtime-risky** here: Pydantic and FastHTML
-resolve annotations at runtime (`get_type_hints`), so hiding a referenced type behind
-`if TYPE_CHECKING:` can break model construction / route param extraction. Therefore the lint/format
-target **intentionally lags** the runtime target (3.14). Modernizing to `py314` lint rules is its own
-deliberate change that must review the `TC` moves case-by-case (likely ignoring `TC002`/`TC003`
-project-wide). Until then, mypy/pyright already type-check against 3.14 — the lag is cosmetic, not a
+Ruff `target-version` was bumped to `py314` in PR #340 (June 2026), but three rules are explicitly
+suppressed in `pyproject.toml` to isolate their sweeps:
+
+- **`TC002` / `TC003`** — move third-party / stdlib imports into `TYPE_CHECKING` blocks. **Runtime-risky:**
+  Pydantic and FastHTML resolve annotations at runtime (`get_type_hints`), so hiding a referenced type
+  behind `if TYPE_CHECKING:` can break model construction or route param extraction. Must be reviewed
+  case-by-case before enabling.
+- **`UP037`** — remove quotes from type annotations (~890 sites). Own deliberate change; not urgent.
+
+mypy/pyright already type-check against 3.14 — the suppressed rules are a cosmetic backlog, not a
 correctness gap.
