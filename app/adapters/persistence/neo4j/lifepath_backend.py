@@ -144,6 +144,36 @@ class LifePathBackend:
 
         return await self._executor.execute_query(query, params)
 
+    async def record_alignment_snapshot(
+        self, user_uid: str, score: float
+    ) -> Result[list[dict[str, Any]]]:
+        """Record today's alignment score as a daily snapshot (idempotent per day)."""
+        return await self._executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            MERGE (u)-[r:ALIGNMENT_SNAPSHOT {date: date()}]->(lp)
+            ON CREATE SET r.score = $score, r.recorded_at = datetime()
+            ON MATCH SET r.score = $score, r.recorded_at = datetime()
+            RETURN r.score AS score, toString(r.date) AS date_str
+            """,
+            {"user_uid": user_uid, "score": score},
+        )
+
+    async def get_alignment_snapshots(
+        self, user_uid: str, days: int = 31
+    ) -> Result[list[dict[str, Any]]]:
+        """Get daily alignment snapshots for trend analysis, newest first."""
+        return await self._executor.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            MATCH (u)-[r:ALIGNMENT_SNAPSHOT]->(lp)
+            WHERE r.recorded_at >= datetime() - duration({days: $days})
+            RETURN r.score AS score, toString(r.date) AS date_str
+            ORDER BY r.recorded_at DESC
+            """,
+            {"user_uid": user_uid, "days": days},
+        )
+
     # ========================================================================
     # Alignment Service — Graph Queries
     # ========================================================================
