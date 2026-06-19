@@ -16,7 +16,7 @@ Key Principles:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 
 from core.constants import ConfidenceLevel
 from core.models.enums import RelationshipType
@@ -217,7 +217,7 @@ class SemanticRelationshipType(StrEnum):
         """Extract local name without namespace prefix."""
         return self.value.split(":", 1)[1] if ":" in self.value else self.value
 
-    def get_inverse(self) -> Optional["SemanticRelationshipType"]:
+    def get_inverse(self) -> "SemanticRelationshipType" | None:
         """Get the inverse relationship if one exists."""
         inverses = {
             self.REQUIRES_THEORETICAL_UNDERSTANDING: self.PROVIDES_FOUNDATION_FOR,
@@ -338,7 +338,7 @@ class SemanticTriple:
         """Human-readable representation."""
         return f"({self.subject}) --[{self.predicate.local_name}]--> ({self.object})"
 
-    def get_inverse(self) -> Optional["SemanticTriple"]:
+    def get_inverse(self) -> "SemanticTriple" | None:
         """Create inverse triple if relationship has an inverse."""
         inverse_predicate = self.predicate.get_inverse()
         if inverse_predicate:

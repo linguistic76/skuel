@@ -12,7 +12,7 @@ def _create_core_services(
     invoice_backend: Any,
     transcription_backend: Any,
     user_service: Any,
-    deepgram_api_key: str,  # REQUIRED for audio transcription (fail-fast)
+    deepgram_api_key: str | None,  # None in CORE tier; str in FULL tier (Digital layer)
     event_bus: Any = None,
 ) -> dict[str, Any]:
     """Create non-Activity, non-Learning core services (Finance, Transcription, User).
@@ -24,37 +24,39 @@ def _create_core_services(
         invoice_backend: UniversalNeo4jBackend[InvoicePure]
         transcription_backend: UniversalNeo4jBackend[Transcription]
         user_service: UserService for context operations (REQUIRED)
-        deepgram_api_key: Deepgram API key for audio transcription (REQUIRED)
+        deepgram_api_key: Deepgram API key. None in CORE tier (transcription is Digital);
+            str in FULL tier (validated by caller before this call).
         event_bus: Event bus for publishing domain events (optional)
     """
-    from adapters.external.deepgram import DeepgramAdapter
-
-    # Create DeepgramAdapter (REQUIRED - fail-fast if key missing)
-    # Options loaded from config/deepgram.toml — see docs/configuration/DEEPGRAM_CONFIG.md
     from adapters.outbound.invoice_renderer import render_invoice_pdf
-    from core.config.deepgram_config import load_deepgram_config
     from core.services.finance_service import FinanceService
-    from core.services.transcription import TranscriptionService
 
-    deepgram_config = load_deepgram_config()
-    deepgram_adapter = DeepgramAdapter(deepgram_api_key, config=deepgram_config)
-
-    return {
+    result: dict[str, Any] = {
         "finance": FinanceService(
-            invoice_backend=invoice_backend,  # Invoice management (only surviving module)
-            # Inject the concrete PDF renderer at the composition root (the
-            # service depends only on the InvoiceRenderer port — ADR-044/SKUEL022)
+            invoice_backend=invoice_backend,
             invoice_renderer=render_invoice_pdf,
-            event_bus=event_bus,  # Event-driven architecture
+            event_bus=event_bus,
         ),
-        "transcription": TranscriptionService(
+        "transcription": None,
+        "deepgram_adapter": None,
+        "user": user_service,
+    }
+
+    if deepgram_api_key:
+        from adapters.external.deepgram import DeepgramAdapter
+        from core.config.deepgram_config import load_deepgram_config
+        from core.services.transcription import TranscriptionService
+
+        deepgram_config = load_deepgram_config()
+        deepgram_adapter = DeepgramAdapter(deepgram_api_key, config=deepgram_config)
+        result["deepgram_adapter"] = deepgram_adapter
+        result["transcription"] = TranscriptionService(
             backend=transcription_backend,
             deepgram_adapter=deepgram_adapter,
             event_bus=event_bus,
-        ),
-        "deepgram_adapter": deepgram_adapter,  # Exposed for BatchTranscriptionService
-        "user": user_service,
-    }
+        )
+
+    return result
 
 
 def _create_orchestration_services(

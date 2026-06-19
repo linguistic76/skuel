@@ -415,7 +415,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
 def _extraction_result(
     entry_uid: str,
     *,
-    created_links: list[tuple[str, str]] | None = None,
+    created_links: list[tuple[str, str, str | None]] | None = None,
     created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
 ) -> ActivityExtractionResult:
@@ -447,7 +447,7 @@ class TestExtractActivities:
             return_value=Result.ok(
                 _extraction_result(
                     entry.uid,
-                    created_links=[("task:1", "hash1")],
+                    created_links=[("task:1", "hash1", None)],
                     referenced_ku_uids=["ku:tech/x"],
                 )
             )
@@ -460,7 +460,7 @@ class TestExtractActivities:
 
         assert result.is_ok
         svc.backend.create_extracted_from_links.assert_awaited_once_with(
-            entry.uid, [("task:1", "hash1")]
+            entry.uid, [("task:1", "hash1", None)]
         )
         svc.backend.add_relationship.assert_awaited_once()
         assert svc.backend.add_relationship.await_args.args[:2] == (entry.uid, "ku:tech/x")
@@ -582,7 +582,7 @@ class TestExtractActivities:
         )
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
-            return_value=Result.ok(_extraction_result(entry.uid, created_links=[("task:1", "h")]))
+            return_value=Result.ok(_extraction_result(entry.uid, created_links=[("task:1", "h", None)]))
         )
         bus = MagicMock()
         captured: list[Any] = []

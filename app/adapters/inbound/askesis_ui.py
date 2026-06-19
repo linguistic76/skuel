@@ -135,26 +135,23 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
         if not message:
             return P("Please enter a message", cls="text-error text-sm")
 
-        # Call AI service (mock for now)
-        ai_response = "I'm processing your request..."
-
-        if _askesis_service:
-            try:
-                result = await _askesis_service.answer_user_question(user_uid, message)
-
-                if result.is_error:
-                    logger.error(f"Askesis service error: {result.error}")
-                    ai_response = (
-                        result.error.message
-                        if result.error.message
-                        else "I'm having trouble right now. Please try again."
-                    )
-                else:
-                    ai_response = result.value.get("answer", "No response generated.")
-
-            except Exception as e:  # safety-net: HTTP error boundary
-                logger.error(f"Unexpected AI service error: {e}", exc_info=True)
-                ai_response = "I'm having trouble right now. Please try again."
+        # _askesis_service is always non-None here: register_domain_routes skips
+        # route registration entirely when services.askesis is None (CORE tier).
+        ai_response: str
+        try:
+            result = await _askesis_service.answer_user_question(user_uid, message)
+            if result.is_error:
+                logger.error(f"Askesis service error: {result.error}")
+                ai_response = (
+                    result.error.message
+                    if result.error.message
+                    else "I'm having trouble right now. Please try again."
+                )
+            else:
+                ai_response = result.value.get("answer", "No response generated.")
+        except Exception as e:  # safety-net: HTTP error boundary
+            logger.error(f"Unexpected AI service error: {e}", exc_info=True)
+            ai_response = "I'm having trouble right now. Please try again."
 
         user_bubble = render_message_bubble(user_name, message, is_ai=False)
         ai_bubble = render_message_bubble("AI", ai_response, is_ai=True)

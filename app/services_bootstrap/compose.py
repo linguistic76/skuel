@@ -266,46 +266,15 @@ async def compose_services(
         else:
             logger.warning("⚠️ Cleanup had issues - continuing startup")
 
-        # Validate API keys (GRACEFUL DEGRADATION for optional features)
-        # Required keys: DEEPGRAM (audio transcription)
-        # Optional keys: OPENAI (AI features - app works without them)
-        required_keys = {
-            "DEEPGRAM_API_KEY": "Deepgram API (required for audio transcription)",
-        }
-
-        recommended_keys = {
-            "OPENAI_API_KEY": "OpenAI API (optional - enables LLM chat, content processing, and AI features)",
-        }
-
-        # Check required keys (FAIL-FAST)
-        missing_required = []
-        for key_name, description in required_keys.items():
-            key_value = get_credential(key_name, fallback_to_env=True)
-            if not key_value:
-                missing_required.append(f"  - {key_name}: {description}")
-                logger.error(f"❌ Missing required API key: {key_name}")
-            else:
-                logger.info(f"✅ {key_name} validated")
-
-        if missing_required:
-            error_msg = (
-                "SKUEL requires these API keys to be configured. Missing keys:\n"
-                + "\n".join(missing_required)
-                + "\n\nSet these environment variables or add them to your credential store."
-            )
-            logger.error("❌ Service composition failed - missing required API keys")
-            raise ValueError(error_msg)
-
-        # Check recommended keys (WARN only, don't fail)
-        for key_name, description in recommended_keys.items():
-            key_value = get_credential(key_name, fallback_to_env=True)
-            if not key_value or key_value in ["your-openai-api-key-here", "", "sk-"]:
-                logger.warning(f"⚠️ {key_name} not configured: {description}")
-                logger.warning("   App will run with basic features only")
-            else:
-                logger.info(f"✅ {key_name} validated")
-
-        logger.info("✅ Required API keys validated")
+        # Validate optional API keys (WARN only — all AI keys are FULL-tier gated below)
+        # OPENAI_API_KEY: checked here for early visibility; enforced in the LLM block below.
+        # DEEPGRAM_API_KEY: FULL tier only (Digital layer) — checked in the Deepgram block below.
+        openai_key_value = get_credential("OPENAI_API_KEY", fallback_to_env=True)
+        if not openai_key_value or openai_key_value in ["your-openai-api-key-here", "", "sk-"]:
+            logger.warning("⚠️ OPENAI_API_KEY not configured: enables LLM chat, content processing, and AI features")
+            logger.warning("   App will run with basic features only (set INTELLIGENCE_TIER=full to enable)")
+        else:
+            logger.info("✅ OPENAI_API_KEY validated")
 
         # ========================================================================
         # CREATE DOMAIN BACKENDS (100% Dynamic Pattern)
@@ -518,21 +487,24 @@ async def compose_services(
         )
         logger.info("✅ Activity Domain services created (6 facades with embedded intelligence)")
 
-        # Get Deepgram API key for transcription service
-        from core.config.credential_store import get_credential
+        # Deepgram API key — FULL tier only (transcription is the Digital layer: ADR-043).
+        # CORE tier skips transcription entirely; no key required, no cost incurred.
+        deepgram_api_key: str | None = None
+        if not tier.ai_enabled:
+            logger.info("⏭️  Deepgram skipped (intelligence tier: CORE — audio transcription is FULL tier)")
+        else:
+            from core.config.credential_store import get_credential
 
-        deepgram_api_key = get_credential("DEEPGRAM_API_KEY", fallback_to_env=True)
-        # DEEPGRAM_API_KEY was already validated as REQUIRED in the fail-fast key
-        # check above (raises ValueError if missing). Re-assert non-None here so the
-        # str-typed _create_core_services boundary holds without a redundant raise
-        # path mypy can't connect to the earlier validation loop.
-        if not deepgram_api_key:
-            raise ValueError(
-                "DEEPGRAM_API_KEY is REQUIRED for transcription but resolved empty "
-                "after the required-key validation. Check credential store / env."
-            )
+            deepgram_api_key = get_credential("DEEPGRAM_API_KEY", fallback_to_env=True)
+            if not deepgram_api_key:
+                raise RuntimeError(
+                    "FULL-tier bootstrap requires DEEPGRAM_API_KEY for audio transcription. "
+                    "Set INTELLIGENCE_TIER=core to run without transcription, or "
+                    "set DEEPGRAM_API_KEY in the credential store / environment."
+                )
+            logger.info("✅ DEEPGRAM_API_KEY validated")
 
-        # Create core services (Finance, Transcription only - Activity Domains in activity_services)
+        # Create core services (Finance only in CORE; Finance + Transcription in FULL)
         core_services = _create_core_services(
             invoice_backend=invoice_backend,
             transcription_backend=transcription_backend,
@@ -540,7 +512,7 @@ async def compose_services(
             deepgram_api_key=deepgram_api_key,
             event_bus=event_bus,
         )
-        logger.info("✅ Core services created (with event bus + Deepgram wiring)")
+        logger.info("✅ Core services created (Finance + event bus wiring)")
 
         tasks_service = activity_services["tasks"]
 
@@ -1070,16 +1042,20 @@ async def compose_services(
         instruction_resolver = InstructionResolver()
         logger.info("✅ InstructionResolver created")
 
-        # Batch transcription service (Tier 1: audio → txt).
+        # Batch transcription service (Tier 1: audio → txt) — FULL tier only.
         # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
         # LLM-driven txt→md path now lives inside UserEntryProcessingService.
-        from core.services.transcription import BatchTranscriptionService
+        batch_transcription = None
+        if core_services["deepgram_adapter"]:
+            from core.services.transcription import BatchTranscriptionService
 
-        batch_transcription = BatchTranscriptionService(
-            deepgram_adapter=core_services["deepgram_adapter"],
-            max_concurrent=5,
-        )
-        logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
+            batch_transcription = BatchTranscriptionService(
+                deepgram_adapter=core_services["deepgram_adapter"],
+                max_concurrent=5,
+            )
+            logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
+        else:
+            logger.info("⏭️  BatchTranscriptionService skipped (intelligence tier: CORE)")
 
         # Learning loop query service — read-side peer of LearningLoopEventHandlerService.
         # Owns Cypher that traverses Interaction/Exercise/Report edges, keeping

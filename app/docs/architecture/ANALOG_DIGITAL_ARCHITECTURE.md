@@ -100,13 +100,15 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 **Analog -> Digital:**
 1. Set `INTELLIGENCE_TIER=full` in `.env`
 2. Ensure `OPENAI_API_KEY` is configured (covers embeddings + LLM — ADR-068)
-3. Restart the app
-4. Run `scripts/generate_embeddings_batch.py` to backfill embeddings on existing entities
+3. Ensure `DEEPGRAM_API_KEY` is configured (audio transcription)
+4. Restart the app
+5. Run `scripts/generate_embeddings_batch.py` to backfill embeddings on existing entities
 
 **Digital -> Analog:**
 1. Set `INTELLIGENCE_TIER=core` in `.env`
 2. Restart the app
 3. Existing embeddings stay on nodes (zero cleanup needed)
+4. `OPENAI_API_KEY` and `DEEPGRAM_API_KEY` are not read — no API costs from this point
 
 ## Key Files
 

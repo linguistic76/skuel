@@ -669,14 +669,6 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Reports: privacy-transparency surface ---
     "core/services/report/activity_report_service.py::get_privacy_summary": (_REPORT_PRIVACY_AUDIT),
-    # --- Intelligence tier: per-user entitlement (ADR-043 billing stub) ---
-    "core/services/intelligence_tier_service.py::get_user_intelligence_tier": (
-        "per-user AI entitlement staged — the deliberate ADR-043 'Per-User Tier Stub' "
-        "(docs/roadmap/deferred-work.md § 4): resolves effective tier from the system "
-        "INTELLIGENCE_TIER ceiling + UserRole (REGISTERED→CORE free trial, MEMBER+→system "
-        "tier); wire into the bootstrap AI-gating points once the ChargeKeep billing model "
-        "defines which subscription tier gets AI features"
-    ),
     # --- Relationships: generic UserContext planning surface ---
     # get_blocked_for_user: no live caller after phantom-dispatch repair (keep PLANNED)
     "core/services/relationships/unified_relationship_service.py::get_blocked_for_user": (
