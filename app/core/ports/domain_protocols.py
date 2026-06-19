@@ -420,6 +420,12 @@ class EventsOperations(
         """Map event_uid → reinforced habit_uid via REINFORCES_HABIT edges (batch)."""
         ...
 
+    async def get_goal_links_for_events(
+        self, event_uids: list[str]
+    ) -> Result[dict[str, list[str]]]:
+        """Map event_uid → list of contributed goal_uids via CONTRIBUTES_TO_GOAL edges (batch)."""
+        ...
+
     async def get_goal_celebration_stats(
         self, user_uid: UserUID, start_date: str
     ) -> Result[dict[str, Any]]:

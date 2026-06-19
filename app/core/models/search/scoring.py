@@ -887,15 +887,8 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
         )
     )
 
-    # Goal support (weight: 0.25).
-    # TODO(goal-alignment-scoring): event→goal alignment needs the event's real
-    # goal-edge set (SUPPORTS_GOAL / CONTRIBUTES_TO_GOAL / CELEBRATES_GOAL) loaded
-    # for scoring. The previous code used `milestone_celebration_for_goal` as a
-    # stand-in, which conflated "celebrates a milestone" with "supports a goal" —
-    # a different relationship. That property is now the (Event)-[:CELEBRATES_GOAL]
-    # ->(Goal) edge; this pure scorer can't traverse it. Until events are enriched
-    # with their goal-edge uids at fetch time, goal-alignment contributes no signal.
-    goal_alignment = score_goal_alignment(None, context.active_goal_uids)
+    # Goal support (weight: 0.25) — populated via enrich_events_with_goal_links.
+    goal_alignment = score_goal_alignment(event.contributes_to_goal_uid, context.active_goal_uids)
     components.append(
         ComponentScore(
             component=ScoringComponent.GOAL_ALIGNMENT,
