@@ -69,7 +69,7 @@ These are architectural choices that depend on business decisions, not code qual
 
 | Decision | Current State | What Triggers Action |
 |----------|---------------|---------------------|
-| **Per-user intelligence tier** | `intelligence_tier_service.py` exists but is not wired into routes (ADR-043). System-wide toggle works. | Billing model decision — when paid vs free tiers are defined, wire `get_user_intelligence_tier()` into route middleware. |
+| **Per-user intelligence tier** | `intelligence_tier_service.py` exists but is not wired into routes (ADR-043). System-wide toggle works. Default: REGISTERED=CORE, MEMBER+=CORE (opt-in to FULL). | Wire `get_user_intelligence_tier()` into AI route guards (see `adapters/inbound/ai_routes.py:_ai_route`). Triggers include billing, user preference, and offline mode. System tier is always the ceiling. |
 
 ---
 

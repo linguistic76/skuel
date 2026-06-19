@@ -14,9 +14,9 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require a HuggingFace API token. You iterate on fundamentals without paying API costs or waiting for embedding generation.
 
-2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No API calls are made. No background workers spin up by default. This is the right mode for content authoring, schema changes, and structural work.
+2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No AI API calls are made. No AI background workers spin up. This is the right mode for content authoring, schema changes, and structural work.
 
-   > The one background worker outside the tier system is the **schema-change monitor**, gated by its own `NEO4J_SCHEMA_MONITORING` flag (default **off**), not by `INTELLIGENCE_TIER`. It is plain Neo4j infrastructure (no API calls), so it can run in either tier — but it stays off unless explicitly enabled, preserving the "no workers by default" guarantee. See the neo4j-cypher-patterns skill § Schema-Change Monitoring.
+   > **Background workers in CORE tier:** The `EmbeddingBackgroundWorker` (AI) does not start. The `ProgressReportWorker` (graph analytics only) does start — it is a CORE-tier Analog worker: it runs hourly, checks for scheduled reports, and generates `ActivityReport` nodes from graph data without any LLM calls. No API cost. The **schema-change monitor** is separate from both and gated by its own `NEO4J_SCHEMA_MONITORING` flag (default **off**). See the neo4j-cypher-patterns skill § Schema-Change Monitoring.
 
 3. **Deployment flexibility.** A fresh deployment works immediately. Embeddings and AI features are activated when the curriculum is mature enough to benefit from them — not as a prerequisite.
 
@@ -47,7 +47,8 @@ The app is architecturally split into two layers. The foundational layer — CRU
 | Vector Search | Semantic similarity, hybrid search, RRF | Embeddings + Neo4j vector indexes |
 | Askesis | Socratic AI companion, ZPD-aware | LLM (OpenAI) |
 | Feedback Generation | AI assessment of submissions | LLM |
-| Journal Processing | Voice transcription + AI analysis | Deepgram + LLM |
+| Audio Transcription | Voice → text conversion | Deepgram (`DEEPGRAM_API_KEY`) |
+| Journal Processing | Transcription + AI analysis of audio entries | Deepgram + LLM |
 | Content Enrichment | AI-powered content analysis | LLM |
 | 12 AI Services | Domain-specific `BaseAIService` instances | LLM + Embeddings |
 
@@ -66,11 +67,13 @@ INTELLIGENCE_TIER=core
 - `EmbeddingBackgroundWorker` — not started
 - `LLMService` — not created
 - OpenAI / Anthropic chat adapters + the OpenAI embedding client (`adapters/external/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; HF/BGE adapter staged — ADR-068) — not constructed (no API keys read, no vendor SDK clients; W1 / ADR-063)
+- `DeepgramAdapter` / `TranscriptionService` / `BatchTranscriptionService` — not created (`DEEPGRAM_API_KEY` not read)
 - All 12 `BaseAIService` instances — not created
 - Search falls back to keyword (fulltext indexes)
 - Askesis is **not created** (requires FULL tier — no degraded mode)
 - Vector indexes **not created** (unnecessary without embeddings)
 - Full-text indexes still synced (Cypher-first keyword search always available)
+- `ProgressReportWorker` **does start** (CORE-tier Analog worker — graph analytics, no API calls)
 
 ### Turn on AI/Embeddings (Full mode)
 
@@ -79,7 +82,7 @@ INTELLIGENCE_TIER=core
 INTELLIGENCE_TIER=full
 ```
 
-Requires `OPENAI_API_KEY` (covers both embeddings and LLM chat — ADR-068). The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
+Requires `OPENAI_API_KEY` (covers both embeddings and LLM chat — ADR-068) and `DEEPGRAM_API_KEY` (audio transcription). The embedding background worker starts automatically and processes entity embeddings in batches every 30 seconds.
 
 ## How Graceful Degradation Works
 
@@ -143,17 +146,18 @@ When AI is disabled, no events are published and no worker exists. The entity is
 #   keyword results only (Neo4j fulltext indexes)
 ```
 
-## Three Gating Points
+## Four Gating Points
 
 All in `services_bootstrap/compose.py`:
 
 | Gate | What It Controls | Core Behavior |
 |------|-----------------|---------------|
+| Deepgram block | `DeepgramAdapter`, `TranscriptionService`, `BatchTranscriptionService` | Skipped; `DEEPGRAM_API_KEY` not read |
 | Embeddings block | `EmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
 | LLM block | `LLMService` (built with an injected `OpenAIChatAdapter` chat port at FULL) | Skipped |
 | Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
 
-Everything downstream of these three blocks naturally degrades via None-propagation.
+Everything downstream of these four blocks naturally degrades via None-propagation.
 
 ## Error Handling in Bootstrap
 
@@ -168,14 +172,15 @@ Everything downstream of these three blocks naturally degrades via None-propagat
 Switching from CORE → FULL:
 1. Set `INTELLIGENCE_TIER=full` in `.env`
 2. Ensure `OPENAI_API_KEY` is set (covers embeddings + LLM — ADR-068)
-3. Restart the app
-4. Existing entities without embeddings will get them as they're updated, or run `scripts/generate_embeddings_batch.py` for bulk backfill
+3. Ensure `DEEPGRAM_API_KEY` is set (audio transcription)
+4. Restart the app
+5. Existing entities without embeddings will get them as they're updated, or run `scripts/generate_embeddings_batch.py` for bulk backfill
 
 Switching from FULL → CORE:
 1. Set `INTELLIGENCE_TIER=core` in `.env`
 2. Restart the app
 3. Existing embeddings remain on nodes (not deleted) — they're just not used
-4. No API costs from this point
+4. No API costs from this point (`OPENAI_API_KEY` and `DEEPGRAM_API_KEY` are not read)
 
 ## Key Files
 
