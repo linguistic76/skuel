@@ -21,7 +21,7 @@ skuel/
 
 ## Key Technologies
 
-**Python 3.12+** · **FastHTML** · **Neo4j** · **HTMX + Alpine.js** · **MonsterUI (Tailwind)** · **uv**
+**Python 3.14** · **FastHTML** · **Neo4j** · **HTMX + Alpine.js** · **MonsterUI (Tailwind)** · **uv**
 
 ## Quick Start
 

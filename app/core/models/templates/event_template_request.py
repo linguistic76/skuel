@@ -11,7 +11,7 @@ component becomes engagement-relative via ``event_offset``.
 from __future__ import annotations
 
 from datetime import (
-    time,  # noqa: TC003 -- runtime import; Pydantic resolves annotations at model-build time
+    time,
 )
 
 from pydantic import Field

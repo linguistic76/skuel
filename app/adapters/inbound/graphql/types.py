@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import strawberry
 from strawberry.types import (
-    Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
+    Info,
 )
 
 from adapters.inbound.graphql.context import GraphQLContext

@@ -12,7 +12,7 @@ SKUEL is a knowledge graph-based productivity system built on the principle that
 
 ### Prerequisites
 
-- Python 3.12+
+- Python 3.14
 - uv (package manager)
 - Neo4j 5.26.0+ (running separately)
 - Node.js (for frontend assets)
@@ -332,7 +332,7 @@ uv run ruff format .
 
 ### Core Technologies
 
-- **Language**: Python 3.12+
+- **Language**: Python 3.14
 - **Web Framework**: FastHTML
 - **Database**: Neo4j 5.26.0 (Graph Database)
 - **Package Manager**: uv
@@ -361,7 +361,7 @@ uv run ruff format .
 ### Current State
 
 - **Architecture**: Stable - entity type + 5-system architecture complete
-- **Integration Tests**: 808 passing (3 known failures in GraphQL test suite)
+- **Integration Tests**: 808 passing (3 skipped: GraphQL tests require `OPENAI_API_KEY`)
 - **Unit Tests**: 1082 passing (100%)
 - **Documentation**: 20+ ADRs, comprehensive `/docs/`
 - **Version Control**: Git integration developed but **not currently deployed**

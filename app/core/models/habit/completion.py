@@ -8,7 +8,6 @@ This is the core business entity that encapsulates all completion-related rules.
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Optional
 
 from .completion_dto import HabitCompletionDTO
 
@@ -174,7 +173,7 @@ class HabitCompletion:
         else:
             return "night"
 
-    def is_streak_eligible(self, previous_completion: Optional["HabitCompletion"] = None) -> bool:
+    def is_streak_eligible(self, previous_completion: "HabitCompletion" | None = None) -> bool:
         """
         Check if this completion is eligible for streak counting.
 

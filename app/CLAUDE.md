@@ -331,7 +331,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 
 **Core Principle:** "All dependencies are REQUIRED - no graceful degradation"
 
-**Required at bootstrap:** Neo4j, OpenAI, Deepgram. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
+**Required at bootstrap:** Neo4j (always). OpenAI and Deepgram are FULL-tier only — not read in CORE mode. **Only 2 valid `None` cases:** True circular dependencies, unimplemented features (explicit TODOs).
 
 ## UI Component Pattern
 
@@ -491,7 +491,7 @@ Use for Neo4j property-dict timestamp helpers: `update_properties()` (updates), 
 
 **Core Principle:** "Latest stable by default — pins are deliberate and documented"
 
-Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (driver/server/APOC compat, ADR-044) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). Renovate opens update PRs only (no auto-merge — CI runs no pytest, so verify locally: `./dev quality` + `./dev test-integration`). Ruff/black lint `target-version` intentionally lags the runtime at `py312` (py314 surfaces a ~1024-line annotation-modernization sweep with runtime-risky `TC` rules — deferred).
+Target the latest stable CPython (currently **3.14**, pinned in `.python-version`); `>=` floors in `pyproject.toml` track the locked latest, not a historical minimum. `./dev deps` lists outdated direct deps + the intentional pins. **Two intentional caps — never bump in a routine upgrade:** `neo4j==5.26.0` (driver/server/APOC compat, ADR-044) and `deepgram-sdk<5.0.0` (5.x is a breaking rewrite). Renovate opens update PRs only (no auto-merge — CI runs `tests/unit/` on Python-file changes; verify locally: `./dev quality` + `./dev test-integration`). Ruff `target-version` is `py314` (matches runtime); TC002/TC003/UP037 are explicitly ignored to isolate their ~1024-site deferred sweep (runtime-risky w/ Pydantic/FastHTML) — see `[tool.ruff]` ignore list in `pyproject.toml`. Black still lags at `py312` (see `[tool.black]` note there).
 
 **See:** `/docs/decisions/ADR-067-dependency-upgrade-policy.md`
 

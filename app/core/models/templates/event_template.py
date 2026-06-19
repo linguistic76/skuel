@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import (
-    time,  # noqa: TC003 -- runtime import; keeps `time` resolvable for get_type_hints() in neo4j_mapper.from_node()
+    time,
 )
 from typing import TYPE_CHECKING
 
