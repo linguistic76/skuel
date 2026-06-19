@@ -585,6 +585,12 @@ class HabitsOperations(
         """Get aggregated habit stats for badge evaluation."""
         ...
 
+    async def get_goal_links_for_habits(
+        self, habit_uids: list[str]
+    ) -> Result[dict[str, list[str]]]:
+        """Map habit_uid → list of supporting goal_uids via SUPPORTS_GOAL edges (batch)."""
+        ...
+
 
 # NOTE: FinancesOperations removed (ADR-052 Phase 5) — native expense/budget
 # module demolished. The surviving invoice module is wrapped by the concrete
