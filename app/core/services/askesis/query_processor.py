@@ -139,6 +139,8 @@ class QueryProcessor:
         self.zpd_service = zpd_service
         self.citation_service = citation_service
         self.conversation_context = conversation_context or ConversationContext()
+        # Holds references to fire-and-forget persistence tasks so they aren't GC'd.
+        self._background_tasks: set[asyncio.Task[None]] = set()
 
         logger.info("QueryProcessor initialized (orchestration layer)")
 
@@ -288,26 +290,14 @@ class QueryProcessor:
                 conversation_history=conversation_history,
             )
 
-        # Step 9: Record conversation turns — in-memory context window + durable Neo4j history
+        # Step 9: Record conversation turns — in-memory context window + durable Neo4j history.
+        # Neo4j writes are fire-and-forget so persistence latency can't trigger the 30s timeout.
         if session:
             session.add_turn(MessageRole.USER, question)
             session.add_turn(MessageRole.ASSISTANT, answer)
-        user_msg_result = await self.user_service.add_conversation_message(
-            user_uid, MessageRole.USER.value, question
-        )
-        if user_msg_result.is_error:
-            logger.warning(
-                "Failed to persist user conversation message: %s",
-                user_msg_result.expect_error().message,
-            )
-        assistant_msg_result = await self.user_service.add_conversation_message(
-            user_uid, MessageRole.ASSISTANT.value, answer
-        )
-        if assistant_msg_result.is_error:
-            logger.warning(
-                "Failed to persist assistant conversation message: %s",
-                assistant_msg_result.expect_error().message,
-            )
+        task = asyncio.create_task(self._persist_conversation_turns(user_uid, question, answer))
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
         # Step 10: Generate actions + citations
         suggested_actions = self.response_generator.generate_actions(
@@ -477,6 +467,22 @@ class QueryProcessor:
     # ========================================================================
     # PRIVATE - SHARED PIPELINE STEPS
     # ========================================================================
+
+    async def _persist_conversation_turns(
+        self, user_uid: UserUID, question: str, answer: str
+    ) -> None:
+        """Fire-and-forget Neo4j persistence for a user+assistant exchange."""
+        for role, content in (
+            (MessageRole.USER, question),
+            (MessageRole.ASSISTANT, answer),
+        ):
+            result = await self.user_service.add_conversation_message(user_uid, role.value, content)
+            if result.is_error:
+                logger.warning(
+                    "Failed to persist %s conversation message: %s",
+                    role.value,
+                    result.expect_error().message,
+                )
 
     async def _run_guided_pipeline(
         self,
