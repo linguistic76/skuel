@@ -25,7 +25,7 @@ Part of the 4-service Analytics architecture:
 Implementation Date: October 24, 2025
 """
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any, TypedDict
 
 from core.models.type_hints import UserUID
@@ -430,27 +430,52 @@ class AnalyticsLifePathService:
         Returns:
             Dict with historical alignment scores and trend direction
         """
-        # TODO(blocked:graph-data): Full implementation would:
-        # 1. Query historical alignment scores for this user+life_path combination
-        # 2. Use user_uid and life_path_uid to filter historical snapshots
-        # 3. Calculate 7-day and 30-day rolling averages
-        # 4. Determine trend direction (improving/declining/stable)
-        #
-        # Query would look like:
-        # snapshots = await self.backend.find_by(
-        # user_uid=user_uid,
-        # life_path_uid=life_path_uid,
-        # limit=30
-        # )
+        snapshots_result = await self.lp_service.get_alignment_trend_data(user_uid=user_uid)
+        if snapshots_result.is_error or not snapshots_result.value:
+            return {
+                "user_uid": user_uid,
+                "life_path_uid": life_path_uid,
+                "7_days_ago": None,
+                "30_days_ago": None,
+                "direction": "unknown",
+                "snapshot_count": 0,
+            }
 
-        # For now, return structure showing expected data with context
+        snapshots = snapshots_result.value  # newest first
+        today = date.today()
+        cutoff_7d = today - timedelta(days=7)
+        cutoff_30d = today - timedelta(days=30)
+
+        current_score: float | None = snapshots[0]["score"] if snapshots else None
+        score_7d: float | None = None
+        score_30d: float | None = None
+
+        for snap in snapshots:
+            snap_date = date.fromisoformat(snap["date_str"])
+            if score_7d is None and snap_date <= cutoff_7d:
+                score_7d = snap["score"]
+            if score_30d is None and snap_date <= cutoff_30d:
+                score_30d = snap["score"]
+            if score_7d is not None and score_30d is not None:
+                break
+
+        direction = "unknown"
+        if current_score is not None and score_7d is not None:
+            diff = current_score - score_7d
+            if diff > 0.05:
+                direction = "improving"
+            elif diff < -0.05:
+                direction = "declining"
+            else:
+                direction = "stable"
+
         return {
-            "user_uid": user_uid,  # User context for trend analysis
-            "life_path_uid": life_path_uid,  # Life path being tracked
-            "7_days_ago": None,
-            "30_days_ago": None,
-            "direction": "unknown",
-            "note": "Historical tracking not yet implemented - parameters reserved for future use",
+            "user_uid": user_uid,
+            "life_path_uid": life_path_uid,
+            "7_days_ago": round(score_7d, 3) if score_7d is not None else None,
+            "30_days_ago": round(score_30d, 3) if score_30d is not None else None,
+            "direction": direction,
+            "snapshot_count": len(snapshots),
         }
 
     def _generate_recommendations(

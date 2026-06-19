@@ -349,6 +349,11 @@ class LifePathCoreService:
                 logger.info(
                     f"Alignment score updated for {user_uid}: {alignment_score:.2f} ({alignment_level.value})"
                 )
+                snapshot_result = await self.backend.record_alignment_snapshot(
+                    user_uid=user_uid, score=alignment_score
+                )
+                if snapshot_result.is_error:
+                    logger.warning(f"Alignment snapshot write failed for {user_uid}: {snapshot_result.error}")
                 return Result.ok(True)
 
             return Result.ok(False)
@@ -357,4 +362,27 @@ class LifePathCoreService:
             logger.error(f"Failed to update alignment score for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("update_alignment_score", f"Failed to update alignment score: {e}")
+            )
+
+    async def get_alignment_trend_data(
+        self, user_uid: UserUID, days: int = 31
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Get historical alignment snapshots for trend analysis.
+
+        Returns snapshots ordered newest first, covering the given window.
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system("Backend not available", operation="get_alignment_trend_data")
+            )
+        try:
+            result = await self.backend.get_alignment_snapshots(user_uid=user_uid, days=days)
+            if result.is_error:
+                return Result.fail(result)
+            return Result.ok(result.value or [])
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to get alignment trend data for {user_uid}: {e}")
+            return Result.fail(
+                Errors.database("get_alignment_trend_data", f"Failed to get snapshots: {e}")
             )

@@ -1,6 +1,6 @@
 # Technical Debt & Development Roadmap
 
-**Last Updated:** June 18, 2026
+**Last Updated:** June 19, 2026
 **Total Production Ruff Errors:** 0
 **Active TODOs:** 4
 
@@ -42,12 +42,12 @@ Development follows a calculated approach: features are built when they serve re
 
 These only make sense once there are real users generating real data. Building them now would be engineering without evidence.
 
-| # | File | Line | Category | Why wait |
-|---|------|------|----------|----------|
-| 6 | `core/services/tasks/tasks_ai_service.py` | 121 | [PERFORMANCE] | Fetches ALL user tasks for similarity detection. Vector similarity or query limits needed — but only matters when users have 100+ tasks. |
-| 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` returns placeholder data. Needs historical alignment score snapshots in Neo4j + rolling averages. Requires sustained user engagement to be meaningful. |
-| 9 | `core/services/user/user_context_service.py` | 478 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. |
-| 10 | `core/services/query/faceted_query_builder.py` | 192 | [ENHANCEMENT] | Replace regex-based query parsing with `analyze_query_intent()` for semantic analysis. Current regex works — semantic analysis is an optimization. |
+| # | File | Line | Category | Why wait | Trigger Metric |
+|---|------|------|----------|----------|----------------|
+| 6 | `core/services/tasks/tasks_ai_service.py` | 121 | [PERFORMANCE] | Fetches ALL user tasks for similarity detection. Vector similarity or query limits needed. | Median active user has **>100 tasks** |
+| 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` needs historical depth. Snapshot write path now live (`ALIGNMENT_SNAPSHOT` rel on each `update_alignment_score`); trend query is real. Needs sustained engagement to be meaningful. | **30+ days** of daily alignment snapshots for at least one user |
+| 9 | `core/services/user/user_context_service.py` | 526 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. | UX design decided + **10+ daily active users** generating completion data |
+| 10 | `adapters/persistence/neo4j/query_builders/faceted_query_builder.py` | 210 | [ENHANCEMENT] | Replace string-split query parsing with `analyze_query_intent()` (already exists in `SearchIntelligenceService`). Current string split works for well-formed queries. | User-reported poor search results OR observed query mis-parse patterns in usage logs |
 
 ---
 
@@ -138,5 +138,5 @@ Run: `uv run ruff check core/ adapters/ ui/`
 
 ---
 
-**Last Reviewed:** June 18, 2026
+**Last Reviewed:** June 19, 2026
 **Next Review:** September 2026

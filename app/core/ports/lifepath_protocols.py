@@ -36,6 +36,14 @@ class LifePathBackendOperations(Protocol):
         self, params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]: ...
 
+    async def record_alignment_snapshot(
+        self, user_uid: str, score: float
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_alignment_snapshots(
+        self, user_uid: str, days: int = 31
+    ) -> Result[list[dict[str, Any]]]: ...
+
     # Alignment — Graph queries
     async def get_user_life_path(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 
