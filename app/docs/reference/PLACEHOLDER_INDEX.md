@@ -74,13 +74,10 @@ These are declared on the adapter but have no body beyond a docstring.
 | File | Line | Method | Parameter | Notes |
 |------|------|--------|-----------|-------|
 | `adapters/persistence/neo4j_adapter.py` | 186 | `bootstrap_indexes()` | `_force: bool = False` | Force-recreate indexes even if they exist |
-| `adapters/persistence/neo4j_adapter.py` | 468 | `get_query_suggestions()` | `_partial_query: str` | Autocomplete for partial Cypher queries |
-| `adapters/persistence/neo4j_adapter.py` | 529 | `recommend_templates()` | `_search_criteria: Any` | Template recommendation by criteria |
 
 **What full implementation requires:**
 - `_force`: Index idempotency check. Currently `bootstrap_indexes()` runs unconditionally. Adding
   `_force=False` would skip creation if indexes already exist.
-- `_partial_query` / `_search_criteria`: Developer tooling features. Low priority.
 
 ---
 
