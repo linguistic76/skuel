@@ -354,6 +354,30 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
             )
         return Result.ok(result.value[0])
 
+    async def get_goal_links_for_habits(
+        self, habit_uids: list[str]
+    ) -> Result[dict[str, list[str]]]:
+        """Map habit_uid → list of supporting goal_uids via SUPPORTS_GOAL edges (batch).
+
+        Batch-lookup of the SUPPORTS_GOAL edge, used to enrich habits with
+        their derived ``supports_goal_uid`` field for scoring. Returns all
+        linked goals per habit so the enricher can prefer active ones.
+        """
+        if not habit_uids:
+            return Result.ok({})
+        query = f"""
+        MATCH (h:Entity {{entity_type: 'habit'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{entity_type: 'goal'}})
+        WHERE h.uid IN $habit_uids
+        RETURN h.uid AS habit_uid, goal.uid AS goal_uid
+        """
+        result = await self.execute_query(query, {"habit_uids": habit_uids})
+        if result.is_error:
+            return Result.fail(result)
+        link_map: dict[str, list[str]] = {}
+        for row in result.value or []:
+            link_map.setdefault(row["habit_uid"], []).append(row["goal_uid"])
+        return Result.ok(link_map)
+
 
 class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     """
@@ -470,30 +494,6 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["goal_uid"] for record in (result.value or [])])
-
-    async def get_goal_links_for_habits(
-        self, habit_uids: list[str]
-    ) -> Result[dict[str, list[str]]]:
-        """Map habit_uid → list of supporting goal_uids via SUPPORTS_GOAL edges (batch).
-
-        Batch-lookup of the SUPPORTS_GOAL edge, used to enrich habits with
-        their derived ``supports_goal_uid`` field for scoring. Returns all
-        linked goals per habit so the enricher can prefer active ones.
-        """
-        if not habit_uids:
-            return Result.ok({})
-        query = f"""
-        MATCH (h:Entity {{entity_type: 'habit'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{entity_type: 'goal'}})
-        WHERE h.uid IN $habit_uids
-        RETURN h.uid AS habit_uid, goal.uid AS goal_uid
-        """
-        result = await self.execute_query(query, {"habit_uids": habit_uids})
-        if result.is_error:
-            return Result.fail(result)
-        link_map: dict[str, list[str]] = {}
-        for row in result.value or []:
-            link_map.setdefault(row["habit_uid"], []).append(row["goal_uid"])
-        return Result.ok(link_map)
 
     async def count_linked_habits_avg_streak(
         self, goal_uid: str, user_uid: UserUID
