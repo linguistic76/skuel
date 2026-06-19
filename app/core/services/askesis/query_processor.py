@@ -288,10 +288,26 @@ class QueryProcessor:
                 conversation_history=conversation_history,
             )
 
-        # Step 9: Record conversation turns
+        # Step 9: Record conversation turns — in-memory context window + durable Neo4j history
         if session:
             session.add_turn(MessageRole.USER, question)
             session.add_turn(MessageRole.ASSISTANT, answer)
+        user_msg_result = await self.user_service.add_conversation_message(
+            user_uid, MessageRole.USER.value, question
+        )
+        if user_msg_result.is_error:
+            logger.warning(
+                "Failed to persist user conversation message: %s",
+                user_msg_result.expect_error().message,
+            )
+        assistant_msg_result = await self.user_service.add_conversation_message(
+            user_uid, MessageRole.ASSISTANT.value, answer
+        )
+        if assistant_msg_result.is_error:
+            logger.warning(
+                "Failed to persist assistant conversation message: %s",
+                assistant_msg_result.expect_error().message,
+            )
 
         # Step 10: Generate actions + citations
         suggested_actions = self.response_generator.generate_actions(
