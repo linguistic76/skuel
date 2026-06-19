@@ -1,8 +1,8 @@
 # Technical Debt & Development Roadmap
 
-**Last Updated:** March 4, 2026
+**Last Updated:** June 18, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 6
+**Active TODOs:** 4
 
 ## Philosophy
 
@@ -45,11 +45,9 @@ These only make sense once there are real users generating real data. Building t
 | # | File | Line | Category | Why wait |
 |---|------|------|----------|----------|
 | 6 | `core/services/tasks/tasks_ai_service.py` | 121 | [PERFORMANCE] | Fetches ALL user tasks for similarity detection. Vector similarity or query limits needed — but only matters when users have 100+ tasks. |
-| 7 | `core/services/goals/goaps_intelligence_service.py` | 211 | [FEATURE] | `_period_days` parameter accepted but unused. Filter goals by time window. Needs real usage patterns to validate the right window defaults. |
 | 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` returns placeholder data. Needs historical alignment score snapshots in Neo4j + rolling averages. Requires sustained user engagement to be meaningful. |
 | 9 | `core/services/user/user_context_service.py` | 478 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. |
 | 10 | `core/services/query/faceted_query_builder.py` | 192 | [ENHANCEMENT] | Replace regex-based query parsing with `analyze_query_intent()` for semantic analysis. Current regex works — semantic analysis is an optimization. |
-| 11 | `core/services/adaptive_lp/adaptive_lp_core_service.py` | 104 | [FEATURE] | `_detect_learning_style()` always returns `'balanced'`. Detecting learning style from behavior patterns requires substantial user interaction history. |
 
 ---
 
@@ -119,6 +117,9 @@ Run: `uv run ruff check core/ adapters/ ui/`
 - **`is_this_week` calculation fixed** — 6 hardcoded `False` values replaced with real week-boundary logic
 - **`RichContextRequiredError` added** — replaces generic `ValueError` in the rich-context guard (now `_as_rich()`)
 - **`BudgetDTO.user_uid` added** — eliminates `user_uid=""` workaround in converters
+- **Event goal-alignment scoring wired** — `contributes_to_goal_uid` derived field + `enrich_events_with_goal_links` + `get_goal_links_for_events`; events now score the 0.25-weight goal-alignment component (June 2026)
+- **Dead PHASE 3B stubs removed** — `_orchestration_mixin.py` `getattr(event_data, "supports_goal_uid")` / `getattr(event_data, "learning_path_uid")` always resolved to `None` and were silently ignored (June 2026)
+- **Stale Tier 3 entries deleted** — item 7 (`_period_days` is used) and item 11 (`adaptive_lp_core_service.py` deleted in campaign #294) (June 2026)
 
 ---
 
@@ -137,5 +138,5 @@ Run: `uv run ruff check core/ adapters/ ui/`
 
 ---
 
-**Last Reviewed:** March 4, 2026
-**Next Review:** June 2026
+**Last Reviewed:** June 18, 2026
+**Next Review:** September 2026

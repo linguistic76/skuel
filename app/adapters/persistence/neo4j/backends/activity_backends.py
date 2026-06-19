@@ -825,9 +825,11 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     - list_by_user(uid, limit)   → wraps get_user_entities(), extracts list
     - get_user_events(uid)       → alias for list_by_user()
     - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
-    - link_event_to_goal(…)      → Cypher MERGE SUPPORTS_GOAL
-    - link_event_to_habit(…)     → Cypher MERGE REINFORCES_HABIT
-    - link_event_to_knowledge(…) → Cypher MERGE REINFORCES_KNOWLEDGE (batch)
+    - link_event_to_goal(…)           → Cypher MERGE CONTRIBUTES_TO_GOAL
+    - link_event_to_habit(…)          → Cypher MERGE REINFORCES_HABIT
+    - link_event_to_knowledge(…)      → Cypher MERGE REINFORCES_KNOWLEDGE (batch)
+    - get_goal_links_for_events(…)    → batch map event_uid → contributed goal_uid
+    - get_habit_links_for_events(…)   → batch map event_uid → reinforced habit_uid
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1091,6 +1093,28 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok({row["event_uid"]: row["habit_uid"] for row in (result.value or [])})
+
+    async def get_goal_links_for_events(self, event_uids: list[str]) -> Result[dict[str, str]]:
+        """Map event_uid → first contributed goal_uid for the given events (batch).
+
+        Batch-lookup of the CONTRIBUTES_TO_GOAL edge, used to enrich events with
+        their derived ``contributes_to_goal_uid`` field for scoring.
+        """
+        if not event_uids:
+            return Result.ok({})
+        query = """
+        MATCH (e:Entity {entity_type: 'event'})-[:CONTRIBUTES_TO_GOAL]->(g:Entity)
+        WHERE e.uid IN $event_uids
+        RETURN e.uid AS event_uid, g.uid AS goal_uid
+        """
+        result = await self.execute_query(query, {"event_uids": event_uids})
+        if result.is_error:
+            return Result.fail(result)
+        link_map: dict[str, str] = {}
+        for row in result.value or []:
+            if row["event_uid"] not in link_map:
+                link_map[row["event_uid"]] = row["goal_uid"]
+        return Result.ok(link_map)
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
