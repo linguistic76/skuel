@@ -22,7 +22,7 @@ Development follows a calculated approach: features are built when they serve re
 | **2 — MVP Completions** | Working product gaps | ✅ Done | 0 |
 | **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
 | **Shelved** | Prerequisite-gated | When thresholds met | 3 |
-| **Decision Points** | Billing/architecture choices | When business model clarifies | 1 |
+| **Decision Points** | Billing/architecture choices | When business model clarifies | 0 |
 
 ---
 
@@ -67,9 +67,10 @@ Documented, scoped, with clear prerequisites. Not active debt — intentionally 
 
 These are architectural choices that depend on business decisions, not code quality.
 
-| Decision | Current State | What Triggers Action |
-|----------|---------------|---------------------|
-| **Per-user intelligence tier** | `intelligence_tier_service.py` exists but is not wired into routes (ADR-043). System-wide toggle works. Default: REGISTERED=CORE, MEMBER+=CORE (opt-in to FULL). | Wire `get_user_intelligence_tier()` into AI route guards (see `adapters/inbound/ai_routes.py:_ai_route`). Triggers include billing, user preference, and offline mode. System tier is always the ceiling. |
+> **Per-user intelligence tier** resolved June 2026: `get_user_intelligence_tier()` is now wired
+> into `adapters/inbound/ai_routes.py:_ai_route`. REGISTERED users receive a 403 on AI routes
+> when the system tier is FULL; MEMBER+ receive the system tier. System tier remains the ceiling
+> (ADR-043). No open decision points remain.
 
 ---
 

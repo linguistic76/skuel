@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import (
-    time,  # noqa: TC003 -- runtime import; keeps `time` resolvable for any get_type_hints() consumer
+    time,
 )
 from typing import Any
 

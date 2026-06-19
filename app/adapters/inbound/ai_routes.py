@@ -21,6 +21,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -147,8 +148,13 @@ async def _ai_route(
 ) -> dict[str, Any] | JSONResponse:
     """Shared handler for all AI routes.
 
-    Handles auth, ownership verification (USER_OWNED scope), AI availability
-    check, method call, error propagation, and optional response wrapping.
+    Handles auth, AI availability check (system-level 503 guard, ADR-043),
+    per-user intelligence tier gate (ADR-043: REGISTERED users get CORE →
+    403 if system is FULL), ownership verification (USER_OWNED scope), method
+    call, error propagation, and optional response wrapping.
+
+    The guard order is intentional: system-tier 503 fires first (cheapest),
+    per-user 403 second (one DB fetch), ownership 404 last (one DB fetch).
 
     Args:
         request: Starlette request
@@ -168,6 +174,25 @@ async def _ai_route(
     facade = getattr(services, domain_attr)
     if not facade.ai:
         return _ai_unavailable_response(domain_label)
+    # Per-user tier gate (ADR-043): within a FULL-tier system, REGISTERED users
+    # are capped at CORE and may not consume AI routes.
+    if services.intelligence_tier is not None:
+        user = await services.user.get_user(user_uid)
+        if user.is_error or user.value is None:
+            return JSONResponse(
+                status_code=503,
+                content={"error": "Could not verify user access tier"},
+            )
+        effective_tier = get_user_intelligence_tier(services.intelligence_tier, user.value.role)
+        if not effective_tier.ai_enabled:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "AI features require a paid subscription",
+                    "message": "Upgrade to MEMBER to unlock AI features",
+                    "tier_required": "full",
+                },
+            )
     # Ownership gate: never expose one user's private entity (or spend LLM budget on
     # it) through an AI route. 404 (not 403) so we don't confirm the uid's existence.
     if scope == ContentScope.USER_OWNED and entity_uid is not None:

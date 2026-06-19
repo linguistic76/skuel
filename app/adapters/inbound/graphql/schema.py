@@ -14,7 +14,7 @@ This provides:
 from __future__ import annotations
 
 from collections.abc import (
-    AsyncIterator,  # noqa: TC003 - Strawberry evaluates return types at runtime
+    AsyncIterator,
 )
 from functools import partial
 from typing import TYPE_CHECKING, Any
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 import strawberry
 from strawberry.extensions import MaxAliasesLimiter, MaxTokensLimiter, QueryDepthLimiter
 from strawberry.types import (
-    Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
+    Info,
 )
 
 from adapters.inbound.graphql.auth import require_user_uid, resolve_target_user

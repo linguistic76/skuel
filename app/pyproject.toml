@@ -558,11 +558,11 @@ output = "coverage.xml"
 # ============================================================================
 
 [tool.ruff]
-# Intentionally lags requires-python (3.14) — see [tool.black] note above and
-# ADR-067 § Deferred: bumping to py314 surfaces ~1024 modernization lints
-# (890 UP037 + 134 TC002/TC003); the TC moves are runtime-risky (Pydantic/FastHTML
-# resolve annotations at runtime), so the sweep is deferred to its own change.
-target-version = "py312"
+# Matches requires-python (3.14). TC002/TC003/UP037 are explicitly suppressed
+# in the ignore list below to keep their deferred sweeps isolated: the TC moves
+# are runtime-risky (Pydantic/FastHTML resolve annotations at runtime) and UP037
+# is a ~890-site annotation-modernization sweep that belongs in its own change.
+target-version = "py314"
 line-length = 100
 include = ["*.py", "*.pyi"]
 exclude = [
@@ -648,6 +648,9 @@ ignore = [
     # SKUEL-specific ignores (January 2026)
     "RUF022",  # __all__ sorting - we use semantic grouping with comments
     "TC001",   # TYPE_CHECKING imports - false positives for runtime imports
+    "TC002",   # move third-party import into TYPE_CHECKING — deferred py314 sweep (runtime-risky w/ Pydantic/FastHTML)
+    "TC003",   # move stdlib import into TYPE_CHECKING — deferred py314 sweep (runtime-risky w/ Pydantic/FastHTML)
+    "UP037",   # remove quotes from type annotations — deferred py314 sweep (~890 sites, own change)
     "UP046",   # Generic[T] syntax - keep existing pattern for compatibility
     "UP047",   # TypeVar in function signatures - keep existing pattern for consistency with UP046
 ]

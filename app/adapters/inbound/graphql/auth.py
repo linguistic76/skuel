@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from strawberry.types import (
-    Info,  # noqa: TC002 - Strawberry evaluates resolver annotations at runtime
+    Info,
 )
 
 from adapters.inbound.graphql.context import GraphQLContext
