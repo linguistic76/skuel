@@ -34,8 +34,8 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
 
     Upstream ``monsterui.Theme.local_headers`` unconditionally re-downloads every file in
     ``HEADER_URLS`` on every call, which crashes app startup whenever DNS or the CDN is
-    unreachable. The vendor files are committed under ``static/vendor/monsterui/``, so we
-    reuse them and only fall back to download for anything genuinely missing.
+    unreachable. The vendor files are downloaded to ``static/vendor/monsterui/`` on first
+    run (gitignored by design); subsequent startups reuse them without any network call.
     """
     static_path = Path(static_dir)
     static_path.mkdir(exist_ok=True)

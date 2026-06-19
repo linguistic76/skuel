@@ -186,6 +186,7 @@ class TestCsrfProtectedDecorator:
     @pytest.mark.asyncio
     async def test_enforcement_off_passes(self, monkeypatch):
         monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "local")
 
         @csrf_protected
         async def handler(request):
@@ -238,6 +239,55 @@ class TestCsrfProtectedDecorator:
             headers={CSRF_HEADER_NAME: token},
         )
         assert await handler(request, uid="abc") == "ran-abc"
+
+
+# ============================================================================
+# Production enforcement override
+# ============================================================================
+
+
+class TestProductionEnforcement:
+    @pytest.mark.asyncio
+    async def test_production_ignores_enforce_flag(self, monkeypatch):
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
+
+        @csrf_protected
+        async def handler(request):
+            return "ok"
+
+        request = _make_request(method="POST")
+        response = await handler(request)
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_non_production_respects_flag(self, monkeypatch):
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "staging")
+
+        @csrf_protected
+        async def handler(request):
+            return "ok"
+
+        request = _make_request(method="POST")
+        assert await handler(request) == "ok"
+
+    @pytest.mark.asyncio
+    async def test_production_with_valid_token_passes(self, monkeypatch):
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
+        token = mint_token()
+
+        @csrf_protected
+        async def handler(request):
+            return "ran"
+
+        request = _make_request(
+            method="POST",
+            cookies={CSRF_COOKIE_NAME: token},
+            headers={CSRF_HEADER_NAME: token},
+        )
+        assert await handler(request) == "ran"
 
 
 # ============================================================================
