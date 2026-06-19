@@ -35,9 +35,9 @@ data:
 ---
 # Secrets are NOT committed. Before deploying:
 #   cp k8s-secrets.yml.example k8s-secrets.yml
-#   # Fill in real values, then:
-#   kubectl apply -f k8s-secrets.yml
+#   # Fill in real values, then apply in order (namespace must exist first):
 #   kubectl apply -f k8s-manifests.yml
+#   kubectl apply -f k8s-secrets.yml
 
 ---
 # Neo4j StatefulSet
