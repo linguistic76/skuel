@@ -33,21 +33,11 @@ data:
   REDIS_URL: "redis://redis-service:6379"
 
 ---
-# Secret for sensitive configuration
-apiVersion: v1
-kind: Secret
-metadata:
-  name: skuel-secrets
-  namespace: skuel-production
-type: Opaque
-stringData:
-  NEO4J_PASSWORD: "your-neo4j-password"
-  REDIS_PASSWORD: "your-redis-password"
-  SESSION_SECRET_KEY: "your-session-secret-key"
-  JWT_SECRET: "your-jwt-secret"
-  ENCRYPTION_KEY: "your-encryption-key"
-  OPENAI_API_KEY: "your-openai-key"
-  ANTHROPIC_API_KEY: "your-anthropic-key"
+# Secrets are NOT committed. Before deploying:
+#   cp k8s-secrets.yml.example k8s-secrets.yml
+#   # Fill in real values, then apply in order (namespace must exist first):
+#   kubectl apply -f k8s-manifests.yml
+#   kubectl apply -f k8s-secrets.yml
 
 ---
 # Neo4j StatefulSet
