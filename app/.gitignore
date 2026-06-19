@@ -92,3 +92,6 @@ server.log
 # Local scratch / ad-hoc
 scratch*.py
 firefly startup command
+
+# Implementation plans (local working notes, not source)
+plans/
