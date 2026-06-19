@@ -212,9 +212,6 @@ class _OrchestrationMixin:
         # Habit reinforcement is a graph edge ((Event)-[:REINFORCES_HABIT]->(Habit)),
         # not a DTO property — capture it here and write the edge after create.
         habit_uid = event_data.reinforces_habit_uid
-        # PHASE 3B: practices_knowledge_uids is a graph relationship, not a DTO field
-        dto.fulfills_goal_uid = getattr(event_data, "supports_goal_uid", None)  # type: ignore[attr-defined]
-        dto.learning_path_uid = getattr(event_data, "learning_path_uid", None)  # type: ignore[attr-defined]
 
         if habit_uid and habit_uid in user_context.active_habit_uids:
             dto.recurrence_pattern = RecurrencePattern.DAILY  # Default

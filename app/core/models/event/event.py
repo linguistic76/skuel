@@ -99,6 +99,10 @@ class Event(UserOwnedEntity):
     # analytics, grouping) from the edge via enrich_events_with_habit_links so
     # pure readers can use it. The edge is the single source of truth.
     reinforces_habit_uid: str | None = None  # DERIVED — see note above
+    # DERIVED FROM EDGE — never persisted. The Event→Goal link is the graph edge
+    # (Event)-[:CONTRIBUTES_TO_GOAL]->(Goal); populated at fetch time via
+    # enrich_events_with_goal_links for scoring. The edge is the single source of truth.
+    contributes_to_goal_uid: str | None = None  # DERIVED — see note above
 
     # =========================================================================
     # CURRICULUM / MILESTONE INTEGRATION
