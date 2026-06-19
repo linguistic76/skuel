@@ -9,6 +9,7 @@ Usage:
     uv run python scripts/sync_monsterui_vendor.py
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ except ImportError:
     sys.exit(1)
 
 VENDOR_DIR = Path(__file__).parent.parent / "static" / "vendor" / "monsterui"
+LOCK_FILE = VENDOR_DIR / "monsterui.lock"
 
 
 def main() -> int:
@@ -44,7 +46,8 @@ def main() -> int:
             print(f"  ❌ Failed: {e}")
             return 1
 
-    print(f"\n✅ {len(HEADER_URLS)} files synced to static/vendor/monsterui/")
+    LOCK_FILE.write_text(json.dumps(HEADER_URLS, indent=2) + "\n")
+    print(f"\n✅ {len(HEADER_URLS)} files synced + monsterui.lock written")
     print("Commit with:")
     print("  git add app/static/vendor/monsterui/ && git commit -m 'chore: sync monsterui vendor files'")
     return 0
