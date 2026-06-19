@@ -1326,28 +1326,29 @@ class SearchRouter:
         scored_items = []
         for item in items:
             score = 0.0
+            entity = item.entity
 
             # Use appropriate scoring function based on entity type
             try:
                 match item.entity_type:
                     case EntityType.TASK:
-                        priority_score = score_task(item.entity, user_context)
+                        priority_score = score_task(entity, user_context)
                         score = priority_score.total
                     case EntityType.GOAL:
-                        priority_score = score_goal(item.entity, user_context)
+                        priority_score = score_goal(entity, user_context)
                         score = priority_score.total
                     case EntityType.HABIT:
-                        habit = enriched_habits.get(item.uid, item.entity)
-                        priority_score = score_habit(habit, user_context)
+                        entity = enriched_habits.get(item.uid, item.entity)
+                        priority_score = score_habit(entity, user_context)
                         score = priority_score.total
                     case EntityType.EVENT:
-                        priority_score = score_event(item.entity, user_context)
+                        priority_score = score_event(entity, user_context)
                         score = priority_score.total
                     case EntityType.CHOICE:
-                        priority_score = score_choice(item.entity, user_context)
+                        priority_score = score_choice(entity, user_context)
                         score = priority_score.total
                     case EntityType.PRINCIPLE:
-                        priority_score = score_principle(item.entity, user_context)
+                        priority_score = score_principle(entity, user_context)
                         score = priority_score.total
             except (ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError) as e:
                 self.logger.debug(f"Scoring failed for {item.uid}: {e}")
@@ -1355,7 +1356,7 @@ class SearchRouter:
             # Create new item with score
             scored_items.append(
                 SearchResultItem(
-                    entity=item.entity,
+                    entity=entity,
                     entity_type=item.entity_type,
                     uid=item.uid,
                     title=item.title,
