@@ -34,8 +34,10 @@ services:
       APP_PORT: ${APP_PORT:-5001}
       APP_DEBUG: "false"
       APP_ENV: production
+      SKUEL_ENVIRONMENT: production
 
       # Security
+      SESSION_SECRET_KEY: ${SESSION_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
 
