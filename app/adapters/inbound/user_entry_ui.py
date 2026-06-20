@@ -553,7 +553,9 @@ def create_user_entry_ui_routes(
         """Ownership-verified download of a journal entry's source file."""
         try:
             user_uid = require_authenticated_user(request)
-            entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
+            entry_result = require_found(
+                await orchestrator.get_entry(uid, user_uid), "UserEntry", uid
+            )
             if entry_result.is_error:
                 return render_inline_error("Journal entry not found")
 

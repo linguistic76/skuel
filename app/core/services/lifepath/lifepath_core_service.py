@@ -353,7 +353,9 @@ class LifePathCoreService:
                     user_uid=user_uid, score=alignment_score
                 )
                 if snapshot_result.is_error:
-                    logger.warning(f"Alignment snapshot write failed for {user_uid}: {snapshot_result.error}")
+                    logger.warning(
+                        f"Alignment snapshot write failed for {user_uid}: {snapshot_result.error}"
+                    )
                 return Result.ok(True)
 
             return Result.ok(False)

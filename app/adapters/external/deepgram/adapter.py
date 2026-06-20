@@ -261,7 +261,7 @@ class DeepgramAdapter:
                 paragraphs = [u.transcript.strip() for u in utterances if u.transcript.strip()]
                 if paragraphs:
                     return "\n\n".join(paragraphs)
-        except (AttributeError, IndexError):
+        except AttributeError, IndexError:
             pass
 
         # Fallback: flat transcript from channel alternatives
@@ -271,7 +271,7 @@ class DeepgramAdapter:
                 alternatives = channels[0].alternatives
                 if alternatives and len(alternatives) > 0:
                     return alternatives[0].transcript or ""
-        except (AttributeError, IndexError):
+        except AttributeError, IndexError:
             pass
         return ""
 
@@ -283,7 +283,7 @@ class DeepgramAdapter:
                 alternatives = channels[0].alternatives
                 if alternatives and len(alternatives) > 0:
                     return float(alternatives[0].confidence or 0.0)
-        except (AttributeError, IndexError, TypeError):
+        except AttributeError, IndexError, TypeError:
             pass
         return 0.0
 
@@ -291,7 +291,7 @@ class DeepgramAdapter:
         """Extract audio duration from Deepgram response."""
         try:
             return float(response.metadata.duration or 0.0)
-        except (AttributeError, TypeError):
+        except AttributeError, TypeError:
             pass
         return 0.0
 

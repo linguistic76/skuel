@@ -46,8 +46,7 @@ def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: 
         fname = static_path / f"{name}.{ext}"
         if not fname.exists():
             raise FileNotFoundError(
-                f"MonsterUI vendor file missing: {fname}\n"
-                f"Run: ./dev sync-monsterui-vendor"
+                f"MonsterUI vendor file missing: {fname}\nRun: ./dev sync-monsterui-vendor"
             )
         local_urls[name] = f"/{static_dir}/{fname.name}"
     return theme._create_headers(local_urls, **kwargs)

@@ -14,8 +14,8 @@ from starlette.datastructures import FormData
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
-from adapters.inbound.result_helpers import require_found
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.result_helpers import require_found
 from core.models.enums import UserRole
 from core.models.enums.learning_enums import KnowledgeStatus
 from core.ports.query_types import Violation
@@ -320,7 +320,9 @@ def create_path_steps_ui_routes(
         async def get_complete_review(request: Request, uid: str) -> Any:
             """Fetch the inline review form for the active engagement."""
             user_uid = require_authenticated_user(request)
-            active = require_found(await ps_engagement_service.find_active(user_uid, uid), "Engagement", uid)
+            active = require_found(
+                await ps_engagement_service.find_active(user_uid, uid), "Engagement", uid
+            )
             if active.is_error:
                 # No active engagement — restore the engagement-actions group.
                 return render_engagement_actions(uid, None)

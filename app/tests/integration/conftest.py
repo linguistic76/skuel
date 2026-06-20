@@ -186,7 +186,7 @@ async def clean_neo4j(neo4j_driver, create_moc_test_user, ensure_test_users):
 
 
 @pytest.fixture
-def temp_yaml_dir() -> Generator[Path, None, None]:
+def temp_yaml_dir() -> Generator[Path]:
     """Create temporary directory for YAML files."""
     temp_dir = tempfile.mkdtemp(prefix="skuel_yaml_test_")
     yield Path(temp_dir)

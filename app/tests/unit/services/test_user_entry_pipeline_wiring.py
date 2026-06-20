@@ -582,7 +582,9 @@ class TestExtractActivities:
         )
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
-            return_value=Result.ok(_extraction_result(entry.uid, created_links=[("task:1", "h", None)]))
+            return_value=Result.ok(
+                _extraction_result(entry.uid, created_links=[("task:1", "h", None)])
+            )
         )
         bus = MagicMock()
         captured: list[Any] = []

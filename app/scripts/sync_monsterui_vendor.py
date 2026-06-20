@@ -49,7 +49,9 @@ def main() -> int:
     LOCK_FILE.write_text(json.dumps(HEADER_URLS, indent=2) + "\n")
     print(f"\n✅ {len(HEADER_URLS)} files synced + monsterui.lock written")
     print("Commit with:")
-    print("  git add app/static/vendor/monsterui/ && git commit -m 'chore: sync monsterui vendor files'")
+    print(
+        "  git add app/static/vendor/monsterui/ && git commit -m 'chore: sync monsterui vendor files'"
+    )
     return 0
 
 

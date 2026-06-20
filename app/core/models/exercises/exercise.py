@@ -90,7 +90,7 @@ class Exercise(Curriculum):
             try:
                 parsed = json.loads(self.form_schema)
                 object.__setattr__(self, "form_schema", tuple(parsed) if parsed else None)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 object.__setattr__(self, "form_schema", None)
         # Convert string enrichment_mode from DTO to enum
         if isinstance(self.enrichment_mode, str) and not isinstance(
@@ -104,7 +104,7 @@ class Exercise(Curriculum):
                 object.__setattr__(
                     self, "scoring_rubric", tuple(parsed_rubric) if parsed_rubric else None
                 )
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 object.__setattr__(self, "scoring_rubric", None)
         # Auto-derive expected_modality from form_schema when not explicitly set
         if self.expected_modality is None:

@@ -90,7 +90,7 @@ def example_service(example_backend: UniversalNeo4jBackend[Example]) -> ExampleS
 
 
 @pytest.fixture
-def clean_database(neo4j_container: Neo4jContainer, event_loop: Any) -> Generator[None, None, None]:
+def clean_database(neo4j_container: Neo4jContainer, event_loop: Any) -> Generator[None]:
     """
     Clean database before and after tests.
 

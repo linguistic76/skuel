@@ -95,7 +95,7 @@ def _parse_form_schema(raw: Any) -> list[dict] | None:
         try:
             parsed = json.loads(raw)
             return parsed if isinstance(parsed, list) and parsed else None
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return None
     if isinstance(raw, list) and raw:
         return raw

@@ -524,7 +524,7 @@ class PsGraphService:
                         uid = node.get("uid")
                         if uid:
                             node_uids.append(uid)
-                except (AttributeError, TypeError):
+                except AttributeError, TypeError:
                     # path_nodes is neither a Neo4j Path nor an iterable of dict-like nodes
                     self.logger.warning(f"Unexpected path node structure: {type(path_nodes)}")
                     continue

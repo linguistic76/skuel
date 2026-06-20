@@ -931,7 +931,7 @@ class SkuelLinter:
                     if full_path.exists():
                         files.append(full_path)
             return files
-        except (subprocess.TimeoutExpired, FileNotFoundError):
+        except subprocess.TimeoutExpired, FileNotFoundError:
             return None
 
     def lint(self) -> LintResult:

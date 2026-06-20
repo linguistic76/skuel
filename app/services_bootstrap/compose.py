@@ -271,8 +271,12 @@ async def compose_services(
         # DEEPGRAM_API_KEY: FULL tier only (Digital layer) — checked in the Deepgram block below.
         openai_key_value = get_credential("OPENAI_API_KEY", fallback_to_env=True)
         if not openai_key_value or openai_key_value in ["your-openai-api-key-here", "", "sk-"]:
-            logger.warning("⚠️ OPENAI_API_KEY not configured: enables LLM chat, content processing, and AI features")
-            logger.warning("   App will run with basic features only (set INTELLIGENCE_TIER=full to enable)")
+            logger.warning(
+                "⚠️ OPENAI_API_KEY not configured: enables LLM chat, content processing, and AI features"
+            )
+            logger.warning(
+                "   App will run with basic features only (set INTELLIGENCE_TIER=full to enable)"
+            )
         else:
             logger.info("✅ OPENAI_API_KEY validated")
 
@@ -491,7 +495,9 @@ async def compose_services(
         # CORE tier skips transcription entirely; no key required, no cost incurred.
         deepgram_api_key: str | None = None
         if not tier.ai_enabled:
-            logger.info("⏭️  Deepgram skipped (intelligence tier: CORE — audio transcription is FULL tier)")
+            logger.info(
+                "⏭️  Deepgram skipped (intelligence tier: CORE — audio transcription is FULL tier)"
+            )
         else:
             from core.config.credential_store import get_credential
 
@@ -1639,7 +1645,7 @@ async def compose_services(
         logger.info("✅ Service composition complete")
         return Result.ok(services)
 
-    except (TypeError, AttributeError, ImportError, NameError):
+    except TypeError, AttributeError, ImportError, NameError:
         # Programming errors must propagate — they indicate real bugs in wiring,
         # not runtime configuration failures. Masking them as Result.fail() hides
         # the root cause during development.

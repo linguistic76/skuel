@@ -57,7 +57,7 @@ class FormSubmissionDTO(UserOwnedDTO):
         if isinstance(raw_data, str):
             try:
                 data["form_data"] = json.loads(raw_data)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 data["form_data"] = None
 
         return dto_from_dict(

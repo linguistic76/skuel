@@ -61,7 +61,7 @@ def ps_backend(neo4j_driver) -> UniversalNeo4jBackend[PathStep]:
 
 
 @pytest_asyncio.fixture
-async def clean_curriculum(neo4j_driver) -> Generator[None, None, None]:
+async def clean_curriculum(neo4j_driver) -> Generator[None]:
     """Clean all curriculum data before tests."""
 
     async def cleanup():
