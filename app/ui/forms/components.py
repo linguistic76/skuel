@@ -10,6 +10,7 @@ LabelInput/LabelTextArea/LabelSelect for label+input combos with ARIA accessibil
 from typing import Any
 
 from fasthtml.common import Div
+from fasthtml.common import Select as FTSelect
 from monsterui.franken import CheckboxX as MCheckbox
 from monsterui.franken import FormLabel as MFormLabel
 from monsterui.franken import Input as MInput
@@ -18,7 +19,6 @@ from monsterui.franken import LabelSelect as MLabelSelect
 from monsterui.franken import LabelTextArea as MLabelTextArea
 from monsterui.franken import Radio as MRadio
 from monsterui.franken import Range as MRange
-from monsterui.franken import Select as MSelect
 from monsterui.franken import Switch as MSwitch
 from monsterui.franken import TextArea as MTextArea
 
@@ -92,7 +92,7 @@ def Input(
     aria_extra, trailing = _aria_attrs(input_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    input_element = MInput(cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
+    input_element = MInput(cls=" ".join(cls_parts) if cls_parts else "", **kwargs)
 
     if not trailing:
         return input_element
@@ -109,8 +109,13 @@ def Select(
     error_text: str | None = None,
     **kwargs: Any,
 ) -> Any:
-    """Standalone select (no label). Use LabelSelect when a label is needed."""
-    cls_parts = []
+    """Standalone select (no label). Use LabelSelect when a label is needed.
+
+    Uses a native <select> with UIkit styling so HTMX form serialization works.
+    MonsterUI's MSelect wraps in a <uk-select> web component that hides the
+    native element from FormData, silently dropping select values on submission.
+    """
+    cls_parts = ["uk-select"]
     if full_width:
         cls_parts.append("w-full")
     if error_text:
@@ -122,7 +127,7 @@ def Select(
     aria_extra, trailing = _aria_attrs(select_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    select_element = MSelect(*options, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
+    select_element = FTSelect(*options, cls=" ".join(cls_parts), **kwargs)
 
     if not trailing:
         return select_element
@@ -152,7 +157,7 @@ def Textarea(
     aria_extra, trailing = _aria_attrs(textarea_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    textarea_element = MTextArea(*c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
+    textarea_element = MTextArea(*c, cls=" ".join(cls_parts) if cls_parts else "", **kwargs)
 
     if not trailing:
         return textarea_element
@@ -253,7 +258,7 @@ def LabelCheckbox(
 
 def Label(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     """Form label wrapper using MonsterUI FormLabel."""
-    return MFormLabel(*c, cls=cls or None, **kwargs)
+    return MFormLabel(*c, cls=cls, **kwargs)
 
 
 def Checkbox(
@@ -263,7 +268,7 @@ def Checkbox(
     **kwargs: Any,
 ) -> Any:
     """Checkbox wrapper using MonsterUI."""
-    return MCheckbox(cls=cls or None, **kwargs)
+    return MCheckbox(cls=cls, **kwargs)
 
 
 def Radio(
@@ -273,7 +278,7 @@ def Radio(
     **kwargs: Any,
 ) -> Any:
     """Radio button wrapper using MonsterUI."""
-    return MRadio(cls=cls or None, **kwargs)
+    return MRadio(cls=cls, **kwargs)
 
 
 def Toggle(
@@ -283,7 +288,7 @@ def Toggle(
     **kwargs: Any,
 ) -> Any:
     """Toggle/Switch wrapper using MonsterUI's Switch component."""
-    return MSwitch(cls=cls or None, **kwargs)
+    return MSwitch(cls=cls, **kwargs)
 
 
 def Range(
@@ -293,4 +298,4 @@ def Range(
     **kwargs: Any,
 ) -> Any:
     """Range slider wrapper using MonsterUI."""
-    return MRange(cls=cls or None, **kwargs)
+    return MRange(cls=cls, **kwargs)
