@@ -381,23 +381,40 @@ This covers the reverse direction. Given an Exercise, you can read which PathSte
 belongs to directly from the Exercise node — no graph traversal needed. This is a scalar
 (one value) because a PERSONAL-scope Exercise always belongs to exactly one PathStep.
 
-As an author you never set this directly. When you ingest a PathStep YAML with
-`exercise_uids`, the system writes both the `HAS_EXERCISE` edge *and* the
-`path_step_uid` property on the Exercise node in a single operation. Both are always
-present after a successful ingest.
+**How path_step_uid gets written depends on how the Exercise was created:**
+
+- **API creation** (`ExerciseService.create()`): dual-write — both `path_step_uid` on
+  the Exercise node and the `HAS_EXERCISE` edge are written in a single operation.
+- **YAML ingestion** (PathStep side, `exercise_uids`): only the `HAS_EXERCISE` edge is
+  created. The `exercise_uids` field is treated as a relationship key by the ingestion
+  pipeline — it is filtered out of node properties and never written to the PathStep node
+  or backfilled onto the Exercise node.
+
+For YAML-authored exercises, if you want `Exercise.path_step_uid` to be populated (enabling
+the no-traversal reverse lookup), include `path_step_uid` in the Exercise YAML itself:
+
+```yaml
+type: Exercise
+uid: ex:mindfulness-101:breath-awareness-check-in
+path_step_uid: ps:mindfulness-101:breath-awareness-basics
+...
+```
 
 **Summary**
 
 | Question | How the system answers it | Storage form |
 |---|---|---|
 | Which exercises does this PathStep have? | Follow `HAS_EXERCISE` edges outward | Graph edge (no property on PathStep) |
-| Which PathStep does this Exercise belong to? | Read `Exercise.path_step_uid` | Property on the Exercise node |
+| Which PathStep does this Exercise belong to? | Read `Exercise.path_step_uid` (if set) or traverse incoming `HAS_EXERCISE` edge | Property on Exercise node (API path) or graph traversal (YAML path) |
 
 **What this means for you as an author**
 
-- `exercise_uids` in your PathStep YAML is the *only* wiring step needed. You do not
-  set anything on the Exercise YAML to point back at the PathStep — the system handles
-  the reverse link automatically.
+- `exercise_uids` in your PathStep YAML creates the `HAS_EXERCISE` edge. This is
+  sufficient for the learning loop — the PathStep detail page uses the edge for all
+  exercise lookups.
+- To also populate `Exercise.path_step_uid` (the reverse-direction property), set
+  `path_step_uid` in the Exercise YAML. This is optional for YAML-authored exercises
+  but required if you later create UserEntries via the API against this Exercise.
 - If you remove `exercise_uids` from a PathStep YAML and re-ingest with deletion
   propagation enabled, the `HAS_EXERCISE` edge is deleted. The Exercise node remains,
   but it is no longer anchored to that PathStep and will not appear on the PathStep
