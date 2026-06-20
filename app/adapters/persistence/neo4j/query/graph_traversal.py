@@ -21,6 +21,8 @@ Instead of APOC procedures, we use:
 
 from typing import TYPE_CHECKING
 
+from core.models.relationship_names import RelationshipName
+
 if TYPE_CHECKING:
     from core.models.query_types import QueryIntent
 
@@ -83,7 +85,7 @@ def build_graph_context_query(
         # Pure Cypher pattern for practice/example nodes
         return f"""
             MATCH (u {{uid: $uid}})
-            OPTIONAL MATCH (u)-[:HAS_EXERCISE|HAS_EXAMPLE*0..{depth}]->(practice)
+            OPTIONAL MATCH (u)-[:{RelationshipName.HAS_EXERCISE}|HAS_EXAMPLE*0..{depth}]->(practice)
             WHERE practice.content_type IN ['exercise', 'example', 'practice']
             WITH u, collect(DISTINCT practice) as practice_nodes
             RETURN practice_nodes,

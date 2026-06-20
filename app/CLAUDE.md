@@ -30,7 +30,7 @@ When working in a file or area of the codebase, address problems you encounter �
 - **PathStep** (`EntityType.PATH_STEP`, extends `Curriculum`) — THE curriculum content entity. Composes Kus into learning content and sits within LearningPaths. Services in `core/services/ps/`. Facade: `PsService` in `core/services/ps_service.py`.
 - **Ku** (`EntityType.KU`, extends `Entity`) — atomic knowledge unit. Lightweight ontology/reference node. Services in `core/services/ku/`.
 - **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
-- **Learning loop (4 phases):** Exercise -> UserEntry -> EntryReport -> RevisedExercise -> UserEntry -> ... PathStep is the curriculum anchor, linked via `(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for PERSONAL scope). The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
+- **Learning loop (4 phases):** Exercise -> UserEntry -> EntryReport -> RevisedExercise -> UserEntry -> ... PathStep is the curriculum anchor, linked via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (denormalized as `Exercise.path_step_uid` for PERSONAL scope). The PathStep detail page (`/explore/ps/{uid}`) surfaces the loop — HTMX-loads exercises (with status), entries, and feedback via `/learning-loop/ps/{ps_uid}/*` fragments.
 
 ## Naming Conventions
 

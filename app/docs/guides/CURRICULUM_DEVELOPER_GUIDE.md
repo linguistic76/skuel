@@ -6,7 +6,7 @@
 
 **Prerequisite:** No coding experience required. You write YAML files and markdown. The system does the rest.
 
-**Last Updated:** 2026-04-12
+**Last Updated:** 2026-06-20
 
 > **Historical note (2026-04):** SKUEL previously had a separate `Lesson` entity type sitting between `Ku` and `PathStep`. Lesson was merged into PathStep in April 2026 — PathStep now IS the teaching narrative. The three-entity curriculum stack is **Ku → PathStep → LearningPath**. Older docs and ADRs may still reference Lesson; treat those as historical.
 
@@ -120,7 +120,7 @@ connections:
 
 ---
 
-## The Two Primitives: Ku and PathStep
+## The Three Primitives: Ku, PathStep, and Exercise
 
 ### Writing a Ku
 
@@ -194,6 +194,9 @@ uses_kus:
   - ku:mindfulness:breath
   - ku:mindfulness:attention
 
+exercise_uids:
+  - ex:mindfulness:breath-awareness-check-in
+
 connections:
   requires: []
   enables:
@@ -254,6 +257,77 @@ where do you feel the breath most?
 - **Close with what's next.** Point forward to the next PathStep in the chain. This creates momentum and gives the learner a reason to continue.
 - **Write in second person.** "You" is more engaging than "the learner" or "one." This is a conversation, not a textbook.
 - **Be direct.** Short sentences. Active voice. Say what you mean. Cut filler.
+
+### Writing an Exercise
+
+An Exercise is a practice prompt attached to a PathStep. It closes the learning loop: the learner responds, the system (teacher or AI) evaluates, and targeted revision follows. Exercises are the third authoring primitive — alongside Kus and PathSteps — because they are what turn a reading into a *doing*.
+
+An Exercise is a YAML file with an `instructions` field (the LLM prompt that processes the learner's submission) and an optional `form_schema` (for structured form responses rather than free-form uploads).
+
+```yaml
+version: 1.0
+type: Exercise
+
+uid: ex:sel:know-yourself-check-in
+title: Know Yourself Check-In
+description: A structured self-awareness reflection exercise
+scope: personal
+model: claude-sonnet-4-6
+mastery_impact: moderate
+sel_category: SELF_AWARENESS
+learning_level: BEGINNER
+tags: [self-awareness, reflection]
+
+instructions: |
+  You are a self-awareness coach. The student has answered two questions
+  about their emotional experience today. Review their responses and provide
+  warm, specific feedback in 3–5 sentences. Name what they did well. Point
+  to one thing they could notice more clearly next time.
+
+form_schema:
+  - name: emotion_check
+    type: textarea
+    label: "Name one emotion you felt strongly today. What triggered it?"
+    required: true
+  - name: daily_habit
+    type: text
+    label: "What one habit will you build to increase self-awareness?"
+    required: true
+```
+
+**Key fields:**
+
+| Field | Purpose | Required? |
+|-------|---------|-----------|
+| `uid` | Unique identifier (`ex:{namespace}:{slug}`) | Yes |
+| `title` | Display name | Yes |
+| `scope` | `personal` (user's own template) or `assigned` (teacher → group) | No (default: `personal`) |
+| `instructions` | The LLM prompt that processes the learner's submission | Yes |
+| `model` | Which LLM to use (default: `claude-sonnet-4-6`) | No |
+| `form_schema` | Structured form fields — if present, submission is a form; if absent, submission is a file upload | No |
+| `mastery_impact` | How aggressively completing this Exercise advances mastery (`minor`, `moderate`, `major`, `certification`) | No |
+| `sel_category` | Which SEL competency this Exercise targets | No |
+| `learning_level` | `BEGINNER`, `INTERMEDIATE`, `ADVANCED`, `EXPERT` | No |
+
+**How the loop closes:**
+
+Once an Exercise is wired to a PathStep (via `(PathStep)-[:HAS_EXERCISE]->(Exercise)`), the four-phase loop runs automatically:
+
+```
+1  Exercise    — the practice prompt the learner works from
+2  UserEntry   — the learner's response (file upload or form submission)
+3  EntryReport — AI or teacher evaluates the UserEntry against the Exercise instructions
+4  RevisedExercise — teacher creates a targeted follow-up prompt if revision is needed
+```
+
+The learner sees all four phases on the PathStep detail page at `/explore/ps/{uid}`. For the full loop mechanics, see [The Learning Loop Architecture](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md).
+
+**Guidelines:**
+
+- **Instructions should be prompts, not rubrics.** The `instructions` field is sent to the LLM as context when generating an EntryReport. Write it as a persona + task, not a checklist. "You are a coach. Do X." works better than "Check for: criterion A, criterion B, criterion C."
+- **Use `form_schema` for beginner content.** A structured form lowers the barrier to entry for new learners. File upload (the default when `form_schema` is absent) works well for intermediate and advanced exercises where the learner needs to produce prose.
+- **One Exercise per PathStep for PERSONAL scope.** A personal Exercise belongs to exactly one PathStep; the `path_step_uid` field anchors it. Teachers creating `assigned` scope Exercises for groups may omit this.
+- **`mastery_impact: moderate` is the right default.** Use `minor` for low-stakes reflections, `major` for capstone submissions, `certification` only for formal assessments.
 
 ---
 
@@ -522,9 +596,20 @@ An LP that contains 3 PathSteps automatically aggregates all their activities.
 
 ### Substance Tracking
 
-When activities link back to PathSteps, substance counters track how much knowledge is being *lived*: Habits (weight 0.10), Choices (0.07), Principles (0.07), Events (0.05), Tasks (0.05). Total capped at 1.0.
+When activities link back to PathSteps, substance counters track how much knowledge is being *lived* across six channels:
 
-For the complete reference, see the **[PathStep Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md)** and the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)**.
+| Channel | Weight | Max | Note |
+|---------|--------|-----|------|
+| Habits | 0.10/habit | 0.30 | Lifestyle integration — highest weight |
+| Entries/reflection | 0.07/entry | 0.20 | UserEntry via `EXTRACT_ACTIVITIES` pipeline |
+| Choices | 0.07/each | 0.15 | Decision-making as applied wisdom |
+| Principles | 0.07/each | 0.15 | Value embodiment |
+| Events | 0.05/each | 0.25 | Dedicated practice |
+| Tasks | 0.05/each | 0.25 | Real-world application |
+
+Total capped at 1.0. The five YAML-declared channels (Habits, Choices, Principles, Events, Tasks) wire via `connections.*` fields on the activity entity. The sixth channel — UserEntry/reflection — is pipeline-driven: the `EXTRACT_ACTIVITIES` pipeline links a completed UserEntry to the PathStep it references and increments the counter automatically; no YAML declaration needed.
+
+For the complete reference, see the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)** and the **[Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md)**.
 
 ---
 
@@ -542,9 +627,17 @@ This is where you spend most of your time. Each PathStep is a `.md` file with fr
 
 A good PathStep takes 30-60 minutes to write well. Three PathSteps is a good starting size.
 
-### Step 3: Define the Supporting Activities (10 minutes each)
+### Step 3: Write the Exercises (15 minutes each)
 
-For each PathStep, ask: what should the learner *do* with this knowledge?
+For each PathStep, write one Exercise that closes the learning loop. The Exercise is the mechanism that turns reading into doing and creates the submission→feedback cycle.
+
+- Write `instructions` as a coach persona + task: "You are a mindfulness coach. The student has just completed their first breath-awareness session..."
+- Use `form_schema` for beginner content (lower barrier to entry) or omit it for file-upload responses
+- Wire the Exercise to its PathStep at ingestion via `exercise_uids` in the PathStep YAML — this creates the `(PathStep)-[:HAS_EXERCISE]->(Exercise)` graph edge automatically
+
+### Step 4: Define the Supporting Activities (10 minutes each)
+
+For each PathStep, ask: what should the learner *do* with this knowledge day-to-day?
 
 - **Habit** — a repeating behavior (daily 2-minute practice)
 - **Task** — a one-time deliverable (write three sentences about your patterns)
@@ -555,31 +648,33 @@ For each PathStep, ask: what should the learner *do* with this knowledge?
 
 Not every PathStep needs all six. Wire what fits.
 
-### Step 4: Build the Structure (LP, edges)
+### Step 5: Build the Structure (LP, edges)
 
 Sequence PathSteps into a LearningPath. Write edge files for the curriculum structure and any cross-domain connections.
 
-### Step 5: Review the Graph
+### Step 6: Review the Graph
 
 Before ingesting, mentally walk the graph:
 - Can a learner start from the LP and follow a clear path?
 - Does every PathStep compose at least one Ku?
+- Does every PathStep have at least one Exercise to close the loop?
 - Are activities wired to the right PathSteps?
 - Are cross-domain connections declared in edge files?
 
-### Step 6: Ingest
+### Step 7: Ingest
 
 Place files in `/home/mike/0bsidian/0vault/` and ingest. The system handles node creation, relationship wiring, embedding generation, and indexing.
 
 ## What Comes Next
 
-This guide covers: Kus, PathSteps, prerequisite chains, activity wiring, the three-entity curriculum stack (Ku → PathStep → LP), cross-domain progression, and the practical workflow. Future guides will cover:
+This guide covers: Kus, PathSteps, Exercises, prerequisite chains, activity wiring, the three-entity curriculum stack (Ku → PathStep → LP), cross-domain progression, and the practical workflow. For deeper reference:
 
-- **Exercises and the Learning Loop** — attaching practice exercises to PathSteps, collecting student submissions, generating feedback reports, and creating targeted revisions
-- **The Askesis Companion** — how the AI tutor uses your curriculum graph to guide learners through their zone of proximal development
-- **Ingestion Workflows** — bulk ingestion, dry-run mode, incremental updates, and vault management
+- **[The Learning Loop](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md)** — the four-phase cycle (Exercise → UserEntry → EntryReport → RevisedExercise) that closes around each PathStep; how student work is collected, evaluated by AI or teacher, and used to drive targeted revision
+- **[Askesis Pedagogical Architecture](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md)** — how the AI tutor uses your curriculum graph and the learner's ZPD assessment to surface the right PathStep at the right moment
+- **[Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md)** — bulk ingestion, dry-run mode, incremental updates, vault management, and deletion propagation (entity file deleted → graph node deleted; edge file deleted → relationship deleted)
+- **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)** — complete field reference per entity type, the connections system, edge files, enum-governed fields, and bundle structure
 
-Start small. Pick a domain. Define 2-4 Kus. Write 3 PathSteps as `.md` files. Wire a few activities. Build the LP structure. Write edge files. Ingest and see what the system builds.
+Start small. Pick a domain. Define 2-4 Kus. Write 3 PathSteps as `.md` files. Write one Exercise per PathStep. Wire a few activities. Build the LP structure. Write edge files. Ingest and see what the system builds.
 
 The graph grows one node at a time.
 
@@ -593,6 +688,7 @@ The graph grows one node at a time.
 |------|-------|--------|
 | Ku files | `/home/mike/0bsidian/0vault/ku_*.yaml` | YAML |
 | PathStep files | `/home/mike/0bsidian/0vault/ps_*.md` | Markdown + YAML frontmatter |
+| Exercise files | `/home/mike/0bsidian/0vault/ex_*.yaml` | YAML |
 | LearningPath files | `/home/mike/0bsidian/0vault/lp_*.yaml` | YAML |
 | Activity files | `/home/mike/0bsidian/0vault/{type}_*.yaml` | YAML |
 | Edge files | `/home/mike/0bsidian/0vault/edges/edge_*.yaml` | YAML |
@@ -604,6 +700,7 @@ The graph grows one node at a time.
 |--------|---------|---------|
 | Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
 | PathStep | `ps:{namespace}:{slug}` | `ps:mindfulness:breath-awareness-basics` |
+| Exercise | `ex:{namespace}:{slug}` | `ex:sel:know-yourself-check-in` |
 | LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
 | Activity | `{type}:{slug}` | `habit:daily-2min-breath` |
 

@@ -448,7 +448,7 @@ class _KnowledgeContextMixin:
     # ========================================================================
 
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get exercises linked to a PathStep via RELATED_TO.
+        """Get exercises linked to a PathStep via HAS_EXERCISE.
 
         Returns basic exercise details (uid, title, scope, estimated_time_minutes)
         so the PathStep detail page can render an exercises section with submit links.
@@ -460,7 +460,7 @@ class _KnowledgeContextMixin:
             List of records with exercise uid, title, scope, estimated_time_minutes.
         """
         query = """
-        MATCH (ps:Entity {uid: $ps_uid, entity_type: 'path_step'})-[:RELATED_TO]->(e:Entity {entity_type: 'exercise'})
+        MATCH (ps:Entity {uid: $ps_uid, entity_type: 'path_step'})-[:HAS_EXERCISE]->(e:Entity {entity_type: 'exercise'})
         RETURN e.uid AS uid, e.title AS title, e.scope AS scope,
                e.estimated_time_minutes AS estimated_time_minutes
         ORDER BY e.title

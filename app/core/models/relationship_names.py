@@ -294,6 +294,7 @@ class RelationshipName(StrEnum):
     BUILDS_HABIT = "BUILDS_HABIT"  # (ps)-[:BUILDS_HABIT]->(habit) - Practice pattern
     ASSIGNS_TASK = "ASSIGNS_TASK"  # (ps)-[:ASSIGNS_TASK]->(task) - Practice pattern
     SCHEDULES_EVENT = "SCHEDULES_EVENT"  # (ps)-[:SCHEDULES_EVENT]->(event) - Practice pattern
+    HAS_EXERCISE = "HAS_EXERCISE"  # (ps)-[:HAS_EXERCISE]->(exercise) - Curriculum loop anchor
 
     # Learning Path (LP) relationships
     ALIGNED_WITH_GOAL = "ALIGNED_WITH_GOAL"  # (lp)-[:ALIGNED_WITH_GOAL]->(goal)

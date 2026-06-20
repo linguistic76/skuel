@@ -147,6 +147,7 @@ def _prepare_core(
             "goal_uids",
             "principle_uids",
             "choice_uids",
+            "exercise_uids",
         ]
         for field in ps_uid_fields:
             if field in entity_data and isinstance(entity_data[field], list):

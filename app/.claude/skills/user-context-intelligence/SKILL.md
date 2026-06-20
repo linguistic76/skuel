@@ -715,7 +715,7 @@ intelligence = factory.create(context)
 ## Related Skills
 
 - **[base-analytics-service](../base-analytics-service/SKILL.md)** - Level 1 domain analytics (BaseAnalyticsService, no AI) — same tier as UserContextIntelligence
-- **[learning-loop](../learning-loop/SKILL.md)** - The four-phase loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via RELATED_TO) — context for why submissions/report slots exist
+- **[learning-loop](../learning-loop/SKILL.md)** - The four-phase loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE) — context for why submissions/report slots exist
 - **[result-pattern](../result-pattern/SKILL.md)** - Result[T] error handling
 
 ## See Also
