@@ -27,7 +27,9 @@ Usage:
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
-from fasthtml.common import Div, Form, Label, Option, Select
+from fasthtml.common import Div, Form, Option
+
+from ui.forms import Label, Select
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -143,7 +145,6 @@ def ActivityFilterBar(
                 Select(
                     *[Option(text, value=val, selected=selected == val) for text, val in f.options],
                     name=f.name,
-                    cls="uk-select w-full",
                 ),
             )
         )
@@ -159,7 +160,6 @@ def ActivityFilterBar(
                         for text, val in config.sort_options
                     ],
                     name="sort_by",
-                    cls="uk-select w-full",
                 ),
             )
         )

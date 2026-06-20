@@ -7,13 +7,13 @@ and swaps itself out with a success/error fragment.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, Div, Form, Label, Option, P, Select
+from fasthtml.common import H3, H4, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
 
 from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
-from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
+from ui.forms import Label, LabelCheckbox, LabelInput, LabelTextArea, Select
 from ui.layout import Size
 from ui.patterns.error_banner import render_inline_error
 
@@ -113,17 +113,14 @@ def _render_field(spec: dict[str, Any]) -> Any:
 
     if field_type == "select":
         options: list[str] = spec.get("options", [])
-        # Use plain <select> not LabelSelect (web-component wrapper): HTMX serializes
-        # the native select directly; uk-select hides the native element and blocks it.
         return Div(
-            Label(label, fr=name, cls="uk-form-label"),
+            Label(label, fr=name),
             Select(
                 Option("Select an option", value=""),
                 *[Option(o, value=o) for o in options],
                 name=name,
                 id=name,
                 required=required,
-                cls="uk-select",
             ),
             cls="space-y-2 mb-4",
         )
