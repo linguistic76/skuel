@@ -20,8 +20,9 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body, safe_form_string
+from adapters.inbound.result_helpers import require_found
 from core.models.entity_requests import CalendarQuickCreateRequest
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.calendar.components import calendar_item_to_dict
 from ui.patterns.error_banner import render_inline_error
 
@@ -66,41 +67,43 @@ def create_calendar_api_routes(
     async def get_calendar_item(request: Request, item_id: str) -> Result[dict[str, Any]]:
         """Get details for a specific calendar item (scoped to the owner)."""
         user_uid = require_authenticated_user(request)
-        result = await calendar_service.get_item(user_uid, item_id)
-
-        if result.is_ok and result.value:
-            item = result.value
-            return Result.ok(
-                {
-                    "uid": item.uid,
-                    "source_uid": item.source_uid,
-                    "item_type": item.item_type.value,
-                    "title": item.title,
-                    "description": item.description,
-                    "start_time": item.start_time.isoformat(),
-                    "end_time": item.end_time.isoformat(),
-                    "all_day": item.all_day,
-                    "color": item.color,
-                    "icon": item.icon,
-                    "priority": item.priority,
-                    "category": item.category,
-                    "is_recurring": item.is_recurring,
-                    "recurrence_pattern": item.recurrence_pattern,
-                    "tags": item.tags,
-                    "related_uids": item.related_uids,
-                    "project_uid": item.project_uid,
-                    "streak_count": item.streak_count,
-                    "occurrence_data": item.occurrence_data,
-                    "attendee_emails": list(item.attendee_emails),
-                    "attendee_count": len(item.attendee_emails),
-                    "max_attendees": item.max_attendees,
-                    "location": item.location,
-                    "is_online": item.is_online,
-                    "metadata": item.metadata,
-                }
-            )
-        else:
-            return Result.fail(Errors.not_found(resource="CalendarItem", identifier=item_id))
+        found = require_found(
+            await calendar_service.get_item(user_uid, item_id),
+            "CalendarItem",
+            item_id,
+        )
+        if found.is_error:
+            return Result.fail(found)
+        item = found.value
+        return Result.ok(
+            {
+                "uid": item.uid,
+                "source_uid": item.source_uid,
+                "item_type": item.item_type.value,
+                "title": item.title,
+                "description": item.description,
+                "start_time": item.start_time.isoformat(),
+                "end_time": item.end_time.isoformat(),
+                "all_day": item.all_day,
+                "color": item.color,
+                "icon": item.icon,
+                "priority": item.priority,
+                "category": item.category,
+                "is_recurring": item.is_recurring,
+                "recurrence_pattern": item.recurrence_pattern,
+                "tags": item.tags,
+                "related_uids": item.related_uids,
+                "project_uid": item.project_uid,
+                "streak_count": item.streak_count,
+                "occurrence_data": item.occurrence_data,
+                "attendee_emails": list(item.attendee_emails),
+                "attendee_count": len(item.attendee_emails),
+                "max_attendees": item.max_attendees,
+                "location": item.location,
+                "is_online": item.is_online,
+                "metadata": item.metadata,
+            }
+        )
 
     @rt("/api/events/calendar/reschedule", methods=["PATCH"])
     @csrf_protected
