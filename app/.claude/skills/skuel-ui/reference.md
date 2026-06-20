@@ -267,7 +267,7 @@ def create_tasks_page(content: Any, request: Request | None = None) -> Any:
 
 All 6 Activity Domain list views use a shared config-driven filter bar (`/ui/activities/filter_bar.py`). Each domain defines a `FilterBarConfig` with its filter dropdowns, sort options, and HTMX targets. Route files call `ActivityFilterBar(config, current_values)` directly.
 
-**Implementation note:** Uses SKUEL's `Select` from `ui.forms` (not `LabelSelect`). `Select` renders a native `<select>` with `uk-select` CSS class so HTMX `FormData` serialization works — MonsterUI's `MSelect`/`LabelSelect` wrap in a `<uk-select>` web component that hides the native element from form submission.
+**Implementation note:** Uses SKUEL's `Select` from `ui.forms`. Both `Select` and `LabelSelect` render a native `<select>` with `uk-select` CSS class so HTMX `FormData` serialization works — MonsterUI's `MSelect`/`MLabelSelect` wrap in a `<uk-select>` web component that hides the native element from form submission.
 
 ```python
 from ui.activities.filter_bar import ActivityFilterBar, FILTER_CONFIGS
