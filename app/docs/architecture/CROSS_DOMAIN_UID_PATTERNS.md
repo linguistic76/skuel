@@ -120,9 +120,9 @@ Pattern: **graph edge to the containing entity + property for the sub-entity sel
 
 ## Where this rule should NOT apply
 
-Cross-domain graph edges that carry relationship-specific metadata (e.g., `{essentiality}` on `SUPPORTS_GOAL`, `{order}` on `HAS_STEP`) are **never** distilled into a UID property on either endpoint. Those edges exist purely as graph relationships; querying them requires Cypher traversal, not a property read.
+**Edge metadata is never denormalized.** When a graph edge carries relationship-specific properties (e.g., `{essentiality}` on `SUPPORTS_GOAL`, `{order}` on `HAS_STEP`), those property values are **never** copied to a field on either endpoint node. The endpoint UIDs may appear as enrichment links (e.g., `Habit.supports_goal_uid` is derived from the `SUPPORTS_GOAL` edge endpoint) — the *UID* tells you which node; the *metadata* requires a Cypher traversal to read.
 
-Similarly, Knowledge Substance connections (`APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, etc.) are write-once graph events — no UID field on the Activity model, no enrich step. They are read by the substance pipeline directly from the graph.
+**Knowledge Substance connections** (`APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, etc.) are write-once graph events. No UID field on the Activity model, no enrich step — the substance pipeline reads them directly from the graph via Cypher.
 
 ---
 
