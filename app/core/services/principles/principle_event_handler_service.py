@@ -546,6 +546,9 @@ def _categorize_strength_change(old_strength: str, new_strength: str) -> str:
     Returns:
         Change type: "elevation", "demotion", or "lateral"
     """
+    valid = {s.value for s in PrincipleStrength}
+    if old_strength.lower() not in valid or new_strength.lower() not in valid:
+        return "lateral"
     old_rank = PrincipleStrength.from_value(old_strength).rank()
     new_rank = PrincipleStrength.from_value(new_strength).rank()
     if new_rank > old_rank:
