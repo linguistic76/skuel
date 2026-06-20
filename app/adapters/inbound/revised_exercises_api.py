@@ -18,6 +18,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.result_helpers import require_found
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.ports.query_types import RevisionChainResult
 from core.utils.logging import get_logger
@@ -87,14 +88,18 @@ def create_revised_exercises_api_routes(
         uid = request.query_params.get("uid")
         if not uid:
             return Result.fail(Errors.validation("uid is required", field="uid"))
-        result = await revised_exercise_service.get(uid)
-        if result.is_error:
-            return result
-        entity = result.value
+        found = require_found(
+            await revised_exercise_service.get(uid),
+            "RevisedExercise",
+            uid,
+        )
+        if found.is_error:
+            return Result.fail(found)
+        entity = found.value
         # Ownership check: student_uid OR user_uid (teacher/owner)
         if entity.student_uid != user_uid and entity.user_uid != user_uid:
             return Result.fail(Errors.not_found(resource="RevisedExercise", identifier=uid))
-        return result
+        return Result.ok(entity)
 
     logger.info("Revised Exercises API routes registered (four-phase learning loop)")
 

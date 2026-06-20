@@ -33,6 +33,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.result_helpers import require_found
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
@@ -78,12 +79,11 @@ def create_user_entry_api_routes(
 
     async def _load_owned(uid: str, user_uid: UserUID) -> Result[UserEntry]:
         """Load an entry and 404 when the requester does not own it."""
-        result = await user_entry_service.get_entry(uid, user_uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.fail(Errors.not_found(resource="UserEntry", identifier=uid))
-        return Result.ok(result.value)
+        return require_found(
+            await user_entry_service.get_entry(uid, user_uid),
+            "UserEntry",
+            uid,
+        )
 
     # =========================================================================
     # CREATE — JSON body

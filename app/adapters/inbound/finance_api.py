@@ -16,10 +16,11 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_query_param
 from core.ports.query_types import InvoiceStats
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.finance_service import FinanceService
@@ -132,17 +133,14 @@ def create_finance_api_routes(
     @boundary_handler()
     async def get_invoice_route(request, current_user, uid: str) -> Result[dict[str, Any]]:
         """Get a specific invoice by UID (admin only)"""
-        result = await finance_service.get_invoice(uid)
-
-        if result.is_ok:
-            if result.value is None:
-                return Result.fail(Errors.not_found("Invoice", uid))
-            return Result.ok(
-                {
-                    "invoice": result.value.to_dto().to_dict(),
-                }
-            )
-        return Result.fail(result)
+        found = require_found(await finance_service.get_invoice(uid), "Invoice", uid)
+        if found.is_error:
+            return Result.fail(found)
+        return Result.ok(
+            {
+                "invoice": found.value.to_dto().to_dict(),
+            }
+        )
 
     @rt("/api/invoices/pdf")
     @require_admin(get_user_service)
