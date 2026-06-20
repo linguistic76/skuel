@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_query_param
@@ -131,7 +132,7 @@ def create_finance_api_routes(
     @rt("/api/invoices/get")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_invoice_route(request, current_user, uid: str) -> Result[dict[str, Any]]:
+    async def get_invoice_route(request: Request, current_user, uid: str) -> Result[dict[str, Any]]:
         """Get a specific invoice by UID (admin only)"""
         found = require_found(await finance_service.get_invoice(uid), "Invoice", uid)
         if found.is_error:
@@ -144,7 +145,7 @@ def create_finance_api_routes(
 
     @rt("/api/invoices/pdf")
     @require_admin(get_user_service)
-    async def download_invoice_pdf_route(request, current_user, uid: str):
+    async def download_invoice_pdf_route(request: Request, current_user, uid: str):
         """Download invoice as PDF (admin only)"""
         from starlette.responses import Response
 
