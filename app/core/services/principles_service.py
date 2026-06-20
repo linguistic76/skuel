@@ -90,14 +90,6 @@ if TYPE_CHECKING:
 # MODULE-LEVEL HELPERS (filter, sort, stats)
 # ========================================================================
 
-_PRINCIPLE_STRENGTH_ORDER: dict[PrincipleStrength, int] = {
-    PrincipleStrength.CORE: 5,
-    PrincipleStrength.STRONG: 4,
-    PrincipleStrength.MODERATE: 3,
-    PrincipleStrength.DEVELOPING: 2,
-    PrincipleStrength.EXPLORING: 1,
-}
-
 
 def _compute_principle_metadata(_all_principles: list[Any]) -> dict[str, Any]:
     """Compute principle metadata — categories from the PrincipleCategory enum."""
@@ -112,15 +104,7 @@ def _compute_principle_stats(all_principles: list[Any]) -> dict[str, int | float
 
 def _get_principle_strength_value(p: Any) -> int:
     """Get numeric strength value for sorting/filtering."""
-    s = getattr(p, "strength", PrincipleStrength.MODERATE)
-    if isinstance(s, PrincipleStrength):
-        return _PRINCIPLE_STRENGTH_ORDER.get(s, 3)
-    if isinstance(s, str):
-        s_upper = s.upper()
-        for enum_val in PrincipleStrength:
-            if enum_val.value == s or enum_val.name == s_upper:
-                return _PRINCIPLE_STRENGTH_ORDER.get(enum_val, 3)
-    return 3
+    return PrincipleStrength.from_value(getattr(p, "strength", PrincipleStrength.MODERATE)).rank()
 
 
 def _apply_principle_filters(
