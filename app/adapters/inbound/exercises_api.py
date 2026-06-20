@@ -3,8 +3,11 @@ Exercises API - Domain-Specific Routes
 ========================================
 
 CRUD routes are config-driven via CRUDRouteConfig in exercises_routes.py.
-This file contains only domain-specific manual routes (report generation,
-curriculum linking).
+Exercise creation (POST /api/exercises/create) is handled by the CRUD factory
+using ConversionServiceV2.exercise_create_to_pure.
+
+This file contains domain-specific manual routes: report generation and
+curriculum linking.
 """
 
 from typing import Any

@@ -16,7 +16,7 @@ with an LLM prompt embedded for AI-assisted feedback.
 
 **Key fields:**
 ```python
-path_step_uid: str | None         # PathStep anchor — REQUIRED for PERSONAL scope (mirrors RELATED_TO edge)
+path_step_uid: str | None         # PathStep anchor — REQUIRED for PERSONAL scope (mirrors HAS_EXERCISE edge)
 exercise_number: int | None       # Human-readable number (set in YAML, e.g. exercise_number: 7).
                                   # Embedded in the downloaded .md worksheet's frontmatter so
                                   # the submission handler can read it back without a DB query.
@@ -60,13 +60,14 @@ services.exercises.core           # CRUD; ExerciseBackend for Cypher
 **Backend (domain-specific Cypher):**
 ```python
 # ExerciseBackend — domain-specific relationship Cypher
-await backend.link_to_curriculum(exercise_uid, ku_uid)      # REQUIRES_KNOWLEDGE
-await backend.unlink_from_curriculum(exercise_uid, ku_uid)  # DELETE relationship
-await backend.get_required_knowledge(exercise_uid)          # list KUs required
-await backend.get_exercise_for_submission(submission_uid)   # FULFILLS_EXERCISE lookup
-await backend.get_student_exercises_with_status(user_uid)   # ASSIGNED exercises via group membership
-await backend.get_enrolled_ps_exercises_with_status(user_uid)  # PERSONAL exercises via enrolled PathSteps
-await backend.get_ps_exercises_with_status(ps_uid, user_uid)   # Exercises for a SINGLE PathStep with status
+await backend.link_to_path_step(exercise_uid, path_step_uid)  # HAS_EXERCISE (PERSONAL scope creation)
+await backend.link_to_curriculum(exercise_uid, ku_uid)        # REQUIRES_KNOWLEDGE
+await backend.unlink_from_curriculum(exercise_uid, ku_uid)    # DELETE relationship
+await backend.get_required_knowledge(exercise_uid)            # list KUs required
+await backend.get_exercise_for_submission(submission_uid)     # FULFILLS_EXERCISE lookup
+await backend.get_student_exercises_with_status(user_uid)     # ASSIGNED exercises via group membership
+await backend.get_enrolled_ps_exercises_with_status(user_uid) # PERSONAL exercises via enrolled PathSteps
+await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # Exercises for a SINGLE PathStep with status
 ```
 
 **PathStep detail page — the learning loop anchor (2026-04-03):**

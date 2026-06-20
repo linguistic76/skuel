@@ -28,7 +28,18 @@ Plus optional `PsAiService` (FULL tier only — LLM / embedding features).
 **Factory:** `create_ps_sub_services()` — specialized (handles circular core ↔ intelligence dependency, creates intelligence BEFORE core). All sub-services receive `PsBackend` (as `repo` or `backend`) — no `neo4j_adapter` dependency. All Cypher lives on `PsBackend`, decomposed into 5 domain-specific mixins: `_OrganizesMixin`, `_LearningStateMixin`, `_SemanticMixin`, `_KnowledgeContextMixin`, `_AdaptiveMixin`.
 
 **Unique Features:**
-- **Substance tracking** — measures how knowledge is LIVED across 6 channels: Tasks (0.05), Habits (0.10), Events (0.05), Choices (0.07), Principles (0.07), Journals (0.07 — deferred). All 6 channels wired into UserContext and `calculate_user_substance()`. YAML authoring creates structural edges via `connections.*` fields (e.g., `connections.applies_knowledge`, `connections.informed_by_knowledge`, `connections.grounded_in_knowledge`). See `/docs/guides/YAML_AUTHORING_GUIDE.md`.
+- **Substance tracking** — measures how knowledge is LIVED. Two tiers:
+
+  | Channel | Weight | How to declare |
+  |---------|--------|----------------|
+  | Tasks | 0.05 | `connections.assigns_task` in PathStep YAML |
+  | Habits | 0.10 | `connections.builds_habit` in PathStep YAML |
+  | Events | 0.05 | `connections.schedules_event` in PathStep YAML |
+  | Choices | 0.07 | `connections.informs_choice` in PathStep YAML |
+  | Principles | 0.07 | `connections.guided_by_principle` in PathStep YAML |
+  | UserEntry | 0.07 | **Pipeline-driven — cannot be YAML-declared.** Accrues at submission time when a user submits a UserEntry that `FULFILLS_EXERCISE` for this PathStep. |
+
+  The 5 `connections.*` YAML fields create structural edges at ingestion time. UserEntry substance accrues at runtime via the `EXTRACT_ACTIVITIES` pipeline (ADR-069) — you cannot pre-declare what a user will write. Do not look for a `connections.reflects_knowledge` field; it does not exist. See `/docs/guides/YAML_AUTHORING_GUIDE.md`.
 - **Per-user context** — `calculate_user_substance(ps_uid, user_context)` for personalized metrics.
 - **Semantic relationships** — REQUIRES_KNOWLEDGE, ENABLES, HAS_NARROWER, RELATED_TO.
 - **Content ingestion** — YAML frontmatter + Markdown body.
@@ -163,19 +174,52 @@ await lp_service.create_path_from_steps(user_uid, name, ps_uids)
 
 ---
 
+## Exercise — The Learning Loop Anchor
+
+**Purpose:** The instruction template that closes the learning loop. Without Exercise, the loop (Exercise → UserEntry → EntryReport → RevisedExercise) cannot start. Exercise is a first-class curriculum EntityType — architecturally coequal with PathStep, not an appendage.
+
+**Three scopes:**
+
+| Scope | Who creates | Anchor | Requirement |
+|-------|-------------|--------|-------------|
+| `PERSONAL` | Any user | `path_step_uid` required | Writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write to keep property + edge in sync) |
+| `ASSIGNED` | TEACHER+ | `group_uid` required | Shared via `SHARED_WITH_GROUP` (ADR-040) |
+| `ASSESSMENT` | TEACHER+ | `scoring_rubric` required | `pass_threshold` defaults to 0.7 |
+
+**Service:** `ExerciseService` — flat (no sub-service decomposition). CRUD plus domain-specific methods:
+- `create_exercise(user_uid, name, instructions, ..., path_step_uid)` — convenience builder
+- `create(entity: Exercise)` — canonical creation with all side effects (OWNS + HAS_EXERCISE + sharing)
+- `link_to_path_step(exercise_uid, path_step_uid)` — write/repair `HAS_EXERCISE` edge
+- `link_to_curriculum(exercise_uid, curriculum_uid)` — REQUIRES_KNOWLEDGE to Ku/Resource
+- `get_required_knowledge(exercise_uid)` — all Kus required by this exercise
+- `get_exercises_for_curriculum(curriculum_uid)` — reverse lookup
+
+**Key Relationships:**
+- `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor (PERSONAL scope)
+- `(User)-[:OWNS]->(Exercise)` — creator ownership
+- `(Exercise)-[:SHARED_WITH_GROUP]->(Group)` — ASSIGNED scope distribution
+- `(Exercise)-[:REQUIRES_KNOWLEDGE]->(Ku)` — declared prerequisites
+- `(UserEntry)-[:FULFILLS_EXERCISE]->(Exercise)` — user work linkage (incoming)
+
+**UID Format:** `ex_{slug}_{hash}` (via `UIDGenerator.generate_uid("ex", name)`).
+
+**Creation via CRUD factory:** `ExerciseCreateRequest` is registered in `ConversionServiceV2.CONVERTER_REGISTRY`. Route: `POST /api/exercises/create` (TEACHER+ role required). `ExerciseService.create()` handles all relationship writes after the node is persisted.
+
+---
+
 ## Comparison Table
 
-| Feature | PS (PathStep) | KU | LP |
-|---------|---------------|----|-----|
-| **Sub-services** | 12 (+ optional `ai`) | 4 | 5 |
-| **Factory** | Specialized (`create_ps_sub_services`) | Generic (`create_curriculum_sub_services`) | Specialized (`create_lp_sub_services`) |
-| **Extends** | Curriculum | Entity | Curriculum |
-| **Complexity** | Highest | Lowest | Medium |
-| **User Progress** | Learning state (VIEWED / IN_PROGRESS / MASTERED) | — (bookmark only) | Enrollment + mastery |
-| **Key Relationship** | `USES_KU`, `HAS_STEP` (incoming) | (composed into PS) | `HAS_STEP` |
-| **Special Pattern** | Substance + Organization + Activity integration | Atomic reference | Validation + adaptive |
-| **Navigation** | Point lookup + non-linear (ORGANIZES) | Referenced from PathSteps | Linear path |
-| **Cross-Domain Dep** | None | None | PsService |
+| Feature | PS (PathStep) | KU | LP | Exercise |
+|---------|---------------|----|-----|---------|
+| **Sub-services** | 12 (+ optional `ai`) | 4 | 5 | 1 (flat) |
+| **Factory** | Specialized (`create_ps_sub_services`) | Generic (`create_curriculum_sub_services`) | Specialized (`create_lp_sub_services`) | Generic (`BaseService`) |
+| **Extends** | Curriculum | Entity | Curriculum | Curriculum |
+| **Complexity** | Highest | Lowest | Medium | Low |
+| **User Progress** | Learning state (VIEWED / IN_PROGRESS / MASTERED) | — (bookmark only) | Enrollment + mastery | `FULFILLS_EXERCISE` submission tracking |
+| **Key Relationship** | `USES_KU`, `HAS_STEP` (incoming) | (composed into PS) | `HAS_STEP` | `HAS_EXERCISE` ← PathStep, `REQUIRES_KNOWLEDGE` → Ku |
+| **Special Pattern** | Substance + Organization + Activity integration | Atomic reference | Validation + adaptive | Three-scope model + learning loop anchor |
+| **Navigation** | Point lookup + non-linear (ORGANIZES) | Referenced from PathSteps | Linear path | Anchored to PathStep (PERSONAL) or Group (ASSIGNED) |
+| **Cross-Domain Dep** | None | None | PsService | None |
 
 **Activity integration lives directly on PathSteps** (no intermediate Lesson node — 2026-04 merge):
 `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT`, `SUPPORTS_GOAL`, `GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE`.
