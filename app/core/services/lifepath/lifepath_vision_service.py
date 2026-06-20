@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import time
+from itertools import islice
 from typing import TYPE_CHECKING
 
 from core.models.enums.lifepath_enums import ThemeCategory
@@ -409,7 +410,7 @@ Focus on actionable aspirations, not generic words."""
         recommendations = []
 
         if missing_in_actions:
-            for theme in list(missing_in_actions)[:3]:
+            for theme in islice(missing_in_actions, 3):
                 insights.append(
                     f"Your vision mentions '{theme}' but it's not reflected in your activities"
                 )

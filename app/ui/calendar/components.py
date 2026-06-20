@@ -18,6 +18,7 @@ Usage:
 __version__ = "1.0"
 
 from datetime import date, datetime, timedelta
+from itertools import islice
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
@@ -771,7 +772,7 @@ def create_item_details_modal(item: Any) -> Div:
                     email,
                     cls="px-2 py-1 bg-background border border-info/20 text-info rounded text-xs mr-1 mb-1",
                 )
-                for email in list(item.attendee_emails)[:5]
+                for email in islice(item.attendee_emails, 5)
             ]
             event_details.append(
                 Div(
