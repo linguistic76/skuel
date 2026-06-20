@@ -228,45 +228,27 @@ class QueryMetricsCache:
                 )
             self._operations[operation_name].record_timing(duration_ms, had_error)
 
-    async def get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
-        """
-        Get cached metrics for specific operation or all operations.
-
-        Args:
-            operation_name: Optional operation name filter
-
-        Returns:
-            Dictionary of cached metrics (last 100 calls per operation)
-        """
+    def _get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
+        """Return cached metrics for one operation or every operation."""
         if not self.enabled:
             return {}
 
         if operation_name:
-            if operation_name in self._operations:
-                return self._operations[operation_name].to_dict()
-            return {}
+            operation_metrics = self._operations.get(operation_name)
+            return operation_metrics.to_dict() if operation_metrics else {}
 
-        # Return all metrics
         return {name: metrics.to_dict() for name, metrics in self._operations.items()}
+
+    async def get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
+        """Get cached metrics for specific operation or all operations."""
+        return self._get_metrics(operation_name)
 
     def get_metrics_sync(self, operation_name: str | None = None) -> dict[str, Any]:
         """Synchronous version of get_metrics."""
-        if not self.enabled:
-            return {}
+        return self._get_metrics(operation_name)
 
-        if operation_name:
-            if operation_name in self._operations:
-                return self._operations[operation_name].to_dict()
-            return {}
-
-        return {name: metrics.to_dict() for name, metrics in self._operations.items()}
-
-    async def get_summary(self) -> dict[str, Any]:
-        """
-        Get summary of cached query metrics.
-
-        Note: This is cache-only data (lossy). For complete metrics, query Prometheus.
-        """
+    def _get_summary(self) -> dict[str, Any]:
+        """Build the cache-only metrics summary used by async and sync APIs."""
         if not self.enabled:
             return {
                 "enabled": False,
@@ -276,15 +258,13 @@ class QueryMetricsCache:
         total_calls = sum(m.call_count for m in self._operations.values())
         total_errors = sum(m.error_count for m in self._operations.values())
         total_time = sum(m.total_time_ms for m in self._operations.values())
+        uptime_seconds = (datetime.now(UTC) - self.start_time).total_seconds()
 
-        # Get slowest operations (by average time)
         operations_by_avg_time = sorted(
             [m.to_dict() for m in self._operations.values()],
             key=_get_avg_time_ms,
             reverse=True,
         )
-
-        uptime_seconds = (datetime.now(UTC) - self.start_time).total_seconds()
 
         return {
             "enabled": True,
@@ -302,75 +282,36 @@ class QueryMetricsCache:
             else 0.0,
             "slowest_operations": [
                 {
-                    "name": m["operation_name"],
-                    "avg_time_ms": m["avg_time_ms"],
-                    "call_count": m["call_count"],
+                    "name": metrics["operation_name"],
+                    "avg_time_ms": metrics["avg_time_ms"],
+                    "call_count": metrics["call_count"],
                 }
-                for m in operations_by_avg_time[:5]
+                for metrics in operations_by_avg_time[:5]
             ],
             "operations": {name: metrics.to_dict() for name, metrics in self._operations.items()},
         }
+
+    async def get_summary(self) -> dict[str, Any]:
+        """Get summary of cached query metrics."""
+        return self._get_summary()
 
     def get_summary_sync(self) -> dict[str, Any]:
         """Synchronous version of get_summary."""
-        if not self.enabled:
-            return {
-                "enabled": False,
-                "cache_note": "Cache disabled. Query Prometheus for complete metrics.",
-            }
+        return self._get_summary()
 
-        total_calls = sum(m.call_count for m in self._operations.values())
-        total_errors = sum(m.error_count for m in self._operations.values())
-        total_time = sum(m.total_time_ms for m in self._operations.values())
-
-        operations_by_avg_time = sorted(
-            [m.to_dict() for m in self._operations.values()],
-            key=_get_avg_time_ms,
-            reverse=True,
-        )
-
-        uptime_seconds = (datetime.now(UTC) - self.start_time).total_seconds()
-
-        return {
-            "enabled": True,
-            "cache_note": "Cache contains last 100 calls per operation. Query Prometheus for complete data.",
-            "uptime_seconds": round(uptime_seconds, 2),
-            "total_operations": len(self._operations),
-            "total_calls": total_calls,
-            "total_errors": total_errors,
-            "overall_error_rate": round(
-                (total_errors / total_calls * 100) if total_calls > 0 else 0.0, 2
-            ),
-            "total_time_ms": round(total_time, 2),
-            "calls_per_second": round(total_calls / uptime_seconds, 2)
-            if uptime_seconds > 0
-            else 0.0,
-            "slowest_operations": [
-                {
-                    "name": m["operation_name"],
-                    "avg_time_ms": m["avg_time_ms"],
-                    "call_count": m["call_count"],
-                }
-                for m in operations_by_avg_time[:5]
-            ],
-            "operations": {name: metrics.to_dict() for name, metrics in self._operations.items()},
-        }
-
-    async def reset(self) -> None:
-        """
-        Reset cache (for testing).
-
-        Note: This does NOT reset Prometheus metrics.
-        """
+    def _reset(self) -> None:
+        """Reset cache state without touching Prometheus metrics."""
         self._operations.clear()
         self.start_time = datetime.now(UTC)
         logger.info("QueryMetricsCache reset (Prometheus metrics unchanged)")
+
+    async def reset(self) -> None:
+        """Reset cache (for testing)."""
+        self._reset()
 
     def reset_sync(self) -> None:
         """Synchronous version of reset."""
-        self._operations.clear()
-        self.start_time = datetime.now(UTC)
-        logger.info("QueryMetricsCache reset (Prometheus metrics unchanged)")
+        self._reset()
 
 
 __all__ = ["QueryMetricsCache"]
