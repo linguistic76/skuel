@@ -20,7 +20,7 @@ Each of the 6 Activity Domains has a **twin pair**:
 | Date fields | `RelativeOffset \| None` | `date \| datetime \| None` (absolute) |
 | Cross-ref fields | `*_template_uid: str \| None` | `*_uid: str \| None` (instance UID) |
 | Status lifecycle | `DRAFT → ACTIVE → ARCHIVED` | domain-specific (SCHEDULED/ACTIVE/COMPLETED/etc.) |
-| `engagement_state` | not present | `"engaged" \| "owned" \| None` |
+| `engagement_state` | not present | `EngagementState \| None` |
 | Instance runtime state | not present | `current_streak`, `progress_percentage`, `completion_date`, etc. |
 
 **Why not a single model with `is_template: bool`?** The two state machines are
@@ -243,7 +243,7 @@ For each spec (sorted by `layer`), for each template in the bundle:
    ```
    uid                    = template_to_instance[template.uid]
    user_uid               = student_uid
-   engagement_state       = "engaged"
+   engagement_state       = EngagementState.ENGAGED
    source_path_step_uid   = ps_uid
    entity_type            = spec.instance_cls.entity_type  (class-level constant)
    ```
@@ -264,12 +264,12 @@ original error.
 
 ## 6. Instance Engagement State
 
-After spawn, instances carry `engagement_state` on every Activity model:
+After spawn, instances carry `engagement_state: EngagementState | None` on every Activity model:
 
 ```
-None       — standalone instance; not from template spawn
-"engaged"  — freshly spawned; student is working through the curriculum content
-"owned"    — student has personalised the instance; template relationship is broken
+None                      — standalone instance; not from template spawn
+EngagementState.ENGAGED   — freshly spawned; student is working through the curriculum content
+EngagementState.OWNED     — student has personalised the instance; template relationship is broken
 ```
 
 The `engaged → owned` transition is the learning loop closure signal (ADR-059).

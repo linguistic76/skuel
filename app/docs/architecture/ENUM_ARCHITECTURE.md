@@ -245,6 +245,7 @@ Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1),
 | Priority | activity_enums.py | LOW, MEDIUM, HIGH, CRITICAL | All UserOwnedEntity nodes (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath) |
 | Confidence | activity_enums.py | UNCERTAIN, LOW, MEDIUM, HIGH, CERTAIN | Curriculum entities (KU, PS, LP); lateral relationship edges (all 9 domains) |
 | ActivityType | activity_enums.py | TASK, HABIT, EVENT, LEARNING, MILESTONE, ... (12) | Calendar, scheduling |
+| EngagementState | activity_enums.py | ENGAGED, OWNED | All 6 Activity Domain instances spawned from a PathStep template; `None` = standalone (not curriculum-spawned) |
 | RecurrencePattern | scheduling_enums.py | NONE, DAILY, WEEKLY, MONTHLY, ... (9+) | Habits, events, reports |
 | TimeOfDay | scheduling_enums.py | EARLY_MORNING, MORNING, ... ANYTIME (7) | Scheduling services |
 | EnergyLevel | scheduling_enums.py | LOW, MEDIUM, HIGH, VARIABLE | Task/habit scheduling |

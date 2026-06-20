@@ -250,7 +250,7 @@ async def enrich_habits_with_goal_links(
 PathStep.engage(student_uid)
     → _SpawnOrchestrator._build(spec, template, student_uid, ps_uid)
         → Activity(
-              engagement_state="engaged",
+              engagement_state=EngagementState.ENGAGED,
               source_path_step_uid=ps_uid,
               ...all authoring fields from template...
           )
@@ -258,10 +258,10 @@ PathStep.engage(student_uid)
               # atomic: writes node + (instance)-[:SPAWNED_FROM]->(template) edge
 ```
 
-- `engagement_state = "engaged"` marks the instance as freshly spawned.
+- `engagement_state = EngagementState.ENGAGED` marks the instance as freshly spawned.
 - `source_path_step_uid` = the PathStep UID — persisted property (primary read path).
 - `(instance)-[:SPAWNED_FROM]->(ActivityTemplate)` edge — graph back-reference (traverse only when you need the template itself).
-- Student can promote to `"owned"` (they've personalised it enough to break the template relationship).
+- Student can promote to `EngagementState.OWNED` (they've personalised it enough to break the template relationship).
 
 **2. Standalone creation** — `service.create_task(request, user_uid)`:
 
@@ -282,7 +282,7 @@ Some teacher/admin flows set `source_path_step_uid` directly without going throu
 # Check on the frozen model (works for both creation paths)
 task.is_from_path_step          # bool — source_path_step_uid is not None
 task.source_path_step_uid       # str | None — the PS uid
-task.engagement_state           # "engaged" | "owned" | None
+task.engagement_state           # EngagementState.ENGAGED | EngagementState.OWNED | None
 
 # Check at query time (curriculum-spawned only, excludes direct-set)
 # (Task)-[:SPAWNED_FROM]->(TaskTemplate)<-[:HAS_TASK_TEMPLATE]-(PathStep)
