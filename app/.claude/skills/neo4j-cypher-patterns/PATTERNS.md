@@ -192,7 +192,7 @@ RETURN true AS success
 - Two-step `WHERE NOT EXISTS` + `OPTIONAL MATCH` avoids cartesian products
 - `ON CREATE SET` adds metadata only on first creation (unlike `SET` which always runs)
 
-**Real-world usage**: `KuBackend.list_root_organizers()`, `ExerciseBackend.link_to_curriculum()`
+**Real-world usage**: `KuBackend.list_root_organizers()`, `ExerciseBackend.link_to_curriculum()`, `ExerciseBackend.link_to_path_step()`
 
 ---
 
