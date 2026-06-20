@@ -331,6 +331,83 @@ The learner sees all four phases on the PathStep detail page at `/explore/ps/{ui
 
 ---
 
+### How the PathStep ↔ Exercise Connection is Stored
+
+When you write `exercise_uids: [ex:mindfulness-101:breath-awareness-check-in]` in a
+PathStep YAML, you might assume this sets a property on the PathStep — something like
+`exercise_uid = "ex:..."` stored alongside its title and description. It does not. This
+section explains what actually happens, because misunderstanding it leads to incorrect
+assumptions about how to query and build on this relationship.
+
+**What the YAML field creates: a graph edge**
+
+```yaml
+# PathStep YAML
+exercise_uids:
+  - ex:mindfulness-101:breath-awareness-check-in
+```
+
+This creates one thing in the database: a directed graph relationship.
+
+```
+(PathStep)-[:HAS_EXERCISE]->(Exercise)
+```
+
+No property is stored on the PathStep node. The PathStep node has no `exercise_uid` or
+`exercise_uids` field. The *connection itself* — the `HAS_EXERCISE` edge — is the storage.
+
+**Why an edge and not a property**
+
+SKUEL runs on Neo4j, a graph database. In a graph database, traversing a relationship
+edge is a direct pointer lookup — constant-time, not a scan. Asking "which exercises
+belong to this PathStep?" follows the `HAS_EXERCISE` outgoing edges from that PathStep.
+This is already the fast path; no property is needed to make it faster.
+
+There is also a cardinality reason. A PathStep can anchor multiple Exercises (different
+scopes, different levels, different forms). Storing a list of UIDs as a property on the
+PathStep node would require reading and rewriting that list every time an Exercise is
+added — a race-condition-prone read-modify-write cycle. The edge model handles any number
+of Exercises naturally: each new Exercise is a single atomic write.
+
+**The reverse direction: Exercise.path_step_uid**
+
+The relationship is stored in one other place: as a property *on the Exercise node itself*.
+
+```
+Exercise.path_step_uid = "ps:mindfulness-101:breath-awareness-basics"
+```
+
+This covers the reverse direction. Given an Exercise, you can read which PathStep it
+belongs to directly from the Exercise node — no graph traversal needed. This is a scalar
+(one value) because a PERSONAL-scope Exercise always belongs to exactly one PathStep.
+
+As an author you never set this directly. When you ingest a PathStep YAML with
+`exercise_uids`, the system writes both the `HAS_EXERCISE` edge *and* the
+`path_step_uid` property on the Exercise node in a single operation. Both are always
+present after a successful ingest.
+
+**Summary**
+
+| Question | How the system answers it | Storage form |
+|---|---|---|
+| Which exercises does this PathStep have? | Follow `HAS_EXERCISE` edges outward | Graph edge (no property on PathStep) |
+| Which PathStep does this Exercise belong to? | Read `Exercise.path_step_uid` | Property on the Exercise node |
+
+**What this means for you as an author**
+
+- `exercise_uids` in your PathStep YAML is the *only* wiring step needed. You do not
+  set anything on the Exercise YAML to point back at the PathStep — the system handles
+  the reverse link automatically.
+- If you remove `exercise_uids` from a PathStep YAML and re-ingest with deletion
+  propagation enabled, the `HAS_EXERCISE` edge is deleted. The Exercise node remains,
+  but it is no longer anchored to that PathStep and will not appear on the PathStep
+  detail page.
+- An Exercise without a PathStep anchor (no `HAS_EXERCISE` edge) is an orphan. The
+  learning loop cannot close for it. Always wire Exercises to their PathStep via
+  `exercise_uids`.
+
+---
+
 ## Designing a Prerequisite Chain
 
 ### Step 1: Map the Domain

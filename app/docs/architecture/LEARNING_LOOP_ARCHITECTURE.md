@@ -109,6 +109,64 @@ curriculum anchor, not a phase of the loop; it supplies context the four phases 
 **See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds PathStep discovery via ZPD-aware Socratic dialogue.
 **See:** [PATHSTEP_CONTENT_ARCHITECTURE.md](/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) — body content storage via `HAS_CONTENT`.
 
+### PathStep ↔ Exercise Storage Design
+
+The connection between PathStep and Exercise is stored in two forms simultaneously — one for
+each lookup direction. Understanding why both exist (and why PathStep has no `exercise_uid`
+property) is important for anyone working in this area.
+
+**From PathStep → Exercise: the graph edge**
+
+```
+(PathStep)-[:HAS_EXERCISE]->(Exercise)
+```
+
+This is the authoritative link. In Neo4j, following a direct relationship edge is a constant-time
+pointer lookup — it is not a table scan. Asking "which exercises belong to this PathStep?"
+traverses `HAS_EXERCISE` outgoing edges. No property on PathStep is needed because the edge
+*is* the fast lookup.
+
+PathStep also has no `exercise_uid` property (singular) because the relationship is
+one-to-many: a single PathStep can anchor multiple Exercises. A scalar property would break
+with the second exercise; the graph edge handles any cardinality naturally.
+
+**From Exercise → PathStep: the denormalized property**
+
+```
+Exercise.path_step_uid  (stored on the Exercise node itself)
+```
+
+This covers the reverse direction without traversal. Asking "which PathStep does this Exercise
+belong to?" reads `path_step_uid` directly off the Exercise node — no graph hop required.
+This property is only present for `ExerciseScope.PERSONAL` exercises, which are always anchored
+to exactly one PathStep.
+
+**The dual-write**
+
+When a PERSONAL Exercise is created, `ExerciseService.create()` writes both forms in one
+operation (`exercise_service.py:176–183`):
+
+1. The `path_step_uid` property is stored on the Exercise node (forward: Exercise → PathStep)
+2. The `HAS_EXERCISE` edge is created from PathStep to Exercise (forward: PathStep → Exercise)
+
+Both are written at creation time. Neither is derived lazily at read time. If either write
+fails, the creation fails. The result is that both lookup directions are always available
+without extra queries.
+
+| Question | Storage used | Mechanism |
+|---|---|---|
+| Which exercises does this PathStep have? | `HAS_EXERCISE` edge | Graph traversal (constant-time pointer) |
+| Which PathStep does this Exercise belong to? | `Exercise.path_step_uid` | Direct node property (no traversal) |
+
+**Contrast with Activity Domain DERIVED fields**
+
+Activity Domain models use a different pattern for cross-domain UID fields. For example,
+`Task.reinforces_habit_uid` and `Habit.supports_goal_uid` are marked `# DERIVED FROM EDGE`
+— they are populated by an enrich step at read time and never stored as node properties.
+The Exercise/PathStep dual-write is a deliberate divergence from this pattern: because PERSONAL
+exercises are always 1:1 with a PathStep and are queried from both directions in the learning
+loop, the cost of materialising the reverse pointer at write time is worth the simpler reads.
+
 ### Layer 1: What You Can Learn
 
 **File:** `core/models/pathways/path_step.py`
