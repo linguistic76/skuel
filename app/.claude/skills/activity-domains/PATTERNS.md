@@ -300,7 +300,7 @@ Layer 4: Task                        # may reference Goal, Habit, Event
 
 `DomainSpawnSpec.layer` in `SPAWN_REGISTRY` drives ordering. A new domain that references layer-N entities must be layer N+1 or higher.
 
-**See:** `ADR-061-spawn-layer-consolidation.md`, `core/services/ps_engagement/_spawn_orchestrator.py`, `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § source_path_step_uid in depth`.
+**See:** [TEMPLATES.md](TEMPLATES.md) — template entity structure, TemplateBundle, DomainSpawnSpec registry, and template lifecycle (the template side of this pattern). `ADR-061-spawn-layer-consolidation.md`, `core/services/ps_engagement/_spawn_orchestrator.py`, `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § source_path_step_uid in depth`.
 
 ---
 

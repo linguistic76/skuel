@@ -34,7 +34,7 @@ PathStep, `_SpawnOrchestrator`
 
 A redundancy audit of this subsystem was requested. It found the
 **two-entity split is correct** — templates and instances have incompatible
-state machines (`DRAFT→PUBLISHED→ARCHIVED` vs `ENGAGED→OWNED`/deleted),
+state machines (`DRAFT→ACTIVE→ARCHIVED` vs `ENGAGED→OWNED`/deleted),
 incompatible ownership and retention, and the `*_template_uid` vs `*_uid`
 distinction is statically type-checked. Collapsing them into one model with an
 `is_template` flag would force conditional logic and conditional field naming
@@ -129,7 +129,7 @@ clean, 75 unit + 21 integration tests pass.
 **3. Document the back-reference authority.** Add one line to the spawn
 docstring / lifecycle contract stating that `source_path_step_uid` is the
 spawn-time PS, the `SPAWNED_FROM` edge is the universal (template-only)
-back-reference, and — if templates are immutable-at-engagement (PUBLISHED) —
+back-reference, and — if templates are immutable-at-engagement (ACTIVE) —
 that the two cannot diverge, making the field a pure read-optimization.
 
 **4. Do NOT extract a shared authoring-fields mixin from the twin models.**

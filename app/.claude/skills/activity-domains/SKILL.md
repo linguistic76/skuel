@@ -192,6 +192,7 @@ See [COMMON_PATTERNS.md § How to update an entity](COMMON_PATTERNS.md#how-to-up
 **Patterns:**
 - [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Facade delegation patterns
 - [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) - ContentScope.USER_OWNED pattern
+- [TEMPLATES.md](TEMPLATES.md) - Activity Template entities, TemplateBundle, DomainSpawnSpec registry, and template lifecycle
 
 **Intelligence:**
 - [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Intelligence services for all 6 activity domains
