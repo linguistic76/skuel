@@ -228,14 +228,13 @@ class TestGetCalendarItem:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_service_error_returns_404(self, routes_and_service) -> None:
+    async def test_service_error_propagates(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.fail(Errors.database("get_item", "boom")))
 
         handler = registry.get("/api/v2/calendar/items/{item_id}", "GET")
         response = await handler(_make_request(), item_id="cal_event_1")
-        # The handler treats any non-ok-with-value as not_found
-        assert response.status_code == 404
+        assert response.status_code == 503
 
 
 # ============================================================================
