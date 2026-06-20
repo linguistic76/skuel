@@ -72,6 +72,9 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Method | Returns | Purpose |
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
+| `is_activity_template()` | bool | Is it one of the 6 PS-owned Activity Template types? |
+| `instance_type()` | EntityType | Template → spawned instance type (e.g. TASK_TEMPLATE → TASK); raises ValueError if not a template |
+| `template_type()` | EntityType | Instance → template type (e.g. TASK → TASK_TEMPLATE); raises ValueError if not an activity |
 | `is_knowledge()` | bool | Is it Ku or PathStep (atomic/composed knowledge)? |
 | `is_applied_knowledge()` | bool | Is it Exercise or RevisedExercise (instruction/revision templates, subordinate to PathStep)? |
 | `is_curriculum_structure()` | bool | Is it LearningPath (organisational structure only — NOT Exercise)? |
