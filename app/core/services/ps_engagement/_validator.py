@@ -1,6 +1,6 @@
 """_PsValidator — PS-save validation for Activity Templates.
 
-Runs five checks per the Phase 4 plan and project_engage_pathstep_contract.md:
+Runs six checks per the Phase 4 plan and project_engage_pathstep_contract.md:
 
 1. ``target_missing`` — ``*_template_uid`` points to a template that doesn't
    exist (or isn't attached to this PS).
@@ -10,6 +10,8 @@ Runs five checks per the Phase 4 plan and project_engage_pathstep_contract.md:
 4. ``cross_ps`` — reference points to a template attached to a *different* PS.
 5. ``cycle`` — within a single domain, ``parent_template_uid`` (Tasks only for
    V1) creates a cycle.
+6. ``not_active`` — a template's status is not ``ACTIVE`` (still DRAFT or
+   already ARCHIVED). Runs first; non-ACTIVE templates cannot be spawned.
 
 Output is ``list[Violation]`` (TypedDict in core.ports.query_types). The facade
 wraps a non-empty list with ``Errors.ps_validation_report()`` and returns it
@@ -21,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger
 
@@ -147,10 +150,16 @@ class _PsValidator:
         self.logger = logger
 
     def validate(self, bundle: TemplateBundle) -> list[Violation]:
-        """Run all five checks. Returns `[]` if the bundle is fully consistent."""
+        """Run all six checks. Returns `[]` if the bundle is fully consistent."""
         from core.ports.query_types import Violation  # local — TypedDict, runtime ok
 
         violations: list[Violation] = []
+
+        # 6. not_active — must run first; non-ACTIVE templates cannot be spawned.
+        violations.extend(self._check_template_statuses(bundle))
+        if violations:
+            return violations
+
         uid_to_type = bundle.type_by_uid()
         valid_uids = bundle.all_uids()
 
@@ -217,6 +226,39 @@ class _PsValidator:
         # 5. cycle — only meaningful for parent_template_uid (Tasks).
         violations.extend(self._detect_task_parent_cycles(bundle))
 
+        return violations
+
+    @staticmethod
+    def _check_template_statuses(bundle: TemplateBundle) -> list[Violation]:
+        """Flag every template whose status is not ACTIVE."""
+        from core.ports.query_types import Violation
+
+        violations: list[Violation] = []
+        uid_to_type = bundle.type_by_uid()
+        all_templates: list[Any] = [
+            *bundle.tasks,
+            *bundle.goals,
+            *bundle.habits,
+            *bundle.events,
+            *bundle.choices,
+            *bundle.principles,
+        ]
+        for tmpl in all_templates:
+            if tmpl.status != EntityStatus.ACTIVE:
+                violations.append(
+                    Violation(
+                        template_uid=str(tmpl.uid),
+                        template_title=tmpl.title,
+                        template_type=uid_to_type[str(tmpl.uid)],
+                        field="status",
+                        violation="not_active",
+                        referenced_uid=None,
+                        hint=(
+                            f"template status is {tmpl.status!r}; "
+                            "must be ACTIVE before the PathStep can be published or engaged"
+                        ),
+                    )
+                )
         return violations
 
     @staticmethod
