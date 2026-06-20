@@ -190,7 +190,7 @@ Each activity must be specific, actionable, and varied in type."""
             parsed = json.loads(raw.strip())
             activities: list[dict[str, str]] = parsed.get("activities", [])
             return Result.ok(activities[:num_activities])
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except json.JSONDecodeError, KeyError, TypeError:
             return Result.fail(
                 Errors.integration(
                     message="LLM returned malformed JSON for practice activities",
@@ -278,7 +278,7 @@ Each item should be concrete and actionable, not generic."""
                 "real_world_examples": parsed.get("real_world_examples", [])[:3],
             }
             return Result.ok(result)
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except json.JSONDecodeError, KeyError, TypeError:
             return Result.fail(
                 Errors.integration(
                     message="LLM returned malformed JSON for step applications",
@@ -395,7 +395,7 @@ Next steps: natural progressions after mastering this step."""
                 "next_steps": parsed.get("next_steps", [])[:max_suggestions],
             }
             return Result.ok(result)
-        except (json.JSONDecodeError, KeyError, TypeError):
+        except json.JSONDecodeError, KeyError, TypeError:
             return Result.fail(
                 Errors.integration(
                     message="LLM returned malformed JSON for learning sequence",

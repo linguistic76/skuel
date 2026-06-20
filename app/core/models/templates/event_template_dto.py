@@ -32,7 +32,7 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
     if isinstance(data, str):
         try:
             data = json.loads(data)
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return None
     if not isinstance(data, dict):
         return None

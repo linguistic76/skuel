@@ -186,7 +186,7 @@ def create_teaching_forms_ui_routes(
             if isinstance(raw_form_data, str):
                 try:
                     raw_form_data = json.loads(raw_form_data)
-                except (json.JSONDecodeError, TypeError):
+                except json.JSONDecodeError, TypeError:
                     raw_form_data = None
 
             preview = form_data_preview(raw_form_data)

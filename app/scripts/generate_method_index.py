@@ -61,7 +61,7 @@ def extract_delegations_from_file(filepath: Path) -> dict[str, tuple[str, str]]:
                     try:
                         delegations = ast.literal_eval(item.value)
                         return delegations
-                    except (ValueError, SyntaxError):
+                    except ValueError, SyntaxError:
                         # Complex expression (merge_delegations, etc.)
                         # Fall back to parsing the structure
                         return _parse_delegation_expr(item.value)

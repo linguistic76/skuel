@@ -623,7 +623,7 @@ class LpService:
             try:
                 sort_key = make_attribute_sort_key(order_by)
                 paths = sorted(paths, key=sort_key, reverse=reverse)
-            except (AttributeError, TypeError):
+            except AttributeError, TypeError:
                 # If order_by field doesn't exist or can't be compared, skip sorting
                 pass
 

@@ -132,7 +132,7 @@ def _handle_response(resp: httpx.Response, operation: str) -> None:
         print(f"{operation} failed (HTTP {resp.status_code}):")
         try:
             print(json.dumps(resp.json(), indent=2))
-        except (httpx.DecodingError, ValueError):
+        except httpx.DecodingError, ValueError:
             print(resp.text)
         sys.exit(1)
 

@@ -75,7 +75,7 @@ async def skuel_app():
 
 
 @pytest.fixture
-def authenticated_client(skuel_app) -> "Generator[TestClient, None, None]":
+def authenticated_client(skuel_app) -> "Generator[TestClient]":
     """
     Create authenticated TestClient for API testing.
 
@@ -189,7 +189,7 @@ def authenticated_client(skuel_app) -> "Generator[TestClient, None, None]":
 
 
 @pytest.fixture(scope="session")
-def authenticated_client_simple(skuel_app) -> "Generator[TestClient, None, None]":
+def authenticated_client_simple(skuel_app) -> "Generator[TestClient]":
     """
     Simplified authenticated client that uses login flow with default dev user.
 

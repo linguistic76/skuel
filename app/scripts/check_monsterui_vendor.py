@@ -35,7 +35,9 @@ def main() -> int:
 
     drifted = {name: url for name, url in HEADER_URLS.items() if locked.get(name) != url}
     if drifted:
-        print("❌ MonsterUI package upgraded without syncing vendor files — run: ./dev sync-monsterui-vendor")
+        print(
+            "❌ MonsterUI package upgraded without syncing vendor files — run: ./dev sync-monsterui-vendor"
+        )
         for name, url in drifted.items():
             print(f"   {name}: locked={locked.get(name)!r}  current={url!r}")
         return 1

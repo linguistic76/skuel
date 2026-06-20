@@ -204,7 +204,7 @@ def _parse_feedback_points_json(raw: str) -> tuple[FeedbackPoint, ...]:
     """
     try:
         parsed = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError, TypeError:
         return ()
 
     if not isinstance(parsed, list):

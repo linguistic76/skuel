@@ -110,12 +110,12 @@ class ExerciseDTO(CurriculumDTO):
             if isinstance(raw_schema, str):
                 try:
                     data["form_schema"] = json.loads(raw_schema)
-                except (json.JSONDecodeError, TypeError):
+                except json.JSONDecodeError, TypeError:
                     data["form_schema"] = None
             if isinstance(raw_rubric, str):
                 try:
                     data["scoring_rubric"] = json.loads(raw_rubric)
-                except (json.JSONDecodeError, TypeError):
+                except json.JSONDecodeError, TypeError:
                     data["scoring_rubric"] = None
 
         return dto_from_dict(

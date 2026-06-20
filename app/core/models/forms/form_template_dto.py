@@ -55,7 +55,7 @@ class FormTemplateDTO(EntityDTO):
         if isinstance(raw_schema, str):
             try:
                 data["form_schema"] = json.loads(raw_schema)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 data["form_schema"] = None
 
         return dto_from_dict(
