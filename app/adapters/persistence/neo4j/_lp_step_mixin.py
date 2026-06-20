@@ -384,13 +384,15 @@ class _LpStepMixin:
         MATCH (lp:Entity {{uid: $lp_uid, entity_type: 'learning_path'}})
               -[step_rel:{RelationshipName.HAS_STEP}]->(ps:Entity {{entity_type: 'path_step'}})
               -[:{RelationshipName.HAS_EXERCISE}]->(ex:Entity {{entity_type: 'exercise'}})
+        WITH ex, ps, step_rel.sequence AS step_sequence
         RETURN DISTINCT
                ex.uid AS uid,
                ex.title AS title,
                ex.scope AS scope,
                ex.estimated_time_minutes AS estimated_time_minutes,
                ps.uid AS path_step_uid,
-               ps.title AS path_step_title
-        ORDER BY step_rel.sequence, ex.title
+               ps.title AS path_step_title,
+               step_sequence
+        ORDER BY step_sequence, ex.title
         """
         return await self.execute_query(query, {"lp_uid": lp_uid})
