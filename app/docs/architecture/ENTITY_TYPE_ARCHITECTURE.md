@@ -229,6 +229,9 @@ Each entity type is a peer — no hierarchy of categories. Behavioral traits (no
 | **Processable** | `is_processable()` | Goes through a processing pipeline |
 | **Derived** | `is_derived()` | Has parent in derivation chain |
 | **Activity** | `is_activity()` | Shares Activity infrastructure (factory, facade, sub-services) |
+| **Activity Template** | `is_activity_template()` | Is it one of the 6 PS-owned template types? |
+| **Template → Instance** | `instance_type()` | Returns the spawned instance type (e.g. TASK_TEMPLATE → TASK); raises ValueError if not a template |
+| **Instance → Template** | `template_type()` | Returns the template type (e.g. TASK → TASK_TEMPLATE); raises ValueError if not an activity |
 
 These methods exist on `EntityType` in `entity_enums.py`. They are the architecture.
 
