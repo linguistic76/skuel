@@ -295,7 +295,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             """
             MATCH (ex:Entity {uid: $exercise_uid})
             OPTIONAL MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)<-[:MEMBER_OF]-(:User {uid: $user_uid})
-            OPTIONAL MATCH (ex)-[:RELATED_TO]->(ps:Entity)<-[:IN_PROGRESS]-(:User {uid: $user_uid})
+            OPTIONAL MATCH (:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity)-[:HAS_EXERCISE]->(ex)
             WITH ex.user_uid = $user_uid AS is_owner,
                  count(g) > 0 AS via_group,
                  count(ps) > 0 AS via_progress

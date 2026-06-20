@@ -6,7 +6,7 @@ Read-only queries that traverse the four-phase learning loop graph:
 
     Exercise → UserEntry → EntryReport → RevisedExercise
 
-PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:HAS_EXERCISE]->(Exercise)``
 (denormalized as ``Exercise.path_step_uid`` for PERSONAL scope). Interaction
 nodes provide situated context for each UserEntry.
 

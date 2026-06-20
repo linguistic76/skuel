@@ -8,7 +8,7 @@ Route-facing protocols for the Report stage of SKUEL's core educational loop:
                               ↑
                     someone responds to the work
 
-PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``.
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:HAS_EXERCISE]->(Exercise)``.
 
 Reports have two implementations — the mechanism differs, the concept is the same:
 

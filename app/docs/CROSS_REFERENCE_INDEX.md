@@ -53,7 +53,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 ### @learning-loop
 
-**Description:** SKUEL's Four-Phase Learning Loop — Exercise → UserEntry → EntryReport → RevisedExercise (anchored to PathStep via RELATED_TO)
+**Description:** SKUEL's Four-Phase Learning Loop — Exercise → UserEntry → EntryReport → RevisedExercise (anchored to PathStep via HAS_EXERCISE)
 
 **Architecture:**
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md)

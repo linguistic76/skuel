@@ -109,7 +109,7 @@ Nested hub (no sidebar) with 4 HTMX-loaded preview blocks (Needs Review, Revisio
 **Exercises page** shows exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`:
 
 1. `scope=assigned` exercises via `FOR_GROUP` group membership
-2. `scope=personal` exercises linked via `RELATED_TO` to PathSteps the user is `IN_PROGRESS` in
+2. `scope=personal` exercises linked via `HAS_EXERCISE` to PathSteps the user is `IN_PROGRESS` in
 
 Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and context-sensitive action links. Exercise titles link to `GET /exercises/get?uid=` (student detail page with Submit + Download buttons; Markdown download via `GET /api/exercises/md?uid=`, renderer at `adapters/outbound/exercise_renderer.py`).
 

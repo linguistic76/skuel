@@ -1848,6 +1848,14 @@ PS_CONFIG = DomainRelationshipConfig(
             "choices",
             yaml_field_path="choice_uids",
         ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_EXERCISE,
+            "Entity",
+            "outgoing",
+            "exercises",
+            "exercises",
+            yaml_field_path="exercise_uids",
+        ),
         # === Path membership ===
         # Incoming: Other → PS (LP is now also :Entity)
         UnifiedRelationshipDefinition(

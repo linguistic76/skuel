@@ -101,7 +101,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 | Path | Relationship | Scope | Trigger |
 |------|-------------|-------|---------|
 | Group exercise | `(exercise)-[:SHARED_WITH_GROUP]->(group)<-[:MEMBER_OF]-(user)` | `ASSIGNED` | Teacher shares to group (ADR-053) |
-| PathStep enrollment | `(ps)-[:RELATED_TO]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
+| PathStep enrollment | `(ps)-[:HAS_EXERCISE]->(exercise)` + `(user)-[:IN_PROGRESS]->(ps)` | `PERSONAL` | User enrolls in PathStep |
 
 `ExerciseService.get_student_exercises_with_status()` merges both paths and deduplicates by UID. The Library Exercises page calls this method via `GET /library/exercises` (the Library hub at `/library` links to this child page).
 
@@ -113,7 +113,7 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku)
 
 // Personal exercise linked to PathStep (self-directed)
-(ps:Entity)-[:RELATED_TO]->(exercise:Entity:Exercise {scope: 'personal'})
+(ps:Entity)-[:HAS_EXERCISE]->(exercise:Entity:Exercise {scope: 'personal'})
 (user:User)-[:IN_PROGRESS]->(ps)
 ```
 

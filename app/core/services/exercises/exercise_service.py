@@ -421,7 +421,7 @@ class ExerciseService(BaseService):
 
         Combines two sources:
         - Assigned exercises (scope=assigned, via SHARED_WITH_GROUP → group membership)
-        - PathStep-linked exercises (scope=personal, via RELATED_TO from enrolled PathSteps)
+        - PathStep-linked exercises (scope=personal, via HAS_EXERCISE from enrolled PathSteps)
 
         Returns exercise properties enriched with has_submission, submission_uid,
         submission_status, has_report, report_uid, report_outcome, and group_name.

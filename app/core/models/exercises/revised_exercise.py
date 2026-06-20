@@ -9,7 +9,7 @@ address specific feedback gaps. Part of the four-phase learning loop:
                                       ↓
                                 RevisedExercise v2 → UserEntry v2 → ...
 
-PathStep is the curriculum anchor, linked via ``(PathStep)-[:RELATED_TO]->(Exercise)``
+PathStep is the curriculum anchor, linked via ``(PathStep)-[:HAS_EXERCISE]->(Exercise)``
 (denormalized as ``Exercise.path_step_uid`` for PERSONAL scope).
 
 RevisedExercise is teacher-owned but student-targeted: the teacher creates

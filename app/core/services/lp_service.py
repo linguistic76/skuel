@@ -251,6 +251,15 @@ class LpService:
         """Get steps in a learning path."""
         return await self.core.get_path_steps(path_uid)
 
+    async def get_exercises_for_lp(self, lp_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get all Exercises reachable from an LP via its PathSteps.
+
+        Backend: LpBackend.get_exercises_for_lp — HAS_STEP → HAS_EXERCISE traversal.
+        Returns distinct exercises with path_step_uid/title for grouping, ordered
+        by step sequence then exercise title.
+        """
+        return await self.core.backend.get_exercises_for_lp(lp_uid)  # type: ignore[attr-defined]
+
     async def get_current_step(self, path_uid: str) -> Result[PathStep | None]:
         """Get current step for a user in a learning path."""
         return await self.core.get_current_step(path_uid)
