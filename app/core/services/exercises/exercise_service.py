@@ -147,34 +147,20 @@ class ExerciseService(BaseService):
         """
         Create an Exercise with all required side effects.
 
-        Handles scope-specific validation and relationship writes:
+        Scope-specific relationship writes:
         - All scopes: (User)-[:OWNS]->(Exercise) via entity.owner_uid
-        - PERSONAL: (PathStep)-[:HAS_EXERCISE]->(Exercise) dual-write
-        - ASSIGNED: (Exercise)-[:SHARED_WITH_GROUP]->(Group) sharing
+        - PERSONAL + path_step_uid set: (PathStep)-[:HAS_EXERCISE]->(Exercise) dual-write.
+          Returns failure if the edge write fails — PERSONAL exercises without this edge
+          are invisible from PathStep views.
+        - ASSIGNED + group_uid set: (Exercise)-[:SHARED_WITH_GROUP]->(Group) sharing
 
-        Called by the CRUD route factory (via entity_converter) and by
+        Scope-field validation lives at the API boundary (ExerciseCreateRequest model_validator),
+        not here — internal callers like load_exercise_from_file may omit optional fields.
+
+        Called by the CRUD route factory (via ConversionServiceV2 registry) and by
         create_exercise() (the convenience builder that also generates UIDs).
         """
         uid = entity.uid
-
-        # Scope-specific validation
-        if entity.scope == ExerciseScope.PERSONAL and not entity.path_step_uid:
-            return Result.fail(
-                Errors.validation(
-                    "path_step_uid is required for personal exercises", field="path_step_uid"
-                )
-            )
-        if entity.scope == ExerciseScope.ASSIGNED and not entity.group_uid:
-            return Result.fail(
-                Errors.validation("group_uid is required for assigned exercises", field="group_uid")
-            )
-        if entity.scope == ExerciseScope.ASSESSMENT and not entity.scoring_rubric:
-            return Result.fail(
-                Errors.validation(
-                    "scoring_rubric is required for assessment exercises",
-                    field="scoring_rubric",
-                )
-            )
 
         result = await self.backend.create(entity)
         if result.is_error:
@@ -187,14 +173,17 @@ class ExerciseService(BaseService):
             if owns_result.is_error:
                 self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
-        # Dual-write: HAS_EXERCISE edge mirrors Exercise.path_step_uid for PERSONAL scope
+        # Dual-write: HAS_EXERCISE edge mirrors Exercise.path_step_uid for PERSONAL scope.
+        # Return failure when edge creation fails — a PERSONAL exercise without the edge
+        # is invisible from PathStep views and broken for its intended purpose.
         if entity.scope == ExerciseScope.PERSONAL and entity.path_step_uid:
             ps_result = await self.backend.link_to_path_step(uid, entity.path_step_uid)
             if ps_result.is_error:
-                self.logger.warning(
+                self.logger.error(
                     f"HAS_EXERCISE edge failed for {uid} -> {entity.path_step_uid}: "
-                    f"{ps_result.expect_error()}"
+                    f"{ps_result.expect_error()} (node was persisted)"
                 )
+                return Result.fail(ps_result)
 
         # Share assigned exercises with the target group via the unified
         # SHARED_WITH_GROUP mechanism (ADR-053). FOR_GROUP has been retired.
