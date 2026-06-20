@@ -63,6 +63,31 @@ class PrincipleStrength(StrEnum):
     DEVELOPING = "developing"
     EXPLORING = "exploring"
 
+    def rank(self) -> int:
+        """Numeric rank for sorting and aggregate stats (CORE=5 ... EXPLORING=1)."""
+        return _PRINCIPLE_STRENGTH_RANKS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> PrincipleStrength:
+        """Normalize enum/string inputs to a principle strength, defaulting to MODERATE."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_upper = value.upper()
+            for strength in cls:
+                if strength.value == value or strength.name == value_upper:
+                    return strength
+        return cls.MODERATE
+
+
+_PRINCIPLE_STRENGTH_RANKS: dict[PrincipleStrength, int] = {
+    PrincipleStrength.CORE: 5,
+    PrincipleStrength.STRONG: 4,
+    PrincipleStrength.MODERATE: 3,
+    PrincipleStrength.DEVELOPING: 2,
+    PrincipleStrength.EXPLORING: 1,
+}
+
 
 class AlignmentLevel(StrEnum):
     """

@@ -22,6 +22,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.principle_enums import PrincipleStrength
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
@@ -276,29 +277,8 @@ class PrincipleStats:
 
 
 def _principle_strength_rank(p: Any) -> int:
-    """Numeric rank for PrincipleStrength values (CORE=5 ... EXPLORING=1).
-
-    Local mirror of the rank table in principles_service so this module stays
-    free of service-layer imports. CORE is the only rank with value 5.
-    """
-    from core.models.enums.principle_enums import PrincipleStrength
-
-    rank = {
-        PrincipleStrength.CORE: 5,
-        PrincipleStrength.STRONG: 4,
-        PrincipleStrength.MODERATE: 3,
-        PrincipleStrength.DEVELOPING: 2,
-        PrincipleStrength.EXPLORING: 1,
-    }
-    s = getattr(p, "strength", PrincipleStrength.MODERATE)
-    if isinstance(s, PrincipleStrength):
-        return rank.get(s, 3)
-    if isinstance(s, str):
-        s_upper = s.upper()
-        for enum_val in PrincipleStrength:
-            if enum_val.value == s or enum_val.name == s_upper:
-                return rank.get(enum_val, 3)
-    return 3
+    """Numeric rank for PrincipleStrength values (CORE=5 ... EXPLORING=1)."""
+    return PrincipleStrength.from_value(getattr(p, "strength", PrincipleStrength.MODERATE)).rank()
 
 
 def compute_principle_stats(principles: list["Principle"]) -> PrincipleStats:
