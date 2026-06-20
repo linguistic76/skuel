@@ -8,6 +8,8 @@ Status enums (EntityStatus) live in entity_enums.py — THE unified status enum.
 CompletionStatus (habit completion tracking) lives in habit_enums.py.
 """
 
+from __future__ import annotations
+
 from enum import StrEnum
 
 
@@ -24,9 +26,24 @@ class Priority(StrEnum):
     CRITICAL = "critical"
 
     def to_numeric(self) -> int:
-        """Convert to numeric value for sorting (1-4)"""
-        mapping = {Priority.LOW: 1, Priority.MEDIUM: 2, Priority.HIGH: 3, Priority.CRITICAL: 4}
-        return mapping.get(self, 2)
+        """Convert to numeric value for scoring (LOW=1 ... CRITICAL=4)."""
+        return _PRIORITY_NUMERIC_VALUES[self]
+
+    def sort_order(self) -> int:
+        """Sort order for priority lists (CRITICAL first, LOW last)."""
+        return _PRIORITY_SORT_ORDERS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> Priority:
+        """Normalize enum/string inputs to a priority, defaulting to MEDIUM."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for priority in cls:
+                if priority.value == value_lower or priority.name.lower() == value_lower:
+                    return priority
+        return cls.MEDIUM
 
     def get_color(self) -> str:
         """Get suggested color for UI rendering"""
@@ -127,6 +144,21 @@ class Priority(StrEnum):
             for priority in cls
             if any(synonym in text_lower for synonym in priority.get_search_synonyms())
         ]
+
+
+_PRIORITY_NUMERIC_VALUES: dict[Priority, int] = {
+    Priority.LOW: 1,
+    Priority.MEDIUM: 2,
+    Priority.HIGH: 3,
+    Priority.CRITICAL: 4,
+}
+
+_PRIORITY_SORT_ORDERS: dict[Priority, int] = {
+    Priority.CRITICAL: 0,
+    Priority.HIGH: 1,
+    Priority.MEDIUM: 2,
+    Priority.LOW: 3,
+}
 
 
 class Confidence(StrEnum):
