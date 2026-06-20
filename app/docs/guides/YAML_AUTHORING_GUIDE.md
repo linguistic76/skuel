@@ -392,6 +392,8 @@ connections:
   enables: [ps:namespace:next-path-step]             # ENABLES_KNOWLEDGE → PathStep
 uses_kus:
   - ku:namespace:concept                             # USES_KU → Ku
+exercise_uids:
+  - ex:namespace:exercise-slug                       # HAS_EXERCISE → Exercise (learning loop anchor)
 
 # Learning Path
 connections:
@@ -404,7 +406,7 @@ connections:
 
 PathSteps are the teaching narrative layer. They sit inside a LearningPath, compose Kus into coherent content, and carry activity domain wiring (habits, tasks, events, goals, principles, choices) directly.
 
-See [PathStep Activity Wiring Guide](/docs/guides/LESSON_ACTIVITY_WIRING.md).
+See the [YAML Authoring Guide — PathStep Fields](#pathstep-fields) section above.
 
 ```yaml
 type: PathStep
@@ -418,6 +420,8 @@ sequence: 1
 # Activity fields (habit_uids, task_uids, etc.) belong on this PathStep YAML/frontmatter directly
 habit_uids: [habit:daily-2min-breath]
 task_uids: [task:log-first-5-sessions]
+# Learning loop: wire the Exercise that closes the loop for this PathStep
+exercise_uids: [ex:mindfulness-101:breath-awareness-check-in]
 ```
 
 ---

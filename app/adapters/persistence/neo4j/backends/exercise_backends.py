@@ -3,7 +3,7 @@
 The three entities that drive the four-phase learning loop:
 Exercise → UserEntry → EntryReport → RevisedExercise → …
 
-PathStep is the curriculum anchor, linked via (PathStep)-[:RELATED_TO]->(Exercise)
+PathStep is the curriculum anchor, linked via (PathStep)-[:HAS_EXERCISE]->(Exercise)
 (denormalized as Exercise.path_step_uid for PERSONAL scope).
 """
 
@@ -260,7 +260,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         Returns the same shape as get_student_exercises_with_status() so results
         can be merged at the service layer. Exercises are discovered via:
-            (user)-[:IN_PROGRESS]->(ps)-[:RELATED_TO]->(exercise {scope: 'personal'})
+            (user)-[:IN_PROGRESS]->(ps)-[:HAS_EXERCISE]->(exercise {scope: 'personal'})
 
         Args:
             user_uid: Student UID
@@ -271,7 +271,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
-            MATCH (ps)-[:{RelationshipName.RELATED_TO}]->(exercise:Entity {{entity_type: 'exercise'}})
+            MATCH (ps)-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
             WHERE exercise.scope = 'personal'
             WITH DISTINCT user, exercise
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
@@ -304,7 +304,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         """
         return await self.execute_query(
             f"""
-            MATCH (ps:Entity {{uid: $ps_uid}})-[:{RelationshipName.RELATED_TO}]->(exercise:Entity {{entity_type: 'exercise'}})
+            MATCH (ps:Entity {{uid: $ps_uid}})-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
             OPTIONAL MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
             WITH exercise, sub, report

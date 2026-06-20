@@ -17,7 +17,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.relationship_names import RelationshipName
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -369,3 +370,27 @@ class _LpStepMixin:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(bool(result.value))
+
+    async def get_exercises_for_lp(self, lp_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get all Exercises reachable from an LP via HAS_STEP → HAS_EXERCISE traversal.
+
+        Returns distinct exercises across all PathSteps in the LP, ordered by step
+        sequence then exercise title. Includes path_step_uid/title so callers can
+        group by step without a second query.
+
+        Backend: (LP)-[:HAS_STEP]->(PS)-[:HAS_EXERCISE]->(Exercise)
+        """
+        query = f"""
+        MATCH (lp:Entity {{uid: $lp_uid, entity_type: 'learning_path'}})
+              -[step_rel:{RelationshipName.HAS_STEP}]->(ps:Entity {{entity_type: 'path_step'}})
+              -[:{RelationshipName.HAS_EXERCISE}]->(ex:Entity {{entity_type: 'exercise'}})
+        RETURN DISTINCT
+               ex.uid AS uid,
+               ex.title AS title,
+               ex.scope AS scope,
+               ex.estimated_time_minutes AS estimated_time_minutes,
+               ps.uid AS path_step_uid,
+               ps.title AS path_step_title
+        ORDER BY step_rel.sequence, ex.title
+        """
+        return await self.execute_query(query, {"lp_uid": lp_uid})
