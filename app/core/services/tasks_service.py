@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 # Domain models
 from core.events import TaskUpdated, publish_event
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.sentinels import UNSET, Unset
 from core.models.task.task import Task
@@ -70,11 +70,9 @@ from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filte
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
-    PRIORITY_SORT_ORDER,
     get_created_at_attr,
     get_project_and_title,
     get_task_due_date_sort_key,
-    make_priority_order_getter,
 )
 
 if TYPE_CHECKING:
@@ -214,9 +212,14 @@ def _apply_task_secondary_filters(
     return tasks
 
 
+def _get_task_priority_order(task: Any) -> int:
+    """Sort key for priority (CRITICAL first = 0, LOW last = 3)."""
+    return Priority.from_value(task.priority).sort_order()
+
+
 _TASK_SORT_CONFIG: SortConfig = {
     "due_date": (get_task_due_date_sort_key, False),
-    "priority": (make_priority_order_getter(PRIORITY_SORT_ORDER), False),
+    "priority": (_get_task_priority_order, False),
     "created_at": (get_created_at_attr, True),
     "project": (get_project_and_title, False),
 }

@@ -67,6 +67,10 @@ class PrincipleStrength(StrEnum):
         """Numeric rank for sorting and aggregate stats (CORE=5 ... EXPLORING=1)."""
         return _PRINCIPLE_STRENGTH_RANKS[self]
 
+    def sort_order(self) -> int:
+        """Sort position for lists (CORE first = 0, EXPLORING last = 4)."""
+        return _PRINCIPLE_STRENGTH_SORT_ORDERS[self]
+
     @classmethod
     def from_value(cls, value: object) -> PrincipleStrength:
         """Normalize enum/string inputs to a principle strength, defaulting to MODERATE."""
@@ -86,6 +90,14 @@ _PRINCIPLE_STRENGTH_RANKS: dict[PrincipleStrength, int] = {
     PrincipleStrength.MODERATE: 3,
     PrincipleStrength.DEVELOPING: 2,
     PrincipleStrength.EXPLORING: 1,
+}
+
+_PRINCIPLE_STRENGTH_SORT_ORDERS: dict[PrincipleStrength, int] = {
+    PrincipleStrength.CORE: 0,
+    PrincipleStrength.STRONG: 1,
+    PrincipleStrength.MODERATE: 2,
+    PrincipleStrength.DEVELOPING: 3,
+    PrincipleStrength.EXPLORING: 4,
 }
 
 

@@ -12,29 +12,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparison
 
-from core.models.enums import Priority
 from core.ports.base_protocols import (
     HasPriority,
     HasRelevanceScore,
     HasScore,
     HasToNumeric,
 )
-
-# Centralized priority sort orders — lower value = higher priority (sorted first).
-# Used by Tasks (enum keys) and Goals/Choices/Events (string keys).
-PRIORITY_SORT_ORDER: dict[Priority, int] = {
-    Priority.CRITICAL: 0,
-    Priority.HIGH: 1,
-    Priority.MEDIUM: 2,
-    Priority.LOW: 3,
-}
-
-PRIORITY_STRING_SORT_ORDER: dict[str, int] = {
-    "critical": 0,
-    "high": 1,
-    "medium": 2,
-    "low": 3,
-}
 
 
 def sort_by_start_time(event: Any) -> Any:
@@ -604,33 +587,12 @@ def get_report_date(report: Any) -> Any:
 
 
 def get_principle_strength_order(principle: Any) -> int:
-    """
-    Get strength order value for Principle sorting.
-
-    Maps PrincipleStrength enum to numeric ordering for sorting.
-    Lower numbers = higher strength (sorts strongest principles first).
-
-    Order: CORE=0, STRONG=1, MODERATE=2, DEVELOPING=3, EXPLORING=4, unknown=5
-
-    Used for sorting principles by strength level.
-    Example: principles.sort(key=get_principle_strength_order)
-
-    Args:
-        principle: Principle object with strength attribute
-
-    Returns:
-        Numeric order value (0-5), lower = stronger
-    """
+    """Sort key for principles by strength (CORE first = 0, EXPLORING last = 4)."""
     from core.models.enums.principle_enums import PrincipleStrength
 
-    strength_order = {
-        PrincipleStrength.CORE: 0,
-        PrincipleStrength.STRONG: 1,
-        PrincipleStrength.MODERATE: 2,
-        PrincipleStrength.DEVELOPING: 3,
-        PrincipleStrength.EXPLORING: 4,
-    }
-    return strength_order.get(principle.strength, 5)
+    return PrincipleStrength.from_value(
+        getattr(principle, "strength", PrincipleStrength.MODERATE)
+    ).sort_order()
 
 
 def get_priority_score(item: Any) -> float:
@@ -856,33 +818,6 @@ def get_dict_score(item: dict[str, Any]) -> float:
     return item.get("_score", 0)
 
 
-def make_priority_order_getter(priority_order: dict[Any, int], default: int = 5):
-    """
-    Create a sort key function for priority ordering.
-
-    Returns a function that looks up priority values from a mapping dict.
-    Lower values = higher priority (sorted first).
-
-    Example:
-        priority_order = {Priority.CRITICAL: 0, Priority.HIGH: 1, Priority.MEDIUM: 2, Priority.LOW: 3}
-        sort_key = make_priority_order_getter(priority_order)
-        tasks.sort(key=sort_key)
-
-    Args:
-        priority_order: Dictionary mapping priority enum values to sort order
-        default: Default order for unknown priorities (default 5)
-
-    Returns:
-        A function that can be used as a sort key
-    """
-
-    def get_order(task: Any) -> int:
-        """Get priority order for task."""
-        return priority_order.get(task.priority, default)
-
-    return get_order
-
-
 # =============================================================================
 # UI SORTING FUNCTIONS (Added January 2026)
 # =============================================================================
@@ -1000,39 +935,6 @@ def get_recurrence_pattern(item: Any) -> str:
         The recurrence_pattern string or empty string
     """
     return getattr(item, "recurrence_pattern", "") or ""
-
-
-def make_priority_string_getter(
-    priority_order: dict[str, int],
-    priority_extractor: Any,
-    default: int = 2,
-):
-    """
-    Create a sort key function for string-based priority ordering.
-
-    Returns a function that extracts a priority string and looks it up in the mapping.
-    Used when priority values are strings (e.g., "critical", "high", "medium", "low").
-
-    Example:
-        priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-        sort_key = make_priority_string_getter(priority_order, get_priority_str)
-        goals.sort(key=sort_key)
-
-    Args:
-        priority_order: Dictionary mapping priority strings to sort order
-        priority_extractor: Function to extract priority string from item
-        default: Default order for unknown priorities (default 2 = medium)
-
-    Returns:
-        A function that can be used as a sort key
-    """
-
-    def get_order(item: Any) -> int:
-        """Get priority order for item."""
-        priority_str = priority_extractor(item)
-        return priority_order.get(priority_str, default)
-
-    return get_order
 
 
 # =============================================================================

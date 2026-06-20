@@ -170,13 +170,12 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
         # Business Rule 3: Strength should not decrease
         # Principles grow with practice - decreasing strength suggests abandonment
         # GRAPH-NATIVE: Uses strength enum, not numeric adoption_level
-        strength_order = {"EXPLORING": 1, "DEVELOPING": 2, "MODERATE": 3, "STRONG": 4, "CORE": 5}
         if "strength" in changes:
-            current_strength = strength_order.get(
-                current.strength.value if current.strength else "MODERATE", 3
-            )
-            new_strength = strength_order.get(changes["strength"], 3)
-            if new_strength < current_strength:
+            current_rank = PrincipleStrength.from_value(
+                current.strength if current.strength else PrincipleStrength.MODERATE
+            ).rank()
+            new_rank = PrincipleStrength.from_value(changes["strength"]).rank()
+            if new_rank < current_rank:
                 return Result.fail(
                     Errors.validation(
                         message="Cannot reduce principle strength. Principles should grow with practice. "
