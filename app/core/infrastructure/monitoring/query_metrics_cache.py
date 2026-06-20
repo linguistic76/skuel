@@ -21,11 +21,55 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict, cast
 
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class OperationMetricsDict(TypedDict):
+    """Typed shape returned by CachedOperationMetrics.to_dict()."""
+
+    operation_name: str
+    call_count: int
+    total_time_ms: float
+    avg_time_ms: float
+    min_time_ms: float | None
+    max_time_ms: float | None
+    p95_time_ms: float | None
+    p99_time_ms: float | None
+    error_count: int
+    error_rate: float
+    last_called: str | None
+
+
+class SlowOperationSummary(TypedDict):
+    """One entry in the slowest_operations list."""
+
+    name: str
+    avg_time_ms: float
+    call_count: int
+
+
+class QueryMetricsSummaryDict(TypedDict, total=False):
+    """Shape returned by QueryMetricsCache._get_summary().
+
+    total=False: disabled case populates only enabled + cache_note;
+    enabled case populates all fields.
+    """
+
+    enabled: bool
+    cache_note: str
+    uptime_seconds: float
+    total_operations: int
+    total_calls: int
+    total_errors: int
+    overall_error_rate: float
+    total_time_ms: float
+    calls_per_second: float
+    slowest_operations: list[SlowOperationSummary]
+    operations: dict[str, OperationMetricsDict]
 
 
 # Helper functions
@@ -34,9 +78,9 @@ def _create_deque_100() -> deque[float]:
     return deque(maxlen=100)
 
 
-def _get_avg_time_ms(metrics_dict: dict[str, Any]) -> float:
+def _get_avg_time_ms(metrics_dict: OperationMetricsDict) -> float:
     """Get avg_time_ms from metrics dict for sorting."""
-    return metrics_dict.get("avg_time_ms", 0.0)
+    return metrics_dict["avg_time_ms"]
 
 
 @dataclass
@@ -116,21 +160,21 @@ class CachedOperationMetrics:
         """Error rate as percentage."""
         return (self.error_count / self.call_count * 100) if self.call_count > 0 else 0.0
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> OperationMetricsDict:
         """Convert to dictionary for debugging."""
-        return {
-            "operation_name": self.operation_name,
-            "call_count": self.call_count,
-            "total_time_ms": round(self.total_time_ms, 2),
-            "avg_time_ms": round(self.avg_time_ms, 2),
-            "min_time_ms": round(self.min_time_ms, 2) if self.min_time_ms else None,
-            "max_time_ms": round(self.max_time_ms, 2) if self.max_time_ms else None,
-            "p95_time_ms": round(self.p95_time_ms, 2) if self.p95_time_ms else None,
-            "p99_time_ms": round(self.p99_time_ms, 2) if self.p99_time_ms else None,
-            "error_count": self.error_count,
-            "error_rate": round(self.error_rate, 2),
-            "last_called": self.last_called.isoformat() if self.last_called else None,
-        }
+        return OperationMetricsDict(
+            operation_name=self.operation_name,
+            call_count=self.call_count,
+            total_time_ms=round(self.total_time_ms, 2),
+            avg_time_ms=round(self.avg_time_ms, 2),
+            min_time_ms=round(self.min_time_ms, 2) if self.min_time_ms else None,
+            max_time_ms=round(self.max_time_ms, 2) if self.max_time_ms else None,
+            p95_time_ms=round(self.p95_time_ms, 2) if self.p95_time_ms else None,
+            p99_time_ms=round(self.p99_time_ms, 2) if self.p99_time_ms else None,
+            error_count=self.error_count,
+            error_rate=round(self.error_rate, 2),
+            last_called=self.last_called.isoformat() if self.last_called else None,
+        )
 
 
 class QueryMetricsCache:
@@ -228,32 +272,40 @@ class QueryMetricsCache:
                 )
             self._operations[operation_name].record_timing(duration_ms, had_error)
 
-    def _get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
-        """Return cached metrics for one operation or every operation."""
+    def _get_one_metric(self, operation_name: str) -> OperationMetricsDict | None:
+        """Return metrics for a single operation, or None if disabled / not found."""
+        if not self.enabled:
+            return None
+        op = self._operations.get(operation_name)
+        return op.to_dict() if op else None
+
+    def _get_all_metrics(self) -> dict[str, OperationMetricsDict]:
+        """Return metrics for every tracked operation, or {} if disabled."""
         if not self.enabled:
             return {}
-
-        if operation_name:
-            operation_metrics = self._operations.get(operation_name)
-            return operation_metrics.to_dict() if operation_metrics else {}
-
-        return {name: metrics.to_dict() for name, metrics in self._operations.items()}
+        return {name: m.to_dict() for name, m in self._operations.items()}
 
     async def get_metrics(self, operation_name: str | None = None) -> dict[str, Any]:
         """Get cached metrics for specific operation or all operations."""
-        return self._get_metrics(operation_name)
+        if operation_name is not None:
+            result = self._get_one_metric(operation_name)
+            return cast(dict[str, Any], result) if result is not None else {}
+        return self._get_all_metrics()
 
     def get_metrics_sync(self, operation_name: str | None = None) -> dict[str, Any]:
         """Synchronous version of get_metrics."""
-        return self._get_metrics(operation_name)
+        if operation_name is not None:
+            result = self._get_one_metric(operation_name)
+            return cast(dict[str, Any], result) if result is not None else {}
+        return self._get_all_metrics()
 
-    def _get_summary(self) -> dict[str, Any]:
+    def _get_summary(self) -> QueryMetricsSummaryDict:
         """Build the cache-only metrics summary used by async and sync APIs."""
         if not self.enabled:
-            return {
-                "enabled": False,
-                "cache_note": "Cache disabled. Query Prometheus for complete metrics.",
-            }
+            return QueryMetricsSummaryDict(
+                enabled=False,
+                cache_note="Cache disabled. Query Prometheus for complete metrics.",
+            )
 
         total_calls = sum(m.call_count for m in self._operations.values())
         total_errors = sum(m.error_count for m in self._operations.values())
@@ -266,36 +318,36 @@ class QueryMetricsCache:
             reverse=True,
         )
 
-        return {
-            "enabled": True,
-            "cache_note": "Cache contains last 100 calls per operation. Query Prometheus for complete data.",
-            "uptime_seconds": round(uptime_seconds, 2),
-            "total_operations": len(self._operations),
-            "total_calls": total_calls,
-            "total_errors": total_errors,
-            "overall_error_rate": round(
+        return QueryMetricsSummaryDict(
+            enabled=True,
+            cache_note="Cache contains last 100 calls per operation. Query Prometheus for complete data.",
+            uptime_seconds=round(uptime_seconds, 2),
+            total_operations=len(self._operations),
+            total_calls=total_calls,
+            total_errors=total_errors,
+            overall_error_rate=round(
                 (total_errors / total_calls * 100) if total_calls > 0 else 0.0, 2
             ),
-            "total_time_ms": round(total_time, 2),
-            "calls_per_second": round(total_calls / uptime_seconds, 2)
+            total_time_ms=round(total_time, 2),
+            calls_per_second=round(total_calls / uptime_seconds, 2)
             if uptime_seconds > 0
             else 0.0,
-            "slowest_operations": [
-                {
-                    "name": metrics["operation_name"],
-                    "avg_time_ms": metrics["avg_time_ms"],
-                    "call_count": metrics["call_count"],
-                }
-                for metrics in operations_by_avg_time[:5]
+            slowest_operations=[
+                SlowOperationSummary(
+                    name=m["operation_name"],
+                    avg_time_ms=m["avg_time_ms"],
+                    call_count=m["call_count"],
+                )
+                for m in operations_by_avg_time[:5]
             ],
-            "operations": {name: metrics.to_dict() for name, metrics in self._operations.items()},
-        }
+            operations=self._get_all_metrics(),
+        )
 
-    async def get_summary(self) -> dict[str, Any]:
+    async def get_summary(self) -> QueryMetricsSummaryDict:
         """Get summary of cached query metrics."""
         return self._get_summary()
 
-    def get_summary_sync(self) -> dict[str, Any]:
+    def get_summary_sync(self) -> QueryMetricsSummaryDict:
         """Synchronous version of get_summary."""
         return self._get_summary()
 
@@ -314,4 +366,9 @@ class QueryMetricsCache:
         self._reset()
 
 
-__all__ = ["QueryMetricsCache"]
+__all__ = [
+    "OperationMetricsDict",
+    "QueryMetricsCache",
+    "QueryMetricsSummaryDict",
+    "SlowOperationSummary",
+]
