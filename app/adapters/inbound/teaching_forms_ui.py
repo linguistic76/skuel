@@ -18,6 +18,7 @@ from fasthtml.common import A, Div, Small, Span
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.result_helpers import require_found
 from core.utils.logging import get_logger
 from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
@@ -137,8 +138,8 @@ def create_teaching_forms_ui_routes(
             return await render_teaching_sidebar_page(content, active="forms", request=request)
 
         # Fetch template
-        template_result = await form_template_service.get(uid)
-        if template_result.is_error or template_result.value is None:
+        template_result = require_found(await form_template_service.get(uid), "FormTemplate", uid)
+        if template_result.is_error:
             content = Div(
                 PageHeader("Form Submissions"),
                 render_error_banner("Template not found", f"No template with UID: {uid}"),
