@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.enums import Domain
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
@@ -82,7 +83,7 @@ class ChoiceDTO(UserOwnedDTO):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Choice)-[:SPAWNED_FROM]->(ChoiceTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None
+    engagement_state: EngagementState | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -139,6 +140,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "choice_type": ChoiceType,
+                "engagement_state": EngagementState,
             },
             datetime_fields=[
                 "created_at",
@@ -206,6 +208,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "choice_type": ChoiceType,
+                "engagement_state": EngagementState,
             },
         )
 

@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
 from core.models.enums import Domain
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.metadata_enums import Visibility
@@ -122,7 +123,7 @@ class HabitDTO(UserOwnedDTO):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Habit)-[:SPAWNED_FROM]->(HabitTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None
+    engagement_state: EngagementState | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -198,6 +199,7 @@ class HabitDTO(UserOwnedDTO):
                 "habit_category": HabitCategory,
                 "habit_difficulty": HabitDifficulty,
                 "recurrence_pattern": RecurrencePattern,
+                "engagement_state": EngagementState,
             },
             date_fields=["recurrence_end_date"],
             datetime_fields=[
@@ -278,6 +280,7 @@ class HabitDTO(UserOwnedDTO):
                 "polarity": HabitPolarity,
                 "habit_category": HabitCategory,
                 "habit_difficulty": HabitDifficulty,
+                "engagement_state": EngagementState,
             },
         )
 

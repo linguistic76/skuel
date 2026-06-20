@@ -6,6 +6,8 @@ Enums for priority, confidence, calendar/timeline types, and dual-track assessme
 
 Status enums (EntityStatus) live in entity_enums.py — THE unified status enum.
 CompletionStatus (habit completion tracking) lives in habit_enums.py.
+EngagementState tracks whether a curriculum-spawned activity is still engaged
+or has been promoted to owned by the student.
 """
 
 from __future__ import annotations
@@ -570,3 +572,23 @@ class DualTrackDimension(StrEnum):
     def label(self) -> str:
         """Human-readable label, e.g. ``decision_quality`` -> ``Decision Quality``."""
         return self.value.replace("_", " ").title()
+
+
+class EngagementState(StrEnum):
+    """Lifecycle state of an Activity instance spawned from a PathStep template.
+
+    ``None`` on the instance means standalone (not curriculum-spawned).
+
+    See: /.claude/skills/activity-domains/TEMPLATES.md
+    """
+
+    ENGAGED = "engaged"
+    OWNED = "owned"
+
+    def is_terminal(self) -> bool:
+        """Return True if the student has taken ownership of this instance."""
+        return self == EngagementState.OWNED
+
+    def display_label(self) -> str:
+        """Human-readable label for UI display."""
+        return self.value.capitalize()

@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
 from core.models.enums import Domain
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.enums.metadata_enums import Visibility
@@ -103,7 +104,7 @@ class GoalDTO(UserOwnedDTO):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Goal)-[:SPAWNED_FROM]->(GoalTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None
+    engagement_state: EngagementState | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -171,6 +172,7 @@ class GoalDTO(UserOwnedDTO):
                 "goal_type": GoalType,
                 "timeframe": GoalTimeframe,
                 "measurement_type": MeasurementType,
+                "engagement_state": EngagementState,
             },
             date_fields=["start_date", "target_date", "achieved_date"],
             datetime_fields=["created_at", "updated_at", "last_progress_update"],
@@ -245,6 +247,7 @@ class GoalDTO(UserOwnedDTO):
                 "goal_type": GoalType,
                 "timeframe": GoalTimeframe,
                 "measurement_type": MeasurementType,
+                "engagement_state": EngagementState,
             },
         )
 

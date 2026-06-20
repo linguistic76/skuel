@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import date, time
 
 from core.models.enums import Domain
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.scheduling_enums import RecurrencePattern
@@ -109,7 +110,7 @@ class EventDTO(UserOwnedDTO):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Event)-[:SPAWNED_FROM]->(EventTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None
+    engagement_state: EngagementState | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -174,6 +175,7 @@ class EventDTO(UserOwnedDTO):
                 "domain": Domain,
                 "visibility": Visibility,
                 "recurrence_pattern": RecurrencePattern,
+                "engagement_state": EngagementState,
             },
             date_fields=["event_date", "recurrence_end_date"],
             datetime_fields=["created_at", "updated_at"],
@@ -238,6 +240,7 @@ class EventDTO(UserOwnedDTO):
                 "status": EntityStatus,
                 "domain": Domain,
                 "visibility": Visibility,
+                "engagement_state": EngagementState,
             },
         )
 

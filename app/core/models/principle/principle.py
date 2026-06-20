@@ -24,12 +24,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 import dataclasses
 from dataclasses import dataclass
 from datetime import date
-from typing import TYPE_CHECKING, Any, Literal, Self
+from typing import TYPE_CHECKING, Any, Self
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.principle.principle_dto import PrincipleDTO
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import (
     AlignmentLevel,
@@ -184,7 +185,7 @@ class Principle(UserOwnedEntity):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # PRINCIPLE-SPECIFIC METHODS

@@ -21,7 +21,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from core.models.task.task_request import TaskCreateRequest
     from core.models.type_hints import UserUID
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
@@ -122,7 +123,7 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # Back-reference to the spawning template lives in the graph as
     # (Task)-[:SPAWNED_FROM]->(TaskTemplate); no property on this node.
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # TASK-SPECIFIC METHODS
