@@ -5,6 +5,8 @@ Learning Enums - Education, Knowledge, and Mastery Tracking
 Enums for learning levels, knowledge types, mastery tracking, and SEL framework.
 """
 
+from __future__ import annotations
+
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
@@ -76,6 +78,30 @@ class MasteryImpact(StrEnum):
             MasteryImpact.CERTIFICATION: "Capstone or certification — highest mastery confidence",
         }
         return descriptions.get(self, "")
+
+    def sort_order(self) -> int:
+        """Sort position for lists (MINOR first = 0, CERTIFICATION last = 3)."""
+        return _MASTERY_IMPACT_SORT_ORDERS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> MasteryImpact:
+        """Normalize enum/string inputs to a mastery impact, defaulting to MODERATE."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for impact in cls:
+                if impact.value == value_lower or impact.name.lower() == value_lower:
+                    return impact
+        return cls.MODERATE
+
+
+_MASTERY_IMPACT_SORT_ORDERS: dict[MasteryImpact, int] = {
+    MasteryImpact.MINOR: 0,
+    MasteryImpact.MODERATE: 1,
+    MasteryImpact.MAJOR: 2,
+    MasteryImpact.CERTIFICATION: 3,
+}
 
 
 class AssessmentOutcome(StrEnum):
@@ -169,6 +195,29 @@ class KuComplexity(StrEnum):
     MEDIUM = "medium"
     ADVANCED = "advanced"
 
+    def sort_order(self) -> int:
+        """Sort position for lists (BASIC first = 0, ADVANCED last = 2)."""
+        return _KU_COMPLEXITY_SORT_ORDERS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> KuComplexity:
+        """Normalize enum/string inputs to a Ku complexity, defaulting to MEDIUM."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for complexity in cls:
+                if complexity.value == value_lower or complexity.name.lower() == value_lower:
+                    return complexity
+        return cls.MEDIUM
+
+
+_KU_COMPLEXITY_SORT_ORDERS: dict[KuComplexity, int] = {
+    KuComplexity.BASIC: 0,
+    KuComplexity.MEDIUM: 1,
+    KuComplexity.ADVANCED: 2,
+}
+
 
 class LearningLevel(StrEnum):
     """
@@ -224,8 +273,24 @@ class LearningLevel(StrEnum):
         }
         return descriptions.get(self, "")
 
+    def sort_order(self) -> int:
+        """Sort position for lists (BEGINNER first = 0, EXPERT last = 3)."""
+        return _LEARNING_LEVEL_SORT_ORDERS[self]
+
     @classmethod
-    def from_search_text(cls, text: str) -> list["LearningLevel"]:
+    def from_value(cls, value: object) -> LearningLevel:
+        """Normalize enum/string inputs to a learning level, defaulting to INTERMEDIATE."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for level in cls:
+                if level.value == value_lower or level.name.lower() == value_lower:
+                    return level
+        return cls.INTERMEDIATE
+
+    @classmethod
+    def from_search_text(cls, text: str) -> list[LearningLevel]:
         """Find matching learning levels from search text"""
         text_lower = text.lower()
         return [
@@ -233,6 +298,14 @@ class LearningLevel(StrEnum):
             for level in cls
             if any(synonym in text_lower for synonym in level.get_search_synonyms())
         ]
+
+
+_LEARNING_LEVEL_SORT_ORDERS: dict[LearningLevel, int] = {
+    LearningLevel.BEGINNER: 0,
+    LearningLevel.INTERMEDIATE: 1,
+    LearningLevel.ADVANCED: 2,
+    LearningLevel.EXPERT: 3,
+}
 
 
 class EducationalLevel(StrEnum):
@@ -308,6 +381,51 @@ class MasteryStatus(StrEnum):
     PROFICIENT = "proficient"
     MASTERED = "mastered"
     REVIEWING = "reviewing"
+
+    def rank(self) -> int:
+        """Numeric rank for comparisons (NOT_STARTED=1 ... MASTERED=7).
+
+        REVIEWING ranks 6 — knowledge is already mastered but temporarily back in
+        active reinforcement, so it sits one step below MASTERED in working strength.
+        """
+        return _MASTERY_STATUS_RANKS[self]
+
+    def sort_order(self) -> int:
+        """Sort position for lists (NOT_STARTED first = 0, MASTERED last = 6)."""
+        return _MASTERY_STATUS_SORT_ORDERS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> MasteryStatus:
+        """Normalize enum/string inputs to a mastery status, defaulting to NOT_STARTED."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for status in cls:
+                if status.value == value_lower or status.name.lower() == value_lower:
+                    return status
+        return cls.NOT_STARTED
+
+
+_MASTERY_STATUS_RANKS: dict[MasteryStatus, int] = {
+    MasteryStatus.NOT_STARTED: 1,
+    MasteryStatus.INTRODUCED: 2,
+    MasteryStatus.PRACTICING: 3,
+    MasteryStatus.COMPETENT: 4,
+    MasteryStatus.PROFICIENT: 5,
+    MasteryStatus.REVIEWING: 6,  # mastered, temporarily back in reinforcement
+    MasteryStatus.MASTERED: 7,
+}
+
+_MASTERY_STATUS_SORT_ORDERS: dict[MasteryStatus, int] = {
+    MasteryStatus.NOT_STARTED: 0,
+    MasteryStatus.INTRODUCED: 1,
+    MasteryStatus.PRACTICING: 2,
+    MasteryStatus.COMPETENT: 3,
+    MasteryStatus.PROFICIENT: 4,
+    MasteryStatus.REVIEWING: 5,
+    MasteryStatus.MASTERED: 6,
+}
 
 
 class KnowledgeStatus(StrEnum):

@@ -5,6 +5,8 @@ Curriculum Enums - Learning Path and Step Classification
 Enums for learning path types and step difficulty levels.
 """
 
+from __future__ import annotations
+
 from enum import StrEnum
 
 
@@ -30,3 +32,28 @@ class StepDifficulty(StrEnum):
     MODERATE = "moderate"
     CHALLENGING = "challenging"
     ADVANCED = "advanced"
+
+    def sort_order(self) -> int:
+        """Sort position for lists (TRIVIAL first = 0, ADVANCED last = 4)."""
+        return _STEP_DIFFICULTY_SORT_ORDERS[self]
+
+    @classmethod
+    def from_value(cls, value: object) -> StepDifficulty:
+        """Normalize enum/string inputs to a step difficulty, defaulting to MODERATE."""
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            value_lower = value.lower()
+            for difficulty in cls:
+                if difficulty.value == value_lower or difficulty.name.lower() == value_lower:
+                    return difficulty
+        return cls.MODERATE
+
+
+_STEP_DIFFICULTY_SORT_ORDERS: dict[StepDifficulty, int] = {
+    StepDifficulty.TRIVIAL: 0,
+    StepDifficulty.EASY: 1,
+    StepDifficulty.MODERATE: 2,
+    StepDifficulty.CHALLENGING: 3,
+    StepDifficulty.ADVANCED: 4,
+}
