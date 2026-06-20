@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, Priority
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import ChoicesOperations
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
@@ -46,10 +46,8 @@ from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filte
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import (
-    PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
     get_decision_deadline,
-    make_priority_string_getter,
 )
 from core.utils.type_converters import get_enum_attr_str
 
@@ -58,7 +56,7 @@ if TYPE_CHECKING:
 
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.context_types import ContextualChoice
-    from core.models.enums import Domain, Priority
+    from core.models.enums import Domain
     from core.models.pathways.lp_position import LpPosition
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -114,12 +112,15 @@ _CHOICE_FILTER_CONFIG: FilterConfig = {
     "implemented": _is_choice_implemented,
 }
 
+
+def _get_choice_priority_order(c: Any) -> int:
+    """Sort key for priority (CRITICAL first = 0, LOW last = 3)."""
+    return Priority.from_value(_get_choice_priority(c)).sort_order()
+
+
 _CHOICE_SORT_CONFIG: SortConfig = {
     "deadline": (get_decision_deadline, False),
-    "priority": (
-        make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_choice_priority),
-        False,
-    ),
+    "priority": (_get_choice_priority_order, False),
     "created_at": (get_created_at_attr, True),
 }
 

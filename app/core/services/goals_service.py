@@ -61,10 +61,8 @@ from core.utils.list_helpers import FilterConfig, SortConfig, apply_entity_filte
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import (
-    PRIORITY_STRING_SORT_ORDER,
     get_created_at_attr,
     get_current_value,
-    make_priority_string_getter,
 )
 from core.utils.type_converters import get_enum_attr_str
 
@@ -160,12 +158,15 @@ _GOAL_FILTER_CONFIG: FilterConfig = {
     "completed": _is_goal_completed,
 }
 
+
+def _get_goal_priority_order(goal: Any) -> int:
+    """Sort key for priority (CRITICAL first = 0, LOW last = 3)."""
+    return Priority.from_value(_get_goal_priority_str(goal)).sort_order()
+
+
 _GOAL_SORT_CONFIG: SortConfig = {
     "target_date": (_get_goal_target_date, False),
-    "priority": (
-        make_priority_string_getter(PRIORITY_STRING_SORT_ORDER, _get_goal_priority_str),
-        False,
-    ),
+    "priority": (_get_goal_priority_order, False),
     "progress": (get_current_value, True),
     "created_at": (get_created_at_attr, True),
 }
