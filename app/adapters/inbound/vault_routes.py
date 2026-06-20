@@ -21,7 +21,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H3,
-    Button,
     Div,
     Form,
     Li,
@@ -36,6 +35,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from ui.buttons import Button
 from ui.patterns import PageHeader
 from ui.workbench.nav import render_submissions_sidebar_page
 
@@ -56,7 +56,6 @@ def _sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spi
         Button(
             label,
             type="submit",
-            cls="uk-button uk-button-primary",
         ),
         Span(
             "",
@@ -89,7 +88,6 @@ def _consent_form() -> Div:
                 Button(
                     "Allow and sync",
                     type="submit",
-                    cls="uk-button uk-button-primary",
                 ),
                 Span(
                     "",
