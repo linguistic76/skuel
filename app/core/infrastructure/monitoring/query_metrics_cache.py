@@ -289,14 +289,14 @@ class QueryMetricsCache:
         """Get cached metrics for specific operation or all operations."""
         if operation_name is not None:
             result = self._get_one_metric(operation_name)
-            return cast(dict[str, Any], result) if result is not None else {}
+            return cast(dict[str, Any], result) if result is not None else {}  # boundary: public-api — callers in metrics.py expect dict[str, Any]
         return self._get_all_metrics()
 
     def get_metrics_sync(self, operation_name: str | None = None) -> dict[str, Any]:
         """Synchronous version of get_metrics."""
         if operation_name is not None:
             result = self._get_one_metric(operation_name)
-            return cast(dict[str, Any], result) if result is not None else {}
+            return cast(dict[str, Any], result) if result is not None else {}  # boundary: public-api — callers in metrics.py expect dict[str, Any]
         return self._get_all_metrics()
 
     def _get_summary(self) -> QueryMetricsSummaryDict:
