@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from .engagement import Engagement, EngagementState
+from .engagement import Engagement, EngagementEdgeState
 
 if TYPE_CHECKING:
     from core.ports.ps_engagement_protocols import PsEngagementOperations
@@ -143,7 +143,7 @@ class _EngagementGateway:
         self,
         student_uid: str,
         ps_uid: str,
-        new_state: EngagementState,
+        new_state: EngagementEdgeState,
         timestamp_field: str,
     ) -> Result[Engagement]:
         """Common path for both terminal transitions (complete / abandon)."""

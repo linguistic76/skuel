@@ -84,7 +84,7 @@ PathStep, indexed by domain. It is the hand-off from the template-loading step
 to both validation and the spawn orchestrator.
 
 ```python
-# core/services/ps_engagement/_validator.py
+# core/services/ps_engagement/_template_bundle.py
 @dataclass(frozen=True)
 class TemplateBundle:
     ps_uid: str
@@ -303,7 +303,7 @@ The registry is the single change point. Steps:
 
 **See:**
 - `core/services/ps_engagement/_spawn_orchestrator.py` — `DomainSpawnSpec`, `SPAWN_REGISTRY`, `_SpawnOrchestrator`
-- `core/services/ps_engagement/_validator.py` — `TemplateBundle`
+- `core/services/ps_engagement/_template_bundle.py` — `TemplateBundle`, `TemplateTypeName`
 - `core/services/ps_engagement/_template_loader.py` — `_TemplateLoader`
 - `docs/decisions/ADR-061-spawn-layer-consolidation.md` — rationale for the two-entity split and registry design
 - `docs/decisions/ADR-059-askesis-engagement-alignment.md` — how Askesis consumes engagement events

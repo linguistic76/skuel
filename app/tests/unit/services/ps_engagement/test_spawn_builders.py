@@ -256,3 +256,9 @@ class TestRegistry:
         )
         with pytest.raises(ValueError, match="collection_attr 'nonexistent'"):
             _validate_spawn_registry((bad,))
+
+    def test_validation_rejects_mismatched_template_instance_pair(self) -> None:
+        """GoalTemplate paired with Task should fail the EntityType cross-check."""
+        bad = replace(TASK_SPEC, template_cls=GoalTemplate)
+        with pytest.raises(ValueError, match="GoalTemplate"):
+            _validate_spawn_registry((bad,))
