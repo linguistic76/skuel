@@ -421,7 +421,7 @@ class LearningStateAnalyzer:
             mastery_average=user_context.mastery_average,
             concepts_mastered=len(user_context.mastered_knowledge_uids),
             concepts_in_progress=len(user_context.in_progress_knowledge_uids),
-            concepts_needing_review=list(islice(user_context.prerequisites_needed, 5)),
+            concepts_needing_review=user_context.concepts_needing_review[:5],
             # Assessment
             readiness=readiness,
             confidence_score=self._calculate_confidence(understanding, engagement),
