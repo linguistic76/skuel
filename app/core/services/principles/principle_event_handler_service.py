@@ -26,7 +26,7 @@ from core.events.principle_events import (
     PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
 )
-from core.models.enums.principle_enums import TriggerType
+from core.models.enums.principle_enums import PrincipleStrength, TriggerType
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.principle.principle import Principle
 from core.models.type_hints import EntityUID
@@ -546,21 +546,16 @@ def _categorize_strength_change(old_strength: str, new_strength: str) -> str:
     Returns:
         Change type: "elevation", "demotion", or "lateral"
     """
-    strength_order = ["aspirational", "developing", "strong", "core"]
-
-    try:
-        old_idx = strength_order.index(old_strength.lower())
-        new_idx = strength_order.index(new_strength.lower())
-
-        if new_idx > old_idx:
-            return "elevation"
-        elif new_idx < old_idx:
-            return "demotion"
-        else:
-            return "lateral"
-    except ValueError:
-        # Unknown strength values - treat as lateral
+    valid = {s.value for s in PrincipleStrength}
+    if old_strength.lower() not in valid or new_strength.lower() not in valid:
         return "lateral"
+    old_rank = PrincipleStrength.from_value(old_strength).rank()
+    new_rank = PrincipleStrength.from_value(new_strength).rank()
+    if new_rank > old_rank:
+        return "elevation"
+    if new_rank < old_rank:
+        return "demotion"
+    return "lateral"
 
 
 def _analyze_trigger_context(
