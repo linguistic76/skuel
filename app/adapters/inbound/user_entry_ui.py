@@ -38,6 +38,7 @@ from starlette.responses import FileResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
@@ -404,8 +405,8 @@ def create_user_entry_ui_routes(
         """Delete a user-owned UserEntry (blocked when feedback exists)."""
         user_uid = require_authenticated_user(request)
 
-        entry_result = await orchestrator.get_entry(uid, user_uid)
-        if entry_result.is_error or entry_result.value is None:
+        entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
+        if entry_result.is_error:
             return render_error_banner("Submission not found")
 
         # Fail closed: an entry that has received feedback must not be silently
@@ -552,8 +553,8 @@ def create_user_entry_ui_routes(
         """Ownership-verified download of a journal entry's source file."""
         try:
             user_uid = require_authenticated_user(request)
-            entry_result = await orchestrator.get_entry(uid, user_uid)
-            if entry_result.is_error or entry_result.value is None:
+            entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
+            if entry_result.is_error:
                 return render_inline_error("Journal entry not found")
 
             entry = entry_result.value
@@ -625,8 +626,8 @@ def create_user_entry_ui_routes(
         """Submission detail page rendered from a ``UserEntry``."""
         user_uid = require_authenticated_user(request)
 
-        entry_result = await orchestrator.get_entry(uid, user_uid)
-        if entry_result.is_error or entry_result.value is None:
+        entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
+        if entry_result.is_error:
             content = Div(
                 PageHeader("Submission Not Found", subtitle=f"UID: {uid}"),
                 render_inline_error("Submission not found"),
