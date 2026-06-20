@@ -2614,6 +2614,7 @@ class Violation(TypedDict):
         "cycle",  # would form a reference cycle
         "cross_ps",  # references a template on a different PS
         "self_reference",  # references its own uid
+        "not_active",  # template status is not ACTIVE (DRAFT or ARCHIVED)
     ]
     referenced_uid: str | None  # the bad reference value, if any
     hint: str | None  # closest fuzzy-matched candidate, if any
