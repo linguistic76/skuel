@@ -1,14 +1,27 @@
 """
-Exercise - Curriculum Exercise Domain Model
-===============================================
+Exercise - Applied Knowledge Domain Model
+==========================================
 
-Frozen dataclass for exercise instruction templates. Inherits from Curriculum
-since exercises are curriculum-carrying entities (they contain learning metadata
-and substance tracking).
+Exercise is APPLIED KNOWLEDGE — the instruction template that operationalises
+PathStep content into concrete practice. PathStep is knowledge; Exercise is how
+that knowledge is practised. This hierarchy is fundamental to SKUEL:
+
+    (PathStep)-[:HAS_EXERCISE]->(Exercise)
+
+PathStep and Exercise are NOT peers. Exercise is subordinate to PathStep in the
+same structural relationship as a sub-goal under a parent goal (Goal.fulfills_goal_uid).
+Exercise.path_step_uid is a hierarchy-membership property — it identifies which
+knowledge unit this instruction template belongs to — not a scoring or enrichment
+field. Both the graph edge and Exercise.path_step_uid are written at creation time
+(dual-write) so both lookup directions are always available without extra queries.
+
+Exercise inherits from Curriculum because it shares substance tracking, learning
+metadata, and confidence fields with PathStep and LearningPath — not because it
+occupies the same structural tier.
 
 The Educational Loop
 ---------------------
-Exercise is the shared, reusable instruction template side of SKUEL's core loop:
+Exercise initiates the four-phase learning loop as the applied-knowledge anchor:
 
     Exercise (shared template — this file)
         ↓  user submits work against it

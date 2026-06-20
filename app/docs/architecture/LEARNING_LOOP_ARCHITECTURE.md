@@ -94,6 +94,15 @@ The mechanism differs, but the loop closes either way.
 
 ## Curriculum Anchor: PathStep — The Teaching Composition
 
+> **PathStep is knowledge. Exercise is applied knowledge. This hierarchy is fundamental
+> to SKUEL: the loop exists to transmit what PathStep carries, and Exercise is the
+> instrument of transmission.**
+
+PathStep and Exercise are not peers. Exercise is subordinate to PathStep — the same
+structural relationship as sub-goal under parent goal. See
+[CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md)
+for the full hierarchy.
+
 **What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
 sits within LearningPaths. Admin-created and shared across all users. Every Exercise is
 grounded in one or more PathSteps via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` and, for

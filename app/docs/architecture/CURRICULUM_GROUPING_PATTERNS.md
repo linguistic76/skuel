@@ -19,6 +19,27 @@ For implementation guidance, see:
 
 ## Core Philosophy
 
+> **PathStep IS knowledge. Exercise is APPLIED knowledge. This hierarchy is fundamental.**
+
+SKUEL organizes knowledge through **four curriculum EntityTypes** that form a hierarchy,
+not a flat peer group. Three of these are grouping/structure patterns (Ku, PathStep,
+LearningPath); one is an applied-knowledge anchor (Exercise).
+
+| EntityType | Role | Hierarchy |
+|---|---|---|
+| Ku | Atomic knowledge unit | Foundation |
+| PathStep | Composed knowledge | Built on Kus — the teachable unit |
+| LearningPath | Organisational structure | Sequences PathSteps |
+| Exercise | Applied knowledge | Anchored below PathStep via `HAS_EXERCISE` |
+
+Exercise is NOT a fourth structural pattern alongside LP. It is subordinate to PathStep —
+the instruction template that operationalises PathStep content into concrete practice. A
+PathStep without an Exercise is knowledge waiting to be applied. An Exercise without a
+PathStep is an orphan: the learning loop cannot close for it.
+
+The three **grouping patterns** (Ku, PS, LP) and **two access paths** below describe
+the structural/navigational side of curriculum. Exercise is covered separately at the end.
+
 SKUEL organizes knowledge through **three grouping patterns** and **two access paths**. The patterns (KU, PS, LP) are different perspectives on the same underlying content. The access paths (PS linear, MOC graph) provide different ways to navigate that content.
 
 **January 2026 - MOC as KU-Based Organization:**
@@ -155,6 +176,45 @@ outcomes:
 ```
 
 **Graph Role:** LP is the path - a traversable sequence with a beginning and end.
+
+---
+
+### Exercise — Applied Knowledge (Anchored to PathStep)
+
+**What it is:** The instruction template that operationalises PathStep content into
+concrete practice. Exercise is NOT a structural pattern like LP — it is applied knowledge
+subordinate to PathStep in the hierarchy.
+
+**The hierarchy relationship:**
+
+```
+(PathStep)-[:HAS_EXERCISE]->(Exercise)
+```
+
+PathStep and Exercise are NOT peers. Exercise is anchored below PathStep in the same
+structural relationship as a sub-goal under a parent goal. This is why:
+
+- `Exercise.path_step_uid` is a persisted **hierarchy-membership property** — not a
+  scoring or enrichment field. It identifies which knowledge unit this instruction belongs
+  to, and is written at creation time alongside the `HAS_EXERCISE` edge (dual-write).
+- `EntityType.EXERCISE.is_applied_knowledge()` returns `True`.
+- `EntityType.EXERCISE.is_curriculum_structure()` returns `False` — Exercise is not
+  organisational structure.
+
+**Why Exercise inherits from Curriculum:**
+
+Exercise shares substance tracking, learning metadata, and confidence fields with PathStep
+and LearningPath — that is the only reason they share the `Curriculum` base class. Shared
+base class does not mean structural peers.
+
+**One Exercise per PathStep (PERSONAL scope):**
+
+A PERSONAL-scope Exercise belongs to exactly one PathStep. This is the canonical loop
+anchor. ASSIGNED-scope Exercises (teacher → group) omit `path_step_uid` and use a
+`group_uid` instead.
+
+**Graph Role:** Exercise is the applied-knowledge anchor — the bridge between curriculum
+knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExercise).
 
 ---
 
