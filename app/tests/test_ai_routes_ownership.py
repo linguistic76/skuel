@@ -60,6 +60,8 @@ class _FakeFacade:
 
 
 class _Services:
+    intelligence_tier = None  # None → skip per-user tier gate in _ai_route
+
     def __init__(self, **facades: object) -> None:
         for name, facade in facades.items():
             setattr(self, name, facade)
