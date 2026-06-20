@@ -20,13 +20,14 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO
     from core.models.entity_dto import EntityDTO
 
 from core.models.choice.choice_option import ChoiceOption
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_entity import UserOwnedEntity
@@ -89,7 +90,7 @@ class Choice(UserOwnedEntity):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Choice)-[:SPAWNED_FROM]->(ChoiceTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # CHOICE-SPECIFIC METHODS

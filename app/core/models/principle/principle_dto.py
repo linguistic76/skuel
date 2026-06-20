@@ -17,7 +17,7 @@ See: /docs/patterns/three_tier_type_system.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import date
 
 from core.models.enums import Domain
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.principle_enums import (
@@ -113,7 +114,7 @@ class PrincipleDTO(UserOwnedDTO):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Principle)-[:SPAWNED_FROM]->(PrincipleTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None
+    engagement_state: EngagementState | None = None
 
     # =========================================================================
     # FACTORY METHOD
@@ -183,6 +184,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "principle_source": PrincipleSource,
                 "strength": PrincipleStrength,
                 "current_alignment": AlignmentLevel,
+                "engagement_state": EngagementState,
             },
             date_fields=["last_review_date", "adopted_date"],
             datetime_fields=["created_at", "updated_at"],
@@ -257,6 +259,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "principle_source": PrincipleSource,
                 "strength": PrincipleStrength,
                 "current_alignment": AlignmentLevel,
+                "engagement_state": EngagementState,
             },
         )
 

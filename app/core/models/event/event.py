@@ -25,12 +25,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.event.event_dto import EventDTO
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.user_owned_entity import UserOwnedEntity
@@ -125,7 +126,7 @@ class Event(UserOwnedEntity):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Event)-[:SPAWNED_FROM]->(EventTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # EVENT-SPECIFIC METHODS

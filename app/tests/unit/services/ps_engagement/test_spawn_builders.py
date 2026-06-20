@@ -10,7 +10,7 @@ verify, per domain spec:
   ``_compute_cross_edges`` (graph-edge rewrites).
 - RelativeOffset fields resolve to absolute date/datetime against the anchor.
 - ``source_path_step_uid`` is populated uniformly on all six instances.
-- ``engagement_state`` is set to "engaged". (The template back-reference is the
+- ``engagement_state`` is set to ``EngagementState.ENGAGED``. (The template back-reference is the
   ``(instance)-[:SPAWNED_FROM]->(template)`` graph edge, written atomically by
   the persistence layer — not by ``_build``. See
   ``tests/integration/test_ps_engagement_lifecycle.py`` for the edge contract.)
@@ -26,6 +26,7 @@ from datetime import date, datetime
 
 import pytest
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
@@ -59,7 +60,7 @@ class TestTaskBuilder:
         task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_a": "task_practice_xyz"})
         assert task.uid == "task_practice_xyz"
         assert task.user_uid == STUDENT
-        assert task.engagement_state == "engaged"
+        assert task.engagement_state == EngagementState.ENGAGED
         assert task.title == "Practice"
         assert task.source_path_step_uid == PS
 
@@ -125,7 +126,7 @@ class TestGoalBuilder:
         gt = GoalTemplate(uid="gtpl_a", title="Goal A")
         goal = _build(GOAL_SPEC, gt, STUDENT, PS, ANCHOR, {"gtpl_a": "goal_a_uid"})
         assert goal.source_path_step_uid == PS
-        assert goal.engagement_state == "engaged"
+        assert goal.engagement_state == EngagementState.ENGAGED
 
     def test_goal_offsets_resolve(self) -> None:
         gt = GoalTemplate(
@@ -209,7 +210,7 @@ class TestPrincipleBuilder:
         assert principle.uid == "principle_uid"
         assert principle.title == "Always truth-seek"
         assert principle.source_path_step_uid == PS
-        assert principle.engagement_state == "engaged"
+        assert principle.engagement_state == EngagementState.ENGAGED
 
 
 class TestRegistry:

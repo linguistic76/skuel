@@ -28,7 +28,7 @@ The orchestrator:
 1. Pre-allocates an instance UID per template *before* persisting, so a later
    layer can resolve a cross-reference even to an instance not yet written.
 2. Builds each frozen instance via ``_build`` with ``user_uid`` = student,
-   ``engagement_state`` = "engaged", ``source_path_step_uid`` = ps_uid, all
+   ``engagement_state`` = ``EngagementState.ENGAGED``, ``source_path_step_uid`` = ps_uid, all
    offsets/refs resolved, and every other authoring field copied through.
 3. Persists via the backend's ``create_with_spawned_from()`` — an atomic write
    of the instance node AND the ``(instance)-[:SPAWNED_FROM {spawned_at}]->(template)``
@@ -57,6 +57,7 @@ from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
+from core.models.enums.activity_enums import EngagementState
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
@@ -343,7 +344,7 @@ def _build(
     kwargs: dict[str, Any] = {
         "uid": template_to_instance[template.uid],
         "user_uid": student_uid,
-        "engagement_state": "engaged",
+        "engagement_state": EngagementState.ENGAGED,
         "source_path_step_uid": ps_uid,
         **_copy_through(template, _field_names(spec.instance_cls) - managed),
         **_resolve_offsets(template, spec.offset_rewrites, anchor),

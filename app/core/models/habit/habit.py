@@ -28,12 +28,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.habit.habit_dto import HabitDTO
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.scheduling_enums import RecurrencePattern
@@ -137,7 +138,7 @@ class Habit(UserOwnedEntity):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Habit)-[:SPAWNED_FROM]->(HabitTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # DERIVED FROM EDGE — never persisted.

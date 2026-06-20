@@ -24,12 +24,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from dataclasses import dataclass
 from datetime import date, datetime
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.goal.goal_dto import GoalDTO
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.goal.milestone import Milestone
@@ -127,7 +128,7 @@ class Goal(UserOwnedEntity):
     # PS+ACTIVITY LIFECYCLE
     # =========================================================================
     # Back-reference is (Goal)-[:SPAWNED_FROM]->(GoalTemplate).
-    engagement_state: Literal["engaged", "owned"] | None = None  # None = standalone instance
+    engagement_state: EngagementState | None = None  # None = standalone instance
 
     # =========================================================================
     # GOAL-SPECIFIC METHODS
