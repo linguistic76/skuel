@@ -209,9 +209,15 @@ counterpart on the instance for these.
 ### 4d. Registry Validation at Import
 
 `_validate_spawn_registry(SPAWN_REGISTRY)` runs at module import and raises
-`ValueError` if any `offset_rewrites` source/dest, `field_rewrites` key/value,
-`cross_edges` field, or `collection_attr` does not resolve to a real attribute.
-A field-name typo is a startup crash, not a silent runtime failure (ADR-056
+`ValueError` if any of the following fail:
+
+- `offset_rewrites` source/dest field names don't exist on the template/instance class
+- `field_rewrites` key/value field names don't exist on the template/instance class
+- `cross_edges` source field doesn't exist, or edge type isn't a `RelationshipName`
+- `collection_attr` isn't a field on both `TemplateBundle` and `ActivityBackends`
+- `template_cls` / `instance_cls` pair doesn't match `EntityType.instance_type()` — catches mis-wired entries where the wrong instance class is paired with a template
+
+A typo or mis-wiring is a startup crash, not a silent runtime failure (ADR-056
 fail-fast pattern).
 
 ---
