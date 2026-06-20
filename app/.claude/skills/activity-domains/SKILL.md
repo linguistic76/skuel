@@ -71,6 +71,33 @@ Each Activity Domain connects to knowledge via YAML `connections.*` fields, feed
 
 These edges are created at ingestion time from YAML templates. At runtime, domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, etc.) increment substance counters on knowledge nodes. See `/docs/architecture/knowledge_substance_philosophy.md`.
 
+## Cross-Domain UID Fields
+
+Every cross-domain UID field on an Activity Domain model is either a **structural anchor** (persisted to the Neo4j node, written at creation) or an **enrichment link** (DERIVED FROM EDGE — never persisted, populated at read time by a batch enrich step). Confusing the two produces stale denormalized data or phantom traversal.
+
+**Structural anchors** across all 6 Activity Domains:
+
+| Domain | Field | Relationship |
+|--------|-------|-------------|
+| Task | `fulfills_goal_uid` | Task → Goal hierarchy membership |
+| Task | `source_path_step_uid` | Spawn-time PS origin (all 6 domains share this) |
+| Task | `scheduled_event_uid` | Scheduling appointment to an Event |
+| Goal | `fulfills_goal_uid` | Sub-goal → parent goal hierarchy |
+| Goal | `selected_choice_option_uid` | Which ChoiceOption inspired this Goal (sub-entity; edge points to the Choice entity) |
+
+**Enrichment links** (DERIVED FROM EDGE — absent from DTO):
+
+| Domain | Field | Edge |
+|--------|-------|------|
+| Task | `reinforces_habit_uid` | `(Task)-[:REINFORCES_HABIT]->(Habit)` |
+| Habit | `supports_goal_uid` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` |
+| Event | `reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` |
+| Event | `contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` |
+
+`source_path_step_uid` is present on all 6 Activity Domains. It serves two purposes: (1) a read-optimization on the `SPAWNED_FROM` 2-hop path for template-spawned activities; (2) the only back-reference for activities created via non-template scheduling paths (no `SPAWNED_FROM` edge exists there). Always read the field; traverse the edge only when you need to interrogate the template itself.
+
+**See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` — complete table, sub-entity variant (`selected_choice_option_uid`), and the rule for adding new cross-domain UID fields.
+
 ## Architecture Overview
 
 ```
