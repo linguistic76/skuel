@@ -28,6 +28,7 @@ Architecture:
 from __future__ import annotations
 
 from datetime import datetime
+from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel
@@ -401,7 +402,7 @@ class UserStateAnalyzer:
                     domains_affected=[Domain.KNOWLEDGE, Domain.BUSINESS],
                     entities_involved={
                         "blocked": list(user_context.blocked_task_uids_or_empty())[:5],
-                        "prerequisites": list(user_context.prerequisites_needed.keys())[:5],
+                        "prerequisites": list(islice(user_context.prerequisites_needed, 5)),
                     },
                     recommended_actions=[
                         {"action": "Complete key prerequisites", "benefit": "Unblock progress"}

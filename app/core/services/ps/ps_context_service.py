@@ -10,6 +10,7 @@ Naming Convention: *_for_user() indicates context-awareness.
 See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 """
 
+from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from core.utils.decorators import with_error_handling
@@ -298,11 +299,11 @@ class PsContextService:
         Returns:
             List of task/habit UIDs that apply this knowledge
         """
-        opportunities = []
+        opportunities: list[str] = []
 
         # Active tasks are potential application opportunities
         # In a full implementation, we'd query the graph for APPLIES_KNOWLEDGE
         # For now, return active task UIDs as proxies
-        opportunities.extend(list(context.active_task_uids)[:3])
+        opportunities.extend(islice(context.active_task_uids, 3))
 
         return opportunities

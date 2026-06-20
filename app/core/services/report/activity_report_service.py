@@ -16,6 +16,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from datetime import datetime, timedelta
+from itertools import islice
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
@@ -235,7 +236,7 @@ class ActivityReportService:
                         "domain": ku_rich.get(uid, {}).get("ku", {}).get("domain", ""),
                         "score": mastery_scores[uid],
                     }
-                    for uid in list(mastery_scores.keys())[:10]
+                    for uid in islice(mastery_scores, 10)
                 ],
             }
 
