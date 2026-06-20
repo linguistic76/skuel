@@ -1,7 +1,7 @@
 """Unit tests for ``_PsValidator`` (Phase 4 — pure-function validator).
 
-The validator runs five checks (target_missing, wrong_type, self_reference,
-cross_ps, cycle). These tests exercise each one against synthetic
+The validator runs six checks (not_active, target_missing, wrong_type,
+self_reference, cross_ps, cycle). These tests exercise each one against synthetic
 TemplateBundles — no Neo4j, no I/O, deterministic.
 
 Integration tests covering the engage-spawn-complete-abandon round trip
@@ -11,13 +11,17 @@ the Phase 4 verification section of the plan).
 
 from __future__ import annotations
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
 from core.models.templates.goal_template import GoalTemplate
 from core.models.templates.habit_template import HabitTemplate
 from core.models.templates.principle_template import PrincipleTemplate
 from core.models.templates.task_template import TaskTemplate
-from core.services.ps_engagement._validator import TemplateBundle, _PsValidator
+from core.services.ps_engagement._template_bundle import TemplateBundle
+from core.services.ps_engagement._validator import _PsValidator
+
+_ACTIVE = EntityStatus.ACTIVE  # all test templates must be ACTIVE for non-status checks to run
 
 
 def _empty_bundle(ps_uid: str = "ps_test") -> TemplateBundle:
@@ -40,6 +44,7 @@ class TestTargetMissing:
         tt = TaskTemplate(
             uid="ttpl_t1",
             title="Practice",
+            status=_ACTIVE,
             fulfills_goal_template_uid="gtpl_does_not_exist",
         )
         bundle = TemplateBundle(
@@ -57,6 +62,7 @@ class TestTargetMissing:
         gt = GoalTemplate(
             uid="gtpl_g1",
             title="Master fundamentals",
+            status=_ACTIVE,
             inspired_by_choice_template_uid="ctpl_missing",
         )
         bundle = TemplateBundle(
@@ -73,10 +79,11 @@ class TestWrongType:
 
     def test_task_fulfills_a_habit_not_a_goal(self) -> None:
         v = _PsValidator()
-        ht = HabitTemplate(uid="htpl_morning", title="Morning routine")
+        ht = HabitTemplate(uid="htpl_morning", title="Morning routine", status=_ACTIVE)
         tt = TaskTemplate(
             uid="ttpl_x",
             title="Confused task",
+            status=_ACTIVE,
             fulfills_goal_template_uid="htpl_morning",  # habit, not goal
         )
         bundle = TemplateBundle(
@@ -96,10 +103,11 @@ class TestWrongType:
 
     def test_event_milestone_for_a_choice_not_a_goal(self) -> None:
         v = _PsValidator()
-        ct = ChoiceTemplate(uid="ctpl_path", title="Pick a path")
+        ct = ChoiceTemplate(uid="ctpl_path", title="Pick a path", status=_ACTIVE)
         et = EventTemplate(
             uid="etpl_party",
             title="Celebration",
+            status=_ACTIVE,
             milestone_celebration_for_goal_template_uid="ctpl_path",
         )
         bundle = TemplateBundle(
@@ -122,6 +130,7 @@ class TestSelfReference:
         tt = TaskTemplate(
             uid="ttpl_selfish",
             title="Self-referential",
+            status=_ACTIVE,
             parent_template_uid="ttpl_selfish",
         )
         bundle = TemplateBundle(
@@ -143,8 +152,8 @@ class TestCycleDetection:
 
     def test_two_node_cycle(self) -> None:
         v = _PsValidator()
-        a = TaskTemplate(uid="ttpl_a", title="A", parent_template_uid="ttpl_b")
-        b = TaskTemplate(uid="ttpl_b", title="B", parent_template_uid="ttpl_a")
+        a = TaskTemplate(uid="ttpl_a", title="A", status=_ACTIVE, parent_template_uid="ttpl_b")
+        b = TaskTemplate(uid="ttpl_b", title="B", status=_ACTIVE, parent_template_uid="ttpl_a")
         bundle = TemplateBundle(
             ps_uid="ps_x",
             tasks=(a, b),
@@ -180,23 +189,26 @@ class TestAllValid:
 
     def test_full_bundle_no_violations(self) -> None:
         v = _PsValidator()
-        ct = ChoiceTemplate(uid="ctpl_pick", title="Pick a path")
-        ht = HabitTemplate(uid="htpl_daily", title="Daily practice")
-        pt = PrincipleTemplate(uid="ptpl_mantra", title="Mantra")
+        ct = ChoiceTemplate(uid="ctpl_pick", title="Pick a path", status=_ACTIVE)
+        ht = HabitTemplate(uid="htpl_daily", title="Daily practice", status=_ACTIVE)
+        pt = PrincipleTemplate(uid="ptpl_mantra", title="Mantra", status=_ACTIVE)
         gt = GoalTemplate(
             uid="gtpl_goal",
             title="Reach mastery",
+            status=_ACTIVE,
             inspired_by_choice_template_uid="ctpl_pick",
         )
         et = EventTemplate(
             uid="etpl_check",
             title="Checkpoint",
+            status=_ACTIVE,
             reinforces_habit_template_uid="htpl_daily",
             milestone_celebration_for_goal_template_uid="gtpl_goal",
         )
         tt = TaskTemplate(
             uid="ttpl_task",
             title="Task",
+            status=_ACTIVE,
             fulfills_goal_template_uid="gtpl_goal",
             reinforces_habit_template_uid="htpl_daily",
             scheduled_event_template_uid="etpl_check",

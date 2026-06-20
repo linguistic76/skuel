@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from datetime import datetime
 
-EngagementState = Literal["engaged", "completed", "abandoned"]
+EngagementEdgeState = Literal["engaged", "completed", "abandoned"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -27,7 +27,7 @@ class Engagement:
 
     student_uid: str
     ps_uid: str
-    state: EngagementState
+    state: EngagementEdgeState
     since: datetime
     completed_at: datetime | None = None
     abandoned_at: datetime | None = None

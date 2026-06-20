@@ -7,7 +7,7 @@ Instance, Engagement). The facade owns ``PsEngagementService``; the helpers
 and are imported by tests via the underscore-prefixed names.
 """
 
-from core.services.ps_engagement.engagement import Engagement, EngagementState
+from core.services.ps_engagement.engagement import Engagement, EngagementEdgeState
 from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
-__all__ = ["Engagement", "EngagementState", "PsEngagementService"]
+__all__ = ["Engagement", "EngagementEdgeState", "PsEngagementService"]

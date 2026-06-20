@@ -47,6 +47,7 @@ See: ``docs/decisions/ADR-061-spawn-layer-consolidation.md``,
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, fields, replace
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
@@ -58,6 +59,7 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.enums.activity_enums import EngagementState
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
@@ -73,7 +75,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
-from ._validator import TemplateBundle
+from ._template_bundle import TemplateBundle
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -353,12 +355,23 @@ def _build(
     return spec.instance_cls(**kwargs)
 
 
+def _class_name_to_entity_type(cls: type) -> EntityType | None:
+    """Map a PascalCase class name to its EntityType (e.g. TaskTemplate → TASK_TEMPLATE)."""
+    snake = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", cls.__name__).lower()
+    try:
+        return EntityType(snake)
+    except ValueError:
+        return None
+
+
 def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None:
     """Fail-fast at import: every spec's rewrite/edge fields must resolve.
 
     Mirrors ADR-056's factory-time validation — a typo in a rewrite table, a
     bad ``collection_attr``, or an unknown edge type surfaces at module load,
-    not at first spawn.
+    not at first spawn. Also cross-checks each spec's template/instance class
+    pair against ``EntityType.instance_type()`` to catch mis-wired registry
+    entries that would silently spawn the wrong instance type.
     """
     bundle_fields = _field_names(TemplateBundle)
     backend_fields = _field_names(ActivityBackends)
@@ -368,6 +381,16 @@ def _validate_spawn_registry(registry: tuple[DomainSpawnSpec[Any], ...]) -> None
         where = f"{inst} spawn spec"
         tmpl_fields = _field_names(spec.template_cls)
         inst_fields = _field_names(spec.instance_cls)
+        # Cross-check template/instance pair against EntityType.instance_type().
+        tmpl_et = _class_name_to_entity_type(spec.template_cls)
+        inst_et = _class_name_to_entity_type(spec.instance_cls)
+        if tmpl_et is not None and tmpl_et.is_activity_template():
+            expected_inst_et = tmpl_et.instance_type()
+            if inst_et != expected_inst_et:
+                raise ValueError(
+                    f"{where}: {tmpl}.instance_type() is {expected_inst_et!r} "
+                    f"but spec.instance_cls maps to {inst_et!r}"
+                )
         if spec.collection_attr not in bundle_fields:
             raise ValueError(
                 f"{where}: collection_attr '{spec.collection_attr}' is not a TemplateBundle field"

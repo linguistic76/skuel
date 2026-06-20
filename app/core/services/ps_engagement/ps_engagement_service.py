@@ -18,7 +18,7 @@ Invariants enforced:
   (returns ``Errors.ps_validation_report`` with a typed ``list[Violation]``).
 - T2 refuses if an active engagement already exists for (student, PS).
 - T2 spawns transactionally — partial spawn is rolled back on failure.
-- T3 marks kept instances ``engagement_state="owned"`` and deletes discarded
+- T3 marks kept instances ``engagement_state=EngagementState.OWNED`` and deletes discarded
   ones; engagement edge transitions to ``state="completed"``.
 - T4 deletes all spawned instances (engaged or owned-by-this-engagement);
   engagement edge transitions to ``state="abandoned"`` (preserved for audit).
@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.choice.choice import Choice
-from core.models.enums import EntityStatus
+from core.models.enums import EngagementState, EntityStatus
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
@@ -59,7 +59,8 @@ from core.utils.result_simplified import Errors, Result
 from ._engagement_gateway import _EngagementGateway
 from ._spawn_orchestrator import ActivityBackends, _SpawnOrchestrator
 from ._template_loader import _TemplateLoader
-from ._validator import TemplateBundle, _PsValidator
+from ._template_bundle import TemplateBundle
+from ._validator import _PsValidator
 from .engagement import Engagement
 
 if TYPE_CHECKING:
@@ -284,7 +285,7 @@ class PsEngagementService:
 
         ``review`` keys are template UIDs (as authored on the PS). Spawned
         instances whose ``template_uid`` maps to ``"keep"`` transition to
-        ``engagement_state="owned"``; instances mapped to ``"discard"`` are
+        ``engagement_state=EngagementState.OWNED``; instances mapped to ``"discard"`` are
         deleted. Templates not present in ``review`` default to ``"keep"``
         (forgiving — the student didn't object).
         """
@@ -345,7 +346,7 @@ class PsEngagementService:
             )
 
         # Delete all instances belonging to this engagement — both engaged AND
-        # owned, since 'owned' instances spawned by THIS engagement edge
+        # EngagementState.OWNED instances spawned by this engagement edge
         # haven't yet outlived it.
         spawned = await self._fetch_engaged_instances(student_uid, ps_uid)
         if spawned.is_error:
@@ -395,7 +396,7 @@ class PsEngagementService:
             return Result.fail(res)
         if not res.value:
             # Instance isn't part of any active engagement (no SPAWNED_FROM
-            # edge, or engagement_state isn't 'engaged'). Nothing to do.
+            # edge, or engagement_state is not EngagementState.ENGAGED). Nothing to do.
             return Result.ok(None)
 
         row = res.value[0]
@@ -445,7 +446,7 @@ class PsEngagementService:
         """Rich per-instance rows for the completion review screen.
 
         Returns one ``ReviewItem`` per spawned instance currently in
-        ``engagement_state IN ['engaged', 'owned']`` for this (student, PS).
+        ``engagement_state in (EngagementState.ENGAGED, EngagementState.OWNED)`` for this (student, PS).
         Mirrors ``_fetch_engaged_instances`` but also pulls ``title`` so the
         UI can render meaningful rows without a second round-trip.
         """

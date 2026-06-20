@@ -23,7 +23,7 @@ from core.ports import CrudOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
-from ._validator import TemplateBundle
+from ._template_bundle import TemplateBundle
 
 if TYPE_CHECKING:
     from core.ports.ps_engagement_protocols import PsEngagementOperations
