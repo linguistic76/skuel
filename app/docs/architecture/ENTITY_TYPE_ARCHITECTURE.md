@@ -258,7 +258,32 @@ Standalone facade with 4 sub-services (Core, Budget, Reporting, Invoice). No int
 
 ### Ku, PathStep, LearningPath, Exercise — Curriculum
 
-Educational foundation. PathStep extends `Curriculum(Entity)` and is THE curriculum content entity (composes atomic Kus into coherent learning content). Ku extends `Entity` directly (lightweight atomic unit). All admin-created, publicly readable via `ContentScope.SHARED`.
+**The knowledge / applied-knowledge hierarchy:**
+
+> PathStep IS knowledge. Exercise is APPLIED knowledge. This hierarchy is fundamental.
+
+These four EntityTypes form a hierarchy, not a flat peer group:
+
+| EntityType | Role | Hierarchy position |
+|---|---|---|
+| Ku | Atomic knowledge unit | Foundation — irreducible concept |
+| PathStep | Composed knowledge | Built on Kus — the teachable unit |
+| LearningPath | Organisational structure | Sequences PathSteps into a path |
+| Exercise | Applied knowledge | Anchored below PathStep — instruction template |
+
+PathStep and Exercise are **NOT peers**. Exercise is subordinate to PathStep via
+`(PathStep)-[:HAS_EXERCISE]->(Exercise)` — the same structural relationship as sub-goal
+under parent goal (`Goal.fulfills_goal_uid`). `Exercise.path_step_uid` is a
+**hierarchy-membership property** (identifies which knowledge unit this instruction
+template belongs to), not a scoring or enrichment field. Both the graph edge and the
+property are written at creation time so both lookup directions are always available.
+
+Exercise and RevisedExercise share `is_applied_knowledge() == True` in the EntityType
+classification (`entity_enums.py`). LearningPath alone is `is_curriculum_structure()`.
+
+All four are admin-created and publicly readable via `ContentScope.SHARED`. Ku extends
+`Entity` directly (lightweight atomic unit); PathStep, LearningPath, and Exercise extend
+`Curriculum(Entity)` to inherit substance tracking, learning metadata, and confidence fields.
 
 ### Resource — Curated External Content
 

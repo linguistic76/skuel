@@ -5,9 +5,17 @@ Curriculum - Curriculum Domain Base Class
 Frozen dataclass base for all curriculum-carrying entities. This is a BASE CLASS
 only — it does NOT represent a concrete entity type. Concrete leaf classes are:
 
-    PathStep(Curriculum)     → EntityType.PATH_STEP     — THE curriculum content entity
-    LearningPath(Curriculum) → EntityType.LEARNING_PATH
-    Exercise(Curriculum)     → EntityType.EXERCISE
+    PathStep(Curriculum)     → EntityType.PATH_STEP     — knowledge (composes Kus, the teachable unit)
+    LearningPath(Curriculum) → EntityType.LEARNING_PATH — structure (sequences PathSteps)
+    Exercise(Curriculum)     → EntityType.EXERCISE      — applied knowledge (anchored to PathStep)
+
+**Knowledge principle:** PathStep IS knowledge. Exercise is APPLIED knowledge — the
+instruction template that operationalises PathStep content into concrete practice.
+PathStep and Exercise are NOT peers: Exercise is subordinate to PathStep via
+(PathStep)-[:HAS_EXERCISE]->(Exercise), the same hierarchy relationship as
+Goal.fulfills_goal_uid (sub-goal under parent goal). All three inherit from Curriculum
+because they share substance tracking, learning metadata, and confidence fields —
+not because they are structurally equivalent.
 
 Adds ~23 fields to Entity:
 - Confidence (1): admin-assessed certainty about content quality/accuracy
@@ -55,8 +63,16 @@ class Curriculum(Entity):
     Base class for curriculum domain entities.
 
     Intermediate class adding confidence, learning metadata, substance tracking,
-    and curriculum-specific methods to Entity. Leaf classes (PathStep,
-    LearningPath, Exercise) inherit from Curriculum and set their own entity_type.
+    and curriculum-specific methods to Entity. Leaf classes inherit from Curriculum
+    and set their own entity_type — but serve fundamentally different roles:
+
+    - PathStep carries knowledge (composes Kus, is the teachable unit)
+    - LearningPath organises knowledge (sequences PathSteps into a path)
+    - Exercise applies knowledge (instruction template, subordinate to PathStep)
+
+    PathStep and Exercise share this base class because both need substance tracking
+    and learning metadata — not because they occupy the same tier. Exercise is always
+    anchored below a PathStep in the hierarchy.
 
     Confidence: Admin-assessed certainty about content quality/accuracy
     (UNCERTAIN → LOW → MEDIUM → HIGH → CERTAIN). Distinct from substance —

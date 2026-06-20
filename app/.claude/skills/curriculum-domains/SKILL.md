@@ -13,16 +13,20 @@
 
 ## The 4 Curriculum Entity Types
 
-Four structural patterns for organizing knowledge:
+> **PathStep IS knowledge. Exercise is APPLIED knowledge.** These four types form a
+> hierarchy — not a flat peer group.
 
-| Domain | UID Format | Topology | Purpose | Service |
-|--------|-----------|----------|---------|---------|
+| Domain | UID Format | Topology | Role | Service |
+|--------|-----------|----------|------|---------|
 | **Ku** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
-| **PS (PathStep)** | `ps:{random}` | Unit | THE curriculum content entity — composes Kus into learning content | `PsService` |
-| **LP (LearningPath)** | `lp:{random}` | Path | Complete learning sequences | `LpService` |
-| **Exercise** | varies | Instruction | Assignment template, assessment, or AI feedback template | `ExerciseService` |
+| **PS (PathStep)** | `ps:{random}` | Unit | THE curriculum content entity — composed knowledge built on Kus | `PsService` |
+| **LP (LearningPath)** | `lp:{random}` | Path | Organisational structure — sequences PathSteps | `LpService` |
+| **Exercise** | varies | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
+
+Exercise is **subordinate** to PathStep, not a peer structural pattern. `EntityType.EXERCISE.is_applied_knowledge()` → `True`; `EntityType.EXERCISE.is_curriculum_structure()` → `False`.
 
 **Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
+`(PathStep)-[:HAS_EXERCISE]->(Exercise)` — PathSteps anchor applied-knowledge instruction templates.
 `(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives.
 
 **Note on Lesson (2026-04):** `Lesson` was merged into `PathStep`. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"pathstep"` for DSL parsing; `"lesson"` is ingestion-only.
@@ -38,7 +42,7 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 
 The interaction edge between layers is where SKUEL's power emerges:
 ```cypher
-(:User)-[:OWNS]->(:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(:Exercise)<-[:USES_EXERCISE]-(:PathStep)
+(:User)-[:OWNS]->(:UserEntry)-[:FULFILLS_EXERCISE {revision}]->(:Exercise)<-[:HAS_EXERCISE]-(:PathStep)
 ```
 
 See: `docs/architecture/ONTOLOGY_ARCHITECTURE.md`
