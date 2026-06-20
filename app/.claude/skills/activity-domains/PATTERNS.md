@@ -210,7 +210,8 @@ async def enrich_habits_with_goal_links(
     field is never written back.
     """
     links = await backend.get_goal_links_for_habits([h.uid for h in habits])
-    # fail-soft: if lookup fails, habits returned unchanged (field stays None)
+    if links.is_error or not links.value:
+        return habits  # fail-soft: return unchanged if edge lookup fails or is empty
     link_map = links.value   # dict[habit_uid, goal_uid]
     return [
         replace(habit, supports_goal_uid=link_map[habit.uid]) if habit.uid in link_map else habit
