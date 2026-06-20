@@ -811,7 +811,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Mock data - in production, query actual completion counts per day
         # For now, use current context to generate plausible trends
-        tasks_completed_recent = len(list(context.completed_task_uids)[:30])
+        tasks_completed_recent = min(len(context.completed_task_uids), 30)
         habits_active = len(context.active_habit_uids)
 
         # Generate simple mock trends (would be real data in production)

@@ -61,6 +61,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from itertools import islice
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard, cast
 
 from core.models.enums import (
@@ -825,7 +826,7 @@ class UserContext:
             return {
                 "type": "unblock",
                 "action": "complete_prerequisites",
-                "items": list(self.prerequisites_needed.keys())[:3],
+                "items": list(islice(self.prerequisites_needed, 3)),
             }
         elif at_risk := self.at_risk_habits_or_empty():
             # Maintain streaks (empty at standard depth — accessor handles the gate)

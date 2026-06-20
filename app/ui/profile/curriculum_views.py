@@ -5,6 +5,7 @@ Covers: KU (Knowledge Units), PS (PathSteps), LP (Learning Paths).
 See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
+from itertools import islice
 from typing import Any
 
 from fasthtml.common import H3, A, Div, P, Span
@@ -206,7 +207,7 @@ def _learning_paths_list(context: UserContext) -> Div:
 
 def _ready_to_learn_list(context: UserContext) -> Div:
     """List of knowledge units ready to learn (prerequisites met)."""
-    ready_uids = list(context.ready_to_learn_uids)[:5]
+    ready_uids = list(islice(context.ready_to_learn_uids, 5))
 
     if not ready_uids:
         # Check if there are blocked items

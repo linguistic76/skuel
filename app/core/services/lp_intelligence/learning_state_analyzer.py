@@ -24,6 +24,7 @@ Architecture:
 """
 
 from datetime import datetime
+from itertools import islice
 from typing import Any
 
 from core.models.enums import GuidanceMode
@@ -420,7 +421,7 @@ class LearningStateAnalyzer:
             mastery_average=user_context.mastery_average,
             concepts_mastered=len(user_context.mastered_knowledge_uids),
             concepts_in_progress=len(user_context.in_progress_knowledge_uids),
-            concepts_needing_review=list(user_context.prerequisites_needed.keys())[:5],
+            concepts_needing_review=list(islice(user_context.prerequisites_needed, 5)),
             # Assessment
             readiness=readiness,
             confidence_score=self._calculate_confidence(understanding, engagement),
@@ -468,7 +469,7 @@ class LearningStateAnalyzer:
 
         try:
             # Combine mastered knowledge UIDs into learning profile text
-            mastered_uids = list(user_context.mastered_knowledge_uids)[:20]  # Top 20
+            mastered_uids = list(islice(user_context.mastered_knowledge_uids, 20))
             profile_text = " ".join(mastered_uids)
 
             if not profile_text:
