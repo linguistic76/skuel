@@ -1,6 +1,6 @@
-# Activity Domains - Route Registration Pattern
+# Activity Domains - Implementation Patterns
 
-> The standard way to wire a new or updated Activity Domain route file.
+> Implementation patterns shared across the 6 Activity Domains.
 
 ---
 
@@ -187,6 +187,119 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 **Domain-specific analytics** live on the service facade, not in route closures. Example: `PrinciplesService.get_analytics_summary(user_uid)` → `Result[dict]` (total, core_count, adherence, reflections).
 
 **Tests:** `tests/unit/services/activity/test_activity_query_helpers.py` — 49 tests covering remaining Python-side helpers (sort, task secondary filters, principle filters).
+
+---
+
+## Pattern: Enrichment Link Population (DERIVED FROM EDGE fields)
+
+**Problem**: Some scoring fields on frozen domain models aren't persisted — they exist as graph edges. Scorers need the UID in-memory without making N+1 per-entity edge queries.
+
+**Solution**: Module-level enrich helpers batch-look up the edges and return new frozen instances via `dataclasses.replace()`. Called only by the paths that need the derived value; never called on every `get()`/`list()`.
+
+**How it works (all three are identical in shape):**
+
+```python
+# core/services/habits/_goal_links.py
+async def enrich_habits_with_goal_links(
+    backend: HabitsOperations,
+    habits: list[Habit],
+    active_goal_uids: list[str] | None = None,
+) -> list[Habit]:
+    """Return habits with derived ``supports_goal_uid`` populated from the
+    (Habit)-[:SUPPORTS_GOAL]->(Goal) edge. Graph is the source of truth;
+    field is never written back.
+    """
+    links = await backend.get_goal_links_for_habits([h.uid for h in habits])
+    # fail-soft: if lookup fails, habits returned unchanged (field stays None)
+    link_map = links.value   # dict[habit_uid, goal_uid]
+    return [
+        replace(habit, supports_goal_uid=link_map[habit.uid]) if habit.uid in link_map else habit
+        for habit in habits
+    ]
+```
+
+**The four enrichment helpers:**
+
+| Helper | File | Field populated | Edge |
+|--------|------|----------------|------|
+| `enrich_habits_with_goal_links(backend, habits, active_goal_uids?)` | `habits/_goal_links.py` | `Habit.supports_goal_uid` | `(Habit)-[:SUPPORTS_GOAL]->(Goal)` |
+| `enrich_events_with_habit_links(backend, events)` | `events/_habit_links.py` | `Event.reinforces_habit_uid` | `(Event)-[:REINFORCES_HABIT]->(Habit)` |
+| `enrich_events_with_goal_links(backend, events, ...)` | `events/_goal_links.py` | `Event.contributes_to_goal_uid` | `(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` |
+| inline in `tasks_search_service.py` | `get_habit_links_for_tasks` | `Task.reinforces_habit_uid` | `(Task)-[:REINFORCES_HABIT]->(Habit)` |
+
+**Rules:**
+- Fail-soft by convention — `SKUEL005` suppressed with explanation. A missing edge is common (not all habits support a goal); scoring should degrade gracefully, not error.
+- Call before the scoring/prioritization step, not at the top of `get_filtered_context()` or every list fetch.
+- Never write the derived field back — it vanishes at the end of the request. The edge IS the persistent state.
+- Adding a new enrichment link: add the helper module, call it in the scoring path, mark the field `# DERIVED FROM EDGE` on the model, keep it absent from the DTO.
+
+**See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` — taxonomy of which fields are structural anchors vs enrichment links.
+
+---
+
+## Pattern: Curriculum-Spawned Activity (`engagement_state` + `source_path_step_uid`)
+
+**Problem**: Activities can be created in two fundamentally different contexts: standalone (user creates a task manually) and curriculum-engaged (a student engages a PathStep and the spawn layer creates personalized instances). Both look like the same domain model. The consuming code needs to know which is which.
+
+**The two creation paths:**
+
+**1. PathStep engagement (spawn path)** — `_SpawnOrchestrator` reads the PathStep's `TemplateBundle` and creates one Activity per template:
+
+```
+PathStep.engage(student_uid)
+    → _SpawnOrchestrator._build(spec, template, student_uid, ps_uid)
+        → Activity(
+              engagement_state="engaged",
+              source_path_step_uid=ps_uid,
+              ...all authoring fields from template...
+          )
+        → backend.create_with_spawned_from(instance, template_uid)
+              # atomic: writes node + (instance)-[:SPAWNED_FROM]->(template) edge
+```
+
+- `engagement_state = "engaged"` marks the instance as freshly spawned.
+- `source_path_step_uid` = the PathStep UID — persisted property (primary read path).
+- `(instance)-[:SPAWNED_FROM]->(ActivityTemplate)` edge — graph back-reference (traverse only when you need the template itself).
+- Student can promote to `"owned"` (they've personalised it enough to break the template relationship).
+
+**2. Standalone creation** — `service.create_task(request, user_uid)`:
+
+```python
+Activity(
+    engagement_state=None,       # None = standalone
+    source_path_step_uid=None,   # No PS origin
+    ...
+)
+# No SPAWNED_FROM edge created.
+```
+
+Some teacher/admin flows set `source_path_step_uid` directly without going through the spawn layer — no `SPAWNED_FROM` edge exists in those cases, which is why the property, not the 2-hop edge, is the universal check.
+
+**Checking curriculum origin in service code:**
+
+```python
+# Check on the frozen model (works for both creation paths)
+task.is_from_path_step          # bool — source_path_step_uid is not None
+task.source_path_step_uid       # str | None — the PS uid
+task.engagement_state           # "engaged" | "owned" | None
+
+# Check at query time (curriculum-spawned only, excludes direct-set)
+# (Task)-[:SPAWNED_FROM]->(TaskTemplate)<-[:HAS_TASK_TEMPLATE]-(PathStep)
+# Use this only when you need the template; for existence, use the field.
+```
+
+**Spawn layer dependency order** (important when adding a 7th domain):
+
+```
+Layer 1: Choice, Habit, Principle   # nothing depends on these within a spawn
+Layer 2: Goal                        # may reference Choice (INSPIRED_BY_CHOICE edge)
+Layer 3: Event                       # may reference Habit, Goal
+Layer 4: Task                        # may reference Goal, Habit, Event
+```
+
+`DomainSpawnSpec.layer` in `SPAWN_REGISTRY` drives ordering. A new domain that references layer-N entities must be layer N+1 or higher.
+
+**See:** `ADR-061-spawn-layer-consolidation.md`, `core/services/ps_engagement/_spawn_orchestrator.py`, `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md § source_path_step_uid in depth`.
 
 ---
 
