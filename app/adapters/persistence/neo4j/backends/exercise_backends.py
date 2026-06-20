@@ -46,7 +46,45 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     - unlink_from_curriculum         — DELETE REQUIRES_KNOWLEDGE relationship
     - get_required_knowledge         — Query all KUs required by an exercise
     - get_exercise_for_submission    — FULFILLS_EXERCISE reverse lookup
+    - link_to_path_step              — MERGE HAS_EXERCISE (path_step -> exercise)
     """
+
+    async def link_to_path_step(self, exercise_uid: str, path_step_uid: str) -> Result[bool]:
+        """
+        Create HAS_EXERCISE relationship from PathStep to Exercise.
+
+        Dual-write partner for Exercise.path_step_uid — keeps the denormalized
+        field and the graph edge in sync. Called during create_exercise() for
+        PERSONAL-scope exercises.
+
+        Args:
+            exercise_uid: Exercise UID (entity_type='exercise')
+            path_step_uid: PathStep UID (entity_type='path_step')
+
+        Returns:
+            Result[bool] - True if relationship created or already exists
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (ps:Entity {{uid: $path_step_uid, entity_type: 'path_step'}})
+            MATCH (exercise:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
+            MERGE (ps)-[r:{RelationshipName.HAS_EXERCISE}]->(exercise)
+            ON CREATE SET r.created_at = datetime()
+            RETURN true as success
+            """,
+            {"exercise_uid": exercise_uid, "path_step_uid": path_step_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.not_found(
+                    resource="PathStep or Exercise",
+                    identifier=f"{path_step_uid} -> {exercise_uid}",
+                )
+            )
+        return Result.ok(True)
 
     async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
         """

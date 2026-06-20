@@ -288,10 +288,10 @@ class TestLsFieldWiring:
             assert field in config
 
     def test_total_field_count(self):
-        """PS should have 15 relationship fields wired (knowledge + steps + paths + activity wiring + connections)."""
+        """PS should have 16 relationship fields wired (knowledge + steps + paths + activity wiring + connections + exercises)."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        assert len(config) == 15
+        assert len(config) == 16
 
 
 # ============================================================================

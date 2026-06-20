@@ -143,6 +143,87 @@ class ExerciseService(BaseService):
     # CREATE
     # ========================================================================
 
+    async def create(self, entity: Exercise) -> Result[Exercise]:
+        """
+        Create an Exercise with all required side effects.
+
+        Handles scope-specific validation and relationship writes:
+        - All scopes: (User)-[:OWNS]->(Exercise) via entity.owner_uid
+        - PERSONAL: (PathStep)-[:HAS_EXERCISE]->(Exercise) dual-write
+        - ASSIGNED: (Exercise)-[:SHARED_WITH_GROUP]->(Group) sharing
+
+        Called by the CRUD route factory (via entity_converter) and by
+        create_exercise() (the convenience builder that also generates UIDs).
+        """
+        uid = entity.uid
+
+        # Scope-specific validation
+        if entity.scope == ExerciseScope.PERSONAL and not entity.path_step_uid:
+            return Result.fail(
+                Errors.validation(
+                    "path_step_uid is required for personal exercises", field="path_step_uid"
+                )
+            )
+        if entity.scope == ExerciseScope.ASSIGNED and not entity.group_uid:
+            return Result.fail(
+                Errors.validation("group_uid is required for assigned exercises", field="group_uid")
+            )
+        if entity.scope == ExerciseScope.ASSESSMENT and not entity.scoring_rubric:
+            return Result.fail(
+                Errors.validation(
+                    "scoring_rubric is required for assessment exercises",
+                    field="scoring_rubric",
+                )
+            )
+
+        result = await self.backend.create(entity)
+        if result.is_error:
+            self.logger.error(f"Failed to create exercise: {result.error}")
+            return result
+
+        # Create OWNS relationship (owner → exercise)
+        if entity.owner_uid:
+            owns_result = await self.backend.create_owns_relationship(entity.owner_uid, uid)
+            if owns_result.is_error:
+                self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+
+        # Dual-write: HAS_EXERCISE edge mirrors Exercise.path_step_uid for PERSONAL scope
+        if entity.scope == ExerciseScope.PERSONAL and entity.path_step_uid:
+            ps_result = await self.backend.link_to_path_step(uid, entity.path_step_uid)
+            if ps_result.is_error:
+                self.logger.warning(
+                    f"HAS_EXERCISE edge failed for {uid} -> {entity.path_step_uid}: "
+                    f"{ps_result.expect_error()}"
+                )
+
+        # Share assigned exercises with the target group via the unified
+        # SHARED_WITH_GROUP mechanism (ADR-053). FOR_GROUP has been retired.
+        if entity.scope == ExerciseScope.ASSIGNED and entity.group_uid:
+            if self.sharing_service is None:
+                self.logger.error(
+                    "ExerciseService.sharing_service not wired; ASSIGNED exercise "
+                    f"{uid} was not shared with group {entity.group_uid}"
+                )
+            else:
+                share_result = await self.sharing_service.share_with_group(
+                    entity_uid=uid,
+                    owner_uid=entity.owner_uid or "",
+                    group_uid=entity.group_uid,
+                    share_version="original",
+                )
+                if share_result.is_error:
+                    self.logger.warning(
+                        f"Failed to share exercise {uid} with group {entity.group_uid}: "
+                        f"{share_result.expect_error()}"
+                    )
+                else:
+                    self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {entity.group_uid}")
+
+        self.logger.info(
+            f"Exercise created: {uid} - {entity.title} (scope={entity.scope.value})"
+        )
+        return Result.ok(entity)
+
     @with_error_handling("create_exercise", error_type="database")
     async def create_exercise(
         self,
@@ -159,53 +240,21 @@ class ExerciseService(BaseService):
         form_schema: list[dict[str, Any]] | None = None,
         scoring_rubric: list[dict[str, Any]] | None = None,
         pass_threshold: float | None = None,
+        path_step_uid: str | None = None,
     ) -> Result[Exercise]:
         """
-        Create a new Exercise.
+        Convenience builder: constructs an Exercise from named fields and delegates
+        to create() for persistence and side effects.
 
-        For ASSIGNED scope (teacher exercises):
-        - group_uid is required
-        - Creates a SHARED_WITH_GROUP relationship to the target group
-
-        For ASSESSMENT scope (formal tests):
-        - scoring_rubric is required
-        - pass_threshold defaults to 0.7 if not specified
-
-        Args:
-            user_uid: User who owns this exercise
-            name: Display name
-            instructions: Plain text instructions for LLM
-            model: LLM model to use
-            context_notes: Optional reference materials
-            domain: Optional domain categorization
-            scope: PERSONAL (default), ASSIGNED (teacher exercise), or ASSESSMENT (formal test)
-            due_date: Due date for ASSIGNED/ASSESSMENT scope
-            processor_type: LLM, HUMAN, or HYBRID
-            group_uid: Target group UID for ASSIGNED scope
-            form_schema: Optional inline form definition
-            scoring_rubric: Assessment criteria with weights (required for ASSESSMENT)
-            pass_threshold: Minimum score to pass (0.0-1.0, default 0.7 for ASSESSMENT)
-
-        Returns:
-            Result[Exercise] - The created exercise
+        For PERSONAL scope: path_step_uid required.
+        For ASSIGNED scope: group_uid required.
+        For ASSESSMENT scope: scoring_rubric required.
         """
-        if scope == ExerciseScope.ASSIGNED and not group_uid:
-            return Result.fail(
-                Errors.validation("group_uid is required for assigned exercises", field="group_uid")
-            )
-        if scope == ExerciseScope.ASSESSMENT and not scoring_rubric:
-            return Result.fail(
-                Errors.validation(
-                    "scoring_rubric is required for assessment exercises",
-                    field="scoring_rubric",
-                )
-            )
-
-        uid = UIDGenerator.generate_uid("ex", name)
-
         # Default pass_threshold to 0.7 for assessments
         if scope == ExerciseScope.ASSESSMENT and pass_threshold is None:
             pass_threshold = 0.7
+
+        uid = UIDGenerator.generate_uid("ex", name)
 
         exercise = Exercise(
             uid=uid,
@@ -222,44 +271,11 @@ class ExerciseService(BaseService):
             form_schema=tuple(form_schema) if form_schema else None,
             scoring_rubric=tuple(scoring_rubric) if scoring_rubric else None,
             pass_threshold=pass_threshold,
+            path_step_uid=path_step_uid,
+            owner_uid=user_uid,
         )
 
-        result = await self.backend.create(exercise)
-
-        if result.is_error:
-            self.logger.error(f"Failed to create exercise: {result.error}")
-            return result
-
-        # Create OWNS relationship (user → exercise)
-        owns_result = await self.backend.create_owns_relationship(user_uid, uid)
-        if owns_result.is_error:
-            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
-
-        # Share assigned exercises with the target group via the unified
-        # SHARED_WITH_GROUP mechanism (ADR-053). FOR_GROUP has been retired.
-        if scope == ExerciseScope.ASSIGNED and group_uid:
-            if self.sharing_service is None:
-                self.logger.error(
-                    "ExerciseService.sharing_service not wired; ASSIGNED exercise "
-                    f"{uid} was not shared with group {group_uid}"
-                )
-            else:
-                share_result = await self.sharing_service.share_with_group(
-                    entity_uid=uid,
-                    owner_uid=user_uid,
-                    group_uid=group_uid,
-                    share_version="original",
-                )
-                if share_result.is_error:
-                    self.logger.warning(
-                        f"Failed to share exercise {uid} with group {group_uid}: "
-                        f"{share_result.expect_error()}"
-                    )
-                else:
-                    self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {group_uid}")
-
-        self.logger.info(f"Exercise created: {uid} - {name} (scope={scope.value})")
-        return Result.ok(exercise)
+        return await self.create(exercise)
 
     # ========================================================================
     # READ

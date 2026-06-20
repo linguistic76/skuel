@@ -66,7 +66,8 @@ class Exercise(Curriculum):
     - EntryReport = instructions + entry content -> LLM -> response
 
     Exercise-specific fields (13):
-    - path_step_uid: PathStep this exercise belongs to (required for PERSONAL scope)
+    - path_step_uid: PathStep this exercise belongs to (required for PERSONAL scope; mirrors HAS_EXERCISE edge)
+    - owner_uid: UID of the user who created this exercise
     - instructions: LLM prompt for processing
     - model: Which LLM to use
     - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group), or ASSESSMENT (formal test)
@@ -116,11 +117,12 @@ class Exercise(Curriculum):
             object.__setattr__(self, "expected_modality", derived)
 
     # =========================================================================
-    # EXERCISE-SPECIFIC FIELDS (13)
+    # EXERCISE-SPECIFIC FIELDS (14)
     # =========================================================================
     path_step_uid: str | None = (
-        None  # PathStep anchor — required for PERSONAL scope (mirrors RELATED_TO edge)
+        None  # PathStep anchor — required for PERSONAL scope (mirrors HAS_EXERCISE edge)
     )
+    owner_uid: str | None = None  # UID of the user who created this exercise
     exercise_number: int | None = (
         None  # Human-readable exercise number (set in YAML, embedded in downloaded .md)
     )

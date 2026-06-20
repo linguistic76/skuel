@@ -50,6 +50,7 @@ class ExerciseDTO(CurriculumDTO):
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================
     path_step_uid: str | None = None  # PathStep anchor — required for PERSONAL scope
+    owner_uid: str | None = None  # UID of the user who created this exercise
     exercise_number: int | None = None
     instructions: str | None = None
     model: str = "claude-sonnet-4-6"

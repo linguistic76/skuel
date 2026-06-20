@@ -21,6 +21,7 @@ from adapters.inbound.route_factories import (
 from core.models.enums import ContentScope
 from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import ExerciseCreateRequest, ExerciseUpdateRequest
+from core.services.conversion_service import ConversionServiceV2
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -47,6 +48,7 @@ EXERCISES_CONFIG = DomainRouteConfig(
         scope=ContentScope.USER_OWNED,
         require_role=UserRole.TEACHER,
         user_service_attr="user",
+        entity_converter=ConversionServiceV2.exercise_create_to_pure,
     ),
 )
 
