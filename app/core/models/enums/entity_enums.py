@@ -165,6 +165,30 @@ class EntityType(StrEnum):
         """Check if this is a user activity domain."""
         return self in _ACTIVITY_TYPES
 
+    def is_activity_template(self) -> bool:
+        """Check if this is one of the 6 PS-owned Activity Template types."""
+        return self in _ACTIVITY_TEMPLATE_TYPES
+
+    def instance_type(self) -> "EntityType":
+        """Return the Activity instance type spawned by this template.
+
+        Only valid for the 6 Activity Template types; raises ValueError otherwise.
+        """
+        try:
+            return _TEMPLATE_TO_INSTANCE[self]
+        except KeyError:
+            raise ValueError(f"{self!r} is not an Activity Template type") from None
+
+    def template_type(self) -> "EntityType":
+        """Return the Activity Template type that spawns this instance type.
+
+        Only valid for the 6 Activity Domain instance types; raises ValueError otherwise.
+        """
+        try:
+            return _INSTANCE_TO_TEMPLATE[self]
+        except KeyError:
+            raise ValueError(f"{self!r} is not an Activity Domain instance type") from None
+
     def is_destination(self) -> bool:
         """Check if this is the life path destination."""
         return self == EntityType.LIFE_PATH
@@ -291,6 +315,27 @@ _ACTIVITY_TYPES = frozenset(
         EntityType.PRINCIPLE,
     }
 )
+_ACTIVITY_TEMPLATE_TYPES = frozenset(
+    {
+        EntityType.TASK_TEMPLATE,
+        EntityType.GOAL_TEMPLATE,
+        EntityType.HABIT_TEMPLATE,
+        EntityType.EVENT_TEMPLATE,
+        EntityType.CHOICE_TEMPLATE,
+        EntityType.PRINCIPLE_TEMPLATE,
+    }
+)
+_TEMPLATE_TO_INSTANCE: dict[EntityType, EntityType] = {
+    EntityType.TASK_TEMPLATE: EntityType.TASK,
+    EntityType.GOAL_TEMPLATE: EntityType.GOAL,
+    EntityType.HABIT_TEMPLATE: EntityType.HABIT,
+    EntityType.EVENT_TEMPLATE: EntityType.EVENT,
+    EntityType.CHOICE_TEMPLATE: EntityType.CHOICE,
+    EntityType.PRINCIPLE_TEMPLATE: EntityType.PRINCIPLE,
+}
+_INSTANCE_TO_TEMPLATE: dict[EntityType, EntityType] = {
+    v: k for k, v in _TEMPLATE_TO_INSTANCE.items()
+}
 _SHARED_TYPES = frozenset(
     {
         EntityType.KU,
