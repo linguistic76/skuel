@@ -540,10 +540,7 @@ class TeacherReviewService:
 
         # Resolve MasteryImpact from the linked Exercise (default MODERATE for backward compat)
         raw_impact = record.get("mastery_impact")
-        try:
-            impact = MasteryImpact(str(raw_impact)) if raw_impact else MasteryImpact.MODERATE
-        except ValueError:
-            impact = MasteryImpact.MODERATE
+        impact = MasteryImpact.from_value(raw_impact)
 
         # Explicitly propagate mastery using ReportMasteryService
         propagate_result = await self.report_mastery_service.propagate_mastery(

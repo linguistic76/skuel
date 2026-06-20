@@ -168,15 +168,8 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         difficulty: StepDifficulty | None = None
         query_lower = query.lower()
 
-        difficulty_map = {
-            "trivial": StepDifficulty.TRIVIAL,
-            "easy": StepDifficulty.EASY,
-            "moderate": StepDifficulty.MODERATE,
-            "challenging": StepDifficulty.CHALLENGING,
-            "advanced": StepDifficulty.ADVANCED,
-        }
-        for keyword, diff in difficulty_map.items():
-            if keyword in query_lower:
+        for diff in StepDifficulty:
+            if diff.value in query_lower:
                 difficulty = diff
                 break
 
