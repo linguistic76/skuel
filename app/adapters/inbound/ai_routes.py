@@ -19,6 +19,7 @@ from starlette.responses import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
 from core.models.enums import ContentScope
 from core.services.intelligence_tier_service import get_user_intelligence_tier
@@ -177,8 +178,8 @@ async def _ai_route(
     # Per-user tier gate (ADR-043): within a FULL-tier system, REGISTERED users
     # are capped at CORE and may not consume AI routes.
     if services.intelligence_tier is not None:
-        user = await services.user.get_user(user_uid)
-        if user.is_error or user.value is None:
+        user = require_found(await services.user.get_user(user_uid), "User", user_uid)
+        if user.is_error:
             return JSONResponse(
                 status_code=503,
                 content={"error": "Could not verify user access tier"},
