@@ -21,7 +21,7 @@ act, decide, and live. SKUEL models this through four phases: **how you practise
 (Exercise), **what you produce** (UserEntry), **what the system says back**
 (EntryReport), and **how the teacher guides revision** (RevisedExercise). PathStep
 is the *curriculum anchor* — the knowledge the loop exists to transmit — linked via
-`(PathStep)-[:RELATED_TO]->(Exercise)` (denormalized as `Exercise.path_step_uid` for
+`(PathStep)-[:HAS_EXERCISE]->(Exercise)` (denormalized as `Exercise.path_step_uid` for
 PERSONAL scope). It sits outside the cycle as context, not as a phase.
 
 Every layer is a frozen Python dataclass. Every connection is a Neo4j graph relationship.
@@ -39,7 +39,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 ║  CURRICULUM TRACK (artifact-based)                                       ║
 ║                                                                          ║
 ║  (anchor)                                                                ║
-║  [PathStep] ──RELATED_TO──▶ [Exercise] ──▶ [UserEntry] ──▶ [EntryReport]
+║  [PathStep] ──HAS_EXERCISE──▶ [Exercise] ──▶ [UserEntry] ──▶ [EntryReport]
 ║   admin                       teacher       student            teacher/AI║
 ║   creates                     assigns       produces           responds  ║
 ║                                                                 │        ║
@@ -96,7 +96,7 @@ The mechanism differs, but the loop closes either way.
 
 **What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
 sits within LearningPaths. Admin-created and shared across all users. Every Exercise is
-grounded in one or more PathSteps via `(PathStep)-[:RELATED_TO]->(Exercise)` and, for
+grounded in one or more PathSteps via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` and, for
 PERSONAL-scope exercises, denormalized as `Exercise.path_step_uid`. PathSteps compose
 atomic Kus via `(PathStep)-[:USES_KU]->(Ku)`.
 
@@ -545,7 +545,7 @@ endpoints lazy-load into the page:
 
 | Section | Endpoint | What It Shows |
 |---|---|---|
-| **Exercises** | `GET /learning-loop/ps/{ps_uid}/exercises` | Exercises linked via `RELATED_TO`, with status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and contextual action links |
+| **Exercises** | `GET /learning-loop/ps/{ps_uid}/exercises` | Exercises linked via `HAS_EXERCISE`, with status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and contextual action links |
 | **My Submissions** | `GET /learning-loop/ps/{ps_uid}/submissions` | User's submissions discovered via `Interaction -[:INTERACTION_DURING]-> PathStep`, with status badges and links to view submission or feedback |
 | **Feedback** | `GET /learning-loop/ps/{ps_uid}/feedback` | Same submissions filtered to those with reports, showing outcome badges (Approved / Revision Requested) |
 

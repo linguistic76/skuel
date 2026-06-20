@@ -311,7 +311,7 @@ form_schema:
 
 **How the loop closes:**
 
-Once an Exercise is wired to a PathStep (via `(PathStep)-[:RELATED_TO]->(Exercise)`), the four-phase loop runs automatically:
+Once an Exercise is wired to a PathStep (via `(PathStep)-[:HAS_EXERCISE]->(Exercise)`), the four-phase loop runs automatically:
 
 ```
 1  Exercise    — the practice prompt the learner works from
@@ -633,7 +633,7 @@ For each PathStep, write one Exercise that closes the learning loop. The Exercis
 
 - Write `instructions` as a coach persona + task: "You are a mindfulness coach. The student has just completed their first breath-awareness session..."
 - Use `form_schema` for beginner content (lower barrier to entry) or omit it for file-upload responses
-- Wire the Exercise to its PathStep after ingestion via the graph relationship `(PathStep)-[:RELATED_TO]->(Exercise)`
+- Wire the Exercise to its PathStep at ingestion via `exercise_uids` in the PathStep YAML — this creates the `(PathStep)-[:HAS_EXERCISE]->(Exercise)` graph edge automatically
 
 ### Step 4: Define the Supporting Activities (10 minutes each)
 

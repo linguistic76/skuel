@@ -9,12 +9,12 @@ The Learning Loop is the core of SKUEL. Everything in the app — tasks, goals, 
 The loop has four phases, anchored by a Path Step:
 
 ```
-[Path Step] ──RELATED_TO──▶ Exercise → UserEntry → EntryReport → RevisedExercise → ...
+[Path Step] ──HAS_EXERCISE──▶ Exercise → UserEntry → EntryReport → RevisedExercise → ...
 ```
 
 Each phase builds on the last. You never just consume content — you engage with it, get a response, and refine your understanding. The loop repeats until mastery emerges.
 
-The **Path Step** is the curriculum anchor — the knowledge the loop exists to transmit. It sits outside the cycle as context: every Exercise is linked back to one or more Path Steps via `RELATED_TO`. You move through the four phases; the Path Step is the why.
+The **Path Step** is the curriculum anchor — the knowledge the loop exists to transmit. It sits outside the cycle as context: every Exercise is linked back to one or more Path Steps via `HAS_EXERCISE`. You move through the four phases; the Path Step is the why.
 
 ---
 
@@ -244,7 +244,7 @@ The learning loop is not the whole system — it's the *base*. SKUEL is a layere
 
 ### Layer 1: Learning Loop (this document)
 
-The base. Exercise → UserEntry → EntryReport → RevisedExercise, anchored by a Path Step via `RELATED_TO`. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
+The base. Exercise → UserEntry → EntryReport → RevisedExercise, anchored by a Path Step via `HAS_EXERCISE`. Without this, nothing else matters. The loop is the mechanism by which knowledge moves from the curriculum into the learner's life.
 
 ### Layer 2: ZPD + UserContext (intelligence)
 
