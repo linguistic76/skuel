@@ -43,7 +43,7 @@ def create_calendar_api_routes(
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, CalendarQuickCreateRequest)
         if parsed.is_error:
-            return parsed  # type: ignore[return-value]
+            return Result.fail(parsed)
         req = parsed.value
 
         # Ownership comes from the session, not the client body — drop any
