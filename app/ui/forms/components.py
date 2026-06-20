@@ -15,7 +15,6 @@ from monsterui.franken import CheckboxX as MCheckbox
 from monsterui.franken import FormLabel as MFormLabel
 from monsterui.franken import Input as MInput
 from monsterui.franken import LabelInput as MLabelInput
-from monsterui.franken import LabelSelect as MLabelSelect
 from monsterui.franken import LabelTextArea as MLabelTextArea
 from monsterui.franken import Radio as MRadio
 from monsterui.franken import Range as MRange
@@ -226,17 +225,27 @@ def LabelSelect(
     cls: str = "space-y-2",
     **kwargs: Any,
 ) -> Any:
-    """MonsterUI LabelSelect + SKUEL accessibility (ARIA, help/error text)."""
+    """Label + native <select> combo with ARIA accessibility.
+
+    Uses a native <select> with UIkit styling so HTMX form serialization works.
+    MonsterUI's MLabelSelect wraps in a <uk-select> web component that hides the
+    native element from FormData, silently dropping select values on submission.
+    """
     select_name = kwargs.get("name", kwargs.get("id", "select"))
+    select_id = kwargs.setdefault("id", select_name)
     aria_extra, trailing = _aria_attrs(select_name, help_text, error_text)
     kwargs.update(aria_extra)
 
-    base = MLabelSelect(*options, label=label, lbl_cls=lbl_cls, cls=cls, **kwargs)
+    select_cls_parts = ["uk-select", "w-full"]
+    if error_text:
+        select_cls_parts.append("border-destructive")
 
-    if not trailing:
-        return base
-
-    return Div(base, *trailing)
+    return Div(
+        MFormLabel(label, fr=select_id, cls=lbl_cls),
+        FTSelect(*options, cls=" ".join(select_cls_parts), **kwargs),
+        *trailing,
+        cls=cls,
+    )
 
 
 def LabelCheckbox(
