@@ -97,6 +97,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Admin Dashboard Architecture](architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) | 2026-02-08 | 527 |
 | [Alpine.js Architecture](architecture/ALPINE_JS_ARCHITECTURE.md) | 2026-01-05 | 280 |
 | [Curriculum Grouping Patterns: KU, PS, LP + MOC Organization](architecture/CURRICULUM_GROUPING_PATTERNS.md) | 2026-01-20 | 410 |
+| **[Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links](architecture/CROSS_DOMAIN_UID_PATTERNS.md)** | **2026-06-20** | **The rule for all cross-domain UID fields across Activity + Curriculum domains — persisted anchors vs DERIVED enrichment links** |
 | **[Enum Architecture](architecture/ENUM_ARCHITECTURE.md)** | **2026-03-05** | **~330** |
 | **[Priority & Confidence Architecture](architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md)** | **2026-03-05** | **~130** |
 | [Finance Categories System (LEGACY — superseded by ADR-052)](architecture/FINANCE_CATEGORIES_GUIDE.md) | 2026-04-12 | 580 |

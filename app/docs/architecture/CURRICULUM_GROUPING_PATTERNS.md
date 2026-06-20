@@ -216,6 +216,8 @@ anchor. ASSIGNED-scope Exercises (teacher → group) omit `path_step_uid` and us
 **Graph Role:** Exercise is the applied-knowledge anchor — the bridge between curriculum
 knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExercise).
 
+**See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md` — the canonical reference for the structural anchor vs enrichment link rule across all entity types (Curriculum and Activity Domains).
+
 ---
 
 ### MOC (Map of Content) - KU-Based Organization

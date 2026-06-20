@@ -149,6 +149,8 @@ EntityDTO (~18 fields)
 
 Cross-domain services use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization.
 
+**Cross-domain UID fields** on model classes are either persisted structural anchors (written at creation, e.g., `source_path_step_uid`, `fulfills_goal_uid`) or enrichment links derived from graph edges at read time (e.g., `reinforces_habit_uid`, `supports_goal_uid`). **See:** `/docs/architecture/CROSS_DOMAIN_UID_PATTERNS.md`
+
 ### Neo4j Multi-Label
 
 Every entity node gets two labels: `:Entity` (universal) + type-specific (`:Task`, `:Goal`, etc.).
