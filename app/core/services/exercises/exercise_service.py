@@ -208,9 +208,7 @@ class ExerciseService(BaseService):
                 else:
                     self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {entity.group_uid}")
 
-        self.logger.info(
-            f"Exercise created: {uid} - {entity.title} (scope={entity.scope.value})"
-        )
+        self.logger.info(f"Exercise created: {uid} - {entity.title} (scope={entity.scope.value})")
         return Result.ok(entity)
 
     @with_error_handling("create_exercise", error_type="database")

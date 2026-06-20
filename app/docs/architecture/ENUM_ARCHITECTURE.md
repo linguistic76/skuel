@@ -72,7 +72,9 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Method | Returns | Purpose |
 |--------|---------|---------|
 | `is_activity()` | bool | Is it one of the 6 user activity domains? |
-| `is_knowledge()` | bool | Is it shared curriculum (KU, Resource)? |
+| `is_knowledge()` | bool | Is it Ku or PathStep (atomic/composed knowledge)? |
+| `is_applied_knowledge()` | bool | Is it Exercise or RevisedExercise (instruction/revision templates, subordinate to PathStep)? |
+| `is_curriculum_structure()` | bool | Is it LearningPath (organisational structure only — NOT Exercise)? |
 | `is_content_processing()` | bool | Is it in the processing chain (UserEntry, etc.)? |
 | `is_user_owned()` | bool | Does it require a user_uid? |
 | `valid_statuses()` | frozenset[EntityStatus] | Which statuses are valid for this type? |

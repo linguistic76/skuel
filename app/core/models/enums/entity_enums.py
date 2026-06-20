@@ -141,8 +141,24 @@ class EntityType(StrEnum):
         """Check if this is curriculum knowledge content (PathStep or Ku)."""
         return self in _KNOWLEDGE_TYPES
 
+    def is_applied_knowledge(self) -> bool:
+        """True for instruction/revision templates — Exercise and RevisedExercise.
+
+        Applied knowledge entities are subordinate to PathStep in the knowledge
+        hierarchy: PathStep IS knowledge; Exercise and RevisedExercise are how
+        that knowledge is practised and revised. This is the same structural
+        relationship as Goal.fulfills_goal_uid (sub-goal under parent goal) —
+        Exercise.path_step_uid is a hierarchy-membership property, not a
+        scoring/enrichment field.
+        """
+        return self in _APPLIED_KNOWLEDGE_TYPES
+
     def is_curriculum_structure(self) -> bool:
-        """Check if this is curriculum structure (LP)."""
+        """Check if this is curriculum organisational structure (LearningPath only).
+
+        Note: Exercise is NOT curriculum structure — it is applied knowledge
+        subordinate to PathStep. Use is_applied_knowledge() for Exercise/RevisedExercise.
+        """
         return self in _CURRICULUM_STRUCTURE_TYPES
 
     def is_activity(self) -> bool:
@@ -256,7 +272,8 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
 }
 
 _KNOWLEDGE_TYPES = frozenset({EntityType.PATH_STEP, EntityType.KU})
-_CURRICULUM_STRUCTURE_TYPES = frozenset({EntityType.LEARNING_PATH, EntityType.EXERCISE})
+_APPLIED_KNOWLEDGE_TYPES = frozenset({EntityType.EXERCISE, EntityType.REVISED_EXERCISE})
+_CURRICULUM_STRUCTURE_TYPES = frozenset({EntityType.LEARNING_PATH})
 _CONTENT_PROCESSING_TYPES = frozenset(
     {
         EntityType.USER_ENTRY,

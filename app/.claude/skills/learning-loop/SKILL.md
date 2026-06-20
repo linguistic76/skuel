@@ -16,6 +16,13 @@ allowed-tools: Read, Grep, Glob
 
 > "Knowledge is learned by doing, evaluated by responding, and refined by reflecting."
 
+> **Core axiom: PathStep is knowledge. Exercise is applied knowledge.**
+> PathStep and Exercise are NOT peers in the curriculum hierarchy. Exercise is subordinate
+> to PathStep — the instruction template that operationalises PathStep content into concrete
+> practice. `(PathStep)-[:HAS_EXERCISE]->(Exercise)`. Exercise.path_step_uid is a
+> hierarchy-membership property (same pattern as Goal.fulfills_goal_uid), not a scoring
+> field. `EntityType.EXERCISE.is_applied_knowledge()` is `True`.
+
 > **ADR-054 update (2026-04-17).** `ExerciseSubmission`, `JeInput`, and `JeOutput` were
 > collapsed into a single `UserEntry(UserOwnedEntity)` entity type discriminated by the
 > `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
