@@ -68,6 +68,13 @@ time. If the template fields were mutable post-engagement, the edge and the
 denormalized `source_path_step_uid` on the instance could diverge. Do not
 mutate a template's authoring fields while it is `ACTIVE`.
 
+**Status is enforced by `_PsValidator`:** both `publish_pathstep` (T1) and
+`engage_pathstep` (T2 defensive re-validate) run `_PsValidator.validate()`
+before proceeding. The `not_active` check runs first and short-circuits the
+rest — a non-ACTIVE template produces a `Violation(violation="not_active")`
+and blocks the operation immediately. Promote every template to `ACTIVE`
+before publishing the PathStep.
+
 ---
 
 ## 3. TemplateBundle — PathStep's Template Aggregator
