@@ -1,6 +1,7 @@
 """Tasks API routes.
 
-Provides HTMX-compatible endpoints for task status updates and hierarchy queries.
+Provides HTMX-compatible endpoints for task status updates, hierarchy queries,
+cross-domain links, and knowledge intelligence.
 
 Hierarchy (ownership-verified):
     GET  /api/tasks/children     — Direct subtasks of a parent task
@@ -11,6 +12,10 @@ Hierarchy (ownership-verified):
 
 Cross-domain links:
     POST /api/tasks/link-goal    — Link task to a goal it contributes to
+
+Knowledge intelligence:
+    GET  /api/tasks/knowledge-patterns   — Detected learning patterns across user tasks
+    GET  /api/tasks/knowledge-priorities — Knowledge-aware priority scores for user tasks
 """
 
 from __future__ import annotations
@@ -25,6 +30,8 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
+    parse_csv_query_param,
+    parse_int_query_param,
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
@@ -224,6 +231,67 @@ def create_tasks_api_routes(
             return Result.fail(result)
         return Result.ok({"linked": result.value})
 
+    # ================================================================
+    # KNOWLEDGE INTELLIGENCE — learning patterns and priority scoring
+    # ================================================================
+
+    @rt("/api/tasks/knowledge-patterns", methods=["GET"])
+    @boundary_handler()
+    async def task_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+        """Detect knowledge-learning patterns across the authenticated user's tasks."""
+        user_uid = require_authenticated_user(request)
+        timeframe_days = parse_int_query_param(
+            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        )
+        result = await tasks_service.analyze_learning_patterns(user_uid, timeframe_days)
+        if result.is_error:
+            return Result.fail(result)
+        patterns = [
+            {
+                "pattern_type": p.pattern_type.value,
+                "knowledge_uids": p.knowledge_uids,
+                "entity_uids": p.entity_uids,
+                "confidence": p.confidence,
+                "timeframe_days": p.timeframe_days,
+                "frequency": p.frequency,
+                "growth_indicator": p.growth_indicator,
+                "metadata": p.metadata,
+            }
+            for p in result.value
+        ]
+        return Result.ok(
+            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
+        )
+
+    @rt("/api/tasks/knowledge-priorities", methods=["GET"])
+    @boundary_handler()
+    async def task_knowledge_priorities(request: Request) -> Result[dict[str, Any]]:
+        """Calculate knowledge-aware priority scores for the authenticated user's tasks."""
+        user_uid = require_authenticated_user(request)
+        task_uids = parse_csv_query_param(request.query_params, "task_uids") or None
+        if task_uids:
+            for uid in task_uids:
+                ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
+                if ownership_error:
+                    return ownership_error
+        result = await tasks_service.calculate_knowledge_aware_priorities(user_uid, task_uids)
+        if result.is_error:
+            return Result.fail(result)
+        priorities = [
+            {
+                "task_uid": p.task_uid,
+                "base_priority_score": p.base_priority_score,
+                "knowledge_enhancement_score": p.knowledge_enhancement_score,
+                "learning_opportunity_score": p.learning_opportunity_score,
+                "mastery_progression_score": p.mastery_progression_score,
+                "cross_domain_impact_score": p.cross_domain_impact_score,
+                "final_priority_score": p.final_priority_score,
+                "scoring_rationale": p.scoring_rationale,
+            }
+            for p in result.value
+        ]
+        return Result.ok({"priorities": priorities, "count": len(priorities)})
+
     return [
         *status_routes,
         task_children,
@@ -232,4 +300,6 @@ def create_tasks_api_routes(
         task_remove_child,
         task_add_child,
         task_link_goal,
+        task_knowledge_patterns,
+        task_knowledge_priorities,
     ]
