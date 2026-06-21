@@ -36,7 +36,6 @@ is_expanded  # noqa: F821, B018
 EmbeddingClientOperations  # noqa: F821, B018
 EmbeddingsBackendOperations  # noqa: F821, B018
 IngestionBackendOperations  # noqa: F821, B018
-InsightBackendOperations  # noqa: F821, B018
 JupyterSyncBackendOperations  # noqa: F821, B018
 LateralRelationshipBackendOperations  # noqa: F821, B018
 LateralRelationshipOperations  # noqa: F821, B018
