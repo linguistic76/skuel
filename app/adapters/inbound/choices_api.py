@@ -13,6 +13,9 @@ Cross-domain links:
     POST /api/choices/link-goal              — Link choice to a goal it affects/advances
     POST /api/choices/link-principle         — Link choice to the principle that informs it
     GET  /api/choices/aligned-with-principle — Choices semantically aligned with a principle
+
+Knowledge intelligence:
+    GET  /api/choices/knowledge-patterns — Detected learning patterns across user choices
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
+    parse_int_query_param,
     verify_entity_ownership,
 )
 from core.models.choice.choice import Choice
@@ -288,6 +292,38 @@ def create_choices_api_routes(
             return Result.fail(result)
         return Result.ok([c for c in result.value if c.user_uid == user_uid])
 
+    # ================================================================
+    # KNOWLEDGE INTELLIGENCE — learning patterns
+    # ================================================================
+
+    @rt("/api/choices/knowledge-patterns", methods=["GET"])
+    @boundary_handler()
+    async def choice_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+        """Detect knowledge-learning patterns across the authenticated user's choices."""
+        user_uid = require_authenticated_user(request)
+        timeframe_days = parse_int_query_param(
+            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        )
+        result = await choices_service.analyze_learning_patterns(user_uid, timeframe_days)
+        if result.is_error:
+            return Result.fail(result)
+        patterns = [
+            {
+                "pattern_type": p.pattern_type.value,
+                "knowledge_uids": p.knowledge_uids,
+                "entity_uids": p.entity_uids,
+                "confidence": p.confidence,
+                "timeframe_days": p.timeframe_days,
+                "frequency": p.frequency,
+                "growth_indicator": p.growth_indicator,
+                "metadata": p.metadata,
+            }
+            for p in result.value
+        ]
+        return Result.ok(
+            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
+        )
+
     return [
         *status_routes,
         choice_children,
@@ -298,4 +334,5 @@ def create_choices_api_routes(
         choice_link_goal,
         choice_link_principle,
         choices_aligned_with_principle,
+        choice_knowledge_patterns,
     ]

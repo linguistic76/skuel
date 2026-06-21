@@ -17,7 +17,7 @@ from core.utils.generic_fetcher import fetch_relationships_parallel
 # Query specifications: (field_name, service_method_name)
 # Defines the mapping between dataclass fields and service query methods
 CHOICE_QUERY_SPECS: list[tuple[str, str]] = [
-    ("informed_by_knowledge_uids", "informed_knowledge"),
+    ("informed_by_knowledge_uids", "knowledge"),
     ("opens_learning_path_uids", "learning_paths"),
     ("required_knowledge_uids", "required_knowledge"),
     ("aligned_principle_uids", "principles"),
@@ -130,4 +130,6 @@ class ChoiceRelationships:
 
     def knowledge_intensity(self) -> float:
         """0-1 score: how knowledge-grounded this choice is by relationship count."""
-        return min(1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05)
+        return min(
+            1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05
+        )

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.goal.goal import Goal
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
@@ -29,7 +30,9 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
 from core.services.goals._dual_track_mixin import _DualTrackMixin
 from core.services.goals._predictive_mixin import _PredictiveMixin
+from core.services.goals.goal_relationships import GoalRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -135,6 +138,7 @@ class GoalsIntelligenceService(
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
         self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
+        self._knowledge_analyzer = KnowledgePatternAnalyzer()
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -218,3 +222,22 @@ class GoalsIntelligenceService(
         Used by IntelligenceRouteFactory for GET /api/goals/insights route.
         """
         return await self.get_goal_progress_dashboard(uid, min_confidence)
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """Detect knowledge-learning patterns across the user's goal activities."""
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        if entities_result.is_error:
+            return Result.fail(entities_result)
+
+        service = self.relationships
+
+        async def _fetch_goal_rels(uid: str) -> GoalRelationships:
+            if service:
+                return await GoalRelationships.fetch(uid, service)
+            return GoalRelationships.empty()
+
+        return await self._knowledge_analyzer.analyze_learning_patterns(
+            entities_result.value, _fetch_goal_rels, timeframe_days
+        )

@@ -11,6 +11,9 @@ Hierarchy (ownership-verified):
 
 Cross-domain links:
     POST /api/events/link-goal    — Link event to a goal it contributes to
+
+Knowledge intelligence:
+    GET  /api/events/knowledge-patterns — Detected learning patterns across user events
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
+    parse_int_query_param,
     verify_entity_ownership,
 )
 from core.models.entity_requests import (
@@ -222,6 +226,38 @@ def create_events_api_routes(
             return Result.fail(result)
         return Result.ok({"linked": result.value})
 
+    # ================================================================
+    # KNOWLEDGE INTELLIGENCE — learning patterns
+    # ================================================================
+
+    @rt("/api/events/knowledge-patterns", methods=["GET"])
+    @boundary_handler()
+    async def event_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+        """Detect knowledge-learning patterns across the authenticated user's events."""
+        user_uid = require_authenticated_user(request)
+        timeframe_days = parse_int_query_param(
+            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        )
+        result = await events_service.analyze_learning_patterns(user_uid, timeframe_days)
+        if result.is_error:
+            return Result.fail(result)
+        patterns = [
+            {
+                "pattern_type": p.pattern_type.value,
+                "knowledge_uids": p.knowledge_uids,
+                "entity_uids": p.entity_uids,
+                "confidence": p.confidence,
+                "timeframe_days": p.timeframe_days,
+                "frequency": p.frequency,
+                "growth_indicator": p.growth_indicator,
+                "metadata": p.metadata,
+            }
+            for p in result.value
+        ]
+        return Result.ok(
+            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
+        )
+
     return [
         *status_routes,
         event_children,
@@ -230,4 +266,5 @@ def create_events_api_routes(
         event_remove_child,
         event_add_child,
         event_link_goal,
+        event_knowledge_patterns,
     ]

@@ -24,6 +24,9 @@ Scheduling-aware creation:
 Cross-domain links:
     POST /api/goals/link-knowledge — Link goal to required knowledge/skill
     POST /api/goals/link-principle — Link goal to a guiding principle
+
+Knowledge intelligence:
+    GET  /api/goals/knowledge-patterns — Detected learning patterns across user goals
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
     ActivityStatusApiConfig,
     create_activity_status_api_routes,
+    parse_int_query_param,
     verify_entity_ownership,
 )
 from core.models.context_types import ContextualGoal
@@ -386,6 +390,38 @@ def create_goals_api_routes(
             return Result.fail(result)
         return Result.ok({"linked": result.value})
 
+    # ================================================================
+    # KNOWLEDGE INTELLIGENCE — learning patterns
+    # ================================================================
+
+    @rt("/api/goals/knowledge-patterns", methods=["GET"])
+    @boundary_handler()
+    async def goal_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+        """Detect knowledge-learning patterns across the authenticated user's goals."""
+        user_uid = require_authenticated_user(request)
+        timeframe_days = parse_int_query_param(
+            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        )
+        result = await goals_service.analyze_learning_patterns(user_uid, timeframe_days)
+        if result.is_error:
+            return Result.fail(result)
+        patterns = [
+            {
+                "pattern_type": p.pattern_type.value,
+                "knowledge_uids": p.knowledge_uids,
+                "entity_uids": p.entity_uids,
+                "confidence": p.confidence,
+                "timeframe_days": p.timeframe_days,
+                "frequency": p.frequency,
+                "growth_indicator": p.growth_indicator,
+                "metadata": p.metadata,
+            }
+            for p in result.value
+        ]
+        return Result.ok(
+            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
+        )
+
     return [
         *status_routes,
         goal_children,
@@ -399,4 +435,5 @@ def create_goals_api_routes(
         goal_create_with_learning_scheduling,
         goal_link_knowledge,
         goal_link_principle,
+        goal_knowledge_patterns,
     ]
