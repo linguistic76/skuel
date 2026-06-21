@@ -62,12 +62,11 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
-`GoalsService` delegates to sub-services + 2 focused facade mixins for consistency with Habits/Choices/Principles:
+`GoalsService` delegates to sub-services + 1 focused facade mixin for orchestration:
 
 ```python
 class GoalsService(
     _OrchestrationMixin,    # cross-domain orchestration (create_goal_with_context, etc.)
-    _RelationshipMixin,     # graph relationships (link_goal_to_*, semantic, find_goals_*)
     KnowledgeIntelligenceDelegationMixin,
     BaseService[GoalsOperations, Goal],
 ):
@@ -76,12 +75,13 @@ class GoalsService(
         return await self.core.get_goal(uid)
 ```
 
-**Facade Mixins** (`core/services/goals/`):
+**Facade Mixin** (`core/services/goals/`):
 
 | Mixin | File | Methods |
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
-| `_RelationshipMixin` | `_relationship_mixin.py` | `create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge` |
+
+Graph relationship methods (`create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |

@@ -628,7 +628,7 @@ config includes a learning class; singleton is passed in).
 | Choices | 7 | 3 | 7 | — |
 | Principles | 10 | 3 | 7 | alignment, planning, reflection |
 
-**Facade Mixins (April 2026):** Tasks (2: `_OrchestrationMixin`, `_RelationshipMixin`), Goals (2: `_OrchestrationMixin`, `_RelationshipMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (3: `_OptionManagementMixin`, `_RelationshipMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). These group related facade delegation methods by concern — methods are not removed from the facade's public API, just organized into mixin files.
+**Facade Mixins (updated June 2026):** Tasks (1: `_OrchestrationMixin`), Goals (1: `_OrchestrationMixin`), Habits (3: `_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`), Choices (2: `_OptionManagementMixin`, `_EnrichmentMixin`), Principles (3: `_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`). `_RelationshipMixin` was inlined back into Goals, Tasks, and Choices — it was a thin single-consumer delegation slice. Graph link methods now live directly on the facade.
 
 **Common (all 6 domains, uniform):** core, search, relationships, intelligence, event_handler, learning, knowledge_intelligence — factory-created, always the same seven. The shared shape is the contract for interconnectivity (see `.claude/skills/activity-domains/SKILL.md` § "Harmony Without Over-Generalization").
 
