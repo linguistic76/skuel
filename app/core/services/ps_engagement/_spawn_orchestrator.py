@@ -54,12 +54,12 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 from core.models.choice.choice import Choice
 from core.models.entity import Entity
+from core.models.enums.activity_enums import EngagementState
+from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
-from core.models.enums.activity_enums import EngagementState
-from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
