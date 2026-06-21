@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from core.models.choice.choice import Choice
-from core.models.enums import EngagementState, EntityStatus
+from core.models.enums import EntityStatus
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
@@ -58,8 +58,8 @@ from core.utils.result_simplified import Errors, Result
 
 from ._engagement_gateway import _EngagementGateway
 from ._spawn_orchestrator import ActivityBackends, _SpawnOrchestrator
-from ._template_loader import _TemplateLoader
 from ._template_bundle import TemplateBundle
+from ._template_loader import _TemplateLoader
 from ._validator import _PsValidator
 from .engagement import Engagement
 

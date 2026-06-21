@@ -38,6 +38,21 @@ def _get_recent_avg_duration(item: dict[str, Any]) -> float:
     return item.get("recent_avg_duration_ms", 0.0)
 
 
+def _get_total_calls(item: dict[str, Any]) -> int:
+    """Get total_calls from dict for sorting."""
+    return item.get("total_calls", 0)
+
+
+def _get_total_published(item: dict[str, Any]) -> int:
+    """Get total_published from dict for sorting."""
+    return item.get("total_published", 0)
+
+
+def _get_total_invalidations(item: dict[str, Any]) -> int:
+    """Get total_invalidations from dict for sorting."""
+    return item.get("total_invalidations", 0)
+
+
 @dataclass
 class CachedHandlerMetrics:
     """Cached metrics for a single event handler (debugging only)."""
@@ -327,11 +342,10 @@ class MetricsCache:
         # Update cache (debugging only)
         if self.enabled:
             key = self._get_handler_key(event_type, handler_name)
-            if key not in self._handler_cache:
-                self._handler_cache[key] = CachedHandlerMetrics(
-                    handler_name=handler_name, event_type=event_type
-                )
-            self._handler_cache[key].record_execution(duration_ms, error)
+            handler_metrics = self._handler_cache.setdefault(
+                key, CachedHandlerMetrics(handler_name=handler_name, event_type=event_type)
+            )
+            handler_metrics.record_execution(duration_ms, error)
 
     async def record_event_publication(
         self, event_type: str, duration_ms: float, handlers_called: int
@@ -355,9 +369,10 @@ class MetricsCache:
 
         # Update cache (debugging only)
         if self.enabled:
-            if event_type not in self._event_cache:
-                self._event_cache[event_type] = CachedEventMetrics(event_type=event_type)
-            self._event_cache[event_type].record_publication(duration_ms, handlers_called)
+            event_metrics = self._event_cache.setdefault(
+                event_type, CachedEventMetrics(event_type=event_type)
+            )
+            event_metrics.record_publication(duration_ms, handlers_called)
 
     async def record_context_invalidation(
         self, user_uid: UserUID, duration_ms: float, reason: str, affected_contexts: list[str]
@@ -378,11 +393,10 @@ class MetricsCache:
 
         # Update cache (debugging only)
         if self.enabled:
-            if user_uid not in self._context_cache:
-                self._context_cache[user_uid] = CachedContextMetrics(user_uid=user_uid)
-            self._context_cache[user_uid].record_invalidation(
-                duration_ms, reason, affected_contexts
+            context_metrics = self._context_cache.setdefault(
+                user_uid, CachedContextMetrics(user_uid=user_uid)
             )
+            context_metrics.record_invalidation(duration_ms, reason, affected_contexts)
 
     async def get_handler_metrics(self, event_type: str | None = None) -> list[dict[str, Any]]:
         """
@@ -405,10 +419,7 @@ class MetricsCache:
             metrics = [m.to_dict() for m in self._handler_cache.values()]
 
         # Sort by total calls (most active first)
-        def get_total_calls(item: dict[str, Any]) -> int:
-            return item.get("total_calls", 0)
-
-        metrics.sort(key=get_total_calls, reverse=True)
+        metrics.sort(key=_get_total_calls, reverse=True)
         return metrics
 
     async def get_event_metrics(self) -> list[dict[str, Any]]:
@@ -419,10 +430,7 @@ class MetricsCache:
         metrics = [m.to_dict() for m in self._event_cache.values()]
 
         # Sort by total published (most active first)
-        def get_total_published(item: dict[str, Any]) -> int:
-            return item.get("total_published", 0)
-
-        metrics.sort(key=get_total_published, reverse=True)
+        metrics.sort(key=_get_total_published, reverse=True)
         return metrics
 
     async def get_context_invalidation_metrics(
@@ -447,10 +455,7 @@ class MetricsCache:
             metrics_list = [m.to_dict() for m in self._context_cache.values()]
 
             # Sort by total invalidations
-            def get_total_invalidations(item: dict[str, Any]) -> int:
-                return item.get("total_invalidations", 0)
-
-            metrics_list.sort(key=get_total_invalidations, reverse=True)
+            metrics_list.sort(key=_get_total_invalidations, reverse=True)
             return metrics_list
 
     async def get_slow_handlers(self, threshold_ms: float = 100.0) -> list[dict[str, Any]]:

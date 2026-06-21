@@ -161,7 +161,6 @@ class _PsValidator:
         """Flag every template whose status is not ACTIVE."""
         from core.ports.query_types import Violation
 
-        violations: list[Violation] = []
         uid_to_type = bundle.type_by_uid()
         all_templates: list[Any] = [
             *bundle.tasks,
@@ -171,23 +170,22 @@ class _PsValidator:
             *bundle.choices,
             *bundle.principles,
         ]
-        for tmpl in all_templates:
-            if tmpl.status != EntityStatus.ACTIVE:
-                violations.append(
-                    Violation(
-                        template_uid=str(tmpl.uid),
-                        template_title=tmpl.title,
-                        template_type=uid_to_type[str(tmpl.uid)],
-                        field="status",
-                        violation="not_active",
-                        referenced_uid=None,
-                        hint=(
-                            f"template status is {tmpl.status!r}; "
-                            "must be ACTIVE before the PathStep can be published or engaged"
-                        ),
-                    )
-                )
-        return violations
+        return [
+            Violation(
+                template_uid=str(tmpl.uid),
+                template_title=tmpl.title,
+                template_type=uid_to_type[str(tmpl.uid)],
+                field="status",
+                violation="not_active",
+                referenced_uid=None,
+                hint=(
+                    f"template status is {tmpl.status!r}; "
+                    "must be ACTIVE before the PathStep can be published or engaged"
+                ),
+            )
+            for tmpl in all_templates
+            if tmpl.status != EntityStatus.ACTIVE
+        ]
 
     @staticmethod
     def _iter_refs(
