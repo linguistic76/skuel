@@ -183,25 +183,36 @@ return Result.fail(Errors.validation(
 
 **Pattern:** Use named functions instead of lambda expressions.
 
+For **simple attribute or item extraction**, use `operator.attrgetter` /
+`operator.itemgetter` — they are named stdlib callables that satisfy this rule and
+require no helper file:
+
 ```python
-# ❌ VIOLATION - Lambda assignment
-get_priority = lambda item: item.priority.to_numeric()
-tasks.sort(key=lambda t: t.priority.to_numeric())
+# ❌ VIOLATION - Lambda
+tasks.sort(key=lambda t: t.due_date)
+results.sort(key=lambda r: r[1], reverse=True)
 
-# ✅ CORRECT - Named function
-from core.utils.sort_functions import get_priority_value
+# ✅ CORRECT - stdlib callables for plain extraction
+from operator import attrgetter, itemgetter
 
-def get_priority(item):
-    """Get numeric priority value for sorting."""
-    return item.priority.to_numeric()
+tasks.sort(key=attrgetter('due_date'))
+results.sort(key=itemgetter(1), reverse=True)
+
+# ✅ CORRECT - named helper only when there is real logic
+def get_priority_value(item):
+    """Convert priority enum/string to numeric, with Neo4j string fallback."""
+    ...
 
 tasks.sort(key=get_priority_value, reverse=True)
 ```
 
+**Do NOT** add one-liner wrappers to `core/utils/sort_functions.py` for plain field
+access — that file is for domain logic, None-fallback, and composite sort keys.
+
 **Rationale:**
 - Named functions are self-documenting
+- `operator.attrgetter`/`itemgetter` communicate intent precisely and avoid a junk-drawer module
 - Easier to test and debug
-- Can be reused across codebase
 - Standard enforcement via ruff E731
 
 **Exceptions:**
