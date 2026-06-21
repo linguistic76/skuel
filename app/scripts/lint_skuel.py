@@ -865,11 +865,17 @@ class SkuelLinter:
     # protocol doesn't enumerate (KU/PS/LP/UserService each delegate ~50+ methods).
     # The allowlist is intentionally narrow: directory prefixes for the multi-file
     # sub-service packages, and explicit files for the standalone facade modules.
+    #
+    # InsightStore is also allowlisted: it originated as a thin delegating service but
+    # has grown into a facade with 6+ methods that compose on top of the backend
+    # (bulk_dismiss, bulk_mark_actioned, smart_dismiss, filter_insights, chart builders).
+    # InsightStore IS the contract; InsightBackend is one implementation of it.
     SKUEL023_FACADE_ALLOWLIST_PREFIXES: ClassVar[tuple[str, ...]] = (
         "core/services/ku/",
         "core/services/ps/",
         "core/services/lp/",
         "core/services/user/",
+        "core/services/insight/",
     )
     SKUEL023_FACADE_ALLOWLIST_FILES: ClassVar[tuple[str, ...]] = (
         "core/services/ku_service.py",

@@ -39,7 +39,7 @@ from core.utils.neo4j_mapper import deserialize_json_fields
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.insight_protocols import InsightBackendOperations
+    from adapters.persistence.neo4j.insight_backend import InsightBackend
 
 
 # Fields stored as JSON strings in Neo4j (dicts/lists that Neo4j can't store natively)
@@ -66,12 +66,12 @@ class InsightStore:
     Thread Safety: Each method is atomic - safe for concurrent use.
     """
 
-    def __init__(self, backend: "InsightBackendOperations") -> None:
+    def __init__(self, backend: "InsightBackend") -> None:
         """
         Initialize InsightStore with backend.
 
         Args:
-            backend: InsightBackendOperations for database operations
+            backend: InsightBackend for database operations
         """
         if not backend:
             raise ValueError(
