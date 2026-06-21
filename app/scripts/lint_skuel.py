@@ -255,18 +255,30 @@ if hasattr(user, 'preferences'):
         "description": """Use named functions instead of lambda expressions. Named functions
 are self-documenting, testable, and reusable.
 
+For simple attribute or item extraction use operator.attrgetter / operator.itemgetter —
+they are named, stdlib callables that satisfy this rule.
+Define a named helper only for domain logic, None-fallback, or composite sort keys.
+Do NOT add one-liner wrappers to sort_functions.py for plain field access.
+
 Exceptions: tests/, examples/, scripts/.
 Suppress: # skuel-lint: disable=SKUEL012 -- <reason>
 File-level: # skuel-lint: disable-file=SKUEL012 -- <reason>""",
-        "good": """from core.utils.sort_functions import get_priority_value
+        "good": """from operator import attrgetter, itemgetter
 
-def get_priority(item):
-    \"\"\"Get numeric priority for sorting.\"\"\"
-    return item.priority.to_numeric()
+tasks.sort(key=attrgetter('due_date'))
+results.sort(key=itemgetter(1), reverse=True)
+
+# Only define a named helper when there is real logic:
+def get_priority_value(item):
+    \"\"\"Convert priority enum/string to numeric, with Neo4j string fallback.\"\"\"
+    ...
 
 tasks.sort(key=get_priority_value)""",
         "bad": """tasks.sort(key=lambda t: t.priority.to_numeric())
-get_priority = lambda item: item.priority.to_numeric()""",
+get_priority = lambda item: item.priority.to_numeric()
+
+# Also bad — one-liner wrappers in sort_functions.py are not the solution:
+# def get_due_date(task): return task.due_date  (use attrgetter instead)""",
     },
     "SKUEL013": {
         "title": "Use RelationshipName Enum",
@@ -1642,7 +1654,7 @@ class SkuelLinter:
                     severity=Severity.WARNING,
                     rule_id="SKUEL012",
                     message="Lambda expression - use named function instead",
-                    suggestion="Define a named function or use sort_functions helper",
+                    suggestion="Use operator.attrgetter/itemgetter for simple extraction; define a named helper only for domain logic or None-fallback",
                     line_content=line.strip(),
                 )
             )
