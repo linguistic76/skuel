@@ -776,32 +776,32 @@ class LpSubServices:
 
 **Pattern:**
 ```python
-# core/services/choices/_relationship_mixin.py
-class _RelationshipMixin:
-    relationships: Any  # populated by ChoicesService.__init__
+# core/services/choices/_option_management_mixin.py
+class _OptionManagementMixin:
+    core: Any  # populated by ChoicesService.__init__
 
-    async def link_choice_to_goal(self, ...) -> Result[bool]:
-        # explicit registry method_key — create_relationship fails closed on a typo
-        return await self.relationships.create_relationship("goals", choice_uid, goal_uid, props)
+    async def add_option(self, choice_uid: str, option: dict[str, Any]) -> Result[bool]:
+        return await self.core.add_option(choice_uid, option)
 
 # core/services/choices_service.py
 class ChoicesService(
     _OptionManagementMixin,
-    _RelationshipMixin,
     KnowledgeIntelligenceDelegationMixin,
     BaseService["ChoicesOperations", Choice],
 ): ...
 ```
 
-**Adoption (April 2026):**
+**Note (June 2026):** `_RelationshipMixin` was inlined back into Goals, Tasks, and Choices — it was a thin (<130 lines) single-consumer delegation slice with methods that just forwarded to `self.relationships`. The floor rule in `SERVICE_DECOMPOSITION_RULE.md` now codifies when to inline vs. extract.
+
+**Adoption (updated June 2026):**
 
 | Domain | Facade Mixins | Intelligence Mixins |
 |--------|--------------|-------------------|
-| Goals | 2 (`_OrchestrationMixin`, `_RelationshipMixin`) | 5 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`, `_LearningRequirementsMixin`) |
+| Goals | 1 (`_OrchestrationMixin`) | 5 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_PredictiveMixin`, `_DualTrackMixin`, `_LearningRequirementsMixin`) |
 | Habits | 3 (`_CompletionMixin`, `_EnrichmentMixin`, `_OrchestrationMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_DualTrackMixin`) |
-| Choices | 2 (`_OptionManagementMixin`, `_RelationshipMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
+| Choices | 2 (`_OptionManagementMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_BehavioralSignalsMixin`) |
 | Principles | 3 (`_EmbodimentMixin`, `_GravityMixin`, `_EnrichmentMixin`) | 3 (`_CoreIntelligenceMixin`, `_AnalyticsMixin`, `_AlignmentMixin`) |
-| Tasks | 0 (no facade mixins) | 0 |
+| Tasks | 1 (`_OrchestrationMixin`) | 0 |
 | Events | 0 (no facade mixins) | 0; `get_with_context` inherited from `_CoreIntelligenceMixin` |
 
 **Key rules:**
@@ -825,7 +825,7 @@ class ChoicesService(
 | PS/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_ps_sub_services, create_lp_sub_services` |
 | Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
 | Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |
-| Facade Mixins | `/core/services/{domain}/_*_mixin.py` | `from core.services.{domain}._relationship_mixin import _RelationshipMixin` |
+| Facade Mixins | `/core/services/{domain}/_*_mixin.py` | `from core.services.{domain}._orchestration_mixin import _OrchestrationMixin` |
 
 ---
 

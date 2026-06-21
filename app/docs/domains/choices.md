@@ -47,12 +47,11 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
-`ChoicesService` delegates to sub-services + 2 focused facade mixins for consistency with Habits/Goals/Principles:
+`ChoicesService` delegates to sub-services + 1 focused facade mixin for option management:
 
 ```python
 class ChoicesService(
     _OptionManagementMixin,  # add/update/remove option, make_decision
-    _RelationshipMixin,      # link_choice_to_*, semantic relationships
     KnowledgeIntelligenceDelegationMixin,
     BaseService[ChoicesOperations, Choice],
 ):
@@ -61,12 +60,13 @@ class ChoicesService(
         return await self.core.get_choice(uid)
 ```
 
-**Facade Mixins** (`core/services/choices/`):
+**Facade Mixin** (`core/services/choices/`):
 
 | Mixin | File | Methods |
 |-------|------|---------|
 | `_OptionManagementMixin` | `_option_management_mixin.py` | `add_option`, `update_option`, `remove_option`, `make_decision` |
-| `_RelationshipMixin` | `_relationship_mixin.py` | `link_choice_to_goal/habit/principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle` |
+
+Graph relationship methods (`link_choice_to_goal/habit/principle`, `create_semantic_choice_relationship`, `find_choices_aligned_with_principle`) are inline on `ChoicesService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |

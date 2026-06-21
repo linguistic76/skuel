@@ -265,7 +265,7 @@ Ku does not), so building Option B now adds fields no consumer reads, for zero f
 
 **Why deferred**: PR #215 dropped `dependent_task_uids` from the task cross-domain context because
 its only candidate source bucket — `dependents`, fed by `BLOCKED_BY`-incoming — is structurally dead.
-The canonical writer `create_task_dependency` (`_relationship_mixin.py`) writes
+The canonical writer `create_task_dependency` (`tasks_service.py`) writes
 `(dependent)-[:DEPENDS_ON]->(blocks)`; the live graph has `DEPENDS_ON` task edges and **zero
 `BLOCKED_BY`** edges. A task's real dependents are its *incoming* `DEPENDS_ON` edges, and no
 `TASKS_CONFIG` bucket surfaces those today.

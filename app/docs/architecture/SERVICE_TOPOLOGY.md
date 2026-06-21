@@ -270,14 +270,14 @@ TasksService (Facade)
 ```
 Activity Domain Facades (6 total)
 │
-├─ TasksService     (9 sub-services + 2 facade mixins)
+├─ TasksService     (9 sub-services + 1 facade mixin)
 │   └─ core, search, progress, scheduling, planning, learning, intelligence,
 │      event_handler, knowledge_intelligence
-│   └─ mixins: _OrchestrationMixin, _RelationshipMixin
+│   └─ mixins: _OrchestrationMixin
 │
-├─ GoalsService      (10 sub-services + 2 facade mixins)
+├─ GoalsService      (10 sub-services + 1 facade mixin)
 │   └─ core, search, progress, scheduling, learning, planning, intelligence, event_handler, knowledge_intelligence, ai
-│   └─ mixins: _OrchestrationMixin, _RelationshipMixin
+│   └─ mixins: _OrchestrationMixin
 │
 ├─ HabitsService    (13 sub-services + 3 facade mixins)  ← Most complex
 │   └─ core, search, progress, scheduling, planning, learning, completions,
@@ -287,9 +287,9 @@ Activity Domain Facades (6 total)
 ├─ EventsService     (10 sub-services)
 │   └─ core, search, progress, scheduling, learning, habit_integration, event_handler, intelligence, knowledge_intelligence, ai
 │
-├─ ChoicesService    (7 sub-services + 3 facade mixins)
+├─ ChoicesService    (7 sub-services + 2 facade mixins)
 │   └─ core, search, learning, intelligence, event_handler, knowledge_intelligence, ai
-│   └─ mixins: _OptionManagementMixin, _RelationshipMixin
+│   └─ mixins: _OptionManagementMixin
 │
 └─ PrinciplesService (10 sub-services + 3 facade mixins)
     └─ core, search, alignment, learning, planning, reflection, intelligence, knowledge_intelligence, ai, event_handler

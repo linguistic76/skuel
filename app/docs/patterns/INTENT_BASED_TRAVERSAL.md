@@ -66,7 +66,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 
 | Facade method | Delegates to | Mechanism | Intent actually applied |
 |---------------|--------------|:---------:|--------------------------|
-| `TasksService.get_task_with_context` | `self.relationships.get_with_context` (`tasks/_relationship_mixin.py`) | **B** | `PREREQUISITE` (config) |
+| `TasksService.get_task_with_context` | `self.relationships.get_with_context` (inline on `TasksService`) | **B** | `PREREQUISITE` (config) |
 | `GoalsService.get_goal_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
 | `HabitsService.get_habit_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
 | `ChoicesService.get_choice_with_context` | `self.intelligence` → loader | **A** | `EXPLORATORY` |
@@ -81,7 +81,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 
 > The `/api/<domain>/context` routes (`IntelligenceRouteFactory`) call the **intelligence service's**
 > `get_with_context`, which can resolve to a *different* method than the same domain's facade — e.g.
-> the Tasks facade method is mechanism B (via `_RelationshipMixin`), while the Tasks *intelligence
+> the Tasks facade method is mechanism B (via `self.relationships.get_with_context` on `TasksService`), while the Tasks *intelligence
 > service* has no `get_with_context` override and so would inherit the shared loader (mechanism A). The
 > exact per-route intent is **not exhaustively verified here**; a full per-entry-point audit is part of
 > the convergence work.
