@@ -440,6 +440,11 @@ class GoalsService(
             uid, depth, min_confidence, user_context
         )
 
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
+
     # Search delegations
     async def get_upcoming(
         self, days_ahead: int = 7, user_uid: UserUID | None = None, limit: int = 100

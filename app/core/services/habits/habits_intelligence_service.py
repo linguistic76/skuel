@@ -20,7 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel
+from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -29,7 +29,9 @@ from core.ports.domain_protocols import HabitsOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.habits._dual_track_mixin import _DualTrackMixin
+from core.services.habits.habit_relationships import HabitRelationships
 from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.dto_helpers import to_domain_model
 from core.utils.result_simplified import Result
 
@@ -94,6 +96,7 @@ class HabitsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
+        self._knowledge_analyzer = KnowledgePatternAnalyzer()
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -315,3 +318,22 @@ class HabitsIntelligenceService(
             # GRAPH-NATIVE: Custom patterns not supported in simplified check
             return False
         return False
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> "Result[list[Any]]":
+        """Detect knowledge-learning patterns across the user's habit activities."""
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
+        if entities_result.is_error:
+            return Result.fail(entities_result)
+
+        service = self.relationships
+
+        async def _fetch_habit_rels(uid: str) -> HabitRelationships:
+            if service:
+                return await HabitRelationships.fetch(uid, service)
+            return HabitRelationships.empty()
+
+        return await self._knowledge_analyzer.analyze_learning_patterns(
+            entities_result.value, _fetch_habit_rels, timeframe_days
+        )

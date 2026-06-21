@@ -317,6 +317,11 @@ class PrinciplesService(
             principle_uid, user_uid, period_days
         )
 
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
+
     async def record_principle_reflection(
         self,
         principle_uid: str,

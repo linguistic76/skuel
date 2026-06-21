@@ -272,6 +272,11 @@ class ChoicesService(
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.get_domain_decision_patterns(user_uid, days)
 
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
+
     # Search delegations
     async def get_pending_choices(
         self, user_uid: UserUID, limit: int = 100

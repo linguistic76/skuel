@@ -394,6 +394,11 @@ class HabitsService(
             habit_uid, _user_context, days_to_schedule
         )
 
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
+
     # Planning delegations
     async def get_habit_priorities_for_user(
         self, context: UserContext, limit: int = 10
