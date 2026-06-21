@@ -15,6 +15,8 @@
 
 **Note:** Event handlers (strength changes, reflections, conflicts) were extracted to `PrincipleEventHandlerService` in `/core/services/principles/principle_event_handler_service.py` (~670 lines) in March 2026.
 
+**June 2026 (#368):** `analyze_learning_patterns()` added to shell — delegates to `KnowledgePatternAnalyzer`. Route: `GET /api/principles/knowledge-patterns`.
+
 ---
 
 ## Purpose

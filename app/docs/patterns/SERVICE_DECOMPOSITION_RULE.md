@@ -12,7 +12,7 @@ Extract intelligence methods into mixins when the intelligence service **file ex
 | `_analytics_mixin.py` | Performance dashboards, batch analysis, metrics |
 | `_predictive_mixin.py` | Forecasting, success probability, scenario analysis |
 | `_behavioral_signals_mixin.py` | Dual-track assessment, ZPD signals, behavioral patterns |
-| `_productivity_mixin.py` | Analytics engine delegation (learning patterns, mastery progression) |
+| `_productivity_mixin.py` | TaskKnowledgeAnalyzer delegation (learning patterns, mastery progression, task insights) |
 
 The shell `{domain}_intelligence_service.py` becomes a thin import + delegation class (~150-200 lines). `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` — services implement only `get_performance_analytics`, `get_domain_insights`, and `__init__`.
 
