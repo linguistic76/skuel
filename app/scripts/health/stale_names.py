@@ -61,7 +61,8 @@ RENAMED: dict[str, str] = {
     # Class renames (Feb–Mar 2026)
     "AiFeedback": "ActivityReport",
     "KuTaskCreateRequest": "TaskCreateRequest",
-    "KuAnalyticsEngine": "AnalyticsEngine",
+    "KuAnalyticsEngine": "TaskKnowledgeAnalyzer",
+    "AnalyticsEngine": "TaskKnowledgeAnalyzer — core/services/tasks/task_knowledge_analyzer.py",
     "ActivityReviewService": "ActivityReportService",
     "ActivityReviewOperations": "ActivityReportOperations",
     "SubmissionsSharingService": "UnifiedSharingService",
@@ -141,7 +142,7 @@ DELETED: dict[str, str] = {
     "activity_review_service.py": "replaced by activity_report_service.py + review_queue_service.py",
     "planning_mixin.ActivityDataReader": "absorbed into UserContextBuilder",
     # Deleted public attributes
-    "TasksService.analytics_engine": "removed — AnalyticsEngine now private in TasksIntelligenceService as self._analytics_engine",
+    "TasksService.analytics_engine": "removed — TaskKnowledgeAnalyzer now private in TasksIntelligenceService as self._knowledge_analyzer",
     "TasksService.ku_generation_service": "removed — now private as self._ku_generation_service",
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",

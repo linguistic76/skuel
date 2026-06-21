@@ -115,3 +115,19 @@ class ChoiceRelationships:
         all_uids.update(self.informed_by_knowledge_uids)
         all_uids.update(self.required_knowledge_uids)
         return all_uids
+
+    # KnowledgeLinkedRelationships protocol --------------------------------
+
+    @property
+    def primary_knowledge_uids(self) -> list[str]:
+        """Knowledge that informed this decision (INFORMED_BY_KNOWLEDGE edges)."""
+        return self.informed_by_knowledge_uids
+
+    @property
+    def secondary_knowledge_uids(self) -> list[str]:
+        """Knowledge required to execute this choice."""
+        return self.required_knowledge_uids
+
+    def knowledge_intensity(self) -> float:
+        """0-1 score: how knowledge-grounded this choice is by relationship count."""
+        return min(1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05)

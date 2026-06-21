@@ -81,3 +81,23 @@ class GoalRelationships:
     def empty(cls) -> GoalRelationships:
         """Create empty GoalRelationships (for testing or new goals)."""
         return cls()
+
+    def has_any_knowledge(self) -> bool:
+        """Check if goal has any knowledge connections."""
+        return len(self.required_knowledge_uids) > 0
+
+    # KnowledgeLinkedRelationships protocol --------------------------------
+
+    @property
+    def primary_knowledge_uids(self) -> list[str]:
+        """Knowledge required to achieve this goal (REQUIRES_KNOWLEDGE edges)."""
+        return self.required_knowledge_uids
+
+    @property
+    def secondary_knowledge_uids(self) -> list[str]:
+        """Goals have no secondary knowledge tier."""
+        return []
+
+    def knowledge_intensity(self) -> float:
+        """0-1 score: how knowledge-rich this goal is by relationship count."""
+        return min(1.0, len(self.primary_knowledge_uids) * 0.15)

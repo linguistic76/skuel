@@ -121,3 +121,19 @@ class PrincipleRelationships:
             + len(self.guided_choice_uids)
             + len(self.guided_task_uids)
         )
+
+    # KnowledgeLinkedRelationships protocol --------------------------------
+
+    @property
+    def primary_knowledge_uids(self) -> list[str]:
+        """Knowledge grounding this principle (GROUNDED_IN_KNOWLEDGE edges)."""
+        return self.grounded_knowledge_uids
+
+    @property
+    def secondary_knowledge_uids(self) -> list[str]:
+        """Principles have no secondary knowledge tier."""
+        return []
+
+    def knowledge_intensity(self) -> float:
+        """0-1 score: how knowledge-grounded this principle is by relationship count."""
+        return min(1.0, len(self.primary_knowledge_uids) * 0.15)
