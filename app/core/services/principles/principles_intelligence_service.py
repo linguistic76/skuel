@@ -22,12 +22,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.principle.principle import Principle
+from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.principles._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.principles._influence_mixin import _InfluenceMixin
+from core.services.principles.principle_relationships import PrincipleRelationships
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
@@ -83,4 +87,24 @@ class PrinciplesIntelligenceService(
             graph_intel=graph_intel,
             relationship_service=relationship_service,
             insight_store=insight_store,
+        )
+        self._knowledge_analyzer = KnowledgePatternAnalyzer()
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """Detect knowledge-learning patterns across the user's principle activities."""
+        entities_result = await self.backend.find_by(user_uid=user_uid)
+        if entities_result.is_error:
+            return Result.fail(entities_result)
+
+        service = self.relationships
+
+        async def _fetch_principle_rels(uid: str) -> PrincipleRelationships:
+            if service:
+                return await PrincipleRelationships.fetch(uid, service)
+            return PrincipleRelationships.empty()
+
+        return await self._knowledge_analyzer.analyze_learning_patterns(
+            entities_result.value, _fetch_principle_rels, timeframe_days
         )

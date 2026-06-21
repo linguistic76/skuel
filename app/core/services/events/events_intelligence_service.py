@@ -21,6 +21,8 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.events._analytics_mixin import _AnalyticsMixin
 from core.services.events._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.events.event_relationships import EventRelationships
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -76,6 +78,7 @@ class EventsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
+        self._knowledge_analyzer = KnowledgePatternAnalyzer()
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -155,3 +158,22 @@ class EventsIntelligenceService(
             Result containing insights data dict
         """
         return await self.analyze_event_performance(uid)
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """Detect knowledge-learning patterns across the user's event activities."""
+        entities_result = await self.backend.find_by(user_uid=user_uid)
+        if entities_result.is_error:
+            return Result.fail(entities_result)
+
+        service = self.relationships
+
+        async def _fetch_event_rels(uid: str) -> EventRelationships:
+            if service:
+                return await EventRelationships.fetch(uid, service)
+            return EventRelationships.empty()
+
+        return await self._knowledge_analyzer.analyze_learning_patterns(
+            entities_result.value, _fetch_event_rels, timeframe_days
+        )

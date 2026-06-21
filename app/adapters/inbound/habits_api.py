@@ -42,6 +42,9 @@ Hierarchy (ownership-verified):
 Cross-domain links:
     POST /api/habits/link-knowledge    — Link habit to the knowledge/skill it develops
     POST /api/habits/link-principle    — Link habit to the principle/value it embodies
+
+Knowledge intelligence:
+    GET  /api/habits/knowledge-patterns — Detected learning patterns across user habits
 """
 
 from __future__ import annotations
@@ -591,6 +594,38 @@ def create_habits_api_routes(
             return Result.fail(result)
         return Result.ok({"linked": result.value})
 
+    # ================================================================
+    # KNOWLEDGE INTELLIGENCE — learning patterns
+    # ================================================================
+
+    @rt("/api/habits/knowledge-patterns", methods=["GET"])
+    @boundary_handler()
+    async def habit_knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
+        """Detect knowledge-learning patterns across the authenticated user's habits."""
+        user_uid = require_authenticated_user(request)
+        timeframe_days = parse_int_query_param(
+            request.query_params, "timeframe_days", default=30, minimum=1, maximum=365
+        )
+        result = await habits_service.analyze_learning_patterns(user_uid, timeframe_days)
+        if result.is_error:
+            return Result.fail(result)
+        patterns = [
+            {
+                "pattern_type": p.pattern_type.value,
+                "knowledge_uids": p.knowledge_uids,
+                "entity_uids": p.entity_uids,
+                "confidence": p.confidence,
+                "timeframe_days": p.timeframe_days,
+                "frequency": p.frequency,
+                "growth_indicator": p.growth_indicator,
+                "metadata": p.metadata,
+            }
+            for p in result.value
+        ]
+        return Result.ok(
+            {"patterns": patterns, "count": len(patterns), "timeframe_days": timeframe_days}
+        )
+
     return [
         *status_routes,
         habit_track,
@@ -614,4 +649,5 @@ def create_habits_api_routes(
         habit_add_child,
         habit_link_knowledge,
         habit_link_principle,
+        habit_knowledge_patterns,
     ]

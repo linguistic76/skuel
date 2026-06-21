@@ -28,6 +28,8 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._analytics_mixin import _AnalyticsMixin
 from core.services.choices._behavioral_signals_mixin import _BehavioralSignalsMixin
 from core.services.choices._core_intelligence_mixin import _CoreIntelligenceMixin
+from core.services.choices.choice_relationships import ChoiceRelationships
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -84,6 +86,7 @@ class ChoicesIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
+        self._knowledge_analyzer = KnowledgePatternAnalyzer()
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
@@ -171,3 +174,22 @@ class ChoicesIntelligenceService(
         if result.is_ok and result.value:
             return Result.ok(result.value.to_dict())
         return result
+
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        """Detect knowledge-learning patterns across the user's choice activities."""
+        entities_result = await self.backend.find_by(user_uid=user_uid)
+        if entities_result.is_error:
+            return Result.fail(entities_result)
+
+        service = self.relationships
+
+        async def _fetch_choice_rels(uid: str) -> ChoiceRelationships:
+            if service:
+                return await ChoiceRelationships.fetch(uid, service)
+            return ChoiceRelationships.empty()
+
+        return await self._knowledge_analyzer.analyze_learning_patterns(
+            entities_result.value, _fetch_choice_rels, timeframe_days
+        )

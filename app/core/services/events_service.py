@@ -574,6 +574,11 @@ class EventsService(
     ) -> Result[dict[str, Any]]:
         return await self.intelligence.analyze_upcoming_events(user_uid, days_ahead)
 
+    async def analyze_learning_patterns(
+        self, user_uid: UserUID, timeframe_days: int = 30
+    ) -> Result[list[Any]]:
+        return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
+
     # Progress delegations
     async def complete_event_with_cascade(
         self,
