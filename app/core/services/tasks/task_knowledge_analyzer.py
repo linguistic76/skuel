@@ -21,7 +21,7 @@ import asyncio
 import statistics
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.constants import (
     ConfidenceLevel,
@@ -46,7 +46,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.entity import Entity
     from core.services.relationships import UnifiedRelationshipService
+
+
+def _task_complexity_score(entity: Entity) -> float:
+    """Return Task.calculate_knowledge_complexity() for the KNOWLEDGE_BUILDING detector."""
+    return cast("Task", entity).calculate_knowledge_complexity()
 
 
 @dataclass
@@ -102,7 +108,7 @@ class TaskKnowledgeAnalyzer:
                 return TaskRelationships.empty()
 
             generic_result = await self._generic_analyzer.analyze_learning_patterns(
-                tasks, _fetch_task_rels, timeframe_days
+                tasks, _fetch_task_rels, timeframe_days, complexity_fn=_task_complexity_score
             )
             if generic_result.is_error:
                 return generic_result

@@ -125,6 +125,7 @@ class KnowledgePatternAnalyzer:
         entities: Sequence[Entity],
         fetch_rels: Callable[[str], Awaitable[KnowledgeLinkedRelationships]],
         timeframe_days: int = 30,
+        complexity_fn: Callable[[Entity], float] | None = None,
     ) -> Result[list[LearningPattern]]:
         """
         Detect knowledge-learning patterns across a set of domain entities.
@@ -138,6 +139,12 @@ class KnowledgePatternAnalyzer:
                         a given entity UID.
             timeframe_days: Restrict analysis to entities created within this
                             many days.
+            complexity_fn: Optional entity-level progression scorer for the
+                           KNOWLEDGE_BUILDING detector. When None, falls back to
+                           ``rels.knowledge_intensity()`` (edge-count based).
+                           Pass a named function (SKUEL012) that extracts a
+                           domain-specific difficulty signal from the entity,
+                           e.g. ``Task.calculate_knowledge_complexity()``.
 
         Returns:
             Result[list[LearningPattern]] sorted by (confidence, frequency) desc.
@@ -159,7 +166,7 @@ class KnowledgePatternAnalyzer:
             linked = [(e, r) for e, r in entity_rels if r.has_any_knowledge()]
 
             patterns: list[LearningPattern] = []
-            patterns.extend(self._detect_knowledge_building_patterns(linked))
+            patterns.extend(self._detect_knowledge_building_patterns(linked, complexity_fn))
             patterns.extend(self._detect_cross_domain_patterns(linked))
             patterns.extend(self._detect_learning_spiral_patterns(linked))
             patterns.extend(self._detect_skill_specialization_patterns(linked))
@@ -199,8 +206,14 @@ class KnowledgePatternAnalyzer:
     def _detect_knowledge_building_patterns(
         self,
         entity_rels: list[tuple[Entity, KnowledgeLinkedRelationships]],
+        complexity_fn: Callable[[Entity], float] | None = None,
     ) -> list[LearningPattern]:
-        """Detect progressive knowledge-building (increasing intensity over time)."""
+        """Detect progressive knowledge-building (increasing intensity over time).
+
+        Uses ``complexity_fn(entity)`` when provided (e.g. Task.calculate_knowledge_complexity
+        for difficulty-based progression) and falls back to ``rels.knowledge_intensity()``
+        (edge-count based) otherwise.
+        """
         patterns: list[LearningPattern] = []
 
         # Group by Ku area.
@@ -214,7 +227,10 @@ class KnowledgePatternAnalyzer:
             if len(pairs) < 3:
                 continue
             pairs.sort(key=_pair_entity_created_at)
-            intensities = [r.knowledge_intensity() for _, r in pairs]
+            if complexity_fn is not None:
+                intensities = [complexity_fn(e) for e, _ in pairs]
+            else:
+                intensities = [r.knowledge_intensity() for _, r in pairs]
             if self._is_progressive_sequence(intensities):
                 patterns.append(
                     LearningPattern(
