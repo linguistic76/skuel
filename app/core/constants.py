@@ -685,15 +685,15 @@ class InsightThreshold:
 
 
 # ============================================================================
-# INFERENCE CONFIDENCE (advanced_inference_engine.py)
+# INFERENCE CONFIDENCE (entity_inference_service.py)
 # ============================================================================
 
 
 class InferenceConfidence:
     """
-    Confidence scoring constants for the advanced knowledge inference engine.
+    Confidence scoring constants for the knowledge inference engine.
 
-    Used by: AdvancedInferenceEngine content analysis and scoring methods
+    Used by: EntityInferenceService content analysis and scoring methods
     """
 
     # Keyword detection confidence tiers

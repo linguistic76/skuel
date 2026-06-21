@@ -441,7 +441,11 @@ class KnowledgePatternAnalyzer:
         domains = []
         for uid in knowledge_uids:
             parts = uid.split(".")
-            if len(parts) >= 2 and parts[0] in (EntityType.PATH_STEP.value, EntityType.KU.value, "a"):
+            if len(parts) >= 2 and parts[0] in (
+                EntityType.PATH_STEP.value,
+                EntityType.KU.value,
+                "a",
+            ):
                 domains.append(parts[1])
         return domains
 
