@@ -269,6 +269,11 @@ def create_tasks_api_routes(
         """Calculate knowledge-aware priority scores for the authenticated user's tasks."""
         user_uid = require_authenticated_user(request)
         task_uids = parse_csv_query_param(request.query_params, "task_uids") or None
+        if task_uids:
+            for uid in task_uids:
+                ownership_error = await verify_entity_ownership(tasks_service, uid, user_uid, "task")
+                if ownership_error:
+                    return ownership_error
         result = await tasks_service.calculate_knowledge_aware_priorities(user_uid, task_uids)
         if result.is_error:
             return Result.fail(result)
