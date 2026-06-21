@@ -20,7 +20,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel
+from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
@@ -323,7 +323,7 @@ class HabitsIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> "Result[list[Any]]":
         """Detect knowledge-learning patterns across the user's habit activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid)
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if entities_result.is_error:
             return Result.fail(entities_result)
 

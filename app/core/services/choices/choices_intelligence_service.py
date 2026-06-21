@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.constants import ConfidenceLevel
+from core.constants import ConfidenceLevel, QueryLimit
 from core.models.choice.choice import Choice
 from core.models.type_hints import UserUID
 from core.services.base_analytics_service import BaseAnalyticsService
@@ -179,7 +179,7 @@ class ChoicesIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's choice activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid)
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if entities_result.is_error:
             return Result.fail(entities_result)
 

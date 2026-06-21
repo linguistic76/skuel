@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.goal.goal import Goal
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
@@ -226,7 +227,7 @@ class GoalsIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's goal activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid)
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if entities_result.is_error:
             return Result.fail(entities_result)
 

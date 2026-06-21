@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.constants import QueryLimit
 from core.models.principle.principle import Principle
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
@@ -94,7 +95,7 @@ class PrinciplesIntelligenceService(
         self, user_uid: UserUID, timeframe_days: int = 30
     ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's principle activities."""
-        entities_result = await self.backend.find_by(user_uid=user_uid)
+        entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if entities_result.is_error:
             return Result.fail(entities_result)
 
