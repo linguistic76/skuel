@@ -31,7 +31,7 @@ class _ProductivityMixin:
     """
     Analytics engine methods for TasksIntelligenceService.
 
-    Delegates to AnalyticsEngine for pattern detection, priority calculation,
+    Delegates to TaskKnowledgeAnalyzer for pattern detection, priority calculation,
     insight generation, and mastery tracking.
 
     Declares class-level attributes used by these methods so mypy
@@ -41,7 +41,7 @@ class _ProductivityMixin:
     # Populated by TasksIntelligenceService.__init__
     backend: Any
     logger: Any
-    _analytics_engine: Any
+    _knowledge_analyzer: Any
     relationships: Any
 
     async def analyze_learning_patterns(
@@ -61,7 +61,7 @@ class _ProductivityMixin:
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
-        return await self._analytics_engine.analyze_learning_patterns(
+        return await self._knowledge_analyzer.analyze_learning_patterns(
             tasks_result.value, timeframe_days
         )
 
@@ -109,14 +109,14 @@ class _ProductivityMixin:
         for task, _rels in zip(all_tasks, rels_list, strict=False):
             all_knowledge_uids.update(task.get_combined_knowledge_uids())
 
-        mastery_result = await self._analytics_engine.track_knowledge_mastery_progression(
+        mastery_result = await self._knowledge_analyzer.track_knowledge_mastery_progression(
             all_tasks, list(all_knowledge_uids)
         )
         mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
 
         priorities = []
         for task in tasks_to_prioritize:
-            priority_result = await self._analytics_engine.calculate_knowledge_aware_priority(
+            priority_result = await self._knowledge_analyzer.calculate_knowledge_aware_priority(
                 task, mastery_progressions, patterns
             )
             if priority_result.is_ok:
@@ -154,7 +154,7 @@ class _ProductivityMixin:
         patterns_result = await self.analyze_learning_patterns(user_uid, timeframe_days)
         patterns = patterns_result.value if patterns_result.is_ok else []
 
-        return await self._analytics_engine.generate_task_insights(completed_tasks, patterns)
+        return await self._knowledge_analyzer.generate_task_insights(completed_tasks, patterns)
 
     async def track_knowledge_mastery_progression(
         self, user_uid: UserUID, knowledge_uids: list[str] | None = None
@@ -188,7 +188,7 @@ class _ProductivityMixin:
                 all_knowledge_uids.update(task.get_combined_knowledge_uids())
             knowledge_uids = list(all_knowledge_uids)
 
-        return await self._analytics_engine.track_knowledge_mastery_progression(
+        return await self._knowledge_analyzer.track_knowledge_mastery_progression(
             all_tasks, knowledge_uids
         )
 

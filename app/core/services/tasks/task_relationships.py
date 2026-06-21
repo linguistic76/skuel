@@ -98,3 +98,19 @@ class TaskRelationships:
         all_uids.update(self.prerequisite_knowledge_uids)
         all_uids.update(self.inferred_knowledge_uids)
         return all_uids
+
+    # KnowledgeLinkedRelationships protocol --------------------------------
+
+    @property
+    def primary_knowledge_uids(self) -> list[str]:
+        """Active knowledge application (APPLIES_KNOWLEDGE edges)."""
+        return self.applies_knowledge_uids
+
+    @property
+    def secondary_knowledge_uids(self) -> list[str]:
+        """Prerequisite and inferred knowledge connections."""
+        return self.prerequisite_knowledge_uids + self.inferred_knowledge_uids
+
+    def knowledge_intensity(self) -> float:
+        """0-1 score: how knowledge-rich this task is by relationship count."""
+        return min(1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05)

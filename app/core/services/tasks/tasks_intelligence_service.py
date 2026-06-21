@@ -50,7 +50,6 @@ from core.constants import GraphDepth, LearningLoop
 from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID, UserUID
-from core.services.analytics_engine import AnalyticsEngine
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.infrastructure.prerequisite_checker import build_learning_requirements
@@ -62,6 +61,7 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
+from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -127,9 +127,9 @@ class TasksIntelligenceService(
             insight_store=insight_store,
         )
 
-        # AnalyticsEngine owned here — requires relationship_service to be wired
+        # TaskKnowledgeAnalyzer owned here — requires relationship_service
         # (BaseAnalyticsService stores relationship_service as self.relationships)
-        self._analytics_engine = AnalyticsEngine(relationship_service=relationship_service)
+        self._knowledge_analyzer = TaskKnowledgeAnalyzer(relationship_service=relationship_service)
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
