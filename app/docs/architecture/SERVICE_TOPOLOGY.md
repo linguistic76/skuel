@@ -95,7 +95,8 @@ Standalone services without subfolders.
 |----------|----------|
 | **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
 | **AI/LLM** | `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `embeddings_service.py` (EmbeddingsService), `neo4j_vector_search_service.py`, `context_aware_ai_service.py` — all port-based; the vendor SDK clients live below the boundary in `adapters/external/llm/{openai,anthropic}_adapter.py` + `adapters/external/embeddings/{openai,huggingface}_adapter.py` behind the `create_embedding_client()` chokepoint (W1 / ADR-063, ADR-068) |
-| **Analytics** | `analytics_engine.py`, `analytics_service.py`, `cross_domain_analytics_service.py`, `analytics_relationship_service.py` |
+| **Analytics** | `analytics_service.py`, `cross_domain_analytics_service.py`, `analytics_relationship_service.py` |
+| **Knowledge Analytics** | `knowledge/knowledge_pattern_analyzer.py` (generic 5-pattern engine), `tasks/task_knowledge_analyzer.py` (Task-specific, composes generic) |
 | **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
 | **KU Generation Pipeline** | `entity_chunking_service.py`, `insight_generation_service.py`, `entity_inference_service.py`, `ku_intelligence_service.py` |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` |
@@ -149,7 +150,8 @@ from core.services.sharing import UnifiedSharingService
 ```python
 from core.services.base_service import BaseService
 from core.services.llm_service import LLMService
-from core.services.analytics_engine import AnalyticsEngine
+from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
+from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
 ```
 
 ### Service Bootstrap
@@ -382,7 +384,7 @@ TasksProgressService    ← Depends on: event_bus (optional)
 TasksSchedulingService  ← Self-contained
 TasksPlanningService    ← Depends on: relationship_service (UnifiedRelationshipService)
 TasksSearchService      ← Self-contained (uses DomainConfig)
-TasksIntelligenceService← Depends on: graph_intel, relationship_service, AnalyticsEngine (owned internally)
+TasksIntelligenceService← Depends on: graph_intel, relationship_service, TaskKnowledgeAnalyzer (owned internally)
 UnifiedRelationshipService ← Depends on: relationship_config (TASKS_CONFIG)
 ```
 
@@ -495,7 +497,7 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
    update_task()         TaskCompleted
        │                     └─> Listeners:
        ▼                         - UserContextService (update stats)
-   Neo4j UPDATE              - AnalyticsEngine (track mastery)
+   Neo4j UPDATE              - TaskKnowledgeAnalyzer (track mastery)
                              - TaskEventHandlerService
                                  (handle_task_completed →
                                   step 4: _trigger_knowledge_generation)
@@ -565,7 +567,7 @@ Routes / Application Code
         │  - UniversalNeo4jBackend       │
         │  - UnifiedRelationshipService  │
         │  - UnifiedSharingService       │
-        │  - AnalyticsEngine             │
+        │  - KnowledgePatternAnalyzer    │
         │  - EventBus                    │
         └────────────────────────────────┘
 ```
