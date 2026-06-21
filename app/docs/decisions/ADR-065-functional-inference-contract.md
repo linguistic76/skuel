@@ -89,7 +89,7 @@ their inference services are built):
 2. **Inference signatures change:**
    - `EntityInferenceService.enhance_task_dto_with_inference(task)`
    - `EntityInferenceService.enhance_task_with_knowledge_inference(task)`
-   - `AdvancedInferenceEngine.enhance_task_dto_with_advanced_inference(task)`
+   - `EntityInferenceService._enhance_with_advanced_inference(task)` (internal; was `AdvancedInferenceEngine.enhance_task_dto_with_advanced_inference` before the engine class was merged into `EntityInferenceService`)
    - `EntityInferenceService._basic_inference_fallback(task)` (internal)
 
    All now accept `Task | TaskDTO` (they read content, they don't write
@@ -243,7 +243,6 @@ helper.
 - `/docs/patterns/three_tier_type_system.md` § "Intelligence is the
   exception" — the pattern-level note that points back here.
 - `core/models/task/task_inference_result.py` — the type.
-- `core/services/entity_inference_service.py`,
-  `core/services/advanced_inference_engine.py` — the contract enforced.
+- `core/services/entity_inference_service.py` — the contract enforced (engine merged in; no separate `advanced_inference_engine.py`).
 - `core/services/tasks/tasks_core_service.py::create_task` — the canonical
   caller pattern.
