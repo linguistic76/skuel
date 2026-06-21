@@ -16,7 +16,7 @@ A functional-direction review (see [`functional-direction.md` § implementation 
 
 - **The 5 non-Task domains have no inference service at all.** Their `_core_intelligence_mixin` files are thin stubs (Goals/Habits) or do unrelated analytics (Events `analyze_event_performance`, Choices `get_decision_intelligence`) — zero `EntityInferenceService` injection, zero inference calls. Verified across `core/services/{goals,habits,events,choices,principles}/`.
 - **An `*InferenceResult` is the return type of a computation that does not exist.** Adding `GoalInferenceResult` etc. now would create the output shape of a service nobody has built, for demand nobody has expressed — speculative scaffolding, which SKUEL's One Path Forward philosophy forbids. The dataclass arrives *with* the inference service, not ahead of it.
-- **The engine-generalization prerequisite must also wait.** `AdvancedInferenceEngine` and `EntityInferenceService` still hardcode `TaskInferenceResult` (confirmed: both return `Result[TaskInferenceResult]`, the `entity_type` param is logging-only). The "Cross-cutting prerequisite" section below says to generalize them "before the second domain migrates" — doing it now would generalize a one-implementation dispatch with no second caller, which is premature abstraction (YAGNI). It is the *first step of the next domain's migration*, not standalone prep to do speculatively.
+- **The engine-generalization prerequisite must also wait.** `EntityInferenceService` still hardcodes `TaskInferenceResult` (the `entity_type` param is logging-only; the result-construction path is wired to `TaskInferenceResult`). The "Cross-cutting prerequisite" section below says to generalize it "before the second domain migrates" — doing it now would generalize a one-implementation dispatch with no second caller, which is premature abstraction (YAGNI). It is the *first step of the next domain's migration*, not standalone prep to do speculatively.
 
 **Trigger to unblock:** a concrete product decision that a specific domain (Goals is the recommended first per the sequence below) needs knowledge-graph inference. At that point, start with the engine generalization, then that domain. Until then, this doc is a captured plan, not active work.
 
@@ -24,7 +24,7 @@ A functional-direction review (see [`functional-direction.md` § implementation 
 
 | Domain | Inference service today | `*InferenceResult` | `ku_inference_service` wired | `_core_intelligence_mixin` |
 |--------|-------------------------|--------------------|-----------------------------|----------------------------|
-| Tasks | ✅ `EntityInferenceService` + `AdvancedInferenceEngine` | ✅ `TaskInferenceResult` | ✅ injected | mech-B `get_with_context` (shared mixin; the domain-named alias was deleted in the tasks bloat campaign); cross-domain context now via the CANONICAL typed reader (`get_cross_domain_context_typed`), not a bespoke categorizer |
+| Tasks | ✅ `EntityInferenceService` (engine merged; was `EntityInferenceService` + `AdvancedInferenceEngine`) | ✅ `TaskInferenceResult` | ✅ injected | mech-B `get_with_context` (shared mixin; the domain-named alias was deleted in the tasks bloat campaign); cross-domain context now via the CANONICAL typed reader (`get_cross_domain_context_typed`), not a bespoke categorizer |
 | Goals | ❌ | ❌ | ❌ | stub (~35 LOC, delegates to shared base) |
 | Habits | ❌ | ❌ | ❌ | stub |
 | Events | ❌ | ❌ | ❌ | stub |
@@ -43,15 +43,15 @@ For each non-Task Activity Domain `X` to reach inference parity:
 
 ## Cross-cutting prerequisite — generalize the engine
 
-`AdvancedInferenceEngine` (`core/services/advanced_inference_engine.py`) is currently Task-shaped at its construction boundary — `analyze_content_advanced` reads `title` + `description` (already generic), but the result-construction path is wired to `TaskInferenceResult`. Before the second domain migrates, the engine needs to dispatch on `EntityType` (or accept a result-type parameter) so it can build `GoalInferenceResult`, `HabitInferenceResult`, etc.
+`EntityInferenceService` (`core/services/entity_inference_service.py`) is currently Task-shaped at its construction boundary — `_analyze_content_advanced` reads `title` + `description` (already generic), but the result-construction path in `_enhance_with_advanced_inference` is wired to `TaskInferenceResult`. Before the second domain migrates, the service needs to dispatch on `EntityType` (or accept a result-type parameter) so it can build `GoalInferenceResult`, `HabitInferenceResult`, etc.
+
+Note: `AdvancedInferenceEngine` was a separate class in `advanced_inference_engine.py`; it was merged directly into `EntityInferenceService` as private methods. The generalization prerequisite is now a single boundary in `EntityInferenceService`, not two separate files.
 
 Estimated scope: ~50–100 LOC of generalization in a single PR, behavior-preserving for Tasks. This is the natural first step — once landed, each domain's adoption becomes mostly mechanical. **Do not do it speculatively:** it is the first step *of* the second domain's migration, not standalone prep (see [Blockage status](#blockage-status-verified-2026-05-31)). Generalizing a one-implementation dispatch with no second caller is premature abstraction.
 
-`EntityInferenceService` (`core/services/entity_inference_service.py`) needs the same generalization at the `enhance_*_with_knowledge_inference` boundary.
-
 ## Recommended sequence
 
-1. **Generalize `AdvancedInferenceEngine` + `EntityInferenceService`** to be entity-type-aware. Single PR, no domain behavior changes. Prerequisite for every domain that follows.
+1. **Generalize `EntityInferenceService`** to be entity-type-aware (the engine is now merged into it). Single PR, no domain behavior changes. Prerequisite for every domain that follows.
 2. **Goals second.** Closest in shape to Tasks — same template UI, same engagement flow, same activity model. Lowest-risk validation that the generalized pattern actually composes at a second domain before scaling.
 3. **Habits, Events, Choices, Principles** in any order once #1 + #2 land. Each is largely independent.
 
