@@ -262,17 +262,25 @@ class TestIsProgressiveSequence:
 
     def test_ascending_sequence_returns_true(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
         """Strictly ascending sequence is progressive."""
-        assert engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 2.0, 3.0, 4.0]) is True
+        assert (
+            engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 2.0, 3.0, 4.0]) is True
+        )
 
     def test_flat_sequence_returns_false(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
         """All-equal sequence has no increases."""
-        assert engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 1.0, 1.0, 1.0]) is False
+        assert (
+            engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 1.0, 1.0, 1.0]) is False
+        )
 
     def test_descending_sequence_returns_false(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
         """Strictly descending sequence has no increases."""
-        assert engine_no_svc._generic_analyzer._is_progressive_sequence([4.0, 3.0, 2.0, 1.0]) is False
+        assert (
+            engine_no_svc._generic_analyzer._is_progressive_sequence([4.0, 3.0, 2.0, 1.0]) is False
+        )
 
-    def test_fewer_than_3_elements_returns_false(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
+    def test_fewer_than_3_elements_returns_false(
+        self, engine_no_svc: TaskKnowledgeAnalyzer
+    ) -> None:
         """Less than 3 values → cannot be a meaningful progressive sequence."""
         assert engine_no_svc._generic_analyzer._is_progressive_sequence([]) is False
         assert engine_no_svc._generic_analyzer._is_progressive_sequence([1.0]) is False
@@ -283,7 +291,10 @@ class TestIsProgressiveSequence:
     ) -> None:
         """60%+ increases passes the threshold — one dip is allowed."""
         # [1, 2, 3, 2.5, 4] → 4 increases out of 4 pairs = 80% > 60%
-        assert engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 2.0, 3.0, 2.5, 4.0]) is True
+        assert (
+            engine_no_svc._generic_analyzer._is_progressive_sequence([1.0, 2.0, 3.0, 2.5, 4.0])
+            is True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -317,9 +328,13 @@ class TestCalculateGrowthIndicator:
         result = engine_no_svc._generic_analyzer._calculate_growth_indicator([3.0, 3.0, 3.0, 3.0])
         assert result == 0.0
 
-    def test_result_is_clamped_to_minus_one_to_one(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
+    def test_result_is_clamped_to_minus_one_to_one(
+        self, engine_no_svc: TaskKnowledgeAnalyzer
+    ) -> None:
         """Extreme values clamp to [-1, 1]."""
-        result = engine_no_svc._generic_analyzer._calculate_growth_indicator([0.001, 0.001, 1000.0, 1000.0])
+        result = engine_no_svc._generic_analyzer._calculate_growth_indicator(
+            [0.001, 0.001, 1000.0, 1000.0]
+        )
         assert -1.0 <= result <= 1.0
 
 
@@ -331,9 +346,13 @@ class TestCalculateGrowthIndicator:
 class TestExtractDomainsFromKnowledgeUids:
     """Tests the pure helper via the composed KnowledgePatternAnalyzer."""
 
-    def test_extracts_domain_from_ku_prefixed_uids(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
+    def test_extracts_domain_from_ku_prefixed_uids(
+        self, engine_no_svc: TaskKnowledgeAnalyzer
+    ) -> None:
         """ku.domain-name UIDs → domain portion extracted."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(["ku.python", "ku.mathematics"])
+        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(
+            ["ku.python", "ku.mathematics"]
+        )
         assert result == ["python", "mathematics"]
 
     def test_ignores_non_ku_prefixed_uids(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:

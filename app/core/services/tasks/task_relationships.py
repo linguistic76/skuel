@@ -113,4 +113,6 @@ class TaskRelationships:
 
     def knowledge_intensity(self) -> float:
         """0-1 score: how knowledge-rich this task is by relationship count."""
-        return min(1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05)
+        return min(
+            1.0, len(self.primary_knowledge_uids) * 0.15 + len(self.secondary_knowledge_uids) * 0.05
+        )

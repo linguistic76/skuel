@@ -368,9 +368,7 @@ class TaskKnowledgeAnalyzer:
     # Task-specific private helpers
     # =========================================================================
 
-    async def _detect_mastery_validation_patterns(
-        self, tasks: list[Task]
-    ) -> list[LearningPattern]:
+    async def _detect_mastery_validation_patterns(self, tasks: list[Task]) -> list[LearningPattern]:
         """Detect tasks that explicitly validate knowledge mastery."""
         patterns: list[LearningPattern] = []
         if not tasks or not self.relationship_service:
@@ -617,9 +615,7 @@ class TaskKnowledgeAnalyzer:
             rationale.append("Standard priority scoring applied")
         return rationale
 
-    async def _generate_knowledge_area_insights(
-        self, tasks: list[Task]
-    ) -> list[ActivityInsight]:
+    async def _generate_knowledge_area_insights(self, tasks: list[Task]) -> list[ActivityInsight]:
         insights: list[ActivityInsight] = []
         if not tasks or not self.relationship_service:
             return insights
