@@ -7,7 +7,7 @@
 
 | File | Contents |
 |------|----------|
-| `habits_intelligence_service.py` | Shell: `__init__` + 3 protocol delegation methods (label attrs resolved via `DomainConfig`) |
+| `habits_intelligence_service.py` | Shell: `__init__` + 3 protocol delegation methods (label attrs resolved via `DomainConfig`); `analyze_learning_patterns()` — delegates to `KnowledgePatternAnalyzer` (June 2026, #368). Route: `GET /api/habits/knowledge-patterns` |
 | `_behavioral_signals_mixin.py` | `analyze_habit_performance`, `get_habit_knowledge_reinforcement`, `get_habit_goal_support`, and private helpers |
 | `_dual_track_mixin.py` | `assess_consistency_dual_track`, `_calculate_system_consistency`, gap insights/recommendations, `get_zpd_knowledge_signals` |
 

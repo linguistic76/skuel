@@ -230,25 +230,23 @@ result = await tasks_service.relationships.find_by_semantic_filter(
 **Answer:** Use the intelligence service:
 
 ```python
-# Learning metrics
-metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid="user.mike")
-
-# Learning patterns
+# Learning patterns (generic 5-pattern engine — also available for Goals/Habits/Events/Choices/Principles)
 patterns_result = await tasks_service.analyze_learning_patterns(
     user_uid="user.mike",
     timeframe_days=30,
 )
 
-# Knowledge-aware priorities
+# Knowledge-aware priorities (Tasks-only — requires task.knowledge_mastery_check field)
 priorities_result = await tasks_service.calculate_knowledge_aware_priorities(
     user_uid="user.mike"
 )
 ```
 
 **Behind the scenes:**
-- Delegates to `intelligence.analyze_task_learning_metrics()` (via `_productivity_mixin`)
+- `_productivity_mixin` delegates to `TaskKnowledgeAnalyzer` (`/core/services/tasks/task_knowledge_analyzer.py`)
+- `TaskKnowledgeAnalyzer` extends the generic `KnowledgePatternAnalyzer` with Task-specific `MASTERY_VALIDATION` detection
+- Routes: `GET /api/tasks/knowledge-patterns`, `GET /api/tasks/knowledge-priorities`
 - Pure Cypher analytics (no AI/LLM dependencies)
-- Cross-domain graph analysis
 
 ---
 

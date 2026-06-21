@@ -21,6 +21,8 @@ class EventsIntelligenceService(
 **Service Name:** `events.intelligence`
 **Lines:** ~169 (shell) — see mixin files above for the bulk of logic
 
+**June 2026 (#368):** `analyze_learning_patterns()` added to shell — delegates to `KnowledgePatternAnalyzer`. Route: `GET /api/events/knowledge-patterns`. Prerequisite: `event_relationships.py` (restored in #366; source had been deleted).
+
 **Related Services:**
 - `EventsProgressService` - Progress tracking, completion, attendance metrics
 - `EventsSchedulingService` - Recurring event creation and date optimization (Events-domain only). Cross-domain scheduling intelligence — busy times, slot suggestions, conflict detection, calendar density — lives in `CalendarOptimizationOrchestrator`.
