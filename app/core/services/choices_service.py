@@ -11,9 +11,8 @@ Sub-Services:
 - UnifiedRelationshipService (CHOICES_CONFIG): Cross-domain links and semantic connections
 - ChoicesIntelligenceService: Pure Cypher analytics + decision pattern analysis
 
-Facade Mixins:
+Facade Mixin:
 - _OptionManagementMixin: Option CRUD and decision-making
-- _RelationshipMixin: Cross-domain graph relationships and semantic connections
 """
 
 from __future__ import annotations
@@ -32,7 +31,6 @@ from core.services.base_service import BaseService
 # Import sub-services
 from core.services.choices import ChoicesLearningService
 from core.services.choices._option_management_mixin import _OptionManagementMixin
-from core.services.choices._relationship_mixin import _RelationshipMixin
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.domain_config import create_activity_domain_config
 from core.services.filtered_context import build_filtered_context
@@ -54,6 +52,7 @@ from core.utils.type_converters import get_enum_attr_str
 if TYPE_CHECKING:
     from datetime import date
 
+    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.choice.choice_request import ChoiceCreateRequest
     from core.models.context_types import ContextualChoice
     from core.models.enums import Domain
@@ -132,7 +131,6 @@ def _apply_choice_sort(choices: list[Any], sort_by: str = "deadline") -> list[An
 
 class ChoicesService(
     _OptionManagementMixin,
-    _RelationshipMixin,
     KnowledgeIntelligenceDelegationMixin,
     BaseService["ChoicesOperations", Choice, ChoiceUpdateIntent],
 ):
@@ -151,9 +149,8 @@ class ChoicesService(
     - Search: get_pending_choices, get_upcoming, get_overdue, get_choices_needing_decision, etc.
     - Intelligence: get_decision_intelligence, get_decision_patterns, etc.
 
-    Facade Mixins:
+    Facade Mixin:
     - _OptionManagementMixin: add_option, update_option, remove_option, make_decision
-    - _RelationshipMixin: link_choice_to_*, create_semantic_*, find_choices_aligned_*
 
     SKUEL Architecture:
     - Uses explicit delegation methods (February 2026)
@@ -492,8 +489,59 @@ class ChoicesService(
     # Note: Option management methods (add_option, update_option, remove_option, make_decision)
     # provided by _OptionManagementMixin.
 
-    # Note: Relationship methods (link_choice_to_*, create_semantic_*, find_choices_aligned_*)
-    # provided by _RelationshipMixin.
+    # ========================================================================
+    # GRAPH RELATIONSHIPS
+    # ========================================================================
+
+    async def link_choice_to_goal(
+        self, choice_uid: str, goal_uid: str, contribution_score: float = 0.5
+    ) -> Result[bool]:
+        """Link choice to goal it affects/advances (``AFFECTS_GOAL``)."""
+        return await self.relationships.create_relationship(
+            "goals", choice_uid, goal_uid, {"contribution_score": contribution_score}
+        )
+
+    async def link_choice_to_habit(
+        self, choice_uid: str, habit_uid: str, reinforcement_strength: float = 0.5
+    ) -> Result[bool]:
+        """Link choice to habit it reinforces/weakens (``IMPACTS_HABIT``).
+
+        Uses the ``impacted_habits`` config key — Choices has no ``"habits"`` key
+        (that earlier value silently failed config validation in create_relationship).
+        """
+        properties = {"reinforcement_strength": reinforcement_strength}
+        return await self.relationships.create_relationship(
+            "impacted_habits", choice_uid, habit_uid, properties
+        )
+
+    async def link_choice_to_principle(
+        self, choice_uid: str, principle_uid: str, alignment_score: float = 0.5
+    ) -> Result[bool]:
+        """Link choice to principle it is informed by (``INFORMED_BY_PRINCIPLE``)."""
+        return await self.relationships.create_relationship(
+            "principles", choice_uid, principle_uid, {"alignment_score": alignment_score}
+        )
+
+    async def create_semantic_choice_relationship(
+        self,
+        choice_uid: str,
+        related_uid: str,
+        semantic_type: SemanticRelationshipType,
+        confidence: float = 0.9,
+        notes: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Create semantic relationship for choice (to principle, knowledge, or goal)."""
+        return await self.relationships.create_semantic_relationship(
+            choice_uid, related_uid, semantic_type, confidence, notes
+        )
+
+    async def find_choices_aligned_with_principle(
+        self, principle_uid: str, min_confidence: float = 0.8
+    ) -> Result[list[Choice]]:
+        """Find choices aligned with specific principle."""
+        return await self.relationships.find_by_semantic_filter(
+            target_uid=principle_uid, min_confidence=min_confidence, direction="incoming"
+        )
 
     # ========================================================================
     # HIERARCHY DELEGATIONS

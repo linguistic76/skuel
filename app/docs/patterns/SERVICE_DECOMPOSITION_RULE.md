@@ -30,16 +30,25 @@ class TasksIntelligenceService(
 
 ### When to create a Facade Mixin
 
-Extract facade methods into mixins when:
+Extract facade methods into mixins when ALL are true:
 1. The facade **file exceeds ~700 lines**, AND
-2. **4+ methods share a coherent domain theme**
+2. **4+ methods share a coherent domain theme**, AND
+3. The extracted unit is either **reused across domains**, **independently testable**, or **prevents the host file from becoming unreadable**
+
+**Floor rule — prefer inlining when most are true:**
+- The file is under ~250 lines
+- It has a single consumer
+- It mostly delegates to one dependency
+- It exists only to satisfy a previous line-count rule
+- The reader must open it nearly every time they inspect the host
 
 | Mixin | Theme | Example Methods |
 |-------|-------|-----------------|
 | `_orchestration_mixin.py` | Multi-service coordination | `create_*_with_context`, attendee management, status transitions |
 | `_scheduling_mixin.py` | Time/recurrence operations | `check_conflicts`, `create_recurring_instances` |
-| `_relationship_mixin.py` | Cross-domain graph links | `link_*_to_goal/habit/knowledge` |
 | `_completion_mixin.py` | Completion cascade logic | `complete_*_with_cascade`, quality scoring |
+
+**Note:** `_relationship_mixin.py` was **inlined back** into Goals, Tasks, and Choices services (June 2026) — it was a thin single-consumer delegation slice that added MRO complexity without payoff. The graph link methods now live directly on the facade.
 
 **Pattern (applied to Events, April 2026):**
 
@@ -66,15 +75,15 @@ A full class with its own backend access, injected as `self.progress`, `self.sch
 - Logic exceeds ~200 lines (not just delegation)
 - Testable in isolation
 
-## Current State (April 2026)
+## Current State (June 2026)
 
 | Domain | Intelligence Decomposed | Facade Decomposed |
 |--------|------------------------|-------------------|
-| Tasks  | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin` | `_orchestration_mixin`, `_relationship_mixin` |
-| Goals  | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_predictive_mixin`, `_dual_track_mixin` | `_orchestration_mixin`, `_relationship_mixin` |
+| Tasks  | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin` | `_orchestration_mixin` |
+| Goals  | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_predictive_mixin`, `_dual_track_mixin` | `_orchestration_mixin` |
 | Habits | ✅ 3 mixins | `_completion_mixin`, `_enrichment_mixin`, `_orchestration_mixin` |
 | Events | ✅ `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin` | `_orchestration_mixin`, `_scheduling_mixin` |
-| Choices | ✅ 3 mixins | `_option_management_mixin`, `_enrichment_mixin`, `_relationship_mixin` |
+| Choices | ✅ 3 mixins | `_option_management_mixin`, `_enrichment_mixin` |
 | Principles | ✅ 3 mixins | `_embodiment_mixin`, `_gravity_mixin`, `_enrichment_mixin` |
 
 ## Mixin Class Template
