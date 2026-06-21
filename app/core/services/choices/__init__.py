@@ -4,7 +4,7 @@ Choices Sub-Services Package
 
 This package contains focused sub-services that compose the unified ChoicesService facade.
 
-Architecture: Facade Pattern (7 sub-services + 2 facade mixins)
+Architecture: Facade Pattern (7 sub-services + 1 facade mixin)
 - Each sub-service handles ONE specific responsibility
 - ChoicesService (facade) delegates to appropriate sub-service via explicit delegation methods
 - Decision-making domain with principle alignment and learning guidance
@@ -17,9 +17,8 @@ Sub-Services:
 - ChoicesIntelligenceService: Pure Cypher analytics, decision pattern analysis (NO AI dependencies)
 - ChoiceEventHandlerService: Event-driven reactive logic (outcome tracking, decision patterns)
 
-Facade Mixins:
+Facade Mixin:
 - _OptionManagementMixin: Option CRUD and decision-making
-- _RelationshipMixin: Cross-domain graph relationships and semantic connections
 
 Additional Exports:
 - choices_types: Frozen dataclasses for intelligence results (DecisionAnalysis, RiskAssessment, etc.)

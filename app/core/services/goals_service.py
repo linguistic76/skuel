@@ -4,11 +4,9 @@ Enhanced Goals Service - Facade Pattern
 
 Goals service facade that delegates to specialized sub-services.
 
-Architecture: Shell delegates to 2 facade mixins in the goals/ package:
+Architecture: Shell delegates to 1 facade mixin in the goals/ package:
   _orchestration_mixin.py  — create_goal_with_context, generate_tasks_for_goal,
                               assess_goal_feasibility
-  _relationship_mixin.py   — link_goal_to_habit/knowledge/principle,
-                              create_semantic_goal_relationship, etc.
 
 Sub-Services:
 - GoalsCoreService: CRUD operations
@@ -50,7 +48,6 @@ from core.services.goals import (
     GoalsSchedulingService,
 )
 from core.services.goals._orchestration_mixin import _OrchestrationMixin
-from core.services.goals._relationship_mixin import _RelationshipMixin
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.mixins import KnowledgeIntelligenceDelegationMixin
 
@@ -67,6 +64,7 @@ from core.utils.sort_functions import (
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
+    from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.context_types import ContextualGoal
     from core.models.enums import Domain
     from core.models.goal.goal_request import GoalCreateRequest
@@ -179,18 +177,15 @@ def _apply_goal_sort(goals: list[Any], sort_by: str = "target_date") -> list[Any
 
 class GoalsService(
     _OrchestrationMixin,
-    _RelationshipMixin,
     KnowledgeIntelligenceDelegationMixin,
     BaseService[GoalsOperations, Goal, GoalUpdateIntent],
 ):
     """
     Goals service facade with specialized sub-services.
 
-    Architecture: Shell delegates to 2 facade mixins + 8 sub-services:
+    Architecture: Shell delegates to 1 facade mixin + 8 sub-services:
       _OrchestrationMixin  — create_goal_with_context, generate_tasks_for_goal,
                               assess_goal_feasibility
-      _RelationshipMixin   — link_goal_to_habit/knowledge/principle,
-                              create_semantic_goal_relationship, etc.
 
     Delegations (explicit methods):
     - Core: get_goal, get_user_goals, get_user_items_in_range, activate/pause/complete/archive
@@ -619,8 +614,90 @@ class GoalsService(
     # Note: Backend access uses inherited BaseService._backend property
     # Custom backend property removed November 2025 - was unnecessary indirection
 
-    # Note: Graph relationship methods provided by _RelationshipMixin
     # Note: Orchestration methods provided by _OrchestrationMixin
+
+    # ========================================================================
+    # GRAPH RELATIONSHIPS
+    # ========================================================================
+
+    async def create_user_goal_relationship(
+        self, user_uid: UserUID, goal_uid: str, role: str = "owner"
+    ) -> Result[bool]:
+        """Create User->Goal relationship in graph."""
+        properties = {"role": role} if role != "owner" else None
+        return await self.relationships.create_user_relationship(
+            user_uid, EntityUID(goal_uid), properties
+        )
+
+    async def link_goal_to_habit(
+        self,
+        goal_uid: str,
+        habit_uid: str,
+        weight: float = 1.0,
+        essentiality: str = "supporting",
+    ) -> Result[bool]:
+        """Link goal to supporting habit, tagged with its essentiality tier.
+
+        Writes ``(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)``. The
+        ``essentiality`` property (``essential`` / ``critical`` / ``supporting`` /
+        ``optional``) is THE single source for the GOAPS_CONFIG tier buckets
+        (``essential_habits`` / ``critical_habits`` / ``optional_habits``, with the
+        ``supporting`` and unset cases falling to the ``contributing_habits`` catch-all).
+        It MUST match the read mappings' ``filter_property="essentiality"`` — storing the
+        tier under any other key (the former ``contribution_type``) left every tier empty.
+        """
+        properties = {"weight": weight, "essentiality": essentiality}
+        return await self.relationships.create_relationship(
+            "supporting_habits", goal_uid, habit_uid, properties
+        )
+
+    async def unlink_goal_from_habit(self, uid: str, habit_uid: str) -> Result[bool]:
+        """Unlink a habit from a goal."""
+        return await self.relationships.delete_relationship("supporting_habits", uid, habit_uid)
+
+    async def link_goal_to_knowledge(
+        self,
+        goal_uid: str,
+        knowledge_uid: str,
+        proficiency_required: str = "intermediate",
+        priority: int = 1,
+    ) -> Result[bool]:
+        """Link goal to required knowledge/skill (``REQUIRES_KNOWLEDGE``)."""
+        return await self.relationships.create_relationship(
+            "knowledge",
+            goal_uid,
+            knowledge_uid,
+            {"proficiency_required": proficiency_required, "priority": priority},
+        )
+
+    async def link_goal_to_principle(
+        self, goal_uid: str, principle_uid: str, alignment_strength: float = 1.0
+    ) -> Result[bool]:
+        """Link goal to guiding principle/value (``GUIDED_BY_PRINCIPLE``)."""
+        return await self.relationships.create_relationship(
+            "principles", goal_uid, principle_uid, {"alignment_strength": alignment_strength}
+        )
+
+    async def create_semantic_goal_relationship(
+        self,
+        goal_uid: str,
+        knowledge_uid: str,
+        semantic_type: SemanticRelationshipType,
+        confidence: float = 0.9,
+        notes: str | None = None,
+    ) -> Result[dict[str, Any]]:
+        """Create semantic relationship between goal and knowledge."""
+        return await self.relationships.create_semantic_relationship(
+            goal_uid, knowledge_uid, semantic_type, confidence, notes
+        )
+
+    async def find_goals_requiring_knowledge(
+        self, knowledge_uid: str, min_confidence: float = 0.8
+    ) -> Result[list[Goal]]:
+        """Find goals that require specific knowledge."""
+        return await self.relationships.find_by_semantic_filter(
+            target_uid=knowledge_uid, min_confidence=min_confidence, direction="incoming"
+        )
 
     # ========================================================================
     # HIERARCHY DELEGATIONS
