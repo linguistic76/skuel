@@ -275,7 +275,6 @@ class TasksService(FacadeDelegationMixin):
         # Search delegations
         {
             "search": ("search", "search"),
-            "intelligent_search": ("search", "intelligent_search"),
         },
     )
 ```

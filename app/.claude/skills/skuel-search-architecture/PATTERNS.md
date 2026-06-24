@@ -300,31 +300,16 @@ class PsSearchService(BaseService[PsOperations, PathStep]):
 
 **Problem**: Natural language query that contains implicit filters ("urgent tasks in progress", "python habits").
 
-**Context**: Activity domain search services with `intelligent_search()`.
+**Solution**: Route through `SearchRouter.intelligent_search()` — the single cross-domain NL entry point.
 
-**Solution**:
 ```python
-# Service-level intelligent search (extracts filters from query text)
-result, parsed_query = await tasks_service.search.intelligent_search(
-    "urgent overdue tasks in progress",
-    user_uid=user_uid,
-    limit=20,
-)
-# parsed_query.priorities → [Priority.HIGH, Priority.CRITICAL]
-# parsed_query.statuses → [EntityStatus.ACTIVE]
-# parsed_query.text_query → "overdue tasks"  # Remaining text after filter extraction
-
-# The service auto-builds filters from parsed semantic terms:
-# priority="critical", status="in_progress"
-# Then falls back to text search on remaining query
+# Cross-domain NL search via SearchRouter (live)
+result = await search_router.intelligent_search(query="urgent overdue tasks", limit=20)
 ```
 
-**Trade-offs**:
-- Only available on Activity domain search services (not KU/PS/LP)
-- Parser handles common natural language terms for priority, status, domain
-- Falls back to plain text search if no semantic terms found
+**Real-world usage**: `GET /api/search/intelligent` → `SearchRouter.intelligent_search()`
 
-**Real-world usage**: `GET /api/search/intelligent` → `SearchRouter.intelligent_search()` (cross-domain); `TasksSearchService.intelligent_search()` / `GoalsSearchService.intelligent_search()` for domain-scoped callers
+Per-domain `intelligent_search()` methods were deleted in Theme F (June 2026) — they were parallel dead code with no callers; `SearchRouter` owns this surface.
 
 ---
 
@@ -338,7 +323,7 @@ result, parsed_query = await tasks_service.search.intelligent_search(
 | Graph-Aware | Relationship condition filters | High | `faceted_search()` |
 | Traversal | Find connected entities | Medium | `advanced_search()` |
 | Tag Search | Array/tag filtering | Low | `advanced_search()` |
-| Intelligent | Natural language query | Medium | `SearchRouter.intelligent_search()` → `GET /api/search/intelligent` |
+| Intelligent | Natural language query | Medium | `SearchRouter.intelligent_search()` → `GET /api/search/intelligent` (cross-domain only) |
 
 ---
 

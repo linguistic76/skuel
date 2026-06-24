@@ -243,33 +243,5 @@ async def test_get_prioritized_sorts_by_score(
     assert kwargs["user_uid"] == "user_demo"
 
 
-# ============================================================================
-# INTELLIGENT SEARCH
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_extracts_timeframe(search_service, mock_backend, sample_goals):
-    """'monthly goals' maps to timeframe=MONTHLY."""
-    mock_backend.find_by.return_value = Result.ok([g.to_dto().to_dict() for g in sample_goals])
-
-    result = await search_service.intelligent_search("monthly tech goals")
-
-    assert result.is_ok
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["timeframe"] == GoalTimeframe.MONTHLY.value
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_extracts_status(search_service, mock_backend):
-    """'achieved' maps to EntityStatus.COMPLETED."""
-    mock_backend.find_by.return_value = Result.ok([])
-
-    await search_service.intelligent_search("achieved goals")
-
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["status"] == EntityStatus.COMPLETED.value
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

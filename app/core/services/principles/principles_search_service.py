@@ -21,11 +21,10 @@ from datetime import date, timedelta
 from typing import Any
 
 from core.models.enums import EntityStatus
-from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
+from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
-from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_principle
 from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
@@ -423,125 +422,3 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     # ========================================================================
     # INTELLIGENT SEARCH
     # ========================================================================
-
-    @with_error_handling("intelligent_search", error_type="database")
-    async def intelligent_search(
-        self, query: str, user_uid: UserUID | None = None, limit: int = 50
-    ) -> Result[tuple[list[Principle], ParsedSearchQuery]]:
-        """
-        Natural language search with semantic filter extraction.
-
-        Parses queries like "core health principles needing review" to extract:
-        - Strength filters (core → CORE, strong → STRONG)
-        - State filters (active, reviewing, dormant)
-        - Category filters (health, personal, professional)
-        - Domain filters (mapped from Domain enum)
-
-        Args:
-            query: Natural language search query
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing (principles, parsed_query) tuple
-
-        Example:
-            >>> result = await search.intelligent_search("core active principles")
-            >>> principles, parsed = result.value
-            >>> print(f"Filters: {parsed.to_filter_summary()}")
-        """
-        # Parse query for semantic filters
-        parser = SearchQueryParser()
-        parsed = parser.parse(query)
-        query_lower = query.lower()
-
-        # Build filters from parsed query
-        filters: dict[str, object] = {}
-
-        # Principle-specific: Strength extraction
-        strength_keywords = {
-            "core": PrincipleStrength.CORE,
-            "strong": PrincipleStrength.STRONG,
-            "moderate": PrincipleStrength.MODERATE,
-            "developing": PrincipleStrength.DEVELOPING,
-            "exploring": PrincipleStrength.EXPLORING,
-            "new": PrincipleStrength.EXPLORING,
-        }
-        for keyword, strength in strength_keywords.items():
-            if keyword in query_lower:
-                filters["strength"] = strength.value
-                break
-
-        # Principle-specific: Category extraction
-        category_keywords = {
-            "health": PrincipleCategory.HEALTH,
-            "personal": PrincipleCategory.PERSONAL,
-            "professional": PrincipleCategory.PROFESSIONAL,
-            "work": PrincipleCategory.PROFESSIONAL,
-            "intellectual": PrincipleCategory.INTELLECTUAL,
-            "spiritual": PrincipleCategory.SPIRITUAL,
-            "relational": PrincipleCategory.RELATIONAL,
-            "social": PrincipleCategory.RELATIONAL,
-            "creative": PrincipleCategory.CREATIVE,
-            "financial": PrincipleCategory.PROFESSIONAL,  # Financial maps to professional
-        }
-        for keyword, category in category_keywords.items():
-            if keyword in query_lower:
-                filters["category"] = category.value
-                break
-
-        # Principle-specific: State extraction (is_active)
-        if "active" in query_lower:
-            filters["is_active"] = True
-        elif "inactive" in query_lower or "dormant" in query_lower:
-            filters["is_active"] = False
-
-        # Apply domain filter from parsed query (map to category if applicable)
-        if parsed.domains and "category" not in filters:
-            from core.ports import get_enum_value
-
-            domain_value = get_enum_value(parsed.domains[0])
-            domain_to_category = {
-                "tech": PrincipleCategory.INTELLECTUAL.value,
-                "health": PrincipleCategory.HEALTH.value,
-                "personal": PrincipleCategory.PERSONAL.value,
-                "professional": PrincipleCategory.PROFESSIONAL.value,
-                "spiritual": PrincipleCategory.SPIRITUAL.value,
-                "creative": PrincipleCategory.CREATIVE.value,
-                "social": PrincipleCategory.RELATIONAL.value,
-            }
-            if domain_value.lower() in domain_to_category:
-                filters["category"] = domain_to_category[domain_value.lower()]
-
-        # Execute search
-        if filters:
-            # Use filtered search via backend
-            result = await self.backend.find_by(limit=limit, **filters)
-            if result.is_error:
-                return Result.fail(result)
-            principles = self._to_domain_models(result.value, PrincipleDTO, Principle)
-        else:
-            # Fall back to text search using cleaned query
-            result = await self.search(parsed.text_query, limit=limit)
-            if result.is_error:
-                return Result.fail(result)
-            principles = result.value
-
-        # Filter by user ownership if provided
-        if user_uid and principles:
-            principles = [p for p in principles if getattr(p, "user_uid", None) == user_uid]
-
-        # Principle-specific: Review state filtering (post-filter)
-        if "review" in query_lower or "reviewing" in query_lower:
-            principles = [p for p in principles if isinstance(p, Principle) and p.needs_review()]
-        elif "well-aligned" in query_lower or "aligned" in query_lower:
-            principles = [p for p in principles if isinstance(p, Principle) and p.is_well_aligned()]
-
-        self.logger.info(
-            "Intelligent search: query=%r filters=%s results=%d",
-            query,
-            parsed.to_filter_summary(),
-            len(principles),
-        )
-
-        return Result.ok((principles, parsed))
