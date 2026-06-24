@@ -203,7 +203,7 @@ The config file exposes five Deepgram intelligence features:
 | `core/services/transcription/batch_transcription_service.py` | Batch transcription: audio -> txt |
 | `core/models/transcription/transcription.py` | Domain model + `TranscriptionProcessOptions` |
 | `adapters/inbound/batch_transcription_api.py` | Batch API route (admin-only) |
-| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals/submit`, `/journals/browse`) |
+| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals` redirect, `/journals/submit` multi-file upload, `/journals/browse`) |
 | `adapters/inbound/admin_dashboard_ui.py` | Admin batch transcription page (`/admin/batch-transcribe`) |
 | `scripts/batch_transcribe.py` | CLI for batch transcription |
 | `docs/configuration/DEEPGRAM_CONFIG.md` | Configuration guide |
