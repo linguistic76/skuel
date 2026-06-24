@@ -406,3 +406,34 @@ a {
 a[style*="letter-spacing: 0.07em"]:hover {
     opacity: 0.72;
 }
+
+/* ============================================
+   9. KU READER TYPOGRAPHY (/explore/ku/)
+   ============================================ */
+
+/* Title: clamp avoids MonsterUI Tailwind CDN comma-parsing issues */
+.ku-title {
+    font-size: clamp(30px, 6vw, 44px);
+    line-height: 1.03;
+    letter-spacing: -0.025em;
+}
+
+/* Reading body: explicit sizing instead of prose/prose-lg
+   (Tailwind Typography not included in MonsterUI CDN bundle) */
+.ku-prose {
+    font-size: clamp(16px, 2.6vw, 17.5px);
+    line-height: 1.72;
+    color: hsl(var(--foreground) / 0.9);
+}
+.ku-prose p                { margin: 0 0 1.15em; }
+.ku-prose p:last-child     { margin-bottom: 0; }
+.ku-prose h2               { font-size: 1.3em;  font-weight: 600; margin: 1.5em 0 0.5em; }
+.ku-prose h3               { font-size: 1.1em;  font-weight: 600; margin: 1.25em 0 0.4em; }
+.ku-prose ul,
+.ku-prose ol               { padding-left: 1.5em; margin: 0.75em 0; }
+.ku-prose li               { margin: 0.25em 0; }
+.ku-prose strong           { font-weight: 700; }
+.ku-prose em               { font-style: italic; }
+.ku-prose code             { font-family: ui-monospace, monospace; font-size: 0.875em;
+                             background: hsl(var(--muted)); padding: 0.125em 0.375em;
+                             border-radius: 0.25em; }

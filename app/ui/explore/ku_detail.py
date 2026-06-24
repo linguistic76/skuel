@@ -215,10 +215,7 @@ def _article_header(
             else Div(),
             cls="flex flex-wrap items-center gap-2.5 mb-3",
         ),
-        H1(
-            title,
-            cls="text-[clamp(30px,6vw,44px)] font-bold tracking-[-0.025em] leading-[1.03]",
-        ),
+        H1(title, cls="ku-title font-bold"),
         Div(*meta_items, cls="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4"),
         cls="mb-7",
     )
@@ -243,7 +240,7 @@ def _status_control(uid: str) -> "FT":
     return Div(
         _btn("Studying", "studying", f"/api/ku/{uid}/mark-studying"),
         _btn("Understood", "understood", f"/api/ku/{uid}/mark-understood"),
-        cls="inline-flex items-center rounded-lg border border-border p-0.5 bg-card",
+        cls="inline-flex items-center rounded-lg border border-border p-0.5 bg-muted",
         role="radiogroup",
         **{"aria-label": "Your status with this idea"},
     )
@@ -256,14 +253,7 @@ def _status_control(uid: str) -> "FT":
 
 def _reading_body(content_html: str) -> "FT":
     body = content_html or "<p>No content available.</p>"
-    return Div(
-        NotStr(body),
-        cls=(
-            "prose prose-lg max-w-none mt-7 "
-            "[&_p]:mb-[1.15em] [&_p:last-child]:mb-0 "
-            "text-foreground/90"
-        ),
-    )
+    return Div(NotStr(body), cls="ku-prose mt-7")
 
 
 def _end_of_read_marker() -> "FT":
