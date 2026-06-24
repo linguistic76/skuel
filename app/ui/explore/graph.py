@@ -82,6 +82,7 @@ def ExploreGraphView(
     entity_uid: str = "",
     entity_type: str = "",
     standalone: bool = True,
+    height: str = "260px",
 ) -> "FT":
     """Interactive Vis.js graph for the Explore sidebar.
 
@@ -148,7 +149,8 @@ def ExploreGraphView(
         x_cloak=True,
     )
 
-    # Sidebar graph wrapper — fixed height; expand creates a separate overlay on body
+    # Graph wrapper — height is sidebar-small by default; pass height="calc(100vh - Xpx)"
+    # for full-page use.
     graph_wrapper = Div(
         graph_container,
         expand_btn,
@@ -156,7 +158,7 @@ def ExploreGraphView(
         error_display,
         empty_state,
         cls="relative border border-border rounded-lg bg-muted/30 overflow-hidden w-full",
-        style="height: 260px",
+        style=f"height: {height}",
     )
 
     wrapper_attrs: dict[str, str] = {"cls": "px-2 pt-2"}

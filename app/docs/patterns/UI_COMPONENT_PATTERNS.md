@@ -1712,9 +1712,11 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/patterns/` — `PageHeader`, `form_generator`, `card_generator`, etc.
 
 **Explore:**
-- `/ui/explore/nav.py` — graph-centered sidebar
+- `/ui/explore/reading_plan.py` — reading-column view for `/explore` (server-rendered; Alpine: greeting/save/disclosure/keyboard)
+- `/static/js/explore-reading.js` — `exploreReading` Alpine factory
+- `/ui/explore/nav.py` — graph-centered sidebar (used by `/explore/library`, `/explore/ku/{uid}`, `/explore/ps/{uid}`)
 - `/ui/explore/graph.py` — `ExploreGraphView` Vis.js component
-- `/ui/explore/cards.py` — card rendering + search panel
+- `/ui/explore/cards.py` — card rendering + search panel (library catalog)
 - `/ui/explore/filters.py` — filter/sort helpers
 - `/ui/explore/ku_detail.py`, `/ui/explore/ps_detail.py` — extracted from `explore_ui.py`
 

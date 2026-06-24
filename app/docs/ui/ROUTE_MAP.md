@@ -20,16 +20,29 @@ Navbar icon links (left section, in order): **Hub** (`/home`) → **Tasks+** (`/
 
 Tabbed layout mirroring `/home`, with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)`, with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an `EmptyState`. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
 
-### `/explore` — Explore Hub
+### `/explore` — Reading-First Explore Surface
 
-Discovery grid of Ku + PathStep entities with search/filter. Uses `SidebarPage` (wider `w-96`/384px) with graph-centered sidebar (shared across `/explore`, `/explore/ku/{uid}`, `/explore/ps/{uid}`); nav defined in `ui/explore/nav.py`, graph component in `ui/explore/graph.py`.
+Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) driven by `ExploreOrchestrator.get_reading_plan()`. Shell-first: shell loads immediately; `/explore/content` HTMX fragment delivers the plan. Alpine factory: `exploreReading` in `static/js/explore-reading.js`; `window.SEED` carries minimal state (greeting, why-evidence, featured UID). All visual content is server-rendered in `ui/explore/reading_plan.py`.
 
-Sidebar hero is an interactive Vis.js force-directed graph (`ExploreGraphView`):
+**Sections (top to bottom):**
+1. **Greeting header** — time-of-day greeting + "you finished X yesterday" (Alpine for greeting text).
+2. **Hero article** — the single highest-readiness KU; "Why now" panel with expandable "Why am I ready?" evidence (Alpine disclosure); Read button + save toggle (Alpine optimistic).
+3. **Thread rail** — horizontal-scroll cards of other ready KUs; reader's choice.
+4. **In-progress** — continue reading (progress bar + minutes left).
+5. **Path step** — the active PathStep composed of KUs (read/current/upcoming states) + capabilities tray (practice, apply, assessment, reflection, journal — varies by step).
+6. **Lateral** — "Because you read X" related KUs.
+7. **Library CTA** — links to `/explore/library`; shows real Ku count from DB.
+8. **Keyboard hints** — `r` read · `w` why am I ready · `s` save · `/` search library.
 
-- **Hub mode:** the user's learning universe ("You" center node + studying Kus + in-progress PSes).
-- **Entity mode:** centers on the current Ku/PS with lateral relationships.
-
-Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Three supporting sections below the graph: Learning, Saved, Completed. Node colors: violet (`#8B5CF6`) for Ku, teal (`#14B8A6`) for PS, blue for "You". Graph expands to full-screen JS overlay on `document.body` (Escape or backdrop click to close) — bypasses sidebar `overflow:hidden` + `transform` traps by creating a second Vis.js network in a fresh overlay div. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph` returns hub learning universe as Vis.js JSON. Each sidebar item shows a type pill (violet=Ku, teal=PS). Unauthenticated users see the graph + "Sign in to track your learning". Detail pages center the graph on the current entity.
+**Routes:**
+- `GET /explore` — reading surface shell
+- `GET /explore/content` — reading plan HTMX fragment
+- `GET /explore/read/{uid}` — KU reader alias (302 → `/explore/ku/{uid}`)
+- `GET /explore/graph` — dedicated full-page learning graph (`calc(100vh - 220px)` tall; same `exploreGraph` Alpine component, hub mode)
+- `GET /explore/library` — demoted full catalog (bento card grid, graph sidebar, same as old `/explore`)
+- `GET /explore/library/content` — library HTMX fragment
+- `GET /api/explore/search` — filtered card grid (serves `/explore/library`)
+- `GET /api/explore/graph` — Vis.js hub graph JSON (serves both `/explore/graph` and `/explore/library` sidebar)
 
 **PathStep detail (`/explore/ps/{uid}`)** is the **learning loop anchor** — authenticated users see four HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback, Embedded Forms) via `/learning-loop/ps/{ps_uid}/*` fragment endpoints wired in `learning_loop_routes.py` (`create_learning_loop_fragment_routes`); renderers in `ui/learning_loop/`. The Forms section renders only when a `FormTemplate` is linked to the PathStep via `EMBEDS_FORM`; submitting swaps the card inline to a confirmation view.
 
