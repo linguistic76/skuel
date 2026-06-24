@@ -324,7 +324,7 @@ result, parsed_query = await tasks_service.search.intelligent_search(
 - Parser handles common natural language terms for priority, status, domain
 - Falls back to plain text search if no semantic terms found
 
-**Real-world usage**: `TasksSearchService.intelligent_search()`, `GoalsSearchService.intelligent_search()`
+**Real-world usage**: `GET /api/search/intelligent` → `SearchRouter.intelligent_search()` (cross-domain); `TasksSearchService.intelligent_search()` / `GoalsSearchService.intelligent_search()` for domain-scoped callers
 
 ---
 
@@ -338,7 +338,7 @@ result, parsed_query = await tasks_service.search.intelligent_search(
 | Graph-Aware | Relationship condition filters | High | `faceted_search()` |
 | Traversal | Find connected entities | Medium | `advanced_search()` |
 | Tag Search | Array/tag filtering | Low | `advanced_search()` |
-| Intelligent | Natural language query | Medium | Service `intelligent_search()` |
+| Intelligent | Natural language query | Medium | `SearchRouter.intelligent_search()` → `GET /api/search/intelligent` |
 
 ---
 
