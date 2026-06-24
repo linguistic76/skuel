@@ -1,109 +1,145 @@
 """Ku mastery self-assessment — dual-track Knowledge dimension (ADR-030).
 
-The Knowledge-domain surface of the dual-track perception gap: on the Ku detail
-page (``/explore/ku/{uid}``) a logged-in user rates how well they feel they've
-*mastered* this Knowledge Unit (``MasteryLevel``) and sees it against the
-system-measured **substance score** — how much they've actually applied the Ku
-across their life. The gap is the point.
+Segmented mastery control (New / Familiar / Working / Fluent) whose state
+is owned by the parent ``kuReading()`` Alpine component. The form POSTs to
+``/explore/ku/{ku_uid}/mastery-checkin`` via HTMX and swaps the gap-card
+result into ``#mastery-results``.
 
-A Ku is SHARED/public curriculum, so (unlike Goals/Habits/Principles) the
-check-in is per-(user, Ku) and persists on the ``:User`` node keyed by the Ku
-uid — never on the shared ``:Ku`` node. The form POSTs (mutation: persists a
-check-in), CSRF-guarded; ``skuel.js`` attaches the X-CSRF-Token header.
+A Ku is SHARED/public curriculum, so check-ins persist on the ``:User`` node
+keyed by Ku UID — never on the shared ``:Ku`` node. CSRF-guarded via
+``skuel.js``.
 
-Reuses the shared ``ui/dual_track_card.py`` primitives (``level_options``,
-``gap_card``, ``render_checkin_trend``) so the Knowledge surface matches the
-activity dual-track surfaces.
+See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, Div, Form, P
+from fasthtml.common import Button, Div, Form, Input, Label, P, Section, Span, Textarea
+from monsterui.franken import UkIcon
 
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
-from ui.dual_track_card import gap_card, level_options, render_checkin_trend
-from ui.forms import LabelSelect, LabelTextArea
-from ui.text import SectionTitle
+from ui.dual_track_card import gap_card, render_checkin_trend
 
-_RESULTS_SLOT = "ku-mastery-results"
-_PROMPT = "How well have you mastered this knowledge?"
+if TYPE_CHECKING:
+    from fasthtml.common import FT
+
+_RESULTS_SLOT = "mastery-results"
+_MASTERY_LEVELS: list[tuple[str, str]] = [
+    ("novice", "New"),
+    ("familiar", "Familiar"),
+    ("proficient", "Working"),
+    ("mastered", "Fluent"),
+]
 
 
 def render_ku_mastery_section(
     ku_uid: str,
     checkins: list[dict[str, Any]],
-) -> Any:
-    """Self-assessment section for the Ku detail page (authenticated users).
+) -> "FT":
+    """Mastery self-check section for the Ku detail page (authenticated users only).
 
-    Renders the self-rate form (mastery select + reflection), an empty results
-    slot seeded with the current trend, and saves-over-time copy. On submit the
-    form POSTs to ``/explore/ku/{ku_uid}/mastery-checkin`` which computes +
-    persists the check-in and swaps the gap card + refreshed trend into the slot.
-
-    Pure presentation — ``checkins`` is the user's stored knowledge check-in log
-    for this Ku (``User.knowledge_checkins[ku_uid]``); the route supplies it.
+    Renders a segmented mastery control (state owned by the parent
+    ``kuReading()`` Alpine component), an optional reflection textarea,
+    and an HTMX-swapped results slot. On submit, POSTs to
+    ``/explore/ku/{ku_uid}/mastery-checkin`` and swaps the gap card + trend.
     """
-    return Div(
-        SectionTitle("Mastery Self-Check"),
-        P(
-            "Rate how well you feel you've mastered this, then see it against how "
-            "much your tracked actions show you actually applying it. The gap is the "
-            "point.",
-            cls="text-sm text-muted-foreground mb-3",
+    level_buttons: list[FT] = [
+        Button(
+            label,
+            type="button",
+            role="radio",
+            cls="flex-1 sm:flex-none px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors",
+            **{
+                ":aria-checked": f"(mastery === '{level_id}').toString()",
+                "@click": f"mastery = '{level_id}'",
+                ":class": (
+                    f"mastery === '{level_id}' "
+                    "? 'bg-card text-foreground shadow-sm' "
+                    ": 'text-muted-foreground hover:text-foreground'"
+                ),
+            },
+        )
+        for level_id, label in _MASTERY_LEVELS
+    ]
+
+    results_content: FT = render_checkin_trend(checkins) if checkins else Div()
+
+    return Section(
+        Div(
+            "Mastery self-check",
+            id="mastery-heading",
+            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-1",
         ),
-        Card(
-            CardHeader(CardTitle(_PROMPT)),
-            CardBody(
-                Form(
-                    LabelSelect(
-                        *level_options(MasteryLevel),
-                        label="Mastery",
-                        name="level",
-                        help_text=_PROMPT,
-                        cls="space-y-2 mb-4",
+        P(
+            "Rate how well you feel you know this. SKUEL compares it with how much your "
+            "tracked actions show you actually applying it — the gap is the point.",
+            cls="text-[13.5px] text-muted-foreground leading-relaxed mb-4 max-w-[56ch]",
+        ),
+        Form(
+            Div(
+                Div("How well do you know this?", cls="text-[15px] font-semibold mb-3"),
+                Div(
+                    *level_buttons,
+                    cls="inline-flex w-full sm:w-auto rounded-lg border border-border p-1 bg-muted/40",
+                    role="radiogroup",
+                    **{"aria-label": "Mastery level"},
+                ),
+                # Hidden input keeps the form value in sync with Alpine state
+                Input(type="hidden", name="level", **{":value": "mastery"}),
+                Label(
+                    Span(
+                        "What's behind this rating?",
+                        Span(" (optional)", cls="font-normal text-muted-foreground/70"),
+                        cls="block text-[12.5px] font-medium text-muted-foreground mb-1.5",
                     ),
-                    LabelTextArea(
-                        "What's behind this rating? (optional)",
+                    Textarea(
+                        rows=2,
                         name="reflection",
                         placeholder="A sentence or two of context…",
-                        cls="space-y-2 mb-4",
-                    ),
-                    Div(
-                        Button(
-                            "See My Perception Gap",
-                            type="submit",
-                            variant=ButtonT.primary,
+                        cls=(
+                            "w-full rounded-lg border border-border bg-card px-3.5 py-2.5 "
+                            "text-[14px] leading-relaxed placeholder:text-muted-foreground/70 "
+                            "focus:outline-none resize-none"
                         ),
-                        cls="text-right",
+                        **{"x-model": "note"},
                     ),
-                    hx_post=f"/explore/ku/{ku_uid}/mastery-checkin",
-                    hx_target=f"#{_RESULTS_SLOT}",
-                    hx_swap="innerHTML",
-                    hx_include="[name='level'],[name='reflection']",
-                )
+                    cls="block mt-4",
+                ),
+                Button(
+                    UkIcon("git-branch", cls="w-4 h-4"),
+                    " See my perception gap",
+                    type="submit",
+                    cls=(
+                        "mt-4 inline-flex items-center gap-2 bg-foreground text-background "
+                        "rounded-lg px-4 py-2.5 text-[14px] font-semibold "
+                        "hover:opacity-90 focus:outline-none"
+                    ),
+                ),
+                cls="border border-border rounded-xl p-5 sm:p-6 bg-card",
             ),
-            cls="mb-4",
+            hx_post=f"/explore/ku/{ku_uid}/mastery-checkin",
+            hx_target=f"#{_RESULTS_SLOT}",
+            hx_swap="innerHTML",
         ),
-        Div(render_checkin_trend(checkins), id=_RESULTS_SLOT),
-        H4(
+        Div(results_content, id=_RESULTS_SLOT, cls="mt-5" if checkins else ""),
+        P(
             "Your ratings are saved so you can watch the gap change over time.",
-            cls="text-xs text-muted-foreground mt-2",
+            cls="text-[11.5px] text-muted-foreground/80 mt-2.5",
         ),
-        cls="mt-8",
+        cls="mb-9",
+        role="region",
+        **{"aria-labelledby": "mastery-heading"},
     )
 
 
 def render_ku_mastery_result(
     result: DualTrackResult[MasteryLevel],
     checkins: list[dict[str, Any]],
-) -> Any:
-    """HTMX fragment after a mastery self-rating: the gap card + refreshed trend
-    (which now includes the just-stored check-in)."""
+) -> "FT":
+    """HTMX fragment after a mastery self-rating: gap card + refreshed trend."""
     return Div(
         gap_card("Knowledge Mastery", result),
         render_checkin_trend(checkins),

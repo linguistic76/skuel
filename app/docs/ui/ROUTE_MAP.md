@@ -46,11 +46,7 @@ Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) dr
 
 **PathStep detail (`/explore/ps/{uid}`)** is the **learning loop anchor** — authenticated users see four HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback, Embedded Forms) via `/learning-loop/ps/{ps_uid}/*` fragment endpoints wired in `learning_loop_routes.py` (`create_learning_loop_fragment_routes`); renderers in `ui/learning_loop/`. The Forms section renders only when a `FormTemplate` is linked to the PathStep via `EMBEDS_FORM`; submitting swaps the card inline to a confirmation view.
 
-**Ku detail (`/explore/ku/{uid}`)** carries a **"Mastery Self-Check"** section (authenticated only) —
-the Knowledge dual-track surface (ADR-030): rate mastery (`MasteryLevel`) → see it against the
-system-measured substance score. `POST /explore/ku/{uid}/mastery-checkin` (`@csrf_protected`) persists
-a per-(user, Ku) check-in and swaps in the gap card + trend. UI: `ui/explore/ku_mastery.py`; route in
-`learning_loop_routes.py`.
+**Ku detail (`/explore/ku/{uid}`)** — reading-first column (`max-w-[700px]`, `BasePage(CUSTOM)`, no sidebar). Alpine component `kuReading` (registered in `static/js/ku-reading.js`) owns status toggle (Studying / Understood), bookmark, and mastery level. Below the prose: **Mastery Self-Check** (authenticated only) — the Knowledge dual-track surface (ADR-030): rate mastery (`MasteryLevel`) via segmented control → see it against the system-measured substance score. `POST /explore/ku/{uid}/mastery-checkin` (`@csrf_protected`) persists a per-(user, Ku) check-in and swaps in the gap card + trend. UI: `ui/explore/ku_detail.py`, `ui/explore/ku_mastery.py`; routes in `learning_loop_routes.py`.
 
 ### `/self-checkin` — Dual-Track Self Check-In
 

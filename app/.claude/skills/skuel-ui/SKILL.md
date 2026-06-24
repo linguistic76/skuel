@@ -221,13 +221,16 @@ async def task_detail_content_fragment(request: Request) -> Any:
     return TaskDetailView(task, connections_map.get(task.uid, []))
 ```
 
-**Path-param routes** (`/explore/ku/{uid}`) — embed the param in the fragment URL:
+**Path-param routes** (`/explore/ku/{uid}`) — embed the param in the fragment URL. KU uses `BasePage(CUSTOM)` (reading-first column, no sidebar) and pre-loads its Alpine factory before the fragment arrives:
 
 ```python
 @rt("/explore/ku/{uid}")
 async def explore_ku_detail(request: Request, uid: str) -> Any:
-    content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
-    return await render_explore_sidebar_page(content=content, sidebar_data=None, request=request)
+    content = Div(
+        Script(src="/static/js/ku-reading.js"),  # Alpine factory before HTMX fragment
+        content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),
+    )
+    return await BasePage(content, title="Read", page_type=PageType.CUSTOM, request=request, active_page="explore")
 
 @rt("/explore/ku/{uid}/content")
 async def explore_ku_content_fragment(request: Request, uid: str) -> Any:

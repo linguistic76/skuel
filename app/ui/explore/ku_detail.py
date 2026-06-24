@@ -1,49 +1,80 @@
 """
-Explore Ku Detail — Pure Rendering
-===================================
+Explore Ku Detail — Reading-First Design
+=========================================
 
-Renders the Ku detail content fragment for /explore/ku/{uid}/content.
+Reading-column layout for /explore/ku/{uid}/content.
+Implements the design from data/handoff/explore/ku.html:
+calm centered column, real reading typography, status controls
+and mastery self-check below the prose.
+
 No async, no service calls — receives pre-fetched data.
 """
 
-from typing import Any
+from __future__ import annotations
 
-from fasthtml.common import H3, Div, NotStr, P
+import json
+from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.ku_ui import (
-    _exercises_for_ku_section,
-    _ku_learning_buttons,
+from fasthtml.common import (
+    H1,
+    A,
+    Article,
+    Button,
+    Div,
+    Header,
+    NotStr,
+    P,
+    Script,
+    Section,
+    Span,
 )
+from monsterui.franken import UkIcon
+
 from core.models.type_hints import EntityUID
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.explore.ku_mastery import render_ku_mastery_section
-from ui.feedback import Badge, BadgeT
-from ui.layout import Size
-from ui.patterns.breadcrumbs import Breadcrumbs
-from ui.patterns.metadata_badge import metadata_badge
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
+if TYPE_CHECKING:
+    from fasthtml.common import FT
+
+_COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
+
+_KIND_ICONS: dict[str, str] = {
+    "concept": "info",
+    "state": "circle",
+    "practice": "pencil",
+    "value": "heart",
+    "substance": "layers",
+}
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
+
 
 def render_ku_not_found(uid: str) -> Div:
-    """Render the not-found state for a Ku detail page."""
+    """Render the not-found state for a Ku detail fragment."""
     return Div(
-        Card(
-            CardBody(
-                H3("Knowledge Unit Not Found", cls="text-lg font-bold"),
-                P(f"No KU with identifier: {uid}", cls="text-muted-foreground mt-2"),
-                ButtonLink(
-                    "\u2190 Back to Explore",
-                    href="/explore",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-4",
-                ),
+        A(
+            UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+            " Explore",
+            href="/explore",
+            cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
+        ),
+        Div(
+            P("Knowledge unit not found.", cls="text-[14px] font-semibold text-foreground"),
+            P(f"No KU with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
+            A(
+                "← Back to Explore",
+                href="/explore",
+                cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
             ),
+            cls="p-8 border border-border rounded-xl bg-card text-center",
         ),
         id="ku-detail-content",
-        cls="max-w-4xl mx-auto p-8",
+        cls=_COLUMN_CLS,
     )
 
 
@@ -52,117 +83,215 @@ def render_ku_detail_content(
     ku: Any,
     uid: str,
     content_html: str,
-    toc_html: str,
     learning_state: dict[str, bool],
     is_pinned: bool,
     user_uid: str | None,
-    exercises_for_ku: list[dict],
     mastery_checkins: list[dict] | None = None,
 ) -> Div:
-    """Render the full Ku detail content fragment.
+    """Reading-first Ku detail content fragment.
 
-    Args:
-        ku: The Ku entity.
-        uid: Ku UID.
-        content_html: Pre-rendered markdown HTML.
-        toc_html: Pre-rendered table-of-contents HTML.
-        learning_state: Dict with is_studying, is_understood keys.
-        is_pinned: Whether pinned by the current user.
-        user_uid: Current user UID, or None if unauthenticated.
-        exercises_for_ku: Exercise dicts for this Ku.
-        mastery_checkins: The user's stored Knowledge dual-track check-ins for this
-            Ku (``User.knowledge_checkins[uid]``); seeds the mastery self-check
-            trend. None/empty when unauthenticated or never rated.
+    Serves as the HTMX fragment for GET /explore/ku/{uid}/content.
+    The Alpine component (kuReading) is registered in ku-reading.js,
+    loaded in the shell before the fragment arrives.
     """
-    has_toc = bool(toc_html and toc_html.strip())
-
-    # Metadata badges
-    metadata_items = []
-    if getattr(ku, "domain", None):
-        domain_label = getattr(ku.domain, "value", str(ku.domain))
-        metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
-    if getattr(ku, "namespace", None):
-        metadata_items.append(metadata_badge("Namespace:", ku.namespace))
-    if getattr(ku, "ku_category", None):
-        metadata_items.append(metadata_badge("Category:", ku.ku_category))
-
-    metadata_section = Div(*metadata_items, cls="flex flex-wrap gap-2") if metadata_items else None
-
-    # Tags
-    tags_section = None
-    if getattr(ku, "tags", None):
-        tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in ku.tags]
-        tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
-
-    # Breadcrumbs
-    breadcrumb_path = [
-        {"uid": "explore", "title": "Explore", "url": "/explore"},
-        {"uid": uid, "title": ku.title, "url": ""},
-    ]
-
-    reading_content = Div(
-        NotStr(content_html or "No content available."),
-        cls="prose prose-lg max-w-none",
+    status = (
+        "understood"
+        if learning_state.get("is_understood")
+        else "studying"
+        if learning_state.get("is_studying")
+        else "none"
+    )
+    seed = {"uid": uid, "status": status}
+    seed_json = (
+        json.dumps(seed, default=str)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
     )
 
-    # Action buttons
-    if user_uid:
-        ku_action_area: Any = Div(
-            _ku_learning_buttons(
-                uid, learning_state["is_studying"], learning_state["is_understood"]
-            ),
-            PinButton(entity_uid=EntityUID(uid), is_pinned=is_pinned),
-            cls="flex gap-2 items-center border-t border-border pt-6 mt-8",
-        )
-    else:
-        ku_action_area = Div(
-            ButtonLink(
-                "Log in to track your progress",
-                href="/login",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-            ),
-            cls="border-t border-border pt-6 mt-8",
-        )
+    kind = (getattr(ku, "ku_category", "") or "").lower()
+    namespace = getattr(ku, "namespace", "") or ""
+    title = getattr(ku, "title", uid) or uid
+    word_count = len((content_html or "").split())
+    reading_minutes = max(1, round(word_count / 150))
 
-    # Metadata footer
-    metadata_footer_items = []
-    if metadata_section:
-        metadata_footer_items.append(metadata_section)
-    if tags_section:
-        metadata_footer_items.append(tags_section)
-
-    metadata_footer = (
-        Div(*metadata_footer_items, cls="border-t border-border pt-6 mt-8")
-        if metadata_footer_items
-        else Div()
+    post_read: list[FT] = (
+        [
+            render_ku_mastery_section(uid, mastery_checkins or []),
+            _relationships_section(uid),
+        ]
+        if user_uid
+        else [_relationships_section(uid)]
     )
 
-    # Mastery self-check (dual-track Knowledge dimension, ADR-030) — authenticated only.
-    mastery_section = render_ku_mastery_section(uid, mastery_checkins or []) if user_uid else None
-
-    main_column = Div(
-        Breadcrumbs(path=breadcrumb_path, show_home=False),
-        reading_content,
-        ku_action_area,
-        metadata_footer,
-        _exercises_for_ku_section(exercises_for_ku),
-        mastery_section,
-        Div(
-            EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ku"),
-            cls="mt-8",
+    return Div(
+        Script(NotStr(f"window.KU_SEED = {seed_json};")),
+        _back_link(),
+        Article(
+            _article_header(uid, title, kind, namespace, reading_minutes, user_uid, is_pinned),
+            _reading_body(content_html),
+            _end_of_read_marker(),
         ),
-        cls="flex-1 min-w-0 max-w-4xl",
+        *post_read,
+        _footer_nav(),
+        id="ku-detail-content",
+        cls=_COLUMN_CLS,
+        **{
+            "x-data": "kuReading(window.KU_SEED)",
+            "@keydown.window": "onKey($event)",
+        },
     )
 
-    if has_toc:
-        toc_sidebar = Div(
-            Div(
-                H3("Contents", cls="font-semibold text-sm mb-3"),
-                Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
-                cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+
+
+def _back_link() -> "FT":
+    return A(
+        UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+        " Explore",
+        href="/explore",
+        hx_get="/explore",
+        hx_push_url="true",
+        cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
+    )
+
+
+def _footer_nav() -> "FT":
+    return Div(
+        A(
+            UkIcon("arrow-left", cls="w-4 h-4"),
+            " Back to Explore",
+            href="/explore",
+            hx_get="/explore",
+            hx_push_url="true",
+            cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
+        ),
+        cls="mt-9 flex items-center",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Article header
+# ---------------------------------------------------------------------------
+
+
+def _article_header(
+    uid: str,
+    title: str,
+    kind: str,
+    namespace: str,
+    reading_minutes: int,
+    user_uid: str | None,
+    is_pinned: bool = False,
+) -> "FT":
+    kind_icon = _KIND_ICONS.get(kind, "info")
+    kind_label = kind.title() if kind else "Knowledge"
+
+    meta_items: list[FT] = [
+        Span(f"{reading_minutes} min read", cls="font-mono text-[12.5px] text-muted-foreground"),
+        Span("·", cls="text-muted-foreground/40"),
+    ]
+    if user_uid:
+        meta_items.append(_status_control(uid))
+        meta_items.append(PinButton(entity_uid=EntityUID(uid), is_pinned=is_pinned))
+
+    return Header(
+        Div(
+            Span(
+                UkIcon(kind_icon, cls="w-3 h-3"),
+                f" {kind_label}",
+                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-muted-foreground",
             ),
-            cls="hidden lg:block w-56 shrink-0 border-l border-border",
+            Span("·", cls="text-[11px] text-muted-foreground/70") if namespace else Div(),
+            Span(
+                "on ",
+                Span(namespace, cls="text-foreground font-medium"),
+                cls="text-[12px] text-muted-foreground",
+            )
+            if namespace
+            else Div(),
+            cls="flex flex-wrap items-center gap-2.5 mb-3",
+        ),
+        H1(
+            title,
+            cls="text-[clamp(30px,6vw,44px)] font-bold tracking-[-0.025em] leading-[1.03]",
+        ),
+        Div(*meta_items, cls="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4"),
+        cls="mb-7",
+    )
+
+
+def _status_control(uid: str) -> "FT":
+    def _btn(label: str, val: str, endpoint: str) -> "FT":
+        return Button(
+            label,
+            type="button",
+            role="radio",
+            hx_post=endpoint,
+            hx_swap="none",
+            cls="px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
+            **{
+                ":aria-checked": f"(status==='{val}').toString()",
+                "@click": f"setStatus('{val}')",
+                ":class": f"status==='{val}' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'",
+            },
         )
-        return Div(main_column, toc_sidebar, cls="flex gap-6")
-    return main_column
+
+    return Div(
+        _btn("Studying", "studying", f"/api/ku/{uid}/mark-studying"),
+        _btn("Understood", "understood", f"/api/ku/{uid}/mark-understood"),
+        cls="inline-flex items-center rounded-lg border border-border p-0.5 bg-card",
+        role="radiogroup",
+        **{"aria-label": "Your status with this idea"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reading body
+# ---------------------------------------------------------------------------
+
+
+def _reading_body(content_html: str) -> "FT":
+    body = content_html or "<p>No content available.</p>"
+    return Div(
+        NotStr(body),
+        cls=(
+            "prose prose-lg max-w-none mt-7 "
+            "[&_p]:mb-[1.15em] [&_p:last-child]:mb-0 "
+            "text-foreground/90"
+        ),
+    )
+
+
+def _end_of_read_marker() -> "FT":
+    return Div(
+        Span(cls="h-px flex-1 bg-border"),
+        UkIcon("check-circle", cls="w-4 h-4 text-muted-foreground/60"),
+        Span(cls="h-px flex-1 bg-border"),
+        cls="flex items-center gap-3 my-9",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Relationships section
+# ---------------------------------------------------------------------------
+
+
+def _relationships_section(uid: str) -> "FT":
+    return Section(
+        Div(
+            "Relationships",
+            id="rel-heading",
+            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+        ),
+        EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ku"),
+        cls="mb-9",
+        role="region",
+        **{"aria-labelledby": "rel-heading"},
+    )
+
+
+__all__ = ["render_ku_detail_content", "render_ku_not_found"]
