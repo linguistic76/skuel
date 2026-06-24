@@ -116,7 +116,7 @@ goals_relationship_service = UnifiedRelationshipService(
 
 /core/services/relationships/
 ├── __init__.py                      # Module exports
-├── extended_config.py               # Extended specs (QuerySpec, LinkMethodSpec, etc.)
+├── extended_config.py               # Extended specs (QuerySpec, PathAwareTypeSpec, etc.)
 ├── unified_relationship_service.py  # Shell: constructor, generic CRUD, typed links (~900 lines)
 ├── _batch_operations_mixin.py       # N+1 elimination (batch_has_relationship, batch_count_related, batch_get_related_uids)
 ├── _ordered_relationships_mixin.py  # Curriculum hierarchy + edge metadata
