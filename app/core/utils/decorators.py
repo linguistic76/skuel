@@ -151,7 +151,7 @@ def _extract_context(
                     # Account for 'self' in method signatures
                     if idx < len(args):
                         context["uid"] = args[idx]
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
 
     return context

@@ -21,6 +21,7 @@ from core.ports.llm_protocols import LLMCompletion
 from core.utils.exception_types import OPENAI_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.retry import async_retry
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatMessage
@@ -45,6 +46,7 @@ class OpenAIChatAdapter:
         self._default_model = default_model
         self.logger = logger
 
+    @async_retry(exceptions=OPENAI_EXCEPTIONS, max_attempts=3, base_delay=1.0)
     async def complete(
         self,
         messages: list[ChatMessage],
@@ -67,6 +69,15 @@ class OpenAIChatAdapter:
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            if not response.choices:
+                self.logger.error("OpenAI returned empty choices list")
+                return Result.fail(
+                    Errors.integration(
+                        service="OpenAI",
+                        operation="complete",
+                        message="API returned empty choices",
+                    )
+                )
             content = response.choices[0].message.content
             if content is None:
                 self.logger.error("OpenAI returned None as completion content")

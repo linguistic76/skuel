@@ -35,8 +35,10 @@ from deepgram import DeepgramClient, PrerecordedOptions
 from deepgram.options import DeepgramClientOptions
 
 from core.ports.transcription_protocols import TranscriptionResult
+from core.utils.exception_types import DEEPGRAM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.retry import async_retry
 from core.utils.type_converters import _HasToDict
 
 if TYPE_CHECKING:
@@ -153,6 +155,7 @@ class DeepgramAdapter:
 
         return PrerecordedOptions(**opts)
 
+    @async_retry(exceptions=DEEPGRAM_EXCEPTIONS, max_attempts=3, base_delay=2.0)
     async def transcribe(
         self,
         audio_path: str | Path,
@@ -261,7 +264,7 @@ class DeepgramAdapter:
                 paragraphs = [u.transcript.strip() for u in utterances if u.transcript.strip()]
                 if paragraphs:
                     return "\n\n".join(paragraphs)
-        except AttributeError, IndexError:
+        except (AttributeError, IndexError):
             pass
 
         # Fallback: flat transcript from channel alternatives
@@ -271,7 +274,7 @@ class DeepgramAdapter:
                 alternatives = channels[0].alternatives
                 if alternatives and len(alternatives) > 0:
                     return alternatives[0].transcript or ""
-        except AttributeError, IndexError:
+        except (AttributeError, IndexError):
             pass
         return ""
 
@@ -283,7 +286,7 @@ class DeepgramAdapter:
                 alternatives = channels[0].alternatives
                 if alternatives and len(alternatives) > 0:
                     return float(alternatives[0].confidence or 0.0)
-        except AttributeError, IndexError, TypeError:
+        except (AttributeError, IndexError, TypeError):
             pass
         return 0.0
 
@@ -291,7 +294,7 @@ class DeepgramAdapter:
         """Extract audio duration from Deepgram response."""
         try:
             return float(response.metadata.duration or 0.0)
-        except AttributeError, TypeError:
+        except (AttributeError, TypeError):
             pass
         return 0.0
 

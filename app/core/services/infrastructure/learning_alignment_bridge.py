@@ -248,7 +248,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
                     f"timeline={alignment.get('recommended_timeline', 'N/A')}, "
                     f"paths={len(alignment.get('supporting_paths', []))}"
                 )
-            except AttributeError, KeyError:
+            except (AttributeError, KeyError):
                 # Fallback to habit-style suggestions
                 try:
                     alignment_suggestions = learning_position.suggest_habit_alignment(entity_desc)
@@ -589,7 +589,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         # Step 4: Assess learning alignment
         try:
             alignment = learning_position.assess_goal_alignment(entity_desc, entity_domain_value)
-        except AttributeError, KeyError:
+        except (AttributeError, KeyError):
             # Fallback for entities without goal-style assessment
             alignment = {
                 "learning_path_support": 0.0,

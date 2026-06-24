@@ -18,13 +18,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import anthropic
+from anthropic import AsyncAnthropic
 from anthropic.types import TextBlock
 
 from core.ports.llm_protocols import LLMCompletion
 from core.utils.exception_types import ANTHROPIC_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.retry import async_retry
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatMessage
@@ -45,10 +46,11 @@ class AnthropicChatAdapter:
         """
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY is required to construct AnthropicChatAdapter.")
-        self._client = anthropic.Anthropic(api_key=api_key)
+        self._client = AsyncAnthropic(api_key=api_key)
         self._default_model = default_model
         self.logger = logger
 
+    @async_retry(exceptions=ANTHROPIC_EXCEPTIONS, max_attempts=3, base_delay=1.0)
     async def complete(
         self,
         messages: list[ChatMessage],
@@ -61,13 +63,22 @@ class AnthropicChatAdapter:
         model = model or self._default_model
 
         try:
-            message = self._client.messages.create(
+            message = await self._client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 system=system_prompt or "",
                 messages=[dict(m) for m in messages],
             )
+            if not message.content:
+                self.logger.error("Anthropic returned empty content list")
+                return Result.fail(
+                    Errors.integration(
+                        service="Anthropic",
+                        operation="complete",
+                        message="API returned empty content",
+                    )
+                )
             first_block = message.content[0]
             text = first_block.text if isinstance(first_block, TextBlock) else ""
             return Result.ok(LLMCompletion(text=text, model=model, usage=None))

@@ -344,7 +344,7 @@ class KeyringBackend:
         try:
             data = json.loads(self.INDEX_PATH.read_text())
             return list(data) if isinstance(data, list) else []
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             return []
 
     def _index_save(self, keys: list[str]) -> None:

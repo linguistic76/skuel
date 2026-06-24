@@ -1645,7 +1645,7 @@ async def compose_services(
         logger.info("✅ Service composition complete")
         return Result.ok(services)
 
-    except TypeError, AttributeError, ImportError, NameError:
+    except (TypeError, AttributeError, ImportError, NameError):
         # Programming errors must propagate — they indicate real bugs in wiring,
         # not runtime configuration failures. Masking them as Result.fail() hides
         # the root cause during development.
