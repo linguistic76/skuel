@@ -39,7 +39,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.forms.form_submission_request import FormSubmitRequest
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -187,12 +187,14 @@ def create_user_entry_api_routes(
             file_size=len(file_content),
             file_type=uploaded_file.content_type,
             fulfills_exercise_uid=(
-                str(form.get("fulfills_exercise_uid"))
+                EntityUID(str(form.get("fulfills_exercise_uid")))
                 if form.get("fulfills_exercise_uid")
                 else None
             ),
             about_path_step_uid=(
-                str(form.get("about_path_step_uid")) if form.get("about_path_step_uid") else None
+                EntityUID(str(form.get("about_path_step_uid")))
+                if form.get("about_path_step_uid")
+                else None
             ),
             share_with_groups=share_with_groups,
             auto_share_to_exercise_groups=auto_share_to_exercise_groups,
@@ -252,7 +254,7 @@ def create_user_entry_api_routes(
         create_req = UserEntryCreateRequest(
             title=req.title or "Form Submission",
             pipeline=Pipeline.TEACHER_REVIEW,
-            fulfills_exercise_uid=req.exercise_uid,
+            fulfills_exercise_uid=EntityUID(req.exercise_uid),
             content=_json.dumps(req.form_data),
             metadata=metadata,
         )

@@ -26,7 +26,7 @@ def _format_shared_at(shared_at: Any) -> str:
             dt = datetime.fromisoformat(shared_at)
         else:
             dt = shared_at  # already datetime
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return ""
 
     if not isinstance(dt, datetime):

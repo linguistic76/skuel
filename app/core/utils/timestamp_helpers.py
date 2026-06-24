@@ -287,7 +287,7 @@ def parse_datetime_field(
         return default
     try:
         return parse_datetime(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return default
 
 

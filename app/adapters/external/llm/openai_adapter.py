@@ -50,7 +50,7 @@ class OpenAIChatAdapter:
     async def _create(
         self,
         model: str,
-        payload: list[dict[str, str]],
+        payload: Any,  # boundary: sdk-ChatCompletionMessageParam
         temperature: float,
         max_tokens: int,
     ) -> Any:  # boundary: openai-sdk-response
