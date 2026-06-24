@@ -11,39 +11,54 @@ Usage:
 
 Output:
     - Summary of legacy patterns found
-    - Files needing deprecation markers
+    - Files needing attention (delete obsolete code or update to current path)
     - Suggested removal timeline
 """
 
 import re
 import subprocess
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
 
+PROTOCOL_METHODS = {
+    "get_domain_context_raw",
+    "aflat_map",
+    "from_domain_model",
+    "discovery_ops",
+    "graph_intel",
+}
+IMPORT_ATTRS = {"Errors", "EventType", "EntityStatus"}
+MODEL_ATTRS = {
+    "habit_weights",
+    "completion_rate",
+    "required_habit_consistency",
+    "knowledge_patterns_detected",
+    "password_hash",
+}
+TYPE_NARROWING_ATTRS = {"__iter__", "__getitem__", "__len__"}
+WRONG_METHODS = {"update", "sort", "get", "create", "backend"}
+SEVERITY_ICONS = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+
+
+@dataclass(frozen=True)
 class LegacyPattern:
     """Represents a detected legacy code pattern."""
 
-    def __init__(
-        self,
-        file_path: str,
-        line_number: int,
-        pattern_type: str,
-        attribute: str,
-        severity: str,
-    ):
-        self.file_path = file_path
-        self.line_number = line_number
-        self.pattern_type = pattern_type  # "missing_protocol", "missing_attribute", "import_error"
-        self.attribute = attribute
-        self.severity = severity  # "high", "medium", "low"
+    file_path: str
+    line_number: int
+    pattern_type: str
+    attribute: str
+    severity: str
 
 
 class LegacyCodeDetector:
     """Detect and categorize legacy code patterns."""
 
-    def __init__(self, root_path: Path = Path("/home/mike/skuel/app")):
+    def __init__(self, root_path: Path = ROOT):
         self.root_path = root_path
         self.patterns: list[LegacyPattern] = []
 
@@ -110,46 +125,16 @@ class LegacyCodeDetector:
 
     def _categorize_pattern(self, attribute: str, file_path: str) -> tuple[str, str]:
         """Categorize pattern and determine severity."""
-        # Protocol method patterns
-        protocol_methods = [
-            "get_domain_context_raw",
-            "aflat_map",
-            "from_domain_model",
-            "discovery_ops",
-            "graph_intel",
-        ]
-
-        if attribute in protocol_methods:
+        if attribute in PROTOCOL_METHODS:
             return ("missing_protocol", "high")
-
-        # Import/module errors
-        import_attrs = ["Errors", "EventType", "EntityStatus"]
-        if attribute in import_attrs:
+        if attribute in IMPORT_ATTRS:
             return ("import_error", "low")
-
-        # Model attribute patterns (deprecated/legacy fields)
-        model_attrs = [
-            "habit_weights",
-            "completion_rate",
-            "required_habit_consistency",
-            "knowledge_patterns_detected",
-            "password_hash",
-        ]
-
-        if attribute in model_attrs:
+        if attribute in MODEL_ATTRS:
             return ("missing_attribute", "medium")
-
-        # Type narrowing issues (MyPy limitation, not code issues)
-        type_narrowing = ["__iter__", "__getitem__", "__len__"]
-        if attribute in type_narrowing:
+        if attribute in TYPE_NARROWING_ATTRS:
             return ("type_narrowing", "low")
-
-        # Wrong method calls (actual bugs to fix)
-        wrong_methods = ["update", "sort", "get", "create", "backend"]
-        if attribute in wrong_methods:
+        if attribute in WRONG_METHODS:
             return ("coding_error", "high")
-
-        # Default
         return ("unknown", "medium")
 
     def group_by_pattern(self) -> dict[str, list[LegacyPattern]]:
@@ -206,7 +191,7 @@ class LegacyCodeDetector:
         sorted_attrs = sorted(by_attribute.items(), key=get_pattern_count, reverse=True)
         for attribute, patterns in sorted_attrs[:15]:
             severity = patterns[0].severity
-            severity_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}[severity]
+            severity_icon = SEVERITY_ICONS[severity]
             print(f"  {severity_icon} {attribute}: {len(patterns)} occurrences")
         print()
 
@@ -313,7 +298,7 @@ class LegacyCodeDetector:
         print()
         print(f"Week 1 ({datetime.now().strftime('%b %d')}):")
         print("  - Fix import issues (Category: import_error)")
-        print("  - Add deprecation markers to missing attributes")
+        print("  - Remove obsolete missing-attribute references")
         print()
         print(f"Week 2 ({(datetime.now() + timedelta(days=7)).strftime('%b %d')}):")
         print("  - Fix or remove missing protocol methods")
@@ -334,9 +319,7 @@ class LegacyCodeDetector:
         print("=" * 100)
         print()
         print("1. Review this report and prioritize issues")
-        print("2. Add deprecation markers to legacy code:")
-        print("   # DEPRECATED(2025-11-16): Reason here")
-        print("   # REMOVE_BY: 2025-12-16")
+        print("2. Delete obsolete code or update it to the current path forward")
         print("3. Update docs/LEGACY_CODE_CLEANUP.md with decisions")
         print("4. Run this script weekly to track progress")
         print()
