@@ -32,6 +32,7 @@ from monsterui.franken import UkIcon
 
 from core.models.type_hints import EntityUID
 from ui.explore.ku_mastery import render_ku_mastery_section
+from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
 if TYPE_CHECKING:
@@ -100,7 +101,7 @@ def render_ku_detail_content(
         if learning_state.get("is_studying")
         else "none"
     )
-    seed = {"uid": uid, "status": status, "saved": is_pinned}
+    seed = {"uid": uid, "status": status}
     seed_json = (
         json.dumps(seed, default=str)
         .replace("<", "\\u003c")
@@ -127,7 +128,7 @@ def render_ku_detail_content(
         Script(NotStr(f"window.KU_SEED = {seed_json};")),
         _back_link(),
         Article(
-            _article_header(uid, title, kind, namespace, reading_minutes, user_uid),
+            _article_header(uid, title, kind, namespace, reading_minutes, user_uid, is_pinned),
             _reading_body(content_html),
             _end_of_read_marker(),
         ),
@@ -184,6 +185,7 @@ def _article_header(
     namespace: str,
     reading_minutes: int,
     user_uid: str | None,
+    is_pinned: bool = False,
 ) -> "FT":
     kind_icon = _KIND_ICONS.get(kind, "info")
     kind_label = kind.title() if kind else "Knowledge"
@@ -194,7 +196,7 @@ def _article_header(
     ]
     if user_uid:
         meta_items.append(_status_control(uid))
-        meta_items.append(_save_button(uid))
+        meta_items.append(PinButton(entity_uid=EntityUID(uid), is_pinned=is_pinned))
 
     return Header(
         Div(
@@ -244,21 +246,6 @@ def _status_control(uid: str) -> "FT":
         cls="inline-flex items-center rounded-lg border border-border p-0.5 bg-card",
         role="radiogroup",
         **{"aria-label": "Your status with this idea"},
-    )
-
-
-def _save_button(uid: str) -> "FT":
-    return Button(
-        UkIcon("bookmark", cls="w-4 h-4"),
-        type="button",
-        hx_post=f"/explore/knowledge/{uid}/save",
-        hx_swap="none",
-        cls="ml-auto w-[34px] h-[34px] border border-border bg-card rounded-lg flex items-center justify-center hover:bg-muted focus:outline-none",
-        **{
-            "@click": "toggleSave()",
-            ":aria-label": "saved ? 'Saved' : 'Save for later'",
-            ":class": "saved ? 'text-primary' : 'text-muted-foreground'",
-        },
     )
 
 

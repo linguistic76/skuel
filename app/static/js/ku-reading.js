@@ -6,9 +6,9 @@
  * (ui/explore/ku_detail.py). Seed comes from window.KU_SEED
  * emitted by the server in the HTMX fragment.
  *
- * Owns: status toggle (studying/understood), save toggle,
- * mastery level selection for the perception-gap form,
- * keyboard shortcuts (s / u / Escape).
+ * Owns: status toggle (studying/understood), mastery level selection
+ * for the perception-gap form, keyboard shortcuts (u / Escape).
+ * Pin/unpin is handled by PinButton (self-contained HTMX).
  * All other content is server-rendered.
  */
 (function () {
@@ -19,7 +19,6 @@
     return {
       seed: s,
       status: s.status || 'none',
-      saved: s.saved || false,
       mastery: 'familiar',
       note: '',
       open: { blocking: false, alt: false },
@@ -28,14 +27,9 @@
         this.status = (this.status === v) ? 'none' : v;
       },
 
-      toggleSave: function () {
-        this.saved = !this.saved;
-      },
-
       onKey: function (e) {
         var tag = (e.target.tagName || '').toLowerCase();
         if (tag === 'input' || tag === 'textarea' || tag === 'select') { return; }
-        if (e.key === 's') { e.preventDefault(); this.toggleSave(); }
         if (e.key === 'u') { e.preventDefault(); this.setStatus('understood'); }
         if (e.key === 'Escape') { window.location.href = '/explore'; }
       },

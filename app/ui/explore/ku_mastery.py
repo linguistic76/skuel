@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 
 _RESULTS_SLOT = "mastery-results"
 _MASTERY_LEVELS: list[tuple[str, str]] = [
-    ("new", "New"),
+    ("novice", "New"),
     ("familiar", "Familiar"),
-    ("working", "Working"),
-    ("fluent", "Fluent"),
+    ("proficient", "Working"),
+    ("mastered", "Fluent"),
 ]
 
 
