@@ -121,7 +121,7 @@ async def test_begin_transaction_inherits_default_timeout(neo4j_driver):
                 result = await tx.run(_BUSY_QUERY)
                 await result.consume()
                 await tx.commit()
-            except (ClientError, TransientError):
+            except ClientError, TransientError:
                 # tx is in a failed state; ensure we still surface the error.
                 raise
     elapsed = time.monotonic() - start

@@ -28,7 +28,7 @@ from core.models.pathways.pathways_request import (
     StepRelationshipCreateRequest,
     StepReorderRequest,
 )
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
@@ -240,7 +240,8 @@ def create_path_steps_api_routes(
     async def get_step_recommendations_route(request: Request, uid: str) -> Result[list[PathStep]]:
         """Get personalized path step recommendations."""
         params = dict(request.query_params)
-        user_uid = params.get("user_uid")
+        raw_user_uid = params.get("user_uid")
+        user_uid = UserUID(raw_user_uid) if raw_user_uid else None
         recommendation_type = params.get("type", "learning")
 
         return await ps_service.get_step_recommendations(uid, user_uid, recommendation_type)

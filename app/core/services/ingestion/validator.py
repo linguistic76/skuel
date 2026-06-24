@@ -645,7 +645,7 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
             conf_val = float(confidence)
             if not 0.0 <= conf_val <= 1.0:
                 errors.append(f"confidence must be 0.0-1.0, got {conf_val}")
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             errors.append(f"confidence must be a number, got '{confidence}'")
 
     polarity = data.get("polarity")
@@ -654,7 +654,7 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
             pol_val = int(polarity)
             if pol_val not in _VALID_POLARITIES:
                 errors.append(f"polarity must be -1, 0, or 1, got {pol_val}")
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             errors.append(f"polarity must be an integer, got '{polarity}'")
 
     temporality = data.get("temporality")

@@ -57,7 +57,7 @@ class AnthropicChatAdapter:
         max_tokens: int,
         temperature: float,
         system: str,
-        messages: list[dict[str, Any]],
+        messages: Any,  # boundary: sdk-MessageParam
     ) -> Any:  # boundary: anthropic-sdk-response
         return await self._client.messages.create(
             model=model,

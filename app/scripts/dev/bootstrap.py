@@ -869,7 +869,7 @@ async def shutdown_skuel(container: AppContainer) -> None:
                 try:
                     await container.event_bus.wait_for_pending_tasks(timeout_seconds=5.0)
                     logger.info("✅ Event bus drained")
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning("⚠️  Event bus drain timed out — cancelling remaining tasks")
                     if hasattr(container.event_bus, "cancel_all_tasks"):
                         container.event_bus.cancel_all_tasks()
