@@ -9,7 +9,7 @@ second-pass integration that makes periodic notes extract Tasks without
 `@context` tags.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -132,16 +132,16 @@ class TestConverterIntegration:
     """The task converter carries scheduled_date + merged tags through."""
 
     def test_scheduled_date_and_tags_flow_to_request(self):
-        parsed = obsidian_task_line_to_parsed(
-            "- [ ] Build 📅 2026-06-25 ⏳ 2026-06-20 ⏫ #work",
-            entry_kind="weekly",
-        )
+        due = date.today() + timedelta(days=5)
+        scheduled = date.today() + timedelta(days=2)
+        line = f"- [ ] Build 📅 {due} ⏳ {scheduled} ⏫ #work"
+        parsed = obsidian_task_line_to_parsed(line, entry_kind="weekly")
         result = activity_to_task_request(parsed)
         assert result.is_ok
         request = result.value
         assert request.title == "Build"
-        assert request.due_date == date(2026, 6, 25)
-        assert request.scheduled_date == date(2026, 6, 20)
+        assert request.due_date == due
+        assert request.scheduled_date == scheduled
         assert request.tags == ["work", "period:weekly"]
 
     def test_tags_merge_dedups(self):

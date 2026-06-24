@@ -97,14 +97,6 @@ class EventRelationships:
         """Check if event has any knowledge connections."""
         return len(self.applies_knowledge_uids) > 0
 
-    def has_goal_contribution(self) -> bool:
-        """Check if event contributes to any goals."""
-        return len(self.contributes_to_goal_uids) > 0 or len(self.celebrated_goal_uids) > 0
-
-    def has_habit_integration(self) -> bool:
-        """Check if event involves habit practice."""
-        return len(self.reinforces_habit_uids) > 0 or len(self.practiced_habit_uids) > 0
-
     # KnowledgeLinkedRelationships protocol --------------------------------
 
     @property
