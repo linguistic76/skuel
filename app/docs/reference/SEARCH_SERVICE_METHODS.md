@@ -33,7 +33,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_upcoming()` | I | I | O | I | I | O | - | - | - |
 | `get_overdue()` | I | I | O | I | I | O | - | - | - |
 | `get_active()` | I | I | O | I | I | O | - | - | - |
-| `intelligent_search()` | - | D | D | D | - | - | - | D | D |
 | **Domain-Specific** |
 | `get_blocking_tasks()` | D | - | - | - | - | - | - | - | - |
 | `get_blocked_tasks()` | D | - | - | - | - | - | - | - | - |
@@ -234,7 +233,6 @@ date_field = "target_date"
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `get_prioritized` | `(user_context: UserContext, limit: int = 10) -> Result[list[Goal]]` | Context-aware prioritization via `score_goal()` |
-| `intelligent_search` | `(query: str, user_uid: UserUID \| None, limit: int) -> Result[tuple[list[Goal], ParsedSearchQuery]]` | NL search — extracts timeframe/status keywords (PLANNED: unwired surface) |
 
 Everything else (`search()`, `get_by_status()`, `get_by_category()`,
 `list_user_categories()`, `get_by_relationship()`, `get_upcoming()`, `get_overdue()`,
@@ -270,7 +268,6 @@ _graph_enrichment_patterns = [
 | `get_by_streak_status` | `(min_streak: int, user_uid: UserUID) -> Result[list[Habit]]` | Filter by streak length |
 | `get_habits_needing_attention` | `(user_uid: UserUID) -> Result[list[Habit]]` | Broken streaks or declining |
 | `get_user_due_today` | `(user_uid: UserUID) -> Result[list[Habit]]` | Habits due today (frequency-window logic) |
-| `intelligent_search` | `(query: str, user_uid: UserUID, context: dict) -> Result[list[Habit]]` | AI-enhanced search |
 | `get_habits_by_time_of_day` | `(time_of_day: str, user_uid: UserUID) -> Result[list[Habit]]` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates` | `(habit_uid: str, user_uid: UserUID) -> Result[list[Habit]]` | Potential habit stacking |
 | `get_knowledge_reinforcement_opportunities` | `(user_uid: UserUID) -> Result[list[dict]]` | KU-habit connection opportunities |
@@ -303,7 +300,6 @@ category_field = "category"  # DomainConfig (default)
 | `get_conflicting` | `(event_uid: str) -> Result[list[Event]]` | Time-overlap conflicts (PLANNED — staged conflict surface) |
 | `get_for_habit` | `(habit_uid: str, user_uid) -> Result[list[Event]]` | Events reinforcing a habit |
 | `get_calendar_events` | `(user_uid, start_date, end_date, limit) -> Result[list[Event]]` | Calendar window query |
-| `intelligent_search` | `(query: str, user_uid, context) -> Result[list[Event]]` | NL search (PLANNED — staged surface) |
 
 Deleted in the 2026-06 events dead-code campaign: `get_by_type` (superseded by
 `find_events(filters={"event_type": ...})`) and `get_history` (superseded by the
@@ -417,7 +413,6 @@ content_field = "description"
 |--------|-----------|-------------|
 | `get_standalone_steps` | `(limit: int = 50) -> Result[list[PathStep]]` | Steps not in any path |
 | `get_prioritized` | `(user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[PathStep]]` | Ready-to-learn prioritization |
-| `intelligent_search` | `(query: str, limit: int = 50) -> Result[tuple[list[PathStep], ParsedSearchQuery]]` | NL search with filter extraction (staged, PLANNED) |
 
 ---
 
@@ -440,7 +435,6 @@ content_field = "description"
 | `get_aligned_with_goal` | `(goal_uid: str, limit: int = 50) -> Result[list[LearningPath]]` | Paths aligned with goal (staged, PLANNED) |
 | `get_by_knowledge` | `(ku_uid: str, limit: int = 20) -> Result[list[LearningPath]]` | Paths teaching a Ku (staged, PLANNED) |
 | `get_prioritized` | `(user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[LearningPath]]` | Recommended paths |
-| `intelligent_search` | `(query: str, limit: int = 50) -> Result[tuple[list[LearningPath], ParsedSearchQuery]]` | NL search with filter extraction (staged, PLANNED) |
 
 ---
 

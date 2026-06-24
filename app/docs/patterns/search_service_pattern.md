@@ -218,87 +218,9 @@ result = await router.advanced_search(request)
 
 **REST API:** `POST /api/search/unified`
 
-## Intelligent Search (January 2026)
+## Intelligent Search
 
-All 6 Activity domain search services implement `intelligent_search()` for **NLP-based query parsing**. This method extracts semantic filters from natural language queries.
-
-### How It Works
-
-1. **Query Parsing**: Uses `SearchQueryParser` to extract Priority, EntityStatus, and Domain from the query
-2. **Domain-Specific Keywords**: Each service recognizes keywords specific to its domain
-3. **Filter Building**: Extracted keywords become filters for the backend query
-4. **Fallback**: If no filters extracted, falls back to text search
-
-### Usage
-
-```python
-# Natural language search with automatic filter extraction
-result = await tasks_service.search.intelligent_search("urgent tech tasks in progress")
-tasks, parsed = result.value
-
-print(f"Found {len(tasks)} tasks")
-print(f"Filters: {parsed.to_filter_summary()}")  # "priority: critical; status: in_progress"
-```
-
-### Domain-Specific Keywords
-
-| Service | Keywords Extracted | Examples |
-|---------|-------------------|----------|
-| **TasksSearchService** | Priority, Status | "urgent" → CRITICAL, "in progress" → IN_PROGRESS |
-| **GoalsSearchService** | Timeframe, GoalStatus | "weekly" → WEEKLY, "achieved" → ACHIEVED |
-| **HabitSearchService** | Frequency, Streak State | "daily" → DAILY, "at risk" → streak filtering |
-| **EventsSearchService** | Date Range, Recurrence | "this week" → date range, "recurring" → filter |
-| **ChoicesSearchService** | Urgency, Decision State | "urgent" → CRITICAL, "pending" → PENDING status |
-| **PrinciplesSearchService** | Strength, Category, State | "core" → CORE strength, "health" → HEALTH category |
-
-### Return Value
-
-```python
-async def intelligent_search(
-    self, query: str, user_uid: UserUID | None = None, limit: int = 50
-) -> Result[tuple[list[Entity], ParsedSearchQuery]]:
-    """Returns (entities, parsed_query) tuple."""
-```
-
-The `ParsedSearchQuery` contains:
-- `raw_query`: Original query string
-- `text_query`: Query with filter keywords removed
-- `priorities`: List of extracted Priority enums
-- `statuses`: List of extracted EntityStatus enums
-- `domains`: List of extracted Domain enums
-- `to_filter_summary()`: Human-readable summary of filters
-
-### Implementation Pattern
-
-Each service follows the same pattern with domain-specific keyword mappings:
-
-```python
-@with_error_handling("intelligent_search", error_type="database")
-async def intelligent_search(
-    self, query: str, user_uid: UserUID | None = None, limit: int = 50
-) -> Result[tuple[list[Task], ParsedSearchQuery]]:
-    # 1. Parse query with shared parser
-    parser = SearchQueryParser()
-    parsed = parser.parse(query)
-    query_lower = query.lower()
-
-    # 2. Build filters from parsed + domain-specific keywords
-    filters: dict[str, object] = {}
-
-    # Domain-specific keyword extraction
-    if "urgent" in query_lower:
-        filters["priority"] = Priority.CRITICAL.value
-    # ... more keywords
-
-    # 3. Execute search
-    if filters:
-        result = await self.backend.find_by(limit=limit, **filters)
-    else:
-        result = await self.search(parsed.text_query, limit=limit)
-
-    # 4. Return tuple with parsed query for caller insight
-    return Result.ok((entities, parsed))
-```
+NL query with semantic filter extraction is handled by `SearchRouter.intelligent_search()` → `GET /api/search/intelligent`. This is the single cross-domain entry point; per-domain `intelligent_search()` methods were removed in Theme F (June 2026) as redundant dead code.
 
 ## Domain-Specific Extensions
 
@@ -320,8 +242,6 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # Goal-specific methods (must implement)
     async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[Goal]]: ...
 
-    # Intelligent search (January 2026) - extracts timeframe/status keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Goal], ParsedSearchQuery]]: ...
 ```
 
 ### HabitSearchService
@@ -343,8 +263,6 @@ class HabitSearchService(BaseService[HabitsOperations, Habit]):
     async def get_at_risk(self, user_context: UserContext) -> Result[list[Habit]]: ...
     async def get_due_today(self, user_uid: UserUID) -> Result[list[Habit]]: ...
 
-    # Intelligent search (January 2026) - extracts frequency/streak keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Habit], ParsedSearchQuery]]: ...
 ```
 
 ### EventsSearchService
@@ -367,8 +285,6 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
     async def get_for_goal(self, goal_uid: str) -> Result[list[Event]]: ...
     async def get_conflicting(self, event_uid: str) -> Result[list[Event]]: ...
 
-    # Intelligent search (January 2026) - extracts date/recurrence keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Event], ParsedSearchQuery]]: ...
 ```
 
 ### ChoicesSearchService
@@ -388,8 +304,6 @@ class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
     async def get_pending(self, user_uid: UserUID) -> Result[list[Choice]]: ...
     async def get_needing_decision(self, deadline_days: int = 7) -> Result[list[Choice]]: ...
 
-    # Intelligent search (January 2026) - extracts urgency/decision state keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Choice], ParsedSearchQuery]]: ...
 ```
 
 ### TasksSearchService
@@ -410,8 +324,6 @@ class TasksSearchService(BaseService[TasksOperations, Task]):
     async def get_curriculum_tasks(self) -> Result[list[Task]]: ...
     async def get_learning_relevant_tasks(self, learning_position: LpPosition) -> Result[list[Task]]: ...
 
-    # Intelligent search (January 2026) - extracts priority/status keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Task], ParsedSearchQuery]]: ...
 ```
 
 ### PrinciplesSearchService (Custom Overrides)
@@ -437,8 +349,6 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     async def get_upcoming(self, days_ahead: int = 30, ...) -> Result[list[Principle]]: ...  # Approaching review threshold
     async def get_overdue(self, ...) -> Result[list[Principle]]: ...  # Delegates to get_needing_review(days_threshold=90)
 
-    # Intelligent search (January 2026) - extracts strength/category/state keywords
-    async def intelligent_search(self, query: str, user_uid: UserUID | None, limit: int) -> Result[tuple[list[Principle], ParsedSearchQuery]]: ...
 ```
 
 ## Service Composition
@@ -612,7 +522,6 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     # Inherited: search(), get_by_status(), graph_aware_faceted_search(), ...
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]: ...
     async def get_prioritized(self, user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[PathStep]]: ...
-    async def intelligent_search(self, query: str, limit: int = 50) -> Result[tuple[list[PathStep], ParsedSearchQuery]]: ...  # staged, PLANNED
 ```
 
 ### LpSearchService
@@ -629,7 +538,6 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
     async def get_aligned_with_goal(self, goal_uid: str, limit: int = 50) -> Result[list[LearningPath]]: ...  # staged, PLANNED
     async def get_by_knowledge(self, ku_uid: str, limit: int = 20) -> Result[list[LearningPath]]: ...  # staged, PLANNED
     async def get_prioritized(self, user_uid: UserUID, context: UserContext, limit: int = 20) -> Result[list[LearningPath]]: ...
-    async def intelligent_search(self, query: str, limit: int = 50) -> Result[tuple[list[LearningPath], ParsedSearchQuery]]: ...  # staged, PLANNED
 ```
 
 ### Service Wiring
