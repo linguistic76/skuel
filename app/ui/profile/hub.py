@@ -15,7 +15,7 @@ from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
 _DEFAULT_TAB_SLUG = "submissions"
-_VALID_TABS = frozenset({_DEFAULT_TAB_SLUG, "submissions", "gradebook"})
+_VALID_TABS = frozenset({"library", "submissions", "gradebook"})
 
 
 def normalize_tab(slug: str | None) -> str:
