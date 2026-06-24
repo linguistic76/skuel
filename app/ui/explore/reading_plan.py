@@ -744,6 +744,15 @@ def _library_section(plan: dict[str, Any]) -> "FT":
             ),
             cls="flex flex-wrap items-center gap-2 mt-3.5",
         ),
+        A(
+            UkIcon("share-2", cls="w-3.5 h-3.5"),
+            " View learning graph",
+            href="/explore/graph",
+            cls=(
+                "mt-3 inline-flex items-center gap-1.5 text-[12px] "
+                "text-muted-foreground hover:text-foreground transition-colors"
+            ),
+        ),
         cls="rounded-xl border border-muted bg-muted/40 p-5 sm:p-6 mb-7 sm:mb-9",
         role="region",
         **{"aria-labelledby": "browse-heading"},

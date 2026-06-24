@@ -6,6 +6,7 @@ Routes:
 - GET  /explore                  — Reading-first index (reading plan, shell-first)
 - GET  /explore/content          — HTMX fragment: reading plan content
 - GET  /explore/read/{uid}       — KU reader (alias → /explore/ku/{uid})
+- GET  /explore/graph            — Dedicated full-page learning graph
 - GET  /explore/library          — Full catalog shell (bento card grid)
 - GET  /explore/library/content  — HTMX fragment: bento card grid with search
 - GET  /api/explore/search       — HTMX fragment: filtered card grid
@@ -18,7 +19,9 @@ fragments (/learning-loop/ps/*) are in learning_loop_routes.py.
 from typing import Any
 
 from fasthtml.common import (
+    A,
     Div,
+    P,
     Request,
 )
 from starlette.responses import RedirectResponse
@@ -27,6 +30,7 @@ from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from core.utils.logging import get_logger
 from ui.explore.cards import render_explore_card, render_explore_search_panel
 from ui.explore.filters import filter_items, sort_by_created_at
+from ui.explore.graph import ExploreGraphView
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.reading_plan import ExploreReadingView
 from ui.layouts.base_page import BasePage
@@ -150,6 +154,38 @@ def create_explore_ui_routes(
         return RedirectResponse(url=f"/explore/ku/{uid}", status_code=302)
 
     # -----------------------------------------------------------------
+    # GET /explore/graph — Dedicated full-page learning graph
+    # -----------------------------------------------------------------
+
+    @rt("/explore/graph")
+    async def explore_graph_page(request: Request) -> Any:
+        """Full-page learning graph — the user's knowledge universe."""
+        content = Div(
+            Div(
+                Div(
+                    P(
+                        "Your knowledge universe — every idea you're studying, every path in progress.",
+                        cls="text-sm text-muted-foreground",
+                    ),
+                    Div(
+                        A("← Reading", href="/explore", cls="text-sm text-muted-foreground hover:text-foreground transition-colors"),
+                        A("Browse library →", href="/explore/library", cls="text-sm text-muted-foreground hover:text-foreground transition-colors"),
+                        cls="flex items-center gap-6",
+                    ),
+                    cls="flex items-center justify-between mb-4",
+                ),
+                ExploreGraphView(mode="hub", height="calc(100vh - 220px)"),
+                cls="w-full",
+            ),
+        )
+        return await BasePage(
+            content,
+            title="Learning Graph",
+            request=request,
+            active_page="explore",
+        )
+
+    # -----------------------------------------------------------------
     # GET /explore/library — Demoted bento-grid catalog
     # -----------------------------------------------------------------
 
@@ -219,7 +255,7 @@ def create_explore_ui_routes(
 
     logger.info(
         "Explore UI routes registered: /explore, /explore/content, "
-        "/explore/read/{uid}, /explore/library, /explore/library/content"
+        "/explore/read/{uid}, /explore/graph, /explore/library, /explore/library/content"
     )
 
     return []
