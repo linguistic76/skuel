@@ -478,6 +478,14 @@ def create_search_routes(
 
 Search is a meta-service (orchestrates domain search services), so it uses explicit injection rather than `DomainRouteConfig`, matching the same pattern used by other orchestration-level routes.
 
+**Search HTTP endpoints (all in `search_routes.py`):**
+
+| Route | Method | SearchRouter call |
+|-------|--------|-------------------|
+| `/search/results` | GET | `faceted_search(SearchRequest, user_uid)` |
+| `/api/search/unified` | POST | `advanced_search(SearchRequest)` |
+| `/api/search/intelligent` | GET | `intelligent_search(q, limit)` — NL query with semantic filter extraction |
+
 ---
 
 ## SearchRequest Model
