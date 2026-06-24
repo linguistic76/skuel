@@ -180,7 +180,8 @@ class ExploreOrchestrator:
             and not getattr(ku_result, "is_error", False)
             and getattr(ku_result, "value", None)
         ):
-            items.extend((ku, "ku") for ku in ku_result.value)
+            kus = ku_result.value if isinstance(ku_result.value, list) else ku_result.value[0]
+            items.extend((ku, "ku") for ku in kus)
         if (
             ps_result
             and not getattr(ps_result, "is_error", False)
