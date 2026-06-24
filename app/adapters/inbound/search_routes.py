@@ -30,6 +30,7 @@ from adapters.inbound.route_factories import (
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
+from core.utils.result_simplified import Errors, Result
 from ui.search.components import (
     render_empty_search_prompt,
     render_search_error,
@@ -301,7 +302,60 @@ def create_search_api_routes(
 
         return response
 
-    return [search_page, search_results, unified_search_api]
+    # ========================================================================
+    # INTELLIGENT SEARCH API ENDPOINT
+    # ========================================================================
+
+    @rt("/api/search/intelligent")
+    @boundary_handler()
+    async def intelligent_search_api(
+        request: Request,
+        q: str = "",
+        limit: int = 50,
+    ) -> Result[dict[str, Any]]:
+        """
+        Cross-domain natural-language search with semantic filter extraction.
+
+        Extracts domain routing, priority, and status signals from the query text,
+        then dispatches to the appropriate domain search services.
+
+        Args:
+            q: Natural language search query
+            limit: Maximum total results (default 50)
+
+        Returns:
+            {
+                "query": str,
+                "total_count": int,
+                "results_by_domain": {"task": [...], "goal": [...], ...},
+                "top_results": [...]
+            }
+        """
+        require_authenticated_user(request)
+
+        if not q.strip():
+            return Result.fail(Errors.validation(message="q is required", field="q", value=None))
+
+        result = await search_router.intelligent_search(q, limit=limit)
+
+        if result.is_error:
+            logger.error(f"Intelligent search failed: {result.error}")
+            return Result.fail(result)
+
+        unified = result.value
+        return Result.ok(
+            {
+                "query": unified.query,
+                "total_count": unified.total_count,
+                "results_by_domain": {
+                    et.value: [item.to_dict() for item in items]
+                    for et, items in unified.results_by_domain.items()
+                },
+                "top_results": [item.to_dict() for item in unified.top_results],
+            }
+        )
+
+    return [search_page, search_results, unified_search_api, intelligent_search_api]
 
 
 SEARCH_CONFIG = DomainRouteConfig(
