@@ -14,12 +14,12 @@ from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
-_DEFAULT_TAB_SLUG = "library"
+_DEFAULT_TAB_SLUG = "submissions"
 _VALID_TABS = frozenset({_DEFAULT_TAB_SLUG, "submissions", "gradebook"})
 
 
 def normalize_tab(slug: str | None) -> str:
-    """Coerce a query-string tab value to a known slug; default to library."""
+    """Coerce a query-string tab value to a known slug; default to submissions."""
     return slug if slug in _VALID_TABS else _DEFAULT_TAB_SLUG
 
 
