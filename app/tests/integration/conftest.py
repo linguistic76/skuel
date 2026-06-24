@@ -844,7 +844,7 @@ async def enrolled_user_with_lp(skuel_app):
     user_uid = "user_test_guided"
     lp_uid = "lp:test:guided-pipeline"
     ps_uid = "ps:test:guided-step"
-    ku_uid = "ku.test_guided_concept"
+    ku_uid = "ku_test_guided_concept"  # ku_ prefix: _fetch_kus filters on startswith("ku_")
     created_at = datetime.now().isoformat()
 
     async with driver.session() as session:
@@ -885,7 +885,8 @@ async def enrolled_user_with_lp(skuel_app):
             ts=created_at,
         )
 
-        # PathStep — non-mastered so _find_active_ps includes it
+        # PathStep — non-mastered so _find_active_ps includes it.
+        # knowledge_uids property is read by _fetch_kus() (filters for "ku_" prefix).
         await session.run(
             """
             MERGE (ps:Entity:PathStep {uid: $uid})
@@ -895,9 +896,11 @@ async def enrolled_user_with_lp(skuel_app):
                 ps.current_mastery = 0.0,
                 ps.mastery_threshold = 0.7,
                 ps.intent = 'Verify guided pipeline activation',
+                ps.knowledge_uids = [$ku_uid],
                 ps.created_at = datetime($ts)
             """,
             uid=ps_uid,
+            ku_uid=ku_uid,
             ts=created_at,
         )
 
@@ -912,12 +915,12 @@ async def enrolled_user_with_lp(skuel_app):
             ps_uid=ps_uid,
         )
 
-        # PS → Ku reference
+        # PS → Ku via CONTAINS_KNOWLEDGE (what the MEGA-query traverses for knowledge_relationships)
         await session.run(
             """
             MATCH (ps:PathStep {uid: $ps_uid})
             MATCH (k:Ku {uid: $ku_uid})
-            MERGE (ps)-[:USES_KU]->(k)
+            MERGE (ps)-[:CONTAINS_KNOWLEDGE]->(k)
             """,
             ps_uid=ps_uid,
             ku_uid=ku_uid,

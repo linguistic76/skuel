@@ -335,7 +335,7 @@ All three paths return the same top-level shape:
     "mode": str,                      # "guided" | "llm_generated" | "enrollment_gate"
     "has_citations": bool,
     # Optional — present only when mode == "guided":
-    "guidance_mode": str,             # "SOCRATIC" | "DIRECT" | "EXPLORATORY" | "ENCOURAGING"
+    "guidance_mode": str,             # "socratic" | "direct" | "exploratory" | "encouraging"
     "session_id": str,                # present when session_id was passed in
 }
 ```
