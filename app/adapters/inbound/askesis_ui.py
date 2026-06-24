@@ -7,7 +7,7 @@ UI routes for Askesis AI assistant. All HTML construction delegated to ui/askesi
 Design Philosophy: "Users can handle complexity, but they need visual calm to process it."
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, Div, P
 
@@ -15,7 +15,12 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
+from core.config.intelligence_tier import IntelligenceTier
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.services.user_service import UserService
 from ui.askesis import (
     render_askesis_page,
     render_centered_welcome,
@@ -29,7 +34,13 @@ from ui.patterns.page_header import PageHeader
 logger = get_logger("skuel.ui.askesis")
 
 
-def create_askesis_ui_routes(_app, rt, _askesis_service):
+def create_askesis_ui_routes(
+    _app: Any,
+    rt: Any,
+    _askesis_service: Any,
+    intelligence_tier: IntelligenceTier | None = None,
+    user_service: "UserService | None" = None,
+) -> list[Any]:
     """Create UI routes for Askesis AI assistant."""
 
     routes = []
@@ -126,6 +137,22 @@ def create_askesis_ui_routes(_app, rt, _askesis_service):
     async def submit_message(request: Request):
         """Handle message submission (HTMX endpoint)."""
         user_uid = require_authenticated_user(request)
+
+        # Per-user tier gate (ADR-043): REGISTERED users on a FULL-tier system
+        # are capped at CORE and may not consume AI routes.
+        if intelligence_tier is not None and user_service is not None:
+            user_result = await user_service.get_user(user_uid)
+            if user_result.is_error or user_result.value is None:
+                return P(
+                    "Could not verify your access level. Please try again.",
+                    cls="text-error text-sm",
+                )
+            effective_tier = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
+            if not effective_tier.ai_enabled:
+                return P(
+                    "AI features require a paid subscription. Upgrade to MEMBER to unlock Askesis.",
+                    cls="text-error text-sm",
+                )
 
         form_data = await request.form()
         message = safe_form_string(form_data.get("message"))

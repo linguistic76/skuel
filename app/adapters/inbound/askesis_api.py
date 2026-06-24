@@ -18,15 +18,20 @@ HTMX bubbles. New API surface should be added back here only when a real
 caller exists.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from core.config.intelligence_tier import IntelligenceTier
 from core.ports import AskesisOperations
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.services.user_service import UserService
 
 logger = get_logger("skuel.routes.askesis.api")
 
@@ -35,6 +40,8 @@ def create_askesis_api_routes(
     app: Any,
     rt: Any,
     askesis_service: AskesisOperations,
+    intelligence_tier: IntelligenceTier | None = None,
+    user_service: "UserService | None" = None,
 ) -> list[Any]:
     """Register the Askesis API routes.
 
@@ -42,6 +49,8 @@ def create_askesis_api_routes(
         app: FastHTML application instance (unused — kept for factory signature parity).
         rt: Route decorator.
         askesis_service: AskesisService instance (RAG pipeline).
+        intelligence_tier: System intelligence tier for per-user gate (ADR-043).
+        user_service: User service for role lookup in the per-user tier gate.
     """
 
     @rt("/api/askesis/ask")
@@ -61,6 +70,23 @@ def create_askesis_api_routes(
             GET /api/askesis/ask?question=What%20should%20I%20learn%20next?
         """
         user_uid = require_authenticated_user(request)
+
+        # Per-user tier gate (ADR-043): REGISTERED users on a FULL-tier system
+        # are capped at CORE and may not consume AI routes.
+        if intelligence_tier is not None and user_service is not None:
+            user_result = await user_service.get_user(user_uid)
+            if user_result.is_error or user_result.value is None:
+                return Result.fail(Errors.system("Could not verify user access tier"))
+            effective_tier = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
+            if not effective_tier.ai_enabled:
+                return Result.fail(
+                    Errors.forbidden(
+                        action="use Askesis AI",
+                        reason="AI features require a paid subscription",
+                        required_role="MEMBER",
+                    )
+                )
+
         question = request.query_params.get("question")
         session_id = request.query_params.get("session_id")
 
