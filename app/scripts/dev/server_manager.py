@@ -1,230 +1,179 @@
 #!/usr/bin/env python3
-"""
-SKUEL Server Manager
-===================
-Utility script to properly start/stop/restart the SKUEL server with proper cleanup.
-Now using secure command execution to prevent command injection attacks.
-"""
+"""Start, stop, restart, and inspect the local SKUEL development server."""
 
 import os
+import shutil
 import signal
+import subprocess
 import sys
 import time
+from pathlib import Path
 
-__version__ = "1.0"
+__version__ = "1.1"
 
-# Import secure command execution
-try:
-    from utils.secure_command_execution import (  # type: ignore[import-not-found]
-        get_secure_executor,
-        safe_kill_process,
-        safe_lsof_port,
+APP_DIR = Path(__file__).resolve().parents[2]
+SERVER_PORT = 8000
+STARTUP_WAIT_SECONDS = 3
+SHUTDOWN_WAIT_SECONDS = 10
+FORCE_KILL_WAIT_SECONDS = 2
+MAX_PID = 4_194_304  # Linux pid_max upper bound.
+
+
+def _pythonpath_env() -> dict[str, str]:
+    """Return an environment with the app directory available on PYTHONPATH."""
+    env = os.environ.copy()
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = f"{APP_DIR}{os.pathsep}{existing}" if existing else str(APP_DIR)
+    return env
+
+
+def _valid_pid(pid: int) -> bool:
+    """Validate a process id before sending a signal."""
+    return 1 <= pid <= MAX_PID
+
+
+def get_server_pid() -> int | None:
+    """Return the PID listening on the development server port, if any."""
+    if shutil.which("lsof") is None:
+        print("⚠️  lsof is not installed; cannot inspect the server port")
+        return None
+
+    result = subprocess.run(
+        ["lsof", "-t", f"-i:{SERVER_PORT}"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
 
-    SECURE_EXECUTION_AVAILABLE = True
-except ImportError:
-    # Fallback to subprocess if secure execution not available
-    import subprocess
-
-    SECURE_EXECUTION_AVAILABLE = False
-    print("⚠️  Secure command execution not available. Install utils/secure_command_execution.py")
-
-
-def get_server_pid():
-    """Get the PID of the running SKUEL server using secure command execution"""
+    first_pid = result.stdout.splitlines()[0].strip()
     try:
-        if SECURE_EXECUTION_AVAILABLE:
-            # Use secure command execution
-            result = safe_lsof_port(8000)
-            if result.is_ok() and result.value.success and result.value.stdout.strip():
-                return int(result.value.stdout.strip())
-        else:
-            # Fallback to subprocess (less secure)
-            result = subprocess.run(["lsof", "-t", "-i:8000"], capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                return int(result.stdout.strip())
-    except Exception as e:
-        print(f"⚠️  Error getting server PID: {e}")
-    return None
+        return int(first_pid)
+    except ValueError:
+        print(f"⚠️  Ignoring unexpected lsof output: {first_pid}")
+        return None
 
 
-def stop_server(pid=None):
-    """Stop the SKUEL server gracefully using secure process termination"""
-    if pid is None:
-        pid = get_server_pid()
+def _wait_until_stopped() -> bool:
+    """Wait for the server port to become free."""
+    for _ in range(SHUTDOWN_WAIT_SECONDS):
+        time.sleep(1)
+        if get_server_pid() is None:
+            return True
+    return False
+
+
+def stop_server(pid: int | None = None) -> bool:
+    """Stop the SKUEL server gracefully, then force it only if necessary."""
+    pid = get_server_pid() if pid is None else pid
 
     if not pid:
         print("🟢 Server is not running")
         return True
+    if not _valid_pid(pid):
+        print(f"❌ Invalid PID: {pid}")
+        return False
 
     print(f"🛑 Stopping server (PID: {pid})...")
 
     try:
-        # Validate PID is reasonable
-        if not (1 <= pid <= 65535):
-            print(f"❌ Invalid PID: {pid}")
-            return False
-
-        if SECURE_EXECUTION_AVAILABLE:
-            # Use secure process termination
-            print("🔐 Using secure process termination...")
-
-            # Try graceful shutdown first
-            result = safe_kill_process(pid, force=False)
-            if result.is_error():
-                print(f"⚠️  Graceful termination failed: {result.error}")
-
-            # Wait up to 10 seconds for graceful shutdown
-            for _ in range(10):
-                time.sleep(1)
-                if get_server_pid() is None:
-                    print("✅ Server stopped gracefully")
-                    return True
-
-            # If still running, force kill
-            print("⚠️  Forcing server shutdown...")
-            result = safe_kill_process(pid, force=True)
-            if result.is_error():
-                print(f"❌ Force termination failed: {result.error}")
-                return False
-
-            time.sleep(2)
-            if get_server_pid() is None:
-                print("✅ Server stopped (forced)")
-                return True
-            else:
-                print("❌ Failed to stop server")
-                return False
-
-        else:
-            # Fallback to os.kill (less secure but functional)
-            print("⚠️  Using fallback process termination...")
-
-            # Send TERM signal first (graceful shutdown)
-            os.kill(pid, signal.SIGTERM)
-
-            # Wait up to 10 seconds for graceful shutdown
-            for _ in range(10):
-                time.sleep(1)
-                if get_server_pid() is None:
-                    print("✅ Server stopped gracefully")
-                    return True
-
-            # If still running, force kill
-            print("⚠️  Forcing server shutdown...")
-            os.kill(pid, signal.SIGKILL)
-            time.sleep(2)
-
-            if get_server_pid() is None:
-                print("✅ Server stopped (forced)")
-                return True
-            else:
-                print("❌ Failed to stop server")
-                return False
-
+        os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         print("✅ Server already stopped")
         return True
-    except Exception as e:
-        print(f"❌ Error stopping server: {e}")
+    except PermissionError as exc:
+        print(f"❌ Permission denied stopping server: {exc}")
         return False
 
+    if _wait_until_stopped():
+        print("✅ Server stopped gracefully")
+        return True
 
-def start_server():
-    """Start the SKUEL server using secure command execution"""
+    print("⚠️  Forcing server shutdown...")
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        print("✅ Server already stopped")
+        return True
+    except PermissionError as exc:
+        print(f"❌ Permission denied forcing server shutdown: {exc}")
+        return False
+
+    time.sleep(FORCE_KILL_WAIT_SECONDS)
+    if get_server_pid() is None:
+        print("✅ Server stopped (forced)")
+        return True
+
+    print("❌ Failed to stop server")
+    return False
+
+
+def start_server() -> bool:
+    """Start the SKUEL development server."""
     if get_server_pid():
         print("⚠️  Server is already running")
         return False
 
     print("🚀 Starting SKUEL server...")
+    subprocess.Popen(
+        ["uv", "run", "python", "main.py"],
+        cwd=APP_DIR,
+        env=_pythonpath_env(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
 
-    try:
-        if SECURE_EXECUTION_AVAILABLE:
-            # Use secure command execution
-            print("🔐 Using secure command execution...")
-            executor = get_secure_executor()
+    time.sleep(STARTUP_WAIT_SECONDS)
+    server_pid = get_server_pid()
+    if server_pid:
+        print(f"✅ Server started successfully (PID: {server_pid})")
+        print(f"🌐 Access at: http://localhost:{SERVER_PORT}")
+        return True
 
-            # Set up environment variables securely
-            env_vars = {"PYTHONPATH": "/home/mike/skuel/app"}
-
-            # Execute via uv
-            result = executor.execute_safe_command(
-                "uv",
-                ["run", "python", "main.py"],
-                working_dir="/home/mike/skuel/app",
-                timeout=10,  # Short timeout just to start the process
-                env_vars=env_vars,
-            )
-
-            if result.is_error():
-                print(f"❌ Failed to start server: {result.error}")
-                return False
-
-        else:
-            # Fallback to subprocess
-            print("⚠️  Using fallback command execution...")
-            env = os.environ.copy()
-            env["PYTHONPATH"] = "/home/mike/skuel/app"
-
-            subprocess.Popen(
-                ["uv", "run", "python", "main.py"],
-                cwd="/home/mike/skuel/app",
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                start_new_session=True,  # This helps with signal handling
-            )
-
-        # Give the server a moment to start
-        time.sleep(3)
-
-        # Check if server started successfully
-        server_pid = get_server_pid()
-        if server_pid:
-            print(f"✅ Server started successfully (PID: {server_pid})")
-            print("🌐 Access at: http://localhost:8000")
-            return True
-        else:
-            print("❌ Failed to start server - no process found on port 8000")
-            return False
-
-    except Exception as e:
-        print(f"❌ Error starting server: {e}")
-        return False
+    print(f"❌ Failed to start server - no process found on port {SERVER_PORT}")
+    return False
 
 
-def restart_server():
-    """Restart the SKUEL server"""
+def restart_server() -> bool:
+    """Restart the SKUEL development server."""
     print("🔄 Restarting SKUEL server...")
     stop_server()
-    time.sleep(2)  # Brief pause between stop and start
+    time.sleep(2)
     return start_server()
 
 
-def status():
-    """Show server status"""
+def status() -> None:
+    """Show server status."""
     pid = get_server_pid()
     if pid:
         print(f"🟢 Server is running (PID: {pid})")
-        print("🌐 Access at: http://localhost:8000")
+        print(f"🌐 Access at: http://localhost:{SERVER_PORT}")
     else:
         print("🔴 Server is not running")
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
+def main(argv: list[str]) -> int:
+    """Run the server manager CLI."""
+    if len(argv) < 2:
         print("Usage: python server_manager.py [start|stop|restart|status]")
-        sys.exit(1)
+        return 1
 
-    command = sys.argv[1].lower()
-
+    command = argv[1].lower()
     if command == "start":
-        start_server()
-    elif command == "stop":
-        stop_server()
-    elif command == "restart":
-        restart_server()
-    elif command == "status":
+        return 0 if start_server() else 1
+    if command == "stop":
+        return 0 if stop_server() else 1
+    if command == "restart":
+        return 0 if restart_server() else 1
+    if command == "status":
         status()
-    else:
-        print("Unknown command. Use: start, stop, restart, or status")
+        return 0
+
+    print("Unknown command. Use: start, stop, restart, or status")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
