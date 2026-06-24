@@ -127,12 +127,6 @@ _HABITS_ORCHESTRATION = (
 _HABITS_INSIGHTS = (
     "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
 )
-_INTELLIGENT_SEARCH = (
-    "NL search surface (DomainSearchOperations protocol + SearchRouter entry "
-    "point at core/models/search/search_router.py + 8 domain impls) built but "
-    "never wired to UI/Askesis; wire a search box/Askesis tool or delete the "
-    "whole surface"
-)
 # Principles dead-code campaign (2026-06): staged principle capabilities kept
 # by deliberate decision — each reason names the wiring that completes it.
 _PRINCIPLES_EMBODIMENT = (
@@ -274,8 +268,9 @@ _DSL_EXTRACTION_PREVIEW = (
 _DSL_BRIDGE_VARIANTS = (
     "LLM DSL bridge context-enhanced variant staged — transform() is the maintained entry "
     "(adapters/external/llm factory + PROMPT_REGISTRY dsl_domain_recognition templates); "
-    "transform_with_context awaits wiring beyond ADR-069 PR-1: prepend UserContext "
-    "(active goals/topics/principles) to the prompt for better domain recognition"
+    "transform_with_context needs active goal titles but UserContext.active_goal_uids has "
+    "UIDs only and UserEntryProcessingService lacks GoalsService to resolve them; wire when "
+    "a goal-title summary is available on standard UserContext.build()"
 )
 _LIFEPATH_WORD_ACTION = (
     "words-vs-actions integrity lens staged — the concept-defining LifePath check "
@@ -480,23 +475,9 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/habits/_enrichment_mixin.py::get_enriched_prerequisite_metadata": (
         _HABITS_INSIGHTS
     ),
-    "core/services/habits/habits_ai_service.py::suggest_identity_reinforcement": (_HABITS_INSIGHTS),
     # analyze_patterns went LIVE 2026-06-10: /habits/insights-fragment on the habit detail page
     "core/services/habits/habits_search_service.py::get_needing_attention": _HABITS_INSIGHTS,
     "core/services/habits/habits_search_service.py::get_at_risk": _HABITS_INSIGHTS,
-    # --- Cross-domain: intelligent_search NL surface (SearchRouter entry point
-    # at core/models/search/search_router.py is outside METHOD_SCOPE and thus
-    # never a candidate; the 8 in-scope domain impls are registered here) ---
-    "core/services/habits/habits_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    "core/services/tasks/tasks_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    "core/services/goals/goals_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    "core/services/events/events_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    "core/services/choices/choices_search_service.py::intelligent_search": (_INTELLIGENT_SEARCH),
-    "core/services/principles/principles_search_service.py::intelligent_search": (
-        _INTELLIGENT_SEARCH
-    ),
-    "core/services/ps/ps_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
-    "core/services/lp/lp_search_service.py::intelligent_search": _INTELLIGENT_SEARCH,
     # --- Principles: single-track alignment self-assessment ---
     "core/services/principles/principles_alignment_service.py::assess_with_user_input": (
         _PRINCIPLES_ASSESS
@@ -564,7 +545,7 @@ PLANNED_METHODS: dict[str, str] = {
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,
-    "core/services/goals/goals_ai_service.py::suggest_achievement_strategy": _GOALS_INSIGHTS,
+    # suggest_achievement_strategy wired: GET /api/goals/ai/strategy (Theme F)
     # --- Goals: bulk goal→task automation (LIVE GoalTaskGenerator) ---
     "core/services/goal_task_generator.py::get_task_templates": _GOAL_TASK_AUTOMATION,
     # --- Tasks: assignment surface ---
@@ -573,8 +554,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/tasks/tasks_core_service.py::complete_tasks_bulk": _TASKS_BULK,
     # --- Tasks: analytics/AI insight surface ---
     "core/services/tasks/_analytics_mixin.py::get_behavioral_insights": _TASKS_INSIGHTS,
-    "core/services/tasks/tasks_ai_service.py::generate_task_breakdown": _TASKS_INSIGHTS,
-    "core/services/tasks/tasks_ai_service.py::suggest_priority": _TASKS_INSIGHTS,
+    # generate_task_breakdown wired: GET /api/tasks/ai/breakdown (Theme F)
+    # suggest_priority wired: GET /api/tasks/ai/priority-suggestion (Theme F)
     "core/services/tasks/_orchestration_mixin.py::analyze_task_knowledge_impact": (_TASKS_INSIGHTS),
     # --- Tasks: manual knowledge-generation trigger ---
     "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (

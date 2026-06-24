@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus
 from core.models.relationship_names import RelationshipName
-from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_task
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
@@ -360,76 +359,3 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
     # ========================================================================
     # INTELLIGENT SEARCH
     # ========================================================================
-
-    @with_error_handling("intelligent_search", error_type="database")
-    async def intelligent_search(
-        self, query: str, user_uid: UserUID | None = None, limit: int = 50
-    ) -> Result[tuple[list[Task], ParsedSearchQuery]]:
-        """
-        Natural language search with semantic filter extraction.
-
-        Parses queries like "urgent tech tasks in progress" to extract:
-        - Priority filters (urgent → CRITICAL/HIGH)
-        - Status filters (in progress → IN_PROGRESS)
-        - Domain filters (tech → TECH)
-
-        Args:
-            query: Natural language search query
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing (tasks, parsed_query) tuple
-
-        Example:
-            >>> result = await search.intelligent_search("urgent tasks in progress")
-            >>> tasks, parsed = result.value
-            >>> print(f"Filters: {parsed.to_filter_summary()}")
-        """
-        # Parse query for semantic filters
-        parser = SearchQueryParser()
-        parsed = parser.parse(query)
-
-        # Build filters from parsed query
-        filters: dict[str, object] = {}
-
-        # Apply priority filter (use highest priority if multiple)
-        if parsed.priorities:
-            highest_priority = parsed.get_highest_priority()
-            if highest_priority:
-                filters["priority"] = highest_priority.value
-
-        # Apply status filter (use first status if multiple)
-        if parsed.statuses:
-            filters["status"] = parsed.statuses[0].value
-
-        # Apply domain filter (use first domain if multiple)
-        if parsed.domains:
-            filters["domain"] = parsed.domains[0].value
-
-        # Execute search
-        if filters:
-            # Use filtered search via backend
-            result = await self.backend.find_by(limit=limit, **filters)
-            if result.is_error:
-                return Result.fail(result)
-            tasks = self._to_domain_models(result.value, TaskDTO, Task)
-        else:
-            # Fall back to text search using cleaned query
-            result = await self.search(parsed.text_query, limit=limit)
-            if result.is_error:
-                return Result.fail(result)
-            tasks = result.value
-
-        # Filter by user ownership if provided
-        if user_uid and tasks:
-            tasks = [t for t in tasks if getattr(t, "user_uid", None) == user_uid]
-
-        self.logger.info(
-            "Intelligent search: query=%r filters=%s results=%d",
-            query,
-            parsed.to_filter_summary(),
-            len(tasks),
-        )
-
-        return Result.ok((tasks, parsed))

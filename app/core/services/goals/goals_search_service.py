@@ -18,12 +18,9 @@ This service follows the SearchService pattern documented in:
 """
 
 from core.models.enums import EntityStatus
-from core.models.enums.goal_enums import GoalTimeframe
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_goal
-from core.models.type_hints import UserUID
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -134,113 +131,3 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
     # INTELLIGENT SEARCH
     # ========================================================================
-
-    @with_error_handling("intelligent_search", error_type="database")
-    async def intelligent_search(
-        self, query: str, user_uid: UserUID | None = None, limit: int = 50
-    ) -> Result[tuple[list[Goal], ParsedSearchQuery]]:
-        """
-        Natural language search with semantic filter extraction.
-
-        Parses queries like "weekly health goals achieved" to extract:
-        - Timeframe filters (weekly → WEEKLY)
-        - Status filters (achieved → ACHIEVED)
-        - Domain filters (health → HEALTH)
-        - Priority filters (urgent → CRITICAL/HIGH)
-
-        Args:
-            query: Natural language search query
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing (goals, parsed_query) tuple
-
-        Example:
-            >>> result = await search.intelligent_search("monthly tech goals in progress")
-            >>> goals, parsed = result.value
-            >>> print(f"Filters: {parsed.to_filter_summary()}")
-        """
-        # Parse query for semantic filters
-        parser = SearchQueryParser()
-        parsed = parser.parse(query)
-        query_lower = query.lower()
-
-        # Build filters from parsed query
-        filters: dict[str, object] = {}
-
-        # Goal-specific: Timeframe extraction
-        # GoalTimeframe: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, MULTI_YEAR
-        timeframe_keywords = {
-            "daily": GoalTimeframe.DAILY,
-            "weekly": GoalTimeframe.WEEKLY,
-            "monthly": GoalTimeframe.MONTHLY,
-            "quarterly": GoalTimeframe.QUARTERLY,
-            "yearly": GoalTimeframe.YEARLY,
-            "annual": GoalTimeframe.YEARLY,
-            "life": GoalTimeframe.MULTI_YEAR,  # Closest to "life" goals
-            "lifetime": GoalTimeframe.MULTI_YEAR,
-            "long term": GoalTimeframe.MULTI_YEAR,
-        }
-        for keyword, timeframe in timeframe_keywords.items():
-            if keyword in query_lower:
-                filters["timeframe"] = timeframe.value
-                break
-
-        # Goal-specific: Status extraction
-        # EntityStatus: DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED
-        status_keywords = {
-            "achieved": EntityStatus.COMPLETED,
-            "completed": EntityStatus.COMPLETED,
-            "active": EntityStatus.ACTIVE,
-            "in progress": EntityStatus.ACTIVE,  # Maps to ACTIVE
-            "in_progress": EntityStatus.ACTIVE,
-            "on track": EntityStatus.ACTIVE,  # Maps to ACTIVE
-            "paused": EntityStatus.PAUSED,
-            "on hold": EntityStatus.PAUSED,
-            "abandoned": EntityStatus.CANCELLED,  # Maps to CANCELLED
-            "cancelled": EntityStatus.CANCELLED,
-            "failed": EntityStatus.FAILED,
-            "planned": EntityStatus.DRAFT,
-        }
-        for keyword, status in status_keywords.items():
-            if keyword in query_lower:
-                filters["status"] = status.value
-                break
-
-        # Apply priority filter from parsed query (use highest priority if multiple)
-        if parsed.priorities:
-            highest_priority = parsed.get_highest_priority()
-            if highest_priority:
-                filters["priority"] = highest_priority.value
-
-        # Apply domain filter from parsed query (use first domain if multiple)
-        if parsed.domains:
-            filters["domain"] = parsed.domains[0].value
-
-        # Execute search
-        if filters:
-            # Use filtered search via backend
-            result = await self.backend.find_by(limit=limit, **filters)
-            if result.is_error:
-                return Result.fail(result)
-            goals = self._to_domain_models(result.value, GoalDTO, Goal)
-        else:
-            # Fall back to text search using cleaned query
-            result = await self.search(parsed.text_query, limit=limit)
-            if result.is_error:
-                return Result.fail(result)
-            goals = result.value
-
-        # Filter by user ownership if provided
-        if user_uid and goals:
-            goals = [g for g in goals if getattr(g, "user_uid", None) == user_uid]
-
-        self.logger.info(
-            "Intelligent search: query=%r filters=%s results=%d",
-            query,
-            parsed.to_filter_summary(),
-            len(goals),
-        )
-
-        return Result.ok((goals, parsed))

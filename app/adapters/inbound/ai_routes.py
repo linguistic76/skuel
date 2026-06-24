@@ -58,20 +58,24 @@ class AIRouteSpec:
 
 # fmt: off
 AI_ROUTE_SPECS: list[AIRouteSpec] = [
-    # Tasks (3)
+    # Tasks (5)
     AIRouteSpec("tasks", "Tasks", "tasks", "similar", "find_similar_tasks", "uid_limit", "tasks_ai_similar", "similar_tasks"),
     AIRouteSpec("tasks", "Tasks", "tasks", "insight", "generate_task_insight", "uid", "tasks_ai_insight", "insight"),
     AIRouteSpec("tasks", "Tasks", "tasks", "knowledge-generation", "identify_knowledge_generation", "uid", "tasks_ai_knowledge_generation"),
-    # Goals (4)
+    AIRouteSpec("tasks", "Tasks", "tasks", "breakdown", "generate_task_breakdown", "uid", "tasks_ai_breakdown", "subtasks"),
+    AIRouteSpec("tasks", "Tasks", "tasks", "priority-suggestion", "suggest_priority", "uid", "tasks_ai_priority_suggestion"),
+    # Goals (5)
     AIRouteSpec("goals", "Goals", "goals", "similar", "find_similar_goals", "uid_limit", "goals_ai_similar", "similar_goals"),
     AIRouteSpec("goals", "Goals", "goals", "insight", "generate_goal_insight", "uid", "goals_ai_insight", "insight"),
     AIRouteSpec("goals", "Goals", "goals", "milestones", "generate_milestones", "uid", "goals_ai_milestones"),
     AIRouteSpec("goals", "Goals", "goals", "smart-refinement", "suggest_smart_refinement", "uid", "goals_ai_smart_refinement"),
-    # Habits (4)
+    AIRouteSpec("goals", "Goals", "goals", "strategy", "suggest_achievement_strategy", "uid", "goals_ai_strategy"),
+    # Habits (5)
     AIRouteSpec("habits", "Habits", "habits", "similar", "find_similar_habits", "uid_limit", "habits_ai_similar", "similar_habits"),
     AIRouteSpec("habits", "Habits", "habits", "streak-insight", "generate_streak_insight", "uid", "habits_ai_streak_insight", "insight"),
     AIRouteSpec("habits", "Habits", "habits", "habit-stack", "suggest_habit_stack", "uid", "habits_ai_habit_stack"),
     AIRouteSpec("habits", "Habits", "habits", "optimize-loop", "optimize_habit_loop", "uid", "habits_ai_optimize_loop"),
+    AIRouteSpec("habits", "Habits", "habits", "identity", "suggest_identity_reinforcement", "uid", "habits_ai_identity"),
     # Events (4)
     AIRouteSpec("events", "Events", "events", "similar", "find_similar_events", "uid_limit", "events_ai_similar", "similar_events"),
     AIRouteSpec("events", "Events", "events", "insight", "generate_event_insight", "uid", "events_ai_insight", "insight"),

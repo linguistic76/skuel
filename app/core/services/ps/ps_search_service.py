@@ -21,12 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from core.models.enums import Domain
-from core.models.enums.curriculum_enums import StepDifficulty
-from core.models.enums.entity_enums import EntityStatus
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
-from core.models.search.query_parser import ParsedSearchQuery
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -62,7 +58,6 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     PS-Specific Methods:
     - get_standalone_steps() - Steps not in any learning path
     - get_prioritized(user_uid, context) - Context-aware prioritization
-    - intelligent_search(query) - NLP-enhanced search with filter extraction
 
     SKUEL Architecture:
     - No custom filter classes - uses SearchRequest
@@ -142,101 +137,3 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
 
         self.logger.debug(f"Prioritized PS search returned {len(steps)} results")
         return Result.ok(steps)
-
-    async def intelligent_search(
-        self, query: str, limit: int = 50
-    ) -> Result[tuple[list[PathStep], ParsedSearchQuery]]:
-        """
-        Natural language search with automatic semantic filter extraction.
-
-        Parses the query to extract:
-        - Domain keywords: "tech", "health", "business"
-        - Difficulty: "easy", "moderate", "challenging"
-        - Status: "completed", "in progress"
-
-        Args:
-            query: Natural language search query
-            limit: Maximum results (default 50)
-
-        Returns:
-            Result containing tuple of (matching PathSteps, parsed query)
-        """
-        # Parse query for semantic filters
-        parsed = self._parse_search_query(query)
-
-        # Check for difficulty keywords
-        difficulty: StepDifficulty | None = None
-        query_lower = query.lower()
-
-        for diff in StepDifficulty:
-            if diff.value in query_lower:
-                difficulty = diff
-                break
-
-        # Check for status keywords (mapped to EntityStatus values)
-        status: EntityStatus | None = None
-        if "completed" in query_lower:
-            status = EntityStatus.COMPLETED
-        elif "in progress" in query_lower or "started" in query_lower or "active" in query_lower:
-            status = EntityStatus.ACTIVE
-        elif "not started" in query_lower or "draft" in query_lower:
-            status = EntityStatus.DRAFT
-
-        # Build filters dict for find_by
-        filters: dict[str, object] = {}
-        if parsed.domains:
-            filters["domain"] = parsed.domains[0].value
-        if difficulty:
-            filters["step_difficulty"] = difficulty.value
-        if status:
-            filters["status"] = status.value
-
-        # Execute search with filters
-        if filters:
-            result = await self.backend.find_by(limit=limit, **filters)
-        else:
-            result = await self.search(parsed.text_query, limit=limit)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok((result.value, parsed))
-
-    def _parse_search_query(self, query: str) -> ParsedSearchQuery:
-        """
-        Parse natural language query for semantic filters.
-
-        Extracts:
-        - Domain from keywords
-        - Remaining text query
-        """
-        query_lower = query.lower()
-        words = query_lower.split()
-
-        # Domain detection
-        domain: Domain | None = None
-        domain_keywords = {
-            "tech": Domain.TECH,
-            "technology": Domain.TECH,
-            "health": Domain.HEALTH,
-            "wellness": Domain.HEALTH,
-            "business": Domain.BUSINESS,
-            "personal": Domain.PERSONAL,
-            "finance": Domain.FINANCE,
-            "learning": Domain.LEARNING,
-        }
-
-        remaining_words = []
-        for word in words:
-            if word in domain_keywords and domain is None:
-                domain = domain_keywords[word]
-            else:
-                remaining_words.append(word)
-
-        text_query = " ".join(remaining_words) if remaining_words else query
-
-        return ParsedSearchQuery(
-            raw_query=query,
-            text_query=text_query,
-            domains=(domain,) if domain else (),
-        )

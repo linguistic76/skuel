@@ -30,9 +30,7 @@ if TYPE_CHECKING:
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityStatus
-from core.models.search.query_parser import ParsedSearchQuery, SearchQueryParser
 from core.models.search.scoring import score_choice
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -222,109 +220,3 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
     # ========================================================================
     # INTELLIGENT SEARCH
     # ========================================================================
-
-    @with_error_handling("intelligent_search", error_type="database")
-    async def intelligent_search(
-        self, query: str, user_uid: UserUID | None = None, limit: int = 50
-    ) -> Result[tuple[list[Choice], ParsedSearchQuery]]:
-        """
-        Natural language search with semantic filter extraction.
-
-        Parses queries like "urgent pending health choices" to extract:
-        - Urgency filters (urgent -> high priority, soon -> medium)
-        - Decision state filters (pending, decided, deferred)
-        - Status filters (active, completed, cancelled)
-        - Domain filters (health, tech, etc.)
-
-        Args:
-            query: Natural language search query
-            user_uid: Optional user UID to filter by ownership
-            limit: Maximum results to return
-
-        Returns:
-            Result containing (choices, parsed_query) tuple
-
-        Example:
-            >>> result = await search.intelligent_search("urgent pending choices")
-            >>> choices, parsed = result.value
-            >>> print(f"Filters: {parsed.to_filter_summary()}")
-        """
-        # Parse query for semantic filters
-        parser = SearchQueryParser()
-        parsed = parser.parse(query)
-        query_lower = query.lower()
-
-        # Build filters from parsed query
-        filters: dict[str, object] = {}
-
-        # Choice-specific: Urgency/priority extraction
-        if "urgent" in query_lower or "now" in query_lower or "asap" in query_lower:
-            filters["priority"] = Priority.CRITICAL.value
-        elif "important" in query_lower or "high" in query_lower:
-            filters["priority"] = Priority.HIGH.value
-        elif "soon" in query_lower:
-            filters["priority"] = Priority.MEDIUM.value
-        elif "later" in query_lower or "low" in query_lower:
-            filters["priority"] = Priority.LOW.value
-        # Also check parsed priorities from SearchQueryParser
-        elif parsed.priorities:
-            highest_priority = parsed.get_highest_priority()
-            if highest_priority:
-                filters["priority"] = highest_priority.value
-
-        # Choice-specific: Decision state extraction
-        decision_state: str | None = None
-        if "pending" in query_lower or "undecided" in query_lower:
-            decision_state = "pending"
-        elif "decided" in query_lower or "completed" in query_lower:
-            decision_state = "decided"
-        elif "deferred" in query_lower or "postponed" in query_lower:
-            decision_state = "deferred"
-
-        # Apply status filter from parsed query (use first status if multiple)
-        if parsed.statuses:
-            filters["status"] = parsed.statuses[0].value
-        elif decision_state:
-            # Map decision state to status
-            # DRAFT = undecided choice, COMPLETED = decided, PAUSED = deferred
-            state_to_status = {
-                "pending": EntityStatus.DRAFT.value,
-                "decided": EntityStatus.COMPLETED.value,
-                "deferred": EntityStatus.PAUSED.value,
-            }
-            filters["status"] = state_to_status.get(decision_state, EntityStatus.DRAFT.value)
-
-        # Apply domain filter from parsed query (use first domain if multiple)
-        if parsed.domains:
-            filters["domain"] = parsed.domains[0].value
-
-        # Execute search
-        if filters:
-            # Use filtered search via backend
-            result = await self.backend.find_by(limit=limit, **filters)
-            if result.is_error:
-                return Result.fail(result)
-            choices = self._to_domain_models(result.value, ChoiceDTO, Choice)
-        else:
-            # Fall back to text search using cleaned query
-            result = await self.search(parsed.text_query, limit=limit)
-            if result.is_error:
-                return Result.fail(result)
-            choices = result.value
-
-        # Filter by user ownership if provided
-        if user_uid and choices:
-            choices = [c for c in choices if getattr(c, "user_uid", None) == user_uid]
-
-        # Choice-specific: High stakes filtering (post-filter)
-        if "high stakes" in query_lower or "important decision" in query_lower:
-            choices = [c for c in choices if isinstance(c, Choice) and c.has_high_stakes()]
-
-        self.logger.info(
-            "Intelligent search: query=%r filters=%s results=%d",
-            query,
-            parsed.to_filter_summary(),
-            len(choices),
-        )
-
-        return Result.ok((choices, parsed))
