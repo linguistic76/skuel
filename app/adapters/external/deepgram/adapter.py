@@ -156,6 +156,18 @@ class DeepgramAdapter:
         return PrerecordedOptions(**opts)
 
     @async_retry(exceptions=DEEPGRAM_EXCEPTIONS, max_attempts=3, base_delay=2.0)
+    async def _transcribe_raw(
+        self,
+        audio_data: bytes,
+        path: Path,
+        options: PrerecordedOptions,
+    ) -> Any:  # boundary: deepgram-sdk-response
+        return self.client.listen.rest.v("1").transcribe_file(  # pyright: ignore[reportAttributeAccessIssue]
+            {"buffer": audio_data, "mimetype": self._get_mimetype(path.suffix)},
+            options,
+            timeout=self.timeout,
+        )
+
     async def transcribe(
         self,
         audio_path: str | Path,
@@ -193,16 +205,12 @@ class DeepgramAdapter:
             # Build options from config + overrides
             options = self._build_options(**overrides)
 
-            # Call Deepgram API
+            # Call Deepgram API (retried via _transcribe_raw)
             file_size_mb = len(audio_data) / (1024 * 1024)
             self.logger.info(
                 f"Sending audio to Deepgram: {path.name} ({file_size_mb:.2f}MB, timeout={self.timeout}s)"
             )
-            response = self.client.listen.rest.v("1").transcribe_file(  # pyright: ignore[reportAttributeAccessIssue]
-                {"buffer": audio_data, "mimetype": self._get_mimetype(path.suffix)},
-                options,
-                timeout=self.timeout,
-            )
+            response = await self._transcribe_raw(audio_data, path, options)
 
             # Extract results
             transcript_text = self._extract_transcript(response)

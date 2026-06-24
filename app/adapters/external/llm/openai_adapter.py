@@ -13,7 +13,7 @@ composition root and passed in (mirrors DeepgramAdapter).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from openai import AsyncOpenAI
 
@@ -47,6 +47,20 @@ class OpenAIChatAdapter:
         self.logger = logger
 
     @async_retry(exceptions=OPENAI_EXCEPTIONS, max_attempts=3, base_delay=1.0)
+    async def _create(
+        self,
+        model: str,
+        payload: list[dict[str, str]],
+        temperature: float,
+        max_tokens: int,
+    ) -> Any:  # boundary: openai-sdk-response
+        return await self._client.chat.completions.create(
+            model=model,
+            messages=payload,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
     async def complete(
         self,
         messages: list[ChatMessage],
@@ -63,9 +77,9 @@ class OpenAIChatAdapter:
         payload.extend({"role": m["role"], "content": m["content"]} for m in messages)
 
         try:
-            response = await self._client.chat.completions.create(
+            response = await self._create(
                 model=model,
-                messages=payload,
+                payload=payload,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )

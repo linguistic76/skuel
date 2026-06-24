@@ -16,7 +16,7 @@ message), and ``usage`` is not surfaced here (left ``None``).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from anthropic import AsyncAnthropic
 from anthropic.types import TextBlock
@@ -51,6 +51,22 @@ class AnthropicChatAdapter:
         self.logger = logger
 
     @async_retry(exceptions=ANTHROPIC_EXCEPTIONS, max_attempts=3, base_delay=1.0)
+    async def _create(
+        self,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        system: str,
+        messages: list[dict[str, Any]],
+    ) -> Any:  # boundary: anthropic-sdk-response
+        return await self._client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system=system,
+            messages=messages,
+        )
+
     async def complete(
         self,
         messages: list[ChatMessage],
@@ -63,7 +79,7 @@ class AnthropicChatAdapter:
         model = model or self._default_model
 
         try:
-            message = await self._client.messages.create(
+            message = await self._create(
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
