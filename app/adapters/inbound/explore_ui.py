@@ -258,7 +258,7 @@ def create_explore_ui_routes(
         )
 
         return Div(
-            render_explore_search_panel(all_tags),
+            render_explore_search_panel(all_tags, active_tag=tag),
             grid,
             id="explore-library-content",
         )
