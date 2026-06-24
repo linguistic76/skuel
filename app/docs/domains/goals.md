@@ -230,7 +230,6 @@ Goals track which habits are essential for achievement:
 | `get_goals_needing_attention(user_uid)` | Stalled or at-risk goals |
 | `get_goals_with_tasks(user_uid)` | Goals with linked tasks |
 | `get_aligned_with_principle(principle_uid, user_uid)` | Goals aligned with principle |
-| `intelligent_search(query, user_uid, context)` | AI-enhanced search |
 | `list_milestones(goal_uid, user_uid)` | Get goal milestones |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 

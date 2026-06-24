@@ -208,7 +208,6 @@ Both helpers live in `core/services/events/_habit_links.py` and `_goal_links.py`
 | `get_for_habit(habit_uid, user_uid)` | Events reinforcing a habit |
 | `get_calendar_events(user_uid, start, end)` | Calendar window query |
 | `get_conflicting(event_uid)` | Time-overlap conflicts (PLANNED surface) |
-| `intelligent_search(query, user_uid, context)` | NL search (PLANNED surface) |
 | `get_prioritized(user_context, limit=10)` | Smart prioritization |
 
 **Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)

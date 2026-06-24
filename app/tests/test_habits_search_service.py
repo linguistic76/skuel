@@ -263,37 +263,5 @@ async def test_get_user_due_today_skips_completed_today(search_service, mock_bac
     assert result.value == []
 
 
-# ============================================================================
-# INTELLIGENT SEARCH
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_extracts_frequency(search_service, mock_backend):
-    mock_backend.find_by.return_value = Result.ok([])
-
-    await search_service.intelligent_search("daily habits")
-
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["recurrence_pattern"] == RecurrencePattern.DAILY.value
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_broken_streak_postfilter(search_service, mock_backend):
-    """'broken' keyword filters to habits with best>0 but current=0."""
-    broken = _habit("habit:broken", current_streak=0, best_streak=10)
-    strong = _habit("habit:strong", current_streak=5, best_streak=5)
-    mock_backend.find_by.return_value = Result.ok(
-        [broken.to_dto().to_dict(), strong.to_dto().to_dict()]
-    )
-
-    result = await search_service.intelligent_search("broken daily habits")
-
-    assert result.is_ok
-    habits, _parsed = result.value
-    uids = {h.uid for h in habits}
-    assert uids == {"habit:broken"}
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

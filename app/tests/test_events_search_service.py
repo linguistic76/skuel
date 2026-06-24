@@ -294,42 +294,6 @@ async def test_get_conflicting_no_overlap(search_service, mock_backend, sample_e
 
 
 # ============================================================================
-# INTELLIGENT SEARCH
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_today_uses_range(search_service, mock_backend):
-    """'today' keyword triggers a single-day range query."""
-    mock_backend.get_events_in_range.return_value = Result.ok([])
-
-    await search_service.intelligent_search("events today")
-
-    kwargs = mock_backend.get_events_in_range.call_args.kwargs
-    today = date.today()
-    assert kwargs["start_date"] == today.isoformat()
-    assert kwargs["end_date"] == today.isoformat()
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_recurring_postfilter(search_service, mock_backend, sample_events):
-    """'recurring' keyword post-filters to events with a recurrence pattern."""
-    mock_backend.get_events_in_range.return_value = Result.ok(
-        [
-            e.to_dto().to_dict()
-            for e in sample_events
-            if e.event_date and e.event_date >= date.today()
-        ]
-    )
-
-    result = await search_service.intelligent_search("upcoming recurring events")
-
-    assert result.is_ok
-    events, _parsed = result.value
-    assert all(e.recurrence_pattern is not None for e in events)
-
-
-# ============================================================================
 # PRIORITIZED EVENTS — get_prioritized()
 # ============================================================================
 

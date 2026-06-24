@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     from core.models.goal.goal import Goal as Goal
     from core.models.habit.habit import Habit as Habit
     from core.models.principle.principle import Principle as Principle
-    from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest
     from core.models.task.task import Task as Task
     from core.services.user import UserContext
@@ -68,7 +67,6 @@ class DomainSearchOperations(Protocol[T]):
 
     Universal Methods (all domains implement):
     - search() - Text search on title/description
-    - intelligent_search() - Natural language search with semantic filter extraction
     - get_by_status() - Filter by EntityStatus
     - get_prioritized() - Context-aware prioritization
     - get_by_relationship() - Graph relationship queries
@@ -143,52 +141,6 @@ class DomainSearchOperations(Protocol[T]):
 
         Returns:
             Result containing matching entities sorted by ``_search_order_by`` desc.
-        """
-        ...
-
-    async def intelligent_search(
-        self, query: str, limit: int = 50
-    ) -> Result[tuple[list[T], "ParsedSearchQuery"]]:
-        """
-        Natural language search with automatic semantic filter extraction.
-
-        Parses the query to extract semantic meaning using enum synonyms:
-        - Priority: "urgent", "asap", "critical" → Priority.CRITICAL
-        - Status: "completed", "in progress", "active" → EntityStatus values
-        - Domain: "health", "tech", "business" → Domain values
-
-        This is the user-friendly search method that bridges natural language
-        to type-safe filtering.
-
-        Args:
-            query: Natural language search query (e.g., "urgent health tasks")
-            limit: Maximum results to return
-
-        Returns:
-            Result containing tuple of:
-            - list[T]: Matching entities (filtered and text-searched)
-            - ParsedSearchQuery: The extracted filters for transparency
-
-        Example:
-            # User types: "show me urgent tasks in progress"
-            result = await task_search.intelligent_search("show me urgent tasks in progress")
-
-            if result.is_ok:
-                entities, parsed = result.value
-                # entities: Tasks matching Priority.CRITICAL/HIGH + EntityStatus.ACTIVE
-                # parsed.priorities: (Priority.CRITICAL, Priority.HIGH)
-                # parsed.statuses: (EntityStatus.ACTIVE,)
-                # parsed.text_query: "tasks"  (cleaned for text search)
-
-        Implementation Notes:
-            1. Use SearchQueryParser.parse() to extract semantic filters
-            2. Apply extracted priority/status/domain filters
-            3. Run text search on cleaned query
-            4. Return both results and parsed query for UI transparency
-
-        See Also:
-            - core.models.search.query_parser.SearchQueryParser
-            - core.models.search.query_parser.ParsedSearchQuery
         """
         ...
 
@@ -328,8 +280,7 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     Uses Entity model with EntityType.EVENT.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds event-specific methods:
@@ -389,8 +340,7 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
     Extended search protocol for Habits domain.
 
     Inherits all methods from DomainSearchOperations[Habit]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds habit-specific methods:
@@ -446,8 +396,7 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     Extended search protocol for Tasks domain.
 
     Inherits all methods from DomainSearchOperations[Task]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds task-specific methods:
@@ -501,8 +450,7 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     Extended search protocol for Goals domain.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds goal-specific methods:
@@ -531,8 +479,7 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     Extended search protocol for Choices domain.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds choice-specific methods:
@@ -573,8 +520,7 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     Extended search protocol for Principles domain. Uses Entity model with EntityType.PRINCIPLE.
 
     Inherits all methods from DomainSearchOperations[Entity]:
-    - search(), intelligent_search()
-    - get_by_status(), get_prioritized()
+    - search(), get_by_status(), get_prioritized()
     - get_by_relationship(), get_upcoming(), get_overdue(), get_active()
 
     Adds principle-specific methods:

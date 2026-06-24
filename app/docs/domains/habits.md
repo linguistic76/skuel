@@ -235,7 +235,6 @@ The habit model tracks all four components of the habit loop:
 | `get_overdue(user_uid)` | Override — frequency-window logic, not due-date columns |
 | `get_user_due_today(user_uid)` | Habits due today (frequency-window) |
 | `get_habits_needing_attention(user_uid)` | Broken streaks or declining |
-| `intelligent_search(query, user_uid, context)` | AI-enhanced search |
 | `get_habits_by_time_of_day(time, user_uid)` | Morning/afternoon/evening habits |
 | `get_habit_chain_candidates(habit_uid, user_uid)` | Potential habit stacking |
 | `get_knowledge_reinforcement_opportunities(user_uid)` | KU-habit connection opportunities |
