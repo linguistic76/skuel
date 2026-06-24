@@ -73,6 +73,7 @@ _ENROLLMENT_GATE_RESPONSE: dict[str, Any] = {
     ],
     "confidence": 1.0,
     "mode": "enrollment_gate",
+    "has_citations": False,
 }
 
 

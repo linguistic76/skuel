@@ -753,11 +753,11 @@ async def populated_test_data(skuel_app):
     ]
 
     async with driver.session() as session:
-        # Create test user
+        # Create test user (title is required by User dataclass)
         await session.run(
             """
             MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.created_at = datetime($created_at)
+            ON CREATE SET u.title = $user_uid, u.created_at = datetime($created_at)
             """,
             user_uid=test_user_uid,
             created_at=datetime.now().isoformat(),
@@ -813,6 +813,154 @@ async def populated_test_data(skuel_app):
             DETACH DELETE u
             """,
             user_uid=test_user_uid,
+        )
+
+
+# ========================================================================
+# GUIDED PIPELINE TEST DATA (Askesis ZPD + GuidanceMode path)
+# ========================================================================
+
+
+@pytest_asyncio.fixture
+async def enrolled_user_with_lp(skuel_app):
+    """
+    Populate Neo4j with the minimum graph for Askesis's guided pipeline to activate.
+
+    The guided pipeline requires (all three must be true):
+    1. user_context.enrolled_path_uids is non-empty  → (User)-[:ENROLLED_IN]->(LearningPath)
+    2. user_context.active_path_steps_rich has a non-mastered candidate
+       → (User)-[:WORKING_ON]->(PathStep) where ps.status in ['draft','active']
+          and ps.current_mastery < ps.mastery_threshold
+    3. The PathStep references at least one Ku
+
+    Uses direct Cypher so the fixture doesn't depend on service-level wiring
+    that itself might be under test.
+    """
+    from datetime import datetime
+
+    services = skuel_app.state.services
+    driver = services.neo4j_driver
+
+    user_uid = "user_test_guided"
+    lp_uid = "lp:test:guided-pipeline"
+    ps_uid = "ps:test:guided-step"
+    ku_uid = "ku.test_guided_concept"
+    created_at = datetime.now().isoformat()
+
+    async with driver.session() as session:
+        # User (MEMBER role so per-user tier gate passes; title required by User dataclass)
+        await session.run(
+            """
+            MERGE (u:User {uid: $user_uid})
+            SET u.title = $user_uid, u.role = 'MEMBER', u.created_at = datetime($ts)
+            """,
+            user_uid=user_uid,
+            ts=created_at,
+        )
+
+        # Ku — knowledge unit the PathStep teaches
+        await session.run(
+            """
+            MERGE (k:Entity:Ku {uid: $uid})
+            SET k.title = 'Test Guided Concept',
+                k.entity_type = 'ku',
+                k.summary = 'A concept used to verify guided pipeline activation',
+                k.status = 'active',
+                k.created_at = datetime($ts)
+            """,
+            uid=ku_uid,
+            ts=created_at,
+        )
+
+        # LearningPath
+        await session.run(
+            """
+            MERGE (lp:Entity:LearningPath {uid: $uid})
+            SET lp.title = 'Test Guided LP',
+                lp.entity_type = 'learning_path',
+                lp.status = 'active',
+                lp.created_at = datetime($ts)
+            """,
+            uid=lp_uid,
+            ts=created_at,
+        )
+
+        # PathStep — non-mastered so _find_active_ps includes it
+        await session.run(
+            """
+            MERGE (ps:Entity:PathStep {uid: $uid})
+            SET ps.title = 'Test Guided PathStep',
+                ps.entity_type = 'path_step',
+                ps.status = 'active',
+                ps.current_mastery = 0.0,
+                ps.mastery_threshold = 0.7,
+                ps.intent = 'Verify guided pipeline activation',
+                ps.created_at = datetime($ts)
+            """,
+            uid=ps_uid,
+            ts=created_at,
+        )
+
+        # LP → PS containment
+        await session.run(
+            """
+            MATCH (lp:LearningPath {uid: $lp_uid})
+            MATCH (ps:PathStep {uid: $ps_uid})
+            MERGE (lp)-[:CONTAINS_STEP]->(ps)
+            """,
+            lp_uid=lp_uid,
+            ps_uid=ps_uid,
+        )
+
+        # PS → Ku reference
+        await session.run(
+            """
+            MATCH (ps:PathStep {uid: $ps_uid})
+            MATCH (k:Ku {uid: $ku_uid})
+            MERGE (ps)-[:USES_KU]->(k)
+            """,
+            ps_uid=ps_uid,
+            ku_uid=ku_uid,
+        )
+
+        # Enrollment: (User)-[:ENROLLED_IN]->(LearningPath) → populates enrolled_path_uids
+        await session.run(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (lp:LearningPath {uid: $lp_uid})
+            MERGE (u)-[:ENROLLED_IN]->(lp)
+            """,
+            user_uid=user_uid,
+            lp_uid=lp_uid,
+        )
+
+        # Working on: (User)-[:WORKING_ON]->(PathStep) → populates active_path_steps_rich
+        await session.run(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (ps:PathStep {uid: $ps_uid})
+            MERGE (u)-[:WORKING_ON]->(ps)
+            """,
+            user_uid=user_uid,
+            ps_uid=ps_uid,
+        )
+
+    yield {
+        "user_uid": user_uid,
+        "lp_uid": lp_uid,
+        "ps_uid": ps_uid,
+        "ku_uid": ku_uid,
+    }
+
+    # Cleanup
+    async with driver.session() as session:
+        await session.run(
+            """
+            MATCH (n)
+            WHERE n.uid IN $uids
+            DETACH DELETE n
+            """,
+            uids=[user_uid, lp_uid, ps_uid, ku_uid],
         )
 
 
