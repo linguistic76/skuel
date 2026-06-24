@@ -429,8 +429,8 @@ a[style*="letter-spacing: 0.07em"]:hover {
 .ku-prose p:last-child     { margin-bottom: 0; }
 .ku-prose h2               { font-size: 1.3em;  font-weight: 600; margin: 1.5em 0 0.5em; }
 .ku-prose h3               { font-size: 1.1em;  font-weight: 600; margin: 1.25em 0 0.4em; }
-.ku-prose ul,
-.ku-prose ol               { padding-left: 1.5em; margin: 0.75em 0; }
+.ku-prose ul               { list-style: disc;    padding-left: 1.5em; margin: 0.75em 0; }
+.ku-prose ol               { list-style: decimal; padding-left: 1.5em; margin: 0.75em 0; }
 .ku-prose li               { margin: 0.25em 0; }
 .ku-prose strong           { font-weight: 700; }
 .ku-prose em               { font-style: italic; }
