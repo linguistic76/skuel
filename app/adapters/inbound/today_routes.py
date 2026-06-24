@@ -61,7 +61,7 @@ def create_today_routes(
     async def today_page(request: Request) -> Any:
         """Render the Today landing page."""
         user_uid = require_authenticated_user(request)
-        from ui.layouts.base_page import BasePage
+        from ui.activities.nav import render_activity_sidebar_page
         from ui.today import TodayPage
 
         ctx_result = await orchestrator.build_context(user_uid)
@@ -73,11 +73,10 @@ def create_today_routes(
             )
             return Response("Could not build Today context", status_code=500)
 
-        return await BasePage(
+        return await render_activity_sidebar_page(
             content=TodayPage(ctx_result.value),
-            title="Today",
+            active="today",
             request=request,
-            active_page="today",
             extra_css=["/static/css/today.css"],
         )
 

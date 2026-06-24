@@ -39,6 +39,7 @@ async def render_activity_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
+    extra_css: list[str] | None = None,
 ) -> "FT":
     """Wrap content in Activity Domain sidebar page.
 
@@ -46,6 +47,7 @@ async def render_activity_sidebar_page(
         content: The page content to render in the main area.
         active: The active sidebar item slug (e.g. "tasks", "activities").
         request: The request object for auth detection.
+        extra_css: Additional CSS file paths to include in the page head.
     """
     return await SidebarPage(
         content=content,
@@ -55,4 +57,5 @@ async def render_activity_sidebar_page(
         storage_key=ACTIVITY_STORAGE_KEY,
         request=request,
         active_page="activity",
+        extra_css=extra_css,
     )
