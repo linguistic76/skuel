@@ -13,7 +13,7 @@ from ui.layout import Size
 
 
 def render_upload_form(exercises: list[Exercise] | None = None) -> Any:
-    """Render the file upload form — title + instruction selector + file."""
+    """Render the file upload form — title + instruction selector + file(s)."""
     exercises = exercises or []
     return Div(
         Card(
@@ -36,15 +36,25 @@ def render_upload_form(exercises: list[Exercise] | None = None) -> Any:
                 **{
                     "x-data": """{
                         selectedFile: null,
+                        fileCount: 0,
                         instructionMode: 'default',
                         handleFileSelect(event) {
-                            const file = event.target.files[0];
-                            if (file) {
-                                this.selectedFile = file;
+                            const files = event.target.files;
+                            this.fileCount = files.length;
+                            if (files.length > 0) {
+                                this.selectedFile = files[0];
                                 const labelText = document.getElementById('file-label-text');
                                 const labelHint = document.getElementById('file-label-hint');
-                                if (labelText) labelText.textContent = file.name;
-                                if (labelHint) labelHint.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+                                if (labelText) labelText.textContent = files.length === 1
+                                    ? files[0].name
+                                    : `${files.length} files selected`;
+                                if (labelHint) {
+                                    const totalMB = Array.from(files)
+                                        .reduce((s, f) => s + f.size, 0) / 1024 / 1024;
+                                    labelHint.textContent = files.length === 1
+                                        ? `${(files[0].size / 1024 / 1024).toFixed(2)} MB`
+                                        : `${totalMB.toFixed(2)} MB total`;
+                                }
                             }
                         },
                         clearInstructionUid() {
@@ -55,7 +65,8 @@ def render_upload_form(exercises: list[Exercise] | None = None) -> Any:
                             const card = document.querySelector('#instruction-file-list .instruction-card[data-uid]');
                             if (card) selectInstruction(card.dataset.uid, card);
                         }
-                    }"""
+                    }""",
+                    "@journals:upload-complete.window": "fileCount = 0; selectedFile = null",
                 },
             ),
             cls="bg-background shadow-sm hover:shadow-md transition-shadow",
@@ -68,7 +79,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
     from fasthtml.common import Form
 
     return Form(
-        # Title input (optional — auto-generated if left blank)
+        # Title input — hidden when multiple files selected (auto-generated per file)
         Div(
             Label("Title (optional)"),
             Input(
@@ -81,6 +92,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
                 cls="text-xs text-muted-foreground mt-1",
             ),
             cls="mb-4",
+            **{"x-show": "fileCount <= 1"},
         ),
         # Hidden exercise_uid — set by selectInstruction() JS, cleared on default mode
         Input(type="hidden", name="exercise_uid", id="exercise-uid-input", value=""),
@@ -142,14 +154,15 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
             accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
             cls="hidden",
             required=True,
+            multiple=True,
             **{"x-on:change": "handleFileSelect($event)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
         ),
         # Drop-zone
         Div(
             Div(
-                P("Select File", cls="text-center mb-0", id="file-label-text"),
+                P("Select Files", cls="text-center mb-0", id="file-label-text"),
                 P(
-                    "Click to browse (audio, text, PDF, images, video)",
+                    "Click to browse — audio, text, PDF, images, video. Multiple files supported.",
                     cls="text-sm text-muted-foreground text-center mt-0",
                     id="file-label-hint",
                 ),
@@ -198,21 +211,17 @@ def upload_form_script() -> Any:
         document.body.addEventListener('htmx:beforeRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
-                console.log('[Journals] Starting upload...');
-
-                // Check if file is selected
                 var fileInput = document.getElementById('file-input');
                 if (fileInput && fileInput.files.length === 0) {
-                    console.error('[Journals] No file selected');
                     evt.preventDefault();
                     alert('Please select a file first');
                     return;
                 }
-
+                var count = fileInput ? fileInput.files.length : 0;
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = 'Processing...';
+                    btn.textContent = count > 1 ? 'Processing ' + count + ' files...' : 'Processing...';
                 }
             }
         });
@@ -220,22 +229,21 @@ def upload_form_script() -> Any:
         document.body.addEventListener('htmx:afterRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
-                console.log('[Journals] Upload request completed');
-
-                // Reset form (file input will be cleared)
                 form.reset();
 
-                // Clear custom file label
                 var labelText = document.getElementById('file-label-text');
                 var labelHint = document.getElementById('file-label-hint');
-                if (labelText) labelText.textContent = 'Select File';
-                if (labelHint) labelHint.textContent = 'Click to browse (audio, text, PDF, images, video)';
+                if (labelText) labelText.textContent = 'Select Files';
+                if (labelHint) labelHint.textContent = 'Click to browse — audio, text, PDF, images, video. Multiple files supported.';
 
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = false;
                     btn.textContent = 'Submit to AI';
                 }
+
+                // Reset Alpine state (hides multi-file title suppression)
+                window.dispatchEvent(new CustomEvent('journals:upload-complete'));
             }
         });
 

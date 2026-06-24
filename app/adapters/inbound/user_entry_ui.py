@@ -15,7 +15,8 @@ Routes:
 - GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
 - GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
-- GET  /journals/submit                  — Journal upload form
+- GET  /journals                          — Redirect to /journals/browse
+- GET  /journals/submit                  — Journal upload form (multi-file supported)
 - GET  /journals/browse                  — Journal entry grid
 - POST /journals/upload                  — HTMX journal multipart upload
 - GET  /journals/{uid}/download          — Ownership-verified download
@@ -33,11 +34,12 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, P, Span
 from starlette.datastructures import UploadFile
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.rate_limit import rate_limited
 from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -47,7 +49,12 @@ from ui.buttons import Button, ButtonLink, ButtonT
 from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.gradebook.nav import render_gradebook_sidebar_page
-from ui.journals.components import render_upload_status as render_journal_upload_status
+from ui.journals.components import (
+    render_batch_upload_status,
+)
+from ui.journals.components import (
+    render_upload_status as render_journal_upload_status,
+)
 from ui.journals.forms import render_upload_form as render_journal_upload_form
 from ui.layout import Size
 from ui.learning_loop.report import render_yours_list
@@ -429,6 +436,11 @@ def create_user_entry_ui_routes(
     # JOURNALS
     # =========================================================================
 
+    @rt("/journals")
+    async def journals_redirect(request: Request) -> Any:
+        """Redirect /journals to the browse page."""
+        return RedirectResponse("/journals/browse", status_code=302)
+
     @rt("/journals/submit")
     async def journals_submit_page(request: Request) -> Any:
         """Journal upload form."""
@@ -509,40 +521,74 @@ def create_user_entry_ui_routes(
 
     @rt("/journals/upload")
     @csrf_protected
+    @rate_limited(per_user=10, window_s=60)
     async def upload_journal(request: Request) -> Any:
-        """HTMX endpoint for journal file upload (TRANSCRIBE_AND_STRUCTURE)."""
+        """HTMX endpoint for journal file upload (TRANSCRIBE_AND_STRUCTURE).
+
+        Accepts one or more files. Single file uses the optional custom title;
+        multiple files auto-generate a title from each filename.
+        """
         try:
+            user_uid = require_authenticated_user(request)
             form = await request.form()
-            uploaded_file = form.get("file")
             raw_title = form.get("title")
             custom_title = str(raw_title).strip() if raw_title else ""
 
-            if not uploaded_file or not isinstance(uploaded_file, UploadFile):
+            raw_files = form.getlist("file")
+            uploaded_files = [f for f in raw_files if isinstance(f, UploadFile)]
+
+            if not uploaded_files:
                 return render_journal_upload_status("error", "No file provided", is_error=True)
 
-            user_uid = require_authenticated_user(request)
-            file_content = await uploaded_file.read()
-            filename = uploaded_file.filename or "unknown"
-            title = custom_title or filename
+            if len(uploaded_files) == 1:
+                uploaded_file = uploaded_files[0]
+                file_content = await uploaded_file.read()
+                filename = uploaded_file.filename or "unknown"
+                title = custom_title or filename
 
-            result = await user_entry_service.submit_file(
-                file_content=file_content,
-                original_filename=filename,
-                user_uid=user_uid,
-                pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-                title=title,
-                metadata={"custom_title": custom_title} if custom_title else None,
-            )
+                result = await user_entry_service.submit_file(
+                    file_content=file_content,
+                    original_filename=filename,
+                    user_uid=user_uid,
+                    pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+                    title=title,
+                    metadata={"custom_title": custom_title} if custom_title else None,
+                )
 
-            if result.is_error:
-                return render_journal_upload_status("error", str(result.error), is_error=True)
+                if result.is_error:
+                    return render_journal_upload_status("error", str(result.error), is_error=True)
 
-            entry, _outcome = result.value
-            return render_journal_upload_status(
-                _status_value(entry),
-                f"Journal entry created: {entry.title}",
-                je_input_uid=entry.uid,
-            )
+                entry, _outcome = result.value
+                return render_journal_upload_status(
+                    _status_value(entry),
+                    f"Journal entry created: {entry.title}",
+                    je_input_uid=entry.uid,
+                )
+
+            # Multiple files — process each and return a combined status
+            batch_results: list[tuple[str, bool, str | None, str | None]] = []
+            for uploaded_file in uploaded_files:
+                filename = uploaded_file.filename or "unknown"
+                try:
+                    file_content = await uploaded_file.read()
+                    result = await user_entry_service.submit_file(
+                        file_content=file_content,
+                        original_filename=filename,
+                        user_uid=user_uid,
+                        pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
+                        title=filename,
+                        metadata=None,
+                    )
+                    if result.is_error:
+                        batch_results.append((filename, False, None, str(result.error)))
+                    else:
+                        entry, _outcome = result.value
+                        batch_results.append((filename, True, entry.uid, None))
+                except Exception as e:  # safety-net: per-file error boundary
+                    logger.error(f"Error processing journal file {filename!r}: {e}", exc_info=True)
+                    batch_results.append((filename, False, None, str(e)))
+
+            return render_batch_upload_status(batch_results)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)

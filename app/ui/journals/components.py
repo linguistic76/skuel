@@ -49,6 +49,62 @@ def render_upload_status(
     )
 
 
+def render_batch_upload_status(
+    results: list[tuple[str, bool, str | None, str | None]],
+) -> Any:
+    """Render per-file status list for a multi-file journal upload (HTMX swap target).
+
+    Each tuple: (filename, success, entry_uid, error_message).
+    """
+    succeeded = [r for r in results if r[1]]
+    failed = [r for r in results if not r[1]]
+
+    rows: list[Any] = []
+    for filename, ok, _uid, error in results:
+        if ok:
+            rows.append(
+                Div(
+                    Span("✓", cls="text-success font-bold mr-2 shrink-0"),
+                    Span(filename, cls="text-sm font-medium truncate"),
+                    cls="flex items-center py-1 border-b border-border last:border-0",
+                )
+            )
+        else:
+            rows.append(
+                Div(
+                    Span("✗", cls="text-destructive font-bold mr-2 shrink-0"),
+                    Span(filename, cls="text-sm font-medium truncate"),
+                    Span(f" — {error}", cls="text-xs text-muted-foreground ml-1 truncate")
+                    if error
+                    else None,
+                    cls="flex items-center py-1 border-b border-border last:border-0",
+                )
+            )
+
+    if failed:
+        summary = f"{len(succeeded)} submitted, {len(failed)} failed"
+        variant = AlertT.warning
+    else:
+        summary = f"{len(succeeded)} {'file' if len(succeeded) == 1 else 'files'} submitted to AI"
+        variant = AlertT.success
+
+    return Div(
+        Alert(
+            H4(summary, cls="mb-2"),
+            Div(*rows, cls="mb-2") if rows else None,
+            ButtonLink(
+                "Browse Journals",
+                href="/journals/browse",
+                variant=ButtonT.ghost,
+                size=Size.sm,
+                cls="mt-1",
+            ),
+            variant=variant,
+        ),
+        id="upload-status",
+    )
+
+
 def render_filters_section() -> Any:
     """Render the status filter controls card."""
     return Card(
