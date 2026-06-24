@@ -138,13 +138,13 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `EVENT_EVENTS` (7 events): CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled, EventAttendeeAdded, EventAttendeeRemoved
 - `CHOICE_EVENTS` (4 events): ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded
 - `PRINCIPLE_EVENTS` (4 events): PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed
-- `LEARNING_EVENTS` (12 events): KnowledgeCreated, KnowledgeMastered, LessonCompleted, KnowledgePracticed, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated, PrerequisitesAnalyzed, LearningRecommendationGenerated, etc.
+- `LEARNING_EVENTS` (7 events): KnowledgeCreated, KnowledgeMastered, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated, LearningRecommendationGenerated
 - `KNOWLEDGE_SUBSTANCE_EVENTS` (8 events): KnowledgeAppliedInTask, KnowledgeBuiltIntoHabit, etc.
 - `CURRICULUM_EVENTS` (4 events): PathStepCreated/Updated/Deleted/Completed
 - `SUBMISSION_EVENTS` (4 events): SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested
 - `ASSIGNMENT_EVENTS` (5 events): AssignmentSubmitted, AssignmentProcessingStarted/Completed/Failed, AssignmentDeleted
 - `TRANSCRIPTION_EVENTS` (3 events): TranscriptionCreated, TranscriptionCompleted, TranscriptionFailed
-- `USER_EVENTS` (2 events): UserContextInvalidated, UserPreferencesChanged
+- `USER_EVENTS` (2 events): UserActivityRecorded, UserDeleted
 
 ### Phase 4 Complete (✅ November 2025)
 
