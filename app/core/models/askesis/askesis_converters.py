@@ -239,7 +239,7 @@ def askesis_dto_to_response(dto: AskesisDTO) -> AskesisResponse:
         domain_expertise_levels=dto.domain_expertise_levels,
         # NOTE: These fields use defaults - domain methods not yet implemented
         top_domains=[],
-        created_at=dto.created_at,
+        created_at=dto.created_at or datetime.now(),
         last_interaction=dto.last_interaction,
         last_intelligence_update=dto.last_intelligence_update,
         is_conversation_ready=False,
@@ -301,7 +301,7 @@ def guidance_recommendation_dto_to_response(
         actionable_steps=dto.actionable_steps,
         expected_impact=dto.expected_impact,
         estimated_effort=dto.estimated_effort,
-        created_at=dto.created_at,
+        created_at=dto.created_at or datetime.now(),
         delivered_at=dto.delivered_at,
         user_response=dto.user_response,
         effectiveness_rating=dto.effectiveness_rating,

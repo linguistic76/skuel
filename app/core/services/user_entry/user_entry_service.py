@@ -314,8 +314,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         pipeline: Pipeline,
         title: str | None = None,
         instructions: str | None = None,
-        fulfills_exercise_uid: str | None = None,
-        transforms_of_uid: str | None = None,
+        fulfills_exercise_uid: EntityUID | None = None,
+        transforms_of_uid: EntityUID | None = None,
         share_with_groups: list[str] | None = None,
         share_with_users: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
@@ -347,7 +347,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             transforms_of_uid=transforms_of_uid,
             share_with_groups=share_with_groups or [],
             share_with_users=share_with_users or [],
-            metadata=metadata,
+            metadata=metadata or {},
         )
 
         create_result = await self.create_entry(request=request, user_uid=user_uid)

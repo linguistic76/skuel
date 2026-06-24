@@ -489,7 +489,7 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
             pattern = (
                 RecurrencePattern(habit.recurrence_pattern) if habit.recurrence_pattern else None
             )
-            if pattern in frequency_success:
+            if pattern is not None and pattern in frequency_success:
                 frequency_success[pattern].append(habit.success_rate)
 
         # Calculate average success by frequency

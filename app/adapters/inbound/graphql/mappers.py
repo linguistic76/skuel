@@ -40,7 +40,7 @@ def knowledge_node_from_dto(dto: KnowledgeNodeLike) -> KnowledgeNode:
         title=dto.title,
         summary=dto.summary or "",
         domain=dto.domain.value,
-        tags=dto.tags or [],
+        tags=list(dto.tags or []),
         quality_score=dto.quality_score,
     )
 
