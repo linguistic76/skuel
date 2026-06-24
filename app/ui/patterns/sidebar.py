@@ -446,6 +446,7 @@ async def SidebarPage(
     alpine_state: str = "",
     title_icon: str = "",
     sidebar_width: str = "w-64",
+    extra_css: list[str] | None = None,
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -507,6 +508,7 @@ async def SidebarPage(
         page_type=PageType.CUSTOM,
         request=request,
         active_page=active_page,
+        extra_css=extra_css,
     )
 
 
