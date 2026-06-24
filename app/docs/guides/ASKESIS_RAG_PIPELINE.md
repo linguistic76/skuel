@@ -324,16 +324,26 @@ Returns 3-5 prioritized next steps:
 
 ### Final Output
 
+All three paths return the same top-level shape:
+
 ```python
 {
     "answer": str,                    # Natural language response
     "context_used": dict[str, Any],  # Entities that informed the response
     "suggested_actions": list[dict],  # Prioritized next steps
     "confidence": float,              # 0.0-1.0
-    "mode": "llm_generated",
+    "mode": str,                      # "guided" | "llm_generated" | "enrollment_gate"
     "has_citations": bool,
+    # Optional — present only when mode == "guided":
+    "guidance_mode": str,             # "socratic" | "direct" | "exploratory" | "encouraging"
+    "session_id": str,                # present when session_id was passed in
 }
 ```
+
+**Mode values:**
+- `"guided"` — PS bundle loaded; ZPD evidence + GuidanceMode used to build a template-driven system prompt
+- `"llm_generated"` — enrolled user, no active PS bundle; context-aware LLM call with UserContext
+- `"enrollment_gate"` — user has no enrolled Learning Path; short-circuit response, no LLM call
 
 **Confidence calculation** (`QueryProcessorConfidence` in `core/constants.py`):
 - Base: 0.70
