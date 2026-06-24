@@ -87,9 +87,6 @@ def ExploreReadingView(plan: dict[str, Any]) -> "FT":
         _related_section(plan),
         _library_section(plan),
         _keyboard_hints(),
-        # Synchronous (no defer) so Alpine.data registers before Alpine's
-        # deferred bundle fires alpine:init and scans the DOM.
-        Script(src="/static/js/explore-reading.js"),
         cls=_COLUMN_CLS,
         **{
             "x-data": "exploreReading(window.SEED)",

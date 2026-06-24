@@ -23,6 +23,7 @@ from fasthtml.common import (
     Div,
     P,
     Request,
+    Script,
 )
 from starlette.responses import RedirectResponse
 
@@ -124,8 +125,17 @@ def create_explore_ui_routes(
 
     @rt("/explore")
     async def explore_index(request: Request) -> Any:
-        """Explore reading surface — shell renders immediately, plan loads via HTMX."""
-        content = content_loading_placeholder("/explore/content", "explore-reading-content")
+        """Explore reading surface — shell renders immediately, plan loads via HTMX.
+
+        exploreReading.js is loaded here (in the full-page shell, before Alpine's
+        deferred bundle fires alpine:init) so the factory is registered before
+        htmx:load calls Alpine.initTree() on the swapped fragment.
+        """
+        content = Div(
+            # No defer — must execute before Alpine's deferred bundle fires alpine:init
+            Script(src="/static/js/explore-reading.js"),
+            content_loading_placeholder("/explore/content", "explore-reading-content"),
+        )
         return await BasePage(
             content,
             title="Explore",

@@ -419,18 +419,24 @@ class ExploreOrchestrator:
         date_label = today.strftime("%A · %B ") + str(today.day)
 
         library_total = 0
+        featured_uid = "ku-presence"
+        featured_title = "Presence"
         ku_result = await self._ku.core.list(limit=500)
         if not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
             kus = ku_result.value if isinstance(ku_result.value, list) else ku_result.value[0]
             library_total = len(kus)
+            if kus:
+                first = kus[0]
+                featured_uid = getattr(first, "uid", featured_uid)
+                featured_title = getattr(first, "title", featured_title) or featured_title
 
         return {
             "reader_name": "there",
             "date_label": date_label,
             "last_completed": {"uid": "ku-attention", "title": "Attention"},
             "featured": {
-                "uid": "ku-presence",
-                "title": "Presence",
+                "uid": featured_uid,
+                "title": featured_title,
                 "thread": "consciousness",
                 "kind": "state",
                 "excerpt": (
@@ -487,9 +493,9 @@ class ExploreOrchestrator:
                 "units_read": 1,
                 "progress": 0.33,
                 "knowledge_units": [
-                    {"uid": "ku-attention",     "title": "Attention",     "status": "read",     "reading_minutes": 4, "excerpt": None},
-                    {"uid": "ku-presence",      "title": "Presence",      "status": "current",  "reading_minutes": 4, "excerpt": None},
-                    {"uid": "ku-gentle-return", "title": "Gentle Return", "status": "upcoming", "reading_minutes": 3,
+                    {"uid": "ku-attention",     "title": "Attention",       "status": "read",     "reading_minutes": 4, "excerpt": None},
+                    {"uid": featured_uid,       "title": featured_title,    "status": "current",  "reading_minutes": 4, "excerpt": None},
+                    {"uid": "ku-gentle-return", "title": "Gentle Return",   "status": "upcoming", "reading_minutes": 3,
                      "excerpt": "Noticing you've wandered — and coming back without judgment."},
                 ],
                 "capabilities": [
@@ -502,8 +508,8 @@ class ExploreOrchestrator:
                     {
                         "kind": "apply",
                         "title": "Apply it to a task on your plan",
-                        "locked": False,
-                        "summary": "Carry presence into 'ADR-021 - reflection,' already waiting in Tasks+.",
+                        "locked": True,
+                        "summary": "Carry it into a task on your plan. Unlocks when all three steps are read.",
                     },
                 ],
             },
