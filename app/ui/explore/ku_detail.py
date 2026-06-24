@@ -215,7 +215,7 @@ def _article_header(
             else Div(),
             cls="flex flex-wrap items-center gap-2.5 mb-3",
         ),
-        H1(title, cls="ku-title font-bold"),
+        H1(title, cls="skuel-title font-bold"),
         Div(*meta_items, cls="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4"),
         cls="mb-7",
     )
@@ -253,7 +253,7 @@ def _status_control(uid: str) -> "FT":
 
 def _reading_body(content_html: str) -> "FT":
     body = content_html or "<p>No content available.</p>"
-    return Div(NotStr(body), cls="ku-prose mt-7")
+    return Div(NotStr(body), cls="skuel-prose mt-7")
 
 
 def _end_of_read_marker() -> "FT":
