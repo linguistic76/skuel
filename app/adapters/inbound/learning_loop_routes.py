@@ -11,8 +11,8 @@ anchor — authenticated users see exercises with status, submissions,
 and teacher feedback loaded via HTMX fragments.
 
 Routes:
-- GET  /explore/ku/{uid}          — Ku detail page with sidebar
-- GET  /explore/ku/{uid}/content  — HTMX fragment: Ku detail content
+- GET  /explore/ku/{uid}          — Ku reading page (reading-first, no sidebar)
+- GET  /explore/ku/{uid}/content  — HTMX fragment: Ku reading content
 - GET  /explore/ps/{uid}          — PathStep detail page with sidebar
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list with status
@@ -21,7 +21,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
+from fasthtml.common import Div, Request, Script
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
@@ -35,6 +35,8 @@ from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.ku_mastery import render_ku_mastery_result
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.learning_loop.embedded_forms import (
     render_embedded_forms,
     render_embedded_forms_error,
@@ -131,36 +133,39 @@ def create_learning_loop_detail_routes(
     """
 
     # -----------------------------------------------------------------
-    # GET /explore/ku/{uid} — Ku detail page
+    # GET /explore/ku/{uid} — Ku reading page (reading-first, no sidebar)
     # -----------------------------------------------------------------
 
     @rt("/explore/ku/{uid}")
     async def explore_ku_detail(request: Request, uid: str) -> Any:
-        """Ku detail page — shell renders immediately, content loads via HTMX."""
-        user_uid = get_current_user(request)
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        content = content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content")
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
+        """Ku reading page — shell loads immediately, content arrives via HTMX.
+
+        ku-reading.js must be loaded in the shell before the fragment arrives
+        so the Alpine factory is registered before htmx:load fires Alpine.initTree().
+        """
+        content = Div(
+            Script(src="/static/js/ku-reading.js"),
+            content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),
+        )
+        return await BasePage(
+            content,
+            title="Read",
+            page_type=PageType.CUSTOM,
             request=request,
-            current_uid=uid,
-            current_entity_type="ku",
+            active_page="explore",
         )
 
     @rt("/explore/ku/{uid}/content")
     async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
-        """HTMX fragment: Ku detail content with learning state and exercises."""
+        """HTMX fragment: Ku reading content with status and mastery check-in."""
         user_uid = get_current_user(request)
 
         ku_result = await orchestrator.get_ku(uid)
-
         if not ku_result or ku_result.is_error or not ku_result.value:
             return render_ku_not_found(uid)
 
         ku = ku_result.value
 
-        # Learning state
         learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
         is_pinned = False
         mastery_checkins: list[dict] = []
@@ -173,22 +178,15 @@ def create_learning_loop_detail_routes(
                 is_pinned = uid in set(pins_result.value)
             mastery_checkins = await _load_ku_mastery_checkins(user_service, user_uid, uid)
 
-        # Exercises
-        exercises_result = await orchestrator.get_exercises_for_curriculum(uid)
-        exercises_for_ku = exercises_result.value if exercises_result.is_ok else []
-
-        # Render markdown
-        content_html, toc_html = render_markdown_with_toc(ku.description or "")
+        content_html, _ = render_markdown_with_toc(ku.description or "")
 
         return render_ku_detail_content(
             ku=ku,
             uid=uid,
             content_html=content_html,
-            toc_html=toc_html,
             learning_state=learning_state,
             is_pinned=is_pinned,
             user_uid=user_uid,
-            exercises_for_ku=exercises_for_ku,
             mastery_checkins=mastery_checkins,
         )
 
@@ -325,8 +323,8 @@ def create_learning_loop_detail_routes(
         )
 
     logger.info(
-        "Learning loop detail routes registered: /explore/ku/{uid}, /explore/ps/{uid} "
-        "(shell-first with /content fragments)"
+        "Learning loop detail routes registered: /explore/ku/{uid} (reading-first), "
+        "/explore/ps/{uid} (sidebar), both shell-first with /content fragments"
     )
 
 
