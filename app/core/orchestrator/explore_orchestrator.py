@@ -400,3 +400,131 @@ class ExploreOrchestrator:
             "pinned_uids": pinned_uids,
             "pinned_items": pinned_items,
         }
+
+    # ------------------------------------------------------------------
+    # Reading plan (stub — will be replaced by intelligence method)
+    # ------------------------------------------------------------------
+
+    async def get_reading_plan(self, _user_uid: UserUID | None) -> dict[str, Any]:
+        """Return a reading plan for the Explore reading-first surface.
+
+        Stub implementation: returns curated seed data so the UI ships.
+        TODO: Replace body with UserContextIntelligence.get_ready_to_read_today()
+              once ReadingPlan model and intelligence method are implemented.
+              See: data/handoff/explore/explore.html for the data contract.
+        """
+        from datetime import date
+
+        today = date.today()
+        date_label = today.strftime("%A · %B ") + str(today.day)
+
+        library_total = 0
+        ku_result = await self._ku.core.list(limit=500)
+        if not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
+            kus = ku_result.value if isinstance(ku_result.value, list) else ku_result.value[0]
+            library_total = len(kus)
+
+        return {
+            "reader_name": "there",
+            "date_label": date_label,
+            "last_completed": {"uid": "ku-attention", "title": "Attention"},
+            "featured": {
+                "uid": "ku-presence",
+                "title": "Presence",
+                "thread": "consciousness",
+                "kind": "state",
+                "excerpt": (
+                    "Most of the time you are somewhere else — rehearsing the past, "
+                    "drafting the future. Presence is the felt experience of being fully "
+                    "here: not thinking about life, but in contact with it."
+                ),
+                "reading_minutes": 4,
+                "why_now": (
+                    "Presence rests directly on Attention, which you just finished. "
+                    "Your other open threads aren't ready yet; this one is exactly at your edge."
+                ),
+                "why": [
+                    {"met": True,  "text": "Attention — read yesterday. It's the one idea Presence is built on."},
+                    {"met": True,  "text": "Prerequisites met — 1 of 1. Nothing else is blocking it."},
+                    {"met": None,  "text": "One step past what you already know — your edge, not a leap."},
+                ],
+            },
+            "in_progress": [
+                {"uid": "ku-zpd", "title": "Zone of Proximal Development", "progress": 0.40, "minutes_left": 3},
+            ],
+            "also_ready": [
+                {
+                    "uid": "ku-boundaries",
+                    "title": "Boundary Setting",
+                    "thread": "relationships",
+                    "thread_color": "oklch(0.55 0.22 295)",
+                    "excerpt": "What you will and won't accept — and how to hold the line kindly.",
+                    "reading_minutes": 4,
+                },
+                {
+                    "uid": "ku-six-choices",
+                    "title": "Six Choices",
+                    "thread": "choices",
+                    "thread_color": "oklch(0.55 0.20 255)",
+                    "excerpt": "The handful of moves a hard situation actually offers you.",
+                    "reading_minutes": 3,
+                },
+                {
+                    "uid": "ku-habits",
+                    "title": "Habits",
+                    "thread": "self-management",
+                    "thread_color": "oklch(0.60 0.15 165)",
+                    "excerpt": "How repetition quietly becomes automatic — for you and against you.",
+                    "reading_minutes": 5,
+                },
+            ],
+            "active_path_step": {
+                "uid": "ps-coming-home",
+                "title": "Coming Home to Attention",
+                "summary": "Three ideas that build the ground of presence — then a practice that ties them into one.",
+                "contributes_to_lifepath": "Steady Mind",
+                "units_total": 3,
+                "units_read": 1,
+                "progress": 0.33,
+                "knowledge_units": [
+                    {"uid": "ku-attention",     "title": "Attention",     "status": "read",     "reading_minutes": 4, "excerpt": None},
+                    {"uid": "ku-presence",      "title": "Presence",      "status": "current",  "reading_minutes": 4, "excerpt": None},
+                    {"uid": "ku-gentle-return", "title": "Gentle Return", "status": "upcoming", "reading_minutes": 3,
+                     "excerpt": "Noticing you've wandered — and coming back without judgment."},
+                ],
+                "capabilities": [
+                    {
+                        "kind": "practice",
+                        "title": "Sit with a wandering mind",
+                        "locked": True,
+                        "summary": "A guided sitting that turns the three ideas into one. Unlocks when all three are read.",
+                    },
+                    {
+                        "kind": "apply",
+                        "title": "Apply it to a task on your plan",
+                        "locked": False,
+                        "summary": "Carry presence into 'ADR-021 - reflection,' already waiting in Tasks+.",
+                    },
+                ],
+            },
+            "related": [
+                {
+                    "uid": "ku-buzzing",
+                    "title": "Buzzing",
+                    "kind": "state",
+                    "reading_minutes": 3,
+                    "excerpt": "When attention fragments and jumps between stimuli faster than you can follow.",
+                },
+                {
+                    "uid": "ku-compassion",
+                    "title": "Compassion",
+                    "kind": "value",
+                    "reading_minutes": 5,
+                    "excerpt": "Moving from understanding suffering to acting to ease it.",
+                },
+            ],
+            "library": {
+                "total": library_total,
+                "tags": ["#attention", "#mindfulness", "#self-awareness", "#choices"],
+            },
+        }
