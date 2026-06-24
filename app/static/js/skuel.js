@@ -2384,10 +2384,10 @@
             };
         });
 
-        Alpine.data('exploreSearch', function() {
+        Alpine.data('exploreSearch', function(initialTag) {
             return {
                 query: '',
-                activeTag: '',
+                activeTag: initialTag || '',
 
                 init: function() {
                     // reactive state — query tracked via x-model, activeTag via hidden input

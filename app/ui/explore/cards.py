@@ -127,11 +127,14 @@ def render_explore_card(
     )
 
 
-def render_explore_search_panel(all_tags: list[str]) -> Div:
+def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Div:
     """Search + filter panel for the explore index.
 
-    Uses HTMX to stream filtered results into #explore-grid.
-    Alpine.js tracks query state for tag selection.
+    Args:
+        all_tags: Available tag strings (without leading #).
+        active_tag: Pre-selected tag from the URL (e.g. from ?tag=attention).
+            Threaded into the Alpine factory so sort/search HTMX requests
+            preserve the filter rather than resetting to tag=''.
     """
     type_options = [
         Option("All Types", value=""),
@@ -147,9 +150,14 @@ def render_explore_search_panel(all_tags: list[str]) -> Div:
     tag_chips = [
         Span(
             f"#{tag}",
-            cls="cursor-pointer text-xs px-2 py-0.5 rounded-full border border-border "
-            "text-muted-foreground hover:border-foreground hover:text-foreground "
-            "transition-colors select-none",
+            cls=(
+                "cursor-pointer text-xs px-2 py-0.5 rounded-full border transition-colors select-none "
+                + (
+                    "border-foreground text-foreground bg-accent"
+                    if tag == active_tag
+                    else "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+                )
+            ),
             # json.dumps → properly-escaped JS string literal so tags containing
             # quotes/specials can't break out of (or inject into) the Alpine expression.
             **{"x-on:click": f"setTag({json.dumps(tag)})"},
@@ -216,6 +224,6 @@ def render_explore_search_panel(all_tags: list[str]) -> Div:
             cls="flex flex-col gap-3",
         ),
         cls="p-4 mb-5 border border-border rounded-xl bg-background flex flex-col gap-3",
-        x_data="exploreSearch()",
+        x_data=f"exploreSearch({json.dumps(active_tag)})",
         x_init="init()",
     )
