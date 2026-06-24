@@ -30,6 +30,14 @@ ASKESIS_CONFIG = DomainRouteConfig(
     primary_service_attr="askesis",  # services.askesis
     api_factory=create_askesis_api_routes,
     ui_factory=create_askesis_ui_routes,
+    api_related_services={
+        "intelligence_tier": "intelligence_tier",
+        "user_service": "user",
+    },
+    ui_related_services={
+        "intelligence_tier": "intelligence_tier",
+        "user_service": "user",
+    },
 )
 
 
