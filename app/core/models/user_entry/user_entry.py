@@ -139,7 +139,7 @@ class UserEntry(UserOwnedEntity):
         except AttributeError:
             try:
                 return float(delta)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 return None
 
     def get_summary(self, max_length: int = 200) -> str:

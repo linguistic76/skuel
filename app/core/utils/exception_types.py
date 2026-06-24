@@ -162,3 +162,17 @@ CONFIG_EXCEPTIONS = (
 
 AUTH_EXCEPTIONS = (ValueError, TypeError)
 """Authentication/authorization data exceptions (non-database). Map to Errors.validation()."""
+
+# ============================================================================
+# DEEPGRAM (TRANSCRIPTION) EXCEPTIONS
+# ============================================================================
+
+try:
+    from deepgram import DeepgramApiError, DeepgramError
+
+    DEEPGRAM_EXCEPTIONS: tuple[type[BaseException], ...] = (
+        DeepgramApiError,
+        DeepgramError,
+    )
+except ImportError:
+    DEEPGRAM_EXCEPTIONS = ()

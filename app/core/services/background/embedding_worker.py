@@ -131,6 +131,7 @@ class EmbeddingBackgroundWorker:
         self._pending_requests: list[_PendingRequest] = []
         self._pending_chunk_requests: list[_PendingChunkRequest] = []
         self.logger = get_logger("skuel.background.embeddings")
+        self._queue_lock: asyncio.Lock = asyncio.Lock()
 
         # Internal metrics (kept for backward compatibility with /api/monitoring endpoint)
         self._total_processed = 0
@@ -186,7 +187,8 @@ class EmbeddingBackgroundWorker:
         Args:
             event: EmbeddingRequested event from entity creation
         """
-        self._pending_requests.append(_PendingRequest(event))
+        async with self._queue_lock:
+            self._pending_requests.append(_PendingRequest(event))
         self.logger.debug(
             f"Queued embedding request for {event.entity_type} {event.entity_uid} "
             f"(queue size: {len(self._pending_requests)})"
@@ -199,7 +201,8 @@ class EmbeddingBackgroundWorker:
         Args:
             event: ChunkEmbeddingRequested event from ingestion or regeneration
         """
-        self._pending_chunk_requests.append(_PendingChunkRequest(event))
+        async with self._queue_lock:
+            self._pending_chunk_requests.append(_PendingChunkRequest(event))
         self.logger.debug(
             f"Queued chunk embedding request for {event.parent_uid} "
             f"({len(event.chunk_uids)} chunks, queue size: {len(self._pending_chunk_requests)})"
@@ -229,8 +232,9 @@ class EmbeddingBackgroundWorker:
 
             # Process entity embeddings
             if self._pending_requests:
-                batch = self._pending_requests[: self.batch_size]
-                self._pending_requests = self._pending_requests[self.batch_size :]
+                async with self._queue_lock:
+                    batch = self._pending_requests[: self.batch_size]
+                    self._pending_requests = self._pending_requests[self.batch_size :]
 
                 self.logger.info(
                     f"Processing batch of {len(batch)} embedding requests "
@@ -241,8 +245,9 @@ class EmbeddingBackgroundWorker:
 
             # Process chunk embeddings
             if self._pending_chunk_requests:
-                chunk_batch = self._pending_chunk_requests[: self.batch_size]
-                self._pending_chunk_requests = self._pending_chunk_requests[self.batch_size :]
+                async with self._queue_lock:
+                    chunk_batch = self._pending_chunk_requests[: self.batch_size]
+                    self._pending_chunk_requests = self._pending_chunk_requests[self.batch_size :]
 
                 self.logger.info(
                     f"Processing batch of {len(chunk_batch)} chunk embedding requests "

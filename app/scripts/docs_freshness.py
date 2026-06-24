@@ -335,7 +335,7 @@ def check_conceptual_freshness(
         else:
             # Already a date object from YAML parsing
             last_review_date = datetime.combine(last_reviewed, datetime.min.time())
-    except ValueError, TypeError, AttributeError:
+    except (ValueError, TypeError, AttributeError):
         # Invalid date format
         return DocFreshness(
             doc_path=str(doc_path),
@@ -649,7 +649,7 @@ def main() -> None:
         if arg.startswith("--threshold="):
             try:
                 threshold = int(arg.split("=")[1])
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 print(f"Error: Invalid threshold value: {arg}", file=sys.stderr)
                 sys.exit(1)
 

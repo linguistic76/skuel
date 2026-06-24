@@ -8,7 +8,7 @@ to a simple stand-in so the isinstance check is exercised without depending on
 the real (versioned) pydantic model constructor.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -47,7 +47,7 @@ def test_fail_fast_without_api_key():
 @pytest.mark.asyncio
 async def test_complete_extracts_textblock():
     adapter = _adapter()
-    adapter._client.messages.create = MagicMock(return_value=_message(_FakeTextBlock("hello")))
+    adapter._client.messages.create = AsyncMock(return_value=_message(_FakeTextBlock("hello")))
 
     result = await adapter.complete([{"role": "user", "content": "hi"}])
 
@@ -60,7 +60,7 @@ async def test_complete_extracts_textblock():
 @pytest.mark.asyncio
 async def test_system_passed_as_parameter_and_model_override():
     adapter = _adapter()
-    adapter._client.messages.create = MagicMock(return_value=_message(_FakeTextBlock("ok")))
+    adapter._client.messages.create = AsyncMock(return_value=_message(_FakeTextBlock("ok")))
 
     await adapter.complete(
         [{"role": "user", "content": "hi"}],
@@ -77,7 +77,7 @@ async def test_system_passed_as_parameter_and_model_override():
 @pytest.mark.asyncio
 async def test_non_text_block_yields_empty_text():
     adapter = _adapter()
-    adapter._client.messages.create = MagicMock(return_value=_message(MagicMock()))
+    adapter._client.messages.create = AsyncMock(return_value=_message(MagicMock()))
 
     result = await adapter.complete([{"role": "user", "content": "hi"}])
 
@@ -88,7 +88,7 @@ async def test_non_text_block_yields_empty_text():
 @pytest.mark.asyncio
 async def test_exception_mapped_to_integration_error():
     adapter = _adapter()
-    adapter._client.messages.create = MagicMock(side_effect=RuntimeError("boom"))
+    adapter._client.messages.create = AsyncMock(side_effect=RuntimeError("boom"))
 
     result = await adapter.complete([{"role": "user", "content": "hi"}])
 

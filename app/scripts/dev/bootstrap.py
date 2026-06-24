@@ -53,6 +53,7 @@ class AppContainer:
     services: Services  # Business services (includes SearchRouter)
     config: UnifiedConfig  # Application configuration
     prometheus_metrics: Any  # Prometheus metrics
+    event_bus: Any  # InMemoryEventBus — held for graceful drain on shutdown
 
 
 async def bootstrap_skuel() -> AppContainer:
@@ -104,7 +105,12 @@ async def bootstrap_skuel() -> AppContainer:
         await _wire_routes(app, rt, services, config, prometheus_metrics)
 
         container = AppContainer(
-            app=app, rt=rt, services=services, config=config, prometheus_metrics=prometheus_metrics
+            app=app,
+            rt=rt,
+            services=services,
+            config=config,
+            prometheus_metrics=prometheus_metrics,
+            event_bus=event_bus,
         )
 
         # Store container on app state for lifespan access
@@ -851,6 +857,22 @@ async def shutdown_skuel(container: AppContainer) -> None:
                 logger.info("🛑 Stopping schema-change monitoring...")
                 await graph_adapter.stop_schema_monitoring()
                 logger.info("✅ Schema-change monitoring stopped")
+
+        # Drain in-flight event bus handlers before services are torn down so
+        # handlers can still reach their service dependencies during the drain.
+        if container.event_bus is not None and hasattr(
+            container.event_bus, "wait_for_pending_tasks"
+        ):
+            pending = container.event_bus.get_pending_task_count()
+            if pending:
+                logger.info(f"⏳ Draining {pending} event bus task(s) (5s timeout)...")
+                try:
+                    await container.event_bus.wait_for_pending_tasks(timeout_seconds=5.0)
+                    logger.info("✅ Event bus drained")
+                except asyncio.TimeoutError:
+                    logger.warning("⚠️  Event bus drain timed out — cancelling remaining tasks")
+                    if hasattr(container.event_bus, "cancel_all_tasks"):
+                        container.event_bus.cancel_all_tasks()
 
         # Single cleanup path through Services.stop()
         await container.services.cleanup()

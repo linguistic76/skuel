@@ -236,7 +236,7 @@ def main() -> int:
     if index_path.exists():
         try:
             existing_index = list(json.loads(index_path.read_text()))
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             existing_index = []
     merged_index = sorted(set(existing_index) | set(secrets.keys()))
     index_path.write_text(json.dumps(merged_index, indent=2))
