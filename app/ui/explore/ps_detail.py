@@ -8,7 +8,7 @@ No async, no service calls — receives pre-fetched data.
 
 from typing import Any
 
-from fasthtml.common import H3, Div, Li, NotStr, P, Ul
+from fasthtml.common import H1, H3, Div, Li, NotStr, P, Ul
 
 from adapters.inbound.path_steps_ui import _start_step_button, render_engagement_actions
 from core.models.enums import UserRole
@@ -128,7 +128,7 @@ def render_ps_detail_content(
     # Reading content
     reading_content = Div(
         NotStr(content_html or "No content available."),
-        cls="prose prose-lg max-w-none",
+        cls="skuel-prose",
     )
 
     # Exercises stay visible with an empty state (the workflow entry point).
@@ -213,6 +213,7 @@ def render_ps_detail_content(
     # Main content column
     main_column = Div(
         Breadcrumbs(path=breadcrumb_path, show_home=False),
+        H1(step.title, cls="skuel-title font-bold mt-4 mb-2"),
         metadata_section,
         objectives_section,
         reading_content,
@@ -231,7 +232,7 @@ def render_ps_detail_content(
         toc_sidebar = Div(
             Div(
                 H3("Contents", cls="font-semibold text-sm mb-3"),
-                Div(NotStr(toc_html), cls="prose prose-sm max-w-none toc-nav"),
+                Div(NotStr(toc_html), cls="skuel-toc"),
                 cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
             ),
             cls="hidden lg:block w-56 shrink-0 border-l border-border",
