@@ -127,7 +127,7 @@ def calculate_review_status(
             if not isinstance(last_reviewed, str):
                 last_reviewed = last_reviewed.isoformat()
 
-        except ValueError, TypeError, AttributeError:
+        except (ValueError, TypeError, AttributeError):
             # Invalid date format - treat as never reviewed
             days_since = 999
             last_reviewed = None

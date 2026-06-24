@@ -78,6 +78,48 @@ def create_system_api_routes(
     get_user_service = make_service_getter(user_service)
 
     # ========================================================================
+    # PUBLIC HEALTH PROBES (no auth — for load-balancers and k8s probes)
+    # ========================================================================
+
+    @rt("/health")
+    @boundary_handler()
+    async def liveness_probe(request: Request) -> Result[dict[str, Any]]:
+        """Liveness probe: returns 200 if the process is running.
+
+        Always succeeds — failure here means the process should be restarted.
+        Safe for load-balancers, Kubernetes liveness probes, and uptime monitors.
+        """
+        return Result.ok({"status": "ok", "service": "SKUEL"})
+
+    @rt("/health/ready")
+    @boundary_handler()
+    async def readiness_probe(request: Request) -> Result[dict[str, Any]]:
+        """Readiness probe: returns 200 only when the database is reachable.
+
+        Returns 503 when Neo4j is unreachable so the load-balancer can shed
+        traffic rather than routing to a degraded instance.
+        """
+        result = await system_service.get_health_status()
+        if result.is_error:
+            return Result.fail(
+                Errors.integration(
+                    service="SKUEL",
+                    message="Health check failed",
+                )
+            )
+        health = result.value
+        if not health.get("healthy", False):
+            return Result.fail(
+                Errors.integration(
+                    service="SKUEL",
+                    message=f"Service not ready: {health.get('status', 'unknown')}",
+                )
+            )
+        return Result.ok({"status": "ready", "service": "SKUEL"})
+
+    routes.extend([liveness_probe, readiness_probe])
+
+    # ========================================================================
     # BASIC HEALTH ENDPOINTS
     # ========================================================================
     # Security: All system endpoints require admin role (January 2026)

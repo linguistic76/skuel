@@ -1016,6 +1016,7 @@ from core.utils.exception_types import (
     OPENAI_EXCEPTIONS,          # APIError, APIConnectionError, APITimeoutError, RateLimitError
     ANTHROPIC_EXCEPTIONS,       # Same set for Anthropic
     LLM_EXCEPTIONS,             # All OpenAI + Anthropic combined
+    DEEPGRAM_EXCEPTIONS,        # DeepgramApiError, DeepgramError (no-op if deepgram not installed)
     FILE_IO_EXCEPTIONS,         # FileNotFoundError, PermissionError, OSError, etc.
     PARSING_EXCEPTIONS,         # ValueError, KeyError, JSONDecodeError, YAMLError
     DATA_CONVERSION_EXCEPTIONS, # ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError
@@ -1062,6 +1063,7 @@ The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `E
 
 - **Current Implementation**: `/core/utils/result_simplified.py`
 - **Exception Type Groups**: `/core/utils/exception_types.py`
+- **Retry Decorator**: `/core/utils/retry.py` — `async_retry(exceptions=..., max_attempts=3, base_delay=1.0)`
 - **Boundary Utilities**: `/adapters/inbound/boundary.py`
 - **Error Boundary Decorators**: `/core/utils/error_boundary.py`
 - **Migration Guide**: `/core/utils/result_migration_guide.md`
@@ -1070,10 +1072,9 @@ The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `E
 ## Future Enhancements
 
 1. **Telemetry Integration**: Send error metrics to monitoring
-2. **Automatic Retry**: Implement retry strategies by category
-3. **Circuit Breakers**: For integration errors
-4. **Error Aggregation**: Collect multiple validation errors
-5. **GraphQL Integration**: Map Results to GraphQL errors
+2. **Circuit Breakers**: For integration errors
+3. **Error Aggregation**: Collect multiple validation errors
+4. **GraphQL Integration**: Map Results to GraphQL errors
 
 ## Conclusion
 

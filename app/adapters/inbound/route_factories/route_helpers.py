@@ -152,7 +152,7 @@ def parse_int_query_param(
         return default
     try:
         value = int(str(raw_value))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
     if minimum is not None:
         value = max(minimum, value)
@@ -231,7 +231,7 @@ def parse_date_query_param(
         return default
     try:
         return date.fromisoformat(str(raw))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return default
 
 

@@ -288,7 +288,7 @@ class CredentialSetup:
             idx = int(choice) - 1
             cred_name = list(self.CREDENTIALS.keys())[idx]
             self._setup_credential(cred_name, self.CREDENTIALS[cred_name])
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             print("❌ Invalid choice")
 
     def _setup_credential(self, name: str, config: dict) -> None:
@@ -437,7 +437,7 @@ class CredentialSetup:
             if confirm == "y":
                 self.store.delete(key_to_remove)
                 print(f"✅ {key_to_remove} removed")
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             print("❌ Invalid choice")
 
 

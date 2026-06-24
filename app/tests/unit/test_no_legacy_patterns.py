@@ -57,7 +57,7 @@ def _find_ast_nodes(filepath: pathlib.Path, node_type: type) -> list[tuple[int, 
     try:
         source = filepath.read_text()
         tree = ast.parse(source)
-    except SyntaxError, UnicodeDecodeError:
+    except (SyntaxError, UnicodeDecodeError):
         return []
 
     return [

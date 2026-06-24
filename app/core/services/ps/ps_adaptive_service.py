@@ -415,13 +415,13 @@ class PsAdaptiveService:
                 mastery_level_str = record.get("mastery_level", "introduced")
                 try:
                     mastery_level = MasteryLevel(mastery_level_str)
-                except ValueError, KeyError:
+                except (ValueError, KeyError):
                     mastery_level = MasteryLevel.INTRODUCED
 
                 velocity_str = record.get("learning_velocity", "moderate")
                 try:
                     learning_velocity = LearningVelocity(velocity_str)
-                except ValueError, KeyError:
+                except (ValueError, KeyError):
                     learning_velocity = LearningVelocity.MODERATE
 
                 pref_method_str = record.get("preferred_learning_method")

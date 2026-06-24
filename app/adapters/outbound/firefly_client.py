@@ -82,6 +82,12 @@ class FireflyClient:
         if self._owns_client:
             await self._client.aclose()
 
+    async def __aenter__(self) -> "FireflyClient":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        await self.aclose()
+
     @classmethod
     def from_env(cls, http_client: httpx.AsyncClient | None = None) -> FireflyClient:
         """Build a client from credentials (keychain-first, env fallback).

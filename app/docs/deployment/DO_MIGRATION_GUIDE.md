@@ -269,7 +269,7 @@ Compare the node count to the pre-backup count from Phase 1.
 
 - The Python version matches `pyproject.toml` (`python:3.12-slim`). If `pyproject.toml` is updated to require a newer version, bump the base image in both builder and production stages.
 - The `CMD` runs `main.py` on port 5001. Do not change the entry point or port — health checks and port mappings depend on both.
-- The health check hits `/health` on port 5001. Confirm this endpoint exists in the app.
+- The health check hits `/health` (liveness) and `/health/ready` (readiness — checks Neo4j) on port 5001. Both endpoints are unauthenticated and registered in `adapters/inbound/system_api.py`.
 
 ### 3.2 Create the App Platform App
 

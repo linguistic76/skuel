@@ -115,7 +115,7 @@ def test_mixin_method_signatures_match_protocol(name, mixin, protocol, filename)
         try:
             protocol_sig = inspect.signature(protocol_method)
             mixin_sig = inspect.signature(mixin_method)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             # Some methods may not have inspectable signatures
             continue
 
