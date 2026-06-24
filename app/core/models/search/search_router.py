@@ -554,6 +554,25 @@ class SearchRouter:
         EntityType.PRINCIPLE: Domain.PRINCIPLES,
     }
 
+    # Default search scope for intelligent_search when no domain is inferred from the query.
+    # Covers the 6 user-owned Activity domains (routed through faceted_search with user_uid)
+    # and the 3 shared Curriculum domains (no ownership filter required).
+    # Exercise / RevisedExercise / UserEntry are intentionally excluded — they are user-owned
+    # but have no Domain enum mapping for faceted_search routing.
+    _INTELLIGENT_SEARCH_DOMAINS: ClassVar[frozenset[EntityType]] = frozenset(
+        {
+            EntityType.TASK,
+            EntityType.GOAL,
+            EntityType.HABIT,
+            EntityType.EVENT,
+            EntityType.CHOICE,
+            EntityType.PRINCIPLE,
+            EntityType.KU,
+            EntityType.PATH_STEP,
+            EntityType.LEARNING_PATH,
+        }
+    )
+
     async def _graph_aware_domain_search(
         self,
         request: "SearchRequest",
@@ -842,8 +861,8 @@ class SearchRouter:
             if target_domains:
                 return list(target_domains)
 
-        # Default: search all 6 activity domains
-        return list(self._SEARCHABLE_DOMAINS)
+        # Default: Activity domains (ownership-scoped via faceted_search) + Curriculum
+        return list(self._INTELLIGENT_SEARCH_DOMAINS)
 
     async def advanced_search(
         self,
