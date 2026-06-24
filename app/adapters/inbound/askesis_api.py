@@ -24,6 +24,7 @@ from fasthtml.common import Request
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier
 from core.ports import AskesisOperations
 from core.services.intelligence_tier_service import get_user_intelligence_tier
@@ -74,10 +75,10 @@ def create_askesis_api_routes(
         # Per-user tier gate (ADR-043): REGISTERED users on a FULL-tier system
         # are capped at CORE and may not consume AI routes.
         if intelligence_tier is not None and user_service is not None:
-            user_result = await user_service.get_user(user_uid)
-            if user_result.is_error or user_result.value is None:
-                return Result.fail(Errors.system("Could not verify user access tier"))
-            effective_tier = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
+            user = require_found(await user_service.get_user(user_uid), "User", user_uid)
+            if user.is_error:
+                return Result.fail(Errors.database("get_user", "Could not verify user access tier"))
+            effective_tier = get_user_intelligence_tier(intelligence_tier, user.value.role)
             if not effective_tier.ai_enabled:
                 return Result.fail(
                     Errors.forbidden(
