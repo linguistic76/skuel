@@ -314,6 +314,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | **2026-03-17** | **290** |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
+| **[Voice Journaling and Obsidian Guide](guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md)** | **2026-06-24** | **577** |
 | **[Linter Guide](guides/LINTER_GUIDE.md)** | **2026-03-29** | **180** |
 | **[UV Package Manager Guide](guides/UV_GUIDE.md)** | **2026-03-29** | **120** |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |

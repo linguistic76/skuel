@@ -1,0 +1,577 @@
+---
+title: Voice Journaling and Obsidian Guide
+updated: 2026-06-24
+status: current
+category: guides
+tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
+related_docs:
+  - /docs/decisions/ADR-070-bidirectional-vault-bridge.md
+  - /docs/dsl/DSL_USAGE_GUIDE.md
+  - /docs/patterns/UNIFIED_INGESTION_GUIDE.md
+  - /docs/guides/YAML_AUTHORING_GUIDE.md
+---
+
+# Voice Journaling and Obsidian Guide
+
+A practical guide to using SKUEL as your daily writing and voice journaling environment, with Obsidian as the authoring surface.
+
+---
+
+## What This Guide Covers
+
+SKUEL supports three ways of capturing your daily life:
+
+| Mode | What you do | What SKUEL does |
+|------|-------------|-----------------|
+| **Voice journaling** | Record audio on any device, upload to SKUEL | Transcribes, structures, and stores your entry |
+| **Written journaling** | Author daily or weekly notes in Obsidian | Reads the note, extracts tasks and habits, and keeps both apps in sync |
+| **Structured activities** | Write short YAML files for goals, habits, tasks, etc. | Creates activity items in your graph and connects them to your learning |
+
+Obsidian is the recommended authoring environment for all three modes. Your vault is the place where your thoughts originate — SKUEL is the structured backbone that connects them.
+
+---
+
+## Part 1 — Voice Journaling
+
+### Recording your voice memo
+
+Record on whatever device is most natural: your phone's native voice recorder, a desktop mic, Whisper, or any other tool. SKUEL accepts:
+
+- **Audio:** `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.webm`
+- **Video** (audio is extracted)
+- **Text:** `.txt`, `.md`, or pasted text
+- **PDF and document files**
+
+You can upload up to 20 files at once in a single session.
+
+### Uploading at /journals/submit
+
+1. Go to **[/journals/submit](/journals/submit)**
+2. Optionally give the entry a title and connect it to a learning exercise
+3. Select your audio file(s) and click **Upload**
+
+SKUEL transcribes the audio (via Deepgram), structures the content, and saves it as a journal entry. You'll see a status indicator as it processes. For most voice memos, transcription completes in seconds.
+
+### Browsing and responding at /journals/browse
+
+All your journal entries live at **[/journals/browse](/journals/browse)** (also reachable as **/journals**).
+
+Each card shows the transcription, the date, and a **Get AI response** button. Clicking it sends the entry to an AI coach that writes a reflective response — acknowledging patterns, asking a follow-up question, or surfacing a connection to something you've been studying. The response appears in your journal and is stored in SKUEL for future reference.
+
+---
+
+## Part 2 — Written Journaling with Obsidian
+
+### The key idea: your note becomes a SKUEL entry
+
+When you write in Obsidian using the provided templates, each note carries a small block of YAML at the top (called *frontmatter*). That frontmatter tells SKUEL what kind of entry it is and how to process it:
+
+```
+---
+type: user_entry
+pipeline: extract_activities
+---
+```
+
+The `pipeline: extract_activities` instruction tells SKUEL: *scan this note for any task or habit lines and create real activity items from them*. Those lines use a simple annotation syntax (described in [Part 3](#part-3--writing-activities-in-your-notes)) that turns plain English into structured data.
+
+### Setting up Periodic Notes in Obsidian
+
+SKUEL's templates are designed for the **Periodic Notes** Obsidian plugin (by Liam Cain), which automatically creates new notes from your templates on the right cadence.
+
+**Plugin install:** In Obsidian, go to `Settings → Community Plugins → Browse`, search for *Periodic Notes*, and install it.
+
+**Configure each period** to point to the corresponding template:
+
+| Period | Template file | Suggested folder |
+|--------|--------------|-----------------|
+| Daily | `templates/t_daily.md` | `daily/` |
+| Weekly | `templates/t_weekly.md` | `weekly/` |
+| Monthly | `templates/t_monthly.md` | `monthly/` |
+
+Open each period via the Command Palette (`Cmd/Ctrl+P → Open daily note`, etc.) and Periodic Notes will fill in the date tokens automatically.
+
+---
+
+### The Daily Template (`t_daily.md`)
+
+```markdown
+---
+type: user_entry
+pipeline: extract_activities
+title: 2026-06-24
+date: 2026-06-24
+tags:
+  - daily
+metadata:
+  entry_kind: daily
+---
+
+# 📅 2026-06-24
+
+## Focus
+
+## Tasks
+
+- [ ] 
+
+## Notes
+
+## End of Day
+
+- What went well?
+- One adjustment for tomorrow.
+```
+
+**How to use it:**
+
+- **Focus** — one sentence: what is this day about? This anchors your attention before the to-do list.
+- **Tasks** — write your day's checkboxes here. Add `@context(task)` to any line you want SKUEL to track as a real task (see [Part 3](#part-3--writing-activities-in-your-notes)).
+- **Notes** — free prose. Meeting notes, ideas, observations. No special syntax needed.
+- **End of Day** — a brief retrospective. Answering these two questions takes two minutes and makes a surprising difference over time.
+
+When this note is synced to SKUEL (via the vault sync button at [/settings/vault](/settings/vault)), the checkbox lines with `@context()` tags become Task activity items in your graph. The entire note is also stored as a journal entry so you can search and review it later.
+
+---
+
+### The Weekly Template (`t_weekly.md`)
+
+```markdown
+---
+type: user_entry
+pipeline: extract_activities
+title: Week 2026-W26
+week_of: 2026-W26
+tags:
+  - weekly
+metadata:
+  entry_kind: weekly
+---
+
+# 📅 Week 2026-W26
+
+## Weekly Focus
+
+Theme or intention for this week.
+
+## Goals & Tasks
+
+- [ ] 
+
+## Notes
+
+## Weekly Review
+
+- What mattered most?
+- One adjustment for next week.
+```
+
+**How to use it:**
+
+Use the weekly note to set the rhythm for the week rather than individual days. The **Goals & Tasks** section is where you write the handful of things that would make this week feel complete. These lines can carry `@context(goal)` or `@context(task)` annotations just like the daily note.
+
+The **Weekly Review** is designed to be filled in on Sunday evening. Two honest sentences here, consistently, will give you more self-knowledge than a hundred abandoned journaling apps.
+
+---
+
+### The Monthly Template (`t_monthly.md`)
+
+The monthly template is more structured and uses **Markwhen** — a lightweight timeline syntax — plus a Templater script that converts your timeline into individual task entries.
+
+```markdown
+---
+month_of: 2026-06
+timezone: America/Vancouver
+---
+
+# 📅 Month 2026-06
+
+### Monthly plan (author with Markwhen)
+```markwhen
+title: Month 2026-06
+
+every day at 07:00: Meditation 20m #habit
+every day at 21:30: Prep tomorrow 10m #habit
+
+2026-06-01: Set monthly focus #planning
+2026-06-10 10:00: Mentor sync #work
+2026-06-12 to 2026-06-16: Sprint — SKUEL.app chat alignment #work
+```
+
+The Markwhen block is a human-readable calendar. Write your month's events and recurring commitments there. The Templater script (already wired into the template) converts those lines into generated tasks in the section below it.
+
+The monthly template also includes a **Tasks plugin** query block that shows your upcoming p1 tasks for the next 30–45 days — a useful overview before starting the week.
+
+**When to use it:** Open your monthly note at the start of each month, sketch the big rocks in Markwhen, and let the script generate the task list. Then work from your daily notes day-to-day.
+
+---
+
+### The Quarterly Template (`t_quarterly.md`)
+
+The quarterly template is intentionally minimal — a placeholder for higher-altitude thinking. Use it to write free prose about the quarter: themes, intentions, what you want to let go of. It doesn't participate in the `extract_activities` pipeline, so there's no special syntax to worry about.
+
+---
+
+## Part 3 — Writing Activities in Your Notes
+
+### The @context() syntax
+
+Any checkbox line in a note can become a SKUEL activity item. The key is the `@context()` tag:
+
+```
+- [ ] Call my accountant @context(task)
+- [ ] Morning meditation @context(habit) @repeat(daily)
+- [ ] Launch the new course @context(goal)
+```
+
+That's all that's required. SKUEL reads the `@context()` type and creates the right kind of item in your graph.
+
+The six activity types map to how you already think about life:
+
+| `@context()` | What it represents | Example |
+|-------------|-------------------|---------|
+| `task` | A one-off action you'll complete once | `- [ ] Schedule dentist appointment @context(task)` |
+| `habit` | A repeated behavior you want to track | `- [ ] Morning pages @context(habit) @repeat(daily)` |
+| `goal` | An outcome you're working toward | `- [ ] Reach 50 newsletter subscribers @context(goal)` |
+| `event` | A scheduled occurrence | `- [ ] Workshop at Riverside School @context(event) @when(2026-07-15T14:00)` |
+| `choice` | A decision worth recording | `- [ ] Choose to publish instead of polish @context(choice)` |
+| `principle` | A value or rule that guides you | `- [ ] Small steps beat big bursts @context(principle)` |
+
+### Optional tags
+
+Add these to any line to give SKUEL more to work with:
+
+| Tag | Meaning | Example |
+|-----|---------|---------|
+| `@when(YYYY-MM-DDThh:mm)` | Scheduled time | `@when(2026-07-01T09:00)` |
+| `@repeat(daily)` | Recurrence | `@repeat(weekly:Mon,Wed,Fri)` |
+| `@priority(N)` | Priority 1–4 | `@priority(1)` |
+| `@duration(Xm)` | How long it takes | `@duration(45m)` |
+| `@energy(type)` | Energy type needed | `@energy(focus)` or `@energy(creative,social)` |
+
+A fully annotated task line looks like this:
+
+```
+- [ ] Write the chapter on habits
+      @context(task)
+      @when(2026-07-02T09:00)
+      @priority(1)
+      @duration(90m)
+      @energy(focus,creative)
+```
+
+You don't need all of these. Even `@context(task)` alone is enough for SKUEL to track it.
+
+### A real daily note, filled in
+
+```markdown
+---
+type: user_entry
+pipeline: extract_activities
+title: 2026-06-24
+date: 2026-06-24
+tags: [daily]
+metadata:
+  entry_kind: daily
+---
+
+# 📅 2026-06-24
+
+## Focus
+
+Ship the article draft and prep for Thursday's call.
+
+## Tasks
+
+- [ ] Finish and send article draft @context(task) @priority(1) @energy(focus) @duration(2h)
+- [ ] Morning meditation @context(habit) @repeat(daily) @duration(20m) @energy(rest,spiritual)
+- [ ] Prep notes for Thursday call @context(task) @priority(2) @duration(30m)
+- [ ] Review weekly goals @context(habit,reflection) @repeat(weekly:Tue) @duration(10m)
+
+## Notes
+
+Had a good conversation with Sara about the course structure. She pointed out that
+the onboarding section is too long — cut it by half.
+
+## End of Day
+
+- Finished the draft. Call prep not done — push to tomorrow.
+- One adjustment: schedule focused writing blocks earlier in the day.
+```
+
+When you sync this note, SKUEL creates:
+- Two Task items (article draft, call prep)
+- Two Habit items (morning meditation, weekly review)
+- A UserEntry for the whole note (including the prose notes and retrospective)
+
+---
+
+## Part 4 — Standalone Activity YAML Files
+
+For activities that aren't part of a daily note — a goal you're setting for the quarter, a principle you want to live by, a habit you want to start tracking from today — you can write a standalone YAML file and upload it.
+
+### Uploading at /upload
+
+Go to **[/upload](/upload)**, drag in a `.yaml` file, and SKUEL creates the activity item in your graph.
+
+### Quick examples for each type
+
+**Task**
+```yaml
+type: Task
+uid: task:write-chapter-3
+title: Write Chapter 3 — Habits
+status: active
+priority: high
+```
+
+**Goal**
+```yaml
+type: Goal
+uid: goal:finish-book-draft
+title: Finish the book draft by August
+goal_type: project
+timeframe: quarterly
+status: active
+```
+
+**Habit**
+```yaml
+type: Habit
+uid: habit:morning-meditation
+title: Morning Meditation (20 min)
+polarity: build
+category: mindfulness
+difficulty: easy
+recurrence_pattern: daily
+status: active
+```
+
+**Event**
+```yaml
+type: Event
+uid: event:riverside-workshop-2026-07-15
+title: Workshop at Riverside School
+status: scheduled
+```
+
+**Choice**
+```yaml
+type: Choice
+uid: choice:publish-over-perfect
+title: Publish now rather than wait for perfect
+choice_type: binary
+status: active
+```
+
+**Principle**
+```yaml
+type: Principle
+uid: principle:small-steps
+title: Small Steps Beat Big Bursts
+category: personal
+strength: core
+status: active
+```
+
+### Connecting activities to knowledge
+
+Once you have learning content in SKUEL (PathSteps and Knowledge Units), you can link your activities to it. This is how SKUEL measures how much you're *living* the knowledge, not just reading about it:
+
+```yaml
+type: Habit
+uid: habit:morning-meditation
+title: Morning Meditation (20 min)
+polarity: build
+category: mindfulness
+status: active
+connections:
+  reinforces_knowledge:
+    - ps:mindfulness:breath-awareness-basics
+```
+
+Each connection type carries a different weight. Habits that reinforce knowledge (you practice something every day) score highest; tasks and events that apply knowledge score slightly lower. The substance score on a knowledge item climbs as you actually live it.
+
+See the [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) for a full reference of connection types, status values, and every enum-governed field.
+
+---
+
+## Part 5 — The VaultBridge: Keeping Obsidian and SKUEL in Sync
+
+### What the VaultBridge does
+
+The VaultBridge creates a live connection between your Obsidian vault and SKUEL. It works in both directions:
+
+- **Obsidian → SKUEL:** Your periodic notes are read, journal entries are created, and activity lines with `@context()` tags are extracted into your graph.
+- **SKUEL → Obsidian:** Tasks that already exist in SKUEL (created via the app, via YAML upload, or extracted from a previous note) are written into your daily notes with a permanent ID. When you mark them complete in Obsidian, that completion propagates back to SKUEL on the next sync.
+
+### Task IDs: the link between the two worlds
+
+When SKUEL writes a task back into your Obsidian vault, it appends a short ID to the task line:
+
+```
+- [ ] Write Chapter 3 — Habits 🆔 sk_a7c2f1
+```
+
+The `🆔 sk_XXXXXX` token is the permanent join key. It's compatible with the **obsidian-tasks plugin**. SKUEL is responsible for minting these IDs — you don't need to type them yourself. Once the ID is there, SKUEL can always match that line to the right task, even if you edit the title or move the note.
+
+### Completing a task in Obsidian
+
+When you check off a task in Obsidian, mark it with the obsidian-tasks done syntax:
+
+```
+- [x] Write Chapter 3 — Habits ✅ 2026-06-24 🆔 sk_a7c2f1
+```
+
+The `✅ YYYY-MM-DD` token is the date you completed it. The obsidian-tasks plugin can insert this automatically when you check the box. The next time you sync, SKUEL reads this token and marks the task as completed in your graph — including logging the completion timestamp.
+
+### Running a sync at /settings/vault
+
+Go to **[/settings/vault](/settings/vault)** and click **Sync from Obsidian**.
+
+SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, and writes any new task IDs back into the vault files.
+
+**First-run consent:** The first time you sync, SKUEL will ask for your permission before it writes anything back into your vault files. This is a one-time gate. Once you click "Allow and sync", subsequent syncs happen silently. You can see the consent prompt text on the sync page — it explains exactly what will be written and in what format.
+
+### Field authority: who owns what
+
+The VaultBridge follows a clear rule about which side is the source of truth for each field:
+
+| Field | Who controls it |
+|-------|----------------|
+| Task title and description | Obsidian (you edit in your notes) |
+| Checkbox status (done/not done) | Both — whichever is more recent wins |
+| Due dates, priority, tags | Obsidian |
+| `🆔` ID | SKUEL (minted and written once) |
+| History, relationships, ZPD scores | SKUEL only |
+
+If you mark something done in both places before syncing, SKUEL uses the later completion date.
+
+---
+
+## Part 6 — Your Daily Workflow: A Full Example
+
+Here is what a complete day looks like using all three parts together.
+
+---
+
+### Morning
+
+**8:00 am — Voice memo on your walk**
+
+You're thinking out loud. Record two minutes on your phone about what you want to get done today and why one of those things feels difficult.
+
+When you're back at your desk: go to **[/journals/submit](/journals/submit)**, upload the audio file, and let SKUEL transcribe it. You don't need to do anything with it right now — it's in the system. Come back later in the day (or the next morning) to read the transcription and optionally request an AI response.
+
+---
+
+**8:15 am — Open today's daily note in Obsidian**
+
+The Periodic Notes plugin creates a fresh copy of `t_daily.md` with today's date. Write your focus line first — one sentence. Then move to the Tasks section and write your day:
+
+```markdown
+## Focus
+
+Get the outline finished so the writing block tomorrow is unblocked.
+
+## Tasks
+
+- [ ] Write outline for Part 2 @context(task) @priority(1) @energy(focus) @duration(90m)
+- [ ] Morning meditation @context(habit) @repeat(daily) @duration(20m)
+- [ ] Reply to the three backlogged emails @context(task) @energy(light) @duration(20m)
+- [ ] Weekly planning review @context(habit,reflection) @repeat(weekly:Tue) @duration(15m)
+```
+
+You don't need to open SKUEL at all during this step. Author in Obsidian, where you're comfortable.
+
+---
+
+### During the day
+
+**Work from your Obsidian note.** Check off tasks as you complete them:
+
+```
+- [x] Write outline for Part 2 ✅ 2026-06-24
+```
+
+If you're using the obsidian-tasks plugin, it inserts the `✅ date` token automatically when you check the box.
+
+---
+
+### Evening
+
+**6:00 pm — Sync**
+
+Go to **[/settings/vault](/settings/vault)** and click **Sync from Obsidian**.
+
+SKUEL reads today's daily note:
+- Creates a journal entry for the whole note (Focus + Notes + End of Day prose)
+- Extracts the Task and Habit lines into your activity graph
+- Writes `🆔 sk_XXXXXX` IDs into any new task lines in your vault files
+- Reads the `✅` completion markers and marks those tasks complete in SKUEL
+
+The sync usually takes a few seconds.
+
+---
+
+**6:05 pm — Fill in the End of Day section**
+
+Back in Obsidian:
+
+```markdown
+## End of Day
+
+- Got the outline done — it's solid. Emails done too.
+- One adjustment: the weekly review kept getting pushed. Block 30 min on the calendar.
+```
+
+This retrospective is stored in your journal entry. Over months, patterns become visible.
+
+---
+
+**Optional: check your journal entries**
+
+Go to **[/journals/browse](/journals/browse)** to see today's transcription from the morning voice memo. If you want a reflective response, click **Get AI response**. The response might surface a connection between what you said this morning and a habit you've been building, or ask a clarifying question you hadn't thought to ask yourself.
+
+---
+
+### Occasionally: write a YAML file
+
+When you're setting a new goal for the quarter, or want to define a principle that's been crystallizing, write a standalone YAML file in your vault and upload it at **[/upload](/upload)**. This doesn't have to happen every day — it's the tool for the more deliberate, structured layer of your life.
+
+---
+
+## Quick Reference
+
+| What you want to do | Where to go |
+|--------------------|------------|
+| Upload a voice memo or text journal | [/journals/submit](/journals/submit) |
+| Browse journal entries and get AI responses | [/journals/browse](/journals/browse) |
+| Upload activity YAML files (tasks, goals, habits…) | [/upload](/upload) |
+| Sync Obsidian vault with SKUEL | [/settings/vault](/settings/vault) |
+| Submit a completed exercise worksheet | [/submit](/submit) |
+
+| Template | Cadence | Primary purpose |
+|----------|---------|----------------|
+| `t_daily.md` | Daily | Task capture, focus, retrospective |
+| `t_weekly.md` | Weekly | Weekly intentions, goals, review |
+| `t_monthly.md` | Monthly | Big-picture planning with Markwhen timeline |
+| `t_quarterly.md` | Quarterly | High-altitude reflection (free prose) |
+
+| @context() type | Use for |
+|----------------|---------|
+| `task` | One-off completable actions |
+| `habit` | Recurring behaviors to track |
+| `goal` | Outcomes you're working toward |
+| `event` | Calendar items with a specific time |
+| `choice` | Decisions you're recording |
+| `principle` | Values or rules you live by |
+
+---
+
+## Related Documentation
+
+- [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) — full field reference for YAML activity files, connections system, and curriculum content
+- [Activity DSL Usage Guide](/docs/dsl/DSL_USAGE_GUIDE.md) — complete `@context()` syntax with advanced examples
+- [ADR-070 — VaultBridge Architecture](/docs/decisions/ADR-070-bidirectional-vault-bridge.md) — how the sync works under the hood
+- [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — how files are processed on the way into SKUEL
