@@ -551,6 +551,7 @@ class BackgroundProcessingEngine:
     def _cpu_intensive_task(self, task: BackgroundTask) -> dict[str, Any]:
         """Execute CPU-intensive task."""
         start_time = time.time()
+        result: dict[str, Any]
 
         if task.task_type == "knowledge_analysis":
             result = self._analyze_knowledge_patterns(task.payload)
@@ -569,6 +570,7 @@ class BackgroundProcessingEngine:
     def _io_intensive_task(self, task: BackgroundTask) -> dict[str, Any]:
         """Execute I/O-intensive task."""
         start_time = time.time()
+        result: dict[str, Any]
 
         if task.task_type == "data_sync":
             result = self._sync_external_data(task.payload)
