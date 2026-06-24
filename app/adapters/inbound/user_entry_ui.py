@@ -540,6 +540,14 @@ def create_user_entry_ui_routes(
             if not uploaded_files:
                 return render_journal_upload_status("error", "No file provided", is_error=True)
 
+            max_journal_files = 20
+            if len(uploaded_files) > max_journal_files:
+                return render_journal_upload_status(
+                    "error",
+                    f"Too many files: {len(uploaded_files)} (max {max_journal_files})",
+                    is_error=True,
+                )
+
             if len(uploaded_files) == 1:
                 uploaded_file = uploaded_files[0]
                 file_content = await uploaded_file.read()
