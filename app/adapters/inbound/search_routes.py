@@ -331,12 +331,12 @@ def create_search_api_routes(
                 "top_results": [...]
             }
         """
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         if not q.strip():
             return Result.fail(Errors.validation(message="q is required", field="q", value=None))
 
-        result = await search_router.intelligent_search(q, limit=limit)
+        result = await search_router.intelligent_search(q, user_uid=user_uid, limit=limit)
 
         if result.is_error:
             logger.error(f"Intelligent search failed: {result.error}")

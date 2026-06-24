@@ -66,9 +66,9 @@ Changes:
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar
 
-from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
 from core.models.type_hints import UserUID
 from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
@@ -543,6 +543,17 @@ class SearchRouter:
         "submissions": "submissions_search",
     }
 
+    # User-owned Activity EntityTypes → Domain enum for faceted_search routing.
+    # Curriculum and other shared domains are absent — no ownership filter needed there.
+    _ENTITY_TO_DOMAIN: ClassVar[dict[EntityType | NonKuDomain, Domain]] = {
+        EntityType.TASK: Domain.TASKS,
+        EntityType.GOAL: Domain.GOALS,
+        EntityType.HABIT: Domain.HABITS,
+        EntityType.EVENT: Domain.EVENTS,
+        EntityType.CHOICE: Domain.CHOICES,
+        EntityType.PRINCIPLE: Domain.PRINCIPLES,
+    }
+
     async def _graph_aware_domain_search(
         self,
         request: "SearchRequest",
@@ -701,52 +712,89 @@ class SearchRouter:
     async def intelligent_search(
         self,
         query: str,
+        user_uid: UserUID | None = None,
         user_context: "UserContext | None" = None,
         limit: int = 50,
     ) -> Result[UnifiedSearchResult]:
         """
         Intelligent cross-domain search with semantic filter extraction.
 
-        Uses SearchQueryParser to extract semantic filters (priority, status, domain)
-        from natural language queries, then routes to appropriate domains.
+        Parses the natural language query for semantic signals (priority, status,
+        domain), then routes each target domain through faceted_search so that
+        user-owned Activity domains apply the ownership filter in the database
+        query rather than post-hoc.  Curriculum/shared domains (KU, PS, LP) fall
+        back to the bare text-search path — they have no ownership filter.
 
         Args:
             query: Natural language search query
-            user_context: Optional user context for personalization
+            user_uid: Caller's user UID for ownership-scoped Activity domain queries
+            user_context: Optional rich user context for personalized scoring
             limit: Maximum total results
 
         Returns:
             Result containing UnifiedSearchResult with parsed query info
         """
         from core.models.search.query_parser import SearchQueryParser
+        from core.models.search_request import SearchRequest
 
         try:
-            # Parse query for semantic filters
             parser = SearchQueryParser()
             parsed = parser.parse(query)
-
-            # Determine which domains to search
             target_domains = self._determine_target_domains(parsed)
-
-            # Perform searches
             limit_per_domain = max(10, limit // len(target_domains)) if target_domains else limit
+
+            # user_uid can come from either the direct arg or the richer user_context
+            effective_uid = user_uid or (user_context.user_uid if user_context else None)
+
             results_by_domain: dict[EntityType | NonKuDomain, list[SearchResultItem]] = {}
             total_count = 0
 
             for entity_type in target_domains:
-                result = await self.search(entity_type, parsed.text_query, limit_per_domain)
-                if result.is_ok and result.value:
-                    items = self._wrap_results(result.value, entity_type)
+                mapped_domain = self._ENTITY_TO_DOMAIN.get(entity_type)
+                items: list[SearchResultItem]
 
-                    # Apply semantic filters
+                if mapped_domain is not None:
+                    # User-owned Activity domain: route through faceted_search so the
+                    # ownership WHERE clause is enforced at the database level.
+                    request = SearchRequest(
+                        query_text=parsed.text_query or None,
+                        domain=mapped_domain,
+                        priority=parsed.get_highest_priority(),
+                        status=parsed.statuses[0] if parsed.statuses else None,
+                        limit=limit_per_domain,
+                    )
+                    facet_result = await self.faceted_search(request, effective_uid)
+                    if facet_result.is_error:
+                        self.logger.warning(
+                            f"intelligent_search faceted_search failed for "
+                            f"{entity_type.value}: {facet_result.error}"
+                        )
+                        continue
+                    items = [
+                        SearchResultItem(
+                            entity=d,
+                            entity_type=entity_type,
+                            uid=str(d.get("uid", "")),
+                            title=str(d.get("title", "")),
+                        )
+                        for d in facet_result.value.results
+                        if d.get("uid") and d.get("title")
+                    ]
+                else:
+                    # Shared/curriculum domain: bare text search (no ownership needed).
+                    bare_result = await self.search(
+                        entity_type, parsed.text_query or "", limit_per_domain
+                    )
+                    if not (bare_result.is_ok and bare_result.value):
+                        continue
+                    items = self._wrap_results(bare_result.value, entity_type)
                     items = self._apply_semantic_filters(items, parsed)
 
-                    # Score with unified framework if user_context available
-                    if user_context:
-                        items = await self._score_results(items, user_context)
+                if user_context:
+                    items = await self._score_results(items, user_context)
 
-                    results_by_domain[entity_type] = items
-                    total_count += len(items)
+                results_by_domain[entity_type] = items
+                total_count += len(items)
 
             return Result.ok(
                 UnifiedSearchResult(
