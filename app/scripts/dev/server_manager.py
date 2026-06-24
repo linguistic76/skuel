@@ -39,7 +39,7 @@ def get_server_pid() -> int | None:
         return None
 
     result = subprocess.run(
-        ["lsof", "-t", f"-i:{SERVER_PORT}"],
+        ["lsof", "-t", f"-iTCP:{SERVER_PORT}", "-sTCP:LISTEN"],
         capture_output=True,
         text=True,
         check=False,
@@ -116,14 +116,18 @@ def start_server() -> bool:
         return False
 
     print("🚀 Starting SKUEL server...")
-    subprocess.Popen(
-        ["uv", "run", "python", "main.py"],
-        cwd=APP_DIR,
-        env=_pythonpath_env(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
+    try:
+        subprocess.Popen(
+            ["uv", "run", "python", "main.py"],
+            cwd=APP_DIR,
+            env=_pythonpath_env(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        print(f"❌ Failed to launch server: {exc}")
+        return False
 
     time.sleep(STARTUP_WAIT_SECONDS)
     server_pid = get_server_pid()
