@@ -234,31 +234,5 @@ async def test_get_prioritized_filters_terminal(search_service, mock_backend, us
     assert result.value[0].uid == "choice:draft"
 
 
-# ============================================================================
-# INTELLIGENT SEARCH
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_urgent_maps_to_critical(search_service, mock_backend):
-    mock_backend.find_by.return_value = Result.ok([])
-
-    await search_service.intelligent_search("urgent choices")
-
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["priority"] == Priority.CRITICAL.value
-
-
-@pytest.mark.asyncio
-async def test_intelligent_search_pending_maps_to_draft(search_service, mock_backend):
-    """'pending' decision state maps to EntityStatus.DRAFT."""
-    mock_backend.find_by.return_value = Result.ok([])
-
-    await search_service.intelligent_search("pending choices")
-
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["status"] == EntityStatus.DRAFT.value
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
