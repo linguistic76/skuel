@@ -4,9 +4,8 @@ Extended Relationship Configuration - Full Domain-Specific Specifications
 
 Extends RelationshipConfig with complete specifications for:
 1. Query specs for relationship fetching (TaskRelationships pattern)
-2. Link method signatures with typed parameters
-3. Cross-domain context type mappings
-4. UserContext planning method specs
+2. Cross-domain context type mappings
+3. UserContext planning method specs
 """
 
 from dataclasses import dataclass, field
@@ -30,23 +29,6 @@ class QuerySpec:
     method_suffix: str  # e.g., "subtasks" → get_task_subtasks
     relationship: RelationshipName  # e.g., HAS_CHILD
     direction: str = "outgoing"
-
-
-@dataclass(frozen=True)
-class LinkMethodSpec:
-    """
-    Specification for a typed link method.
-
-    Defines the signature and parameters for domain-specific link methods
-    like link_task_to_knowledge(task_uid, ku_uid, knowledge_score_required=0.8).
-    """
-
-    method_name: str  # e.g., "link_task_to_knowledge"
-    target_domain: Domain  # e.g., Domain.KNOWLEDGE
-    relationship: RelationshipName  # e.g., APPLIES_KNOWLEDGE
-    # Parameter specifications: (name, type, default_value or None)
-    parameters: list[tuple[str, type, Any | None]] = field(default_factory=list)
-    docstring: str | None = None
 
 
 @dataclass(frozen=True)
@@ -101,7 +83,6 @@ class ExtendedRelationshipConfig(DomainRelationshipConfig):
 
     Adds to base RelationshipConfig:
     - query_specs: For domain relationships container fetching
-    - link_method_specs: For typed link method generation
     - path_aware_spec: For path-aware entity type
     - cross_context_spec: For cross-domain context type
     - planning_method_specs: For UserContext-aware methods
@@ -109,9 +90,6 @@ class ExtendedRelationshipConfig(DomainRelationshipConfig):
 
     # Query specs for domain relationships container (TaskRelationships pattern)
     query_specs: list[QuerySpec] = field(default_factory=list)
-
-    # Link method specifications with typed parameters
-    link_method_specs: list[LinkMethodSpec] = field(default_factory=list)
 
     # Path-aware type specification
     path_aware_spec: PathAwareTypeSpec | None = None
@@ -121,18 +99,3 @@ class ExtendedRelationshipConfig(DomainRelationshipConfig):
 
     # UserContext planning method specifications
     planning_method_specs: list[PlanningMethodSpec] = field(default_factory=list)
-
-    def get_link_method_by_target(self, target_domain: Domain) -> LinkMethodSpec | None:
-        """
-        Get link method spec for a target domain.
-
-        Args:
-            target_domain: The domain to link to
-
-        Returns:
-            LinkMethodSpec or None if not found
-        """
-        for spec in self.link_method_specs:
-            if spec.target_domain == target_domain:
-                return spec
-        return None

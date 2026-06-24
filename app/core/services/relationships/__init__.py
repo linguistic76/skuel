@@ -32,7 +32,6 @@ await tasks_relationship_service.get_cross_domain_context(task_uid)
 from core.services.relationships.extended_config import (
     CrossContextSpec,
     ExtendedRelationshipConfig,
-    LinkMethodSpec,
     PathAwareTypeSpec,
     PlanningMethodSpec,
     QuerySpec,
@@ -57,7 +56,6 @@ __all__ = [
     "DomainRelationships",
     # Extended configuration
     "ExtendedRelationshipConfig",
-    "LinkMethodSpec",
     "PATH_AWARE_TYPE_MAP",
     "PathAwareTypeSpec",
     "PlanningMethodSpec",
