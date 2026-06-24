@@ -99,7 +99,7 @@ class TestPrincipleCascadeReadsRoundTrip:
         event = PrincipleStrengthChanged(
             principle_uid=principle.uid,
             user_uid="user_cascade",
-            old_strength="aspirational",
+            old_strength="exploring",
             new_strength="core",  # elevation, so the cascade-impact branch logs
         )
         handler = PrincipleEventHandlerService(

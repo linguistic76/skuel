@@ -40,6 +40,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_engagement_backend import PsEngagementBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
@@ -254,6 +255,7 @@ async def _seed_full_bundle(
         task = TaskTemplate(
             uid=uids["task"],
             title="Practice problem",
+            status=EntityStatus.ACTIVE,
             due_offset=RelativeOffset(days=7),
             fulfills_goal_template_uid=uids["goal"],
             reinforces_habit_template_uid=uids["habit"],
@@ -261,6 +263,7 @@ async def _seed_full_bundle(
         goal = GoalTemplate(
             uid=uids["goal"],
             title="Master the topic",
+            status=EntityStatus.ACTIVE,
             target_offset=RelativeOffset(days=30),
             inspired_by_choice_template_uid=uids["choice"],
         )
@@ -268,24 +271,29 @@ async def _seed_full_bundle(
         task = TaskTemplate(
             uid=uids["task"],
             title="Practice problem",
+            status=EntityStatus.ACTIVE,
             due_offset=RelativeOffset(days=7),
         )
         goal = GoalTemplate(
             uid=uids["goal"],
             title="Master the topic",
+            status=EntityStatus.ACTIVE,
             target_offset=RelativeOffset(days=30),
         )
 
-    habit = HabitTemplate(uid=uids["habit"], title="Daily review")
+    habit = HabitTemplate(uid=uids["habit"], title="Daily review", status=EntityStatus.ACTIVE)
     event = EventTemplate(
         uid=uids["event"],
         title="Cohort kickoff",
+        status=EntityStatus.ACTIVE,
         event_offset=RelativeOffset(days=1),
         # When cross_refs, the event reinforces the habit (→ REINFORCES_HABIT edge).
         reinforces_habit_template_uid=uids["habit"] if cross_refs else None,
     )
-    choice = ChoiceTemplate(uid=uids["choice"], title="Track selection")
-    principle = PrincipleTemplate(uid=uids["principle"], title="Practice over theory")
+    choice = ChoiceTemplate(uid=uids["choice"], title="Track selection", status=EntityStatus.ACTIVE)
+    principle = PrincipleTemplate(
+        uid=uids["principle"], title="Practice over theory", status=EntityStatus.ACTIVE
+    )
 
     assert (await template_backends["task"].create(task)).is_ok
     assert (await template_backends["goal"].create(goal)).is_ok
@@ -372,6 +380,7 @@ class TestPublishPathStep:
         bad_task = TaskTemplate(
             uid="ttpl_bad",
             title="Task with broken ref",
+            status=EntityStatus.ACTIVE,
             fulfills_goal_template_uid="gtpl_does_not_exist",
         )
         await template_backends["task"].create(bad_task)

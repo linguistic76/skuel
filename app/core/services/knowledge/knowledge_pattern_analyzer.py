@@ -15,10 +15,13 @@ from any specific domain.
 
 Usage::
 
+    async def _fetch_goal_rels(uid: str) -> GoalRelationships:
+        return await GoalRelationships.fetch(uid, self.relationships)
+
+
     analyzer = KnowledgePatternAnalyzer()
     result = await analyzer.analyze_learning_patterns(
-        goals,
-        fetch_rels=lambda uid: GoalRelationships.fetch(uid, self.relationships),
+        goals, fetch_rels=_fetch_goal_rels
     )
 """
 

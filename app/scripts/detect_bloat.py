@@ -572,11 +572,9 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
-    # --- Choices: gravity links ---
-    "core/services/choices/_relationship_mixin.py::link_choice_to_habit": _CHOICES_GRAVITY,
-    "core/services/choices/_relationship_mixin.py::create_semantic_choice_relationship": (
-        _CHOICES_GRAVITY
-    ),
+    # --- Choices: gravity links (inlined from _relationship_mixin into facade) ---
+    "core/services/choices_service.py::link_choice_to_habit": _CHOICES_GRAVITY,
+    "core/services/choices_service.py::create_semantic_choice_relationship": _CHOICES_GRAVITY,
     # --- Choices: fast-path decision screening ---
     "core/services/choices/_analytics_mixin.py::get_quick_decision_metrics": (
         _CHOICES_QUICK_METRICS
@@ -586,12 +584,10 @@ PLANNED_METHODS: dict[str, str] = {
     ),
     # --- Choices: outcome evaluation write path ---
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
-    # --- Goals: gravity links ---
-    "core/services/goals/_relationship_mixin.py::create_user_goal_relationship": _GOALS_GRAVITY,
-    "core/services/goals/_relationship_mixin.py::create_semantic_goal_relationship": (
-        _GOALS_GRAVITY
-    ),
-    "core/services/goals/_relationship_mixin.py::unlink_goal_from_habit": _GOALS_GRAVITY,
+    # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
+    "core/services/goals_service.py::create_user_goal_relationship": _GOALS_GRAVITY,
+    "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
+    "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,
     # --- Goals: analytics/AI insight surface ---
     "core/services/goals/_orchestration_mixin.py::assess_goal_feasibility": _GOALS_INSIGHTS,
     "core/services/goals/_predictive_mixin.py::run_scenario_analysis": _GOALS_INSIGHTS,
@@ -611,11 +607,9 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/tasks/_orchestration_mixin.py::trigger_manual_knowledge_generation": (
         _TASKS_KU_ORCHESTRATION
     ),
-    # --- Tasks: dependency write path + gravity links ---
-    "core/services/tasks/_relationship_mixin.py::create_task_dependency": (_TASKS_DEPENDENCY_WRITE),
-    "core/services/tasks/_relationship_mixin.py::create_semantic_knowledge_relationship": (
-        _TASKS_GRAVITY
-    ),
+    # --- Tasks: dependency write path + gravity links (inlined into facade) ---
+    "core/services/tasks_service.py::create_task_dependency": _TASKS_DEPENDENCY_WRITE,
+    "core/services/tasks_service.py::create_semantic_knowledge_relationship": _TASKS_GRAVITY,
     # --- PS: semantic write-path symmetry + inference lens ---
     "core/services/ps/ps_semantic_service.py::remove_semantic_relationship": (_PS_SEMANTIC_DELETE),
     "core/services/ps/ps_semantic_service.py::infer_relationships": _PS_SEMANTIC_INFER,
