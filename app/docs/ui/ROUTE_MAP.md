@@ -38,10 +38,11 @@ Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) dr
 - `GET /explore` — reading surface shell
 - `GET /explore/content` — reading plan HTMX fragment
 - `GET /explore/read/{uid}` — KU reader alias (302 → `/explore/ku/{uid}`)
+- `GET /explore/graph` — dedicated full-page learning graph (`calc(100vh - 220px)` tall; same `exploreGraph` Alpine component, hub mode)
 - `GET /explore/library` — demoted full catalog (bento card grid, graph sidebar, same as old `/explore`)
 - `GET /explore/library/content` — library HTMX fragment
 - `GET /api/explore/search` — filtered card grid (serves `/explore/library`)
-- `GET /api/explore/graph` — Vis.js hub graph JSON (serves `/explore/library` sidebar)
+- `GET /api/explore/graph` — Vis.js hub graph JSON (serves both `/explore/graph` and `/explore/library` sidebar)
 
 **PathStep detail (`/explore/ps/{uid}`)** is the **learning loop anchor** — authenticated users see four HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback, Embedded Forms) via `/learning-loop/ps/{ps_uid}/*` fragment endpoints wired in `learning_loop_routes.py` (`create_learning_loop_fragment_routes`); renderers in `ui/learning_loop/`. The Forms section renders only when a `FormTemplate` is linked to the PathStep via `EMBEDS_FORM`; submitting swaps the card inline to a confirmation view.
 
