@@ -104,18 +104,6 @@ PLANNED_EVENTS: dict[str, str] = {
         "_event_wiring — fire when a Ku or PS is created/ingested and downstream "
         "knowledge-tracking consumers need it, or delete the chain"
     ),
-    "PrerequisitesAnalyzed": (
-        "publish-side never built — fire from PrerequisiteChecker after an "
-        "analysis run to cache results downstream, or delete"
-    ),
-    "UserContextInvalidated": (
-        "publish-side never built — fire when user state changes invalidating "
-        "the cached UserContext (role change, entity delete), or delete"
-    ),
-    "UserPreferencesChanged": (
-        "publish-side never built — fire when user preferences are updated to "
-        "propagate to intelligence services, or delete"
-    ),
 }
 # Habits dead-code campaign (2026-06): staged habit capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
@@ -362,14 +350,6 @@ _RELATIONSHIPS_EXISTS = (
     "a cheap exists check beats loading UIDs, or fold into the domain relationship "
     "containers (Mike ruled PLANNED 2026-06-13)"
 )
-_RELATIONSHIPS_LINK_GEN = (
-    "config-driven typed-link-method generation staged — ExtendedRelationshipConfig "
-    "link-spec lookup by target domain; link_method_specs is never populated and "
-    "link methods are currently hand-written (link_task_to_knowledge), so this "
-    "awaits the config-driven link-method apparatus being adopted (see the "
-    "extended_config/DomainRelationships unadopted-apparatus forward thread) "
-    "(Mike ruled PLANNED 2026-06-13)"
-)
 # Askesis dead-code campaign (2026-06-13): Askesis is a LIVE subsystem (the
 # answer_user_question conversation pipeline is wired to /api/askesis/ask and
 # /askesis/api/submit), but its instance-persistence/management layer and several
@@ -383,13 +363,6 @@ _ASKESIS_INSTANCE_MANAGEMENT = (
     "No superseded loser — these back the placeholder /askesis/settings form (no persist), "
     "/askesis/history, and /askesis/analytics ('coming soon') UIs. Wire settings "
     "persistence + conversation-history/analytics consumers (Mike ruled PLANNED 2026-06-13)"
-)
-_ASKESIS_AI_INSIGHTS = (
-    "askesis behavioral-insight surface staged — AskesisAIService.get_behavioral_insights "
-    "returns placeholder discipline/willpower analysis with no live caller (sibling of the "
-    "task/goal/habit get_behavioral_insights surfaces, all PLANNED); wire real "
-    "discipline-pattern analysis + an insights panel or Askesis consumer "
-    "(Mike ruled PLANNED 2026-06-13)"
 )
 _ASKESIS_CITATION_QUALITY = (
     "askesis citation-quality lens staged — the live citation path is "
@@ -676,10 +649,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/relationships/unified_relationship_service.py::has_relationship": (
         _RELATIONSHIPS_EXISTS
     ),
-    # --- Relationships: config-driven typed-link-method generation ---
-    "core/services/relationships/extended_config.py::get_link_method_by_target": (
-        _RELATIONSHIPS_LINK_GEN
-    ),
     # --- Askesis: instance persistence/management surface ---
     "core/services/askesis/askesis_core_service.py::create_askesis": (_ASKESIS_INSTANCE_MANAGEMENT),
     "core/services/askesis/askesis_core_service.py::update_askesis": (_ASKESIS_INSTANCE_MANAGEMENT),
@@ -690,8 +659,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/askesis/askesis_core_service.py::record_conversation": (
         _ASKESIS_INSTANCE_MANAGEMENT
     ),
-    # --- Askesis: behavioral-insight surface ---
-    "core/services/askesis_ai_service.py::get_behavioral_insights": _ASKESIS_AI_INSIGHTS,
     # --- Askesis: citation-quality lenses ---
     "core/services/askesis_citation_service.py::get_well_supported_citations": (
         _ASKESIS_CITATION_QUALITY

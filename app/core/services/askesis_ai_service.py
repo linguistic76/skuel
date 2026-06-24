@@ -90,49 +90,6 @@ class AskesisAIService(BaseAIService[Any, Any]):
         # Store graph for convenience
         self.graph = graph_intel
 
-    async def get_behavioral_insights(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[dict[str, Any]]:
-        """Analyze discipline patterns and willpower management."""
-        self.logger.info(f"Analyzing askesis patterns for user {user_uid}")
-
-        return Result.ok(
-            {
-                "behavior_patterns": [
-                    {
-                        "pattern": "willpower_cycles",
-                        "description": "Energy peaks in morning hours",
-                        "confidence": 0.80,
-                    },
-                    {
-                        "pattern": "resistance_patterns",
-                        "description": "Common obstacles identified",
-                        "confidence": 0.75,
-                    },
-                ],
-                "success_factors": [
-                    "Consistent practice builds discipline capacity",
-                    "Recovery periods prevent burnout",
-                    "Small wins compound into self-mastery",
-                ],
-                "recommendations": [
-                    "Schedule demanding tasks during peak willpower hours",
-                    "Build recovery rituals after intense discipline periods",
-                    "Track resistance patterns to identify triggers",
-                ],
-                "willpower_insights": {
-                    "current_capacity": "moderate",
-                    "depletion_risk": "low",
-                    "recovery_status": "good",
-                },
-                "metadata": {
-                    "generated_at": datetime.now().isoformat(),
-                    "user_uid": user_uid,
-                    "period_days": period_days,
-                },
-            }
-        )
-
     async def get_performance_analytics(
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:

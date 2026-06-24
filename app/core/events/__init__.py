@@ -54,11 +54,11 @@ Forms:
     FormTemplateCreated, FormTemplateUpdated, FormTemplateDeleted, FormSubmitted, FormSubmissionDeleted
 
 User:
-    UserContextInvalidated, UserPreferencesChanged, UserDeleted,
+    UserDeleted,
 
 Learning:
     KnowledgeMastered, LearningPathStarted, LearningPathCompleted,
-    PathStepProgressUpdated, PrerequisitesAnalyzed
+    PathStepProgressUpdated
 
 References:
 ----------
@@ -172,7 +172,6 @@ from core.events.learning_events import (
     LearningPathStarted,
     LearningRecommendationGenerated,
     PathStepProgressUpdated,
-    PrerequisitesAnalyzed,
 )
 
 # Learning loop events (ADR-054 — relocated from submission_events.py)
@@ -222,9 +221,7 @@ from core.events.user_entry_events import (
 # User events
 from core.events.user_events import (
     UserActivityRecorded,
-    UserContextInvalidated,
     UserDeleted,
-    UserPreferencesChanged,
 )
 
 # Public API
@@ -316,7 +313,6 @@ __all__ = [
     "PathStepDeleted",
     "PathStepEnrolled",
     "PathStepUpdated",
-    "PrerequisitesAnalyzed",
     "PrincipleAlignmentAssessed",
     # Principles
     "PrincipleCreated",
@@ -336,9 +332,7 @@ __all__ = [
     "TranscriptionFailed",
     "UserActivityRecorded",
     # User
-    "UserContextInvalidated",
     "UserDeleted",
-    "UserPreferencesChanged",
     # UserEntry (ADR-054)
     "UserEntryCreated",
     "UserEntryProcessingCompleted",
@@ -402,8 +396,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "habit.missed": HabitMissed,
     "habit.streak_milestone": HabitStreakMilestone,
     # User
-    "user.context_invalidated": UserContextInvalidated,
-    "user.preferences_changed": UserPreferencesChanged,
     "user.activity_recorded": UserActivityRecorded,
     "user.deleted": UserDeleted,
     # Learning
@@ -423,7 +415,6 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "learning_path.started": LearningPathStarted,
     "learning_path.completed": LearningPathCompleted,
     "learning_path.progress_updated": LearningPathProgressUpdated,
-    "prerequisites.analyzed": PrerequisitesAnalyzed,
     "learning.recommendation_generated": LearningRecommendationGenerated,
     # Path Steps (PS)
     "path_step.created": PathStepCreated,
@@ -584,8 +575,6 @@ HABIT_EVENTS = [
 ]
 
 USER_EVENTS = [
-    UserContextInvalidated,
-    UserPreferencesChanged,
     UserActivityRecorded,
     UserDeleted,
 ]
@@ -597,7 +586,6 @@ LEARNING_EVENTS = [
     LearningPathCompleted,
     LearningPathProgressUpdated,
     PathStepProgressUpdated,
-    PrerequisitesAnalyzed,
     LearningRecommendationGenerated,
 ]
 

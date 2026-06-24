@@ -9,7 +9,6 @@ Event Catalog:
 - path_step.progress_updated - PathStep progress changed (KU mastery driven)
 - learning_path.started - Learning path started
 - learning_path.completed - Learning path completed
-- prerequisites.analyzed - Prerequisites computed for KU
 
 Subscribers:
 - UserService (context invalidation)
@@ -200,37 +199,6 @@ class LearningPathProgressUpdated(BaseEvent):
     def progress_delta(self) -> float:
         """Calculate progress change."""
         return self.new_progress - self.old_progress
-
-
-# ============================================================================
-# LEARNING INTELLIGENCE EVENTS
-# ============================================================================
-
-
-@dataclass(frozen=True)
-class PrerequisitesAnalyzed(BaseEvent):
-    """
-    Published when prerequisites are computed for a KU.
-
-    This event enables decoupling LpIntelligenceService from PsService.
-
-    Subscribers:
-    - PsService (update KU prerequisite relationships)
-    - SearchService (update dependency graph)
-    """
-
-    ku_uid: str
-
-    # Analysis results
-    prerequisite_uids: list[str]
-    confidence_scores: dict[str, float] | None = None
-
-    # Analysis metadata
-    analysis_method: str = "semantic"  # "semantic", "manual", "inferred"
-
-    @property
-    def event_type(self) -> str:
-        return "prerequisites.analyzed"
 
 
 @dataclass(frozen=True)
