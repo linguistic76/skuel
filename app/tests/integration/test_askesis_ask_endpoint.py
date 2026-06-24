@@ -11,26 +11,25 @@ NOTE: These tests require:
 3. HF_API_TOKEN environment variable (for embeddings)
 """
 
-import os
-
 import pytest
 
+from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
-# Skip if OPENAI_API_KEY not set or intelligence tier is CORE
-# Askesis requires FULL tier — no degraded mode
-_has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+# Skip if OPENAI_API_KEY not available (env or keychain) or INTELLIGENCE_TIER != full.
+# Askesis requires FULL tier — no degraded mode.
+_has_openai_key = bool(get_credential("OPENAI_API_KEY"))
 _tier = IntelligenceTier.from_env()
 pytestmark = pytest.mark.skipif(
     not _has_openai_key or not _tier.ai_enabled,
-    reason="Requires OPENAI_API_KEY and INTELLIGENCE_TIER=full for Askesis tests",
+    reason="Requires OPENAI_API_KEY (env or keychain) and INTELLIGENCE_TIER=full for Askesis tests",
 )
 
 
 async def _embeddings_available(skuel_app) -> bool:
     """Check if embeddings service is available in the test environment."""
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
-    return embeddings is not None and embeddings._client is not None
+    return embeddings is not None and getattr(embeddings, "_embedding_client", None) is not None
 
 
 def test_ask_endpoint_validation(skuel_app):
@@ -50,12 +49,16 @@ def test_ask_endpoint_validation(skuel_app):
 
 
 @pytest.mark.asyncio
-async def test_ask_endpoint_success(skuel_app, populated_test_data):
-    """Test successful RAG question answering with populated data."""
+async def test_ask_endpoint_success(skuel_app, enrolled_user_with_lp):
+    """Test successful RAG question answering for user enrolled in a Learning Path.
+
+    Uses enrolled_user_with_lp so the pipeline runs past the LP enrollment gate.
+    Mode will be 'guided' (PS bundle loaded) or 'llm_generated' (bundle unavailable).
+    """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
-    user_uid = populated_test_data["user_uid"]
+    user_uid = enrolled_user_with_lp["user_uid"]
 
     result = await askesis.answer_user_question(user_uid, "What should I learn next?")
 
@@ -76,7 +79,9 @@ async def test_ask_endpoint_success(skuel_app, populated_test_data):
     assert isinstance(data["suggested_actions"], list), "Suggested actions should be a list"
     assert isinstance(data["confidence"], int | float), "Confidence should be numeric"
     assert 0.0 <= data["confidence"] <= 1.0, "Confidence should be between 0 and 1"
-    assert data["mode"] == "llm_generated", "Mode should be llm_generated"
+    assert data["mode"] in ("llm_generated", "guided"), (
+        f"Mode should be llm_generated or guided for enrolled user, got: {data['mode']}"
+    )
 
 
 @pytest.mark.asyncio
@@ -127,3 +132,59 @@ async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
     assert len(data["answer"]) > 0, "Answer should not be empty"
     assert "context_used" in data, "Response should include context_used field"
     assert isinstance(data["context_used"], dict), "Context used should be a dict"
+
+
+@pytest.mark.asyncio
+async def test_enrollment_gate_fires(skuel_app, populated_test_data):
+    """User with knowledge units but no LP enrollment gets the enrollment gate response.
+
+    populated_test_data has KUs but no LearningPath enrollment, so
+    user_context.enrolled_path_uids is empty and the pipeline short-circuits
+    before any LLM call.
+    """
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
+    askesis = skuel_app.state.services.askesis
+    user_uid = populated_test_data["user_uid"]
+
+    result = await askesis.answer_user_question(user_uid, "What should I learn?")
+
+    assert result.is_ok, f"Pipeline should not error on enrollment gate: {result.error}"
+    data = result.value
+
+    assert data["mode"] == "enrollment_gate", (
+        f"Expected enrollment_gate mode for user with no LP, got: {data['mode']}"
+    )
+    assert "Learning Path" in data["answer"], (
+        "Enrollment gate response should mention Learning Path"
+    )
+
+
+@pytest.mark.asyncio
+async def test_guided_pipeline_activates(skuel_app, enrolled_user_with_lp):
+    """Guided pipeline (ZPD + GuidanceMode) activates for enrolled user with active PathStep.
+
+    This test exercises the path that was previously unverified: when a user is enrolled
+    in an LP and has a non-mastered PathStep, Askesis should return mode='guided' and
+    populate guidance_mode with one of the four modes (SOCRATIC/DIRECT/EXPLORATORY/ENCOURAGING).
+    """
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
+    askesis = skuel_app.state.services.askesis
+    user_uid = enrolled_user_with_lp["user_uid"]
+
+    result = await askesis.answer_user_question(
+        user_uid, "Explain the concept I'm learning right now"
+    )
+
+    assert result.is_ok, f"Guided pipeline failed: {result.error}"
+    data = result.value
+
+    assert "answer" in data and len(data["answer"]) > 0, "Should return a non-empty answer"
+    assert data["mode"] == "guided", (
+        f"Expected guided mode for enrolled user with active PathStep, got: {data['mode']!r}. "
+        f"Full response: {data}"
+    )
+    assert data.get("guidance_mode") is not None, (
+        "guidance_mode should be set when pipeline runs in guided mode"
+    )

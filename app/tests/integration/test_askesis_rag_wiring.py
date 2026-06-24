@@ -10,18 +10,17 @@ NOTE: These tests require:
 Tests are automatically skipped if credentials are missing.
 """
 
-import os
-
 import pytest
 
+from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 
-# Skip condition: requires OPENAI_API_KEY and FULL tier for Askesis
-_has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+# Skip condition: requires OPENAI_API_KEY (env or keychain) and FULL tier for Askesis
+_has_openai_key = bool(get_credential("OPENAI_API_KEY"))
 _tier = IntelligenceTier.from_env()
 _skip_without_credentials = pytest.mark.skipif(
     not _has_openai_key or not _tier.ai_enabled,
-    reason="Requires OPENAI_API_KEY and INTELLIGENCE_TIER=full for Askesis tests",
+    reason="Requires OPENAI_API_KEY (env or keychain) and INTELLIGENCE_TIER=full for Askesis tests",
 )
 
 
@@ -104,16 +103,20 @@ async def test_askesis_answer_method_signature(skuel_app):
 
 @_skip_without_credentials
 @pytest.mark.asyncio
-async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
-    """End-to-end test of RAG pipeline with populated data."""
+async def test_askesis_rag_pipeline_end_to_end(skuel_app, enrolled_user_with_lp):
+    """End-to-end test of RAG pipeline for user enrolled in a Learning Path.
+
+    Uses enrolled_user_with_lp so the pipeline runs past the LP enrollment gate.
+    Mode will be 'guided' (PS bundle loaded) or 'llm_generated' (bundle unavailable).
+    """
     embeddings = getattr(skuel_app.state.services, "embeddings_service", None)
-    if not embeddings or embeddings._client is None:
+    if not embeddings or getattr(embeddings, "_embedding_client", None) is None:
         pytest.skip("Requires embeddings service for intent classification")
     services = skuel_app.state.services
     askesis = services.askesis
 
-    question = "What do I need to learn before async programming?"
-    user_uid = populated_test_data["user_uid"]
+    question = "What do I need to learn to progress in my current path?"
+    user_uid = enrolled_user_with_lp["user_uid"]
 
     # Call RAG pipeline
     answer_result = await askesis.answer_user_question(user_uid, question)
@@ -134,7 +137,9 @@ async def test_askesis_rag_pipeline_end_to_end(skuel_app, populated_test_data):
     assert isinstance(answer_data["answer"], str), "Answer should be a string"
     assert len(answer_data["answer"]) > 0, "Answer should not be empty"
     assert isinstance(answer_data["suggested_actions"], list), "Suggested actions should be a list"
-    assert answer_data["mode"] == "llm_generated", "Mode should be llm_generated"
+    assert answer_data["mode"] in ("llm_generated", "guided"), (
+        f"Mode should be llm_generated or guided for enrolled user, got: {answer_data['mode']}"
+    )
 
 
 # NOTE: ADR-059 engagement-bucketing tests moved to
