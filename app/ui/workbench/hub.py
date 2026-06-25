@@ -7,14 +7,6 @@ from ui.patterns.hub import HubBlockData
 
 SUBMISSIONS_BLOCKS: list[HubBlockData] = [
     HubBlockData(
-        "Upload Activity Data",
-        "upload",
-        "upload-cloud",
-        "#10B981",
-        "/upload",
-        "/api/submissions/upload/preview",
-    ),
-    HubBlockData(
         "New Journal",
         "journal",
         "book-open",

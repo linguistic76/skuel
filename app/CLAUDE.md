@@ -447,15 +447,15 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/upload` (user) and `/submit` (exercise) share the same `UserEntryService.create_entry()` path via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth: incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards); `./dev vault-watch` keeps the vault synced continuously.
+One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards); `./dev vault-watch` keeps the vault synced continuously.
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
-**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/upload`, `WS /ws/ingest/progress/{operation_id}`
+**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `WS /ws/ingest/progress/{operation_id}`
 
-**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, per-user upload, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
+**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
 
 ## Obsidian VaultBridge (ADR-070)
 
@@ -644,7 +644,6 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 | Error boundary | `/core/utils/error_boundary.py` |
 | Result helpers | `/adapters/inbound/result_helpers.py` (`require_found`) |
 | Route factories | `/adapters/inbound/route_factories/` |
-| User upload service | `/core/services/ingestion/user_upload_service.py` |
 | UserEntry services | `/core/services/user_entry/` (ADR-054 — replaces former `submissions/` + `journal/`) |
 | Page contexts | `/ui/page_contexts.py` |
 | Deepgram config | `/config/deepgram.toml` |

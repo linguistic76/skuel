@@ -36,7 +36,7 @@ PUBLIC (no auth required)
 AUTHENTICATED (require_authenticated_user)
   ContentScope.USER_OWNED:
     /profile, /tasks, /goals, /habits, /events, /choices, /principles,
-    /submissions, /upload, /calendar, /activity-reports, /library/exercises
+    /submissions, /calendar, /activity-reports, /library/exercises
   All API mutation routes (POST, PUT, DELETE)
 
 ROLE-GATED

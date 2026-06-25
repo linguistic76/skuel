@@ -1,16 +1,7 @@
 """Submissions sidebar navigation.
 
 Renders a collapsible sidebar for Submissions pages:
-Upload, Submit, Submission History.
-
-Usage:
-    from ui.workbench.nav import render_submissions_sidebar_page
-
-    return await render_submissions_sidebar_page(
-        content=my_content,
-        active="upload",
-        request=request,
-    )
+Submit, Submission History, Obsidian Sync.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -25,7 +16,6 @@ if TYPE_CHECKING:
 SUBMISSIONS_STORAGE_KEY = "submissions-sidebar"
 
 SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Upload", "/upload", "upload", icon="upload-cloud"),
     SidebarItem("Submit", "/submit", "submit", icon="send"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
     SidebarItem("Obsidian Sync", "/settings/vault", "vault-sync", icon="refresh-cw"),

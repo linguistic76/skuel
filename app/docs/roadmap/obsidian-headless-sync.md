@@ -194,17 +194,17 @@ now skip on incremental runs instead of re-merging every time.
 
 Obsidian Headless Sync and per-user bulk upload serve **different audiences**:
 
-| | Obsidian Headless Sync | Per-User Bulk Upload |
+| | Obsidian Headless Sync | Obsidian VaultBridge |
 |---|---|---|
 | **Audience** | Admin/teachers (curriculum) | Individual users (Activity Domains) |
 | **Content** | Kus, PathSteps, Exercises, LearningPaths | Tasks, Goals, Habits, Events, Choices, Principles |
 | **Scope** | `SHARED` (all users read) | `USER_OWNED` (user's data) |
-| **Delivery** | Automatic (file watcher) | Manual (upload via `/upload`) |
-| **Server infra** | 1 headless process | None (HTTP upload) |
+| **Delivery** | Automatic (file watcher) | Bidirectional sync via `/settings/vault` |
+| **Server infra** | 1 headless process | VaultReconciler (per-user, on-demand) |
 
-Both coexist — Headless Sync for curriculum, bulk upload for user activity data.
+Both coexist — Headless Sync for curriculum, VaultBridge for user activity data.
 
-**See:** `core/services/ingestion/user_upload_service.py`, `adapters/inbound/upload_ui.py`
+**See:** `core/services/vault/vault_reconciler.py`, `adapters/inbound/vault_routes.py`
 
 ---
 

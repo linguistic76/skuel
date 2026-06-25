@@ -573,14 +573,6 @@ async def compose_services(
             user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
-        # Per-user bulk upload service (wraps UnifiedIngestionService)
-        from core.services.ingestion.user_upload_service import UserUploadService
-
-        user_upload_service = UserUploadService(
-            ingestion_service=unified_ingestion,
-            user_vaults_base=config.vault.user_vaults_path,
-        )
-
         # Batch chunk regeneration (Phase 2, May 2026) — admin tool used when
         # CHUNKING_ALGORITHM_VERSION changes or chunks drift from their source.
         # event_bus is wired only in FULL tier; in CORE the embedding worker
@@ -1509,7 +1501,6 @@ async def compose_services(
             # System
             # Note: sync field removed (January 2026) - use unified_ingestion
             unified_ingestion=unified_ingestion,  # ADR-014: Merged MD + YAML ingestion
-            user_upload_service=user_upload_service,  # Per-user bulk upload
             batch_chunking_service=batch_chunking_service,  # Phase 2 admin tool
             calendar=calendar_service,
             system=system_service,
