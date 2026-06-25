@@ -80,6 +80,7 @@ def render_ps_detail_content(
     is_mastered: bool,
     user_uid: str | None,
     user_role: UserRole | None = None,
+    has_task_templates: bool = False,
     # Retained for API compatibility; not rendered in this design iteration.
     toc_html: str = "",
     exercises: list[dict] | None = None,
@@ -101,6 +102,8 @@ def render_ps_detail_content(
         is_mastered: Whether the user has mastered this step.
         user_uid: Current user UID, or None if unauthenticated.
         user_role: Viewer's role — gates teacher-only controls.
+        has_task_templates: True when the PS has TaskTemplates — "Start learning"
+            triggers engagement (task spawn) rather than read-progress toggle.
         toc_html: Not used in this layout (no TOC sidebar).
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
@@ -117,6 +120,7 @@ def render_ps_detail_content(
         "uid": uid,
         "progress_state": progress_state,
         "is_bookmarked": is_bookmarked,
+        "has_task_templates": has_task_templates,
         "blocking": [],  # populated via orchestrator in a future iteration
         "prev_step": None,
         "next_step": None,
@@ -133,6 +137,7 @@ def render_ps_detail_content(
         _back_link(),
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
+        _tasks_section(uid) if user_uid else Div(),
         _deps_accordion(),
         _footer_nav(),
         id="ps-detail-content",
@@ -402,6 +407,37 @@ def _body_section(content_html: str) -> "FT":
         cls="mt-[30px]",
         role="region",
         **{"aria-labelledby": "idea-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tasks section
+# ---------------------------------------------------------------------------
+
+
+def _tasks_section(uid: str) -> "FT":
+    """HTMX-loaded tasks section — shows tasks spawned from this PathStep.
+
+    Loads on page render; reloads on `ps-engaged` custom event so newly
+    spawned tasks appear immediately after "Start learning" engages the PS.
+    """
+    return Section(
+        H2(
+            "Tasks from this step",
+            id="ps-tasks-h",
+            cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-3",
+        ),
+        Div(
+            id="ps-tasks-fragment",
+            **{
+                "hx-get": f"/explore/ps/{uid}/tasks",
+                "hx-trigger": "load, ps-engaged",
+                "hx-swap": "outerHTML",
+            },
+        ),
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-tasks-h"},
     )
 
 

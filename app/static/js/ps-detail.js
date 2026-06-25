@@ -21,6 +21,7 @@
       uid: s.uid || '',
       status: s.progress_state || 'not_started',
       bookmarked: s.is_bookmarked || false,
+      hasTaskTemplates: s.has_task_templates || false,
       blocking: s.blocking || [],
       prevStep: s.prev_step || null,
       nextStep: s.next_step || null,
@@ -38,6 +39,23 @@
       },
 
       advance: function () {
+        // When the PS has TaskTemplates and learning hasn't started, engage the
+        // PS to spawn tasks rather than just toggling read-progress.
+        if (this.hasTaskTemplates && this.status === 'not_started') {
+          this.status = 'learning';
+          htmx.ajax('POST', '/api/ps/' + this.uid + '/engage', { swap: 'none' });
+          // Mark as in-progress so mastery state persists across page reloads.
+          htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
+            values: { state: 'learning' },
+            swap: 'none',
+          });
+          // Reload the tasks fragment after the server has had time to spawn tasks.
+          var tasksEl = document.getElementById('ps-tasks-fragment');
+          if (tasksEl) {
+            setTimeout(function () { htmx.trigger(tasksEl, 'ps-engaged'); }, 700);
+          }
+          return;
+        }
         var newState = this.status === 'learning' ? 'read' : 'learning';
         htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
           values: { state: newState },

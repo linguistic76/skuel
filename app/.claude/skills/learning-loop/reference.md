@@ -75,9 +75,14 @@ await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # Exercises for a 
 The PathStep detail page at `/explore/ps/{uid}` is a reading-first column (`max-w-[760px]`,
 `BasePage(CUSTOM)`, no sidebar) matching the KU reader design language. Alpine component
 `pathstep` (in `static/js/ps-detail.js`) owns progress state (`not_started/learning/read`),
-bookmark toggle, and deps accordion. Two CSRF-protected mutation endpoints:
-- `POST /explore/ps/{uid}/progress` (`state=learning|read`)
+bookmark toggle, and deps accordion. CSRF-protected mutation endpoints:
+- `POST /explore/ps/{uid}/progress` (`state=learning|read`) — progress toggle (no TaskTemplates)
 - `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
+- `GET /explore/ps/{uid}/tasks` — HTMX fragment: tasks spawned from this PS for the current user
+
+**Engage-to-spawn:** when the PS has TaskTemplates (`has_task_templates` in `PS_SEED`), "Start
+learning" calls `POST /api/ps/{uid}/engage` instead of the progress endpoint — spawning all
+template instances — then fires `ps-engaged` to reload the tasks fragment.
 
 The `/learning-loop/ps/{ps_uid}/*` fragment routes remain wired in `learning_loop_routes.py`
 (`create_learning_loop_fragment_routes`) but are not surfaced on the PS detail page:

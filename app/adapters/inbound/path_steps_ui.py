@@ -142,6 +142,7 @@ def create_path_steps_ui_routes(
     ps_service: PsService,
     ps_engagement_service: PsEngagementService | None = None,
     user_service: Any = None,
+    tasks_service: Any = None,
 ) -> list[Any]:
     """Create Path Steps UI routes.
 
@@ -154,6 +155,8 @@ def create_path_steps_ui_routes(
     without the engagement subsystem still get the read/learning routes.
     ``user_service`` is required for the teacher publish flow (slice 2);
     when absent, the publish routes are skipped.
+    ``tasks_service`` is required for the tasks-from-this-step fragment;
+    when absent, the /explore/ps/{uid}/tasks route is skipped.
     """
 
     # ========================================================================
@@ -472,6 +475,25 @@ def create_path_steps_ui_routes(
             is_teacher = await _is_teacher(request)
             return render_publish_state(uid, await _current_ps_status(uid), is_teacher=is_teacher)
 
+    # ========================================================================
+    # TASKS FRAGMENT (tasks spawned from this PathStep, authenticated users)
+    # ========================================================================
+
+    if tasks_service is not None:
+
+        @rt("/explore/ps/{uid}/tasks")
+        async def get_ps_tasks_fragment(request: Request, uid: str) -> Any:
+            """HTMX fragment: tasks spawned from this PathStep for the current user.
+
+            Returns compact task rows (status indicator + title link). Fires on
+            page load and on the `ps-engaged` event so newly spawned tasks appear
+            immediately after engagement.
+            """
+            user_uid = require_authenticated_user(request)
+            result = await tasks_service.get_tasks_for_path_step(uid)
+            tasks = [t for t in result.value if t.user_uid == user_uid] if result.is_ok else []
+            return _ps_tasks_fragment(uid, tasks)
+
     engagement_routes_note = (
         (
             ", /explore/ps/{uid}/engage, /explore/ps/{uid}/abandon, "
@@ -486,14 +508,77 @@ def create_path_steps_ui_routes(
         if ps_engagement_service is not None and user_service is not None
         else " (publish routes skipped — user_service unavailable)"
     )
+    tasks_routes_note = (
+        ", /explore/ps/{uid}/tasks"
+        if tasks_service is not None
+        else " (tasks fragment skipped — tasks_service unavailable)"
+    )
     logger.info(
         "Path Steps UI routes registered: "
         "/path-steps, /path-steps/content, "
         "/api/path-steps/{uid}/start, /api/path-steps/{uid}/mark-read, "
-        "/api/path-steps/{uid}/bookmark" + engagement_routes_note + publish_routes_note
+        "/api/path-steps/{uid}/bookmark"
+        + engagement_routes_note
+        + publish_routes_note
+        + tasks_routes_note
     )
 
     return []
+
+
+def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
+    """Replaceable HTMX fragment: tasks spawned from a PathStep for the current user.
+
+    Returns a Div with id="ps-tasks-fragment" so HTMX outerHTML swap replaces
+    the loading placeholder (or itself on refresh after engagement).
+    """
+    if not tasks:
+        body: Any = P(
+            "No tasks yet. Click Start learning to create tasks from this step.",
+            cls="text-[13px] text-muted-foreground",
+        )
+    else:
+        rows = []
+        for task in tasks:
+            status = getattr(task, "status", None)
+            is_done = status is not None and str(status) in ("completed", "done")
+            rows.append(
+                Div(
+                    Span(
+                        cls=(
+                            "w-2 h-2 rounded-full flex-none "
+                            + ("bg-priority-low" if is_done else "bg-muted-foreground/50")
+                        ),
+                    ),
+                    A(
+                        getattr(task, "title", None) or task.uid,
+                        href=f"/tasks/detail?uid={task.uid}",
+                        cls=(
+                            "text-[13px] font-medium hover:underline "
+                            + (
+                                "line-through text-muted-foreground"
+                                if is_done
+                                else "text-foreground/85"
+                            )
+                        ),
+                    ),
+                    cls="flex items-center gap-2.5 py-1.5",
+                )
+            )
+        body = Div(*rows)
+
+    # Retain hx-get + hx-trigger so the element stays listenable after the
+    # outerHTML swap replaces the initial placeholder.  "load" is omitted here
+    # (the placeholder fires that); only ps-engaged triggers subsequent reloads.
+    return Div(
+        body,
+        id="ps-tasks-fragment",
+        **{
+            "hx-get": f"/explore/ps/{uid}/tasks",
+            "hx-trigger": "ps-engaged",
+            "hx-swap": "outerHTML",
+        },
+    )
 
 
 def _path_step_list(items: list[Any]) -> Any:
