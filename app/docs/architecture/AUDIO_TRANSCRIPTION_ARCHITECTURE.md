@@ -153,23 +153,26 @@ class TranscriptionProcessOptions(BaseModel):
     diarize: bool = False
 ```
 
-### Path 2: Batch Transcription (Admin)
+### Path 2: Batch Transcription
 
 ```
-Admin places audio files in data/je_inputs/
+Audio files placed in an input directory
        |
        v
 BatchTranscriptionService.transcribe_batch()
        |  (concurrent with semaphore, skip existing)
        |  (uses DeepgramAdapter with config defaults — no per-call overrides)
        v
-.txt files written to data/je_outputs/
+.txt files written to the output directory
 ```
 
 **Access points:**
-- **UI:** `/admin/batch-transcribe` (admin-only page with preview/transcribe buttons)
+- **Admin console UI:** `/admin/batch-transcribe` — any server-side path, admin-only
+- **User journals UI:** `/journals/submit` → "Upload Folder" tab — defaults to
+  `/home/mike/0bsidian/skuel/transcribe_in` → `transcribe_out`, authenticated users
 - **CLI:** `uv run python scripts/batch_transcribe.py`
-- **API:** `POST /api/journals/batch-transcribe`
+- **API (admin):** `POST /api/journals/batch-transcribe`
+- **API (user):** `POST /api/journals/folder-transcribe`
 
 ## Intelligence Features (Prepared, Not Yet Extracted)
 
@@ -202,8 +205,8 @@ The config file exposes five Deepgram intelligence features:
 | `core/services/transcription/transcription_service.py` | Individual transcription lifecycle |
 | `core/services/transcription/batch_transcription_service.py` | Batch transcription: audio -> txt |
 | `core/models/transcription/transcription.py` | Domain model + `TranscriptionProcessOptions` |
-| `adapters/inbound/batch_transcription_api.py` | Batch API route (admin-only) |
-| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals` redirect, `/journals/submit` multi-file upload, `/journals/browse`) |
+| `adapters/inbound/batch_transcription_api.py` | Batch API routes: `POST /api/journals/batch-transcribe` (admin) + `POST /api/journals/folder-transcribe` (user) |
+| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals/submit` file + folder modes, `/journals/browse`) |
 | `adapters/inbound/admin_dashboard_ui.py` | Admin batch transcription page (`/admin/batch-transcribe`) |
 | `scripts/batch_transcribe.py` | CLI for batch transcription |
 | `docs/configuration/DEEPGRAM_CONFIG.md` | Configuration guide |
