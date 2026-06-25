@@ -44,6 +44,11 @@
         if (this.hasTaskTemplates && this.status === 'not_started') {
           this.status = 'learning';
           htmx.ajax('POST', '/api/ps/' + this.uid + '/engage', { swap: 'none' });
+          // Mark as in-progress so mastery state persists across page reloads.
+          htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
+            values: { state: 'learning' },
+            swap: 'none',
+          });
           // Reload the tasks fragment after the server has had time to spawn tasks.
           var tasksEl = document.getElementById('ps-tasks-fragment');
           if (tasksEl) {

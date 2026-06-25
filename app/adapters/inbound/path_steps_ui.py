@@ -567,7 +567,18 @@ def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
             )
         body = Div(*rows)
 
-    return Div(body, id="ps-tasks-fragment")
+    # Retain hx-get + hx-trigger so the element stays listenable after the
+    # outerHTML swap replaces the initial placeholder.  "load" is omitted here
+    # (the placeholder fires that); only ps-engaged triggers subsequent reloads.
+    return Div(
+        body,
+        id="ps-tasks-fragment",
+        **{
+            "hx-get": f"/explore/ps/{uid}/tasks",
+            "hx-trigger": "ps-engaged",
+            "hx-swap": "outerHTML",
+        },
+    )
 
 
 def _path_step_list(items: list[Any]) -> Any:

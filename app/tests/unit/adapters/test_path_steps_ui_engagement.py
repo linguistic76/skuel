@@ -463,6 +463,15 @@ class TestPsTasksFragment:
 
         assert 'id="ps-tasks-fragment"' in html
 
+    def test_fragment_retains_htmx_attributes_for_subsequent_swaps(self) -> None:
+        # After outerHTML swap, the returned element must keep hx-get + hx-trigger
+        # so the ps-engaged event still has a listener on re-engagement.
+        html = to_xml(_ps_tasks_fragment(_PS_UID, []))
+
+        assert f'hx-get="/explore/ps/{_PS_UID}/tasks"' in html
+        assert 'hx-trigger="ps-engaged"' in html
+        assert 'hx-swap="outerHTML"' in html
+
     def test_empty_tasks_shows_call_to_action(self) -> None:
         html = to_xml(_ps_tasks_fragment(_PS_UID, []))
 
