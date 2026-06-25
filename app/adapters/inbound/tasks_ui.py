@@ -32,7 +32,12 @@ from core.utils.logging import get_logger
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.nav import render_activity_sidebar_page
 from ui.activities.tasks_form import TaskCreateForm, TaskEditForm
-from ui.activities.tasks_views import TaskDetailView, TaskList, TaskStatsBar
+from ui.activities.tasks_views import (
+    SubtaskListFragment,
+    TaskDetailView,
+    TaskList,
+    TaskStatsBar,
+)
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner
 
@@ -245,10 +250,82 @@ def create_tasks_ui_routes(
 
         return RedirectResponse(f"/tasks/detail?uid={uid}", status_code=303)
 
+    # ------------------------------------------------------------------
+    # Subtask fragments: GET /tasks/subtasks  +  POST /tasks/subtasks/add
+    # ------------------------------------------------------------------
+
+    @rt("/tasks/subtasks", methods=["GET"])
+    async def subtasks_fragment(request: Request) -> Any:
+        """HTMX fragment: parent breadcrumb + child rows + quick-add form."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+        if not uid:
+            return SubtaskListFragment(uid, None, [])
+
+        task_result = await tasks_service.get_task(uid)
+        if task_result.is_error or task_result.value.user_uid != user_uid:
+            return SubtaskListFragment(uid, None, [])
+
+        parent_result = await tasks_service.get_parent_task(uid)
+        parent = (
+            parent_result.value
+            if parent_result.is_ok
+            and parent_result.value is not None
+            and parent_result.value.user_uid == user_uid
+            else None
+        )
+
+        children_result = await tasks_service.get_subtasks(uid)
+        children = (
+            [t for t in children_result.value if t.user_uid == user_uid]
+            if children_result.is_ok
+            else []
+        )
+
+        return SubtaskListFragment(uid, parent, children)
+
+    @rt("/tasks/subtasks/add", methods=["POST"])
+    @csrf_protected
+    async def subtasks_add(request: Request) -> Any:
+        """Create a sub-task inline and return the refreshed subtask fragment."""
+        user_uid = require_authenticated_user(request)
+
+        form = await request.form()
+        title = str(form.get("title", "")).strip()
+        parent_uid = str(form.get("parent_uid", "")).strip()
+
+        owner_result = await tasks_service.get_task(parent_uid)
+        if owner_result.is_error or owner_result.value.user_uid != user_uid:
+            return SubtaskListFragment(parent_uid, None, [])
+
+        if title:
+            create_req = TaskCreateRequest(title=title, parent_uid=parent_uid)
+            await tasks_service.core.create_task(create_req, user_uid)
+
+        grandparent_result = await tasks_service.get_parent_task(parent_uid)
+        grandparent = (
+            grandparent_result.value
+            if grandparent_result.is_ok
+            and grandparent_result.value is not None
+            and grandparent_result.value.user_uid == user_uid
+            else None
+        )
+
+        children_result = await tasks_service.get_subtasks(parent_uid)
+        children = (
+            [t for t in children_result.value if t.user_uid == user_uid]
+            if children_result.is_ok
+            else []
+        )
+
+        return SubtaskListFragment(parent_uid, grandparent, children)
+
     return [
         *base_routes,
         task_create_page,
         task_create_submit,
         task_edit_page,
         task_edit_submit,
+        subtasks_fragment,
+        subtasks_add,
     ]

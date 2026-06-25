@@ -43,7 +43,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | Config | `TASKS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/task_events.py` |
 | UI Routes | `/adapters/inbound/tasks_ui.py` |
-| View Components | `/ui/tasks/views.py` |
+| View Components | `/ui/activities/tasks_views.py` |
 
 ## Domain Enums
 
@@ -257,7 +257,16 @@ Tasks has an active read-focused UI at `/tasks` with HTMX status toggle, priorit
 |-------|--------|-------------|
 | `/tasks` | GET | Read-focused task list with filtering |
 | `/tasks/list-fragment` | GET | HTMX filtered list fragment |
-| `POST /api/tasks/{uid}/status` | POST | HTMX status toggle |
+| `/tasks/detail` | GET | Task detail page |
+| `/tasks/create` | GET/POST | Create task form |
+| `/tasks/edit` | GET/POST | Edit task form |
+| `/tasks/subtasks` | GET | HTMX fragment: sub-task list for a parent task |
+| `/tasks/subtasks/add` | POST | Create a sub-task inline; returns refreshed fragment |
+| `/api/tasks/{uid}/status` | POST | HTMX status toggle (returns `TaskCard`) |
+| `/api/tasks/children` | GET | JSON: direct sub-tasks of a parent |
+| `/api/tasks/hierarchy` | GET | JSON: full hierarchy context (ancestors, siblings, children) |
+| `/api/tasks/add-child` | POST | Add a sub-task relationship between two tasks |
+| `/api/tasks/remove-child` | POST | Remove a sub-task relationship |
 
 ## Code Examples
 
