@@ -2889,6 +2889,121 @@
             );
         });
 
+        // ---------------------------------------------------------------------
+        // /submit page — destination dropdown + file uploader
+        // ---------------------------------------------------------------------
+        Alpine.data('submit', function(defaultDest, portfolioMode) {
+            return {
+                dest: defaultDest || 'teacher',
+                menuOpen: false,
+                file: null,
+                sent: false,
+                dragOver: false,
+                _st: null,
+                _onDoc: null,
+                _onKey: null,
+
+                get sendLabel() {
+                    if (this.dest === 'ai') return 'Get AI feedback';
+                    if (this.dest === 'portfolio') return 'Add to portfolio';
+                    return 'Send to teacher';
+                },
+                get canSend() { return !!this.file && !this.sent; },
+                get pipeline() {
+                    if (this.dest === 'ai') return 'llm_summary';
+                    return 'teacher_review';
+                },
+                get audience() {
+                    if (this.dest === 'ai') return 'private';
+                    if (this.dest === 'portfolio') return 'public';
+                    return 'teachers';
+                },
+
+                fmtSize: function(b) {
+                    if (b < 1024) return b + ' B';
+                    if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+                    return (b / 1048576).toFixed(1) + ' MB';
+                },
+
+                selectDest: function(d) {
+                    if (d === 'portfolio' && portfolioMode !== 'active') return;
+                    this.dest = d;
+                    this.menuOpen = false;
+                },
+
+                browse: function() {
+                    this.$refs.fileInput.click();
+                },
+
+                onFileChange: function(e) {
+                    var f = e.target.files && e.target.files[0];
+                    if (f) { this.file = f; this.sent = false; }
+                },
+
+                onDrop: function(e) {
+                    e.preventDefault();
+                    this.dragOver = false;
+                    var f = e.dataTransfer.files && e.dataTransfer.files[0];
+                    if (f) {
+                        try {
+                            var dt = new DataTransfer();
+                            dt.items.add(f);
+                            this.$refs.fileInput.files = dt.files;
+                        } catch(_) {}
+                        this.file = f;
+                        this.sent = false;
+                    }
+                },
+
+                onDragOver: function(e) {
+                    e.preventDefault();
+                    this.dragOver = true;
+                },
+
+                onDragLeave: function(e) {
+                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                        this.dragOver = false;
+                    }
+                },
+
+                removeFile: function() {
+                    this.file = null;
+                    this.sent = false;
+                    this.$refs.fileInput.value = '';
+                },
+
+                init: function() {
+                    var self = this;
+                    this._onDoc = function(e) {
+                        if (self.menuOpen && self.$refs.dropdown && !self.$refs.dropdown.contains(e.target)) {
+                            self.menuOpen = false;
+                        }
+                    };
+                    this._onKey = function(e) {
+                        if (e.key === 'Escape' && self.menuOpen) self.menuOpen = false;
+                    };
+                    document.addEventListener('mousedown', this._onDoc);
+                    document.addEventListener('keydown', this._onKey);
+
+                    this.$el.addEventListener('htmx:afterRequest', function(e) {
+                        if (e.detail.successful) {
+                            self.sent = true;
+                            self.file = null;
+                            self.$refs.fileInput.value = '';
+                            clearTimeout(self._st);
+                            self._st = setTimeout(function() { self.sent = false; }, 3400);
+                        }
+                    });
+                },
+
+                destroy: function() {
+                    document.removeEventListener('mousedown', this._onDoc);
+                    document.removeEventListener('keydown', this._onKey);
+                    clearTimeout(this._st);
+                }
+            };
+        });
+
     });
 
 })();

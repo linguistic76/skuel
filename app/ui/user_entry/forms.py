@@ -2,91 +2,129 @@
 UserEntry Submit Form (ADR-054)
 ================================
 
-Intent-driven upload form for ``/submit``. The student picks what they want
-to accomplish — not which internal pipeline to run.
+Destination-driven upload form for ``/submit``. The student picks where they
+want to send their work (Teacher, AI Feedback, or Portfolio) and attaches a
+single file. Pipeline and audience are derived server-side from the destination.
 
-Three intent tiles (shown when no exercise is pre-selected):
+Destination → pipeline / audience mapping:
+- Teacher  → TEACHER_REVIEW / teachers
+- AI       → LLM_SUMMARY   / private
+- Portfolio → NONE          / public  (coming-soon by default)
 
-- **Submit for Review**  → pipeline=TEACHER_REVIEW, audience=teachers/group
-- **Get AI Feedback**    → pipeline=LLM_SUMMARY, audience=private
-- **Log**                → pipeline=NONE, audience=private or public (portfolio)
-
-When an exercise is pre-selected the tile picker is hidden and the form is
-locked to TEACHER_REVIEW with the exercise's groups as the implied audience.
-
-The ``POST /api/user-entries/upload`` endpoint translates the ``pipeline`` and
-``audience`` hidden fields into the existing service-layer fields.
+Submits via HTMX POST to ``/api/user-entries/upload`` (multipart/form-data).
+CSRF is injected automatically by the global ``htmx:configRequest`` handler in
+``skuel.js``. The success toast is driven by Alpine's ``sent`` state, triggered
+by ``htmx:afterRequest`` on the form container.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
+from __future__ import annotations
+
 from typing import Any
 
-from fasthtml.common import (
-    Div,
-    Form,
-    NotStr,
-    Option,
-    P,
-    Script,
-)
-
-from core.models.enums.pipeline import Pipeline
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
-from ui.forms import Input, Label, Select
+from fasthtml.common import Button, Div, Form, Input, P, Script, Span
+from monsterui.franken import UkIcon
 
 
-def _audience_radio(value: str, label: str, description: str, model: str) -> Any:
-    """One row in the audience radio group — label, sublabel, hit area."""
-    return Label(
-        Div(
-            Input(
-                type="radio",
-                name="audience_choice",
-                value=value,
-                cls="mr-3 mt-1",
-                x_model=model,
-            ),
-            Div(
-                P(label, cls="text-sm font-medium"),
-                P(description, cls="text-xs text-muted-foreground"),
-            ),
-            cls="flex items-start",
-        ),
-        cls="block p-2 rounded cursor-pointer hover:bg-muted/50",
+def _icon_tile(icon: str, bg_cls: str, icon_cls: str, size: int = 36) -> Any:
+    """Rounded icon tile used in the destination dropdown."""
+    sz = "w-9 h-9" if size == 36 else "w-[34px] h-[34px]"
+    radius = "rounded-[9px]"
+    return Div(
+        UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
+        cls=f"{sz} {radius} flex-none flex items-center justify-center {bg_cls}",
     )
 
 
-def _intent_tile(
-    value: str,
-    label: str,
-    description: str,
-    hint: str | None = None,
+def _dest_option_row(
+    dest: str,
+    icon: str,
+    tile_bg: str,
+    icon_cls: str,
+    title: str,
+    desc: str,
+    *,
+    disabled: bool = False,
+    coming_soon: bool = False,
 ) -> Any:
-    """One intent selection tile."""
-    return Label(
+    """One row in the destination dropdown menu."""
+    base_cls = (
+        "w-full flex items-start gap-3 p-[11px] rounded-[9px] border-0 "
+        "bg-transparent text-left font-[inherit] "
+    )
+    if disabled:
+        base_cls += "cursor-not-allowed opacity-70"
+        action = {}
+    else:
+        base_cls += "cursor-pointer hover:bg-slate-50"
+        action = {"@click": f"selectDest('{dest}')"}
+
+    title_block: Any = title
+    if coming_soon:
+        title_block = Span(
+            Span(title, cls="text-sm font-semibold text-slate-600"),
+            Span(
+                "Coming soon",
+                cls=(
+                    "text-[10px] font-bold uppercase tracking-[0.05em] "
+                    "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
+                ),
+            ),
+            cls="flex items-center gap-2",
+        )
+    else:
+        title_block = Span(title, cls="text-sm font-semibold text-foreground")
+
+    check = Span(
+        UkIcon("check", cls="w-4 h-4 text-blue-600"),
+        cls="flex-none pt-[3px] flex",
+        **{"x-show": f"dest === '{dest}'"},
+        **{"x-cloak": True},
+    )
+
+    return Button(
+        _icon_tile(icon, tile_bg, icon_cls, size=34),
         Div(
-            Input(
-                type="radio",
-                name="intent_choice",
-                value=value,
-                cls="mt-1 shrink-0",
-                **{"x-model": "intent"},  # type: ignore[arg-type]
-            ),
-            Div(
-                P(label, cls="text-sm font-semibold"),
-                P(description, cls="text-xs text-muted-foreground mt-0.5"),
-                P(hint, cls="text-xs text-amber-600 mt-1") if hint else None,
-                cls="ml-3",
-            ),
-            cls="flex items-start",
+            title_block,
+            Span(desc, cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
+            cls="flex-1 min-w-0 pt-[1px]",
         ),
+        check if not disabled else None,
+        type="button",
+        cls=base_cls,
+        **action,
+    )
+
+
+def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
+    """Full-width trigger button showing the currently selected destination."""
+    options = []
+    for dest, cfg in dest_configs.items():
+        options.append(
+            Span(
+                _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+                Span(
+                    Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
+                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
+                    cls="flex-1 min-w-0",
+                ),
+                cls="flex items-center gap-[13px] w-full",
+                **{"x-show": f"dest === '{dest}'"},
+                **{"x-cloak": True} if dest != "teacher" else {},
+            )
+        )
+
+    return Button(
+        *options,
+        UkIcon("chevron-down", cls="w-[18px] h-[18px] text-slate-400 flex-none"),
+        type="button",
         cls=(
-            "block p-3 rounded-lg border border-border cursor-pointer "
-            "hover:bg-muted/40 transition-colors"
-            "[:has(input:checked)]:border-primary [:has(input:checked)]:bg-primary/5"
+            "w-full flex items-center gap-[13px] px-[14px] py-3 "
+            "border border-border rounded-[11px] bg-card cursor-pointer "
+            "text-left font-[inherit] hover:border-slate-300 transition-colors"
         ),
+        **{"@click": "menuOpen = !menuOpen"},
     )
 
 
@@ -95,324 +133,285 @@ def render_upload_form(
     selected_exercise_uid: str | None = None,
     from_ps: str | None = None,
     user_groups: list[Any] | None = None,
-    force_pipeline: Pipeline | None = None,
+    force_pipeline: Any | None = None,
+    *,
+    default_destination: str = "teacher",
+    portfolio_mode: str = "coming_soon",
 ) -> Any:
-    """Render the UserEntry upload form.
+    """Render the submit form with destination dropdown and file uploader.
 
     Args:
-        assigned_exercises: Exercises the user can link to. When non-empty,
-            a dropdown is rendered.
-        selected_exercise_uid: Pre-selected exercise (deep-link). Also
-            forces the pipeline to ``TEACHER_REVIEW`` unless overridden.
-        from_ps: PathStep UID for the ``Interaction`` audit record.
-        user_groups: The user's groups (pre-loaded by the route handler).
-        force_pipeline: Lock the pipeline (exercise-context pages).
+        assigned_exercises: Unused in new design (kept for call-site compat).
+        selected_exercise_uid: If set, passed as a hidden field so the entry
+            links to the exercise. Also locks default_destination to "teacher".
+        from_ps: PathStep UID passed as ``about_path_step_uid`` hidden field.
+        user_groups: Unused in new design (kept for call-site compat).
+        force_pipeline: Unused in new design (kept for call-site compat).
+        default_destination: Initial dropdown selection ("teacher" or "ai").
+        portfolio_mode: "coming_soon" (disabled) or "active" (selectable).
     """
-    # The intent picker is locked only when a specific exercise is deep-linked
-    # (selected_exercise_uid) or the caller forces a pipeline (force_pipeline).
-    # Merely having assignments in the dropdown does NOT lock the form.
-    hide_intent_picker = force_pipeline is not None or bool(selected_exercise_uid)
-    effective_pipeline = force_pipeline or (
-        Pipeline.TEACHER_REVIEW if selected_exercise_uid else Pipeline.NONE
-    )
-
-    # -- Exercise section --------------------------------------------------
-    exercise_section: Any = ""
-    if assigned_exercises:
-        exercise_options = [Option("None — standalone entry", value="")]
-
-        def _exercise_option(p: Any) -> Any:
-            uid = p.uid
-            label = getattr(p, "title", None) or getattr(p, "name", None) or uid
-            return Option(label, value=uid, selected=(uid == selected_exercise_uid))
-
-        exercise_options.extend(_exercise_option(p) for p in assigned_exercises)
-        exercise_section = Div(
-            Label("Exercise (optional)", cls="label"),
-            Select(*exercise_options, name="fulfills_exercise_uid"),
-            P(
-                "Link this entry to a teacher exercise",
-                cls="text-xs text-muted-foreground mt-1",
-            ),
-            cls="mb-4",
-        )
-    elif selected_exercise_uid:
-        exercise_section = Input(
-            type="hidden",
-            name="fulfills_exercise_uid",
-            value=selected_exercise_uid,
-        )
-
-    from_ps_field: Any = (
-        Input(type="hidden", name="about_path_step_uid", value=from_ps) if from_ps else ""
-    )
-
-    # -- Audience options (computed before intent tiles reference them) -----
-    # "Submit to teacher" maps to auto_share_to_exercise_groups=True in the API,
-    # which only works when an exercise is selected. Without one it shares with
-    # nothing, so only offer it when a specific exercise was deep-linked.
-    teacher_audience_options: list[Any] = []
     if selected_exercise_uid:
-        teacher_audience_options.append(
-            _audience_radio(
-                value="teachers",
-                label="Submit to teacher",
-                description="Shares with the exercise's assigned groups.",
-                model="audience",
-            )
-        )
-    if user_groups:
-        for g in user_groups:
-            guid = getattr(g, "uid", None) or getattr(g, "group_uid", None)
-            if not guid:
-                continue
-            gname = getattr(g, "name", None) or getattr(g, "title", None) or guid
-            teacher_audience_options.append(
-                _audience_radio(
-                    value=f"group:{guid}",
-                    label=f"Share with {gname}",
-                    description="Visible to members of this group.",
-                    model="audience",
-                )
-            )
+        default_destination = "teacher"
 
-    # Show the Review intent tile only when there is a reachable recipient.
-    show_review_intent = bool(selected_exercise_uid) or bool(teacher_audience_options)
+    dest_configs: dict[str, dict[str, str]] = {
+        "teacher": {
+            "icon": "user-round",
+            "tile_bg": "bg-blue-50",
+            "icon_cls": "text-blue-600",
+            "title": "Teacher",
+            "desc": "Send to your teacher for feedback",
+        },
+        "ai": {
+            "icon": "sparkles",
+            "tile_bg": "bg-violet-50",
+            "icon_cls": "text-violet-700",
+            "title": "AI Feedback",
+            "desc": "An AI reads and responds to your entry",
+        },
+        "portfolio": {
+            "icon": "globe",
+            "tile_bg": "bg-slate-100",
+            "icon_cls": "text-slate-400",
+            "title": "Portfolio",
+            "desc": "Appears on your public profile",
+        },
+    }
 
-    # -- Intent picker or locked pipeline ----------------------------------
-    if hide_intent_picker:
-        intent_section: Any = Input(
-            type="hidden",
-            name="pipeline",
-            value=effective_pipeline.value,
-            **{"x-ref": "pipelineField"},  # type: ignore[arg-type]
-        )
-        default_intent = "review"
-    else:
-        review_tile = (
-            _intent_tile(
-                "review",
-                "Submit for Review",
-                "Send to your teacher for feedback.",
-            )
-            if show_review_intent
-            else None
-        )
-        intent_section = Div(
-            P("What do you want to do with this entry?", cls="text-sm font-semibold mb-3"),
-            Div(
-                review_tile,
-                _intent_tile(
-                    "ai",
-                    "Get AI Feedback",
-                    "An AI will read and respond to your entry.",
-                    hint="Works best with text or document files.",
-                ),
-                _intent_tile(
-                    "log",
-                    "Log",
-                    "Save privately or add to your public portfolio.",
-                ),
-                cls="space-y-2",
-            ),
-            # Hidden field carries resolved pipeline to server
-            Input(
-                type="hidden",
-                name="pipeline",
-                **{"x-bind:value": "resolvedPipeline"},  # type: ignore[arg-type]
-            ),
-            cls="mb-4",
-        )
-        default_intent = "log"
-
-    # Safe default audience for the $watch reset when switching to review intent.
-    # "teachers" only if an exercise is selected; first group otherwise; 'private'
-    # as a fallback (validation will block submit and surface the error).
-    _first_group = next(
-        (
-            g
-            for g in (user_groups or [])
-            if (getattr(g, "uid", None) or getattr(g, "group_uid", None))
-        ),
-        None,
-    )
+    # Optional context fields (silent hidden inputs)
+    hidden_fields: list[Any] = []
     if selected_exercise_uid:
-        _default_review_audience = "teachers"
-    elif _first_group is not None:
-        _fg_uid = getattr(_first_group, "uid", None) or getattr(_first_group, "group_uid", None)
-        _default_review_audience = f"group:{_fg_uid}"
-    else:
-        _default_review_audience = "private"
+        hidden_fields.append(
+            Input(type="hidden", name="fulfills_exercise_uid", value=selected_exercise_uid)
+        )
+    if from_ps:
+        hidden_fields.append(Input(type="hidden", name="about_path_step_uid", value=from_ps))
 
-    review_audience_section = Div(
-        P("Send to", cls="text-sm font-semibold mb-2"),
-        Div(*teacher_audience_options, cls="space-y-1"),
+    # Destination menu
+    destination_dropdown = Div(
+        # Trigger
+        _dest_trigger(dest_configs),
+        # Menu (absolute dropdown)
         Div(
-            "Choose a recipient before submitting.",
+            _dest_option_row(
+                "teacher",
+                dest_configs["teacher"]["icon"],
+                dest_configs["teacher"]["tile_bg"],
+                dest_configs["teacher"]["icon_cls"],
+                dest_configs["teacher"]["title"],
+                dest_configs["teacher"]["desc"],
+            ),
+            _dest_option_row(
+                "ai",
+                dest_configs["ai"]["icon"],
+                dest_configs["ai"]["tile_bg"],
+                dest_configs["ai"]["icon_cls"],
+                dest_configs["ai"]["title"],
+                dest_configs["ai"]["desc"],
+            ),
+            Div(cls="h-px bg-slate-100 my-1 mx-2"),
+            _dest_option_row(
+                "portfolio",
+                dest_configs["portfolio"]["icon"],
+                dest_configs["portfolio"]["tile_bg"],
+                dest_configs["portfolio"]["icon_cls"],
+                dest_configs["portfolio"]["title"],
+                dest_configs["portfolio"]["desc"],
+                disabled=(portfolio_mode != "active"),
+                coming_soon=(portfolio_mode == "coming_soon"),
+            ),
             cls=(
-                "text-xs text-destructive mt-2 p-2 rounded bg-destructive/10 "
-                "border border-destructive/30"
+                "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
+                "bg-card border border-border rounded-[13px] p-[6px] "
+                "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
             ),
-            **{"x-show": "intent === 'review' && validationError", "x-cloak": True},
+            **{"x-show": "menuOpen"},
+            **{"x-cloak": True},
+            **{"x-ref": "dropdown"},
         ),
-        cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
-        **{"x-show": "intent === 'review'", "x-cloak": True},
+        cls="relative",
     )
 
-    # -- Audience section (log path: private vs portfolio) -----------------
-    log_audience_section = Div(
-        P("Visibility", cls="text-sm font-semibold mb-2"),
+    # File uploader — dropzone (empty state)
+    dropzone = Div(
         Div(
-            _audience_radio(
-                value="private",
-                label="Keep to myself",
-                description="Only you can see this entry.",
-                model="audience",
+            UkIcon("upload-cloud", cls="w-[22px] h-[22px] text-blue-600"),
+            cls=(
+                "w-[46px] h-[46px] rounded-[12px] bg-card border border-border "
+                "flex items-center justify-center mb-[6px]"
             ),
-            _audience_radio(
-                value="public",
-                label="Add to my portfolio",
-                description="Appears on your public profile.",
-                model="audience",
-            ),
-            cls="space-y-1",
         ),
-        cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
-        **{"x-show": "intent === 'log'", "x-cloak": True},
+        P("Drag & drop your file here", cls="text-[14.5px] font-semibold text-foreground mb-0"),
+        P(
+            "or ",
+            Span("browse", cls="text-blue-600 font-semibold"),
+            " — audio, text, PDF, images, video",
+            cls="text-[13px] text-muted-foreground",
+        ),
+        cls=(
+            "border-[1.5px] border-dashed rounded-[12px] bg-slate-50 "
+            "px-6 py-[38px] text-center cursor-pointer flex flex-col items-center gap-1 "
+            "transition-[border-color,background-color] duration-[160ms] ease-linear "
+            "hover:border-blue-600"
+        ),
+        **{
+            "x-show": "!file",
+            "@click": "browse()",
+            "@drop": "onDrop($event)",
+            "@dragover": "onDragOver($event)",
+            "@dragleave": "onDragLeave($event)",
+            ":class": "dragOver ? 'border-blue-600 bg-blue-50' : ''",
+        },
     )
 
-    # When locked to exercise context, audience is always "teachers" — single static input.
-    # Otherwise: one hidden input bound to resolvedAudience (not per-section) so that
-    # x-show sections in the DOM don't each submit a duplicate name="audience" field.
-    if hide_intent_picker:
-        audience_block: Any = Input(type="hidden", name="audience", value="teachers")
-        audience_hidden: Any = ""
-    else:
-        audience_block = Div(
-            review_audience_section,
-            log_audience_section,
-        )
-        # Single source of truth for the submitted "audience" value.
-        # resolvedAudience ensures AI intent always sends 'private' regardless of
-        # which radio the user may have touched before switching intents.
-        audience_hidden = Input(
-            type="hidden",
-            name="audience",
-            **{"x-bind:value": "resolvedAudience"},  # type: ignore[arg-type]
-        )
-
-    teacher_review_pipeline = Pipeline.TEACHER_REVIEW.value
-    llm_summary_pipeline = Pipeline.LLM_SUMMARY.value
-
-    alpine_data = (
-        "{ "
-        f"intent: '{default_intent}', "
-        f"audience: '{'teachers' if hide_intent_picker else 'private'}', "
-        "validationError: false, "
-        f"get resolvedPipeline() {{ "
-        f"  if (this.intent === 'review') return '{teacher_review_pipeline}'; "
-        f"  if (this.intent === 'ai') return '{llm_summary_pipeline}'; "
-        "  return 'none'; "
-        "}, "
-        # AI always private; other intents use the selected radio value.
-        "get resolvedAudience() { "
-        "  if (this.intent === 'ai') return 'private'; "
-        "  return this.audience; "
-        "}, "
-        # Reset audience to a valid default when the user switches intent, so a
-        # stale 'public' from Log or 'teachers' from Review doesn't leak across.
-        "init() { "
-        "  this.$watch('intent', (val) => { "
-        f"    if (val === 'review') this.audience = '{_default_review_audience}'; "
-        "    else this.audience = 'private'; "
-        "  }); "
-        "}, "
-        "validate(ev) { "
-        # 'private' means no recipient was actively chosen in the review section.
-        "  if (this.intent === 'review' && this.audience === 'private') { "
-        "    this.validationError = true; ev.preventDefault(); return false; "
-        "  } "
-        "  this.validationError = false; return true; "
-        "} "
-        "}"
+    # File card (filled state)
+    file_card = Div(
+        Div(
+            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
+            cls="w-[42px] h-[42px] rounded-[10px] flex-none bg-blue-50 flex items-center justify-center",
+        ),
+        Div(
+            Span(
+                cls="block text-sm font-semibold text-foreground truncate",
+                **{"x-text": "file ? file.name : ''"},
+            ),
+            Span(
+                cls="block text-xs text-slate-400 font-mono mt-[2px]",
+                **{"x-text": "file ? fmtSize(file.size) : ''"},
+            ),
+            cls="flex-1 min-w-0",
+        ),
+        Button(
+            "Replace",
+            type="button",
+            cls=(
+                "flex-none border border-border rounded-[8px] px-3 py-[7px] "
+                "text-[13px] font-semibold bg-card text-foreground cursor-pointer "
+                "hover:bg-slate-50 transition-colors"
+            ),
+            **{"@click": "browse()"},
+        ),
+        Button(
+            UkIcon("x", cls="w-4 h-4"),
+            type="button",
+            cls=(
+                "flex-none w-8 h-8 rounded-[8px] border-0 bg-transparent "
+                "text-slate-400 cursor-pointer flex items-center justify-center "
+                "hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            ),
+            **{"@click": "removeFile()"},
+        ),
+        cls="flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card",
+        **{"x-show": "!!file"},
+        **{"x-cloak": True},
     )
 
-    return Card(
-        CardBody(
+    # Card footer: file size limit hint + send button
+    send_btn_enabled = Button(
+        UkIcon("send", cls="w-4 h-4"),
+        Span(**{"x-text": "sendLabel"}),
+        type="submit",
+        cls=(
+            "inline-flex items-center gap-[9px] px-[18px] py-[11px] rounded-[9px] "
+            "border-0 bg-foreground text-background text-sm font-semibold cursor-pointer "
+            "shadow-[0_1px_2px_rgba(15,23,42,0.12)] hover:opacity-90 transition-opacity"
+        ),
+        **{"x-show": "canSend"},
+        **{"x-cloak": True},
+    )
+
+    send_btn_disabled = Span(
+        UkIcon("send", cls="w-4 h-4"),
+        Span(**{"x-text": "sendLabel"}),
+        cls=(
+            "inline-flex items-center gap-[9px] px-[18px] py-[11px] rounded-[9px] "
+            "bg-border text-slate-400 text-sm font-semibold cursor-not-allowed"
+        ),
+        **{"x-show": "!canSend"},
+    )
+
+    card_footer = Div(
+        Span("Up to 100 MB per file.", cls="text-[12.5px] text-slate-400"),
+        Div(send_btn_enabled, send_btn_disabled),
+        cls=(
+            "mt-[26px] pt-[22px] border-t border-slate-100 flex items-center justify-between gap-4"
+        ),
+    )
+
+    # Success toast (fixed bottom-center)
+    toast = Div(
+        Span(
+            UkIcon("check", cls="w-[18px] h-[18px]"),
+            cls="text-green-400 flex",
+        ),
+        Span("Submission sent", cls="text-sm font-semibold"),
+        cls=(
+            "fixed bottom-7 left-1/2 -translate-x-1/2 z-50 "
+            "flex items-center gap-[10px] px-[18px] py-3 rounded-[11px] "
+            "bg-foreground text-background "
+            "shadow-[0_12px_30px_rgba(15,23,42,0.28)]"
+        ),
+        **{"x-show": "sent"},
+        **{"x-cloak": True},
+        **{"x-transition:enter": "transition ease-out duration-200"},
+        **{"x-transition:enter-start": "opacity-0 translate-y-2"},
+        **{"x-transition:enter-end": "opacity-100 translate-y-0"},
+        **{"x-transition:leave": "transition ease-in duration-150"},
+        **{"x-transition:leave-start": "opacity-100 translate-y-0"},
+        **{"x-transition:leave-end": "opacity-0 translate-y-2"},
+    )
+
+    return Div(
+        # Form card
+        Div(
             Form(
-                exercise_section,
-                from_ps_field,
-                intent_section,
-                Div(
-                    Label(
-                        Div(
-                            P("Select File", cls="text-center mb-0"),
-                            P(
-                                "Click to browse for files (audio, text, PDF, images, video)",
-                                cls="text-sm text-muted-foreground text-center mt-0",
-                            ),
-                            cls=(
-                                "p-4 text-center bg-muted rounded-lg cursor-pointer "
-                                "border-2 border-dashed border-border"
-                            ),
-                        ),
-                        Input(
-                            type="file",
-                            name="file",
-                            accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
-                            cls="hidden",
-                        ),
-                        cls="w-full cursor-pointer",
-                    ),
-                    cls="mb-4",
+                *hidden_fields,
+                # Pipeline + audience resolved from Alpine dest state
+                Input(type="hidden", name="pipeline", **{"x-bind:value": "pipeline"}),
+                Input(type="hidden", name="audience", **{"x-bind:value": "audience"}),
+                # Hidden file input (programmatically triggered)
+                Input(
+                    type="file",
+                    name="file",
+                    accept="audio/*,text/*,.pdf,application/pdf,image/*,video/*",
+                    cls="hidden",
+                    **{"x-ref": "fileInput", "@change": "onFileChange($event)"},
                 ),
-                audience_block,
-                audience_hidden,
+                # 1. SEND TO
                 Div(
-                    Button(
-                        "Submit",
-                        variant=ButtonT.primary,
-                        type="submit",
+                    P(
+                        "Send to",
+                        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
                     ),
-                    cls="text-center",
+                    destination_dropdown,
+                    cls="mb-6",
                 ),
-                Div(id="upload-status", cls="mt-4 text-center"),
+                # 2. YOUR FILE
+                Div(
+                    P(
+                        "Your file",
+                        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+                    ),
+                    dropzone,
+                    file_card,
+                ),
+                # 3. Footer
+                card_footer,
                 hx_post="/api/user-entries/upload",
-                hx_target="#upload-status",
-                hx_swap="innerHTML",
                 hx_encoding="multipart/form-data",
-                id="user-entry-upload-form",
-                **{
-                    "x-data": alpine_data,
-                    "@submit": "validate($event)",
-                },
+                hx_swap="none",
+            ),
+            cls=(
+                "border border-border rounded-2xl bg-card p-[26px] "
+                "shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
             ),
         ),
-        cls="bg-background shadow-sm hover:shadow-md transition-shadow",
+        toast,
+        **{
+            "x-data": f"submit('{default_destination}', '{portfolio_mode}')",
+        },
     )
 
 
 def upload_form_script() -> Any:
-    """HTMX UX polish — disable-while-submitting + form reset on success."""
-    return Script(
-        NotStr("""
-        document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form && form.id === 'user-entry-upload-form') {
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }
-            }
-        });
-
-        document.body.addEventListener('htmx:afterRequest', function(evt) {
-            var form = evt.detail.elt;
-            if (form && form.id === 'user-entry-upload-form') {
-                if (evt.detail.successful) { form.reset(); }
-                var btn = form.querySelector('button[type="submit"]');
-                if (btn) { btn.disabled = false; btn.textContent = 'Submit'; }
-                var grid = document.getElementById('submissions-grid-container');
-                if (grid) { htmx.trigger(grid, 'load'); }
-            }
-        });
-    """)
-    )
+    """No-op — UX polish is now in the Alpine 'submit' component in skuel.js."""
+    return Script("")
