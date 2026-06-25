@@ -450,13 +450,27 @@ class ExploreOrchestrator:
                     "Your other open threads aren't ready yet; this one is exactly at your edge."
                 ),
                 "why": [
-                    {"met": True,  "text": "Attention — read yesterday. It's the one idea Presence is built on."},
-                    {"met": True,  "text": "Prerequisites met — 1 of 1. Nothing else is blocking it."},
-                    {"met": None,  "text": "One step past what you already know — your edge, not a leap."},
+                    {
+                        "met": True,
+                        "text": "Attention — read yesterday. It's the one idea Presence is built on.",
+                    },
+                    {
+                        "met": True,
+                        "text": "Prerequisites met — 1 of 1. Nothing else is blocking it.",
+                    },
+                    {
+                        "met": None,
+                        "text": "One step past what you already know — your edge, not a leap.",
+                    },
                 ],
             },
             "in_progress": [
-                {"uid": "ku-zpd", "title": "Zone of Proximal Development", "progress": 0.40, "minutes_left": 3},
+                {
+                    "uid": "ku-zpd",
+                    "title": "Zone of Proximal Development",
+                    "progress": 0.40,
+                    "minutes_left": 3,
+                },
             ],
             "also_ready": [
                 {
@@ -493,10 +507,27 @@ class ExploreOrchestrator:
                 "units_read": 1,
                 "progress": 0.33,
                 "knowledge_units": [
-                    {"uid": "ku-attention",     "title": "Attention",       "status": "read",     "reading_minutes": 4, "excerpt": None},
-                    {"uid": featured_uid,       "title": featured_title,    "status": "current",  "reading_minutes": 4, "excerpt": None},
-                    {"uid": "ku-gentle-return", "title": "Gentle Return",   "status": "upcoming", "reading_minutes": 3,
-                     "excerpt": "Noticing you've wandered — and coming back without judgment."},
+                    {
+                        "uid": "ku-attention",
+                        "title": "Attention",
+                        "status": "read",
+                        "reading_minutes": 4,
+                        "excerpt": None,
+                    },
+                    {
+                        "uid": featured_uid,
+                        "title": featured_title,
+                        "status": "current",
+                        "reading_minutes": 4,
+                        "excerpt": None,
+                    },
+                    {
+                        "uid": "ku-gentle-return",
+                        "title": "Gentle Return",
+                        "status": "upcoming",
+                        "reading_minutes": 3,
+                        "excerpt": "Noticing you've wandered — and coming back without judgment.",
+                    },
                 ],
                 "capabilities": [
                     {

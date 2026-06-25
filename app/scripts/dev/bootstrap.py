@@ -27,7 +27,7 @@ from fasthtml.common import StaticFiles, fast_app
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import RequestIDMiddleware, RequestTimingMiddleware
 from core.config import UnifiedConfig
-from core.ports.infrastructure_protocols import EventBusOperations
+from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
 from core.utils.logging import get_logger
 from services_bootstrap import Services, compose_services
 from ui.theme import chartjs_headers, monster_headers
@@ -860,19 +860,19 @@ async def shutdown_skuel(container: AppContainer) -> None:
 
         # Drain in-flight event bus handlers before services are torn down so
         # handlers can still reach their service dependencies during the drain.
-        if container.event_bus is not None and hasattr(
-            container.event_bus, "wait_for_pending_tasks"
+        if container.event_bus is not None and isinstance(
+            container.event_bus, DrainableEventBusOperations
         ):
-            pending = container.event_bus.get_pending_task_count()
+            drainable = container.event_bus
+            pending = drainable.get_pending_task_count()
             if pending:
                 logger.info(f"⏳ Draining {pending} event bus task(s) (5s timeout)...")
                 try:
-                    await container.event_bus.wait_for_pending_tasks(timeout_seconds=5.0)
+                    await drainable.wait_for_pending_tasks(timeout_seconds=5.0)
                     logger.info("✅ Event bus drained")
                 except TimeoutError:
                     logger.warning("⚠️  Event bus drain timed out — cancelling remaining tasks")
-                    if hasattr(container.event_bus, "cancel_all_tasks"):
-                        container.event_bus.cancel_all_tasks()
+                    drainable.cancel_all_tasks()
 
         # Single cleanup path through Services.stop()
         await container.services.cleanup()

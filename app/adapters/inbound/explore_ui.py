@@ -178,8 +178,16 @@ def create_explore_ui_routes(
                         cls="text-sm text-muted-foreground",
                     ),
                     Div(
-                        A("← Reading", href="/explore", cls="text-sm text-muted-foreground hover:text-foreground transition-colors"),
-                        A("Browse library →", href="/explore/library", cls="text-sm text-muted-foreground hover:text-foreground transition-colors"),
+                        A(
+                            "← Reading",
+                            href="/explore",
+                            cls="text-sm text-muted-foreground hover:text-foreground transition-colors",
+                        ),
+                        A(
+                            "Browse library →",
+                            href="/explore/library",
+                            cls="text-sm text-muted-foreground hover:text-foreground transition-colors",
+                        ),
                         cls="flex items-center gap-6",
                     ),
                     cls="flex items-center justify-between mb-4",

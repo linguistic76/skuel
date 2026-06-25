@@ -76,6 +76,21 @@ class EventBusOperations(Protocol):
 
 
 @runtime_checkable
+class DrainableEventBusOperations(Protocol):
+    """Narrower protocol for event buses that support graceful drain/cancel.
+
+    Used in shutdown paths to drain in-flight handlers before teardown.
+    InMemoryEventBus satisfies this; other bus implementations need not.
+    """
+
+    def get_pending_task_count(self) -> int: ...
+
+    async def wait_for_pending_tasks(self, timeout_seconds: float | None = None) -> None: ...
+
+    def cancel_all_tasks(self) -> int: ...
+
+
+@runtime_checkable
 class UserCrudOperations(Protocol):
     """User identity CRUD. Used by: UserCoreService.
 

@@ -95,7 +95,9 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid, "now": now})
 
-    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
+    async def mark_as_learning(
+        self, user_uid: UserUID, ku_uid: str
+    ) -> Result[list[Neo4jProperties]]:
         """Delete MARKED_AS_READ and ensure IN_PROGRESS (Review again action)."""
         query = """
         MATCH (u:User {uid: $user_uid})

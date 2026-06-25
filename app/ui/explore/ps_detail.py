@@ -117,7 +117,7 @@ def render_ps_detail_content(
         "uid": uid,
         "progress_state": progress_state,
         "is_bookmarked": is_bookmarked,
-        "blocking": [],   # populated via orchestrator in a future iteration
+        "blocking": [],  # populated via orchestrator in a future iteration
         "prev_step": None,
         "next_step": None,
     }
@@ -329,7 +329,10 @@ def _action_bar(uid: str) -> "FT":
             Div(
                 # Start learning / Mark as read
                 Button(
-                    Span("", **{"x-text": "status === 'learning' ? 'Mark as read' : 'Start learning'"}),
+                    Span(
+                        "",
+                        **{"x-text": "status === 'learning' ? 'Mark as read' : 'Start learning'"},
+                    ),
                     UkIcon("arrow-right", cls="w-[15px] h-[15px]"),
                     type="button",
                     cls=(
