@@ -144,7 +144,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 
 `ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)` constructs a mode-specific system prompt. Each mode has its own builder:
 
-- **DIRECT:** "Gently redirect to the curriculum. Be encouraging, not dismissive."
+- **DIRECT:** Three sub-cases: redirect to unread curriculum (`askesis_guided_redirect`), out-of-scope warm redirect (`askesis_guided_out_of_scope`), or user-overridden in-scope direct answer (`askesis_guided_direct`).
 - **SOCRATIC:** "Ask the learner to explain. Do NOT give answers. Test understanding."
 - **EXPLORATORY:** "Guide through questions and analogies. Do NOT explain directly."
 - **ENCOURAGING:** "Acknowledge understanding. Connect to practice activities."
@@ -386,5 +386,5 @@ Three things distinguish Askesis from a generic AI assistant:
 | Protocols (17 methods) | `core/ports/askesis_protocols.py` |
 | API routes (20 endpoints) | `adapters/inbound/askesis_api.py` |
 | UI routes | `adapters/inbound/askesis_ui.py` |
-| Guided prompt templates (7) | `core/prompts/templates/askesis_guided_*.md` |
+| Guided prompt templates (8) | `core/prompts/templates/askesis_guided_*.md` |
 | Interaction pattern templates (4) | `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` |
