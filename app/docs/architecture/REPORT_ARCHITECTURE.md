@@ -391,7 +391,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 |-------|-----|------|
 | `/submit` | Student | Upload files for processing |
 | `/submissions/{uid}` | Owner | View submission, sharing controls |
-| `/journals/submit` | Admin | Upload files for AI (LLM) processing |
+| `/journals/submit` | Any user | Upload files for AI processing; "Upload Folder" tab batch-transcribes from vault dirs |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | Teacher | Submit human report on submission |
@@ -496,7 +496,8 @@ When `openai_service` is available, the generator:
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | POST | Teacher | Approve submission |
-| `/api/journals/batch-transcribe` | POST | Admin | Batch audio → txt (preview or run) |
+| `/api/journals/batch-transcribe` | POST | Admin | Batch audio → txt (preview or run) — any server-side path |
+| `/api/journals/folder-transcribe` | POST | Any user | Batch audio → txt from vault transcription dirs |
 
 ---
 
