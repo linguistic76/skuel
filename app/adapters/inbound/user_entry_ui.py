@@ -7,6 +7,10 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 
 Routes:
 - GET  /submit                           — Exercise worksheet upload form
+- GET  /submit/journals                  — Journal upload form (multi-file / folder)
+- GET  /submit/journals/browse           — Journal entry grid
+- POST /submit/journals/upload           — HTMX journal multipart upload
+- GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook/{uid}                  — Submission detail page
 - GET  /submissions/history              — Submission history
 - GET  /submissions/history/list         — HTMX fragment refresh
@@ -14,11 +18,6 @@ Routes:
 - GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
 - GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
-- GET  /journals                          — Redirect to /journals/browse
-- GET  /journals/submit                  — Journal upload form (multi-file supported)
-- GET  /journals/browse                  — Journal entry grid
-- POST /journals/upload                  — HTMX journal multipart upload
-- GET  /journals/{uid}/download          — Ownership-verified download
 
 All writes go through ``UserEntryService.submit_file``. All reads go through
 ``UserEntryOrchestrator``.
@@ -33,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, P, Span
 from starlette.datastructures import UploadFile
-from starlette.responses import FileResponse, RedirectResponse
+from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -196,7 +195,7 @@ def _render_user_entry_journal_card(entry: UserEntry) -> Any:
         action_buttons.append(
             ButtonLink(
                 "Download",
-                href=f"/journals/{entry.uid}/download",
+                href=f"/submit/journals/{entry.uid}/download",
                 variant=ButtonT.primary,
                 size=Size.sm,
             )
@@ -419,17 +418,12 @@ def create_user_entry_ui_routes(
         return Div()
 
     # =========================================================================
-    # JOURNALS
+    # JOURNALS  (/submit/journals/*)
     # =========================================================================
 
-    @rt("/journals")
-    async def journals_redirect(request: Request) -> Any:
-        """Redirect /journals to the browse page."""
-        return RedirectResponse("/journals/browse", status_code=302)
-
-    @rt("/journals/submit")
+    @rt("/submit/journals")
     async def journals_submit_page(request: Request) -> Any:
-        """Journal upload form."""
+        """Journal upload form — transcription / AI structuring of audio, text, or documents."""
         user_uid = require_authenticated_user(request)
 
         exercises: list[Any] = []
@@ -437,15 +431,13 @@ def create_user_entry_ui_routes(
         if ex_result.is_ok:
             exercises = ex_result.value or []
 
-        from ui.layouts.base_page import BasePage
-
         content = Div(
             PageHeader(
                 "New Journal Entry",
                 subtitle="Upload a file to be processed by AI",
                 actions=ButtonLink(
                     "Browse my journals",
-                    href="/journals/browse",
+                    href="/submit/journals/browse",
                     variant=ButtonT.ghost,
                     size=Size.sm,
                 ),
@@ -453,14 +445,13 @@ def create_user_entry_ui_routes(
             render_journal_upload_form(exercises),
             render_journal_form_script(),
         )
-        return await BasePage(
+        return await render_submissions_sidebar_page(
             content=content,
-            title="Journals",
+            active="journals",
             request=request,
-            active_page="journals",
         )
 
-    @rt("/journals/browse")
+    @rt("/submit/journals/browse")
     async def journals_browse_page(request: Request) -> Any:
         """Browse the user's journal entries."""
         user_uid = require_authenticated_user(request)
@@ -483,15 +474,13 @@ def create_user_entry_ui_routes(
             pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
             awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
 
-        from ui.layouts.base_page import BasePage
-
         content = Div(
             PageHeader(
                 "My Journals",
                 subtitle="Browse your AI-processed journal entries",
                 actions=ButtonLink(
                     "New Journal",
-                    href="/journals/submit",
+                    href="/submit/journals",
                     variant=ButtonT.primary,
                     size=Size.sm,
                 ),
@@ -499,14 +488,13 @@ def create_user_entry_ui_routes(
             _render_awaiting_response_section(awaiting_entries),
             _render_user_entry_journal_grid(entries),
         )
-        return await BasePage(
+        return await render_submissions_sidebar_page(
             content=content,
-            title="Journals",
+            active="journals",
             request=request,
-            active_page="journals",
         )
 
-    @rt("/journals/upload")
+    @rt("/submit/journals/upload")
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
     async def upload_journal(request: Request) -> Any:
@@ -594,7 +582,7 @@ def create_user_entry_ui_routes(
             logger.error(f"Error uploading journal: {e}", exc_info=True)
             return render_journal_upload_status("error", f"Upload failed: {e}", is_error=True)
 
-    @rt("/journals/{uid}/download")
+    @rt("/submit/journals/{uid}/download")
     async def download_journal(request: Request, uid: str) -> Any:
         """Ownership-verified download of a journal entry's source file."""
         try:

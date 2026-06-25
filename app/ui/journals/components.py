@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import Code, H4, H5, Div, Option, P, Span, Template
+from fasthtml.common import H4, H5, Code, Div, Option, P, Span, Template
 
 from core.models.enums.entity_enums import EntityStatus
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -36,7 +36,7 @@ def render_upload_status(
             P(f"Status: {status}", cls="mb-0"),
             ButtonLink(
                 "Browse Journals",
-                href="/journals/browse",
+                href="/submit/journals/browse",
                 variant=ButtonT.ghost,
                 size=Size.sm,
                 cls="mt-2",
@@ -97,7 +97,7 @@ def render_batch_upload_status(
             Div(*rows, cls="mb-2") if rows else None,
             ButtonLink(
                 "Browse Journals",
-                href="/journals/browse",
+                href="/submit/journals/browse",
                 variant=ButtonT.ghost,
                 size=Size.sm,
                 cls="mt-1",
