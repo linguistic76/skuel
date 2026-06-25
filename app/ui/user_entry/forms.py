@@ -214,17 +214,12 @@ def render_upload_form(
         P("Send to", cls="text-sm font-semibold mb-2"),
         Div(*teacher_audience_options, cls="space-y-1"),
         Div(
-            "Choose who receives this before submitting.",
+            "Choose a recipient before submitting.",
             cls=(
                 "text-xs text-destructive mt-2 p-2 rounded bg-destructive/10 "
                 "border border-destructive/30"
             ),
-            **{"x-show": "validationError", "x-cloak": True},
-        ),
-        Input(
-            type="hidden",
-            name="audience",
-            **{"x-bind:value": "audience"},  # type: ignore[arg-type]
+            **{"x-show": "intent === 'review' && validationError", "x-cloak": True},
         ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
         **{"x-show": "intent === 'review'", "x-cloak": True},
@@ -248,29 +243,28 @@ def render_upload_form(
             ),
             cls="space-y-1",
         ),
-        Input(
-            type="hidden",
-            name="audience",
-            **{"x-bind:value": "audience"},  # type: ignore[arg-type]
-        ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
         **{"x-show": "intent === 'log'", "x-cloak": True},
     )
 
-    # AI feedback: no audience picker — always private
-    ai_audience_hidden = Div(
-        Input(type="hidden", name="audience", value="private"),
-        **{"x-show": "intent === 'ai'", "x-cloak": True},
-    )
-
-    # When locked to exercise context, audience is always "teachers"
+    # When locked to exercise context, audience is always "teachers" — single static input.
+    # Otherwise: one hidden input bound to resolvedAudience (not per-section) so that
+    # x-show sections in the DOM don't each submit a duplicate name="audience" field.
     if hide_intent_picker:
         audience_block: Any = Input(type="hidden", name="audience", value="teachers")
+        audience_hidden: Any = ""
     else:
         audience_block = Div(
             review_audience_section,
             log_audience_section,
-            ai_audience_hidden,
+        )
+        # Single source of truth for the submitted "audience" value.
+        # resolvedAudience ensures AI intent always sends 'private' regardless of
+        # which radio the user may have touched before switching intents.
+        audience_hidden = Input(
+            type="hidden",
+            name="audience",
+            **{"x-bind:value": "resolvedAudience"},  # type: ignore[arg-type]
         )
 
     teacher_review_pipeline = Pipeline.TEACHER_REVIEW.value
@@ -286,8 +280,22 @@ def render_upload_form(
         f"  if (this.intent === 'ai') return '{llm_summary_pipeline}'; "
         "  return 'none'; "
         "}, "
+        # AI always private; other intents use the selected radio value.
+        "get resolvedAudience() { "
+        "  if (this.intent === 'ai') return 'private'; "
+        "  return this.audience; "
+        "}, "
+        # Reset audience to a valid default when the user switches intent, so a
+        # stale 'public' from Log or 'teachers' from Review doesn't leak across.
+        "init() { "
+        "  this.$watch('intent', (val) => { "
+        "    if (val === 'review') this.audience = 'teachers'; "
+        "    else this.audience = 'private'; "
+        "  }); "
+        "}, "
         "validate(ev) { "
-        "  if (this.intent === 'review' && !this.audience) { "
+        # 'private' means no recipient was actively chosen in the review section.
+        "  if (this.intent === 'review' && this.audience === 'private') { "
         "    this.validationError = true; ev.preventDefault(); return false; "
         "  } "
         "  this.validationError = false; return true; "
@@ -325,6 +333,7 @@ def render_upload_form(
                     cls="mb-4",
                 ),
                 audience_block,
+                audience_hidden,
                 Div(
                     Button(
                         "Submit",
