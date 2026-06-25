@@ -122,7 +122,7 @@ def _build_folder_upload_card() -> Any:
     ``userFolderTranscribe`` Alpine component, which defaults to the vault
     transcription directories and calls POST /api/journals/folder-transcribe.
     """
-    return render_batch_transcription_panel("userFolderTranscribe")
+    return render_batch_transcription_panel("userFolderTranscribe", readonly_dirs=True)
 
 
 def _build_upload_form_element(exercises: list[Exercise]) -> Any:

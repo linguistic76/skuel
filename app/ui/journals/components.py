@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H4, H5, Div, Option, P, Span, Template
+from fasthtml.common import Code, H4, H5, Div, Option, P, Span, Template
 
 from core.models.enums.entity_enums import EntityStatus
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -156,7 +156,10 @@ def render_journals_grid_container() -> Any:
     )
 
 
-def render_batch_transcription_panel(component_name: str = "batchTranscribe") -> Any:
+def render_batch_transcription_panel(
+    component_name: str = "batchTranscribe",
+    readonly_dirs: bool = False,
+) -> Any:
     """Batch audio→text transcription panel.
 
     Shared between the admin console (``component_name="batchTranscribe"``,
@@ -166,24 +169,55 @@ def render_batch_transcription_panel(component_name: str = "batchTranscribe") ->
     endpoint are baked into the Alpine component; only the component name
     differs between the two surfaces.
 
+    ``readonly_dirs=True`` renders the directory paths as display-only labels
+    (used by the user panel — the server-side endpoint ignores client-supplied
+    paths as a security measure, so editable fields would be misleading).
+
     "Preview Files" lists audio files in the input directory without
     transcribing; "Transcribe All" runs Deepgram and writes ``.txt`` files to
     the output directory.
     """
+    if readonly_dirs:
+        input_field = Div(
+            Label("Audio Input Directory"),
+            Code(
+                "",
+                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                **{"x-text": "inputDir"},
+            ),
+            cls="mb-3",
+        )
+        output_field = Div(
+            Label("Output Directory"),
+            Code(
+                "",
+                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                **{"x-text": "outputDir"},
+            ),
+            P(
+                "Paths are configured on the server.",
+                cls="text-xs text-muted-foreground mt-1",
+            ),
+            cls="mb-3",
+        )
+    else:
+        input_field = Div(
+            Label("Audio Input Directory"),
+            Input(type="text", id="input-dir", **{"x-model": "inputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls="mb-3",
+        )
+        output_field = Div(
+            Label("Output Directory"),
+            Input(type="text", id="output-dir", **{"x-model": "outputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls="mb-3",
+        )
+
     return Div(
         Card(
             CardBody(
                 H5("Directories", cls="mb-3 font-semibold"),
-                Div(
-                    Label("Audio Input Directory"),
-                    Input(type="text", id="input-dir", **{"x-model": "inputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
-                    cls="mb-3",
-                ),
-                Div(
-                    Label("Output Directory"),
-                    Input(type="text", id="output-dir", **{"x-model": "outputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
-                    cls="mb-3",
-                ),
+                input_field,
+                output_field,
                 Label(
                     Input(
                         type="checkbox",

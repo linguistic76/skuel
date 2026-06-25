@@ -129,12 +129,11 @@ def create_batch_transcription_api_routes(
         """
         User: batch transcribe audio files to text from the vault transcription dirs.
 
-        Defaults to /home/mike/0bsidian/skuel/transcribe_in → transcribe_out.
-        Authenticated users may supply alternative paths in the request body.
+        Paths are fixed server-side (USER_DEFAULT_INPUT_DIR / USER_DEFAULT_OUTPUT_DIR).
+        Client-supplied paths are ignored — accepting them would let any authenticated
+        user read from and write to arbitrary server directories.
 
         POST body (JSON):
-            input_dir: str — path to audio files (default: USER_DEFAULT_INPUT_DIR)
-            output_dir: str — path for .txt output (default: USER_DEFAULT_OUTPUT_DIR)
             skip_existing: bool — skip already-transcribed files (default: true)
             preview_only: bool — if true, return file list without transcribing (default: false)
 
@@ -144,8 +143,11 @@ def create_batch_transcription_api_routes(
         """
         user_uid = require_authenticated_user(request)
         body = await request.json()
-        input_dir = Path(body.get("input_dir", USER_DEFAULT_INPUT_DIR))
-        output_dir = Path(body.get("output_dir", USER_DEFAULT_OUTPUT_DIR))
+        # Paths are fixed server-side — never sourced from the request body.
+        # Accepting client-supplied paths would let any authenticated user
+        # read from and write to arbitrary server directories (Codex P1).
+        input_dir = Path(USER_DEFAULT_INPUT_DIR)
+        output_dir = Path(USER_DEFAULT_OUTPUT_DIR)
         skip_existing = body.get("skip_existing", True)
         preview_only = body.get("preview_only", False)
 
