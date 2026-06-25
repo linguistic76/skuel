@@ -78,6 +78,8 @@ def create_today_routes(
             active="today",
             request=request,
             extra_css=["/static/css/today.css"],
+            title="Today",
+            active_page="today",
         )
 
     @rt("/today/tasks/{uid}/drawer")
