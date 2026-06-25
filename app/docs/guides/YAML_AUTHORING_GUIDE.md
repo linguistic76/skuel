@@ -426,6 +426,167 @@ exercise_uids: [ex:mindfulness-101:breath-awareness-check-in]
 
 ---
 
+## PS → TaskTemplate → Task Engagement Workflow
+
+A PathStep can spawn tasks for each student when they engage it, rather than assigning a single shared task to everyone. This is the **TaskTemplate pattern** — the recommended approach for curriculum-driven tasks.
+
+### Two Ways to Connect Tasks to a PathStep
+
+| Approach | Field | Relationship | When each task spawns |
+|----------|-------|-------------|----------------------|
+| **Static assignment** | `task_uids` on PathStep | `ASSIGNS_TASK` | Never — the task already exists and is shared |
+| **Engagement templates** | TaskTemplate (via API/admin) | `HAS_TASK_TEMPLATE` | When any student clicks "Start learning" |
+
+Use `task_uids` for pre-authored reference tasks that everyone shares. Use TaskTemplates when you want each student to get their own personal copy of a task, scheduled relative to when they engaged the PathStep.
+
+### How TaskTemplates Work
+
+A TaskTemplate is a blueprint. It has all the fields of a Task, plus:
+
+- **`due_offset`** — days/hours from engagement until the spawned task is due
+- **`parent_template_uid`** — makes this template a sub-task of another template (the hierarchy spawns together)
+- **Cross-template references** — `fulfills_goal_template_uid`, `reinforces_habit_template_uid`, `scheduled_event_template_uid` — these resolve to the actual spawned instances at engagement time
+
+When a student engages the PathStep, the system:
+
+1. Reads all `HAS_TASK_TEMPLATE` edges from the PathStep
+2. For each TaskTemplate, creates one Task owned by that student
+3. Resolves relative offsets to absolute dates (due in N days from today)
+4. Creates `SPAWNED_FROM` edges from each Task back to its template
+5. Fires `ps-engaged` — the PathStep detail page reloads the Tasks section
+
+### Creating a TaskTemplate (Admin)
+
+TaskTemplates are not ingestible via YAML — they're authored via the admin API or admin UI. The workflow for a curriculum developer:
+
+**Step 1 — Create the TaskTemplate:**
+
+```
+POST /api/task-templates/
+{
+  "uid": "tt:mindfulness-101:log-first-5-sessions",
+  "title": "Log Your First 5 Sessions",
+  "description": "After each of your first 5 breath-awareness sessions, write 2–3 sentences about what you noticed. Use the journal or a note.",
+  "priority": "medium",
+  "due_offset": { "days": 14 },
+  "duration_minutes": 30,
+  "knowledge_mastery_check": false,
+  "completion_updates_goal": true
+}
+```
+
+**Step 2 — Attach it to the PathStep:**
+
+```
+POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:log-first-5-sessions/attach
+```
+
+This creates the `(PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)` edge. The attachment is permanent until explicitly detached — publish the PathStep once all templates are attached.
+
+**Step 3 — Publish the PathStep:**
+
+```
+POST /api/ps/ps:mindfulness-101:breath-awareness-basics/publish
+```
+
+Publishing validates all cross-template references and flips the PathStep status to `published`. Students can't engage an unpublished PathStep.
+
+### Worked Example: Mindfulness 101, Step 1
+
+This example creates two tasks that spawn together when a student engages the breath-awareness PathStep — a primary practice task and a reflection sub-task.
+
+**Template 1 — Primary practice task:**
+
+```
+POST /api/task-templates/
+{
+  "uid": "tt:mindfulness-101:breath-practice-primary",
+  "title": "Complete 5 Breath-Awareness Sessions",
+  "description": "Do five separate practice sessions of any length. One minute counts.",
+  "priority": "high",
+  "due_offset": { "days": 7 },
+  "completion_updates_goal": true
+}
+```
+
+**Template 2 — Sub-task (reflection after each session):**
+
+```
+POST /api/task-templates/
+{
+  "uid": "tt:mindfulness-101:breath-practice-reflection",
+  "title": "Write a Reflection After Each Session",
+  "description": "After each session, note one observation: what you noticed about your attention, breath, or mind-wandering.",
+  "priority": "medium",
+  "due_offset": { "days": 7 },
+  "parent_template_uid": "tt:mindfulness-101:breath-practice-primary"
+}
+```
+
+**Attach both to the PathStep:**
+
+```
+POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-primary/attach
+POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-reflection/attach
+```
+
+**What the student sees after engaging:**
+
+On the PathStep detail page, under **Tasks**:
+
+```
+☐ Complete 5 Breath-Awareness Sessions   (due 7 days from now)
+    ☐ Write a Reflection After Each Session
+```
+
+Both tasks are owned by the student, scheduled relative to today. Their UID formats follow the standard task format (`task:...`) — the template UID is only on the blueprint.
+
+### TaskTemplate Field Reference
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `uid` | `tt:{namespace}:{slug}` | Unique identifier |
+| `title` | string | Task title (copied to spawned Task) |
+| `description` | string | Optional context |
+| `priority` | `low`/`medium`/`high`/`critical` | Copied to spawned Task |
+| `due_offset` | `{days, hours, minutes}` | Due date = engagement date + offset |
+| `scheduled_offset` | `{days, hours, minutes}` | Scheduled date = engagement date + offset |
+| `duration_minutes` | int | Estimated duration (copied to spawned Task) |
+| `recurrence_pattern` | RecurrencePattern | Optional recurrence |
+| `recurrence_end_offset` | `{days, hours, minutes}` | When recurrence ends |
+| `parent_template_uid` | `tt:...` | Spawns this task as a sub-task of that template's instance |
+| `fulfills_goal_template_uid` | `tt:...` | Resolve to the spawned Goal instance at engagement |
+| `reinforces_habit_template_uid` | `tt:...` | Resolve to the spawned Habit instance at engagement |
+| `scheduled_event_template_uid` | `tt:...` | Resolve to the spawned Event instance at engagement |
+| `goal_progress_contribution` | float 0.0–1.0 | How much this task contributes to goal progress |
+| `knowledge_mastery_check` | bool | Whether completing this task marks a mastery checkpoint |
+| `habit_streak_maintainer` | bool | Whether completing maintains a habit streak |
+| `completion_updates_goal` | bool | Whether completion triggers a goal progress update |
+
+### PathStep YAML with `task_uids` (Static Approach)
+
+If you want to link pre-existing tasks directly to a PathStep (not engagement-driven), use `task_uids` in the PathStep YAML:
+
+```yaml
+# ps_breath-awareness-basics.md
+---
+type: PathStep
+uid: ps:mindfulness-101:breath-awareness-basics
+title: Breath Awareness Basics
+
+task_uids:
+  - task:mindfulness-101:log-first-5-sessions   # ASSIGNS_TASK → (shared task)
+---
+
+## The Core Technique
+
+When attention wanders — and it will — the moment you *notice* is the practice...
+```
+
+This creates a static link: all students see the same `task:mindfulness-101:log-first-5-sessions` entity. Use this pattern for reference or demonstration tasks, not for per-student practice tasks. For per-student tasks, use the TaskTemplate pattern above.
+
+---
+
 ## Edge Files
 
 Standalone edge files in `{vault}/edges/` create relationships between entities. There are two patterns: **evidence edges** (observed connections between Kus) and **curriculum structure edges** (wiring up the three-entity curriculum stack and cross-domain connections).
