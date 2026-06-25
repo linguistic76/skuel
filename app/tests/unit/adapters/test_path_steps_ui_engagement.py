@@ -18,6 +18,7 @@ from fasthtml.common import to_xml
 
 from adapters.inbound.path_steps_ui import (
     _parse_review_form,
+    _ps_tasks_fragment,
     render_engagement_actions,
 )
 from core.models.enums.learning_enums import KnowledgeStatus
@@ -430,3 +431,77 @@ class TestRenderPublishViolations:
         html = to_xml(render_publish_violations(_PS_UID, violations))
 
         assert "did you mean" not in html
+
+
+# ============================================================================
+# _ps_tasks_fragment — tasks section HTMX fragment
+# ============================================================================
+
+
+class _FakeTask:
+    """Minimal Task stub for fragment rendering tests."""
+
+    def __init__(self, uid: str, title: str, status: str | None = None) -> None:
+        self.uid = uid
+        self.title = title
+        self.status = _FakeStatus(status) if status else None
+
+
+class _FakeStatus:
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def __str__(self) -> str:
+        return self._value
+
+
+class TestPsTasksFragment:
+    """Tests for the tasks-from-this-step HTMX fragment."""
+
+    def test_fragment_has_stable_id_for_htmx_swap(self) -> None:
+        html = to_xml(_ps_tasks_fragment(_PS_UID, []))
+
+        assert 'id="ps-tasks-fragment"' in html
+
+    def test_fragment_retains_htmx_attributes_for_subsequent_swaps(self) -> None:
+        # After outerHTML swap, the returned element must keep hx-get + hx-trigger
+        # so the ps-engaged event still has a listener on re-engagement.
+        html = to_xml(_ps_tasks_fragment(_PS_UID, []))
+
+        assert f'hx-get="/explore/ps/{_PS_UID}/tasks"' in html
+        assert 'hx-trigger="ps-engaged"' in html
+        assert 'hx-swap="outerHTML"' in html
+
+    def test_empty_tasks_shows_call_to_action(self) -> None:
+        html = to_xml(_ps_tasks_fragment(_PS_UID, []))
+
+        assert "No tasks yet" in html
+
+    def test_task_title_links_to_detail_page(self) -> None:
+        task = _FakeTask(uid="task_001", title="Read chapter 3")
+        html = to_xml(_ps_tasks_fragment(_PS_UID, [task]))
+
+        assert "Read chapter 3" in html
+        assert 'href="/tasks/detail?uid=task_001"' in html
+
+    def test_completed_task_applies_strikethrough(self) -> None:
+        task = _FakeTask(uid="task_001", title="Done task", status="completed")
+        html = to_xml(_ps_tasks_fragment(_PS_UID, [task]))
+
+        assert "line-through" in html
+
+    def test_active_task_no_strikethrough(self) -> None:
+        task = _FakeTask(uid="task_002", title="Active task", status="active")
+        html = to_xml(_ps_tasks_fragment(_PS_UID, [task]))
+
+        assert "line-through" not in html
+
+    def test_multiple_tasks_all_rendered(self) -> None:
+        tasks = [
+            _FakeTask(uid="task_001", title="First task"),
+            _FakeTask(uid="task_002", title="Second task"),
+        ]
+        html = to_xml(_ps_tasks_fragment(_PS_UID, tasks))
+
+        assert "First task" in html
+        assert "Second task" in html
