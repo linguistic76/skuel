@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 SUBMISSIONS_STORAGE_KEY = "submissions-sidebar"
 
 SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Submit", "/submit", "submit", icon="send"),
+    SidebarItem("Exercise", "/submit", "submit", icon="send"),
     SidebarItem("Journals", "/submit/journals", "journals", icon="book-open"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
     SidebarItem("Obsidian Sync", "/settings/vault", "vault-sync", icon="refresh-cw"),
