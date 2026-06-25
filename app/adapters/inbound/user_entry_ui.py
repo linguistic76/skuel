@@ -56,6 +56,7 @@ from ui.journals.components import (
     render_upload_status as render_journal_upload_status,
 )
 from ui.journals.forms import render_upload_form as render_journal_upload_form
+from ui.journals.forms import upload_form_script as render_journal_form_script
 from ui.layout import Size
 from ui.learning_loop.report import render_yours_list
 from ui.patterns.card_generator import CardGenerator
@@ -465,6 +466,7 @@ def create_user_entry_ui_routes(
                 ),
             ),
             render_journal_upload_form(exercises),
+            render_journal_form_script(),
         )
         return await BasePage(
             content=content,
@@ -534,6 +536,11 @@ def create_user_entry_ui_routes(
             raw_title = form.get("title")
             custom_title = str(raw_title).strip() if raw_title else ""
 
+            # Folder-mode forms include upload_source=folder so the status div id
+            # matches their hx-target (avoids duplicate id="upload-status" in DOM).
+            upload_source = str(form.get("upload_source", "file"))
+            status_id = "folder-upload-status" if upload_source == "folder" else "upload-status"
+
             raw_files = form.getlist("file")
             uploaded_files = [f for f in raw_files if isinstance(f, UploadFile)]
 
@@ -596,7 +603,7 @@ def create_user_entry_ui_routes(
                     logger.error(f"Error processing journal file {filename!r}: {e}", exc_info=True)
                     batch_results.append((filename, False, None, str(e)))
 
-            return render_batch_upload_status(batch_results)
+            return render_batch_upload_status(batch_results, status_id=status_id)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)

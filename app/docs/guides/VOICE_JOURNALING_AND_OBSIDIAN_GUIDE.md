@@ -46,9 +46,18 @@ You can upload up to 20 files at once in a single session.
 
 ### Uploading at /journals/submit
 
+The page has two modes, toggled at the top:
+
+**Upload Files** — pick one or more files from your device:
 1. Go to **[/journals/submit](/journals/submit)**
 2. Optionally give the entry a title and connect it to a learning exercise
-3. Select your audio file(s) and click **Upload**
+3. Select your audio file(s) and click **Submit to AI**
+
+**Upload Folder** — batch-transcribe an entire directory server-side (same UX as the admin batch-transcribe console):
+1. Switch to the **Upload Folder** tab
+2. The input directory defaults to `/home/mike/0bsidian/skuel/transcribe_in`; the output directory defaults to `transcribe_out`
+3. Click **Preview Files** to see what will be processed without transcribing
+4. Click **Transcribe All** to run Deepgram — `.txt` files are written to the output directory
 
 SKUEL transcribes the audio (via Deepgram), structures the content, and saves it as a journal entry. You'll see a status indicator as it processes. For most voice memos, transcription completes in seconds.
 

@@ -9,69 +9,120 @@ from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label, Radio
 from ui.journals.cards import render_instruction_list
+from ui.journals.components import render_batch_transcription_panel
 from ui.layout import Size
 
 
 def render_upload_form(exercises: list[Exercise] | None = None) -> Any:
-    """Render the file upload form — title + instruction selector + file(s)."""
+    """Render journal upload form with Files and Folder upload modes.
+
+    A mode toggle switches between:
+    - Files mode: multi-file browser picker → POST /journals/upload
+    - Folder mode: server-side batch transcription panel (same UX as the admin
+      batch-transcribe console, pre-configured for the vault transcription dirs)
+    """
     exercises = exercises or []
     return Div(
-        Card(
-            # x-data on card-body so both Form and instruction file picker share scope
-            CardBody(
-                _build_upload_form_element(exercises),
-                # Instruction file picker — sibling of Form, shares Alpine scope from card-body
-                Input(
-                    type="file",
-                    id="instruction-file-picker",
-                    name="instruction_file",
-                    cls="hidden",
-                    accept=".txt,.md,.rst,text/plain,text/markdown",
-                    hx_post="/journals/instructions/upload",
-                    hx_target="#instruction-file-list",
-                    hx_swap="outerHTML",
-                    hx_encoding="multipart/form-data",
-                    hx_trigger="change",
-                ),
-                **{
-                    "x-data": """{
-                        selectedFile: null,
-                        fileCount: 0,
-                        instructionMode: 'default',
-                        handleFileSelect(event) {
-                            const files = event.target.files;
-                            this.fileCount = files.length;
-                            if (files.length > 0) {
-                                this.selectedFile = files[0];
-                                const labelText = document.getElementById('file-label-text');
-                                const labelHint = document.getElementById('file-label-hint');
-                                if (labelText) labelText.textContent = files.length === 1
-                                    ? files[0].name
-                                    : `${files.length} files selected`;
-                                if (labelHint) {
-                                    const totalMB = Array.from(files)
-                                        .reduce((s, f) => s + f.size, 0) / 1024 / 1024;
-                                    labelHint.textContent = files.length === 1
-                                        ? `${(files[0].size / 1024 / 1024).toFixed(2)} MB`
-                                        : `${totalMB.toFixed(2)} MB total`;
-                                }
-                            }
-                        },
-                        clearInstructionUid() {
-                            const inp = document.getElementById('exercise-uid-input');
-                            if (inp) inp.value = '';
-                        },
-                        autoSelectFirstInstruction() {
-                            const card = document.querySelector('#instruction-file-list .instruction-card[data-uid]');
-                            if (card) selectInstruction(card.dataset.uid, card);
-                        }
-                    }""",
-                    "@journals:upload-complete.window": "fileCount = 0; selectedFile = null",
+        # Mode toggle — outer scope drives which section is visible
+        Div(
+            Button(
+                "Upload Files",
+                type="button",
+                variant=ButtonT.primary,
+                size=Size.sm,
+                **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    ":class": "uploadMode === 'files' ? '' : 'btn-outline'",
+                    "@click": "uploadMode = 'files'",
                 },
             ),
-            cls="bg-background shadow-sm hover:shadow-md transition-shadow",
+            Button(
+                "Upload Folder",
+                type="button",
+                variant=ButtonT.outline,
+                size=Size.sm,
+                **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    ":class": "uploadMode === 'folder' ? 'btn-primary' : ''",
+                    "@click": "uploadMode = 'folder'",
+                },
+            ),
+            cls="flex gap-2 mb-4",
         ),
+        # Files mode — existing single/multi-file uploader
+        Div(
+            Card(
+                # x-data on card-body so both Form and instruction file picker share scope
+                CardBody(
+                    _build_upload_form_element(exercises),
+                    # Instruction file picker — sibling of Form, shares Alpine scope from card-body
+                    Input(
+                        type="file",
+                        id="instruction-file-picker",
+                        name="instruction_file",
+                        cls="hidden",
+                        accept=".txt,.md,.rst,text/plain,text/markdown",
+                        hx_post="/journals/instructions/upload",
+                        hx_target="#instruction-file-list",
+                        hx_swap="outerHTML",
+                        hx_encoding="multipart/form-data",
+                        hx_trigger="change",
+                    ),
+                    **{
+                        "x-data": """{
+                            selectedFile: null,
+                            fileCount: 0,
+                            instructionMode: 'default',
+                            handleFileSelect(event) {
+                                const files = event.target.files;
+                                this.fileCount = files.length;
+                                if (files.length > 0) {
+                                    this.selectedFile = files[0];
+                                    const labelText = document.getElementById('file-label-text');
+                                    const labelHint = document.getElementById('file-label-hint');
+                                    if (labelText) labelText.textContent = files.length === 1
+                                        ? files[0].name
+                                        : `${files.length} files selected`;
+                                    if (labelHint) {
+                                        const totalMB = Array.from(files)
+                                            .reduce((s, f) => s + f.size, 0) / 1024 / 1024;
+                                        labelHint.textContent = files.length === 1
+                                            ? `${(files[0].size / 1024 / 1024).toFixed(2)} MB`
+                                            : `${totalMB.toFixed(2)} MB total`;
+                                    }
+                                }
+                            },
+                            clearInstructionUid() {
+                                const inp = document.getElementById('exercise-uid-input');
+                                if (inp) inp.value = '';
+                            },
+                            autoSelectFirstInstruction() {
+                                const card = document.querySelector('#instruction-file-list .instruction-card[data-uid]');
+                                if (card) selectInstruction(card.dataset.uid, card);
+                            }
+                        }""",
+                        "@journals:upload-complete.window": "fileCount = 0; selectedFile = null",
+                    },
+                ),
+                cls="bg-background shadow-sm hover:shadow-md transition-shadow",
+            ),
+            **{"x-show": "uploadMode === 'files'"},
+        ),
+        # Folder mode — folder picker with preview then batch upload
+        Div(
+            _build_folder_upload_card(),
+            **{"x-show": "uploadMode === 'folder'", "x-cloak": True},
+        ),
+        **{"x-data": "{ uploadMode: 'files' }"},
     )
+
+
+def _build_folder_upload_card() -> Any:
+    """Server-side folder transcription panel for the journal submit page.
+
+    Delegates to the shared ``render_batch_transcription_panel`` with the
+    ``userFolderTranscribe`` Alpine component, which defaults to the vault
+    transcription directories and calls POST /api/journals/folder-transcribe.
+    """
+    return render_batch_transcription_panel("userFolderTranscribe", readonly_dirs=True)
 
 
 def _build_upload_form_element(exercises: list[Exercise]) -> Any:
@@ -224,6 +275,15 @@ def upload_form_script() -> Any:
                     btn.textContent = count > 1 ? 'Processing ' + count + ' files...' : 'Processing...';
                 }
             }
+            if (form.id === 'folder-upload-form') {
+                var folderInput = document.getElementById('folder-input');
+                var count = folderInput ? folderInput.files.length : 0;
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Uploading ' + count + ' file(s)...';
+                }
+            }
         });
 
         document.body.addEventListener('htmx:afterRequest', function(evt) {
@@ -245,11 +305,19 @@ def upload_form_script() -> Any:
                 // Reset Alpine state (hides multi-file title suppression)
                 window.dispatchEvent(new CustomEvent('journals:upload-complete'));
             }
+            if (form.id === 'folder-upload-form') {
+                // Re-enable submit button — Alpine clear() resets file list state
+                var btn = form.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Upload Folder to Journal';
+                }
+            }
         });
 
         document.body.addEventListener('htmx:responseError', function(evt) {
             var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
+            if (form.id === 'upload-form' || form.id === 'folder-upload-form') {
                 console.error('[Journals] Upload failed:', evt.detail.xhr.status, evt.detail.xhr.statusText);
                 alert('Upload failed: ' + evt.detail.xhr.status + ' - ' + evt.detail.xhr.statusText);
             }
@@ -257,7 +325,7 @@ def upload_form_script() -> Any:
 
         document.body.addEventListener('htmx:sendError', function(evt) {
             var form = evt.detail.elt;
-            if (form.id === 'upload-form') {
+            if (form.id === 'upload-form' || form.id === 'folder-upload-form') {
                 console.error('[Journals] Network error:', evt.detail.error);
                 alert('Network error. Please check your connection and try again.');
             }

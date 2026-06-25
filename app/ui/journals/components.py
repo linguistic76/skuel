@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H4, H5, Div, Option, P, Span, Template
+from fasthtml.common import Code, H4, H5, Div, Option, P, Span, Template
 
 from core.models.enums.entity_enums import EntityStatus
 from ui.buttons import Button, ButtonLink, ButtonT
@@ -51,10 +51,13 @@ def render_upload_status(
 
 def render_batch_upload_status(
     results: list[tuple[str, bool, str | None, str | None]],
+    status_id: str = "upload-status",
 ) -> Any:
     """Render per-file status list for a multi-file journal upload (HTMX swap target).
 
     Each tuple: (filename, success, entry_uid, error_message).
+    ``status_id`` lets callers use a non-default id (e.g. ``folder-upload-status``)
+    so multiple upload forms on the same page don't share an id.
     """
     succeeded = [r for r in results if r[1]]
     failed = [r for r in results if not r[1]]
@@ -101,7 +104,7 @@ def render_batch_upload_status(
             ),
             variant=variant,
         ),
-        id="upload-status",
+        id=status_id,
     )
 
 
@@ -153,29 +156,68 @@ def render_journals_grid_container() -> Any:
     )
 
 
-def render_batch_transcription_panel() -> Any:
-    """Admin batch audio→text transcription panel.
+def render_batch_transcription_panel(
+    component_name: str = "batchTranscribe",
+    readonly_dirs: bool = False,
+) -> Any:
+    """Batch audio→text transcription panel.
 
-    Alpine-driven (``batchTranscribe`` in static/js/skuel.js): drives
-    ``POST /api/journals/batch-transcribe``. "Preview Files" lists the audio
-    files in the server-side input directory without transcribing; "Transcribe
-    All" runs Deepgram over them and writes ``.txt`` files to the output
-    directory. Operates on server-side paths — not browser-picked files.
+    Shared between the admin console (``component_name="batchTranscribe"``,
+    ``POST /api/journals/batch-transcribe``) and the user journals submit page
+    (``component_name="userFolderTranscribe"``,
+    ``POST /api/journals/folder-transcribe``).  Default paths and the target
+    endpoint are baked into the Alpine component; only the component name
+    differs between the two surfaces.
+
+    ``readonly_dirs=True`` renders the directory paths as display-only labels
+    (used by the user panel — the server-side endpoint ignores client-supplied
+    paths as a security measure, so editable fields would be misleading).
+
+    "Preview Files" lists audio files in the input directory without
+    transcribing; "Transcribe All" runs Deepgram and writes ``.txt`` files to
+    the output directory.
     """
+    if readonly_dirs:
+        input_field = Div(
+            Label("Audio Input Directory"),
+            Code(
+                "",
+                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                **{"x-text": "inputDir"},
+            ),
+            cls="mb-3",
+        )
+        output_field = Div(
+            Label("Output Directory"),
+            Code(
+                "",
+                cls="block text-sm font-mono bg-muted rounded px-2 py-1 mt-1",
+                **{"x-text": "outputDir"},
+            ),
+            P(
+                "Paths are configured on the server.",
+                cls="text-xs text-muted-foreground mt-1",
+            ),
+            cls="mb-3",
+        )
+    else:
+        input_field = Div(
+            Label("Audio Input Directory"),
+            Input(type="text", id="input-dir", **{"x-model": "inputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls="mb-3",
+        )
+        output_field = Div(
+            Label("Output Directory"),
+            Input(type="text", id="output-dir", **{"x-model": "outputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls="mb-3",
+        )
+
     return Div(
         Card(
             CardBody(
                 H5("Directories", cls="mb-3 font-semibold"),
-                Div(
-                    Label("Audio Input Directory"),
-                    Input(type="text", id="input-dir", **{"x-model": "inputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
-                    cls="mb-3",
-                ),
-                Div(
-                    Label("Output Directory"),
-                    Input(type="text", id="output-dir", **{"x-model": "outputDir"}),  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
-                    cls="mb-3",
-                ),
+                input_field,
+                output_field,
                 Label(
                     Input(
                         type="checkbox",
@@ -191,14 +233,12 @@ def render_batch_transcription_panel() -> Any:
                         "Preview Files",
                         variant=ButtonT.outline,
                         type="button",
-                        id="preview-btn",
                         **{"@click": "previewFiles()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                     ),
                     Button(
                         "Transcribe All",
                         variant=ButtonT.primary,
                         type="button",
-                        id="transcribe-btn",
                         cls="ml-2",
                         **{"@click": "transcribeAll()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
                     ),
@@ -206,14 +246,14 @@ def render_batch_transcription_panel() -> Any:
                 ),
                 P(
                     "Supported audio: mp3, wav, m4a, ogg, flac, webm. "
-                    "Runs against the server-side directory above.",
+                    "Transcribed .txt files are written to the output directory.",
                     cls="text-xs text-muted-foreground mt-3",
                 ),
             ),
             cls="bg-background shadow-sm mb-4",
         ),
         _render_batch_results(),
-        **{"x-data": "batchTranscribe"},
+        **{"x-data": component_name},
     )
 
 
