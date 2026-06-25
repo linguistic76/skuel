@@ -70,11 +70,17 @@ await backend.get_enrolled_ps_exercises_with_status(user_uid) # PERSONAL exercis
 await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # Exercises for a SINGLE PathStep with status
 ```
 
-**PathStep detail page — the learning loop anchor (2026-04-03):**
+**PathStep detail page (2026-06-24 reading-first redesign):**
 
-The PathStep detail page at `/explore/ps/{uid}` is where students experience the full
-learning loop in one place. For authenticated users, four HTMX fragment endpoints
-lazy-load exercises (with status pills), submissions, feedback, and embedded forms:
+The PathStep detail page at `/explore/ps/{uid}` is a reading-first column (`max-w-[760px]`,
+`BasePage(CUSTOM)`, no sidebar) matching the KU reader design language. Alpine component
+`pathstep` (in `static/js/ps-detail.js`) owns progress state (`not_started/learning/read`),
+bookmark toggle, and deps accordion. Two CSRF-protected mutation endpoints:
+- `POST /explore/ps/{uid}/progress` (`state=learning|read`)
+- `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
+
+The `/learning-loop/ps/{ps_uid}/*` fragment routes remain wired in `learning_loop_routes.py`
+(`create_learning_loop_fragment_routes`) but are not surfaced on the PS detail page:
 
 | Fragment Endpoint | Service Method | Renderer |
 |---|---|---|
@@ -83,9 +89,8 @@ lazy-load exercises (with status pills), submissions, feedback, and embedded for
 | `GET /learning-loop/ps/{ps_uid}/forms` | `ExploreOrchestrator.get_forms_for_path_step()` → `FormTemplateService` | `render_embedded_forms()` — empty div when no forms linked |
 | `POST /learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | `FormSubmissionService.submit_form()` | success card (outerHTML swap) or form re-render with error banner |
 
-Routes wired in `adapters/inbound/learning_loop_routes.py` (`create_learning_loop_fragment_routes`). Renderers in `ui/learning_loop/`
-(`exercise_status.py`, `submissions_section.py`, `feedback_section.py`, `embedded_forms.py`). The exercise status
-helpers are shared with the Library exercises tab (`/library/exercises`).
+Renderers in `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`,
+`embedded_forms.py`). Exercise status helpers shared with Library exercises tab (`/library/exercises`).
 
 Forms are linked to PathSteps via `(PathStep)-[:EMBEDS_FORM]->(FormTemplate)`. Admin wires the relationship via
 `POST /api/form-templates/link-path-step`. The fragment returns an empty `<div>` when no forms are linked, so the

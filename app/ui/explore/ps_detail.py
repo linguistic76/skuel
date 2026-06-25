@@ -1,51 +1,71 @@
 """
-Explore PathStep Detail — Pure Rendering
-==========================================
+Explore PathStep Detail — Reading-First Design
+===============================================
 
-Renders the PathStep detail content fragment for /explore/ps/{uid}/content.
+Reading-column layout for /explore/ps/{uid}/content.
+Matches the KU reader design language: calm centered column,
+real reading typography, hero card with progress tracking.
+
+Design reference: data/design_handoff_pathstep/pathstep.html
+
 No async, no service calls — receives pre-fetched data.
 """
 
-from typing import Any
+from __future__ import annotations
 
-from fasthtml.common import H1, H3, Div, Li, NotStr, P, Ul
+import json
+from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.path_steps_ui import _start_step_button, render_engagement_actions
+from fasthtml.common import (
+    H1,
+    H2,
+    A,
+    Button,
+    Div,
+    Li,
+    NotStr,
+    P,
+    Script,
+    Section,
+    Span,
+    Ul,
+)
+from monsterui.franken import UkIcon
+
 from core.models.enums import UserRole
-from core.models.type_hints import EntityUID
-from core.services.ps_engagement.engagement import Engagement
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
-from ui.explore.ps_publish_state import render_publish_state, render_status_badge
-from ui.feedback import Badge, BadgeT
-from ui.layout import Size
-from ui.patterns.breadcrumbs import Breadcrumbs
-from ui.patterns.metadata_badge import metadata_badge
-from ui.patterns.relationships import EntityRelationshipsSection
-from ui.teaching.templates_panel import render_templates_panel_placeholder
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
+
+_COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
 
 
 def render_ps_not_found(uid: str) -> Div:
-    """Render the not-found state for a PathStep detail page."""
+    """Render the not-found state for a PathStep detail fragment."""
     return Div(
-        Card(
-            CardBody(
-                H3("Path Step Not Found", cls="text-lg font-bold"),
-                P(
-                    f"No path step with identifier: {uid}",
-                    cls="text-muted-foreground mt-2",
-                ),
-                ButtonLink(
-                    "\u2190 Back to Explore",
-                    href="/explore",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-4",
-                ),
+        A(
+            UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+            " Explore",
+            href="/explore",
+            cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
+        ),
+        Div(
+            P("Path step not found.", cls="text-[14px] font-semibold text-foreground"),
+            P(f"No path step with ID: {uid}", cls="text-[13px] text-muted-foreground mt-1"),
+            A(
+                "← Back to Explore",
+                href="/explore",
+                cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
             ),
+            cls="p-8 border border-border rounded-xl bg-card text-center",
         ),
         id="ps-detail-content",
-        cls="max-w-4xl mx-auto p-8",
+        cls=_COLUMN_CLS,
     )
 
 
@@ -54,217 +74,454 @@ def render_ps_detail_content(
     step: Any,
     uid: str,
     content_html: str,
-    toc_html: str,
     is_marked_read: bool,
     is_bookmarked: bool,
     is_in_progress: bool,
     is_mastered: bool,
     user_uid: str | None,
-    exercises: list[dict],
-    engagement: Engagement | None,
     user_role: UserRole | None = None,
+    # Retained for API compatibility; not rendered in this design iteration.
+    toc_html: str = "",
+    exercises: list[dict] | None = None,
+    engagement: Any = None,
 ) -> Div:
-    """Render the full PathStep detail content fragment.
+    """Reading-first PathStep detail content fragment.
+
+    Serves as the HTMX fragment for GET /explore/ps/{uid}/content.
+    The Alpine component (pathstep) is registered in ps-detail.js,
+    loaded in the shell before the fragment arrives.
 
     Args:
-        step: The PathStep entity.
+        step: PathStep entity.
         uid: PathStep UID.
-        content_html: Pre-rendered markdown HTML.
-        toc_html: Pre-rendered table-of-contents HTML.
+        content_html: Pre-rendered markdown HTML (skuel-prose body).
         is_marked_read: Whether the user marked this step as read.
         is_bookmarked: Whether the user bookmarked this step.
         is_in_progress: Whether the user is currently working on this step.
         is_mastered: Whether the user has mastered this step.
         user_uid: Current user UID, or None if unauthenticated.
-        exercises: Exercise dicts (used for unauthenticated exercise list).
-        engagement: Active engagement (state="engaged") for this user+PS, or
-            None if no active engagement. Drives the Engage/Abandon button
-            group rendered above the learning-state action row.
-        user_role: Viewer's role, or None for unauthenticated. Used to gate
-            the Publish button (TEACHER+ only) in the action area.
+        user_role: Viewer's role — gates teacher-only controls.
+        toc_html: Not used in this layout (no TOC sidebar).
+        exercises: Not rendered inline in this design (deferred).
+        engagement: Not rendered inline in this design (deferred).
     """
-    is_teacher = user_role is not None and user_role.has_permission(UserRole.TEACHER)
-    has_toc = bool(toc_html and toc_html.strip())
-
-    # Breadcrumbs
-    breadcrumb_path = [
-        {"uid": "explore", "title": "Explore", "url": "/explore"},
-        {"uid": uid, "title": step.title, "url": ""},
-    ]
-
-    # Metadata badges
-    metadata_items = [render_status_badge(getattr(step, "status", None))]
-    if step.domain:
-        domain_label = getattr(step.domain, "value", str(step.domain))
-        metadata_items.append(metadata_badge("Domain:", domain_label, BadgeT.primary))
-    if step.complexity:
-        metadata_items.append(metadata_badge("Complexity:", str(step.complexity.value)))
-    if step.learning_level:
-        metadata_items.append(metadata_badge("Level:", str(step.learning_level.value)))
-    if step.estimated_time_minutes:
-        metadata_items.append(metadata_badge("Time:", f"{step.estimated_time_minutes} min"))
-    if step.estimated_hours:
-        metadata_items.append(metadata_badge("Hours:", f"{step.estimated_hours:.1f}h"))
-
-    metadata_section = Div(*metadata_items, cls="flex flex-wrap gap-2 mb-4")
-
-    # Learning objectives
-    objectives_section = Div()
-    if step.learning_objectives:
-        objectives_section = Div(
-            H3("Learning Objectives", cls="text-base font-semibold mb-2"),
-            Ul(
-                *[Li(obj, cls="text-sm text-muted-foreground") for obj in step.learning_objectives],
-                cls="list-disc pl-5 space-y-1 mb-6",
-            ),
-        )
-
-    # Tags
-    tags_section = Div()
-    if step.tags:
-        tag_badges = [Badge(tag, variant=BadgeT.outline, size=Size.sm) for tag in step.tags]
-        tags_section = Div(*tag_badges, cls="flex flex-wrap gap-1 mt-3")
-
-    # Reading content
-    reading_content = Div(
-        NotStr(content_html or "No content available."),
-        cls="skuel-prose",
+    progress_state = (
+        "read"
+        if (is_marked_read or is_mastered)
+        else "learning"
+        if is_in_progress
+        else "not_started"
     )
 
-    # Exercises stay visible with an empty state (the workflow entry point).
-    # Submissions + Feedback collapse to an empty Div when the user has no
-    # activity yet — see render_ps_submissions_and_feedback.
-    # Forms section collapses to an empty Div when no forms are embedded.
-    submissions_section: Any = Div()
-    feedback_section: Any = Div()
-    forms_section: Any = Div()
-    if user_uid:
-        exercises_section: Any = Div(
-            H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
-            Div(
-                id=f"ps-exercises-{uid}",
-                hx_get=f"/learning-loop/ps/{uid}/exercises",
-                hx_trigger="load",
-                hx_swap="innerHTML",
-            ),
-            cls="border-t border-border pt-6 mt-8",
-        )
-        submissions_section = Div(
-            id=f"ps-submissions-feedback-{uid}",
-            hx_get=f"/learning-loop/ps/{uid}/submissions-and-feedback",
-            hx_trigger="load",
-            hx_swap="innerHTML",
-        )
-        feedback_section = Div()
-        forms_section = Div(
-            id=f"ps-forms-container-{uid}",
-            hx_get=f"/learning-loop/ps/{uid}/forms",
-            hx_trigger="load",
-            hx_swap="innerHTML",
-        )
-    else:
-        exercises_section = _render_unauthenticated_exercises(uid, exercises)
-
-    # Action buttons
-    if user_uid:
-        mark_read_btn = Button(
-            "Marked as Read" if is_marked_read else "Mark as Read",
-            variant=ButtonT.success if is_marked_read else ButtonT.primary,
-            size=Size.sm,
-            hx_post=f"/api/path-steps/{uid}/mark-read",
-            hx_swap="outerHTML",
-            hx_target="this",
-            disabled=is_marked_read,
-        )
-        bookmark_btn = Button(
-            "Bookmarked" if is_bookmarked else "Bookmark",
-            variant=ButtonT.secondary if is_bookmarked else ButtonT.ghost,
-            size=Size.sm,
-            hx_post=f"/api/path-steps/{uid}/bookmark",
-            hx_swap="outerHTML",
-            hx_target="this",
-        )
-        action_area: Any = Div(
-            render_engagement_actions(uid, engagement),
-            render_publish_state(uid, getattr(step, "status", None), is_teacher),
-            Div(
-                _start_step_button(uid, is_in_progress, is_mastered),
-                mark_read_btn,
-                bookmark_btn,
-                cls="flex gap-2",
-            ),
-            cls="flex flex-col gap-3 border-t border-border pt-6 mt-8",
-        )
-    else:
-        action_area = Div(
-            ButtonLink(
-                "Log in to track your progress",
-                href="/login",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-            ),
-            cls="border-t border-border pt-6 mt-8",
-        )
-
-    # Teacher-only: Activity Templates panel. HTMX-loaded so detach + create
-    # flows can refresh in place without re-rendering the entire PS detail.
-    templates_panel: Any = render_templates_panel_placeholder(uid) if is_teacher else Div()
-
-    # Main content column
-    main_column = Div(
-        Breadcrumbs(path=breadcrumb_path, show_home=False),
-        H1(step.title, cls="skuel-title font-bold mt-4 mb-2"),
-        metadata_section,
-        objectives_section,
-        reading_content,
-        exercises_section,
-        submissions_section,
-        feedback_section,
-        forms_section,
-        action_area,
-        templates_panel,
-        Div(tags_section, cls="border-t border-border pt-6 mt-8") if step.tags else Div(),
-        EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ps"),
-        cls="flex-1 min-w-0 max-w-4xl",
+    seed = {
+        "uid": uid,
+        "progress_state": progress_state,
+        "is_bookmarked": is_bookmarked,
+        "blocking": [],   # populated via orchestrator in a future iteration
+        "prev_step": None,
+        "next_step": None,
+    }
+    seed_json = (
+        json.dumps(seed, default=str)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
     )
 
-    if has_toc:
-        toc_sidebar = Div(
+    return Div(
+        Script(NotStr(f"window.PS_SEED = {seed_json};")),
+        _back_link(),
+        _hero_card(step, uid, user_uid),
+        _body_section(content_html) if content_html else Div(),
+        _deps_accordion(),
+        _footer_nav(),
+        id="ps-detail-content",
+        cls=_COLUMN_CLS,
+        **{"x-data": "pathstep(window.PS_SEED)"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+
+
+def _back_link() -> "FT":
+    return A(
+        UkIcon("arrow-left", cls="w-[15px] h-[15px]"),
+        " Explore",
+        href="/explore",
+        cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground mb-[18px]",
+    )
+
+
+def _footer_nav() -> "FT":
+    return Div(
+        A(
+            UkIcon("arrow-left", cls="w-4 h-4"),
+            " Back to Explore",
+            href="/explore",
+            cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
+        ),
+        cls="mt-9 flex items-center",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hero card
+# ---------------------------------------------------------------------------
+
+
+def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
+    title = getattr(step, "title", uid) or uid
+    description = getattr(step, "description", "") or getattr(step, "intent", "") or ""
+    est_minutes = getattr(step, "estimated_time_minutes", None)
+    tags = getattr(step, "tags", ()) or ()
+
+    return Section(
+        # Accent rail
+        Div(cls="h-1 bg-strength-core"),
+        # Card body
+        Div(
+            # Kind badge row + bookmark
             Div(
-                H3("Contents", cls="font-semibold text-sm mb-3"),
-                Div(NotStr(toc_html), cls="skuel-toc"),
-                cls="sticky top-20 p-5 max-h-[calc(100vh-6rem)] overflow-y-auto",
+                _kind_badge(),
+                _bookmark_btn(uid) if user_uid else Div(),
+                cls="flex items-center justify-between gap-3 mb-[18px]",
             ),
-            cls="hidden lg:block w-56 shrink-0 border-l border-border",
-        )
-        return Div(main_column, toc_sidebar, cls="flex gap-6")
-    return main_column
+            # Title
+            H1(
+                title,
+                id="ps-title",
+                cls="text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em]",
+            ),
+            # Description/central idea
+            P(
+                description,
+                cls="mt-[13px] text-[16px] leading-[1.55] text-foreground/75 max-w-[62ch]",
+            )
+            if description
+            else Div(),
+            # Meta chips
+            _meta_chips(est_minutes, tags),
+            cls="px-8 pt-[30px] pb-[26px]",
+        ),
+        # Action bar (authenticated users only)
+        _action_bar(uid) if user_uid else _unauthenticated_cta(),
+        cls="bg-card border border-border rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden",
+        role="region",
+        **{"aria-labelledby": "ps-title"},
+    )
 
 
-def _render_unauthenticated_exercises(uid: str, exercises: list[dict]) -> Div:
-    """Render read-only exercise links for unauthenticated users."""
-    if not exercises:
-        return Div()
+def _kind_badge() -> "FT":
+    return Span(
+        UkIcon("route", cls="w-[13px] h-[13px]"),
+        " Path step",
+        cls=(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md "
+            "bg-muted text-muted-foreground "
+            "text-[10.5px] font-bold uppercase tracking-[0.08em] whitespace-nowrap"
+        ),
+    )
 
-    exercise_links = []
-    for ex in exercises:
-        ex_uid = ex.get("uid", "")
-        ex_title = ex.get("title") or ex_uid
-        ex_time = ex.get("estimated_time_minutes")
-        time_note = f" \u00b7 {ex_time} min" if ex_time else ""
-        exercise_links.append(
-            Li(
-                ButtonLink(
-                    f"{ex_title}{time_note} \u2192",
-                    href=f"/exercises/get?uid={ex_uid}&from_ps={uid}",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                ),
-                cls="list-none",
+
+def _bookmark_btn(uid: str) -> "FT":
+    return Button(
+        UkIcon("bookmark", cls="w-3.5 h-3.5"),
+        Span("", **{"x-text": "bookmarked ? 'Saved' : 'Save'"}),
+        type="button",
+        cls=(
+            "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md "
+            "text-[12px] font-semibold border transition-colors "
+            "focus:outline-none focus:shadow-focus"
+        ),
+        **{
+            "@click": "toggleBookmark()",
+            ":aria-pressed": "bookmarked.toString()",
+            ":aria-label": "bookmarked ? 'Remove bookmark' : 'Bookmark this step'",
+            ":class": (
+                "bookmarked "
+                "? 'border-strength-core text-strength-core bg-strength-core/5' "
+                ": 'border-border text-muted-foreground bg-card hover:bg-muted hover:text-foreground'"
+            ),
+        },
+    )
+
+
+def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
+    items: list[Any] = []
+
+    if est_minutes:
+        items.append(
+            Span(
+                UkIcon("clock", cls="w-3.5 h-3.5"),
+                f" {est_minutes} min",
+                cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground",
             )
         )
+
+    tag_list = list(tags)[:6]
+    if tag_list:
+        if items:
+            items.append(Span(cls="w-px h-3.5 bg-border"))
+        for tag in tag_list:
+            items.append(
+                Span(
+                    Span(cls="w-1.5 h-1.5 rounded-full bg-strength-core"),
+                    f" {tag}",
+                    cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground/85",
+                )
+            )
+
+    if not items:
+        return Div()
+    return Div(*items, cls="flex items-center gap-3.5 flex-wrap mt-[18px]")
+
+
+# ---------------------------------------------------------------------------
+# Action bar
+# ---------------------------------------------------------------------------
+
+
+def _action_bar(uid: str) -> "FT":
     return Div(
-        H3("Exercises", cls="text-base font-semibold mb-2 mt-8"),
-        Ul(*exercise_links, cls="list-none p-0 space-y-1"),
-        cls="border-t border-border pt-6 mt-8",
+        # Progress bar
+        Div(
+            Div(
+                cls="h-full rounded-full bg-strength-core transition-[width] duration-[350ms] ease-out",
+                **{":style": "'width:' + progressPct + '%'"},
+            ),
+            cls="h-[5px] rounded-full bg-border overflow-hidden mb-3.5",
+            role="progressbar",
+            aria_valuemin="0",
+            aria_valuemax="100",
+            **{":aria-valuenow": "progressPct"},
+        ),
+        # Status + primary action
+        Div(
+            # Status indicator (left)
+            Div(
+                # not_started
+                Span(
+                    Span(cls="w-2 h-2 rounded-full bg-muted-foreground/50"),
+                    " Not started",
+                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground whitespace-nowrap",
+                    **{"x-show": "status === 'not_started'"},
+                ),
+                # learning
+                Span(
+                    Span(cls="w-2 h-2 rounded-full bg-warning"),
+                    " Learning",
+                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-warning whitespace-nowrap",
+                    **{"x-show": "status === 'learning'"},
+                ),
+                # read / completed
+                Span(
+                    UkIcon("check", cls="w-[15px] h-[15px]"),
+                    " Completed",
+                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-priority-low whitespace-nowrap",
+                    **{"x-show": "status === 'read'"},
+                ),
+                cls="flex items-center gap-2",
+            ),
+            # Primary action (right)
+            Div(
+                # Start learning / Mark as read
+                Button(
+                    Span("", **{"x-text": "status === 'learning' ? 'Mark as read' : 'Start learning'"}),
+                    UkIcon("arrow-right", cls="w-[15px] h-[15px]"),
+                    type="button",
+                    cls=(
+                        "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
+                        "bg-primary text-primary-foreground "
+                        "text-[13.5px] font-semibold hover:opacity-90 "
+                        "focus:outline-none focus:shadow-focus whitespace-nowrap"
+                    ),
+                    **{
+                        "x-show": "status !== 'read'",
+                        "@click": "advance()",
+                    },
+                ),
+                # Review again (read state)
+                Button(
+                    UkIcon("rotate-ccw", cls="w-3.5 h-3.5"),
+                    " Review again",
+                    type="button",
+                    cls=(
+                        "inline-flex items-center gap-1.5 px-4 py-[9px] rounded-lg "
+                        "border border-border bg-card "
+                        "text-[13px] font-semibold text-foreground/80 "
+                        "hover:bg-muted focus:outline-none focus:shadow-focus"
+                    ),
+                    **{
+                        "x-show": "status === 'read'",
+                        "@click": "reviewAgain()",
+                    },
+                ),
+                cls="flex items-center gap-2.5",
+            ),
+            cls="flex items-center justify-between gap-3.5 flex-wrap",
+        ),
+        cls="border-t border-border bg-muted/40 px-8 py-4",
     )
+
+
+def _unauthenticated_cta() -> "FT":
+    return Div(
+        A(
+            "Log in to track your progress",
+            UkIcon("arrow-right", cls="w-[15px] h-[15px]"),
+            href="/login",
+            cls=(
+                "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
+                "bg-primary text-primary-foreground "
+                "text-[13.5px] font-semibold hover:opacity-90"
+            ),
+        ),
+        cls="border-t border-border bg-muted/40 px-8 py-4 flex justify-end",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Body content
+# ---------------------------------------------------------------------------
+
+
+def _body_section(content_html: str) -> "FT":
+    return Section(
+        H2(
+            "The idea",
+            id="idea-h",
+            cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-3",
+        ),
+        Div(NotStr(content_html), cls="skuel-prose"),
+        cls="mt-[30px]",
+        role="region",
+        **{"aria-labelledby": "idea-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Blocking dependencies accordion
+# ---------------------------------------------------------------------------
+
+
+def _deps_accordion() -> "FT":
+    panel_id = "deps-panel"
+    return Section(
+        Button(
+            # Status tile
+            Span(
+                UkIcon("check", cls="w-[15px] h-[15px]", stroke_width="2.2"),
+                cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
+                **{
+                    "x-show": "allMet",
+                },
+            ),
+            Span(
+                UkIcon("lock", cls="w-[15px] h-[15px]", stroke_width="2.2"),
+                cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
+                **{
+                    "x-show": "!allMet",
+                },
+            ),
+            # Summary text
+            Span(
+                Span(
+                    "Blocking dependencies",
+                    cls="block text-[13.5px] font-bold",
+                    id="deps-h",
+                ),
+                Span(
+                    "",
+                    cls="block text-[12px] font-semibold mt-px",
+                    **{
+                        "x-text": (
+                            "allMet "
+                            "? 'Ready — nothing blocks this step.' "
+                            ": (blockedCount + ' prerequisite' + (blockedCount === 1 ? '' : 's') + ' to clear')"
+                        ),
+                        ":class": "allMet ? 'text-priority-low' : 'text-destructive'",
+                    },
+                ),
+                cls="flex-1 min-w-0",
+            ),
+            # Chevron
+            Span(
+                UkIcon("chevron-up", cls="w-[18px] h-[18px]", **{"x-show": "depsOpen"}),
+                UkIcon("chevron-down", cls="w-[18px] h-[18px]", **{"x-show": "!depsOpen"}),
+                cls="text-muted-foreground flex-none",
+            ),
+            type="button",
+            cls="w-full flex items-center gap-2.5 px-5 py-[15px] text-left",
+            **{
+                "@click": "depsOpen = !depsOpen",
+                ":aria-expanded": "depsOpen.toString()",
+                "aria-controls": panel_id,
+            },
+        ),
+        # Panel — deps list (empty state shown when blocking=[])
+        Div(
+            P(
+                "No prerequisites defined for this step.",
+                cls="text-[13px] leading-[1.55] text-muted-foreground",
+                **{"x-show": "blocking.length === 0"},
+            ),
+            Ul(
+                Li(
+                    Span(
+                        UkIcon("check", cls="w-3 h-3", stroke_width="2.4"),
+                        cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
+                        **{
+                            "x-show": "dep.status === 'met'",
+                        },
+                    ),
+                    Span(
+                        UkIcon("lock", cls="w-3 h-3", stroke_width="2.4"),
+                        cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
+                        **{
+                            "x-show": "dep.status !== 'met'",
+                        },
+                    ),
+                    A(
+                        "",
+                        cls="flex-1 text-[13px] font-semibold text-foreground/85 hover:underline",
+                        **{
+                            ":href": "'/explore/ps/' + dep.uid",
+                            "x-text": "dep.title",
+                        },
+                    ),
+                    Span(
+                        "",
+                        cls="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em]",
+                        **{
+                            "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
+                            ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",
+                        },
+                    ),
+                    cls="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-lg bg-muted/40",
+                    **{"x-for": "dep in blocking", ":key": "dep.uid"},
+                ),
+                cls="flex flex-col gap-2",
+                **{"x-show": "blocking.length > 0"},
+            ),
+            id=panel_id,
+            cls="px-5 pb-[18px]",
+            **{
+                "x-show": "depsOpen",
+                "x-transition:enter": "transition ease-out duration-[180ms]",
+                "x-transition:enter-start": "opacity-0",
+                "x-transition:enter-end": "opacity-100",
+                "x-transition:leave": "transition ease-in duration-[120ms]",
+                "x-transition:leave-start": "opacity-100",
+                "x-transition:leave-end": "opacity-0",
+            },
+        ),
+        cls="mt-[18px] bg-card border border-border rounded-xl overflow-hidden",
+        role="region",
+        **{"aria-labelledby": "deps-h"},
+    )
+
+
+__all__ = ["render_ps_detail_content", "render_ps_not_found"]
