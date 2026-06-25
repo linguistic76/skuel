@@ -138,6 +138,8 @@ This is the pedagogical heart. **Three sub-steps:**
 
 The decision tree always tutors to the **weakest** KU's evidence level. If the user asks about 3 KUs and has strong evidence for 2 but none for 1, the mode will be EXPLORATORY — scaffold the gap.
 
+**User override:** The learner can select a preferred mode (Direct / Socratic / Exploratory) from the chat surface gear icon. When selected, it is sent as `preferred_mode` to `answer_user_question()` and applied via `dataclasses.replace(guidance, mode=preferred_mode)` after the ZPD decision tree runs. The override replaces the mode register but preserves pedagogical intent and zone evidence used to build the system prompt.
+
 ### Step 8: Build System Prompt
 
 `ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)` constructs a mode-specific system prompt. Each mode has its own builder:

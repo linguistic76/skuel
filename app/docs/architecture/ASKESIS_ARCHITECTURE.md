@@ -280,7 +280,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/adapters/inbound/askesis_routes.py` | Route wiring (DomainRouteConfig) |
 | `/adapters/inbound/askesis_api.py` | JSON API endpoints |
 | `/adapters/inbound/askesis_ui.py` | UI routes (thin — delegates to `ui/askesis/`) |
-| `/ui/askesis/` | UI components (welcome, chat, settings, nav) |
+| `/ui/askesis/` | UI components (chat shell, nav) |
 
 ---
 
