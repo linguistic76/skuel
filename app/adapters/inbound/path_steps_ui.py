@@ -279,16 +279,25 @@ def create_path_steps_ui_routes(
     async def update_ps_progress(request: Request, uid: str) -> Any:
         """Advance PathStep learning state. Called by ps-detail.js (hx-swap=none).
 
-        ``state=learning`` → mark_in_progress; ``state=read`` → mark_as_read.
+        state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
+        state=learning, review=true  → Review again (mark_as_learning, no cap, no event)
+        state=read                   → mark_as_read
         Alpine has already updated the UI optimistically — response is discarded.
         """
         user_uid = require_authenticated_user(request)
         form = await request.form()
         state = str(form.get("state", ""))
+        review = str(form.get("review", "")) == "true"
         if state == "read":
             await ps_service.mastery.mark_as_read(user_uid, uid)
         elif state == "learning":
-            await ps_service.mastery.mark_in_progress(user_uid, uid)
+            if review:
+                await ps_service.mastery.mark_as_learning(user_uid, uid)
+            else:
+                count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
+                if not count_result.is_error and (count_result.value or 0) >= 2:
+                    return Div()  # hx-swap="none" — cap exceeded; Alpine state corrects on next load
+                await ps_service.mastery.mark_in_progress(user_uid, uid)
         return Div()  # hx-swap="none" — response is discarded
 
     @rt("/explore/ps/{uid}/bookmark", methods=["POST"])

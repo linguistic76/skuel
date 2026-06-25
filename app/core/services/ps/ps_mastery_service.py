@@ -254,6 +254,20 @@ class PsMasteryService:
     # MVP PHASE A: Reading Interface Methods
     # =========================================================================
 
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Transition a completed step back to in-progress (Review again).
+
+        Deletes MARKED_AS_READ, ensures IN_PROGRESS. Does NOT fire PathStepEnrolled
+        — this is a re-read, not a new enrollment.
+        """
+        result = await self.backend.mark_as_learning(user_uid, ku_uid)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        if result.value:
+            self.logger.debug("Reset to learning", user_uid=user_uid, ku_uid=ku_uid)
+            return Result.ok(True)
+        return Result.fail(Errors.not_found("User or PathStep", f"{user_uid} / {ku_uid}"))
+
     async def mark_as_read(
         self,
         user_uid: UserUID,

@@ -95,6 +95,20 @@ class _LearningStateMixin:
         """
         return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid, "now": now})
 
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Delete MARKED_AS_READ and ensure IN_PROGRESS (Review again action)."""
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        MATCH (ku:Entity {uid: $ku_uid})
+        OPTIONAL MATCH (u)-[r:MARKED_AS_READ]->(ku)
+        DELETE r
+        MERGE (u)-[ip:IN_PROGRESS]->(ku)
+        ON CREATE SET ip.started_at = datetime(), ip.last_activity_at = datetime(), ip.progress_score = 0.0
+        ON MATCH SET ip.last_activity_at = datetime()
+        RETURN true AS success
+        """
+        return await self.execute_query(query, {"user_uid": user_uid, "ku_uid": ku_uid})
+
     async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """MERGE MARKED_AS_READ relationship."""
         query = """

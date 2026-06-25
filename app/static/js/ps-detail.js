@@ -48,7 +48,7 @@
 
       reviewAgain: function () {
         htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
-          values: { state: 'learning' },
+          values: { state: 'learning', review: 'true' },
           swap: 'none',
         });
         this.status = 'learning';
