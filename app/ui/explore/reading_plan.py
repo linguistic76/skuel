@@ -48,11 +48,31 @@ _COLUMN_CLS = "mx-auto max-w-[720px] px-4 sm:px-6 pt-7 sm:pt-10 pb-28"
 
 _CAP_STYLES: dict[str, tuple[str, str, str, str]] = {
     # kind → (lucide-icon, label, icon-bg-cls, label-color-cls)
-    "practice":   ("activity",        "Practice",   "bg-green-50 text-green-700",   "bg-green-50 text-green-700"),
-    "apply":      ("target",          "Apply",      "bg-blue-50 text-blue-700",     "bg-blue-50 text-blue-700"),
-    "assessment": ("clipboard-check", "Assessment", "bg-amber-50 text-amber-700",   "bg-amber-50 text-amber-700"),
-    "reflection": ("pen-line",        "Reflection", "bg-violet-50 text-violet-700", "bg-violet-50 text-violet-700"),
-    "journal":    ("book-open",       "Journal",    "bg-violet-50 text-violet-700", "bg-violet-50 text-violet-700"),
+    "practice": (
+        "activity",
+        "Practice",
+        "bg-green-50 text-green-700",
+        "bg-green-50 text-green-700",
+    ),
+    "apply": ("target", "Apply", "bg-blue-50 text-blue-700", "bg-blue-50 text-blue-700"),
+    "assessment": (
+        "clipboard-check",
+        "Assessment",
+        "bg-amber-50 text-amber-700",
+        "bg-amber-50 text-amber-700",
+    ),
+    "reflection": (
+        "pen-line",
+        "Reflection",
+        "bg-violet-50 text-violet-700",
+        "bg-violet-50 text-violet-700",
+    ),
+    "journal": (
+        "book-open",
+        "Journal",
+        "bg-violet-50 text-violet-700",
+        "bg-violet-50 text-violet-700",
+    ),
 }
 
 
@@ -69,8 +89,7 @@ def ExploreReadingView(plan: dict[str, Any]) -> "FT":
     seed = _build_alpine_seed(plan)
     seed_json = json.dumps(seed, default=str)
     safe_json = (
-        seed_json
-        .replace("<", "\\u003c")
+        seed_json.replace("<", "\\u003c")
         .replace(">", "\\u003e")
         .replace("&", "\\u0026")
         .replace(" ", "\\u2028")
@@ -473,7 +492,10 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
             id="ps-title",
             cls="mt-3 text-[clamp(18px,3.6vw,21px)] font-bold tracking-tight leading-snug",
         ),
-        P(ps.get("summary", ""), cls="mt-1.5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[50ch]"),
+        P(
+            ps.get("summary", ""),
+            cls="mt-1.5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[50ch]",
+        ),
         Div(
             Span(
                 Span(cls="block h-full rounded-full bg-primary", style=f"width:{width_pct}"),
@@ -540,13 +562,17 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
         )
         title_cls = "text-[14px] font-medium text-foreground/90"
         row_cls = "py-2 px-0 hover:bg-muted/50"
-        meta = Span(f"{minutes} min", cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap")
+        meta = Span(
+            f"{minutes} min", cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap"
+        )
 
     return A(
         node,
         Span(
             Span(title, cls=title_cls),
-            Span(excerpt, cls="block text-[12.5px] text-muted-foreground mt-0.5") if excerpt else Div(),
+            Span(excerpt, cls="block text-[12.5px] text-muted-foreground mt-0.5")
+            if excerpt
+            else Div(),
             cls="flex-1 min-w-0",
         ),
         meta,
@@ -586,7 +612,12 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
     locked = cap.get("locked", False)
     icon_name, label, icon_bg_cls, label_cls = _CAP_STYLES.get(
         kind,
-        ("circle", kind.title(), "bg-muted text-muted-foreground", "bg-muted text-muted-foreground"),
+        (
+            "circle",
+            kind.title(),
+            "bg-muted text-muted-foreground",
+            "bg-muted text-muted-foreground",
+        ),
     )
 
     base_cls = (
@@ -672,15 +703,24 @@ def _related_row(k: dict[str, Any]) -> "FT":
         Span(
             Span(
                 Span(k.get("title", ""), cls="text-[14.5px] font-semibold text-foreground"),
-                Span(kind, cls="font-mono text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5")
+                Span(
+                    kind,
+                    cls="font-mono text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5",
+                )
                 if kind
                 else Div(),
                 cls="flex items-center gap-2.5",
             ),
-            Span(k.get("excerpt", ""), cls="block text-[13px] text-muted-foreground mt-1 leading-snug"),
+            Span(
+                k.get("excerpt", ""),
+                cls="block text-[13px] text-muted-foreground mt-1 leading-snug",
+            ),
             cls="flex-1 min-w-0",
         ),
-        Span(f"{minutes} min", cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap pt-0.5"),
+        Span(
+            f"{minutes} min",
+            cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap pt-0.5",
+        ),
         href=f"/explore/read/{k.get('uid', '')}",
         cls=(
             "w-full flex items-start gap-3.5 p-3.5 rounded-xl border border-transparent "

@@ -296,7 +296,9 @@ def create_path_steps_ui_routes(
             else:
                 count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
                 if not count_result.is_error and (count_result.value or 0) >= 2:
-                    return Div()  # hx-swap="none" — cap exceeded; Alpine state corrects on next load
+                    return (
+                        Div()
+                    )  # hx-swap="none" — cap exceeded; Alpine state corrects on next load
                 await ps_service.mastery.mark_in_progress(user_uid, uid)
         return Div()  # hx-swap="none" — response is discarded
 
