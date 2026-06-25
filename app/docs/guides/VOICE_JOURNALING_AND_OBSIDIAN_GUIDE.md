@@ -44,12 +44,12 @@ Record on whatever device is most natural: your phone's native voice recorder, a
 
 You can upload up to 20 files at once in a single session.
 
-### Uploading at /journals/submit
+### Uploading at /submit/journals
 
 The page has two modes, toggled at the top:
 
 **Upload Files** — pick one or more files from your device:
-1. Go to **[/journals/submit](/journals/submit)**
+1. Go to **[/submit/journals](/submit/journals)**
 2. Optionally give the entry a title and connect it to a learning exercise
 3. Select your audio file(s) and click **Submit to AI**
 
@@ -61,9 +61,9 @@ The page has two modes, toggled at the top:
 
 SKUEL transcribes the audio (via Deepgram), structures the content, and saves it as a journal entry. You'll see a status indicator as it processes. For most voice memos, transcription completes in seconds.
 
-### Browsing and responding at /journals/browse
+### Browsing and responding at /submit/journals/browse
 
-All your journal entries live at **[/journals/browse](/journals/browse)** (also reachable as **/journals**).
+All your journal entries live at **[/submit/journals/browse](/submit/journals/browse)**.
 
 Each card shows the transcription, the date, and a **Get AI response** button. Clicking it sends the entry to an AI coach that writes a reflective response — acknowledging patterns, asking a follow-up question, or surfacing a connection to something you've been studying. The response appears in your journal and is stored in SKUEL for future reference.
 
@@ -466,7 +466,7 @@ Here is what a complete day looks like using all three parts together.
 
 You're thinking out loud. Record two minutes on your phone about what you want to get done today and why one of those things feels difficult.
 
-When you're back at your desk: go to **[/journals/submit](/journals/submit)**, upload the audio file, and let SKUEL transcribe it. You don't need to do anything with it right now — it's in the system. Come back later in the day (or the next morning) to read the transcription and optionally request an AI response.
+When you're back at your desk: go to **[/submit/journals](/submit/journals)**, upload the audio file, and let SKUEL transcribe it. You don't need to do anything with it right now — it's in the system. Come back later in the day (or the next morning) to read the transcription and optionally request an AI response.
 
 ---
 
@@ -536,7 +536,7 @@ This retrospective is stored in your journal entry. Over months, patterns become
 
 **Optional: check your journal entries**
 
-Go to **[/journals/browse](/journals/browse)** to see today's transcription from the morning voice memo. If you want a reflective response, click **Get AI response**. The response might surface a connection between what you said this morning and a habit you've been building, or ask a clarifying question you hadn't thought to ask yourself.
+Go to **[/submit/journals/browse](/submit/journals/browse)** to see today's transcription from the morning voice memo. If you want a reflective response, click **Get AI response**. The response might surface a connection between what you said this morning and a habit you've been building, or ask a clarifying question you hadn't thought to ask yourself.
 
 ---
 
@@ -550,8 +550,8 @@ When you're setting a new goal for the quarter, or want to define a principle th
 
 | What you want to do | Where to go |
 |--------------------|------------|
-| Upload a voice memo or text journal | [/journals/submit](/journals/submit) |
-| Browse journal entries and get AI responses | [/journals/browse](/journals/browse) |
+| Upload a voice memo or text journal | [/submit/journals](/submit/journals) |
+| Browse journal entries and get AI responses | [/submit/journals/browse](/submit/journals/browse) |
 | Sync Obsidian vault with SKUEL (primary data path) | [/settings/vault](/settings/vault) |
 | Submit a completed exercise worksheet | [/submit](/submit) |
 

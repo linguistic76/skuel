@@ -1,7 +1,7 @@
 """Submissions sidebar navigation.
 
 Renders a collapsible sidebar for Submissions pages:
-Submit, Submission History, Obsidian Sync.
+Submit, Journals, Submission History, Obsidian Sync.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -17,6 +17,7 @@ SUBMISSIONS_STORAGE_KEY = "submissions-sidebar"
 
 SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Submit", "/submit", "submit", icon="send"),
+    SidebarItem("Journals", "/submit/journals", "journals", icon="book-open"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
     SidebarItem("Obsidian Sync", "/settings/vault", "vault-sync", icon="refresh-cw"),
 ]

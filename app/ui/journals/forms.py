@@ -229,7 +229,7 @@ def _build_upload_form_element(exercises: list[Exercise]) -> Any:
         ),
         # Upload status (HTMX target)
         Div(id="upload-status", cls="mt-4 text-center"),
-        hx_post="/journals/upload",
+        hx_post="/submit/journals/upload",
         hx_target="#upload-status",
         hx_swap="outerHTML",
         hx_encoding="multipart/form-data",

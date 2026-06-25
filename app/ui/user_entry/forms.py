@@ -1,28 +1,23 @@
 """
-UserEntry Submit Form (ADR-054 Step 9)
-=======================================
+UserEntry Submit Form (ADR-054)
+================================
 
-Single-screen upload form backing ``/submit``. One radio group — the
-**audience selector** — replaces the previous four-checkbox matrix so a
-student can complete a turn-in in one deliberate choice rather than three
-interacting toggles.
+Intent-driven upload form for ``/submit``. The student picks what they want
+to accomplish — not which internal pipeline to run.
 
-The selector emits a single hidden ``audience`` field with one of:
+Three intent tiles (shown when no exercise is pre-selected):
 
-- ``teachers``            — auto-share to the exercise's assigned groups
-                            (shown only when an exercise is in context)
-- ``group:<group_uid>``   — share with a specific group the student is in
-- ``public``              — publish publicly (``visibility=PUBLIC``)
-- ``private``             — keep to self (default when no exercise context)
+- **Submit for Review**  → pipeline=TEACHER_REVIEW, audience=teachers/group
+- **Get AI Feedback**    → pipeline=LLM_SUMMARY, audience=private
+- **Log**                → pipeline=NONE, audience=private or public (portfolio)
 
-``POST /api/user-entries/upload`` translates ``audience`` into the existing
-``share_with_groups`` / ``auto_share_to_exercise_groups`` / ``visibility``
-fields on ``UserEntryCreateRequest``. Client-side validation blocks submit
-when the student has picked no option *and* the pipeline is
-``TEACHER_REVIEW`` — a defense-in-depth layer above the service's ADR §3
-guard and post-persist compensation.
+When an exercise is pre-selected the tile picker is hidden and the form is
+locked to TEACHER_REVIEW with the exercise's groups as the implied audience.
 
-See: /home/mike/.claude/plans/user-entry-audience-selection.md
+The ``POST /api/user-entries/upload`` endpoint translates the ``pipeline`` and
+``audience`` hidden fields into the existing service-layer fields.
+
+See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
 from typing import Any
@@ -40,14 +35,6 @@ from core.models.enums.pipeline import Pipeline
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.forms import Input, Label, Select
-
-_PIPELINE_LABELS: dict[Pipeline, str] = {
-    Pipeline.NONE: "None — store only",
-    Pipeline.TRANSCRIBE: "Transcribe (audio \u2192 text)",
-    Pipeline.TRANSCRIBE_AND_STRUCTURE: "Transcribe + structure (journal)",
-    Pipeline.LLM_SUMMARY: "LLM summary",
-    Pipeline.TEACHER_REVIEW: "Submit for teacher review",
-}
 
 
 def _audience_radio(value: str, label: str, description: str, model: str) -> Any:
@@ -71,6 +58,38 @@ def _audience_radio(value: str, label: str, description: str, model: str) -> Any
     )
 
 
+def _intent_tile(
+    value: str,
+    label: str,
+    description: str,
+    hint: str | None = None,
+) -> Any:
+    """One intent selection tile."""
+    return Label(
+        Div(
+            Input(
+                type="radio",
+                name="intent_choice",
+                value=value,
+                cls="mt-1 shrink-0",
+                **{"x-model": "intent"},  # type: ignore[arg-type]
+            ),
+            Div(
+                P(label, cls="text-sm font-semibold"),
+                P(description, cls="text-xs text-muted-foreground mt-0.5"),
+                P(hint, cls="text-xs text-amber-600 mt-1") if hint else None,
+                cls="ml-3",
+            ),
+            cls="flex items-start",
+        ),
+        cls=(
+            "block p-3 rounded-lg border border-border cursor-pointer "
+            "hover:bg-muted/40 transition-colors"
+            "[:has(input:checked)]:border-primary [:has(input:checked)]:bg-primary/5"
+        ),
+    )
+
+
 def render_upload_form(
     assigned_exercises: list[Any] | None = None,
     selected_exercise_uid: str | None = None,
@@ -87,20 +106,20 @@ def render_upload_form(
             forces the pipeline to ``TEACHER_REVIEW`` unless overridden.
         from_ps: PathStep UID for the ``Interaction`` audit record.
         user_groups: The user's groups (pre-loaded by the route handler).
-            Each element may be a ``Group`` dataclass or duck-typed object
-            with ``.uid`` and ``.name``.
-        force_pipeline: Lock the pipeline (exercise-context + journal pages).
+        force_pipeline: Lock the pipeline (exercise-context pages).
     """
-    from_exercise_context = bool(selected_exercise_uid) or bool(assigned_exercises)
+    # The intent picker is locked only when a specific exercise is deep-linked
+    # (selected_exercise_uid) or the caller forces a pipeline (force_pipeline).
+    # Merely having assignments in the dropdown does NOT lock the form.
+    hide_intent_picker = force_pipeline is not None or bool(selected_exercise_uid)
     effective_pipeline = force_pipeline or (
-        Pipeline.TEACHER_REVIEW if from_exercise_context else Pipeline.NONE
+        Pipeline.TEACHER_REVIEW if selected_exercise_uid else Pipeline.NONE
     )
-    hide_pipeline_selector = force_pipeline is not None or from_exercise_context
 
     # -- Exercise section --------------------------------------------------
     exercise_section: Any = ""
     if assigned_exercises:
-        exercise_options = [Option("None \u2014 standalone entry", value="")]
+        exercise_options = [Option("None — standalone entry", value="")]
 
         def _exercise_option(p: Any) -> Any:
             uid = p.uid
@@ -128,46 +147,13 @@ def render_upload_form(
         Input(type="hidden", name="about_path_step_uid", value=from_ps) if from_ps else ""
     )
 
-    # -- Pipeline selector -------------------------------------------------
-    if hide_pipeline_selector:
-        pipeline_section: Any = Input(
-            type="hidden",
-            name="pipeline",
-            value=effective_pipeline.value,
-            x_ref="pipelineField",
-        )
-    else:
-        pipeline_options = [
-            Option(
-                _PIPELINE_LABELS[p],
-                value=p.value,
-                selected=(p == effective_pipeline),
-            )
-            for p in _PIPELINE_LABELS
-        ]
-        pipeline_section = Div(
-            Label("Pipeline", cls="label"),
-            Select(
-                *pipeline_options,
-                name="pipeline",
-                x_model="pipeline",
-            ),
-            P(
-                "Choose what happens to this entry after upload",
-                cls="text-xs text-muted-foreground mt-1",
-            ),
-            cls="mb-4",
-        )
-
-    # -- Audience radio group ---------------------------------------------
-    #
-    # Options are ordered for the dominant use case: from an exercise page
-    # the student nearly always wants "Submit to teacher", so it's first +
-    # pre-selected. From a standalone /submit page "Keep to myself" wins.
-    audience_options: list[Any] = []
-
-    if from_exercise_context:
-        audience_options.append(
+    # -- Audience options (computed before intent tiles reference them) -----
+    # "Submit to teacher" maps to auto_share_to_exercise_groups=True in the API,
+    # which only works when an exercise is selected. Without one it shares with
+    # nothing, so only offer it when a specific exercise was deep-linked.
+    teacher_audience_options: list[Any] = []
+    if selected_exercise_uid:
+        teacher_audience_options.append(
             _audience_radio(
                 value="teachers",
                 label="Submit to teacher",
@@ -175,14 +161,13 @@ def render_upload_form(
                 model="audience",
             )
         )
-
     if user_groups:
         for g in user_groups:
             guid = getattr(g, "uid", None) or getattr(g, "group_uid", None)
             if not guid:
                 continue
             gname = getattr(g, "name", None) or getattr(g, "title", None) or guid
-            audience_options.append(
+            teacher_audience_options.append(
                 _audience_radio(
                     value=f"group:{guid}",
                     label=f"Share with {gname}",
@@ -191,63 +176,162 @@ def render_upload_form(
                 )
             )
 
-    audience_options.append(
-        _audience_radio(
-            value="public",
-            label="Publish publicly",
-            description="Visible to everyone on your public portfolio.",
-            model="audience",
-        )
-    )
-    audience_options.append(
-        _audience_radio(
-            value="private",
-            label="Keep to myself",
-            description="Only you can see this entry.",
-            model="audience",
-        )
-    )
+    # Show the Review intent tile only when there is a reachable recipient.
+    show_review_intent = bool(selected_exercise_uid) or bool(teacher_audience_options)
 
-    audience_section = Div(
-        P("Audience", cls="text-sm font-semibold mb-2"),
-        Div(*audience_options, cls="space-y-1"),
+    # -- Intent picker or locked pipeline ----------------------------------
+    if hide_intent_picker:
+        intent_section: Any = Input(
+            type="hidden",
+            name="pipeline",
+            value=effective_pipeline.value,
+            **{"x-ref": "pipelineField"},  # type: ignore[arg-type]
+        )
+        default_intent = "review"
+    else:
+        review_tile = (
+            _intent_tile(
+                "review",
+                "Submit for Review",
+                "Send to your teacher for feedback.",
+            )
+            if show_review_intent
+            else None
+        )
+        intent_section = Div(
+            P("What do you want to do with this entry?", cls="text-sm font-semibold mb-3"),
+            Div(
+                review_tile,
+                _intent_tile(
+                    "ai",
+                    "Get AI Feedback",
+                    "An AI will read and respond to your entry.",
+                    hint="Works best with text or document files.",
+                ),
+                _intent_tile(
+                    "log",
+                    "Log",
+                    "Save privately or add to your public portfolio.",
+                ),
+                cls="space-y-2",
+            ),
+            # Hidden field carries resolved pipeline to server
+            Input(
+                type="hidden",
+                name="pipeline",
+                **{"x-bind:value": "resolvedPipeline"},  # type: ignore[arg-type]
+            ),
+            cls="mb-4",
+        )
+        default_intent = "log"
+
+    # Safe default audience for the $watch reset when switching to review intent.
+    # "teachers" only if an exercise is selected; first group otherwise; 'private'
+    # as a fallback (validation will block submit and surface the error).
+    _first_group = next(
+        (
+            g
+            for g in (user_groups or [])
+            if (getattr(g, "uid", None) or getattr(g, "group_uid", None))
+        ),
+        None,
+    )
+    if selected_exercise_uid:
+        _default_review_audience = "teachers"
+    elif _first_group is not None:
+        _fg_uid = getattr(_first_group, "uid", None) or getattr(_first_group, "group_uid", None)
+        _default_review_audience = f"group:{_fg_uid}"
+    else:
+        _default_review_audience = "private"
+
+    review_audience_section = Div(
+        P("Send to", cls="text-sm font-semibold mb-2"),
+        Div(*teacher_audience_options, cls="space-y-1"),
         Div(
-            "Choose who sees this entry before submitting.",
+            "Choose a recipient before submitting.",
             cls=(
                 "text-xs text-destructive mt-2 p-2 rounded bg-destructive/10 "
                 "border border-destructive/30"
             ),
-            **{"x-show": "validationError", "x-cloak": True},
-        ),
-        # One hidden field carries the choice to the server.
-        Input(
-            type="hidden",
-            name="audience",
-            **{"x-bind:value": "audience"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            **{"x-show": "intent === 'review' && validationError", "x-cloak": True},
         ),
         cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
-        # Pipeline.allows_sharing() mirrored client-side: journal (TRANSCRIBE_AND_STRUCTURE)
-        # is PRIVATE by policy (ADR-054 §5), so the picker is hidden when selected.
-        **{"x-show": "allowsSharing", "x-cloak": True},
+        **{"x-show": "intent === 'review'", "x-cloak": True},
     )
 
-    default_audience = "teachers" if from_exercise_context else "private"
-    non_sharing_pipeline = Pipeline.TRANSCRIBE_AND_STRUCTURE.value
+    # -- Audience section (log path: private vs portfolio) -----------------
+    log_audience_section = Div(
+        P("Visibility", cls="text-sm font-semibold mb-2"),
+        Div(
+            _audience_radio(
+                value="private",
+                label="Keep to myself",
+                description="Only you can see this entry.",
+                model="audience",
+            ),
+            _audience_radio(
+                value="public",
+                label="Add to my portfolio",
+                description="Appears on your public profile.",
+                model="audience",
+            ),
+            cls="space-y-1",
+        ),
+        cls="mb-4 p-3 border border-border rounded-lg bg-muted/30",
+        **{"x-show": "intent === 'log'", "x-cloak": True},
+    )
+
+    # When locked to exercise context, audience is always "teachers" — single static input.
+    # Otherwise: one hidden input bound to resolvedAudience (not per-section) so that
+    # x-show sections in the DOM don't each submit a duplicate name="audience" field.
+    if hide_intent_picker:
+        audience_block: Any = Input(type="hidden", name="audience", value="teachers")
+        audience_hidden: Any = ""
+    else:
+        audience_block = Div(
+            review_audience_section,
+            log_audience_section,
+        )
+        # Single source of truth for the submitted "audience" value.
+        # resolvedAudience ensures AI intent always sends 'private' regardless of
+        # which radio the user may have touched before switching intents.
+        audience_hidden = Input(
+            type="hidden",
+            name="audience",
+            **{"x-bind:value": "resolvedAudience"},  # type: ignore[arg-type]
+        )
+
+    teacher_review_pipeline = Pipeline.TEACHER_REVIEW.value
+    llm_summary_pipeline = Pipeline.LLM_SUMMARY.value
 
     alpine_data = (
         "{ "
-        f"pipeline: '{effective_pipeline.value}', "
-        f"audience: '{default_audience}', "
+        f"intent: '{default_intent}', "
+        f"audience: '{'teachers' if hide_intent_picker else 'private'}', "
         "validationError: false, "
-        f"get allowsSharing() {{ return this.pipeline !== '{non_sharing_pipeline}'; }}, "
-        "get audienceOk() { "
-        "  if (!this.allowsSharing) return true; "
-        "  if (this.pipeline !== 'teacher_review') return true; "
-        "  return !!this.audience; "
+        f"get resolvedPipeline() {{ "
+        f"  if (this.intent === 'review') return '{teacher_review_pipeline}'; "
+        f"  if (this.intent === 'ai') return '{llm_summary_pipeline}'; "
+        "  return 'none'; "
+        "}, "
+        # AI always private; other intents use the selected radio value.
+        "get resolvedAudience() { "
+        "  if (this.intent === 'ai') return 'private'; "
+        "  return this.audience; "
+        "}, "
+        # Reset audience to a valid default when the user switches intent, so a
+        # stale 'public' from Log or 'teachers' from Review doesn't leak across.
+        "init() { "
+        "  this.$watch('intent', (val) => { "
+        f"    if (val === 'review') this.audience = '{_default_review_audience}'; "
+        "    else this.audience = 'private'; "
+        "  }); "
         "}, "
         "validate(ev) { "
-        "  if (!this.allowsSharing) { this.audience = 'private'; } "
-        "  if (!this.audienceOk) { this.validationError = true; ev.preventDefault(); return false; } "
+        # 'private' means no recipient was actively chosen in the review section.
+        "  if (this.intent === 'review' && this.audience === 'private') { "
+        "    this.validationError = true; ev.preventDefault(); return false; "
+        "  } "
         "  this.validationError = false; return true; "
         "} "
         "}"
@@ -258,7 +342,7 @@ def render_upload_form(
             Form(
                 exercise_section,
                 from_ps_field,
-                pipeline_section,
+                intent_section,
                 Div(
                     Label(
                         Div(
@@ -282,7 +366,8 @@ def render_upload_form(
                     ),
                     cls="mb-4",
                 ),
-                audience_section,
+                audience_block,
+                audience_hidden,
                 Div(
                     Button(
                         "Submit",
