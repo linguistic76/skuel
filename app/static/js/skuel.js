@@ -2798,14 +2798,13 @@
             };
         });
 
-        // Admin batch audio→text transcription panel.
-        // Drives POST /api/journals/batch-transcribe (admin-only, CSRF-protected).
-        // Preview lists audio files in the server-side input dir without
-        // transcribing; Transcribe All runs Deepgram and writes .txt output.
-        Alpine.data('batchTranscribe', function() {
+        // Shared factory for batch audio→text transcription panels.
+        // Used by both the admin console (batchTranscribe) and the user journals
+        // submit page (userFolderTranscribe) — same UX, different endpoint + defaults.
+        function _batchTranscribeFactory(endpoint, defaultInputDir, defaultOutputDir) {
             return {
-                inputDir: 'data/je_inputs',
-                outputDir: 'data/je_outputs',
+                inputDir: defaultInputDir,
+                outputDir: defaultOutputDir,
                 skipExisting: true,
                 loading: false,
                 error: '',
@@ -2822,7 +2821,7 @@
                     this.error = '';
                     if (previewOnly) { this.result = null; } else { this.preview = null; }
                     try {
-                        var resp = await fetch('/api/journals/batch-transcribe', {
+                        var resp = await fetch(endpoint, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -2870,6 +2869,24 @@
                         this.result.total_files + ')';
                 }
             };
+        }
+
+        // Admin console: any server-side path, admin-only endpoint.
+        Alpine.data('batchTranscribe', function() {
+            return _batchTranscribeFactory(
+                '/api/journals/batch-transcribe',
+                'data/je_inputs',
+                'data/je_outputs'
+            );
+        });
+
+        // User journals submit page: defaults to vault transcription directories.
+        Alpine.data('userFolderTranscribe', function() {
+            return _batchTranscribeFactory(
+                '/api/journals/folder-transcribe',
+                '/home/mike/0bsidian/skuel/transcribe_in',
+                '/home/mike/0bsidian/skuel/transcribe_out'
+            );
         });
 
     });
