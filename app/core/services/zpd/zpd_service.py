@@ -340,17 +340,17 @@ class ZPDService:
         - **unblock**: Blocking-gap KUs that gate multiple proximal KUs (high leverage)
 
         Priority formula (learn):
-            readiness_score × ZPDWeights.LEARN_READINESS
-            + life_path_alignment × ZPDWeights.LEARN_ALIGNMENT
-            + behavioral_readiness × ZPDWeights.LEARN_BEHAVIORAL
+            readiness_score * ZPDWeights.LEARN_READINESS
+            + life_path_alignment * ZPDWeights.LEARN_ALIGNMENT
+            + behavioral_readiness * ZPDWeights.LEARN_BEHAVIORAL
 
         Priority formula (reinforce):
-            (1 - signal_strength) × ZPDWeights.REINFORCE_GAP
-            + life_path_alignment × ZPDWeights.REINFORCE_ALIGNMENT
-            + behavioral_readiness × ZPDWeights.REINFORCE_BEHAVIORAL
+            (1 - signal_strength) * ZPDWeights.REINFORCE_GAP
+            + life_path_alignment * ZPDWeights.REINFORCE_ALIGNMENT
+            + behavioral_readiness * ZPDWeights.REINFORCE_BEHAVIORAL
 
         Priority formula (unblock):
-            ZPDWeights.UNBLOCK_PRIORITY — blocking gaps are always high priority
+            ZPDWeights.UNBLOCK_PRIORITY (blocking gaps are always high priority)
         """
         actions: list[ZPDAction] = []
 

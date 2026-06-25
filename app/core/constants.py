@@ -547,18 +547,18 @@ class ZPDWeights:
     UNBLOCK_PRIORITY: Final = 0.9
 
     # Possible signal types per KU (task / habit / entry / submission).
-    # Normalises signal_count → signal_strength (0.0–1.0).
+    # Normalises signal_count -> signal_strength (0.0-1.0).
     SIGNAL_TYPE_COUNT: Final = 4
 
     # Behavioral readiness when both intelligence services are unavailable.
     BEHAVIORAL_NEUTRAL_DEFAULT: Final = 0.5
 
-    # ── Learn action: readiness × W + alignment × W + behavioral × W ──────
+    # Learn action: readiness * W + alignment * W + behavioral * W
     LEARN_READINESS: Final = 0.5
     LEARN_ALIGNMENT: Final = 0.3
     LEARN_BEHAVIORAL: Final = 0.2
 
-    # ── Reinforce action: gap × W + alignment × W + behavioral × W ────────
+    # Reinforce action: gap * W + alignment * W + behavioral * W
     REINFORCE_GAP: Final = 0.4
     REINFORCE_ALIGNMENT: Final = 0.3
     REINFORCE_BEHAVIORAL: Final = 0.3
