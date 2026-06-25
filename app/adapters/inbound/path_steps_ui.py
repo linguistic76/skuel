@@ -303,12 +303,15 @@ def create_path_steps_ui_routes(
     @rt("/explore/ps/{uid}/bookmark", methods=["POST"])
     @csrf_protected
     async def update_ps_bookmark(request: Request, uid: str) -> Any:
-        """Toggle PathStep bookmark. Called by ps-detail.js (hx-swap=none).
+        """Set PathStep bookmark to explicit state. Called by ps-detail.js (hx-swap=none).
 
-        Alpine has already updated the UI optimistically — response is discarded.
+        Reads on=true|false from the form and applies it directly — idempotent
+        on network retries. Alpine has already updated the UI optimistically.
         """
         user_uid = require_authenticated_user(request)
-        await ps_service.mastery.toggle_bookmark(user_uid, uid)
+        form = await request.form()
+        desired = str(form.get("on", "")).lower() == "true"
+        await ps_service.mastery.set_bookmark(user_uid, uid, desired)
         return Div()  # hx-swap="none" — response is discarded
 
     # ========================================================================
