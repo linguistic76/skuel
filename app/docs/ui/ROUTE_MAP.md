@@ -95,11 +95,13 @@ Renders `HomeHub(active_tab='library')` — Library tab pre-selected; block defi
 
 Renders `HomeHub(active_tab='submissions')` — Submissions tab pre-selected; block definitions in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
-- `/submit` — exercise worksheet submission page.
+- `/submit` — intent-driven exercise upload form (Submit for Review / Get AI Feedback / Log).
+- `/submit/journals` — journal upload form; file + folder modes; transcription pipeline.
+- `/submit/journals/browse` — grid of the user's AI-processed journal entries.
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
 - `/settings/vault` — Obsidian bidirectional sync (primary personal-data ingestion path).
 
-All three use the Submissions sidebar.
+All five use the Submissions sidebar (Submit → Journals → History → Obsidian Sync).
 
 ---
 
