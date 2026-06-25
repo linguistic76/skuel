@@ -271,6 +271,38 @@ def create_path_steps_ui_routes(
         )
 
     # ========================================================================
+    # READING-FIRST PROGRESS + BOOKMARK (ps-detail.js Alpine component)
+    # ========================================================================
+
+    @rt("/explore/ps/{uid}/progress", methods=["POST"])
+    @csrf_protected
+    async def update_ps_progress(request: Request, uid: str) -> Any:
+        """Advance PathStep learning state. Called by ps-detail.js (hx-swap=none).
+
+        ``state=learning`` → mark_in_progress; ``state=read`` → mark_as_read.
+        Alpine has already updated the UI optimistically — response is discarded.
+        """
+        user_uid = require_authenticated_user(request)
+        form = await request.form()
+        state = str(form.get("state", ""))
+        if state == "read":
+            await ps_service.mastery.mark_as_read(user_uid, uid)
+        elif state == "learning":
+            await ps_service.mastery.mark_in_progress(user_uid, uid)
+        return Div()  # hx-swap="none" — response is discarded
+
+    @rt("/explore/ps/{uid}/bookmark", methods=["POST"])
+    @csrf_protected
+    async def update_ps_bookmark(request: Request, uid: str) -> Any:
+        """Toggle PathStep bookmark. Called by ps-detail.js (hx-swap=none).
+
+        Alpine has already updated the UI optimistically — response is discarded.
+        """
+        user_uid = require_authenticated_user(request)
+        await ps_service.mastery.toggle_bookmark(user_uid, uid)
+        return Div()  # hx-swap="none" — response is discarded
+
+    # ========================================================================
     # ENGAGEMENT HTMX ACTIONS (slice 1: engage + abandon)
     # ========================================================================
 
