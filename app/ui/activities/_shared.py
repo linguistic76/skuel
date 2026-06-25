@@ -150,9 +150,9 @@ def ActivityList(
         return Div(
             EmptyState(
                 title=f"No {domain}s found",
-                description=f"Upload YAML files to add {domain}s, or adjust your filters.",
-                action_text=f"Upload {domain.title()}s",
-                action_href="/upload",
+                description=f"Sync your Obsidian vault to add {domain}s, or adjust your filters.",
+                action_text="Sync Vault",
+                action_href="/settings/vault",
             ),
             id=list_id,
         )
