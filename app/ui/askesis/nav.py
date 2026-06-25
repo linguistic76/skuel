@@ -1,40 +1,29 @@
-"""Askesis sidebar navigation."""
+"""Askesis page wrapper — renders the chat shell inside BasePage(CUSTOM)."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from adapters.inbound.fasthtml_types import Request
-from ui.patterns.sidebar import SidebarItem, SidebarPage
+from ui.askesis.chat import render_askesis_shell
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 
-ASKESIS_TITLE = "Askesis"
-ASKESIS_STORAGE_KEY = "askesis-sidebar"
-ASKESIS_ACTIVE_PAGE = "askesis"
-
-ASKESIS_SIDEBAR_ITEMS = [
-    SidebarItem(
-        "New Chat", "/askesis/new-chat", "new-chat", description="Start a fresh conversation"
-    ),
-    SidebarItem(
-        "Chat History", "/askesis/history", "history", description="View past conversations"
-    ),
-    SidebarItem("Dashboard", "/askesis", "dashboard", description="AI assistant overview"),
-    SidebarItem(
-        "Analytics", "/askesis/analytics", "analytics", description="Intelligence insights"
-    ),
-    SidebarItem("Settings", "/askesis/settings", "settings", description="Configure assistant"),
-]
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request
 
 
 async def render_askesis_page(
-    request: Request, *, content: Any, active: str, page_title: str
+    request: "Request",
+    *,
+    username: str = "User",
+    learning_path_label: str = "Learning path",
 ) -> Any:
-    """Render Askesis sidebar pages with consistent defaults."""
-    return await SidebarPage(
-        content=content,
-        items=ASKESIS_SIDEBAR_ITEMS,
-        active=active,
-        title=ASKESIS_TITLE,
-        storage_key=ASKESIS_STORAGE_KEY,
-        page_title=page_title,
+    """Render the Askesis chat surface within the SKUEL BasePage shell."""
+    return await BasePage(
+        content=render_askesis_shell(
+            username=username,
+            learning_path_label=learning_path_label,
+        ),
+        title="Askesis",
+        page_type=PageType.CUSTOM,
         request=request,
-        active_page=ASKESIS_ACTIVE_PAGE,
+        active_page="askesis",
     )

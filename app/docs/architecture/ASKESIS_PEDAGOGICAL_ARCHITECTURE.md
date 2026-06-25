@@ -233,6 +233,18 @@ habit reinforcement, task application, journal application) — not UserContext 
 or journal heuristics. This is intentional: GuidanceMode should reflect the learner's
 relationship to specific KUs, not their overall activity level.
 
+### User Override (Live — June 2026)
+
+Users can select their preferred mode from the Askesis chat surface (gear icon in the
+account footer). The selection is sent as `mode` in the POST body on every submission and
+passed as `preferred_mode: GuidanceMode | None` to `answer_user_question()`. When set, it
+overrides the ZPD-determined mode via `dataclasses.replace(guidance, mode=preferred_mode)`
+before system-prompt construction. Pedagogical intent and zone evidence are preserved.
+The selection persists in `localStorage` under the key `askesis_mode`.
+
+Three modes are exposed in the UI: `direct`, `socratic`, `exploratory`. (`encouraging`
+remains auto-only — it is triggered by ZPD evidence of missing practice, not a style choice.)
+
 ### Teacher Override (Deferred)
 
 Teachers can set `preferred_guidance_mode` per student via the Askesis domain model.
