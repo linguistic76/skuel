@@ -143,7 +143,7 @@ def render_upload_form(
                 value=p.value,
                 selected=(p == effective_pipeline),
             )
-            for p in Pipeline
+            for p in _PIPELINE_LABELS
         ]
         pipeline_section = Div(
             Label("Pipeline", cls="label"),
