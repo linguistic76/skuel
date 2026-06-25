@@ -40,7 +40,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from core.constants import AskesisPipelineTimeout, AskesisTokenBudget, QueryProcessorConfidence
-from core.models.enums import MessageRole
+from core.models.enums import GuidanceMode, MessageRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
@@ -151,7 +151,11 @@ class QueryProcessor:
 
     @with_error_handling("answer_user_question", error_type="system", uid_param="user_uid")
     async def answer_user_question(
-        self, user_uid: UserUID, question: str, session_id: str | None = None
+        self,
+        user_uid: UserUID,
+        question: str,
+        session_id: str | None = None,
+        preferred_mode: GuidanceMode | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Complete RAG pipeline - retrieval + generation.
@@ -179,7 +183,7 @@ class QueryProcessor:
         """
         try:
             return await asyncio.wait_for(
-                self._answer_user_question_pipeline(user_uid, question, session_id),
+                self._answer_user_question_pipeline(user_uid, question, session_id, preferred_mode),
                 timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
             )
         except TimeoutError:
@@ -197,7 +201,11 @@ class QueryProcessor:
             )
 
     async def _answer_user_question_pipeline(
-        self, user_uid: UserUID, question: str, session_id: str | None = None
+        self,
+        user_uid: UserUID,
+        question: str,
+        session_id: str | None = None,
+        preferred_mode: GuidanceMode | None = None,
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for answer_user_question, wrapped with timeout."""
         # Step 1: Get full user context
@@ -271,7 +279,7 @@ class QueryProcessor:
 
         # Step 7: Run guided pipeline (ZPD + guidance mode)
         guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
-            user_uid, question, user_context
+            user_uid, question, user_context, preferred_mode
         )
 
         # Step 8: Generate answer (guided or context-aware)
@@ -490,9 +498,13 @@ class QueryProcessor:
         user_uid: UserUID,
         question: str,
         user_context: Any,
+        preferred_mode: GuidanceMode | None = None,
     ) -> tuple[str | None, str | None, Any]:
         """
         Load PS bundle and compute guided system prompt + guidance mode.
+
+        If preferred_mode is provided, it overrides the ZPD-determined mode while
+        preserving the pedagogical intent and zone evidence for system prompt building.
 
         Returns:
             (guided_system_prompt, guidance_mode, ps_bundle) — all None if no bundle available.
@@ -513,6 +525,10 @@ class QueryProcessor:
         guidance = self.intent_classifier.determine_guidance_mode(
             question, ps_bundle, zone_evidence, target_ku_uids
         )
+        if preferred_mode is not None:
+            from dataclasses import replace
+
+            guidance = replace(guidance, mode=preferred_mode)
         guided_system_prompt = self.response_generator.build_guided_system_prompt(
             guidance, ps_bundle, user_context
         )
