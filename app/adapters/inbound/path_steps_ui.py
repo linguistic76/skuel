@@ -271,6 +271,50 @@ def create_path_steps_ui_routes(
         )
 
     # ========================================================================
+    # READING-FIRST PROGRESS + BOOKMARK (ps-detail.js Alpine component)
+    # ========================================================================
+
+    @rt("/explore/ps/{uid}/progress", methods=["POST"])
+    @csrf_protected
+    async def update_ps_progress(request: Request, uid: str) -> Any:
+        """Advance PathStep learning state. Called by ps-detail.js (hx-swap=none).
+
+        state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
+        state=learning, review=true  → Review again (mark_as_learning, no cap, no event)
+        state=read                   → mark_as_read
+        Alpine has already updated the UI optimistically — response is discarded.
+        """
+        user_uid = require_authenticated_user(request)
+        form = await request.form()
+        state = str(form.get("state", ""))
+        review = str(form.get("review", "")) == "true"
+        if state == "read":
+            await ps_service.mastery.mark_as_read(user_uid, uid)
+        elif state == "learning":
+            if review:
+                await ps_service.mastery.mark_as_learning(user_uid, uid)
+            else:
+                count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
+                if not count_result.is_error and (count_result.value or 0) >= 2:
+                    return Div()  # hx-swap="none" — cap exceeded; Alpine state corrects on next load
+                await ps_service.mastery.mark_in_progress(user_uid, uid)
+        return Div()  # hx-swap="none" — response is discarded
+
+    @rt("/explore/ps/{uid}/bookmark", methods=["POST"])
+    @csrf_protected
+    async def update_ps_bookmark(request: Request, uid: str) -> Any:
+        """Set PathStep bookmark to explicit state. Called by ps-detail.js (hx-swap=none).
+
+        Reads on=true|false from the form and applies it directly — idempotent
+        on network retries. Alpine has already updated the UI optimistically.
+        """
+        user_uid = require_authenticated_user(request)
+        form = await request.form()
+        desired = str(form.get("on", "")).lower() == "true"
+        await ps_service.mastery.set_bookmark(user_uid, uid, desired)
+        return Div()  # hx-swap="none" — response is discarded
+
+    # ========================================================================
     # ENGAGEMENT HTMX ACTIONS (slice 1: engage + abandon)
     # ========================================================================
 

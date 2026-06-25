@@ -13,7 +13,7 @@ and teacher feedback loaded via HTMX fragments.
 Routes:
 - GET  /explore/ku/{uid}          — Ku reading page (reading-first, no sidebar)
 - GET  /explore/ku/{uid}/content  — HTMX fragment: Ku reading content
-- GET  /explore/ps/{uid}          — PathStep detail page with sidebar
+- GET  /explore/ps/{uid}          — PathStep detail page (reading-first, no sidebar)
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list with status
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback
@@ -33,7 +33,6 @@ from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
 from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
 from ui.explore.ku_mastery import render_ku_mastery_result
-from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -247,16 +246,21 @@ def create_learning_loop_detail_routes(
 
     @rt("/explore/ps/{uid}")
     async def explore_ps_detail(request: Request, uid: str) -> Any:
-        """PathStep detail page — shell renders immediately, content loads via HTMX."""
-        user_uid = get_current_user(request)
-        sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
-        content = content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content")
-        return await render_explore_sidebar_page(
-            content=content,
-            sidebar_data=sidebar_data,
+        """PathStep detail page — reading-first, no sidebar.
+
+        Shell loads ps-detail.js (Alpine factory) immediately so the
+        factory is registered before the HTMX fragment fires Alpine.initTree().
+        """
+        content = Div(
+            Script(src="/static/js/ps-detail.js"),
+            content_loading_placeholder(f"/explore/ps/{uid}/content", "ps-detail-content"),
+        )
+        return await BasePage(
+            content,
+            title="Path Step",
+            page_type=PageType.CUSTOM,
             request=request,
-            current_uid=uid,
-            current_entity_type="ps",
+            active_page="explore",
         )
 
     @rt("/explore/ps/{uid}/content")
@@ -323,8 +327,8 @@ def create_learning_loop_detail_routes(
         )
 
     logger.info(
-        "Learning loop detail routes registered: /explore/ku/{uid} (reading-first), "
-        "/explore/ps/{uid} (sidebar), both shell-first with /content fragments"
+        "Learning loop detail routes registered: /explore/ku/{uid} and "
+        "/explore/ps/{uid} — both reading-first, no sidebar, shell-first with /content fragments"
     )
 
 

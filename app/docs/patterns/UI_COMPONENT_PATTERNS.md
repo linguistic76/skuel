@@ -889,22 +889,11 @@ EmptyState(title="No habits for today!", icon="🎉")
 
 **Location:** `ui/learning_loop/` — shared exercise status helpers + PathStep submission/feedback renderers.
 
-The PathStep detail page (`/explore/ps/{uid}`) HTMX-loads three learning loop sections for authenticated users. Fragment endpoints wired in `explore_ui.py` (`create_explore_ui_routes`), renderers in `ui/learning_loop/`:
+The `/learning-loop/ps/{ps_uid}/*` fragment routes remain wired in `learning_loop_routes.py` (`create_learning_loop_fragment_routes`) but are not surfaced on the PS detail page since the 2026-06-24 reading-first redesign. Renderers in `ui/learning_loop/`:
 
 - `exercise_status.py` — `render_exercise_list()`, status pills (`_STATUS_PILL`), action links with `from_ps` context. Shared with Library exercises tab (`/library/exercises`).
 - `submissions_section.py` — `render_ps_submissions()` — submission rows with status badges.
 - `feedback_section.py` — `render_ps_feedback()` — feedback rows with outcome badges, filters to submissions with reports.
-
-```python
-# PathStep detail page (explore_ui.py) — authenticated user
-Div(
-    H3("Exercises", ...),
-    Div(id=f"ps-exercises-{uid}",
-        hx_get=f"/learning-loop/ps/{uid}/exercises",
-        hx_trigger="load", hx_swap="innerHTML"),
-    cls="border-t border-border pt-6 mt-8",
-)
-```
 
 ---
 
@@ -1714,7 +1703,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 **Explore:**
 - `/ui/explore/reading_plan.py` — reading-column view for `/explore` (server-rendered; Alpine: greeting/save/disclosure/keyboard)
 - `/static/js/explore-reading.js` — `exploreReading` Alpine factory
-- `/ui/explore/nav.py` — graph-centered sidebar (used by `/explore/library`, `/explore/ku/{uid}`, `/explore/ps/{uid}`)
+- `/ui/explore/nav.py` — graph-centered sidebar (used by `/explore/library`; KU and PS detail pages use `BasePage(CUSTOM)` with no sidebar)
 - `/ui/explore/graph.py` — `ExploreGraphView` Vis.js component
 - `/ui/explore/cards.py` — card rendering + search panel (library catalog)
 - `/ui/explore/filters.py` — filter/sort helpers

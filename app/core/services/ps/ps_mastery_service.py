@@ -254,6 +254,20 @@ class PsMasteryService:
     # MVP PHASE A: Reading Interface Methods
     # =========================================================================
 
+    async def mark_as_learning(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
+        """Transition a completed step back to in-progress (Review again).
+
+        Deletes MARKED_AS_READ, ensures IN_PROGRESS. Does NOT fire PathStepEnrolled
+        — this is a re-read, not a new enrollment.
+        """
+        result = await self.backend.mark_as_learning(user_uid, ku_uid)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        if result.value:
+            self.logger.debug("Reset to learning", user_uid=user_uid, ku_uid=ku_uid)
+            return Result.ok(True)
+        return Result.fail(Errors.not_found("User or PathStep", f"{user_uid} / {ku_uid}"))
+
     async def mark_as_read(
         self,
         user_uid: UserUID,
@@ -267,6 +281,22 @@ class PsMasteryService:
 
         self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
         return Result.ok(None)
+
+    async def set_bookmark(self, user_uid: UserUID, ku_uid: str, desired: bool) -> Result[bool]:
+        """Set bookmark to an explicit state — idempotent, safe on retry.
+
+        Use this when the caller knows the intended state (e.g., the PS detail
+        page posts on=true|false). Prefer toggle_bookmark only when the caller
+        genuinely wants to flip whatever the current state is.
+        """
+        if desired:
+            result = await self.backend.create_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+        else:
+            result = await self.backend.delete_bookmark(user_uid, ku_uid)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        self.logger.debug("Set bookmark", user_uid=user_uid, ku_uid=ku_uid, desired=desired)
+        return Result.ok(desired)
 
     async def toggle_bookmark(
         self,
