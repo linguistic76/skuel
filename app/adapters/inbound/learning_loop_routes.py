@@ -301,6 +301,10 @@ def create_learning_loop_detail_routes(
                 if engagement_result.is_ok:
                     engagement = engagement_result.value
 
+        has_task_templates = False
+        if ps_engagement_service is not None and user_uid:
+            has_task_templates = await ps_engagement_service.has_task_templates(uid)
+
         # Exercises for unauthenticated users
         exercises: list[dict] = []
         if not user_uid:
@@ -324,6 +328,7 @@ def create_learning_loop_detail_routes(
             exercises=exercises,
             engagement=engagement,
             user_role=user_role,
+            has_task_templates=has_task_templates,
         )
 
     logger.info(
