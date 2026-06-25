@@ -131,6 +131,12 @@ class EntityIngestionConfig:
     base_label: str | None = (
         "Entity"  # Multi-label base (e.g., :Entity:Task). None for non-Entity types.
     )
+    extracts_body_content: bool = False
+    primary_name_field: str = "title"
+    uid_normalization_fields: tuple[str, ...] = ()
+    uid_singular_to_plural_fields: tuple[tuple[str, str], ...] = ()
+    owner_uid_from_user_uid: bool = False
+    embeddable: bool = False
 
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
@@ -165,12 +171,14 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="ex",
         required_fields=("title", "instructions"),
         relationship_config=generate_ingestion_relationship_config(EntityType.EXERCISE),
+        embeddable=True,
     ),
     EntityType.KU: EntityIngestionConfig(
         entity_label="Ku",
         uid_prefix="ku",
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.KU),
+        embeddable=True,
     ),
     EntityType.TASK: EntityIngestionConfig(
         entity_label="Task",
@@ -178,6 +186,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.TASK),
+        embeddable=True,
     ),
     EntityType.GOAL: EntityIngestionConfig(
         entity_label="Goal",
@@ -185,6 +194,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.GOAL),
+        embeddable=True,
     ),
     EntityType.HABIT: EntityIngestionConfig(
         entity_label="Habit",
@@ -192,6 +202,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.HABIT),
+        embeddable=True,
     ),
     EntityType.EVENT: EntityIngestionConfig(
         entity_label="Event",
@@ -199,6 +210,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.EVENT),
+        embeddable=True,
     ),
     EntityType.CHOICE: EntityIngestionConfig(
         entity_label="Choice",
@@ -206,6 +218,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.CHOICE),
+        embeddable=True,
     ),
     EntityType.PRINCIPLE: EntityIngestionConfig(
         entity_label="Principle",
@@ -216,6 +229,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title", "statement"),
         requires_user_uid=True,
         relationship_config=generate_ingestion_relationship_config(EntityType.PRINCIPLE),
+        embeddable=True,
     ),
     EntityType.LEARNING_PATH: EntityIngestionConfig(
         entity_label="LearningPath",
@@ -223,12 +237,34 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         # "title", not "name" — same name->title rename constraint as PRINCIPLE.
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.LEARNING_PATH),
+        embeddable=True,
     ),
     EntityType.PATH_STEP: EntityIngestionConfig(
         entity_label="PathStep",
         uid_prefix="ps",
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
+        extracts_body_content=True,
+        uid_normalization_fields=(
+            "uses_kus",
+            "habit_uids",
+            "task_uids",
+            "event_template_uids",
+            "goal_uids",
+            "principle_uids",
+            "choice_uids",
+            "exercise_uids",
+            "knowledge_uids",
+            "trains_ku_uids",
+            "prerequisite_step_uids",
+            "prerequisite_knowledge_uids",
+            "learning_path_uids",
+        ),
+        uid_singular_to_plural_fields=(
+            ("learning_path_uid", "learning_path_uids"),
+            ("knowledge_uid", "knowledge_uids"),
+        ),
+        embeddable=True,
     ),
     NonKuDomain.FINANCE: EntityIngestionConfig(
         entity_label="Expense",
@@ -243,12 +279,16 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("name",),
         requires_user_uid=True,  # Upload user becomes owner_uid (see preparer)
         base_label=None,  # Group is not an Entity type
+        primary_name_field="name",
+        owner_uid_from_user_uid=True,
+        default_values={"is_active": True},
     ),
     EntityType.USER_ENTRY: EntityIngestionConfig(
         entity_label="UserEntry",
         uid_prefix="ue",
         required_fields=("title",),
         requires_user_uid=True,
+        extracts_body_content=True,
     ),
     EntityType.INTERACTION: EntityIngestionConfig(
         entity_label="Interaction",

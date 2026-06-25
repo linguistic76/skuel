@@ -8,7 +8,7 @@ relationship data flattening, and embedding generation.
 Extracted from unified_ingestion_service.py for separation of concerns.
 
 NEO4J GENAI INTEGRATION (January 2026):
-- Automatically generates embeddings for priority entities (Ku, Task, Goal, PathStep)
+- Automatically generates embeddings for entity types with embeddable=True in ENTITY_CONFIGS
 - Uses EmbeddingsService if available
 - Graceful degradation - ingestion works without embeddings
 """
@@ -134,65 +134,29 @@ def _prepare_core(
     # Only set body content if it's non-empty — an empty body means all content
     # is in the frontmatter (e.g. content: | in the YAML), and overwriting with ""
     # would erase the frontmatter-provided content before chunking.
-    if body and entity_type in (EntityType.PATH_STEP, EntityType.USER_ENTRY):
+    if body and config.extracts_body_content:
         entity_data["content"] = body
 
-    # PathStep: normalize USES_KU UIDs and activity domain UIDs
-    if entity_type == EntityType.PATH_STEP:
-        ps_uid_fields = [
-            "uses_kus",
-            "habit_uids",
-            "task_uids",
-            "event_template_uids",
-            "goal_uids",
-            "principle_uids",
-            "choice_uids",
-            "exercise_uids",
-        ]
-        for field in ps_uid_fields:
-            if field in entity_data and isinstance(entity_data[field], list):
-                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
-
-    # PathStep: normalize relationship fields
-    if entity_type == EntityType.PATH_STEP:
-        # Convert single learning_path_uid to list
-        lp_uid = entity_data.pop("learning_path_uid", None)
-        if lp_uid:
-            entity_data["learning_path_uids"] = [normalize_uid(lp_uid)]
-
-        # Merge knowledge_uid (single) into knowledge_uids (list)
-        knowledge_uid = entity_data.pop("knowledge_uid", None)
-        if knowledge_uid:
-            normalized = normalize_uid(knowledge_uid)
-            existing = [normalize_uid(u) for u in entity_data.get("knowledge_uids", [])]
+    # Singular → plural consolidation (runs first; normalization pass follows)
+    for singular_field, plural_field in config.uid_singular_to_plural_fields:
+        single_uid = entity_data.pop(singular_field, None)
+        if single_uid:
+            normalized = normalize_uid(single_uid)
+            existing = [normalize_uid(u) for u in entity_data.get(plural_field, [])]
             if normalized not in existing:
-                entity_data.setdefault("knowledge_uids", []).insert(0, normalized)
+                entity_data.setdefault(plural_field, []).insert(0, normalized)
 
-        # Normalize UIDs in all relationship list fields
-        # Activity domain fields handled above via ps_uid_fields
-        uid_list_fields = [
-            "knowledge_uids",
-            "trains_ku_uids",
-            "prerequisite_step_uids",
-            "prerequisite_knowledge_uids",
-            "learning_path_uids",
-        ]
-        for field in uid_list_fields:
-            if field in entity_data and isinstance(entity_data[field], list):
-                entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
+    # List UID normalization
+    for field in config.uid_normalization_fields:
+        if field in entity_data and isinstance(entity_data[field], list):
+            entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
 
-    # Normalize name → title: most domain models use `title`, but a few
-    # (Group) keep `name` as their primary field. Skip rename for those.
-    _keeps_name_field = entity_type == NonKuDomain.GROUP
-    if not _keeps_name_field:
-        if "name" in entity_data and "title" not in entity_data:
-            entity_data["title"] = entity_data.pop("name")
-
-        # Handle title fallback from filename
-        if "title" not in entity_data:
-            entity_data["title"] = file_path.stem.replace("-", " ").title()
-    elif "name" not in entity_data:
-        entity_data["name"] = file_path.stem.replace("-", " ").title()
+    name_field = config.primary_name_field
+    alt_field = "name" if name_field == "title" else "title"
+    if alt_field in entity_data and name_field not in entity_data:
+        entity_data[name_field] = entity_data.pop(alt_field)
+    if name_field not in entity_data:
+        entity_data[name_field] = file_path.stem.replace("-", " ").title()
 
     # Apply default values
     if config.default_values:
@@ -208,14 +172,10 @@ def _prepare_core(
         raw_user_uid = entity_data.get("user_uid", default_user_uid)
         entity_data["user_uid"] = TypeConverter.to_user_uid(str(raw_user_uid))
 
-    # Group uses `owner_uid` (teacher), not `user_uid`. The upload flow injects
-    # the uploader's UID as user_uid above; translate that to owner_uid here so
-    # the teacher who uploads a group YAML becomes its owner.
-    if entity_type == NonKuDomain.GROUP:
+    if config.owner_uid_from_user_uid:
         owner_uid = entity_data.pop("owner_uid", None) or entity_data.pop("user_uid", None)
         if owner_uid:
             entity_data["owner_uid"] = owner_uid
-        entity_data.setdefault("is_active", True)
 
     # Flatten relationship data for the bulk-upsert backend
     # Format: "connections.requires" -> flat key in metadata
@@ -311,33 +271,9 @@ async def prepare_entity_data_async(
 
 
 def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> TypeGuard[EntityType]:
-    """
-    Determine if entity type should have embeddings.
-
-    All content-bearing entity types receive embeddings for semantic search:
-    - Curriculum: PathStep, Ku, Exercise, LearningPath, Resource, RevisedExercise
-    - Activity: Task, Goal, Habit, Event, Choice, Principle
-
-    TypeGuard narrows the union to EntityType in the True branch — only
-    EntityType values can be embeddable.
-    """
-    embeddable_types = {
-        # Curriculum
-        EntityType.PATH_STEP,
-        EntityType.KU,
-        EntityType.EXERCISE,
-        EntityType.LEARNING_PATH,
-        EntityType.RESOURCE,
-        EntityType.REVISED_EXERCISE,
-        # Activity domains
-        EntityType.TASK,
-        EntityType.GOAL,
-        EntityType.HABIT,
-        EntityType.EVENT,
-        EntityType.CHOICE,
-        EntityType.PRINCIPLE,
-    }
-    return entity_type in embeddable_types
+    """TypeGuard narrows the union to EntityType — only EntityType values are embeddable."""
+    config = ENTITY_CONFIGS.get(entity_type)
+    return isinstance(entity_type, EntityType) and config is not None and config.embeddable
 
 
 def prepare_entity_data(
