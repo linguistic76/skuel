@@ -404,7 +404,7 @@ return await render_gradebook_sidebar_page(
     content=my_content, active="submissions", request=request
 )
 
-# Submissions sidebar (Upload, Submit, History):
+# Submissions sidebar (Exercise, Journals, History, Obsidian Sync):
 from ui.workbench.nav import render_submissions_sidebar_page
 
 return await render_submissions_sidebar_page(

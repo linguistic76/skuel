@@ -272,7 +272,7 @@ def create_user_entry_ui_routes(
         from_ps = request.query_params.get("from_ps") or None
 
         content = Div(
-            PageHeader("Submit", subtitle="Upload your completed exercise worksheet"),
+            PageHeader("Submit Exercise", subtitle="Upload your completed exercise worksheet"),
             render_upload_form(
                 assigned_exercises,
                 selected_exercise_uid=selected_exercise_uid,
