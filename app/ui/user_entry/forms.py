@@ -108,11 +108,13 @@ def render_upload_form(
         user_groups: The user's groups (pre-loaded by the route handler).
         force_pipeline: Lock the pipeline (exercise-context pages).
     """
-    from_exercise_context = bool(selected_exercise_uid) or bool(assigned_exercises)
+    # The intent picker is locked only when a specific exercise is deep-linked
+    # (selected_exercise_uid) or the caller forces a pipeline (force_pipeline).
+    # Merely having assignments in the dropdown does NOT lock the form.
+    hide_intent_picker = force_pipeline is not None or bool(selected_exercise_uid)
     effective_pipeline = force_pipeline or (
-        Pipeline.TEACHER_REVIEW if from_exercise_context else Pipeline.NONE
+        Pipeline.TEACHER_REVIEW if selected_exercise_uid else Pipeline.NONE
     )
-    hide_intent_picker = force_pipeline is not None or from_exercise_context
 
     # -- Exercise section --------------------------------------------------
     exercise_section: Any = ""
@@ -145,6 +147,38 @@ def render_upload_form(
         Input(type="hidden", name="about_path_step_uid", value=from_ps) if from_ps else ""
     )
 
+    # -- Audience options (computed before intent tiles reference them) -----
+    # "Submit to teacher" maps to auto_share_to_exercise_groups=True in the API,
+    # which only works when an exercise is selected. Without one it shares with
+    # nothing, so only offer it when a specific exercise was deep-linked.
+    teacher_audience_options: list[Any] = []
+    if selected_exercise_uid:
+        teacher_audience_options.append(
+            _audience_radio(
+                value="teachers",
+                label="Submit to teacher",
+                description="Shares with the exercise's assigned groups.",
+                model="audience",
+            )
+        )
+    if user_groups:
+        for g in user_groups:
+            guid = getattr(g, "uid", None) or getattr(g, "group_uid", None)
+            if not guid:
+                continue
+            gname = getattr(g, "name", None) or getattr(g, "title", None) or guid
+            teacher_audience_options.append(
+                _audience_radio(
+                    value=f"group:{guid}",
+                    label=f"Share with {gname}",
+                    description="Visible to members of this group.",
+                    model="audience",
+                )
+            )
+
+    # Show the Review intent tile only when there is a reachable recipient.
+    show_review_intent = bool(selected_exercise_uid) or bool(teacher_audience_options)
+
     # -- Intent picker or locked pipeline ----------------------------------
     if hide_intent_picker:
         intent_section: Any = Input(
@@ -155,14 +189,19 @@ def render_upload_form(
         )
         default_intent = "review"
     else:
+        review_tile = (
+            _intent_tile(
+                "review",
+                "Submit for Review",
+                "Send to your teacher for feedback.",
+            )
+            if show_review_intent
+            else None
+        )
         intent_section = Div(
             P("What do you want to do with this entry?", cls="text-sm font-semibold mb-3"),
             Div(
-                _intent_tile(
-                    "review",
-                    "Submit for Review",
-                    "Send to your teacher for feedback.",
-                ),
+                review_tile,
                 _intent_tile(
                     "ai",
                     "Get AI Feedback",
@@ -186,29 +225,24 @@ def render_upload_form(
         )
         default_intent = "log"
 
-    # -- Audience section (teacher-review path) ----------------------------
-    teacher_audience_options: list[Any] = [
-        _audience_radio(
-            value="teachers",
-            label="Submit to teacher",
-            description="Shares with the exercise's assigned groups.",
-            model="audience",
-        )
-    ]
-    if user_groups:
-        for g in user_groups:
-            guid = getattr(g, "uid", None) or getattr(g, "group_uid", None)
-            if not guid:
-                continue
-            gname = getattr(g, "name", None) or getattr(g, "title", None) or guid
-            teacher_audience_options.append(
-                _audience_radio(
-                    value=f"group:{guid}",
-                    label=f"Share with {gname}",
-                    description="Visible to members of this group.",
-                    model="audience",
-                )
-            )
+    # Safe default audience for the $watch reset when switching to review intent.
+    # "teachers" only if an exercise is selected; first group otherwise; 'private'
+    # as a fallback (validation will block submit and surface the error).
+    _first_group = next(
+        (
+            g
+            for g in (user_groups or [])
+            if (getattr(g, "uid", None) or getattr(g, "group_uid", None))
+        ),
+        None,
+    )
+    if selected_exercise_uid:
+        _default_review_audience = "teachers"
+    elif _first_group is not None:
+        _fg_uid = getattr(_first_group, "uid", None) or getattr(_first_group, "group_uid", None)
+        _default_review_audience = f"group:{_fg_uid}"
+    else:
+        _default_review_audience = "private"
 
     review_audience_section = Div(
         P("Send to", cls="text-sm font-semibold mb-2"),
@@ -289,7 +323,7 @@ def render_upload_form(
         # stale 'public' from Log or 'teachers' from Review doesn't leak across.
         "init() { "
         "  this.$watch('intent', (val) => { "
-        "    if (val === 'review') this.audience = 'teachers'; "
+        f"    if (val === 'review') this.audience = '{_default_review_audience}'; "
         "    else this.audience = 'private'; "
         "  }); "
         "}, "
