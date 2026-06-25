@@ -736,7 +736,7 @@ async def get_zpd_behavioral_signals(
 
 **Consumed by:** `ZPDService.assess_zone()` → `ZPDAssessment.behavioral_readiness`
 
-**See:** `core/services/zpd/zpd_service.py` (Phase 3, pending implementation)
+**See:** `core/services/zpd/zpd_service.py`
 
 ---
 

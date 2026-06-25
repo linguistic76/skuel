@@ -677,7 +677,7 @@ async def get_zpd_knowledge_signals(
 
 **Consumed by:** `ZPDService.assess_zone()` — reinforced KUs count toward current_zone scoring.
 
-**See:** `core/services/zpd/zpd_service.py` (Phase 3, pending implementation)
+**See:** `core/services/zpd/zpd_service.py`
 
 ---
 
