@@ -268,7 +268,11 @@ def create_tasks_ui_routes(
 
         parent_result = await tasks_service.get_parent_task(uid)
         parent = (
-            parent_result.value if parent_result.is_ok and parent_result.value is not None else None
+            parent_result.value
+            if parent_result.is_ok
+            and parent_result.value is not None
+            and parent_result.value.user_uid == user_uid
+            else None
         )
 
         children_result = await tasks_service.get_subtasks(uid)
@@ -290,15 +294,22 @@ def create_tasks_ui_routes(
         title = str(form.get("title", "")).strip()
         parent_uid = str(form.get("parent_uid", "")).strip()
 
-        parent_result = await tasks_service.get_task(parent_uid)
-        if parent_result.is_error or parent_result.value.user_uid != user_uid:
+        owner_result = await tasks_service.get_task(parent_uid)
+        if owner_result.is_error or owner_result.value.user_uid != user_uid:
             return SubtaskListFragment(parent_uid, None, [])
-
-        parent = parent_result.value
 
         if title:
             create_req = TaskCreateRequest(title=title, parent_uid=parent_uid)
             await tasks_service.core.create_task(create_req, user_uid)
+
+        grandparent_result = await tasks_service.get_parent_task(parent_uid)
+        grandparent = (
+            grandparent_result.value
+            if grandparent_result.is_ok
+            and grandparent_result.value is not None
+            and grandparent_result.value.user_uid == user_uid
+            else None
+        )
 
         children_result = await tasks_service.get_subtasks(parent_uid)
         children = (
@@ -307,7 +318,7 @@ def create_tasks_ui_routes(
             else []
         )
 
-        return SubtaskListFragment(parent_uid, parent, children)
+        return SubtaskListFragment(parent_uid, grandparent, children)
 
     return [
         *base_routes,
