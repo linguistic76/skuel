@@ -317,11 +317,7 @@ When you sync this note, SKUEL creates:
 
 ## Part 4 — Standalone Activity YAML Files
 
-For activities that aren't part of a daily note — a goal you're setting for the quarter, a principle you want to live by, a habit you want to start tracking from today — you can write a standalone YAML file and upload it.
-
-### Uploading at /upload
-
-Go to **[/upload](/upload)**, drag in a `.yaml` file, and SKUEL creates the activity item in your graph.
+For activities that aren't part of a daily note — a goal you're setting for the quarter, a principle you want to live by, a habit you want to start tracking from today — write a standalone YAML file in your Obsidian vault. The vault sync at **[/settings/vault](/settings/vault)** will pick it up on the next sync.
 
 ### Quick examples for each type
 
@@ -546,7 +542,7 @@ Go to **[/journals/browse](/journals/browse)** to see today's transcription from
 
 ### Occasionally: write a YAML file
 
-When you're setting a new goal for the quarter, or want to define a principle that's been crystallizing, write a standalone YAML file in your vault and upload it at **[/upload](/upload)**. This doesn't have to happen every day — it's the tool for the more deliberate, structured layer of your life.
+When you're setting a new goal for the quarter, or want to define a principle that's been crystallizing, write a standalone YAML file in your vault. The next sync at **[/settings/vault](/settings/vault)** will bring it into SKUEL. This doesn't have to happen every day — it's the tool for the more deliberate, structured layer of your life.
 
 ---
 
@@ -556,8 +552,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 |--------------------|------------|
 | Upload a voice memo or text journal | [/journals/submit](/journals/submit) |
 | Browse journal entries and get AI responses | [/journals/browse](/journals/browse) |
-| Upload activity YAML files (tasks, goals, habits…) | [/upload](/upload) |
-| Sync Obsidian vault with SKUEL | [/settings/vault](/settings/vault) |
+| Sync Obsidian vault with SKUEL (primary data path) | [/settings/vault](/settings/vault) |
 | Submit a completed exercise worksheet | [/submit](/submit) |
 
 | Template | Cadence | Primary purpose |

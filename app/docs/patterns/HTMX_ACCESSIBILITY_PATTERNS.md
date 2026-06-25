@@ -41,7 +41,6 @@ The JavaScript listener reads the HTMX request URL and auto-detects the operatio
 | `/update`, `/edit`, `/save` | "Updating..." | "Updated successfully" |
 | `/delete`, `/remove` | "Deleting..." | "Deleted successfully" |
 | `/complete` | "Completing..." | "Completed successfully" |
-| `/upload` | "Uploading..." | "Uploaded successfully" |
 | `/toggle` | "Updating status..." | "Status updated" |
 
 ```python

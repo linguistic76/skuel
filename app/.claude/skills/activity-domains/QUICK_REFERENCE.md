@@ -26,8 +26,7 @@
 
 ### UI
 
-All 6 Activity Domains support both bulk ingestion (`/upload` of YAML) and
-direct authoring through per-domain create/edit forms (`/{domain}/create`,
+All 6 Activity Domains support authoring through per-domain create/edit forms (`/{domain}/create`,
 `/{domain}/edit?uid=...`). All 6 share a collapsible Activity sidebar
 (`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content
 is embedded inline in `/profile` via `ActivityHubView()`.
