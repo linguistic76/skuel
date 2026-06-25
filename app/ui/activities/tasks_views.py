@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import (
     A,
     Div,
+    Form,
     P,
     Small,
     Span,
@@ -23,6 +24,7 @@ from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField,
 from ui.buttons import Button, ButtonT
 from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.forms import Input
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
@@ -169,6 +171,97 @@ def _task_connection_badges(
     return Span()
 
 
+def SubtaskSection(task_uid: str) -> "FT":
+    """Section shell that HTMX auto-loads the subtask list on page render."""
+    list_id = f"subtasks-list-{safe_id(task_uid)}"
+    return Div(
+        SectionTitle("Sub-tasks"),
+        Div(
+            id=list_id,
+            hx_get=f"/tasks/subtasks?uid={task_uid}",
+            hx_trigger="load",
+            hx_swap="outerHTML",
+        ),
+        cls="my-4",
+    )
+
+
+def SubtaskListFragment(
+    parent_uid: str,
+    parent: "Task | None",
+    children: "list[Task]",
+) -> "FT":
+    """Replaceable HTMX fragment: parent breadcrumb + child rows + quick-add form."""
+    list_id = f"subtasks-list-{safe_id(parent_uid)}"
+
+    parent_el: Any = ""
+    if parent:
+        parent_el = Div(
+            UkIcon("corner-left-up", height=13, width=13, cls="flex-none text-muted-foreground"),
+            A(
+                parent.title or parent.uid,
+                href=f"/tasks/detail?uid={parent.uid}",
+                cls="text-xs text-muted-foreground hover:underline",
+            ),
+            cls="flex items-center gap-1.5 mb-3",
+        )
+
+    rows: list[Any] = (
+        [_subtask_row(t) for t in children]
+        if children
+        else [P("No sub-tasks yet.", cls="text-sm text-muted-foreground py-1")]
+    )
+
+    add_form = Form(
+        DivHStacked(
+            Input(
+                type="text",
+                name="title",
+                placeholder="Add sub-task…",
+                required=True,
+                cls="flex-1 min-w-0",
+            ),
+            Input(type="hidden", name="parent_uid", value=parent_uid),
+            Button("Add", type="submit", variant=ButtonT.primary, size="sm"),
+        ),
+        hx_post="/tasks/subtasks/add",
+        hx_target=f"#{list_id}",
+        hx_swap="outerHTML",
+        cls="mt-3 pt-3 border-t border-border",
+    )
+
+    return Div(
+        parent_el,
+        *rows,
+        add_form,
+        id=list_id,
+        hx_get=f"/tasks/subtasks?uid={parent_uid}",
+        hx_trigger="refresh",
+        hx_swap="outerHTML",
+    )
+
+
+def _subtask_row(task: "Task") -> "FT":
+    """Compact row: status indicator + title link to the task's own detail page."""
+    is_completed = task.status and task.status.value == "completed"
+    icon_cls = f"flex-none {'text-success' if is_completed else 'text-muted-foreground'}"
+    title_cls = "text-sm line-through text-muted-foreground" if is_completed else "text-sm"
+    return Div(
+        UkIcon(
+            "check-circle" if is_completed else "circle",
+            height=14,
+            width=14,
+            cls=icon_cls,
+        ),
+        A(
+            task.title or "Untitled",
+            href=f"/tasks/detail?uid={task.uid}",
+            cls=f"{title_cls} hover:underline",
+        ),
+        cls="flex items-center gap-2 py-1.5",
+    )
+
+
 def TaskDetailView(
     task: "Task",
     connections: list[dict[str, str]],
@@ -238,6 +331,9 @@ def TaskDetailView(
             cls="my-4",
         )
 
+    # Sub-tasks (HTMX-loaded: parent breadcrumb + children + quick-add)
+    subtasks = SubtaskSection(task.uid)
+
     # Lateral relationships (Vis.js graph, blocking chain, alternatives)
     relationships = EntityRelationshipsSection(
         entity_uid=task.uid,
@@ -251,6 +347,7 @@ def TaskDetailView(
         meta_grid,
         tags_el,
         conn_section,
+        subtasks,
         relationships,
         size="3xl",
     )
