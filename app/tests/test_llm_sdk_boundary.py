@@ -81,7 +81,7 @@ ALLOWED_THIRD_PARTY = frozenset(
 # --- Tier 2: exception-class-only, confined to exception_types.py ------------
 # Vendor SDK / driver / transport packages. The CLIENTS live below the
 # boundary; core/ imports only their exception classes, and only here.
-EXCEPTION_CLASS_ONLY = frozenset({"openai", "anthropic", "neo4j", "httpx"})
+EXCEPTION_CLASS_ONLY = frozenset({"openai", "anthropic", "neo4j", "httpx", "deepgram"})
 _EXCEPTION_CLASS_FILE = "core/utils/exception_types.py"
 
 # __future__ is not in sys.stdlib_module_names but is always-available stdlib.

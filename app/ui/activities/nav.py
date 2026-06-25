@@ -40,6 +40,8 @@ async def render_activity_sidebar_page(
     active: str,
     request: "Request | None" = None,
     extra_css: list[str] | None = None,
+    title: str = "Tasks+",
+    active_page: str = "activity",
 ) -> "FT":
     """Wrap content in Activity Domain sidebar page.
 
@@ -48,14 +50,16 @@ async def render_activity_sidebar_page(
         active: The active sidebar item slug (e.g. "tasks", "activities").
         request: The request object for auth detection.
         extra_css: Additional CSS file paths to include in the page head.
+        title: Browser/page title; defaults to "Tasks+" for activity domain pages.
+        active_page: Top-nav active key passed to BasePage; defaults to "activity".
     """
     return await SidebarPage(
         content=content,
         items=ACTIVITY_SIDEBAR_ITEMS,
         active=active,
-        title="Tasks+",
+        title=title,
         storage_key=ACTIVITY_STORAGE_KEY,
         request=request,
-        active_page="activity",
+        active_page=active_page,
         extra_css=extra_css,
     )
