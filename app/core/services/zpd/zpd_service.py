@@ -34,7 +34,7 @@ Integration
 See: core/models/zpd/zpd_assessment.py — ZPDAssessment, ZoneEvidence, ZPDAction
 See: core/ports/zpd_protocols.py — ZPDOperations + ZPDBackendOperations protocols
 See: adapters/persistence/neo4j/zpd_backend.py — persistence layer
-See: docs/roadmap/zpd-service-deferred.md — full design rationale
+See: docs/roadmap/zpd-service-architecture.md — full design rationale
 """
 
 from __future__ import annotations
@@ -42,6 +42,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from core.constants import ZPDWeights
 from core.models.type_hints import EntityUID, UserUID
 from core.models.zpd.zpd_assessment import ZoneEvidence, ZPDAction, ZPDAssessment
 from core.ports.zpd_protocols import PrereqCount, SubmissionScore
@@ -118,9 +119,11 @@ class ZPDService:
         """
         # Guard: curriculum graph must be populated enough to be meaningful
         ku_count = await self._backend.get_ku_count()
-        if ku_count < 3:
+        if ku_count < ZPDWeights.MIN_KU_THRESHOLD:
             self._logger.debug(
-                "ZPD skipped: curriculum graph has %d KUs (minimum 3 required)", ku_count
+                "ZPD skipped: curriculum graph has %d KUs (minimum %d required)",
+                ku_count,
+                ZPDWeights.MIN_KU_THRESHOLD,
             )
             return Result.ok(self._empty_assessment())
 
@@ -337,13 +340,17 @@ class ZPDService:
         - **unblock**: Blocking-gap KUs that gate multiple proximal KUs (high leverage)
 
         Priority formula (learn):
-            readiness_score * 0.5 + life_path_alignment * 0.3 + behavioral_readiness * 0.2
+            readiness_score × ZPDWeights.LEARN_READINESS
+            + life_path_alignment × ZPDWeights.LEARN_ALIGNMENT
+            + behavioral_readiness × ZPDWeights.LEARN_BEHAVIORAL
 
         Priority formula (reinforce):
-            (1 - signal_strength) * 0.4 + life_path_alignment * 0.3 + behavioral_readiness * 0.3
+            (1 - signal_strength) × ZPDWeights.REINFORCE_GAP
+            + life_path_alignment × ZPDWeights.REINFORCE_ALIGNMENT
+            + behavioral_readiness × ZPDWeights.REINFORCE_BEHAVIORAL
 
         Priority formula (unblock):
-            0.9 (blocking gaps are always high priority — they unlock territory)
+            ZPDWeights.UNBLOCK_PRIORITY — blocking gaps are always high priority
         """
         actions: list[ZPDAction] = []
 
@@ -354,7 +361,7 @@ class ZPDService:
                     entity_uid=EntityUID(gap_uid),
                     entity_type="path_step",
                     action_type="unblock",
-                    priority=0.9,
+                    priority=ZPDWeights.UNBLOCK_PRIORITY,
                     rationale="blocking gap — unlocks further progress",
                     ku_uid=gap_uid,
                 )
@@ -364,7 +371,9 @@ class ZPDService:
         for ku_uid in proximal_zone:
             readiness = readiness_scores.get(ku_uid, 0.0)
             priority = round(
-                readiness * 0.5 + life_path_alignment * 0.3 + behavioral_readiness * 0.2,
+                readiness * ZPDWeights.LEARN_READINESS
+                + life_path_alignment * ZPDWeights.LEARN_ALIGNMENT
+                + behavioral_readiness * ZPDWeights.LEARN_BEHAVIORAL,
                 3,
             )
 
@@ -392,11 +401,11 @@ class ZPDService:
             for ku_uid, evidence in zone_evidence.items():
                 if evidence.is_confirmed:
                     continue  # Already compound-confirmed — no reinforcement needed
-                signal_strength = evidence.signal_count / 4.0  # 4 possible signal types
+                signal_strength = evidence.signal_count / ZPDWeights.SIGNAL_TYPE_COUNT
                 priority = round(
-                    (1.0 - signal_strength) * 0.4
-                    + life_path_alignment * 0.3
-                    + behavioral_readiness * 0.3,
+                    (1.0 - signal_strength) * ZPDWeights.REINFORCE_GAP
+                    + life_path_alignment * ZPDWeights.REINFORCE_ALIGNMENT
+                    + behavioral_readiness * ZPDWeights.REINFORCE_BEHAVIORAL,
                     3,
                 )
                 actions.append(
@@ -405,7 +414,7 @@ class ZPDService:
                         entity_type="path_step",
                         action_type="reinforce",
                         priority=priority,
-                        rationale=f"{evidence.signal_count}/4 evidence types — needs compound mastery",
+                        rationale=f"{evidence.signal_count}/{ZPDWeights.SIGNAL_TYPE_COUNT} evidence types — needs compound mastery",
                         ku_uid=ku_uid,
                     )
                 )
@@ -429,7 +438,7 @@ class ZPDService:
 
         Returns 0.5 (neutral) when both intelligence services are unavailable.
         """
-        behavioral_score = 0.5  # Neutral default
+        behavioral_score = ZPDWeights.BEHAVIORAL_NEUTRAL_DEFAULT
 
         choices_weight = 0.0
         habits_weight = 0.0
@@ -444,11 +453,14 @@ class ZPDService:
                 quality_rate = signals.get("high_quality_decision_rate", 0.5)
                 conflicts = signals.get("active_conflict_count", 0)
 
-                conflict_penalty = min(0.25, conflicts * 0.05)
+                conflict_penalty = min(
+                    ZPDWeights.CHOICES_CONFLICT_PENALTY_CAP,
+                    conflicts * ZPDWeights.CHOICES_CONFLICT_PENALTY_PER,
+                )
                 choices_score = (
-                    (adherence * 0.35)
-                    + (consistency * 0.35)
-                    + (quality_rate * 0.20)
+                    (adherence * ZPDWeights.CHOICES_ADHERENCE)
+                    + (consistency * ZPDWeights.CHOICES_CONSISTENCY)
+                    + (quality_rate * ZPDWeights.CHOICES_QUALITY)
                     - conflict_penalty
                 )
                 choices_score = max(0.0, min(1.0, choices_score))
@@ -473,14 +485,20 @@ class ZPDService:
                     mean_strength = 0.0
 
                 at_risk_in_zone = sum(1 for uid in at_risk if uid in current_zone)
-                at_risk_penalty = min(0.20, at_risk_in_zone * 0.05)
+                at_risk_penalty = min(
+                    ZPDWeights.HABITS_AT_RISK_PENALTY_CAP,
+                    at_risk_in_zone * ZPDWeights.HABITS_AT_RISK_PENALTY_PER,
+                )
 
                 habits_score = max(0.0, min(1.0, mean_strength - at_risk_penalty))
                 habits_weight = habits_score
 
         # ── Combine ───────────────────────────────────────────────────────
         if self._choices_intelligence is not None and self._habits_intelligence is not None:
-            behavioral_score = (choices_weight * 0.65) + (habits_weight * 0.35)
+            behavioral_score = (
+                choices_weight * ZPDWeights.BEHAVIORAL_CHOICES_WEIGHT
+                + habits_weight * ZPDWeights.BEHAVIORAL_HABITS_WEIGHT
+            )
         elif self._choices_intelligence is not None:
             behavioral_score = choices_weight
         elif self._habits_intelligence is not None:
@@ -496,5 +514,5 @@ class ZPDService:
             engaged_paths=[],
             readiness_scores={},
             blocking_gaps=[],
-            behavioral_readiness=0.5,
+            behavioral_readiness=ZPDWeights.BEHAVIORAL_NEUTRAL_DEFAULT,
         )

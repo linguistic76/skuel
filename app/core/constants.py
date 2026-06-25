@@ -524,6 +524,62 @@ class LearningLoop:
 
 
 # ============================================================================
+# ZPD WEIGHTS (zpd_service.py)
+# ============================================================================
+
+
+class ZPDWeights:
+    """
+    Weights and thresholds for the Zone of Proximal Development model.
+
+    Organised by computation stage so the model can be tuned in one place
+    as SKUEL accumulates real learning-outcome data.
+
+    See: core/services/zpd/zpd_service.py
+    See: docs/roadmap/zpd-service-architecture.md
+    """
+
+    # Minimum KUs in the curriculum graph before ZPD runs. Below this the
+    # proximal zone is too sparse to produce meaningful recommendations.
+    MIN_KU_THRESHOLD: Final = 3
+
+    # Blocking-gap KUs are always high-priority — they unlock territory.
+    UNBLOCK_PRIORITY: Final = 0.9
+
+    # Possible signal types per KU (task / habit / entry / submission).
+    # Normalises signal_count → signal_strength (0.0–1.0).
+    SIGNAL_TYPE_COUNT: Final = 4
+
+    # Behavioral readiness when both intelligence services are unavailable.
+    BEHAVIORAL_NEUTRAL_DEFAULT: Final = 0.5
+
+    # ── Learn action: readiness × W + alignment × W + behavioral × W ──────
+    LEARN_READINESS: Final = 0.5
+    LEARN_ALIGNMENT: Final = 0.3
+    LEARN_BEHAVIORAL: Final = 0.2
+
+    # ── Reinforce action: gap × W + alignment × W + behavioral × W ────────
+    REINFORCE_GAP: Final = 0.4
+    REINFORCE_ALIGNMENT: Final = 0.3
+    REINFORCE_BEHAVIORAL: Final = 0.3
+
+    # ── Behavioral readiness — top-level combine ───────────────────────────
+    BEHAVIORAL_CHOICES_WEIGHT: Final = 0.65
+    BEHAVIORAL_HABITS_WEIGHT: Final = 0.35
+
+    # ── Behavioral readiness — choices sub-weights ─────────────────────────
+    CHOICES_ADHERENCE: Final = 0.35
+    CHOICES_CONSISTENCY: Final = 0.35
+    CHOICES_QUALITY: Final = 0.20
+    CHOICES_CONFLICT_PENALTY_PER: Final = 0.05
+    CHOICES_CONFLICT_PENALTY_CAP: Final = 0.25
+
+    # ── Behavioral readiness — habits sub-weights ──────────────────────────
+    HABITS_AT_RISK_PENALTY_PER: Final = 0.05
+    HABITS_AT_RISK_PENALTY_CAP: Final = 0.20
+
+
+# ============================================================================
 # EXERCISE TIME ESTIMATES (daily planning)
 # ============================================================================
 
