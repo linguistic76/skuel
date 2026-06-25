@@ -145,6 +145,19 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     )
 
 
+def _askesis_button(active_page: str) -> A:
+    """Flame icon linking to /askesis — the ZPD-aware practice companion."""
+    is_active = active_page == "askesis"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    return A(
+        Span("Askesis", cls="sr-only"),
+        UkIcon("flame", cls="size-6", aria_hidden="true"),
+        href="/askesis",
+        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
 def _profile_button(current_user: str, active_page: str) -> A:
     """Avatar circle linking to /profile — regular user's entry point to their hub."""
     is_active = active_page == "profile"
@@ -296,8 +309,8 @@ def create_navbar(
     if is_authenticated:
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
+            _askesis_button(active_page),
             _notification_badge_placeholder(),
-            _profile_button(current_user or "", active_page),
             _signout_button(),
             cls="flex items-center gap-1",
         )
