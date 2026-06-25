@@ -2892,7 +2892,7 @@
         // ---------------------------------------------------------------------
         // /submit page — destination dropdown + file uploader
         // ---------------------------------------------------------------------
-        Alpine.data('submit', function(defaultDest, portfolioMode) {
+        Alpine.data('submit', function(defaultDest, portfolioMode, teacherDisabled) {
             return {
                 dest: defaultDest || 'teacher',
                 menuOpen: false,
@@ -2911,12 +2911,14 @@
                 get canSend() { return !!this.file && !this.sent; },
                 get pipeline() {
                     if (this.dest === 'ai') return 'llm_summary';
-                    return 'teacher_review';
+                    if (this.dest === 'teacher' && !teacherDisabled) return 'teacher_review';
+                    return 'none';
                 },
                 get audience() {
                     if (this.dest === 'ai') return 'private';
                     if (this.dest === 'portfolio') return 'public';
-                    return 'teachers';
+                    if (this.dest === 'teacher' && !teacherDisabled) return 'teachers';
+                    return 'private';
                 },
 
                 fmtSize: function(b) {
@@ -2927,6 +2929,7 @@
 
                 selectDest: function(d) {
                     if (d === 'portfolio' && portfolioMode !== 'active') return;
+                    if (d === 'teacher' && teacherDisabled) return;
                     this.dest = d;
                     this.menuOpen = false;
                 },

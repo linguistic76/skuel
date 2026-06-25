@@ -150,8 +150,14 @@ def render_upload_form(
         default_destination: Initial dropdown selection ("teacher" or "ai").
         portfolio_mode: "coming_soon" (disabled) or "active" (selectable).
     """
+    # Teacher is only valid when an exercise is linked (validator requires
+    # fulfills_exercise_uid / share_with_groups / share_with_users for
+    # TEACHER_REVIEW; auto_share_to_exercise_groups alone is not counted).
+    has_teacher_context = bool(selected_exercise_uid)
     if selected_exercise_uid:
         default_destination = "teacher"
+    elif not has_teacher_context and default_destination == "teacher":
+        default_destination = "ai"
 
     dest_configs: dict[str, dict[str, str]] = {
         "teacher": {
@@ -180,8 +186,15 @@ def render_upload_form(
     # Optional context fields (silent hidden inputs)
     hidden_fields: list[Any] = []
     if selected_exercise_uid:
+        # Disabled when dest !== 'teacher' so an AI/portfolio switch doesn't
+        # silently mark the exercise as submitted (P2: Codex finding on #392).
         hidden_fields.append(
-            Input(type="hidden", name="fulfills_exercise_uid", value=selected_exercise_uid)
+            Input(
+                type="hidden",
+                name="fulfills_exercise_uid",
+                value=selected_exercise_uid,
+                **{"x-bind:disabled": "dest !== 'teacher'"},
+            )
         )
     if from_ps:
         hidden_fields.append(Input(type="hidden", name="about_path_step_uid", value=from_ps))
@@ -199,6 +212,7 @@ def render_upload_form(
                 dest_configs["teacher"]["icon_cls"],
                 dest_configs["teacher"]["title"],
                 dest_configs["teacher"]["desc"],
+                disabled=not has_teacher_context,
             ),
             _dest_option_row(
                 "ai",
@@ -407,7 +421,7 @@ def render_upload_form(
         ),
         toast,
         **{
-            "x-data": f"submit('{default_destination}', '{portfolio_mode}')",
+            "x-data": f"submit('{default_destination}', '{portfolio_mode}', {str(not has_teacher_context).lower()})",
         },
     )
 
