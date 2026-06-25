@@ -453,7 +453,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
                 ),
                 A(
                     "+",
-                    href="/journals/submit",
+                    href="/submit/journals",
                     cls="w-7 h-7 flex items-center justify-center rounded-full "
                     "text-foreground/40 hover:text-foreground hover:bg-muted "
                     "transition-colors text-lg font-bold leading-none",
@@ -467,7 +467,7 @@ def _domain_progress_grid(context: UserContext) -> Div:
             ),
             A(
                 "Submit journal →",
-                href="/journals/submit",
+                href="/submit/journals",
                 cls="text-xs text-primary hover:underline mt-2 inline-block",
             ),
             cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow",

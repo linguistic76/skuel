@@ -168,7 +168,7 @@ BatchTranscriptionService.transcribe_batch()
 
 **Access points:**
 - **Admin console UI:** `/admin/batch-transcribe` — any server-side path, admin-only
-- **User journals UI:** `/journals/submit` → "Upload Folder" tab — defaults to
+- **User journals UI:** `/submit/journals` → "Upload Folder" tab — defaults to
   `/home/mike/0bsidian/skuel/transcribe_in` → `transcribe_out`, authenticated users
 - **CLI:** `uv run python scripts/batch_transcribe.py`
 - **API (admin):** `POST /api/journals/batch-transcribe`
@@ -206,7 +206,7 @@ The config file exposes five Deepgram intelligence features:
 | `core/services/transcription/batch_transcription_service.py` | Batch transcription: audio -> txt |
 | `core/models/transcription/transcription.py` | Domain model + `TranscriptionProcessOptions` |
 | `adapters/inbound/batch_transcription_api.py` | Batch API routes: `POST /api/journals/batch-transcribe` (admin) + `POST /api/journals/folder-transcribe` (user) |
-| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/journals/submit` file + folder modes, `/journals/browse`) |
+| `adapters/inbound/user_entry_ui.py` | Journal upload UI (`/submit/journals` file + folder modes, `/submit/journals/browse`) |
 | `adapters/inbound/admin_dashboard_ui.py` | Admin batch transcription page (`/admin/batch-transcribe`) |
 | `scripts/batch_transcribe.py` | CLI for batch transcription |
 | `docs/configuration/DEEPGRAM_CONFIG.md` | Configuration guide |

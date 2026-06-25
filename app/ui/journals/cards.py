@@ -40,7 +40,7 @@ def render_journal_card(je_input: UserEntry) -> Any:
         action_buttons.append(
             ButtonLink(
                 "Download",
-                href=f"/journals/{je_input.uid}/download",
+                href=f"/submit/journals/{je_input.uid}/download",
                 variant=ButtonT.primary,
                 size=Size.sm,
             )

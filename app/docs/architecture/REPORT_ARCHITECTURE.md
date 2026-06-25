@@ -391,7 +391,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 |-------|-----|------|
 | `/submit` | Student | Upload files for processing |
 | `/submissions/{uid}` | Owner | View submission, sharing controls |
-| `/journals/submit` | Any user | Upload files for AI processing; "Upload Folder" tab batch-transcribes from vault dirs |
+| `/submit/journals` | Any user | Upload files for AI processing; "Upload Folder" tab batch-transcribes from vault dirs |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | Teacher | Submit human report on submission |
