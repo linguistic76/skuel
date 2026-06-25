@@ -228,10 +228,16 @@ class ResponseGenerator:
         guidance: GuidanceDetermination,
         ps_bundle: PsBundle,
     ) -> str:
-        """DIRECT mode: redirect or out-of-scope responses.
+        """DIRECT mode: redirect, out-of-scope, or user-overridden direct answers.
 
-        Covers REDIRECT_TO_CURRICULUM and OUT_OF_SCOPE pedagogical intents.
-        Templates: askesis_guided_redirect, askesis_guided_out_of_scope
+        Covers three cases:
+        - REDIRECT_TO_CURRICULUM: learner hasn't engaged yet → point to reading
+        - OUT_OF_SCOPE: question is outside the current PS → warm redirect
+        - All other intents (user selected Direct mode override): answer directly
+          from curriculum context without probing
+
+        Templates: askesis_guided_redirect, askesis_guided_out_of_scope,
+                   askesis_guided_direct
         """
         if guidance.pedagogical_detail == PedagogicalIntent.REDIRECT_TO_CURRICULUM:
             step_refs = []
@@ -249,9 +255,17 @@ class ResponseGenerator:
                 resource_refs=self._get_resource_references(ps_bundle),
             )
 
-        # OUT_OF_SCOPE
+        if guidance.pedagogical_detail == PedagogicalIntent.OUT_OF_SCOPE:
+            return PROMPT_REGISTRY.render(
+                "askesis_guided_out_of_scope",
+                ls_title=ps_bundle.path_step.title or "your current step",
+                ls_intent=ps_bundle.path_step.intent or "",
+            )
+
+        # User-selected Direct override for an in-scope intent (e.g. ASSESS_UNDERSTANDING,
+        # SCAFFOLD, PROBE_DEEPER). Answer directly rather than pretending it's out-of-scope.
         return PROMPT_REGISTRY.render(
-            "askesis_guided_out_of_scope",
+            "askesis_guided_direct",
             ls_title=ps_bundle.path_step.title or "your current step",
             ls_intent=ps_bundle.path_step.intent or "",
         )

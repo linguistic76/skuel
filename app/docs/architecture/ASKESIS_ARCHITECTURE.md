@@ -280,7 +280,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 | `/adapters/inbound/askesis_routes.py` | Route wiring (DomainRouteConfig) |
 | `/adapters/inbound/askesis_api.py` | JSON API endpoints |
 | `/adapters/inbound/askesis_ui.py` | UI routes (thin — delegates to `ui/askesis/`) |
-| `/ui/askesis/` | UI components (welcome, chat, settings, nav) |
+| `/ui/askesis/` | UI components (chat shell, nav) |
 
 ---
 
@@ -552,6 +552,7 @@ Askesis uses PROMPT_REGISTRY for two distinct prompt layers:
 |-------------|-------------|-------------------|-----------------|
 | `askesis_guided_redirect` | DIRECT | REDIRECT_TO_CURRICULUM | `{path_steps_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | DIRECT | OUT_OF_SCOPE | `{ls_title}`, `{ls_intent}` |
+| `askesis_guided_direct` | DIRECT | *(user override — in-scope)* | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | SOCRATIC | ASSESS_UNDERSTANDING | `{concepts}` |
 | `askesis_guided_probe` | SOCRATIC | PROBE_DEEPER | `{concepts}` |
 | `askesis_guided_scaffold` | EXPLORATORY | SCAFFOLD | `{concepts}`, `{resource_refs}` |

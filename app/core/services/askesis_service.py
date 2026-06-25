@@ -52,6 +52,7 @@ if TYPE_CHECKING:
         PathStep,
         ScheduleAwareRecommendation,
     )
+    from core.models.enums import GuidanceMode
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.types import (
         AskesisAnalysis,
@@ -317,10 +318,16 @@ class AskesisService:
         return await self.recommendation_engine.predict_future_state(user_context, days_ahead)
 
     async def answer_user_question(
-        self, user_uid: UserUID, question: str, session_id: str | None = None
+        self,
+        user_uid: UserUID,
+        question: str,
+        session_id: str | None = None,
+        preferred_mode: "GuidanceMode | None" = None,
     ) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor."""
-        return await self.query_processor.answer_user_question(user_uid, question, session_id)
+        return await self.query_processor.answer_user_question(
+            user_uid, question, session_id, preferred_mode
+        )
 
     async def process_query_with_context(
         self, user_uid: UserUID, query_message: str, depth: int = 2
