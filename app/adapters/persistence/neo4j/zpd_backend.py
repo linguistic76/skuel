@@ -8,7 +8,7 @@ blocking gaps, and submission scores from the curriculum graph.
 
 Consumed by: core/services/zpd/zpd_service.py
 See: core/ports/zpd_protocols.py — ZPDBackendOperations protocol
-See: docs/roadmap/zpd-service-deferred.md — design rationale
+See: docs/roadmap/zpd-service-architecture.md — design rationale
 """
 
 from __future__ import annotations

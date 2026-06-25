@@ -345,7 +345,53 @@ end_date = datetime.now()
 start_date = end_date - timedelta(days=days)
 ```
 
-### 10. Relationship Strength — REMOVED (2026-06, #259)
+### 10. ZPD Weights (`ZPDWeights`)
+
+Weights and thresholds for the Zone of Proximal Development model — tunable
+as SKUEL accumulates real learning-outcome data. All live in one place so the
+model can be adjusted without grepping the service.
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `MIN_KU_THRESHOLD` | 3 | Minimum curriculum KUs before ZPD runs |
+| `UNBLOCK_PRIORITY` | 0.9 | Fixed priority for blocking-gap actions |
+| `SIGNAL_TYPE_COUNT` | 4 | Possible signal types per KU (normalises signal_strength) |
+| `BEHAVIORAL_NEUTRAL_DEFAULT` | 0.5 | Behavioral readiness when intelligence unavailable |
+| `LEARN_READINESS` | 0.5 | Learn-action: readiness weight |
+| `LEARN_ALIGNMENT` | 0.3 | Learn-action: life-path alignment weight |
+| `LEARN_BEHAVIORAL` | 0.2 | Learn-action: behavioral readiness weight |
+| `REINFORCE_GAP` | 0.4 | Reinforce-action: evidence-gap weight |
+| `REINFORCE_ALIGNMENT` | 0.3 | Reinforce-action: alignment weight |
+| `REINFORCE_BEHAVIORAL` | 0.3 | Reinforce-action: behavioral weight |
+| `BEHAVIORAL_CHOICES_WEIGHT` | 0.65 | Choices share of behavioral readiness |
+| `BEHAVIORAL_HABITS_WEIGHT` | 0.35 | Habits share of behavioral readiness |
+| `CHOICES_ADHERENCE` | 0.35 | Choices sub-weight: principle adherence |
+| `CHOICES_CONSISTENCY` | 0.35 | Choices sub-weight: decision consistency |
+| `CHOICES_QUALITY` | 0.20 | Choices sub-weight: high-quality rate |
+| `CHOICES_CONFLICT_PENALTY_PER` | 0.05 | Penalty per active conflict |
+| `CHOICES_CONFLICT_PENALTY_CAP` | 0.25 | Max conflict penalty |
+| `HABITS_AT_RISK_PENALTY_PER` | 0.05 | Penalty per at-risk KU in current zone |
+| `HABITS_AT_RISK_PENALTY_CAP` | 0.20 | Max at-risk penalty |
+
+**Usage:**
+```python
+from core.constants import ZPDWeights
+
+# Guard
+if ku_count < ZPDWeights.MIN_KU_THRESHOLD:
+    return Result.ok(empty_assessment())
+
+# Learn-action priority
+priority = (
+    readiness * ZPDWeights.LEARN_READINESS
+    + alignment * ZPDWeights.LEARN_ALIGNMENT
+    + behavioral * ZPDWeights.LEARN_BEHAVIORAL
+)
+```
+
+**See:** `core/services/zpd/zpd_service.py`, `docs/roadmap/zpd-service-architecture.md`
+
+### 11. Relationship Strength — REMOVED (2026-06, #259)
 
 The per-edge default-confidence constant class `core.constants.RelationshipStrength`
 (`APPLIES_KNOWLEDGE=0.85`, `DEVELOPS_KNOWLEDGE=0.9`, `DEFAULT=0.7`, …) was **deleted** — it

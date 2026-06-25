@@ -69,7 +69,7 @@ A KU is in the **proximal zone** when:
 3. The user has engaged the prerequisite(s) for it (if any)
 
 This is the computation `ZPDService.assess_zone()` performs (see
-`docs/roadmap/zpd-service-deferred.md`).
+`docs/roadmap/zpd-service-architecture.md`).
 
 ### ZPD and Askesis take UserContext
 
@@ -316,7 +316,7 @@ assistant cannot do this. Askesis can.
 
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
-- `docs/roadmap/zpd-service-deferred.md` — ZPDService design
+- `docs/roadmap/zpd-service-architecture.md` — ZPDService design
 - `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub

@@ -195,9 +195,9 @@ ZPD generates recommended actions that reflect the learning loop:
 
 | Action | Priority | When | Loop Role |
 |--------|----------|------|-----------|
-| **unblock** | 0.9 (highest) | Prerequisite KU blocks proximal KUs | Removes structural barriers |
-| **learn** | readiness × 0.5 + alignment × 0.3 + behavior × 0.2 | Proximal KU ready for engagement | Advances the zone |
-| **reinforce** | (1 - signal_strength) × 0.4 + alignment × 0.3 + behavior × 0.3 | Current-zone KU has < 2 signal types | Compounds mastery |
+| **unblock** | `ZPDWeights.UNBLOCK_PRIORITY` (0.9) | Prerequisite KU blocks proximal KUs | Removes structural barriers |
+| **learn** | readiness × `LEARN_READINESS` + alignment × `LEARN_ALIGNMENT` + behavior × `LEARN_BEHAVIORAL` | Proximal KU ready for engagement | Advances the zone |
+| **reinforce** | (1 - signal_strength) × `REINFORCE_GAP` + alignment × `REINFORCE_ALIGNMENT` + behavior × `REINFORCE_BEHAVIORAL` | Current-zone KU has < 2 signal types | Compounds mastery |
 
 **Unblock** actions are always highest priority — a blocking gap is the most leveraged
 learning move because it unlocks the most new territory.
@@ -215,32 +215,32 @@ to reach compound-confirmed status.
 
 Behavioral readiness enriches zone assessment with signals about *how the learner is living*:
 
-### Choices Intelligence (65% weight)
+### Choices Intelligence (`ZPDWeights.BEHAVIORAL_CHOICES_WEIGHT` = 65%)
 
 ```python
 choices_score = (
-    adherence * 0.35       # principle adherence
-    + consistency * 0.35   # decision consistency
-    + quality_rate * 0.20  # high-quality decision rate
-    - conflict_penalty     # min(0.25, conflicts * 0.05)
+    adherence * ZPDWeights.CHOICES_ADHERENCE      # principle adherence
+    + consistency * ZPDWeights.CHOICES_CONSISTENCY # decision consistency
+    + quality_rate * ZPDWeights.CHOICES_QUALITY    # high-quality decision rate
+    - conflict_penalty  # min(CHOICES_CONFLICT_PENALTY_CAP, conflicts * CHOICES_CONFLICT_PENALTY_PER)
 )
 ```
 
-### Habits Intelligence (35% weight)
+### Habits Intelligence (`ZPDWeights.BEHAVIORAL_HABITS_WEIGHT` = 35%)
 
 ```python
 habits_score = mean_reinforcement_strength - at_risk_penalty
 # mean_reinforcement_strength: mean of habit strengths overlapping current_zone
-# at_risk_penalty: min(0.20, at_risk_count * 0.05)
+# at_risk_penalty: min(HABITS_AT_RISK_PENALTY_CAP, at_risk_count * HABITS_AT_RISK_PENALTY_PER)
 ```
 
 ### Combined
 
 ```python
-if both available:    behavioral = choices * 0.65 + habits * 0.35
+if both available:    behavioral = choices * ZPDWeights.BEHAVIORAL_CHOICES_WEIGHT + habits * ZPDWeights.BEHAVIORAL_HABITS_WEIGHT
 if only choices:      behavioral = choices_score
 if only habits:       behavioral = habits_score
-if neither:           behavioral = 0.5  # neutral default (CORE tier)
+if neither:           behavioral = ZPDWeights.BEHAVIORAL_NEUTRAL_DEFAULT  # 0.5, neutral (CORE tier)
 ```
 
 ---
@@ -371,7 +371,7 @@ actions = assessment.top_recommended_actions()
 | `adapters/persistence/neo4j/zpd_backend.py` | Cypher zone traversal query |
 | `adapters/persistence/neo4j/zpd_snapshot_backend.py` | ZPDHistory node persistence |
 | `docs/user-guides/zpd.md` | User-facing ZPD guide |
-| `docs/roadmap/zpd-service-deferred.md` | Design rationale |
+| `docs/roadmap/zpd-service-architecture.md` | Design rationale |
 | `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` | Pedagogical vision |
 
 ---

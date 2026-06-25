@@ -261,7 +261,7 @@ class Services:
     )
     # ZPD service — Zone of Proximal Development (March 2026)
     # Created when INTELLIGENCE_TIER=FULL. None when CORE or curriculum graph < 3 KUs.
-    # See: core/services/zpd/zpd_service.py, docs/roadmap/zpd-service-deferred.md
+    # See: core/services/zpd/zpd_service.py, docs/roadmap/zpd-service-architecture.md
     zpd_service: ZPDOperations | None = None
 
     askesis: AskesisOperations | None = (
