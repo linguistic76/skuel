@@ -108,8 +108,7 @@ See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap
 
 ## UI Pattern
 
-Activity Domains support both bulk ingestion (`/upload` of YAML) and direct
-authoring through per-domain create/edit forms. All 6 domains share a collapsible
+Activity Domains support authoring through per-domain create/edit forms and Obsidian vault sync (`/settings/vault`). All 6 domains share a collapsible
 Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`)
 linking back to `/profile`. Activity Domains content is embedded inline in
 `/profile` via `ActivityHubView()`.

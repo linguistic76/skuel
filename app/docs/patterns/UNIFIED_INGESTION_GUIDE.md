@@ -73,7 +73,7 @@ stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 `UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
 the same method the `/submit` form uses. Both front-ends share the
 Interaction audit, TRANSFORMS edge, sharing fan-out, and compensation
-delete. `/upload` is YAML-only.
+delete.
 
 ### Required field: `pipeline`
 
@@ -83,9 +83,8 @@ Every UserEntry YAML must declare a pipeline. One of:
 - `teacher_review` — queued for teacher feedback.
 - `llm_summary` — sent to the LLM for a structured summary.
 
-Audio pipelines (`transcribe`, `transcribe_and_structure`) are rejected
-with a "use the audio-upload flow" error — `/upload` does not accept
-audio bytes via YAML.
+Audio pipelines (`transcribe`, `transcribe_and_structure`) are not
+valid in YAML-ingested UserEntry files.
 
 ### Optional field: `audience`
 
@@ -301,19 +300,11 @@ POST /api/ingest/domain/ku
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for ingestion architecture
 
-### Per-User Bulk Upload
+### User Data Ingestion
 
-Authenticated users can upload Activity Domain YAML files (Task, Goal, Habit, Event, Choice, Principle) via the upload UI or API. Files are written to per-user vault directories and ingested with the user's UID.
-
-**UI:** `GET /upload` — drag-and-drop upload page
-**HTMX:** `POST /upload/files` — returns HTML results fragment
-**API:** `POST /api/upload` — multipart form, returns JSON
-
-**Service:** `UserUploadService` (`core/services/ingestion/user_upload_service.py`) orchestrates filename validation, type restriction, vault provisioning, and delegation to `UnifiedIngestionService.ingest_file(user_uid=...)`.
-
-**Config:** `SKUEL_USER_VAULTS_ROOT` env var (default: `data/user_vaults`). Per-user directories: `{base}/{sanitized_uid}/tasks/`, `goals/`, etc.
-
-**Vault Template:** Downloadable at `/static/templates/activity-vault-template.zip` with example YAMLs for all 6 Activity Domain types.
+Personal data enters SKUEL via:
+- **`/settings/vault`** — bidirectional Obsidian sync (primary path); daily notes with `pipeline: extract_activities` become Activity entities; task completions round-trip back to the vault.
+- **`/submit`** — exercise worksheet submission (single file, exercise-linked).
 
 ---
 
@@ -330,8 +321,7 @@ core/services/ingestion/
 ├── preparer.py                    # Data preparation
 ├── validator.py                   # Validation pipeline
 ├── batch.py                       # Concurrent operations
-├── ingestion_tracker.py           # Incremental ingestion state
-└── user_upload_service.py         # Per-user bulk upload orchestration
+└── ingestion_tracker.py           # Incremental ingestion state
 ```
 
 **Import (One Path Forward):**

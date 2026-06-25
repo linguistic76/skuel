@@ -11,7 +11,6 @@ Routes:
 - GET  /submissions/history              — Submission history
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
-- GET  /api/submissions/upload/preview   — HTMX hub preview (upload)
 - GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
 - GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
@@ -288,20 +287,6 @@ def create_user_entry_ui_routes(
             active="submit",
             request=request,
         )
-
-    # =========================================================================
-    # /submissions (hub root) is now a tab on /profile?tab=submissions.
-    # Detail routes and the /api/submissions/* preview endpoints below
-    # remain — the Submissions tab and the upload/submit flows reuse them.
-    # =========================================================================
-
-    @rt("/api/submissions/upload/preview")
-    async def upload_preview(request: Request) -> Any:
-        """HTMX preview: upload form embedded directly in the hub block."""
-        require_authenticated_user(request)
-        from adapters.inbound.upload_ui import _results_area, _upload_form
-
-        return Div(_upload_form(), _results_area())
 
     @rt("/api/submissions/submit/preview")
     async def submit_preview(request: Request) -> Any:
@@ -776,7 +761,6 @@ def create_user_entry_ui_routes(
 
     return [
         submit_page,
-        upload_preview,
         submit_preview,
         journal_preview,
         history_preview,

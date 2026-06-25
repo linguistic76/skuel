@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from core.services.finance_service import FinanceService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
-    from core.services.ingestion.user_upload_service import UserUploadService
     from core.services.insight.insight_store import InsightStore
     from core.services.interaction.interaction_service import InteractionService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
@@ -285,8 +284,6 @@ class Services:
     unified_ingestion: IngestionOperations | None = (
         None  # UnifiedIngestionService - handles both MD and YAML for all entity types
     )
-    # Per-user bulk upload service (wraps UnifiedIngestionService)
-    user_upload_service: "UserUploadService | None" = None
     # Batch chunk regeneration (Phase 2, May 2026) — admin tool for rechunking
     # existing :Content when CHUNKING_ALGORITHM_VERSION changes. event_bus is
     # wired only in FULL tier; CORE tier gets a regen-only instance.
