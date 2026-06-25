@@ -292,7 +292,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Updated | Description |
 |----------|---------|-------------|
-| [Tasks Quick Add](user-guides/tasks-quick-add.md) | — | Quick task creation guide |
+| [Tasks User Guide](guides/TASKS_USER_GUIDE.md) | 2026-06-25 | Full guide: create, sub-tasks, goal links, PS engagement, Obsidian round-trip |
 | **[Documentation Freshness](user-guides/documentation-freshness.md)** | **2026-03-04** | How SKUEL's three doc freshness systems work together (hooks + health checks + cross-refs) |
 | **[Zone of Proximal Development](user-guides/zpd.md)** | **2026-03-09** | How ZPD works — current zone, proximal zone, readiness scores, behavioral enrichment |
 
@@ -314,6 +314,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Shared UI Components Guide](guides/SHARED_UI_COMPONENTS_GUIDE.md) | 2026-01-15 | 674 |
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | **2026-03-17** | **290** |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
+| **[Tasks User Guide](guides/TASKS_USER_GUIDE.md)** | **2026-06-25** | — |
 | **[Voice Journaling and Obsidian Guide](guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md)** | **2026-06-24** | **577** |
 | **[Linter Guide](guides/LINTER_GUIDE.md)** | **2026-03-29** | **180** |
 | **[UV Package Manager Guide](guides/UV_GUIDE.md)** | **2026-03-29** | **120** |
