@@ -35,13 +35,15 @@ from fasthtml.common import (
 )
 from monsterui.franken import UkIcon
 
+from ui.primitives import section_label
+
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from ui.page_contexts import TodayPageContext
 
 
-_CONTAINER_CLS = "mx-auto max-w-[1280px] px-6 lg:px-8 py-8 pb-24"
+_CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
 
 
 def TodayPage(ctx: TodayPageContext) -> FT:
@@ -206,7 +208,7 @@ def _task_row(*, is_triage: bool) -> FT:
     right_label_expr = "t.reason || ''" if is_triage else "t.due_label || ''"
     row_classes = (
         "task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card "
-        "rounded-md cursor-grab select-none"
+        "rounded-[12px] cursor-grab select-none"
     )
     if is_triage:
         row_classes += " border border-border"
@@ -219,15 +221,15 @@ def _task_row(*, is_triage: bool) -> FT:
             'height="14" width="14"></uk-icon>'
         ),
         cls=(
-            "w-[30px] h-[30px] rounded flex-none flex items-center justify-center "
-            "bg-muted text-muted-foreground"
+            "w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center "
+            "bg-blue-50 text-blue-600"
         ),
     )
 
     title_block = Div(
         Div(
             Span(
-                cls="text-[13.5px] font-semibold text-foreground leading-snug truncate",
+                cls="text-[14px] font-semibold text-foreground leading-snug truncate",
                 **{"x-text": "t.label"},
             ),
             Span(
@@ -244,7 +246,7 @@ def _task_row(*, is_triage: bool) -> FT:
             cls="flex items-center gap-2",
         ),
         Div(
-            cls="text-[11px] text-muted-foreground font-mono mt-0.5 truncate",
+            cls="text-[12px] text-slate-400 font-mono mt-0.5 truncate",
             **{"x-text": "t.meta || ''"},
         ),
         cls="flex-1 min-w-0",
@@ -860,10 +862,7 @@ def _drawer_connects() -> FT:
         )
 
     return Section(
-        Div(
-            "Connects",
-            cls=("text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2"),
-        ),
+        section_label("Connects"),
         Div(
             _row("target", "Goal:", "goalFor(openTask).label", "goalFor(openTask)"),
             _row("anchor", "Principle:", "principleFor(openTask).label", "principleFor(openTask)"),
