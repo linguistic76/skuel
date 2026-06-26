@@ -154,7 +154,7 @@ def validate_positive(value: Any, field_name: str) -> Result[float]:
                 )
             )
         return Result.ok(num_value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):  # fmt: skip
         return Result.fail(
             Errors.validation(message=f"{field_name} must be a number", field=field_name)
         )
@@ -202,7 +202,7 @@ def validate_enum(value: Any, enum_class: type[Enum], field_name: str) -> Result
                     field=field_name,
                 )
             )
-    except ValueError, KeyError:
+    except (ValueError, KeyError):  # fmt: skip
         valid_values = ", ".join(str(e.value) for e in enum_class)
         return Result.fail(
             Errors.validation(

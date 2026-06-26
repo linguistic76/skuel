@@ -26,7 +26,7 @@ def render_queue_item(item: dict[str, Any]) -> Any:
 
             dt = datetime.fromisoformat(str(created_at))
             date_str = dt.strftime("%d %b %Y")
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip
             date_str = str(created_at)[:10]
 
     domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]

@@ -230,7 +230,7 @@ class BaseService(
         # Validate: entity_label is resolvable
         try:
             _ = self.entity_label
-        except AttributeError, NotImplementedError:
+        except (AttributeError, NotImplementedError):  # fmt: skip
             raise ValueError(
                 f"{self.service_name}: entity_label not configured. "
                 "Set _entity_label class attribute or provide _config with entity_label."
