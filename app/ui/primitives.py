@@ -21,7 +21,9 @@ from fasthtml.common import Button, Div, P, Span
 from monsterui.franken import UkIcon
 
 
-def icon_tile(icon: str, bg_cls: str, icon_cls: str, size: str = "md") -> Any:
+def icon_tile(
+    icon: str, bg_cls: str, icon_cls: str, size: str = "md"
+) -> Any:  # boundary: fasthtml-elements
     """Rounded semantic icon tile.
 
     Args:
@@ -37,7 +39,7 @@ def icon_tile(icon: str, bg_cls: str, icon_cls: str, size: str = "md") -> Any:
     )
 
 
-def section_label(text: str) -> Any:
+def section_label(text: str) -> Any:  # boundary: fasthtml-elements
     """Uppercase tracking section divider label."""
     return P(
         text,
@@ -45,7 +47,9 @@ def section_label(text: str) -> Any:
     )
 
 
-def primary_btn(label: str, icon: str = "send", cls: str = "", **kwargs: Any) -> Any:
+def primary_btn(
+    label: str, icon: str = "send", cls: str = "", **kwargs: Any
+) -> Any:  # boundary: fasthtml-elements
     """bg-foreground primary action button with optional leading icon.
 
     Pass ``type="submit"`` for form submit buttons.
@@ -63,7 +67,7 @@ def primary_btn(label: str, icon: str = "send", cls: str = "", **kwargs: Any) ->
     )
 
 
-def card_row(*content: Any, cls: str = "") -> Any:
+def card_row(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-elements
     """Flex row with gap-[13px] — standard icon-tile + text content row."""
     extra = f" {cls}" if cls else ""
     return Div(*content, cls=f"flex items-center gap-[13px]{extra}")
