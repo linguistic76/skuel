@@ -9,7 +9,7 @@ from monsterui.franken import Button, CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from ui.forms import Input
-from ui.primitives import icon_tile, primary_btn, section_label
+from ui.primitives import SelectableOptionRow, icon_tile, primary_btn, section_label
 
 # Two hardcoded instruction files shown in the Instructions dropdown.
 _FIXED_INSTRUCTIONS = [
@@ -66,36 +66,6 @@ _INSTRUCTION_CONFIGS: dict[str, dict[str, str]] = {
 # ---------------------------------------------------------------------------
 
 
-def _mode_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
-    """One row in the processing mode dropdown."""
-    check = Span(
-        UkIcon("check", cls="w-4 h-4 text-blue-600"),
-        cls="flex-none pt-[3px] flex",
-        **{"x-show": f"processingMode === '{mode_key}'"},
-        **{"x-cloak": True},
-    )
-    return Button(
-        icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
-        Div(
-            Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
-            Span(
-                cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
-            ),
-            cls="flex-1 min-w-0",
-        ),
-        check,
-        type="button",
-        cls=(
-            "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
-            "text-left font-[inherit] cursor-pointer transition-colors"
-        ),
-        **{"@click": f"selectMode('{mode_key}')"},  # boundary: fasthtml-elements
-        **{
-            ":class": f"processingMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
-        },  # boundary: fasthtml-elements
-    )
-
-
 def _mode_trigger() -> Any:
     """Full-width trigger showing the currently selected processing mode."""
     options = []
@@ -129,7 +99,18 @@ def _mode_trigger() -> Any:
 def _build_mode_dropdown() -> Any:
     """Processing mode selector (trigger + dropdown menu)."""
     menu = Div(
-        *[_mode_option_row(key, cfg) for key, cfg in _MODE_CONFIGS.items()],
+        *[
+            SelectableOptionRow(
+                icon=cfg["icon"],
+                tile_bg=cfg["tile_bg"],
+                icon_cls=cfg["icon_cls"],
+                title=cfg["title"],
+                subtitle=cfg["desc"],
+                selected_expr=f"processingMode === '{key}'",
+                click_handler=f"selectMode('{key}')",
+            )
+            for key, cfg in _MODE_CONFIGS.items()
+        ],
         cls=(
             "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
             "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
@@ -149,39 +130,6 @@ def _build_mode_dropdown() -> Any:
 # ---------------------------------------------------------------------------
 # Instructions dropdown
 # ---------------------------------------------------------------------------
-
-
-def _instruction_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
-    """One row in the instructions dropdown."""
-    check = Span(
-        UkIcon("check", cls="w-4 h-4 text-blue-600"),
-        cls="flex-none pt-[3px] flex",
-        **{"x-show": f"instructionMode === '{mode_key}'"},
-        **{"x-cloak": True},
-    )
-    subtitle = cfg.get("subtitle", "")
-    return Button(
-        icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
-        Div(
-            Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
-            Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[6px]")
-            if subtitle
-            else None,
-            cls="flex-1 min-w-0",
-        ),
-        check,
-        type="button",
-        cls=(
-            "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
-            "text-left font-[inherit] cursor-pointer transition-colors"
-        ),
-        **{
-            "@click": f"selectInstruction('{mode_key}', '{cfg['filename']}')"
-        },  # boundary: fasthtml-elements
-        **{
-            ":class": f"instructionMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
-        },  # boundary: fasthtml-elements
-    )
 
 
 def _instruction_trigger() -> Any:
@@ -258,7 +206,19 @@ def _build_instructions_dropdown() -> Any:
         },  # boundary: fasthtml-elements
     )
     menu = Div(
-        *[_instruction_option_row(key, cfg) for key, cfg in _INSTRUCTION_CONFIGS.items()],
+        *[
+            SelectableOptionRow(
+                icon=cfg["icon"],
+                tile_bg=cfg["tile_bg"],
+                icon_cls=cfg["icon_cls"],
+                title=cfg["title"],
+                subtitle=cfg.get("subtitle", ""),
+                selected_expr=f"instructionMode === '{key}'",
+                click_handler=f"selectInstruction('{key}', '{cfg['filename']}')",
+                subtitle_cls="block text-[12px] text-slate-400 font-mono mt-[6px]",
+            )
+            for key, cfg in _INSTRUCTION_CONFIGS.items()
+        ],
         separator,
         choose_row,
         cls=(

@@ -26,70 +26,7 @@ from typing import Any
 from fasthtml.common import Button, Div, Form, Input, P, Script, Span
 from monsterui.franken import UkIcon
 
-from ui.primitives import icon_tile
-
-
-def _dest_option_row(
-    dest: str,
-    icon: str,
-    tile_bg: str,
-    icon_cls: str,
-    title: str,
-    desc: str,
-    *,
-    disabled: bool = False,
-    coming_soon: bool = False,
-) -> Any:
-    """One row in the destination dropdown menu."""
-    base_cls = (
-        "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
-        "text-left font-[inherit] "
-    )
-    if disabled:
-        base_cls += "cursor-not-allowed opacity-70 bg-transparent"
-        action: dict[str, str] = {}
-    else:
-        base_cls += "cursor-pointer transition-colors"
-        action = {
-            "@click": f"selectDest('{dest}')",
-            ":class": f"dest === '{dest}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'",
-        }
-
-    title_block: Any = title
-    if coming_soon:
-        title_block = Span(
-            Span(title, cls="text-sm font-semibold text-slate-600"),
-            Span(
-                "Coming soon",
-                cls=(
-                    "text-[10px] font-bold uppercase tracking-[0.05em] "
-                    "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
-                ),
-            ),
-            cls="flex items-center gap-2",
-        )
-    else:
-        title_block = Span(title, cls="text-[14px] font-semibold text-foreground")
-
-    check = Span(
-        UkIcon("check", cls="w-4 h-4 text-blue-600"),
-        cls="flex-none pt-[3px] flex",
-        **{"x-show": f"dest === '{dest}'"},
-        **{"x-cloak": True},
-    )
-
-    return Button(
-        icon_tile(icon, tile_bg, icon_cls),
-        Div(
-            title_block,
-            Span(desc, cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"),
-            cls="flex-1 min-w-0",
-        ),
-        check if not disabled else None,
-        type="button",
-        cls=base_cls,
-        **action,
-    )
+from ui.primitives import SelectableOptionRow, icon_tile
 
 
 def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
@@ -200,33 +137,44 @@ def render_upload_form(
         _dest_trigger(dest_configs),
         # Menu (absolute dropdown)
         Div(
-            _dest_option_row(
-                "teacher",
-                dest_configs["teacher"]["icon"],
-                dest_configs["teacher"]["tile_bg"],
-                dest_configs["teacher"]["icon_cls"],
-                dest_configs["teacher"]["title"],
-                dest_configs["teacher"]["desc"],
+            SelectableOptionRow(
+                icon=dest_configs["teacher"]["icon"],
+                tile_bg=dest_configs["teacher"]["tile_bg"],
+                icon_cls=dest_configs["teacher"]["icon_cls"],
+                title=dest_configs["teacher"]["title"],
+                subtitle=dest_configs["teacher"]["desc"],
+                selected_expr="dest === 'teacher'",
+                click_handler="selectDest('teacher')",
                 disabled=not has_teacher_context,
             ),
-            _dest_option_row(
-                "ai",
-                dest_configs["ai"]["icon"],
-                dest_configs["ai"]["tile_bg"],
-                dest_configs["ai"]["icon_cls"],
-                dest_configs["ai"]["title"],
-                dest_configs["ai"]["desc"],
+            SelectableOptionRow(
+                icon=dest_configs["ai"]["icon"],
+                tile_bg=dest_configs["ai"]["tile_bg"],
+                icon_cls=dest_configs["ai"]["icon_cls"],
+                title=dest_configs["ai"]["title"],
+                subtitle=dest_configs["ai"]["desc"],
+                selected_expr="dest === 'ai'",
+                click_handler="selectDest('ai')",
             ),
             Div(cls="h-px bg-slate-100 my-1 mx-2"),
-            _dest_option_row(
-                "portfolio",
-                dest_configs["portfolio"]["icon"],
-                dest_configs["portfolio"]["tile_bg"],
-                dest_configs["portfolio"]["icon_cls"],
-                dest_configs["portfolio"]["title"],
-                dest_configs["portfolio"]["desc"],
+            SelectableOptionRow(
+                icon=dest_configs["portfolio"]["icon"],
+                tile_bg=dest_configs["portfolio"]["tile_bg"],
+                icon_cls=dest_configs["portfolio"]["icon_cls"],
+                title=dest_configs["portfolio"]["title"],
+                subtitle=dest_configs["portfolio"]["desc"],
+                selected_expr="dest === 'portfolio'",
+                click_handler="selectDest('portfolio')",
                 disabled=(portfolio_mode != "active"),
-                coming_soon=(portfolio_mode == "coming_soon"),
+                title_extra=Span(
+                    "Coming soon",
+                    cls=(
+                        "text-[10px] font-bold uppercase tracking-[0.05em] "
+                        "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
+                    ),
+                )
+                if portfolio_mode == "coming_soon"
+                else None,
             ),
             cls=(
                 "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
