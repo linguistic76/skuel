@@ -1738,6 +1738,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/workbench/nav.py` — Submissions sidebar
 
 **Shared:**
+- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
 - `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
 - `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; `ui/visualization/` re-exports)
