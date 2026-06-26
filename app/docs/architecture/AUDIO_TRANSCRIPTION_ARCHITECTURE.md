@@ -169,7 +169,7 @@ BatchTranscriptionService.transcribe_batch()
 **Access points:**
 - **Admin console UI:** `/admin/batch-transcribe` — any server-side path, admin-only
 - **User journals UI:** `/submit/journals` → "Upload Folder" tab — defaults to
-  `/home/mike/0bsidian/skuel/transcribe_in` → `transcribe_out`, authenticated users
+  `/home/mike/0bsidian/skuel/je_in` → `je_out`, authenticated users
 - **CLI:** `uv run python scripts/batch_transcribe.py`
 - **API (admin):** `POST /api/journals/batch-transcribe`
 - **API (user):** `POST /api/journals/folder-transcribe`
