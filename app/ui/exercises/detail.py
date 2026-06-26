@@ -7,12 +7,13 @@ Pure rendering functions for exercise detail and transparency views.
 
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, A, Code, Div, Li, P, Pre, Span, Ul
+from fasthtml.common import H3, H4, A, Code, Div, Li, P, Pre, Span, Ul
 from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.primitives import ButtonLink
 from ui.tokens import Container, Spacing
 
@@ -50,7 +51,7 @@ def render_exercise_view(exercise: Any, required_knowledge: list | None = None) 
         )
 
     return Div(
-        H2(exercise.title, cls="text-xl font-bold mb-4"),
+        SectionHeader(exercise.title),
         # Knowledge Foundation — Ku origin of this exercise
         knowledge_section,
         # Transparency notice

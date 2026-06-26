@@ -19,13 +19,14 @@ Usage:
     )
 """
 
-from fasthtml.common import H2, Div
+from fasthtml.common import Div
 from monsterui.franken import Accordion, AccordionItem
 
 from core.models.type_hints import EntityUID
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView
 from ui.patterns.relationships.relationship_graph import RelationshipGraphView
+from ui.patterns.section_header import SectionHeader
 
 
 def EntityRelationshipsSection(
@@ -92,7 +93,7 @@ def EntityRelationshipsSection(
         )
 
     return Div(
-        H2("Relationships", cls="text-2xl font-bold mb-6"),
+        SectionHeader("Relationships"),
         Accordion(*items, multiple=True, cls="space-y-6"),
         cls="mt-8 border-t border-border pt-8",
     )

@@ -10,6 +10,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
+from ui.tokens import Container
 
 
 def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
@@ -47,7 +48,7 @@ def render_weekly_life_summary(summary_data: dict[str, Any]) -> Any:
         _render_knowledge_layer_card(layer0_knowledge),
         _render_reflection_layer_card(layer2_reflection),
         _render_cross_layer_insights_card(cross_layer_insights),
-        cls="max-w-4xl mx-auto p-6",
+        cls=f"{Container.NARROW} p-6",
     )
 
 

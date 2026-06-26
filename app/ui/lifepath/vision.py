@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H2, H3, Div, Form, P
+from fasthtml.common import H3, Div, Form, P
 from monsterui.franken import Button, ButtonT
 from monsterui.franken import CardContainer as Card
 
@@ -12,6 +12,7 @@ from ui.forms import Label, Textarea
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.tokens import Container
 
 
@@ -106,7 +107,7 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
             f"Themes extracted: {', '.join(vision.get('themes', []))}",
             cls="text-sm text-muted-foreground mb-8",
         ),
-        H2("Recommended Learning Paths", cls="text-xl font-semibold mb-4"),
+        SectionHeader("Recommended Learning Paths"),
         *rec_cards
         if rec_cards
         else [

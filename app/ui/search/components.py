@@ -44,6 +44,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.primitives import ButtonLink
+from ui.tokens import Container
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -108,7 +109,7 @@ def _render_horizontal_layout() -> Div:
                 id="search-results",
                 cls="mt-6",
             ),
-            cls="search-main max-w-6xl mx-auto px-4 py-8",
+            cls=f"search-main {Container.STANDARD} px-4 py-8",
         ),
         cls="search-container",
         **{"x-data": "searchFilters()"},
