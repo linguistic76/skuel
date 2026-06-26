@@ -282,7 +282,11 @@ def _build_files_form_body() -> Any:
 
     empty_state = UploadDropzone(
         "Drag & drop your file here",
-        (Span("or "), Span("browse", cls="text-blue-600 font-semibold"), Span(" — audio, text, PDF, images, video")),
+        (
+            Span("or "),
+            Span("browse", cls="text-blue-600 font-semibold"),
+            Span(" — audio, text, PDF, images, video"),
+        ),
         show_expr="!selectedFile",
         click_handler="document.getElementById('file-input').click()",
         cls="mb-6",
@@ -512,15 +516,24 @@ def upload_form_script() -> Any:
     """HTMX event handlers for the journal upload form."""
     return Script(
         NotStr("""
+        function showUploadError(msg) {
+            var status = document.getElementById('upload-status');
+            if (status) {
+                status.innerHTML = '<p class="text-error text-sm">' + msg + '</p>';
+            }
+        }
+
         document.body.addEventListener('htmx:beforeRequest', function(evt) {
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
                 var fileInput = document.getElementById('file-input');
                 if (fileInput && fileInput.files.length === 0) {
                     evt.preventDefault();
-                    alert('Please select a file first');
+                    showUploadError('Please select a file first.');
                     return;
                 }
+                var status = document.getElementById('upload-status');
+                if (status) status.innerHTML = '';
                 var count = fileInput ? fileInput.files.length : 0;
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
@@ -565,7 +578,7 @@ def upload_form_script() -> Any:
             var form = evt.detail.elt;
             if (form.id === 'upload-form' || form.id === 'folder-form') {
                 console.error('[Journals] Request failed:', evt.detail.xhr.status, evt.detail.xhr.statusText);
-                alert('Failed: ' + evt.detail.xhr.status + ' - ' + evt.detail.xhr.statusText);
+                showUploadError('Upload failed (' + evt.detail.xhr.status + '). Please try again.');
             }
         });
 
@@ -573,7 +586,7 @@ def upload_form_script() -> Any:
             var form = evt.detail.elt;
             if (form.id === 'upload-form' || form.id === 'folder-form') {
                 console.error('[Journals] Network error:', evt.detail.error);
-                alert('Network error. Please check your connection and try again.');
+                showUploadError('Network error. Please check your connection and try again.');
             }
         });
     """)

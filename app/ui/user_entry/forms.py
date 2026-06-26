@@ -193,7 +193,11 @@ def render_upload_form(
     # File uploader — dropzone (empty state)
     dropzone = UploadDropzone(
         "Drag & drop your file here",
-        ("or ", Span("browse", cls="text-blue-600 font-semibold"), " — audio, text, PDF, images, video"),
+        (
+            "or ",
+            Span("browse", cls="text-blue-600 font-semibold"),
+            " — audio, text, PDF, images, video",
+        ),
         icon="upload-cloud",
         show_expr="!file",
         click_handler="browse()",

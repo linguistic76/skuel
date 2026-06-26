@@ -81,7 +81,9 @@ def dropdown_separator() -> Any:  # boundary: fasthtml-elements
     return Div(cls="h-px bg-slate-100 my-1 mx-2")
 
 
-def dropdown_menu(*content: Any, cls: str = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
+def dropdown_menu(
+    *content: Any, cls: str = "", **kwargs: Any
+) -> Any:  # boundary: fasthtml-elements
     """Canonical floating menu shell for custom Alpine dropdowns."""
     base = (
         "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "

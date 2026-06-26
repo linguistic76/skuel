@@ -30,7 +30,7 @@ REVISED_EXERCISES_CONFIG = DomainRouteConfig(
     domain_name="revised-exercises",
     primary_service_attr="revised_exercises",
     api_factory=create_revised_exercises_api_routes,
-    ui_factory=None,  # No UI routes yet — API-only
+    ui_factory=None,  # UI registered via user_entry_routes.py extension block (revised_exercises_ui.py)
     api_related_services={
         "user_service": "user",
     },

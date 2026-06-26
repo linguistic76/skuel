@@ -39,7 +39,7 @@ def _format_date(dt_value: Any) -> str:
     try:
         dt = datetime.fromisoformat(str(dt_value))
         return dt.strftime("%d %b %Y")
-    except ValueError, TypeError:
+    except ValueError:
         return str(dt_value)[:10]
 
 
