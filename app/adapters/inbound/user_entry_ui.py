@@ -315,7 +315,9 @@ async def _call_llm_with_instructions(
         )
     prompt = f"{instructions}\n\n---\n\n{text}" if instructions else text
     try:
-        return await llm_caller.generate(prompt=prompt, model=None, temperature=None, max_tokens=None)
+        return await llm_caller.generate(
+            prompt=prompt, model=None, temperature=None, max_tokens=None
+        )
     except Exception as e:  # safety-net: LLM call errors in folder-batch context
         return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
 
@@ -760,9 +762,7 @@ def create_user_entry_ui_routes(
                     )
                 result = await batch_transcription_service.transcribe_batch(_JE_IN, _JE_OUT)
                 if result.is_error:
-                    return render_journal_upload_status(
-                        "error", str(result.error), is_error=True
-                    )
+                    return render_journal_upload_status("error", str(result.error), is_error=True)
                 r = result.value
                 msg = (
                     f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
@@ -780,7 +780,10 @@ def create_user_entry_ui_routes(
                         "Transcription service not available (requires FULL tier)",
                         is_error=True,
                     )
-                if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
+                if (
+                    processing_service is None
+                    or getattr(processing_service, "llm_caller", None) is None
+                ):
                     return render_journal_upload_status(
                         "error",
                         "LLM service not available (requires INTELLIGENCE_TIER=full)",
@@ -824,7 +827,10 @@ def create_user_entry_ui_routes(
                 return render_journal_upload_status("completed", msg)
 
             if processing_mode == "instructions_only":
-                if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
+                if (
+                    processing_service is None
+                    or getattr(processing_service, "llm_caller", None) is None
+                ):
                     return render_journal_upload_status(
                         "error",
                         "LLM service not available (requires INTELLIGENCE_TIER=full)",
@@ -835,7 +841,8 @@ def create_user_entry_ui_routes(
                         "error", f"Input folder not found: {_JE_IN}", is_error=True
                     )
                 text_files = sorted(
-                    f for f in _JE_IN.iterdir()
+                    f
+                    for f in _JE_IN.iterdir()
                     if f.is_file() and f.suffix.lower() in _TEXT_EXTENSIONS
                 )
                 if not text_files:
@@ -862,7 +869,9 @@ def create_user_entry_ui_routes(
                         )
                         ok += 1
                 msg = f"{ok} processed, {fail} failed — results in je_out/"
-                return render_journal_upload_status("completed" if ok > 0 else "error", msg, is_error=(ok == 0))
+                return render_journal_upload_status(
+                    "completed" if ok > 0 else "error", msg, is_error=(ok == 0)
+                )
 
             return render_journal_upload_status(
                 "error", f"Unknown processing mode: {processing_mode!r}", is_error=True
