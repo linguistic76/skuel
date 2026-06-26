@@ -180,14 +180,14 @@ class ExploreOrchestrator:
             and not getattr(ku_result, "is_error", False)
             and getattr(ku_result, "value", None)
         ):
-            kus = ku_result.value if isinstance(ku_result.value, list) else ku_result.value[0]
+            kus = ku_result.value[0]
             items.extend((ku, "ku") for ku in kus)
         if (
             ps_result
             and not getattr(ps_result, "is_error", False)
             and getattr(ps_result, "value", None)
         ):
-            raw = ps_result.value if isinstance(ps_result.value, list) else ps_result.value[0]
+            raw = ps_result.value[0]
             items.extend((ps, "ps") for ps in raw)
 
         # Assemble user-specific data
@@ -422,8 +422,8 @@ class ExploreOrchestrator:
         featured_uid = "ku-presence"
         featured_title = "Presence"
         ku_result = await self._ku.core.list(limit=500)
-        if not getattr(ku_result, "is_error", False) and getattr(ku_result, "value", None):
-            kus = ku_result.value if isinstance(ku_result.value, list) else ku_result.value[0]
+        if not ku_result.is_error and ku_result.value:
+            kus = ku_result.value[0]
             library_total = len(kus)
             if kus:
                 first = kus[0]

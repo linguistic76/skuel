@@ -661,7 +661,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         )
 
     # ========================================================================
-    # CHART API ROUTES - , Task 2: Intelligence Data Visualization
+    # CHART API ROUTES - Intelligence Data Visualization
     # ========================================================================
 
     @rt("/api/profile/charts/alignment")
@@ -886,8 +886,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
     async def intelligence_section_htmx(request: Request):
         """
         HTMX endpoint for loading intelligence section with skeleton loading state.
-
-        , Task 3: Prevents blank screen during 2-3s intelligence load.
         """
         user_uid = require_authenticated_user(request)
 

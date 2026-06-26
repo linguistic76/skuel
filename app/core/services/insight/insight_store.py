@@ -328,7 +328,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
-            notes: Optional notes explaining why dismissed (, Task 17)
+            notes: Optional notes explaining why dismissed
 
         Returns:
             Result indicating success
@@ -372,7 +372,7 @@ class InsightStore:
         Args:
             uid: Insight UID
             user_uid: User who owns the insight
-            notes: Optional notes describing action taken (, Task 17)
+            notes: Optional notes describing action taken
 
         Returns:
             Result indicating success
@@ -452,8 +452,6 @@ class InsightStore:
     ) -> Result[list[PersistedInsight]]:
         """
         Get dismissed or actioned insights for history page.
-
-        , Task 17: Action tracking and audit trail.
 
         Args:
             user_uid: User's UID

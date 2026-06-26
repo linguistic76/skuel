@@ -244,7 +244,7 @@ async def BasePage(
             bottom_nav,
             # Modal container for overlays
             Div(id="modal"),
-            # Live region for screen reader announcements (Task 10: WCAG 2.1 Level AA)
+            # Live region for screen reader announcements
             Div(
                 id="live-region",
                 role="status",
