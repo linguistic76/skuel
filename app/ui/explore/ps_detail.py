@@ -62,7 +62,7 @@ def render_ps_not_found(uid: str) -> Div:
                 href="/explore",
                 cls="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground mt-4",
             ),
-            cls="p-8 border border-border rounded-xl bg-card text-center",
+            cls="p-8 border border-border rounded-[12px] bg-card text-center",
         ),
         id="ps-detail-content",
         cls=_COLUMN_CLS,
@@ -213,7 +213,7 @@ def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
         ),
         # Action bar (authenticated users only)
         _action_bar(uid) if user_uid else _unauthenticated_cta(),
-        cls="bg-card border border-border rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden",
+        cls="bg-card border border-border rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden",
         role="region",
         **{"aria-labelledby": "ps-title"},
     )
@@ -224,9 +224,9 @@ def _kind_badge() -> "FT":
         UkIcon("route", cls="w-[13px] h-[13px]"),
         " Path step",
         cls=(
-            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md "
-            "bg-muted text-muted-foreground "
-            "text-[10.5px] font-bold uppercase tracking-[0.08em] whitespace-nowrap"
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] "
+            "bg-blue-50 text-blue-600 "
+            "text-[12px] font-semibold whitespace-nowrap"
         ),
     )
 
@@ -401,7 +401,7 @@ def _body_section(content_html: str) -> "FT":
         H2(
             "The idea",
             id="idea-h",
-            cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-3",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
         ),
         Div(NotStr(content_html), cls="skuel-prose"),
         cls="mt-[30px]",
@@ -425,7 +425,7 @@ def _tasks_section(uid: str) -> "FT":
         H2(
             "Tasks from this step",
             id="ps-tasks-h",
-            cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-3",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
         ),
         Div(
             id="ps-tasks-fragment",
@@ -557,7 +557,7 @@ def _deps_accordion() -> "FT":
                 "x-transition:leave-end": "opacity-0",
             },
         ),
-        cls="mt-[18px] bg-card border border-border rounded-xl overflow-hidden",
+        cls="mt-[18px] bg-card border border-border rounded-[12px] overflow-hidden",
         role="region",
         **{"aria-labelledby": "deps-h"},
     )
