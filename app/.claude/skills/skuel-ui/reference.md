@@ -22,7 +22,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/primitives.py (icon_tile, section_label, primary_btn, card_row, ButtonLink), /ui/forms/, /ui/feedback.py, etc.
+├─ YES → /ui/primitives.py (icon_tile, section_label, primary_btn, card_row, ButtonLink, SelectableOptionRow, dropdown_menu, dropdown_separator, UploadDropzone, SelectedFileCard), /ui/forms/, /ui/feedback.py, etc.
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
