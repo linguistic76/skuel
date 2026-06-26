@@ -27,7 +27,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 | **Buttons** | Button, ButtonT | `monsterui.franken` (direct) |
 | **ButtonLink** | ButtonLink | `ui/primitives.py` (`A()` wrapper, `cls=ButtonT.X`) |
 | **Cards** | Card (=CardContainer), CardBody, CardHeader, CardTitle, CardT | `monsterui.franken` (direct) |
-| **Primitives** | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink` | `ui/primitives.py` |
+| **Primitives** | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` | `ui/primitives.py` |
 | **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox | `ui/forms/` |
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
@@ -46,7 +46,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | Module | Symbols |
 |--------|---------|
 | `monsterui.franken` | `Button`, `ButtonT`, `CardContainer` (import as `Card`), `CardBody`, `CardHeader`, `CardTitle`, `CardT` |
-| `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink` |
+| `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal wrapper (backdrop, transitions, close-on-backdrop) |

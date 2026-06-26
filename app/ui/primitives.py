@@ -76,6 +76,21 @@ def card_row(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-element
     return Div(*content, cls=f"flex items-center gap-[13px]{extra}")
 
 
+def dropdown_separator() -> Any:  # boundary: fasthtml-elements
+    """Thin divider for compact dropdown menus."""
+    return Div(cls="h-px bg-slate-100 my-1 mx-2")
+
+
+def dropdown_menu(*content: Any, cls: str = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
+    """Canonical floating menu shell for custom Alpine dropdowns."""
+    base = (
+        "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
+        "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
+        "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
+    )
+    return Div(*content, cls=f"{base} {cls}".strip(), **kwargs)
+
+
 def ButtonLink(
     *c: Any,
     href: str,
@@ -171,4 +186,109 @@ def SelectableOptionRow(
         cls=base_cls + "cursor-pointer transition-colors",
         **{"@click": click_handler},
         **{":class": f"{selected_expr} ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},
+    )
+
+
+def UploadDropzone(
+    title: str,
+    hint: Any,
+    *,
+    icon: str = "upload",
+    show_expr: str,
+    click_handler: str,
+    dragover_handler: str | None = None,
+    drop_handler: str | None = None,
+    dragleave_handler: str | None = None,
+    active_expr: str | None = None,
+    cls: str = "",
+) -> Any:  # boundary: fasthtml-elements
+    """Canonical empty file-upload target with optional drag state bindings."""
+    attrs: dict[str, Any] = {
+        "x-show": show_expr,
+        "@click": click_handler,
+    }
+    if dragover_handler:
+        attrs["@dragover"] = dragover_handler
+    if drop_handler:
+        attrs["@drop"] = drop_handler
+    if dragleave_handler:
+        attrs["@dragleave"] = dragleave_handler
+    if active_expr:
+        attrs[":class"] = f"{active_expr} ? 'border-blue-600 bg-blue-50' : ''"
+
+    base = (
+        "border-[1.5px] border-dashed border-slate-300 rounded-[12px] bg-slate-50 "
+        "px-6 py-[34px] text-center cursor-pointer flex flex-col items-center gap-1 "
+        "hover:border-blue-600 hover:bg-blue-50 transition-colors"
+    )
+    hint_content = hint if isinstance(hint, tuple) else (hint,)
+    return Div(
+        Div(
+            UkIcon(icon, cls="w-6 h-6 text-blue-600"),
+            cls=(
+                "w-[46px] h-[46px] rounded-[12px] border border-border bg-background "
+                "flex items-center justify-center mb-3"
+            ),
+        ),
+        P(title, cls="text-[14.5px] font-semibold text-foreground mb-1"),
+        P(*hint_content, cls="text-[13px] text-muted-foreground"),
+        cls=f"{base} {cls}".strip(),
+        **attrs,
+    )
+
+
+def SelectedFileCard(
+    *,
+    file_name_expr: str,
+    meta: str | None = None,
+    meta_expr: str | None = None,
+    show_expr: str,
+    replace_handler: str,
+    remove_handler: str,
+    replace_label: str = "Replace",
+    cls: str = "",
+) -> Any:  # boundary: fasthtml-elements
+    """Canonical filled file-upload state with replace and remove actions."""
+    meta_attrs = {"x-text": meta_expr} if meta_expr else {}
+    base = "flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card"
+    return Div(
+        Div(
+            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
+            cls="w-[42px] h-[42px] rounded-[10px] bg-blue-50 flex items-center justify-center flex-none",
+        ),
+        Div(
+            Span(
+                cls="block text-sm font-semibold text-foreground truncate leading-snug",
+                **{"x-text": file_name_expr},
+            ),
+            Span(
+                meta or "",
+                cls="block text-xs text-slate-400 font-mono mt-[2px]",
+                **meta_attrs,
+            ),
+            cls="flex-1 min-w-0",
+        ),
+        Button(
+            replace_label,
+            type="button",
+            cls=(
+                "flex-none border border-border rounded-[8px] px-3 py-[7px] "
+                "text-[13px] font-semibold bg-card text-foreground cursor-pointer "
+                "hover:bg-slate-50 transition-colors"
+            ),
+            **{"@click": replace_handler},
+        ),
+        Button(
+            UkIcon("x", cls="w-4 h-4"),
+            type="button",
+            cls=(
+                "flex-none w-8 h-8 rounded-[8px] border-0 bg-transparent "
+                "text-slate-400 cursor-pointer flex items-center justify-center "
+                "hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            ),
+            **{"@click": remove_handler},
+        ),
+        cls=f"{base} {cls}".strip(),
+        **{"x-show": show_expr},
+        **{"x-cloak": True},
     )
