@@ -297,7 +297,7 @@ def StatusBadge(status: str | None, cls: str = "", **kwargs: Any) -> Any:
         entity_status = EntityStatus(status_lower)
         badge_cls = entity_status.get_badge_class()
     except ValueError:
-        badge_cls = "bg-gray-100 text-gray-600 border-gray-200"
+        badge_cls = "bg-base-200 text-base-content/70 border-base-200"
 
     return Badge(display_text, variant=None, cls=f"{badge_cls} {cls}".strip(), **kwargs)
 

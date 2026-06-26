@@ -9,6 +9,7 @@ from monsterui.franken import CardContainer as Card
 from core.models.enums.entity_enums import EntityStatus
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Label, Select
+from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
 
 
@@ -143,7 +144,7 @@ def _build_filter_form() -> Any:
 def render_journals_grid_container() -> Any:
     """Render the HTMX-loading journals grid container."""
     return Div(
-        P("Loading journals...", cls="text-center text-muted-foreground"),
+        SkeletonList(count=3),
         id="journals-grid-container",
         cls="mt-4",
         hx_get="/journals/grid",
