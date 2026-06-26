@@ -209,7 +209,7 @@ else:
     logger.info("Askesis: skipped (INTELLIGENCE_TIER=%s)", tier.value)
 ```
 
-In CORE tier, `services.askesis` is `None` and `register_domain_routes` skips Askesis route registration entirely (system-level guard). On a FULL-tier system, both `/api/askesis/ask` and `/askesis/api/submit` enforce a **per-user tier gate** (ADR-043): REGISTERED users receive a 403 even when the system is FULL — only MEMBER and above may consume AI budget.
+In CORE tier, `services.askesis` is `None` and `register_domain_routes` skips Askesis route registration entirely (system-level guard). On a FULL-tier system, both `/api/askesis/ask` and `/askesis/api/submit` enforce a **per-user tier gate** (ADR-043): REGISTERED users receive a 403 even when the system is FULL — only MEMBER and above may consume AI budget. The gate is **fail-secure**: if `intelligence_tier` or `user_service` is `None` at route time (misconfigured bootstrap), AI access is denied rather than silently granted.
 
 ### Why This Order?
 
@@ -433,6 +433,7 @@ principles_rich = entities_rich.get("principles", [])
 | **February 2026** | Route wiring switched to DomainRouteConfig (was bypassed in bootstrap) |
 | **February 2026** | Neo4j driver encapsulated in `AskesisCoreService.build_user_context()` — routes no longer hold a raw driver |
 | **June 2026** | Per-user intelligence tier gate added to both Askesis endpoints (ADR-043): REGISTERED users on FULL-tier systems now receive 403; `intelligence_tier` and `user_service` injected via `DomainRouteConfig.api_related_services` / `ui_related_services` |
+| **June 2026** | Tier gate hardened to fail-secure: if `intelligence_tier` or `user_service` is `None` at route time, AI access is denied (previously silently bypassed) |
 | **February 2026** | Reports → Submissions + Reports rename; Processing Domains now: Submissions, Journals, Reports |
 | **March 2026** | `_load_askesis_and_context` closure extracted from route layer into `AskesisService.load_askesis_context()` — returns `AskesisContext` dataclass; `user_service` removed from route wiring; `askesis_core_service` wired into `AskesisDeps` |
 | **March 2026** | `entities_rich` unification: `active_task_rich`, `active_goal_rich`, etc. → single `entities_rich` dict; `activity_rich` removed |

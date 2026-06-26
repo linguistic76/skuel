@@ -72,21 +72,32 @@ def create_askesis_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Per-user tier gate (ADR-043): REGISTERED users on a FULL-tier system
-        # are capped at CORE and may not consume AI routes.
-        if intelligence_tier is not None and user_service is not None:
-            user = require_found(await user_service.get_user(user_uid), "User", user_uid)
-            if user.is_error:
-                return Result.fail(Errors.database("get_user", "Could not verify user access tier"))
-            effective_tier = get_user_intelligence_tier(intelligence_tier, user.value.role)
-            if not effective_tier.ai_enabled:
-                return Result.fail(
-                    Errors.forbidden(
-                        action="use Askesis AI",
-                        reason="AI features require a paid subscription",
-                        required_role="MEMBER",
-                    )
+        # Per-user tier gate (ADR-043): fail-secure — missing dependencies
+        # mean the gate cannot be evaluated, so deny rather than allow.
+        if intelligence_tier is None:
+            return Result.fail(
+                Errors.forbidden(
+                    action="use Askesis AI",
+                    reason="AI features require a paid subscription",
+                    required_role="MEMBER",
                 )
+            )
+        if user_service is None:
+            return Result.fail(
+                Errors.system("UserService not configured", operation="ask_question_route")
+            )
+        user = require_found(await user_service.get_user(user_uid), "User", user_uid)
+        if user.is_error:
+            return Result.fail(Errors.database("get_user", "Could not verify user access tier"))
+        effective_tier = get_user_intelligence_tier(intelligence_tier, user.value.role)
+        if not effective_tier.ai_enabled:
+            return Result.fail(
+                Errors.forbidden(
+                    action="use Askesis AI",
+                    reason="AI features require a paid subscription",
+                    required_role="MEMBER",
+                )
+            )
 
         question = request.query_params.get("question")
         session_id = request.query_params.get("session_id")

@@ -138,6 +138,7 @@ def render_ps_detail_content(
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
         _tasks_section(uid) if user_uid else Div(),
+        _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
         _footer_nav(),
         id="ps-detail-content",
@@ -438,6 +439,50 @@ def _tasks_section(uid: str) -> "FT":
         cls="mt-[24px]",
         role="region",
         **{"aria-labelledby": "ps-tasks-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Learning loop section
+# ---------------------------------------------------------------------------
+
+
+def _learning_loop_section(uid: str) -> "FT":
+    """HTMX-loaded exercises + submissions section for authenticated users.
+
+    Lazy-loads on page render. Exercises show status (submitted/reviewed/open);
+    submissions show feedback from teacher/AI.
+    """
+    return Section(
+        H2(
+            "Exercises",
+            id="ps-exercises-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        Div(
+            id="ps-exercises-fragment",
+            **{
+                "hx-get": f"/learning-loop/ps/{uid}/exercises",
+                "hx-trigger": "load",
+                "hx-swap": "outerHTML",
+            },
+        ),
+        H2(
+            "Submissions & Feedback",
+            id="ps-submissions-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px] mt-[18px]",
+        ),
+        Div(
+            id="ps-submissions-fragment",
+            **{
+                "hx-get": f"/learning-loop/ps/{uid}/submissions-and-feedback",
+                "hx-trigger": "load",
+                "hx-swap": "outerHTML",
+            },
+        ),
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-exercises-h"},
     )
 
 

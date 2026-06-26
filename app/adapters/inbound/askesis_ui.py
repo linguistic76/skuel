@@ -74,21 +74,30 @@ def create_askesis_ui_routes(
         """Handle message submission (HTMX endpoint) — returns styled user + AI bubbles."""
         user_uid = require_authenticated_user(request)
 
-        # Per-user tier gate (ADR-043): REGISTERED users on a FULL-tier system
-        # are capped at CORE and may not consume AI routes.
-        if intelligence_tier is not None and user_service is not None:
-            user_result = await user_service.get_user(user_uid)
-            if user_result.is_error or user_result.value is None:
-                return P(
-                    "Could not verify your access level. Please try again.",
-                    cls="text-error text-sm px-7 py-2",
-                )
-            effective_tier = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
-            if not effective_tier.ai_enabled:
-                return P(
-                    "AI features require a paid subscription. Upgrade to MEMBER to unlock Askesis.",
-                    cls="text-error text-sm px-7 py-2",
-                )
+        # Per-user tier gate (ADR-043): fail-secure — missing dependencies
+        # mean the gate cannot be evaluated, so deny rather than allow.
+        if intelligence_tier is None:
+            return P(
+                "AI features require a paid subscription. Upgrade to MEMBER to unlock Askesis.",
+                cls="text-error text-sm px-7 py-2",
+            )
+        if user_service is None:
+            return P(
+                "Could not verify your access level. Please try again.",
+                cls="text-error text-sm px-7 py-2",
+            )
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return P(
+                "Could not verify your access level. Please try again.",
+                cls="text-error text-sm px-7 py-2",
+            )
+        effective_tier = get_user_intelligence_tier(intelligence_tier, user_result.value.role)
+        if not effective_tier.ai_enabled:
+            return P(
+                "AI features require a paid subscription. Upgrade to MEMBER to unlock Askesis.",
+                cls="text-error text-sm px-7 py-2",
+            )
 
         form_data = await request.form()
         message = safe_form_string(form_data.get("message"))
