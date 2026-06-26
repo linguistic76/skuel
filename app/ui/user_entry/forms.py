@@ -26,7 +26,14 @@ from typing import Any
 from fasthtml.common import Button, Div, Form, Input, P, Script, Span
 from monsterui.franken import UkIcon
 
-from ui.primitives import SelectableOptionRow, icon_tile
+from ui.primitives import (
+    SelectableOptionRow,
+    SelectedFileCard,
+    UploadDropzone,
+    dropdown_menu,
+    dropdown_separator,
+    icon_tile,
+)
 
 
 def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
@@ -136,7 +143,7 @@ def render_upload_form(
         # Trigger
         _dest_trigger(dest_configs),
         # Menu (absolute dropdown)
-        Div(
+        dropdown_menu(
             SelectableOptionRow(
                 icon=dest_configs["teacher"]["icon"],
                 tile_bg=dest_configs["teacher"]["tile_bg"],
@@ -156,7 +163,7 @@ def render_upload_form(
                 selected_expr="dest === 'ai'",
                 click_handler="selectDest('ai')",
             ),
-            Div(cls="h-px bg-slate-100 my-1 mx-2"),
+            dropdown_separator(),
             SelectableOptionRow(
                 icon=dest_configs["portfolio"]["icon"],
                 tile_bg=dest_configs["portfolio"]["tile_bg"],
@@ -176,90 +183,34 @@ def render_upload_form(
                 if portfolio_mode == "coming_soon"
                 else None,
             ),
-            cls=(
-                "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-                "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
-                "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
-            ),
             **{"x-show": "menuOpen"},
-            **{"x-cloak": True},
+            **{"x-cloak": True},  # type: ignore[arg-type]  # boundary: fasthtml-elements
             **{"x-ref": "dropdown"},
         ),
         cls="relative",
     )
 
     # File uploader — dropzone (empty state)
-    dropzone = Div(
-        Div(
-            UkIcon("upload-cloud", cls="w-[22px] h-[22px] text-blue-600"),
-            cls=(
-                "w-[46px] h-[46px] rounded-[12px] bg-card border border-border "
-                "flex items-center justify-center mb-[6px]"
-            ),
-        ),
-        P("Drag & drop your file here", cls="text-[14.5px] font-semibold text-foreground mb-0"),
-        P(
-            "or ",
-            Span("browse", cls="text-blue-600 font-semibold"),
-            " — audio, text, PDF, images, video",
-            cls="text-[13px] text-muted-foreground",
-        ),
-        cls=(
-            "border-[1.5px] border-dashed rounded-[12px] bg-slate-50 "
-            "px-6 py-[38px] text-center cursor-pointer flex flex-col items-center gap-1 "
-            "transition-[border-color,background-color] duration-[160ms] ease-linear "
-            "hover:border-blue-600"
-        ),
-        **{
-            "x-show": "!file",
-            "@click": "browse()",
-            "@drop": "onDrop($event)",
-            "@dragover": "onDragOver($event)",
-            "@dragleave": "onDragLeave($event)",
-            ":class": "dragOver ? 'border-blue-600 bg-blue-50' : ''",
-        },
+    dropzone = UploadDropzone(
+        "Drag & drop your file here",
+        ("or ", Span("browse", cls="text-blue-600 font-semibold"), " — audio, text, PDF, images, video"),
+        icon="upload-cloud",
+        show_expr="!file",
+        click_handler="browse()",
+        drop_handler="onDrop($event)",
+        dragover_handler="onDragOver($event)",
+        dragleave_handler="onDragLeave($event)",
+        active_expr="dragOver",
+        cls="py-[38px] transition-[border-color,background-color] duration-[160ms] ease-linear",
     )
 
     # File card (filled state)
-    file_card = Div(
-        Div(
-            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
-            cls="w-[42px] h-[42px] rounded-[10px] flex-none bg-blue-50 flex items-center justify-center",
-        ),
-        Div(
-            Span(
-                cls="block text-sm font-semibold text-foreground truncate",
-                **{"x-text": "file ? file.name : ''"},
-            ),
-            Span(
-                cls="block text-xs text-slate-400 font-mono mt-[2px]",
-                **{"x-text": "file ? fmtSize(file.size) : ''"},
-            ),
-            cls="flex-1 min-w-0",
-        ),
-        Button(
-            "Replace",
-            type="button",
-            cls=(
-                "flex-none border border-border rounded-[8px] px-3 py-[7px] "
-                "text-[13px] font-semibold bg-card text-foreground cursor-pointer "
-                "hover:bg-slate-50 transition-colors"
-            ),
-            **{"@click": "browse()"},
-        ),
-        Button(
-            UkIcon("x", cls="w-4 h-4"),
-            type="button",
-            cls=(
-                "flex-none w-8 h-8 rounded-[8px] border-0 bg-transparent "
-                "text-slate-400 cursor-pointer flex items-center justify-center "
-                "hover:bg-slate-100 hover:text-slate-600 transition-colors"
-            ),
-            **{"@click": "removeFile()"},
-        ),
-        cls="flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card",
-        **{"x-show": "!!file"},
-        **{"x-cloak": True},
+    file_card = SelectedFileCard(
+        file_name_expr="file ? file.name : ''",
+        meta_expr="file ? fmtSize(file.size) : ''",
+        show_expr="!!file",
+        replace_handler="browse()",
+        remove_handler="removeFile()",
     )
 
     # Card footer: file size limit hint + send button

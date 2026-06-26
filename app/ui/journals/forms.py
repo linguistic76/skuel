@@ -9,7 +9,16 @@ from monsterui.franken import Button, CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from ui.forms import Input
-from ui.primitives import SelectableOptionRow, icon_tile, primary_btn, section_label
+from ui.primitives import (
+    SelectableOptionRow,
+    SelectedFileCard,
+    UploadDropzone,
+    dropdown_menu,
+    dropdown_separator,
+    icon_tile,
+    primary_btn,
+    section_label,
+)
 
 # Two hardcoded instruction files shown in the Instructions dropdown.
 _FIXED_INSTRUCTIONS = [
@@ -98,7 +107,7 @@ def _mode_trigger() -> Any:
 
 def _build_mode_dropdown() -> Any:
     """Processing mode selector (trigger + dropdown menu)."""
-    menu = Div(
+    menu = dropdown_menu(
         *[
             SelectableOptionRow(
                 icon=cfg["icon"],
@@ -111,13 +120,8 @@ def _build_mode_dropdown() -> Any:
             )
             for key, cfg in _MODE_CONFIGS.items()
         ],
-        cls=(
-            "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-            "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
-            "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
-        ),
         **{"x-show": "modeMenuOpen"},
-        **{"x-cloak": True},
+        **{"x-cloak": True},  # type: ignore[arg-type]  # boundary: fasthtml-elements
         **{"@click.outside": "modeMenuOpen = false"},
     )
     return Div(
@@ -184,7 +188,7 @@ def _instruction_trigger() -> Any:
 
 def _build_instructions_dropdown() -> Any:
     """Instructions selector — conditional on processingMode (hidden for transcribe_only)."""
-    separator = Div(cls="h-px bg-slate-100 my-1 mx-2")
+    separator = dropdown_separator()
     choose_row = Button(
         icon_tile("upload", "bg-blue-50", "text-blue-600"),
         Div(
@@ -205,7 +209,7 @@ def _build_instructions_dropdown() -> Any:
             ":class": "instructionMode === 'custom' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
         },  # boundary: fasthtml-elements
     )
-    menu = Div(
+    menu = dropdown_menu(
         *[
             SelectableOptionRow(
                 icon=cfg["icon"],
@@ -221,13 +225,8 @@ def _build_instructions_dropdown() -> Any:
         ],
         separator,
         choose_row,
-        cls=(
-            "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-            "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
-            "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
-        ),
         **{"x-show": "instructionMenuOpen"},
-        **{"x-cloak": True},
+        **{"x-cloak": True},  # type: ignore[arg-type]  # boundary: fasthtml-elements
         **{"@click.outside": "instructionMenuOpen = false"},
     )
     return Div(
@@ -279,68 +278,23 @@ def _shared_hidden_inputs() -> list[Any]:
 
 def _build_files_form_body() -> Any:
     """File picker with empty dropzone / filled file-card states and submit footer."""
-    from fasthtml.common import Button as RawButton
     from fasthtml.common import Form
 
-    empty_state = Div(
-        Div(
-            UkIcon("upload", cls="w-6 h-6 text-blue-600"),
-            cls=(
-                "w-[46px] h-[46px] rounded-[12px] border border-border bg-background "
-                "flex items-center justify-center mb-3"
-            ),
-        ),
-        P("Drag & drop your file here", cls="text-[14.5px] font-semibold text-foreground mb-1"),
-        P(
-            Span("or "),
-            Span("browse", cls="text-blue-600 font-semibold"),
-            Span(" — audio, text, PDF, images, video"),
-            cls="text-[13px] text-muted-foreground",
-        ),
-        cls=(
-            "border-[1.5px] border-dashed border-slate-300 rounded-[12px] bg-slate-50 "
-            "px-6 py-[34px] text-center cursor-pointer flex flex-col items-center "
-            "hover:border-blue-600 hover:bg-blue-50 transition-colors mb-6"
-        ),
-        **{
-            "x-show": "!selectedFile",
-            "@click": "document.getElementById('file-input').click()",
-        },
+    empty_state = UploadDropzone(
+        "Drag & drop your file here",
+        (Span("or "), Span("browse", cls="text-blue-600 font-semibold"), Span(" — audio, text, PDF, images, video")),
+        show_expr="!selectedFile",
+        click_handler="document.getElementById('file-input').click()",
+        cls="mb-6",
     )
 
-    filled_state = Div(
-        Div(
-            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
-            cls="w-[42px] h-[42px] rounded-[10px] bg-blue-50 flex items-center justify-center flex-none",
-        ),
-        Div(
-            P(
-                cls="text-[14px] font-semibold text-foreground truncate leading-snug",
-                **{"x-text": "selectedFile ? selectedFile.name : ''"},
-            ),
-            P("ready to process", cls="text-[12px] text-slate-400 font-mono mt-0.5"),
-            cls="flex-1 min-w-0",
-        ),
-        RawButton(
-            "Replace",
-            type="button",
-            cls=(
-                "text-[13px] font-medium text-foreground border border-border "
-                "rounded-[8px] px-3 py-[7px] hover:bg-slate-50 transition-colors flex-none"
-            ),
-            **{"@click": "document.getElementById('file-input').click()"},
-        ),
-        RawButton(
-            UkIcon("x", cls="w-4 h-4"),
-            type="button",
-            cls=(
-                "w-8 h-8 flex items-center justify-center rounded-lg "
-                "text-muted-foreground hover:bg-slate-100 hover:text-foreground transition-colors flex-none"
-            ),
-            **{"@click": "clearFile()"},
-        ),
-        cls="flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card mb-6",
-        **{"x-show": "selectedFile", "x-cloak": True},
+    filled_state = SelectedFileCard(
+        file_name_expr="selectedFile ? selectedFile.name : ''",
+        meta="ready to process",
+        show_expr="selectedFile",
+        replace_handler="document.getElementById('file-input').click()",
+        remove_handler="clearFile()",
+        cls="mb-6",
     )
 
     return Form(
