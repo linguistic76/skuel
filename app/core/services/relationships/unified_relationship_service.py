@@ -685,7 +685,7 @@ class UnifiedRelationshipService[
             # Weighted average
             return task_score * 0.5 + knowledge_score * 0.5
 
-        except ValueError, TypeError, AttributeError, KeyError:
+        except (ValueError, TypeError, AttributeError, KeyError):  # fmt: skip
             return 0.5  # Default to uncertain
         except Exception:  # safety-net: catch unexpected errors
             return 0.5  # Default to uncertain
@@ -715,7 +715,7 @@ class UnifiedRelationshipService[
 
             return min(score, 1.0)
 
-        except ValueError, TypeError, AttributeError, KeyError:
+        except (ValueError, TypeError, AttributeError, KeyError):  # fmt: skip
             return 0.5
         except Exception:  # safety-net: catch unexpected errors
             return 0.5

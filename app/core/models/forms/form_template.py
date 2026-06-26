@@ -62,7 +62,7 @@ class FormTemplate(Entity):
                     object.__setattr__(self, "form_schema", tuple(parsed))
                 else:
                     object.__setattr__(self, "form_schema", None)
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):  # fmt: skip
                 object.__setattr__(self, "form_schema", None)
         elif isinstance(self.form_schema, list):
             object.__setattr__(self, "form_schema", tuple(self.form_schema))
@@ -177,7 +177,7 @@ class FormTemplate(Entity):
                             errors.append(f"Field '{name}' must be >= {min_val}")
                         if max_val is not None and num_val > max_val:
                             errors.append(f"Field '{name}' must be <= {max_val}")
-                except ValueError, TypeError:
+                except (ValueError, TypeError):  # fmt: skip
                     errors.append(f"Field '{name}' must be a number, got '{value}'")
 
         return errors

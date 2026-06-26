@@ -339,7 +339,7 @@ class OwnershipRouteFactory:
                     elif isinstance(default, int):
                         try:
                             kwargs[param_name] = int(raw)
-                        except ValueError, TypeError:
+                        except (ValueError, TypeError):  # fmt: skip
                             kwargs[param_name] = default
                     elif isinstance(default, bool):
                         kwargs[param_name] = raw.lower() in ("true", "1", "yes", "on")
