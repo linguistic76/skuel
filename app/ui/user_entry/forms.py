@@ -47,7 +47,7 @@ def _dest_option_row(
     )
     if disabled:
         base_cls += "cursor-not-allowed opacity-70 bg-transparent"
-        action: dict[str, Any] = {}
+        action: dict[str, str] = {}
     else:
         base_cls += "cursor-pointer transition-colors"
         action = {
