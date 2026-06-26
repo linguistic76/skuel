@@ -316,7 +316,6 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
     revision_section: Any = None
     if revised_exercise:
         re_uid = getattr(revised_exercise, "uid", "") or ""
-        re_original_exercise_uid = getattr(revised_exercise, "original_exercise_uid", "") or ""
         revision_section = Div(
             H3("Revision Requested", cls="font-semibold mb-3"),
             P(
@@ -331,11 +330,9 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
                 ),
                 ButtonLink(
                     "Submit Revision",
-                    href=f"/submit?exercise_uid={re_original_exercise_uid}",
+                    href=f"/submit?exercise_uid={re_uid}",
                     cls=(ButtonT.ghost, ButtonT.sm),
-                )
-                if re_original_exercise_uid
-                else None,
+                ),
                 cls="flex flex-wrap gap-2",
             ),
             cls="mb-6 p-4 border border-amber-200 bg-amber-50 rounded-lg dark:border-amber-800 dark:bg-amber-950",
