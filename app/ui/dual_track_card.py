@@ -16,13 +16,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, Form, Li, Option, P, Span, Ul
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from core.constants import DualTrackCheckin
 from core.models.shared.dual_track import DualTrackResult
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.forms import LabelSelect, LabelTextArea
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from enum import StrEnum
@@ -171,7 +171,7 @@ def DualTrackSection(
     results_slot = "dual-track-results"
 
     return Div(
-        SectionTitle("Self-Assessment"),
+        section_label("Self-Assessment"),
         P(
             "Rate yourself, then see how your self-perception compares with what "
             "your tracked actions show. The gap is the point.",
@@ -198,7 +198,7 @@ def DualTrackSection(
                         Button(
                             "See My Perception Gap",
                             type="submit",
-                            variant=ButtonT.primary,
+                            cls=ButtonT.primary,
                         ),
                         cls="text-right",
                     ),

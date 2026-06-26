@@ -17,19 +17,18 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -85,9 +84,7 @@ def TaskCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#task-{safe_id(task.uid)}",
         hx_swap="outerHTML",
-        variant=ButtonT.neutral,
-        size="sm",
-        cls="rounded",
+        cls=(ButtonT.default, ButtonT.sm, "rounded"),
         title=f"Mark as {new_status}",
     )
 
@@ -175,7 +172,7 @@ def SubtaskSection(task_uid: str) -> "FT":
     """Section shell that HTMX auto-loads the subtask list on page render."""
     list_id = f"subtasks-list-{safe_id(task_uid)}"
     return Div(
-        SectionTitle("Sub-tasks"),
+        section_label("Sub-tasks"),
         Div(
             id=list_id,
             hx_get=f"/tasks/subtasks?uid={task_uid}",
@@ -222,7 +219,7 @@ def SubtaskListFragment(
                 cls="flex-1 min-w-0",
             ),
             Input(type="hidden", name="parent_uid", value=parent_uid),
-            Button("Add", type="submit", variant=ButtonT.primary, size="sm"),
+            Button("Add", type="submit", cls=(ButtonT.primary, ButtonT.sm)),
         ),
         hx_post="/tasks/subtasks/add",
         hx_target=f"#{list_id}",
@@ -326,7 +323,7 @@ def TaskDetailView(
     conn_badges = _task_connection_badges(task, connections)
     if connections or task.fulfills_goal_uid:
         conn_section = Div(
-            SectionTitle("Connections"),
+            section_label("Connections"),
             conn_badges,
             cls="my-4",
         )

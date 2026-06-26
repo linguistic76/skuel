@@ -14,16 +14,17 @@ Components:
 from typing import Any
 
 from fasthtml.common import Div, P
+from monsterui.franken import ButtonT
 
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
-from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_sel_icon
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
+from ui.primitives import ButtonLink
 
 
 def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
@@ -44,8 +45,7 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         actions=ButtonLink(
             "Continue Learning →",
             href=f"/path-steps?sel={category.value}",
-            variant=ButtonT.primary,
-            cls="w-full",
+            cls=(ButtonT.primary, "w-full"),
         ),
     )
 
@@ -96,8 +96,7 @@ def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
         actions=ButtonLink(
             "Start Learning →",
             href=f"/explore/ku/{ku.uid}",
-            variant=ButtonT.primary,
-            cls="w-full",
+            cls=(ButtonT.primary, "w-full"),
         ),
     )
 

@@ -29,11 +29,11 @@ from fasthtml.common import (
     Div,
     Span,
 )
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
-from ui.cards import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.revised_exercise import (
     render_revised_exercise_detail,

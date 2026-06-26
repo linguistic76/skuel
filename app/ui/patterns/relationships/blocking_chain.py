@@ -26,9 +26,10 @@ Layout:
 from typing import Any
 
 from fasthtml.common import H3, A, Div, Span
+from monsterui.franken import CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
-from ui.cards import Card, CardBody
 
 
 def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:

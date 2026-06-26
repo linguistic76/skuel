@@ -204,7 +204,7 @@ Alpine directives are passed as `**kwargs` in FastHTML components:
 
 ```python
 from fasthtml.common import Div
-from ui.buttons import Button
+from monsterui.franken import Button, ButtonT
 
 def my_component() -> Div:
     return Div(

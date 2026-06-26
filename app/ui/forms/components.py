@@ -11,6 +11,7 @@ from typing import Any
 
 from fasthtml.common import Div
 from fasthtml.common import Select as FTSelect
+from monsterui.franken import ButtonT
 from monsterui.franken import CheckboxX as MCheckbox
 from monsterui.franken import FormLabel as MFormLabel
 from monsterui.franken import Input as MInput
@@ -21,7 +22,6 @@ from monsterui.franken import Range as MRange
 from monsterui.franken import Switch as MSwitch
 from monsterui.franken import TextArea as MTextArea
 
-from ui.buttons import ButtonT
 from ui.layout import Size
 
 __all__ = [

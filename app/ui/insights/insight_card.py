@@ -10,18 +10,18 @@ intelligence services based on user behavior patterns.
 from typing import Any
 
 from fasthtml.common import H3, Div, Form, Li, P, Span, Strong, Ul
+from monsterui.franken import Button, ButtonT
 
 from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
-from ui.buttons import Button, ButtonLink, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.layout import Row, Size
+from ui.layout import Row
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.modal import AlpineModal
-from ui.text import SmallText, TruncatedText
+from ui.primitives import ButtonLink
 
 
 def _render_description(desc: str) -> Any:
-    return TruncatedText(desc, lines=3, cls="text-sm text-muted-foreground mt-2 block")
+    return Span(desc, cls="line-clamp-3 text-sm text-muted-foreground mt-2 block")
 
 
 def InsightCard(insight: PersistedInsight) -> Div:
@@ -88,7 +88,10 @@ def InsightCard(insight: PersistedInsight) -> Div:
         if action_items:
             actions_metadata.append(
                 Div(
-                    SmallText("Recommended Actions:", cls="font-semibold mb-1"),
+                    Span(
+                        "Recommended Actions:",
+                        cls="text-sm text-muted-foreground font-semibold mb-1",
+                    ),
                     *action_items,
                     cls="mt-3 p-3 bg-muted rounded-md",
                 )
@@ -98,15 +101,13 @@ def InsightCard(insight: PersistedInsight) -> Div:
     action_buttons_list: list[Any] = [
         Button(
             "View Details",
-            variant=ButtonT.ghost,
-            size=Size.sm,
-            **{"x-on:click": "open()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls=(ButtonT.ghost, ButtonT.sm),
+            **{"x-on:click": "open()"},  # fasthtml dynamic-attr splat
         ),
         Form(
             Button(
                 "Dismiss",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
                 hx_post=f"/api/insights/{insight.uid}/dismiss",
                 hx_target=f"#insight-{insight.uid}",
                 hx_swap="outerHTML swap:1s",
@@ -116,8 +117,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
         Form(
             Button(
                 "I've Acted on This",
-                variant=ButtonT.primary,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
                 hx_post=f"/api/insights/{insight.uid}/action",
                 hx_target=f"#insight-{insight.uid}",
                 hx_swap="outerHTML swap:1s",
@@ -130,8 +130,7 @@ def InsightCard(insight: PersistedInsight) -> Div:
             ButtonLink(
                 "View Entity",
                 href=f"/profile/{insight.domain}?focus={insight.entity_uid}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             )
         )
 
@@ -219,27 +218,20 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
             # Impact dot indicator
             Div(cls=f"size-2 rounded-full {dot_color} flex-shrink-0"),
             # Title (truncated)
-            TruncatedText(
-                insight.title,
-                lines=1,
-                cls="text-sm font-medium text-foreground flex-grow",
-            ),
+            Span(insight.title, cls="line-clamp-1 text-sm font-medium text-foreground flex-grow"),
             # Badges
             Row(*badges, gap=1),
             cls="flex items-center gap-3",
         ),
         # Description (truncated to 1 line)
-        TruncatedText(
-            insight.description or "",
-            lines=1,
-            cls="text-xs text-muted-foreground mt-1 block",
+        Span(
+            insight.description or "", cls="line-clamp-1 text-xs text-muted-foreground mt-1 block"
         ),
         # Link button
         Div(
             Button(
                 button_text,
-                variant=ButtonT.ghost,
-                size=Size.xs,
+                cls=(ButtonT.ghost, ButtonT.xs),
                 hx_get=link_url,
             ),
             cls="mt-2",
@@ -347,10 +339,8 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
         # Close button
         Button(
             "✕",
-            variant=ButtonT.ghost,
-            size=Size.sm,
-            cls="rounded-full absolute right-2 top-2",
-            **{"x-on:click": "close()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls=(ButtonT.ghost, ButtonT.sm, "rounded-full absolute right-2 top-2"),
+            **{"x-on:click": "close()"},  # fasthtml dynamic-attr splat
         ),
         # Modal header
         Div(
@@ -404,29 +394,26 @@ def InsightDetailModal(insight: PersistedInsight) -> Div:
                 Span("Snooze for:", cls="text-sm font-medium text-foreground mr-3"),
                 Button(
                     "1 Day",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"x-on:click": "snooze(1)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, ButtonT.sm),
+                    **{"x-on:click": "snooze(1)"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "3 Days",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"x-on:click": "snooze(3)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, ButtonT.sm),
+                    **{"x-on:click": "snooze(3)"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "1 Week",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"x-on:click": "snooze(7)"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, ButtonT.sm),
+                    **{"x-on:click": "snooze(7)"},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex items-center gap-2",
             ),
             # Close button
             Button(
                 "Close",
-                variant=ButtonT.primary,
-                **{"x-on:click": "close()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                cls=ButtonT.primary,
+                **{"x-on:click": "close()"},  # fasthtml dynamic-attr splat
             ),
             cls="flex items-center justify-between pt-4 border-t border-border",
         ),

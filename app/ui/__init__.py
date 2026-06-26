@@ -1,7 +1,8 @@
 """SKUEL UI Design System — MonsterUI + Typography-First Architecture."""
 
-from ui.buttons import Button, ButtonLink, ButtonT, IconButton
-from ui.cards import Card, CardActions, CardBody, CardFigure, CardHeader, CardLink, CardT, CardTitle
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardT, CardTitle
+from monsterui.franken import CardContainer as Card
+
 from ui.feedback import (
     Alert,
     AlertT,
@@ -31,15 +32,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import CONTAINER_WIDTH, PAGE_CONFIG, PageType
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
-from ui.text import (
-    BodyText,
-    Caption,
-    PageTitle,
-    SectionTitle,
-    SmallText,
-    Subtitle,
-    TruncatedText,
-)
+from ui.primitives import ButtonLink
 from ui.tokens import Card as CardTokens
 from ui.tokens import Container as ContainerTokens
 from ui.tokens import Spacing
@@ -61,13 +54,9 @@ __all__ = [
     "Button",
     "ButtonLink",
     "ButtonT",
-    "IconButton",
     # Cards
     "Card",
-    "CardActions",
     "CardBody",
-    "CardFigure",
-    "CardLink",
     "CardHeader",
     "CardT",
     "CardTitle",
@@ -94,12 +83,4 @@ __all__ = [
     "Row",
     "Size",
     "Stack",
-    # Typography
-    "BodyText",
-    "Caption",
-    "PageTitle",
-    "SectionTitle",
-    "SmallText",
-    "Subtitle",
-    "TruncatedText",
 ]

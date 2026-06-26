@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 import starlette.datastructures
 from fasthtml.common import Request
+from monsterui.franken import ButtonT
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
@@ -42,8 +43,7 @@ from core.ports.query_types import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.buttons import ButtonLink, ButtonT
-from ui.layout import Size
+from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from core.ports import TeacherReviewOperations
@@ -186,9 +186,7 @@ def create_teaching_api_routes(
                 ButtonLink(
                     "View revision instructions →",
                     href=f"/revised-exercises/detail?uid={re_uid}",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-1",
+                    cls=(ButtonT.ghost, ButtonT.sm, "mt-1"),
                 ),
                 cls="p-3 bg-amber-50 rounded border border-amber-200",
             )

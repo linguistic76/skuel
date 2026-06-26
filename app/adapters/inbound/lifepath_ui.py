@@ -15,6 +15,7 @@ UI Routes:
 from typing import Any
 
 from fasthtml.common import Div
+from monsterui.franken import ButtonT
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -22,7 +23,6 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
 from ui.lifepath import (
     lifepath_sidebar_page,
     render_alignment_dashboard,
@@ -32,6 +32,7 @@ from ui.lifepath import (
 )
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.loading import content_loading_placeholder
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.lifepath.ui")
 
@@ -56,7 +57,7 @@ def _error_page(message: str) -> Any:
     """Return error page."""
     return Div(
         render_error_banner("Error", technical_details=message),
-        ButtonLink("Go back", href="/lifepath", variant=ButtonT.primary, cls="mt-4"),
+        ButtonLink("Go back", href="/lifepath", cls=(ButtonT.primary, "mt-4")),
         cls="container mx-auto px-4 py-8",
     )
 

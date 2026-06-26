@@ -3,12 +3,13 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, P, Span
+from monsterui.franken import ButtonT
+from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card
 from ui.feedback import Progress
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 from ui.tokens import Container
 
 
@@ -84,6 +85,6 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
             ),
             cls="mb-8",
         ),
-        ButtonLink("Back to Dashboard", href="/lifepath", variant=ButtonT.outline),
+        ButtonLink("Back to Dashboard", href="/lifepath", cls=ButtonT.secondary),
         cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
     )

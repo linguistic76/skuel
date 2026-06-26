@@ -27,9 +27,8 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 from typing import Any
 
 from fasthtml.common import Div, Input, Span
+from monsterui.franken import Button, ButtonT
 
-from ui.buttons import Button, ButtonT
-from ui.layout import Size
 from ui.patterns.skeleton import SkeletonLines
 
 
@@ -142,12 +141,14 @@ def _render_tree_node(
         expand_icon_element = Button(
             Span("▶", **{"x-show": f"!isExpanded('{uid}')", "x-cloak": True}),  # Right chevron
             Span("▼", **{"x-show": f"isExpanded('{uid}')", "x-cloak": True}),  # Down chevron
-            **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            **{  # fasthtml dynamic-attr splat
                 "x-on:click.stop": f"toggleExpand('{uid}')",
             },
-            variant=ButtonT.ghost,
-            size=Size.xs,
-            cls="p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground",
+            cls=(
+                ButtonT.ghost,
+                ButtonT.xs,
+                "p-0 min-h-0 h-6 w-6 text-muted-foreground hover:text-foreground",
+            ),
             type="button",
         )
     else:
@@ -189,7 +190,7 @@ def _render_tree_node(
 
     # Actions menu (edit, delete, add child)
     actions = Div(
-        Button("⋮", variant=ButtonT.ghost, size=Size.xs, type="button"),
+        Button("⋮", cls=(ButtonT.ghost, ButtonT.xs), type="button"),
         cls="dropdown dropdown-end opacity-0 group-hover:opacity-100",
     )
 

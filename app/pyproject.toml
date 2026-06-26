@@ -314,6 +314,7 @@ warn_return_any = true
 module = [
     "neo4j.*",
     "fasthtml.*",
+    "monsterui.*",
     "langchain.*",
     "openai.*",
     "deepgram.*",

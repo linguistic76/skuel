@@ -12,16 +12,16 @@ Routes:
 from typing import Any
 
 from fasthtml.common import A, Div, P, Request, Span
+from monsterui.franken import Button, ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 logger = get_logger(__name__)
 
@@ -130,9 +130,7 @@ def create_form_submissions_ui_routes(
             hx_delete=f"/api/form-submissions/delete?uid={uid}",
             hx_confirm="Are you sure you want to delete this submission?",
             hx_swap="none",
-            variant=ButtonT.error,
-            size=Size.sm,
-            cls="mt-6",
+            cls=(ButtonT.destructive, ButtonT.sm, "mt-6"),
         )
 
         return BasePage(
@@ -146,9 +144,7 @@ def create_form_submissions_ui_routes(
                 ButtonLink(
                     "Back to My Forms",
                     href="/my-forms",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-4 ml-2",
+                    cls=(ButtonT.ghost, ButtonT.sm, "mt-4 ml-2"),
                 ),
             ),
             title=submission.title or "Form Submission",

@@ -19,15 +19,14 @@ from fasthtml.common import (
     Span,
     Ul,
 )
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.pathways.components import (
@@ -41,6 +40,7 @@ from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.primitives import ButtonLink
 from ui.ui_types import (
     ActivePathData,
     LearningStatsData,
@@ -109,12 +109,12 @@ def create_pathways_ui_routes(
                     ButtonLink(
                         "Browse Learning Paths",
                         href="/pathways/browse",
-                        variant=ButtonT.primary,
+                        cls=ButtonT.primary,
                     ),
                     ButtonLink(
                         "Browse Learning Steps",
                         href="/pathways/steps",
-                        variant=ButtonT.secondary,
+                        cls=ButtonT.secondary,
                     ),
                     cls="flex flex-wrap gap-3 justify-center",
                 ),
@@ -160,14 +160,12 @@ def create_pathways_ui_routes(
                             ButtonLink(
                                 "Browse Learning Paths",
                                 href="/pathways/browse",
-                                variant=ButtonT.primary,
-                                size=Size.sm,
+                                cls=(ButtonT.primary, ButtonT.sm),
                             ),
                             ButtonLink(
                                 "Browse Learning Steps",
                                 href="/pathways/steps",
-                                variant=ButtonT.secondary,
-                                size=Size.sm,
+                                cls=(ButtonT.secondary, ButtonT.sm),
                             ),
                             cls="flex flex-wrap gap-2",
                         ),
@@ -184,17 +182,17 @@ def create_pathways_ui_routes(
                         ButtonLink(
                             "View Analytics",
                             href="/pathways/analytics",
-                            variant=ButtonT.secondary,
+                            cls=ButtonT.secondary,
                         ),
                         ButtonLink(
                             "Browse Paths",
                             href="/pathways/browse",
-                            variant=ButtonT.outline,
+                            cls=ButtonT.secondary,
                         ),
                         ButtonLink(
                             "Browse Steps",
                             href="/pathways/steps",
-                            variant=ButtonT.outline,
+                            cls=ButtonT.secondary,
                         ),
                         cls="flex flex-wrap gap-3",
                     ),
@@ -381,7 +379,7 @@ def create_pathways_ui_routes(
                         "Back to Pathways",
                         hx_get="/pathways",
                         hx_target="body",
-                        variant=ButtonT.ghost,
+                        cls=ButtonT.ghost,
                     ),
                     cls="p-6",
                 ),
@@ -438,8 +436,7 @@ def create_pathways_ui_routes(
                     if is_enrolled
                     else Button(
                         "Enroll Now",
-                        variant=ButtonT.primary,
-                        size=Size.lg,
+                        cls=(ButtonT.primary, ButtonT.lg),
                         hx_post=f"/api/pathways/enroll/{path_uid}",
                         hx_target="#main-content",
                     ),
@@ -585,14 +582,14 @@ def create_pathways_ui_routes(
                 )
                 if outcomes
                 else None,
-                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
+                ButtonLink("← Back to Pathways", href="/pathways", cls=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
         else:
             detail_content = Card(
                 H1(f"Learning Path: {uid}", cls="text-2xl font-bold mb-4"),
                 P("Learning path not found.", cls="text-muted-foreground mb-4"),
-                ButtonLink("← Back to Pathways", href="/pathways", variant=ButtonT.ghost),
+                ButtonLink("← Back to Pathways", href="/pathways", cls=ButtonT.ghost),
                 cls="p-6 mb-4",
             )
 

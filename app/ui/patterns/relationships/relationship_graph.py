@@ -32,9 +32,10 @@ Color Scheme:
 """
 
 from fasthtml.common import H3, Div, Option
+from monsterui.franken import CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
-from ui.cards import Card, CardBody
 from ui.forms import Select
 
 

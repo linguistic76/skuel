@@ -16,17 +16,16 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -84,9 +83,7 @@ def EventCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#event-{safe_id(event.uid)}",
         hx_swap="outerHTML",
-        variant=ButtonT.neutral,
-        size="sm",
-        cls="rounded",
+        cls=(ButtonT.default, ButtonT.sm, "rounded"),
         title=f"Mark as {new_status}",
     )
 
@@ -214,7 +211,7 @@ def EventDetailView(
     sched_section = Div()
     if sched_items:
         sched_section = Div(
-            SectionTitle("Schedule"),
+            section_label("Schedule"),
             Div(
                 *sched_items,
                 cls="grid grid-cols-1 sm:grid-cols-3 gap-2",
@@ -244,7 +241,7 @@ def EventDetailView(
     loc_section = Div()
     if loc_items:
         loc_section = Div(
-            SectionTitle("Location"),
+            section_label("Location"),
             *loc_items,
             cls="my-4",
         )
@@ -255,7 +252,7 @@ def EventDetailView(
         count = len(event.attendee_emails)
         max_str = f" / {event.max_attendees}" if event.max_attendees else ""
         attendees_section = Div(
-            SectionTitle("Attendees"),
+            section_label("Attendees"),
             P(f"{count} attendee{'s' if count != 1 else ''}{max_str}"),
             cls="my-4",
         )
@@ -267,7 +264,7 @@ def EventDetailView(
         if event.recurrence_end_date:
             rec_items.append(MetadataField("Ends", Span(str(event.recurrence_end_date))))
         recurrence_section = Div(
-            SectionTitle("Recurrence"),
+            section_label("Recurrence"),
             Div(
                 *rec_items,
                 cls="grid grid-cols-1 sm:grid-cols-2 gap-2",
@@ -296,7 +293,7 @@ def EventDetailView(
                 )
             )
         milestone_section = Div(
-            SectionTitle("Milestone"),
+            section_label("Milestone"),
             *ms_items,
             cls="my-4",
         )
@@ -326,7 +323,7 @@ def EventDetailView(
     conn_section = Div()
     if connections:
         conn_section = Div(
-            SectionTitle("Connections"),
+            section_label("Connections"),
             ConnectionBadges(connections),
             cls="my-4",
         )

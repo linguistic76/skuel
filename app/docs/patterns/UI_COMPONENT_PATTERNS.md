@@ -44,7 +44,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
-- `/ui/buttons.py`, `/ui/cards.py`, `/ui/forms/`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (7 focused modules, March 2026)
+- `/ui/forms/`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (5 modules; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer as Card, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`)
 
 ---
 
@@ -360,9 +360,9 @@ Defined in `/static/css/input.css`:
 # Pure HTML elements from FastHTML
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
-# SKUEL MonsterUI wrappers — 8 focused modules (March 2026)
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardTitle, CardActions, CardT
+# MonsterUI direct imports (buttons + cards wrappers deleted PR E)
+from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody, CardTitle, CardT
+from ui.primitives import ButtonLink
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
@@ -938,7 +938,7 @@ Card(
 )
 ```
 
-Import from `ui.cards`: `Card, CardBody, CardHeader, CardTitle`. The `CardTitle` in `ui.cards` wraps MonsterUI's `MCardTitle` (semantic). The `p-6` and `bg-background shadow-sm` classes are provided automatically by MonsterUI's `uk-card-body` and `uk-card` — only add external layout classes like `mb-6` to `Card()`.
+Import from `monsterui.franken`: `CardContainer as Card, CardBody, CardHeader, CardTitle`. The `p-6` and `bg-background shadow-sm` classes are provided automatically by MonsterUI's `uk-card-body` and `uk-card` — only add external layout classes like `mb-6` to `Card()`.
 
 **Adoption status:** All card titles across ~12 files use semantic `CardHeader(CardTitle(...))`. Zero raw H2/H3 inside Card.
 
@@ -1065,12 +1065,9 @@ Button("Click", variant=ButtonT.primary)
 ### Don't Import Directly from MonsterUI Package
 
 ```python
-# BAD: Bypasses SKUEL wrappers
-from monsterui.all import Button, Card  # Don't use directly
-
-# GOOD: Use SKUEL wrappers
-from ui.buttons import Button
-from ui.cards import Card
+# GOOD: Import Button/Card directly from MonsterUI (SKUEL wrappers deleted PR E)
+from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
+from ui.primitives import ButtonLink  # A() wrapper for button-styled nav links
 ```
 
 ### Do Use Tailwind for Custom Styling

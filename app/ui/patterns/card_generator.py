@@ -51,13 +51,13 @@ from enum import Enum
 from typing import Any, get_args, get_origin
 
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
+from monsterui.franken import CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.utils.logging import get_logger
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
 from ui.layout import FlexItem, Row
-from ui.text import SmallText
 
 logger = get_logger("skuel.components.card_generator")
 
@@ -343,7 +343,7 @@ class CardGenerator:
             title_href: Optional URL to make the title a clickable link
             subtitle: Text or FT component below the title (before badges row)
             metadata: Pre-composed flex row after body fields, before actions.
-                Strings are wrapped in SmallText(); FT components pass through.
+                Strings are wrapped in a muted Span; FT components pass through.
             extra: Content appended after the actions slot, no wrapper.
 
         Returns:
@@ -470,7 +470,10 @@ class CardGenerator:
 
         # Add metadata row
         if metadata:
-            meta_items = [SmallText(m) if isinstance(m, str) else m for m in metadata]
+            meta_items = [
+                Span(m, cls="text-sm text-muted-foreground") if isinstance(m, str) else m
+                for m in metadata
+            ]
             card_components.append(Div(*meta_items, cls="flex flex-wrap gap-3 mt-3"))
 
         # Add actions slot

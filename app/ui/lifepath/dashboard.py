@@ -3,13 +3,13 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, P, Span
+from monsterui.franken import ButtonT
+from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card
 from ui.feedback import Badge, BadgeT, Progress
-from ui.layout import Size
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 
 def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
@@ -23,8 +23,7 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
             ButtonLink(
                 "Express Your Vision",
                 href="/lifepath/vision",
-                variant=ButtonT.primary,
-                size=Size.lg,
+                cls=(ButtonT.primary, ButtonT.lg),
             ),
             cls="container mx-auto px-4 py-8 text-center",
         )
@@ -82,10 +81,9 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
             ButtonLink(
                 "View Alignment Details",
                 href="/lifepath/alignment",
-                variant=ButtonT.outline,
-                cls="mr-4",
+                cls=(ButtonT.secondary, "mr-4"),
             ),
-            ButtonLink("Update Vision", href="/lifepath/vision", variant=ButtonT.outline),
+            ButtonLink("Update Vision", href="/lifepath/vision", cls=ButtonT.secondary),
             cls="flex gap-4",
         ),
         # Daily focus

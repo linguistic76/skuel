@@ -28,6 +28,7 @@ from fasthtml.common import (
     P,
     Script,
 )
+from monsterui.franken import Button, ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -44,7 +45,6 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
-from ui.buttons import Button, ButtonLink, ButtonT
 from ui.calendar.components import (
     create_day_timeline,
     create_item_details_modal,
@@ -55,12 +55,13 @@ from ui.calendar.components import (
     error_response,
 )
 from ui.feedback import Alert, AlertT
-from ui.layout import Container, Size
+from ui.layout import Container
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.calendar")
 
@@ -119,21 +120,17 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous",
                             href=f"/events/month/{prev_y}/{prev_m}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         ButtonLink(
                             "Today",
                             href="/events",
-                            variant=ButtonT.primary,
-                            size=Size.sm,
-                            cls="mx-2",
+                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
                         ),
                         ButtonLink(
                             "Next →",
                             href=f"/events/month/{next_y}/{next_m}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         cls="flex justify-center mb-6",
                     ),
@@ -184,21 +181,17 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous Week",
                             href=f"/events/week/{_get_prev_week(week_start)}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         ButtonLink(
                             "This Week",
                             href=f"/events/week/{date.today().isoformat()}",
-                            variant=ButtonT.primary,
-                            size=Size.sm,
-                            cls="mx-2",
+                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
                         ),
                         ButtonLink(
                             "Next Week →",
                             href=f"/events/week/{_get_next_week(week_start)}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         cls="flex justify-center mb-6",
                     ),
@@ -253,21 +246,17 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous Day",
                             href=f"/events/day/{_get_prev_day(target_date)}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         ButtonLink(
                             "Today",
                             href=f"/events/day/{date.today().isoformat()}",
-                            variant=ButtonT.primary,
-                            size=Size.sm,
-                            cls="mx-2",
+                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
                         ),
                         ButtonLink(
                             "Next Day →",
                             href=f"/events/day/{_get_next_day(target_date)}",
-                            variant=ButtonT.ghost,
-                            size=Size.sm,
+                            cls=(ButtonT.ghost, ButtonT.sm),
                         ),
                         cls="flex justify-center mb-6",
                     ),
@@ -469,9 +458,10 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                 P("Calendar item not found", cls="text-muted-foreground"),
                 Button(
                     "Close",
-                    variant=ButtonT.ghost,
-                    cls="mt-4",
-                    **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
+                    cls=(ButtonT.ghost, "mt-4"),
+                    **{
+                        "x-on:click": close_expr
+                    },  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
                 ),
                 show="open",
                 close=close_expr,

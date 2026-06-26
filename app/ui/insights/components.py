@@ -3,8 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, NotStr, Span
+from monsterui.franken import Button, ButtonT
 
-from ui.buttons import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
 from ui.insights.filters import InsightsFilters
 from ui.insights.insight_card import InsightCard
@@ -104,9 +104,8 @@ def render_filter_form(filters: InsightsFilters) -> Any:
             Button(
                 "Clear",
                 type="button",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                **{"@click": "clearFilters()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                cls=(ButtonT.ghost, ButtonT.sm),
+                **{"@click": "clearFilters()"},  # fasthtml dynamic-attr splat
             ),
             # Loading indicator (shown during debounce/navigation)
             Span(
@@ -142,21 +141,18 @@ def render_bulk_action_bar() -> Any:
             Div(
                 Button(
                     "Dismiss Selected",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"@click": "bulkDismiss()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, ButtonT.sm),
+                    **{"@click": "bulkDismiss()"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Mark as Actioned",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    **{"@click": "bulkMarkActioned()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.primary, ButtonT.sm),
+                    **{"@click": "bulkMarkActioned()"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Deselect All",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    **{"@click": "deselectAll()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, ButtonT.sm),
+                    **{"@click": "deselectAll()"},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex gap-2",
             ),

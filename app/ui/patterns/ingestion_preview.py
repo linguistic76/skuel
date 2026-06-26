@@ -24,8 +24,8 @@ from fasthtml.common import (
     Td,
     Ul,
 )
+from monsterui.franken import Button, ButtonT
 
-from ui.buttons import Button, ButtonT
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 
@@ -106,12 +106,12 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
             Div(
                 Button(
                     "Execute Ingestion",
-                    variant=ButtonT.primary,
+                    cls=ButtonT.primary,
                     hx_post="/api/ingest/execute",
                     hx_vals=f'{{"operation_id": "{operation_id}"}}',
                     hx_target="#ingestion-results",
                 ),
-                Button("Cancel", variant=ButtonT.ghost, onclick="window.history.back()"),
+                Button("Cancel", cls=ButtonT.ghost, onclick="window.history.back()"),
                 cls="flex gap-2 mt-4",
             )
             if operation_id

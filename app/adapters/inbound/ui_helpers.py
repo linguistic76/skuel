@@ -86,9 +86,9 @@ async def render_entity_not_found_page(
         request: The Starlette request (passed to BasePage)
     """
     from fasthtml.common import P
+    from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+    from monsterui.franken import CardContainer as Card
 
-    from ui.buttons import Button, ButtonT
-    from ui.cards import Card, CardBody, CardHeader, CardTitle
     from ui.layouts.base_page import BasePage
     from ui.layouts.page_types import PageType
 
@@ -101,8 +101,7 @@ async def render_entity_not_found_page(
                     f"← Back to {entity_label}s",
                     hx_get=f"/{domain_slug}",
                     hx_target="body",
-                    variant=ButtonT.primary,
-                    cls="mt-4",
+                    cls=(ButtonT.primary, "mt-4"),
                 ),
             ),
         ),

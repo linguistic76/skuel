@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import Button, Div, P, Span
-from monsterui.franken import UkIcon
+from fasthtml.common import A, Button, Div, P, Span
+from monsterui.franken import ButtonT, UkIcon
 
 
 def icon_tile(
@@ -71,3 +71,24 @@ def card_row(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-element
     """Flex row with gap-[13px] — standard icon-tile + text content row."""
     extra = f" {cls}" if cls else ""
     return Div(*content, cls=f"flex items-center gap-[13px]{extra}")
+
+
+def ButtonLink(
+    *c: Any,
+    href: str,
+    cls: str | ButtonT = ButtonT.default,
+    **kwargs: Any,
+) -> Any:  # boundary: fasthtml-elements
+    """A-element styled as a MonsterUI button.
+
+    Pass a ButtonT variant as cls (e.g. ``cls=ButtonT.ghost``), a tuple of
+    ButtonT values (e.g. ``cls=(ButtonT.ghost, ButtonT.sm)``), or a raw
+    CSS class string.
+    """
+    if isinstance(cls, tuple):
+        cls_str = " ".join(
+            f"uk-button {part}" if i == 0 else str(part) for i, part in enumerate(cls)
+        )
+    else:
+        cls_str = f"uk-button {cls}"
+    return A(*c, href=href, cls=cls_str, **kwargs)

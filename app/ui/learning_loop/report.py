@@ -26,13 +26,14 @@ from fasthtml.common import (
     Ul,
 )
 from fasthtml.common import Button as HtmlButton
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.primitives import ButtonLink
 
 # ============================================================================
 # SHARED HELPERS
@@ -111,9 +112,7 @@ def render_submission_history_row(item: dict) -> Any:
     if feedback_count == 0:
         delete_button = Button(
             "Delete",
-            variant=ButtonT.error,
-            size=Size.sm,
-            cls="ml-1",
+            cls=(ButtonT.destructive, ButtonT.sm, "ml-1"),
             hx_post=f"/submissions/history/delete?uid={uid}",
             hx_target=f"#submission-row-{uid}",
             hx_swap="outerHTML",
@@ -135,9 +134,7 @@ def render_submission_history_row(item: dict) -> Any:
             ButtonLink(
                 "View",
                 href=f"/gradebook/{uid}",
-                variant=ButtonT.primary,
-                size=Size.sm,
-                cls="ml-3",
+                cls=(ButtonT.primary, ButtonT.sm, "ml-3"),
             ),
             delete_button,
             cls="flex items-center gap-4",
@@ -198,9 +195,7 @@ def render_report_card(assessment: Any) -> Any:
                 ButtonLink(
                     "View Full",
                     href=f"/entry-reports/detail?uid={uid}",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    cls="mt-2",
+                    cls=(ButtonT.primary, ButtonT.sm, "mt-2"),
                 ),
                 cls="p-4",
             ),
@@ -331,14 +326,12 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
                 ButtonLink(
                     "View Revision Instructions \u2192",
                     href=f"/revised-exercises/detail?uid={re_uid}",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
+                    cls=(ButtonT.primary, ButtonT.sm),
                 ),
                 ButtonLink(
                     "Submit Revision",
                     href=f"/submit?exercise_uid={re_uid}",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
+                    cls=(ButtonT.ghost, ButtonT.sm),
                 ),
                 cls="flex flex-wrap gap-2",
             ),
@@ -350,7 +343,7 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
         ButtonLink(
             "\u2190 Back to Entry Reports",
             href="/entry-reports",
-            variant=ButtonT.ghost,
+            cls=ButtonT.ghost,
         ),
         cls="mt-6",
     )
@@ -636,9 +629,7 @@ def render_activity_report_detail(
                 ButtonLink(
                     "Save Notes",
                     href="#",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    cls="cursor-pointer",
+                    cls=(ButtonT.primary, ButtonT.sm, "cursor-pointer"),
                 ),
                 Div(id="annotation-status", cls="ml-3 text-sm"),
                 cls="flex items-center",
@@ -661,7 +652,7 @@ def render_activity_report_detail(
         ButtonLink(
             "\u2190 Back to Activity Reports",
             href="/activity-reports",
-            variant=ButtonT.ghost,
+            cls=ButtonT.ghost,
         ),
         cls="mt-6",
     )

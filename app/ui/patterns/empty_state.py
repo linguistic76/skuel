@@ -6,11 +6,9 @@ content, along with optional actions to create the first item.
 
 from typing import Any
 
-from fasthtml.common import Div
+from fasthtml.common import A, Div, P
 
-from ui.buttons import ButtonLink
 from ui.layout import Stack
-from ui.text import BodyText
 
 
 def EmptyState(
@@ -56,10 +54,12 @@ def EmptyState(
     content.append(Div(title, cls="text-xl font-semibold text-foreground"))
 
     if description:
-        content.append(BodyText(description, muted=True))
+        content.append(P(description, cls="text-base leading-relaxed text-muted-foreground"))
 
     if action_text and action_href:
-        content.append(Div(ButtonLink(action_text, href=action_href), cls="mt-6"))
+        content.append(
+            Div(A(action_text, href=action_href, cls="uk-button uk-btn-primary"), cls="mt-6")
+        )
 
     return Div(
         Stack(*content, gap=2),

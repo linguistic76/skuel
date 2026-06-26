@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
 from fasthtml.common import H3, Div, P
+from monsterui.franken import CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
@@ -36,7 +38,6 @@ from ui.activity_review import (
     render_snapshot_form,
 )
 from ui.activity_review.types import DOMAIN_CHOICES
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_inline_error

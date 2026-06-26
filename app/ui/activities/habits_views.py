@@ -16,13 +16,12 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -30,7 +29,7 @@ from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -96,9 +95,7 @@ def HabitCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#habit-{safe_id(habit.uid)}",
         hx_swap="outerHTML",
-        variant=ButtonT.neutral,
-        size="sm",
-        cls="rounded",
+        cls=(ButtonT.default, ButtonT.sm, "rounded"),
         title=f"Mark as {new_status}",
     )
 
@@ -217,7 +214,7 @@ def HabitInsightsSection(analysis: "PatternAnalysis") -> "FT":
         )
 
     return Div(
-        SectionTitle("Pattern Insights"),
+        section_label("Pattern Insights"),
         *body,
         id="habit-insights",
         cls="my-4",
@@ -264,7 +261,7 @@ def HabitChoicesSection(
         )
 
     return Div(
-        SectionTitle("Choices"),
+        section_label("Choices"),
         Div(*columns, cls="grid grid-cols-1 sm:grid-cols-2 gap-2"),
         id="habit-choices",
         cls="my-4",
@@ -334,7 +331,7 @@ def HabitDetailView(
     streak_section = Div()
     if streak_items:
         streak_section = Div(
-            SectionTitle("Streaks & Progress"),
+            section_label("Streaks & Progress"),
             Div(
                 *streak_items,
                 cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
@@ -353,7 +350,7 @@ def HabitDetailView(
     atomic_section = Div()
     if atomic_items:
         atomic_section = Div(
-            SectionTitle("Atomic Habits"),
+            section_label("Atomic Habits"),
             *atomic_items,
             cls="my-4",
         )
@@ -369,7 +366,7 @@ def HabitDetailView(
     identity_section = Div()
     if identity_items:
         identity_section = Div(
-            SectionTitle("Identity"),
+            section_label("Identity"),
             *identity_items,
             cls="my-4",
         )
@@ -387,7 +384,7 @@ def HabitDetailView(
     sched_section = Div()
     if sched_items:
         sched_section = Div(
-            SectionTitle("Schedule"),
+            section_label("Schedule"),
             Div(
                 *sched_items,
                 cls="grid grid-cols-2 sm:grid-cols-4 gap-2",
@@ -424,7 +421,7 @@ def HabitDetailView(
     conn_section = Div()
     if connections:
         conn_section = Div(
-            SectionTitle("Connections"),
+            section_label("Connections"),
             ConnectionBadges(connections),
             cls="my-4",
         )

@@ -16,10 +16,10 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 from typing import Any
 
 from fasthtml.common import Div, P
+from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
 from ui.exercises.cards import render_exercises_list
 from ui.exercises.detail import render_exercise_student_detail, render_exercise_view
 from ui.exercises.editor import render_exercise_editor
@@ -27,6 +27,7 @@ from ui.layouts.base_page import BasePage
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.exercises.ui")
@@ -153,7 +154,7 @@ def create_exercises_ui_routes(
                         PageHeader("Exercise Not Found"),
                         P("Missing exercise UID.", cls="text-base-content/70"),
                         ButtonLink(
-                            "← Back to Library", href="/profile?tab=library", variant=ButtonT.ghost
+                            "← Back to Library", href="/profile?tab=library", cls=ButtonT.ghost
                         ),
                         cls=f"{Container.STANDARD} {Spacing.PAGE}",
                     ),
@@ -187,9 +188,7 @@ def create_exercises_ui_routes(
             if result.is_error or not result.value:
                 return Div(
                     render_error_banner("Exercise not found"),
-                    ButtonLink(
-                        "← Back to Library", href="/profile?tab=library", variant=ButtonT.ghost
-                    ),
+                    ButtonLink("← Back to Library", href="/profile?tab=library", cls=ButtonT.ghost),
                     id="exercise-detail-content",
                 )
             exercise = result.value

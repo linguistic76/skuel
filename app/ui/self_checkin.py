@@ -15,6 +15,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Form, P
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums import (
     DecisionQualityLevel,
@@ -23,11 +25,9 @@ from core.models.enums import (
     ProductivityLevel,
 )
 from core.models.shared.dual_track import DualTrackResult
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.dual_track_card import gap_card, level_options, render_checkin_trend
 from ui.forms import LabelSelect, LabelTextArea
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from enum import StrEnum
@@ -85,7 +85,7 @@ def render_checkin_form() -> Any:
                     cls="space-y-2 mb-4",
                 ),
                 Div(
-                    Button("See My Perception Gap", type="submit", variant=ButtonT.primary),
+                    Button("See My Perception Gap", type="submit", cls=ButtonT.primary),
                     cls="text-right",
                 ),
                 hx_post="/self-checkin/results",
@@ -122,7 +122,7 @@ def render_checkin_history(checkins_by_dimension: dict[str, list[dict[str, Any]]
         return None
 
     return Div(
-        SectionTitle("Your Check-In History"),
+        section_label("Your Check-In History"),
         *blocks,
         cls="mt-8",
     )

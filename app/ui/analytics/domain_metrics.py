@@ -3,9 +3,9 @@
 from typing import Any
 
 from fasthtml.common import H3, H4, Div, Span
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums import AnalyticsDomain
-from ui.cards import Card
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid

@@ -14,19 +14,20 @@ import json
 from typing import Any
 
 from fasthtml.common import A, Div, Small, Span
+from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 from ui.teaching.forms import (
     form_data_preview,
     format_date,
@@ -109,8 +110,7 @@ def create_teaching_forms_ui_routes(
                     actions=ButtonLink(
                         "View Submissions",
                         href=f"/teaching/forms/detail?uid={template.uid}",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
+                        cls=(ButtonT.primary, ButtonT.sm),
                     ),
                     card_attrs={"cls": "bg-background shadow-sm mb-2"},
                 )
@@ -207,8 +207,7 @@ def create_teaching_forms_ui_routes(
                     actions=ButtonLink(
                         "View",
                         href=f"/teaching/forms/submission?uid={sub_uid}",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
+                        cls=(ButtonT.ghost, ButtonT.sm),
                     ),
                     card_attrs={"cls": "bg-background shadow-sm mb-2"},
                 )
