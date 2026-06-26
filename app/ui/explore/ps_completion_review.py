@@ -17,9 +17,9 @@ Defaults pinned 2026-05-11:
 from __future__ import annotations
 
 from fasthtml.common import H4, Div, Form, Input, P, Span
+from monsterui.franken import Button, ButtonT
 
 from core.services.ps_engagement.ps_engagement_service import ReviewItem
-from ui.buttons import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.forms.components import Checkbox
 from ui.layout import Size
@@ -54,8 +54,7 @@ def render_review_error(uid: str, message: str) -> Div:
             P(message, cls="text-sm text-muted-foreground mb-3"),
             Button(
                 "Back to engagement",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
                 hx_get=f"/explore/ps/{uid}/engagement-actions",
                 hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
                 hx_swap="outerHTML",
@@ -84,8 +83,7 @@ def _empty_review_body(uid: str) -> Div:
                 Button(
                     "Cancel",
                     type="button",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
+                    cls=(ButtonT.ghost, ButtonT.sm),
                     hx_get=f"/explore/ps/{uid}/engagement-actions",
                     hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
                     hx_swap="outerHTML",
@@ -93,8 +91,7 @@ def _empty_review_body(uid: str) -> Div:
                 Button(
                     "Complete",
                     type="submit",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
+                    cls=(ButtonT.primary, ButtonT.sm),
                 ),
                 cls="flex gap-2 justify-end",
             ),
@@ -120,8 +117,7 @@ def _populated_review_body(uid: str, items: list[ReviewItem]) -> Div:
                 Button(
                     "Cancel",
                     type="button",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
+                    cls=(ButtonT.ghost, ButtonT.sm),
                     hx_get=f"/explore/ps/{uid}/engagement-actions",
                     hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
                     hx_swap="outerHTML",
@@ -129,8 +125,7 @@ def _populated_review_body(uid: str, items: list[ReviewItem]) -> Div:
                 Button(
                     "Save & Complete",
                     type="submit",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
+                    cls=(ButtonT.primary, ButtonT.sm),
                 ),
                 cls="flex gap-2 justify-end",
             ),

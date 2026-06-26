@@ -10,12 +10,13 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Div, P
+from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.groups.shared_preview import _format_shared_at
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 
 def _attribution(payload: dict[str, Any]) -> str:
@@ -62,7 +63,7 @@ def PeerEntryView(payload: dict[str, Any], group_uid: str) -> Div:
                     ButtonLink(
                         "\u2190 Back to group",
                         href=f"/groups?group={group_uid}",
-                        variant=ButtonT.ghost,
+                        cls=ButtonT.ghost,
                     ),
                     cls="mt-4",
                 ),
@@ -86,7 +87,7 @@ def PeerEntryNotFound() -> Div:
         ),
         render_inline_error("Ask a classmate to re-share it, or head back to the Groups hub."),
         Div(
-            ButtonLink("\u2190 Back to Groups", href="/groups", variant=ButtonT.ghost),
+            ButtonLink("\u2190 Back to Groups", href="/groups", cls=ButtonT.ghost),
             cls="mt-4",
         ),
         cls="max-w-3xl mx-auto",

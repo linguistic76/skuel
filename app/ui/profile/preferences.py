@@ -12,9 +12,9 @@ Date: 2025-10-14
 from typing import Any
 
 from fasthtml.common import Div, Form, Option, P, Span
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect
 from ui.patterns.page_header import PageHeader
@@ -78,14 +78,13 @@ class UserPreferencesComponents:
                 Button(
                     "Cancel",
                     type="button",
-                    variant=ButtonT.outline,
-                    cls="mr-4",
+                    cls=(ButtonT.secondary, "mr-4"),
                     onclick="window.location.href='/settings'",
                 ),
                 Button(
                     "Save All Changes",
                     type="submit",
-                    variant=ButtonT.primary,
+                    cls=ButtonT.primary,
                     form="preferences-form",
                 ),
                 cls="flex justify-end mt-6",
@@ -370,8 +369,7 @@ class UserPreferencesComponents:
             ),
             Button(
                 "Back to Settings",
-                variant=ButtonT.primary,
-                cls="mt-4",
+                cls=(ButtonT.primary, "mt-4"),
                 onclick="window.location.href='/settings'",
             ),
             variant=AlertT.success,

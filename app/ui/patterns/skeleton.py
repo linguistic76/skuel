@@ -17,8 +17,7 @@ Usage:
 """
 
 from fasthtml.common import Div
-
-from ui.cards import Card
+from monsterui.franken import CardContainer as Card
 
 
 def SkeletonCard() -> Div:

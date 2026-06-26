@@ -18,11 +18,12 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import H3, H4, Button, Div, Form, Li, P, Span, Ul
+from monsterui.franken import ButtonT
 
 from adapters.inbound.csrf import csrf_hidden_input
-from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.primitives import ButtonLink
 
 TEMPLATES_PANEL_ID = "ps-templates-panel"
 
@@ -92,8 +93,7 @@ def _render_domain_row(
         ButtonLink(
             "+ Add",
             href=f"/teaching/ps/{ps_uid}/templates/{domain}/new",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
         ),
         cls="flex items-center justify-between",
     )
@@ -147,8 +147,7 @@ def _render_template_row(
             ButtonLink(
                 "Edit",
                 href=f"/teaching/ps/{ps_uid}/templates/{domain}/edit?uid={uid}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             ),
             detach_form,
             cls="flex items-center gap-2 shrink-0",

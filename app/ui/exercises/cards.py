@@ -8,11 +8,10 @@ Pure rendering functions for exercise list and card views.
 from typing import Any
 
 from fasthtml.common import Div, P, Span
+from monsterui.franken import Button, ButtonT
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card
 from ui.feedback import Badge, BadgeT
-from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 
 
@@ -49,15 +48,13 @@ def render_exercise_card(exercise: Any) -> Any:
             "Edit",
             hx_get=f"/exercises/{exercise.uid}/edit",
             hx_target="#main-content",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
         ),
         Button(
             "View Instructions",
             hx_get=f"/exercises/{exercise.uid}/view",
             hx_target="#main-content",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
         ),
         Button(
             "Delete",
@@ -65,8 +62,7 @@ def render_exercise_card(exercise: Any) -> Any:
             hx_confirm="Are you sure you want to delete this exercise?",
             hx_target="closest .card",
             hx_swap="outerHTML",
-            variant=ButtonT.error,
-            size=Size.sm,
+            cls=(ButtonT.destructive, ButtonT.sm),
         ),
         cls="flex gap-2",
     )

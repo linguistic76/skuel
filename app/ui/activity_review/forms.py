@@ -3,10 +3,10 @@
 from typing import Any
 
 from fasthtml.common import Div, Form, Input, NotStr, Option, Script
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from ui.activity_review.types import DOMAIN_CHOICES
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect, LabelTextArea
 
 
@@ -59,7 +59,7 @@ def render_snapshot_form(subject_uid: str = "", time_period: str = "7d") -> Any:
                     Button(
                         "Load Snapshot",
                         type="submit",
-                        variant=ButtonT.secondary,
+                        cls=ButtonT.secondary,
                     ),
                     cls="text-right",
                 ),
@@ -102,7 +102,7 @@ def render_feedback_form(subject_uid: str = "", time_period: str = "7d") -> Any:
                     Button(
                         "Submit Feedback",
                         type="submit",
-                        variant=ButtonT.primary,
+                        cls=ButtonT.primary,
                     ),
                     cls="text-right",
                 ),

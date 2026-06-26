@@ -21,12 +21,13 @@ Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 from typing import Any
 
 from fasthtml.common import Div, Span
+from monsterui.franken import ButtonT
 
 from core.ports.query_types import PathStepSubmissionRow
-from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.primitives import ButtonLink
 
 
 def _outcome_badge(outcome: str) -> Any:
@@ -60,7 +61,7 @@ def _feedback_row(sub: PathStepSubmissionRow) -> Div:
             ButtonLink(
                 action_text,
                 href=f"/entry-reports/detail?uid={sub['report_uid']}",
-                variant=ButtonT.primary if action_text == "Revise →" else ButtonT.ghost,
+                cls=ButtonT.primary if action_text == "Revise →" else ButtonT.ghost,
                 size=Size.sm,
             ),
             cls="flex items-center gap-2",

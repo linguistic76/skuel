@@ -8,11 +8,12 @@ Pure rendering functions for exercise detail and transparency views.
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, A, Code, Div, Li, P, Pre, Span, Ul
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 from ui.tokens import Container, Spacing
 
 
@@ -116,14 +117,13 @@ def render_exercise_view(exercise: Any, required_knowledge: list | None = None) 
                 "Edit Exercise",
                 hx_get=f"/exercises/{exercise.uid}/edit",
                 hx_target="#main-content",
-                variant=ButtonT.primary,
-                cls="mr-2",
+                cls=(ButtonT.primary, "mr-2"),
             ),
             Button(
                 "Back to Exercises",
                 hx_get="/exercises",
                 hx_target="#main-content",
-                variant=ButtonT.ghost,
+                cls=ButtonT.ghost,
             ),
             cls="mt-4",
         ),
@@ -214,12 +214,12 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         ButtonLink(
             "Download",
             href=f"/api/exercises/md?uid={exercise.uid}",
-            variant=ButtonT.secondary,
+            cls=ButtonT.secondary,
         ),
         ButtonLink(
             "Submit",
             href=submit_href,
-            variant=ButtonT.primary,
+            cls=ButtonT.primary,
         ),
         cls="flex gap-2",
     )
@@ -237,7 +237,7 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         ButtonLink(
             "← Back to Library",
             href="/profile?tab=library",
-            variant=ButtonT.ghost,
+            cls=ButtonT.ghost,
         ),
         cls=f"{Container.STANDARD} {Spacing.PAGE}",
     )

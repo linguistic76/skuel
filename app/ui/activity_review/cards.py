@@ -3,11 +3,12 @@
 from typing import Any
 
 from fasthtml.common import H4, Div, P, Span
+from monsterui.franken import ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.primitives import ButtonLink
 
 
 def render_queue_item(item: dict[str, Any]) -> Any:
@@ -45,8 +46,7 @@ def render_queue_item(item: dict[str, Any]) -> Any:
                 ButtonLink(
                     "Start Review",
                     href=review_href,
-                    variant=ButtonT.primary,
-                    size=Size.sm,
+                    cls=(ButtonT.primary, ButtonT.sm),
                 ),
                 cls="p-4",
             ),

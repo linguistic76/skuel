@@ -17,12 +17,13 @@ Data shape: ExerciseStatusRow TypedDict (core/ports/query_types.py).
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
+from monsterui.franken import ButtonT
 
 from core.ports.query_types import ExerciseStatusRow
-from ui.buttons import ButtonLink, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.primitives import ButtonLink
 
 _EXERCISE_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
     "not_submitted": ("Not Submitted", BadgeT.neutral, ""),
@@ -70,22 +71,19 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
         return ButtonLink(
             "Submit →",
             href=submit_href,
-            variant=ButtonT.primary,
-            size=Size.sm,
+            cls=(ButtonT.primary, ButtonT.sm),
         )
     if status == "submitted":
         return ButtonLink(
             "View Submission →",
             href=f"/gradebook/{row['submission_uid']}",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
         )
     # feedback_available or revision_requested
     return ButtonLink(
         "View Report →",
         href=f"/entry-reports/detail?uid={row['report_uid']}",
-        variant=ButtonT.ghost,
-        size=Size.sm,
+        cls=(ButtonT.ghost, ButtonT.sm),
     )
 
 
@@ -108,8 +106,7 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
             ButtonLink(
                 "Download",
                 href=f"/api/exercises/md?uid={row['uid']}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             ),
             exercise_action_link(row, from_ps=from_ps),
             cls="flex items-center gap-2",

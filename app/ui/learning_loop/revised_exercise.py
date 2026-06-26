@@ -17,14 +17,15 @@ from fasthtml.common import (
     P,
     Span,
 )
+from monsterui.franken import ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums.learning_enums import FeedbackCategory
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.primitives import ButtonLink
 
 # ============================================================================
 # HELPERS
@@ -141,16 +142,14 @@ def render_revised_exercise_detail(entity: Any) -> Any:
             ButtonLink(
                 "View Original Exercise",
                 href=f"/exercises/get?uid={original_exercise_uid}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             )
         )
         links.append(
             ButtonLink(
                 "Submit Revision",
                 href=f"/submit?exercise_uid={uid}",
-                variant=ButtonT.primary,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
             )
         )
     if report_uid:
@@ -158,8 +157,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
             ButtonLink(
                 "View Report",
                 href=f"/entry-reports/detail?uid={report_uid}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             )
         )
 
@@ -170,7 +168,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         ButtonLink(
             "\u2190 Back to Revisions",
             href="/revised-exercises",
-            variant=ButtonT.ghost,
+            cls=ButtonT.ghost,
         ),
         cls="mt-6",
     )
@@ -224,9 +222,7 @@ def render_revised_exercise_card(entity: Any) -> Any:
                 ButtonLink(
                     "View Details",
                     href=f"/revised-exercises/detail?uid={uid}",
-                    variant=ButtonT.secondary,
-                    size=Size.sm,
-                    cls="mt-2",
+                    cls=(ButtonT.secondary, ButtonT.sm, "mt-2"),
                 ),
                 cls="p-4",
             ),

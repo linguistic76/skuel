@@ -9,10 +9,10 @@ UI routes for displaying and managing event-driven insights.
 from typing import Any
 
 from fasthtml.common import Div, P, Span
+from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
 from ui.insights.components import (
     render_bulk_action_bar,
     render_charts_section,
@@ -25,7 +25,6 @@ from ui.insights.filters import (
     filter_insights,
     parse_insights_filters,
 )
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
@@ -34,6 +33,7 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.personal_header import personal_header_placeholder
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.insights.ui")
 
@@ -150,8 +150,7 @@ def create_insights_ui_routes(
                 ButtonLink(
                     "📜 View History",
                     href="/insights/history",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
+                    cls=(ButtonT.ghost, ButtonT.sm),
                 ),
                 cls="mb-4",
             ),

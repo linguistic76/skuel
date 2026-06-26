@@ -20,7 +20,7 @@ from typing import Any, Union, get_args, get_origin
 
 from fasthtml.common import H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, UkIcon
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -35,7 +35,6 @@ from core.ports import (
     PydanticFieldInfo,
 )
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
 from ui.forms import Checkbox, Input, Label, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
@@ -315,7 +314,7 @@ class FormGenerator:
         # it's clearly separated from the section cards above.
         form_fields.append(
             Div(
-                Button(submit_label, type="submit", variant=ButtonT.primary),
+                Button(submit_label, type="submit", cls=ButtonT.primary),
                 cls="flex justify-end pt-2",
             )
         )

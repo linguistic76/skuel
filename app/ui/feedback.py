@@ -7,16 +7,13 @@ Uses MonsterUI where available, Tailwind utilities for semantic badges.
 """
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from fasthtml.common import Div, Span
 from monsterui.daisy import Alert as MAlert
 from monsterui.daisy import AlertT as MAlertT
 from monsterui.daisy import Loading as MLoading
 from monsterui.daisy import LoadingT as MLoadingT
-
-if TYPE_CHECKING:
-    from ui.buttons import ButtonT
 
 from ui.layout import Size
 
@@ -238,7 +235,7 @@ def Progress(
 def RadialProgress(
     value: int | float,
     cls: str = "",
-    variant: "ButtonT" = None,  # type: ignore[assignment]
+    variant: str | None = None,
     size: str = "4rem",
     **kwargs: Any,
 ) -> Any:

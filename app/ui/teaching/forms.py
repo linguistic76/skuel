@@ -12,9 +12,9 @@ from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, Form, Input, Label, P, Strong
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.forms import Textarea
 from ui.patterns.empty_state import EmptyState
 
@@ -44,7 +44,7 @@ def render_feedback_submission_form(submission_uid: str) -> Any:
                     ),
                     cls="mb-4",
                 ),
-                Button("Submit Feedback", variant=ButtonT.primary, type="submit"),
+                Button("Submit Feedback", cls=ButtonT.primary, type="submit"),
                 enctype="multipart/form-data",
                 hx_post=f"/api/teaching/review/{submission_uid}/report",
                 hx_target="#review-result",
@@ -82,10 +82,10 @@ def render_revision_request_form(submission_uid: str) -> Any:
                     cls="mb-4",
                 ),
                 Div(
-                    Button("Request Revision", variant=ButtonT.warning, type="submit"),
+                    Button("Request Revision", cls=ButtonT.secondary, type="submit"),
                     Button(
                         "Approve",
-                        variant=ButtonT.success,
+                        cls=ButtonT.primary,
                         type="button",
                         hx_post=f"/api/teaching/review/{submission_uid}/approve",
                         hx_target="#review-result",

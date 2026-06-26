@@ -13,13 +13,12 @@ See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
+from monsterui.franken import Button, ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.notifications import render_notification_card, render_notification_empty_state
 from ui.patterns.page_header import PageHeader
@@ -67,8 +66,7 @@ def create_notifications_ui_routes(
         if unread_count > 0:
             mark_all_btn = Button(
                 "Mark all as read",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
                 hx_post="/notifications/read-all",
                 hx_target="#notification-list",
                 hx_swap="innerHTML",

@@ -23,12 +23,12 @@ from fasthtml.common import (
     Request,
     Span,
 )
+from monsterui.franken import Button, ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonT
 from ui.exercises.inline_form import render_inline_exercise_form
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -57,8 +57,7 @@ def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> An
             Badge("Studying", variant=BadgeT.secondary),
             Button(
                 "Mark as Understood",
-                variant=ButtonT.success,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
                 hx_post=f"/api/ku/{uid}/mark-understood",
                 hx_swap="outerHTML",
                 hx_target="#ku-learning-actions",
@@ -70,16 +69,14 @@ def _ku_learning_buttons(uid: str, is_studying: bool, is_understood: bool) -> An
     return Div(
         Button(
             "Mark as Studying",
-            variant=ButtonT.primary,
-            size=Size.sm,
+            cls=(ButtonT.primary, ButtonT.sm),
             hx_post=f"/api/ku/{uid}/mark-studying",
             hx_swap="outerHTML",
             hx_target="#ku-learning-actions",
         ),
         Button(
             "Mark as Understood",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
             disabled=True,
         ),
         id="ku-learning-actions",

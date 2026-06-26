@@ -1,7 +1,7 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-04-05
-**Status:** Complete — MonsterUI consolidated (primitives layer removed)
+**Last Updated:** 2026-06-26
+**Status:** Complete — MonsterUI consolidated (primitives layer removed; `ui/buttons.py` + `ui/cards.py` deleted PR E)
 
 ---
 
@@ -16,6 +16,7 @@ This catalog documents all UI components in SKUEL's design system, organized int
 All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 Level AA accessibility standards.
 
 > **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the MonsterUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
+> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. Import `Button, ButtonT` and `CardContainer as Card, CardBody, CardHeader, CardTitle, CardT` directly from `monsterui.franken`. `ButtonLink` moved to `ui/primitives.py` (thin `A()` wrapper, `cls=ButtonT.X` API). Typography helpers (`SectionTitle`, etc.) replaced by `section_label()` from `ui/primitives.py` or inline Tailwind.
 
 ---
 
@@ -23,12 +24,13 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 
 | Category | Components | Location |
 |----------|------------|----------|
-| **Buttons** | Button, ButtonLink, IconButton, ButtonT | `ui/buttons.py` |
-| **Cards** | Card, CardBody, CardTitle, CardActions, CardFigure, CardLink, CardT | `ui/cards.py` |
+| **Buttons** | Button, ButtonT | `monsterui.franken` (direct) |
+| **ButtonLink** | ButtonLink | `ui/primitives.py` (`A()` wrapper, `cls=ButtonT.X`) |
+| **Cards** | Card (=CardContainer), CardBody, CardHeader, CardTitle, CardT | `monsterui.franken` (direct) |
+| **Primitives** | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink` | `ui/primitives.py` |
 | **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox | `ui/forms/` |
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
 | **Layout** | DivHStacked, DivVStacked, DivFullySpaced, DivCentered, Grid, Container, Row, Stack, FlexItem, Size | `ui/layout.py` |
-| **Typography** | PageTitle, SectionTitle, CardTitle, Subtitle, BodyText, SmallText, Caption, TruncatedText | `ui/text.py` |
 | **Patterns** | PageHeader, CardGenerator, StatsGrid, EmptyState, ErrorBanner, MetadataBadge, etc. | `ui/patterns/*.py` |
 | **Layouts** | BasePage, Navbar, Domain Layouts | `ui/layouts/*.py` |
 
@@ -39,13 +41,13 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 Thin Python wrappers around FastHTML FT components with MonsterUI styling.
 These are the **lowest-level SKUEL building blocks** — imported directly in route files and views.
 
-**Module map** (March 2026 — decomposed from `daisy_components.py`):
+**Module map** (June 2026 — `ui/buttons.py` + `ui/cards.py` + `ui/text.py` deleted PR E):
 
 | Module | Symbols |
 |--------|---------|
+| `monsterui.franken` | `Button`, `ButtonT`, `CardContainer` (import as `Card`), `CardBody`, `CardHeader`, `CardTitle`, `CardT` |
+| `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
-| `ui.buttons` | `ButtonT`, `Button` |
-| `ui.cards` | `CardT` (re-exported from MonsterUI), `Card`, `CardBody`, `CardTitle`, `CardActions`, `CardFigure`, `CardLink` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal wrapper (backdrop, transitions, close-on-backdrop) |
 | `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
@@ -55,8 +57,8 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 
 **Import pattern:**
 ```python
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
+from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody, CardHeader, CardTitle
+from ui.primitives import ButtonLink, section_label
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Select, Textarea
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, Progress, ProgressT
@@ -80,79 +82,75 @@ Basic building blocks for all SKUEL interfaces.
 
 ## Button
 
-**Location:** `/ui/buttons.py`
+**Location:** `monsterui.franken` (direct — `ui/buttons.py` deleted PR E)
 
 Styled buttons for actions and navigation.
 
-### Button(text, variant, size, **kwargs)
+### Button(*c, cls, **kwargs)
 
-Primary action button.
+Primary action button. Pass style via `cls=ButtonT.X` (not `variant=`).
 
 **Parameters:**
-- `text: str` - Button label
-- `variant: ButtonT | str` - Style variant (default: `ButtonT.primary`). Accepts both `ButtonT` enum and plain strings.
-  - `"primary"` - Blue accent background
-  - `"secondary"` - Gray background with border
-  - `"ghost"` - Transparent with hover
-  - `"error"` - Red for destructive actions
-- `size: Size | str | None` - Size variant (default: None/md)
-  - `"sm"` - Small
-  - `"md"` - Medium
-  - `"lg"` - Large
+- `*c` - Button label / content
+- `cls: ButtonT | tuple[ButtonT, ...]` - Style variant. Use a tuple to combine variant + size.
+  - `ButtonT.primary` - Blue accent background
+  - `ButtonT.secondary` - Gray background with border
+  - `ButtonT.ghost` - Transparent with hover
+  - `ButtonT.destructive` - Red for destructive actions
+  - `ButtonT.sm` / `ButtonT.lg` / `ButtonT.xs` - Size modifiers (combine in tuple)
 - `**kwargs` - Additional attributes (type, disabled, hx_post, etc.)
 
 **Examples:**
 ```python
-from ui.buttons import Button
+from monsterui.franken import Button, ButtonT
 
 # Primary action
-Button("Save Changes", variant="primary")
+Button("Save Changes", cls=ButtonT.primary)
 
-# Secondary action
-Button("Cancel", variant="secondary", size="sm")
+# Secondary action, small
+Button("Cancel", cls=(ButtonT.secondary, ButtonT.sm))
 
 # Destructive action
-Button("Delete", variant="danger")
+Button("Delete", cls=ButtonT.destructive)
 
 # With HTMX
-Button("Submit", hx_post="/api/submit", hx_target="#result")
+Button("Submit", cls=ButtonT.primary, hx_post="/api/submit", hx_target="#result")
 ```
 
-### ButtonLink(text, href, variant, size, **kwargs)
+### ButtonLink(text, href, cls, **kwargs)
 
-Button-styled link for navigation. Use for all action CTAs — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links.
+Button-styled link for navigation. Lives in `ui/primitives.py`. Use for all action CTAs — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links.
 
 **Parameters:**
-- `text: str` - Link label
+- `*c` - Link label
 - `href: str` - URL destination
-- `variant: ButtonT` - Button style variant
-- `size: Size` - Button size (xs, sm, md, lg, xl)
-- `**kwargs` - Additional attributes (target, rel, download, x_show, cls, etc.)
+- `cls: ButtonT | tuple` - Button style variant (uses `cls=` not `variant=`)
+- `**kwargs` - Additional attributes (target, rel, download, x_show, etc.)
 
 **Variant/Size Convention:**
 
-| Action Type | Variant | Size | Examples |
-|---|---|---|---|
-| Primary CTA | `ButtonT.primary` | `Size.sm` | Submit, Start Ingestion |
-| View/Navigate | `ButtonT.ghost` | `Size.sm` | View Report, Download, ← Back |
-| "View all" section links | `ButtonT.ghost` | `Size.xs` | View all →, See all |
+| Action Type | cls | Examples |
+|---|---|---|
+| Primary CTA | `ButtonT.primary` or `(ButtonT.primary, ButtonT.sm)` | Submit, Start Ingestion |
+| View/Navigate | `ButtonT.ghost` or `(ButtonT.ghost, ButtonT.sm)` | View Report, Download, ← Back |
+| "View all" section links | `(ButtonT.ghost, ButtonT.xs)` | View all →, See all |
 
 **Examples:**
 ```python
-from ui.buttons import ButtonLink, ButtonT
-from ui.layout import Size
+from monsterui.franken import ButtonT
+from ui.primitives import ButtonLink
 
 # Primary action CTA
-ButtonLink("Submit →", href="/submit?exercise_uid=123", variant=ButtonT.primary, size=Size.sm)
+ButtonLink("Submit →", href="/submit?exercise_uid=123", cls=(ButtonT.primary, ButtonT.sm))
 
 # View/navigate action
-ButtonLink("View Report →", href="/reports/456", variant=ButtonT.ghost, size=Size.sm)
+ButtonLink("View Report →", href="/reports/456", cls=(ButtonT.ghost, ButtonT.sm))
 
 # Section "view all" link
-ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
+ButtonLink("View all →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
 
 # External link
-ButtonLink("Open →", href="https://example.com", variant=ButtonT.ghost, size=Size.sm,
+ButtonLink("Open →", href="https://example.com", cls=ButtonT.ghost,
            target="_blank", rel="noopener noreferrer")
 ```
 
@@ -160,11 +158,11 @@ ButtonLink("Open →", href="https://example.com", variant=ButtonT.ghost, size=S
 
 ## Card
 
-**Location:** `/ui/cards.py`
+**Location:** `monsterui.franken` (direct — `ui/cards.py` deleted PR E). Import as `from monsterui.franken import CardContainer as Card, CardBody, CardHeader, CardTitle, CardT`.
 
 Container component for grouping related content.
 
-**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. SKUEL's `CardBody`, `CardTitle`, and `CardHeader` wrappers handle this by omitting `cls` when empty.
+**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute.
 
 ### Card(*children, variant, cls, **kwargs)
 
@@ -183,7 +181,7 @@ Generic card container. `CardT` is re-exported directly from MonsterUI — use M
 
 **Examples:**
 ```python
-from ui.cards import Card, CardBody, CardHeader, CardTitle, CardT
+from monsterui.franken import CardContainer as Card, CardBody, CardHeader, CardTitle, CardT
 from fasthtml.common import P
 
 # Default card with semantic header
@@ -430,66 +428,16 @@ Row(
 
 ---
 
-## Text
+## Text (DELETED — PR E, 2026-06-26)
 
-**Location:** `/ui/text.py`
+`ui/text.py` was deleted. Typography helpers (`SectionTitle`, `SmallText`, `TruncatedText`, etc.) are replaced by:
 
-Typography components for consistent text styling.
+- **Section labels:** `section_label()` from `ui/primitives.py` (or `H2` / `H3` with Tailwind classes)
+- **Small/muted text:** inline `Span("…", cls="text-sm text-muted-foreground")` or `P("…", cls="text-xs text-muted-foreground")`
+- **Truncated text:** inline Tailwind `line-clamp-{1|2|3}` via `cls="line-clamp-2"`
+- **Card title:** `CardTitle` from `monsterui.franken` (same as before, but import from monsterui now)
 
-**`cls` merge contract:** every typography helper (`PageTitle`, `SectionTitle`,
-`Subtitle`, `BodyText`, `SmallText`, `Caption`, `TruncatedText`) takes an explicit
-`cls: str = ""` parameter that is **merged** into the helper's base classes —
-`cls=f"...base... {cls}".strip()` — never passed through `**kwargs`. Always extend
-styling via `cls=`; passing it through `**kwargs` alongside the hardcoded base used
-to raise `TypeError: got multiple values for keyword argument 'cls'` (the
-`/insights` 500, fixed 2026-05-31). Reserve `**kwargs` for non-`cls` attributes
-(`id`, `x_show`, etc.).
-
-### CardTitle(text, truncate, **kwargs)
-
-Card title with optional truncation.
-
-**Parameters:**
-- `text: str` - Title text
-- `truncate: bool` - Truncate long text (default: False)
-- `**kwargs` - Additional attributes
-
-### SmallText(text, muted=True, cls="", **kwargs)
-
-Small secondary text (`<span>`).
-
-**Parameters:**
-- `text: str` - Text content
-- `muted: bool` - Use muted color (default: True)
-- `cls: str` - Additional CSS classes, merged into the base classes
-- `**kwargs` - Additional attributes
-
-### TruncatedText(text, lines, cls="", **kwargs)
-
-Text truncated to specified number of lines.
-
-**Parameters:**
-- `text: str` - Text content
-- `lines: int` - Number of lines before truncation (default: 1, clamped 1–3)
-- `cls: str` - Additional CSS classes, merged into the line-clamp class
-- `**kwargs` - Additional attributes
-
-**Examples:**
-```python
-from ui.text import SmallText, TruncatedText
-
-# Small metadata text
-SmallText("Due: Dec 15, 2024")
-
-# Small text with extra styling — cls merges, never collides
-SmallText("Recommended Actions:", cls="font-semibold mb-1")
-
-# Multi-line truncation
-TruncatedText(
-    "Long description that will be truncated after 2 lines...",
-    lines=2,
-)
-```
+**`cls` gotcha (historical):** The SKUEL wrappers merged `cls` to avoid duplicate-kwarg errors. MonsterUI components accept `cls` directly — no merge needed.
 
 ---
 
@@ -519,7 +467,8 @@ Page header component.
 **Examples:**
 ```python
 from ui.patterns.page_header import PageHeader
-from ui.buttons import Button, ButtonLink
+from monsterui.franken import Button, ButtonT
+from ui.primitives import ButtonLink
 
 # Simple header
 PageHeader(title="Tasks")
@@ -882,7 +831,7 @@ Section header component.
 **Examples:**
 ```python
 from ui.patterns.section_header import SectionHeader
-from ui.buttons import ButtonLink
+from ui.primitives import ButtonLink
 
 # Simple section header
 SectionHeader(title="Recent Tasks")
@@ -917,7 +866,7 @@ Standardized Alpine.js-controlled modal with backdrop overlay, click-outside-to-
 **Examples:**
 ```python
 from ui.patterns.modal import AlpineModal
-from ui.buttons import Button, ButtonT
+from monsterui.franken import Button, ButtonT
 
 # Simple modal with Alpine.js state
 AlpineModal(
@@ -1297,7 +1246,7 @@ Standard form with validation:
 
 ```python
 from ui.forms import Input, Textarea, Select
-from ui.buttons import Button
+from monsterui.franken import Button, ButtonT
 from ui.patterns.error_banner import render_inline_error
 from fasthtml.common import Form, Div
 
@@ -1493,11 +1442,12 @@ Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
 
 Quick alphabetical index:
 
-**MonsterUI Wrappers (ui/*.py):**
+**MonsterUI Wrappers:**
 - **Alert / AlertT** - `ui.feedback`
 - **Badge / BadgeT** - `ui.feedback`
-- **Button / ButtonT** - `ui.buttons`
-- **Card / CardBody / CardT** - `ui.cards`
+- **Button / ButtonT** - `monsterui.franken` (direct)
+- **ButtonLink** - `ui.primitives` (`cls=ButtonT.X`, not `variant=`)
+- **Card (=CardContainer) / CardBody / CardHeader / CardTitle / CardT** - `monsterui.franken` (direct)
 - **Checkbox / Radio / Toggle / Range** - `ui.forms`
 - **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
 - **Divider / DividerSplit / DividerT** - `ui.data`

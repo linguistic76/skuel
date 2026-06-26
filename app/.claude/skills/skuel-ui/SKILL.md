@@ -148,7 +148,7 @@ from ui.patterns import PageHeader, SectionHeader
 PageHeader(
     "Tasks",
     subtitle="Manage your daily work",
-    actions=Button("Create Task", variant=ButtonT.primary,
+    actions=Button("Create Task", cls=ButtonT.primary,
                    **{"hx-get": "/tasks/create-modal", "hx-target": "#modal"}),
 )
 
@@ -417,7 +417,7 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 7 focused modules (March 2026) |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 5 modules (March 2026; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`) |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |

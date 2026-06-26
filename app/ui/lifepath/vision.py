@@ -3,10 +3,10 @@
 from typing import Any
 
 from fasthtml.common import H2, H3, Div, Form, P
+from monsterui.franken import Button, ButtonT
+from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
-from ui.buttons import Button, ButtonT
-from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Textarea
 from ui.layout import Size
@@ -44,8 +44,7 @@ def render_vision_form(existing_vision: str = "") -> Any:
                     Button(
                         "Extract Themes & Get Recommendations",
                         type="submit",
-                        variant=ButtonT.primary,
-                        cls="w-full",
+                        cls=(ButtonT.primary, "w-full"),
                     ),
                     method="post",
                     action="/lifepath/vision",
@@ -86,8 +85,7 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                     Button(
                         "Choose This Path",
                         type="submit",
-                        variant=ButtonT.primary,
-                        size=Size.sm,
+                        cls=(ButtonT.primary, ButtonT.sm),
                     ),
                     cls="p-4 pt-0",
                 ),

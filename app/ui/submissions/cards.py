@@ -8,13 +8,13 @@ Card renderers for submission lists, grids, and detail views.
 from typing import Any
 
 from fasthtml.common import H4, Div, P
+from monsterui.franken import ButtonT
 
-from ui.buttons import ButtonLink, ButtonT
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge
-from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
+from ui.primitives import ButtonLink
 
 _get_status_badge_class = get_submission_status_badge_class
 
@@ -41,8 +41,7 @@ def render_submission_card(submission: Any, is_pinned: bool = False) -> Any:
         ButtonLink(
             "View",
             href=f"/gradebook/{submission.uid}",
-            variant=ButtonT.ghost,
-            size=Size.sm,
+            cls=(ButtonT.ghost, ButtonT.sm),
         ),
         cls="flex gap-2",
     )

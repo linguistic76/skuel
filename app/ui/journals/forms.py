@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Div, NotStr, P, Script, Span
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button
-from ui.cards import Card, CardBody
 from ui.forms import Input
 from ui.primitives import icon_tile, primary_btn, section_label
 
@@ -90,10 +89,10 @@ def _mode_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
             "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
-        **{"@click": f"selectMode('{mode_key}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{"@click": f"selectMode('{mode_key}')"},  # boundary: fasthtml-elements
         **{
             ":class": f"processingMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
-        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        },  # boundary: fasthtml-elements
     )
 
 
@@ -123,7 +122,7 @@ def _mode_trigger() -> Any:
             "border border-border rounded-[11px] bg-card cursor-pointer "
             "text-left font-[inherit] hover:border-slate-300 transition-colors"
         ),
-        **{"@click": "modeMenuOpen = !modeMenuOpen"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{"@click": "modeMenuOpen = !modeMenuOpen"},  # boundary: fasthtml-elements
     )
 
 
@@ -176,10 +175,12 @@ def _instruction_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
             "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
-        **{"@click": f"selectInstruction('{mode_key}', '{cfg['filename']}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{
+            "@click": f"selectInstruction('{mode_key}', '{cfg['filename']}')"
+        },  # boundary: fasthtml-elements
         **{
             ":class": f"instructionMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
-        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        },  # boundary: fasthtml-elements
     )
 
 
@@ -229,7 +230,7 @@ def _instruction_trigger() -> Any:
             "border border-border rounded-[11px] bg-card cursor-pointer "
             "text-left font-[inherit] hover:border-slate-300 transition-colors"
         ),
-        **{"@click": "instructionMenuOpen = !instructionMenuOpen"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{"@click": "instructionMenuOpen = !instructionMenuOpen"},  # boundary: fasthtml-elements
     )
 
 
@@ -251,10 +252,10 @@ def _build_instructions_dropdown() -> Any:
             "w-full flex items-start gap-3 p-3 rounded-[9px] border-0 "
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
-        **{"@click": "openCustomFile()"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{"@click": "openCustomFile()"},  # boundary: fasthtml-elements
         **{
             ":class": "instructionMode === 'custom' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
-        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        },  # boundary: fasthtml-elements
     )
     menu = Div(
         *[_instruction_option_row(key, cfg) for key, cfg in _INSTRUCTION_CONFIGS.items()],

@@ -31,6 +31,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, P, Span
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
@@ -43,8 +45,6 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.journals.components import (
@@ -62,6 +62,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form, upload_form_script
 from ui.workbench.nav import render_submissions_sidebar_page
 
@@ -165,8 +166,7 @@ def _render_entry_responses(responses: list[dict[str, Any]]) -> Any:
                     ButtonLink(
                         "View",
                         href=f"/entry-reports/detail?uid={r.get('uid')}",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
+                        cls=(ButtonT.ghost, ButtonT.sm),
                     ),
                     cls="flex items-center justify-between p-2 border-b border-border",
                 )
@@ -189,14 +189,12 @@ def _render_respond_button(entry_uid: str) -> Any:
     """Button that requests a reflective LLM response for a journal entry."""
     return Button(
         "Get a reflective response",
-        variant=ButtonT.secondary,
-        size=Size.sm,
+        cls=(ButtonT.secondary, ButtonT.sm, "mt-4"),
         hx_post="/api/entry-reports/respond",
         hx_vals=json.dumps({"entry_uid": entry_uid}),
         hx_target="#entry-responses",
         hx_swap="outerHTML",
         hx_disabled_elt="this",
-        cls="mt-4",
     )
 
 
@@ -217,8 +215,7 @@ def _render_awaiting_response_section(entries: list[UserEntry]) -> Any:
                     ButtonLink(
                         "Open",
                         href=f"/gradebook/{e.uid}",
-                        variant=ButtonT.ghost,
-                        size=Size.sm,
+                        cls=(ButtonT.ghost, ButtonT.sm),
                     ),
                     cls="flex items-center justify-between p-2 border-b border-border",
                 )
@@ -262,8 +259,7 @@ def _render_user_entry_journal_card(entry: UserEntry) -> Any:
             ButtonLink(
                 "Download",
                 href=f"/submit/journals/{entry.uid}/download",
-                variant=ButtonT.primary,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
             )
         )
 
@@ -540,8 +536,7 @@ def create_user_entry_ui_routes(
                 actions=ButtonLink(
                     "Browse my journals",
                     href="/submit/journals/browse",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
+                    cls=(ButtonT.ghost, ButtonT.sm),
                 ),
             ),
             render_journal_upload_form(),
@@ -583,8 +578,7 @@ def create_user_entry_ui_routes(
                 actions=ButtonLink(
                     "New Journal",
                     href="/submit/journals",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
+                    cls=(ButtonT.primary, ButtonT.sm),
                 ),
             ),
             _render_awaiting_response_section(awaiting_entries),
@@ -1012,7 +1006,7 @@ def create_user_entry_ui_routes(
                     ButtonLink(
                         "\u2190 Back to Submission History",
                         href="/submissions/history",
-                        variant=ButtonT.ghost,
+                        cls=ButtonT.ghost,
                     ),
                     cls="mt-4",
                 ),

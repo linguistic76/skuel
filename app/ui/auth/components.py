@@ -14,11 +14,12 @@ app's normal layout.
 from typing import Any
 
 from fasthtml.common import H1, H3, A, Div, Form, Li, P, Span, Strong, Ul
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.csrf import csrf_hidden_input
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
+from ui.primitives import ButtonLink
 
 
 def _error_banner(error_message: str | None) -> Any:
@@ -98,8 +99,10 @@ class AuthComponents:
                 ),
                 Button(
                     "Sign in",
-                    cls="w-full bg-primary text-primary-foreground hover:bg-primary/90",
-                    variant=ButtonT.primary,
+                    cls=(
+                        "w-full bg-primary text-primary-foreground hover:bg-primary/90",
+                        ButtonT.primary,
+                    ),
                 ),
                 action="/login/submit",
                 method="POST",
@@ -120,8 +123,7 @@ class AuthComponents:
             ButtonLink(
                 "Create one",
                 href="/register",
-                variant=ButtonT.secondary,
-                cls="w-full",
+                cls=(ButtonT.secondary, "w-full"),
             ),
             cls="flex flex-col justify-center px-6 py-12 sm:px-8 mx-auto w-full max-w-sm min-h-screen",
         )
@@ -221,7 +223,7 @@ class AuthComponents:
                     ),
                     cls="pt-1",
                 ),
-                Button("Create account", cls="w-full mt-2", variant=ButtonT.primary),
+                Button("Create account", cls=("w-full mt-2", ButtonT.primary)),
                 action="/register/submit",
                 method="POST",
                 cls="space-y-4",
@@ -269,7 +271,7 @@ class AuthComponents:
                     ),
                     cls="text-left mb-6",
                 ),
-                ButtonLink("Get Started", href="/", variant=ButtonT.primary, cls="w-full"),
+                ButtonLink("Get Started", href="/", cls=(ButtonT.primary, "w-full")),
                 cls="text-center",
             ),
             max_width="max-w-lg",
@@ -286,10 +288,8 @@ class AuthComponents:
                 ),
                 P(error_message, cls="text-lg text-foreground/80 mb-6"),
                 Div(
-                    ButtonLink("Try Again", href="/login", variant=ButtonT.primary),
-                    ButtonLink(
-                        "Forgot Password?", href="/forgot-password", variant=ButtonT.secondary
-                    ),
+                    ButtonLink("Try Again", href="/login", cls=ButtonT.primary),
+                    ButtonLink("Forgot Password?", href="/forgot-password", cls=ButtonT.secondary),
                     cls="flex justify-center gap-3",
                 ),
                 cls="text-center",
@@ -317,7 +317,7 @@ class AuthComponents:
                         required=True,
                         autofocus=True,
                     ),
-                    Button("Send Reset Link", cls="w-full", variant=ButtonT.primary),
+                    Button("Send Reset Link", cls=("w-full", ButtonT.primary)),
                     action="/forgot-password",
                     method="POST",
                     cls="space-y-4",
@@ -327,8 +327,7 @@ class AuthComponents:
                     ButtonLink(
                         "I Have a Reset Token",
                         href="/reset-password",
-                        variant=ButtonT.secondary,
-                        cls="w-full",
+                        cls=(ButtonT.secondary, "w-full"),
                     ),
                     A(
                         "Back to Login",
@@ -382,7 +381,7 @@ class AuthComponents:
                     required=True,
                     minlength="8",
                 ),
-                Button("Reset Password", cls="w-full", variant=ButtonT.primary),
+                Button("Reset Password", cls=("w-full", ButtonT.primary)),
                 action="/reset-password/submit",
                 method="POST",
                 cls="space-y-4",
@@ -405,7 +404,7 @@ class AuthComponents:
                     "You can now log in with your new password.",
                     cls="text-muted-foreground mb-6",
                 ),
-                ButtonLink("Go to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                ButtonLink("Go to Login", href="/login", cls=(ButtonT.primary, "w-full")),
                 cls="text-center",
             ),
         )
@@ -426,7 +425,7 @@ class AuthComponents:
                     "Please click the link in the email to verify your account before logging in.",
                     cls="text-foreground/80 mb-6",
                 ),
-                ButtonLink("Go to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                ButtonLink("Go to Login", href="/login", cls=(ButtonT.primary, "w-full")),
                 cls="text-center",
             ),
             max_width="max-w-lg",
@@ -444,7 +443,7 @@ class AuthComponents:
                     ", you'll receive password reset instructions shortly.",
                     cls="text-muted-foreground mb-6",
                 ),
-                ButtonLink("Back to Login", href="/login", variant=ButtonT.primary, cls="w-full"),
+                ButtonLink("Back to Login", href="/login", cls=(ButtonT.primary, "w-full")),
                 cls="text-center",
             ),
         )

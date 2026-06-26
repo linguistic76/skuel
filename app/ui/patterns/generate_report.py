@@ -4,9 +4,9 @@ Used by both the Transfer hub (HTMX fragment) and the Study submit-activity-repo
 """
 
 from fasthtml.common import H3, Div, Form, Label, Option
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.forms import Select
 from ui.patterns.loading import content_loading_placeholder
 
@@ -46,7 +46,7 @@ def render_activity_report_request_card():
                     Button(
                         "Submit Request",
                         type="submit",
-                        variant=ButtonT.primary,
+                        cls=ButtonT.primary,
                     ),
                     cls="text-center",
                 ),

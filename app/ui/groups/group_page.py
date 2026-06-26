@@ -15,11 +15,12 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Div, P
+from monsterui.franken import ButtonT
 
-from ui.buttons import ButtonLink, ButtonT
 from ui.groups.shared_preview import GroupSharedPreviewList
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 
 def GroupSharesPage(
@@ -54,7 +55,7 @@ def GroupSharesPage(
             ButtonLink(
                 "\u2190 Back to Groups",
                 href=f"/groups?group={group_uid}",
-                variant=ButtonT.ghost,
+                cls=ButtonT.ghost,
             ),
             cls="mt-6",
         ),
@@ -76,7 +77,7 @@ def GroupSharesNotAvailable() -> Div:
         ),
         render_inline_error("Ask a teacher to add you, or head back to the Groups hub."),
         Div(
-            ButtonLink("\u2190 Back to Groups", href="/groups", variant=ButtonT.ghost),
+            ButtonLink("\u2190 Back to Groups", href="/groups", cls=ButtonT.ghost),
             cls="mt-4",
         ),
         cls="max-w-3xl mx-auto",
