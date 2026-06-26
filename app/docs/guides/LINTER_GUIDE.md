@@ -39,17 +39,18 @@ Additional type checkers run during `./dev quality`:
 
 ## How `./dev quality` Works
 
-`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates nine checks in order:
+`./dev quality` calls `scripts/run_quality_checks.py`, which orchestrates ten checks in order:
 
 1. **Ruff format check** — `uv run ruff format --check`
 2. **Ruff lint** — `uv run ruff check`
 3. **SKUEL pattern lint** — `uv run python scripts/lint_skuel.py`
 4. **Cypher lint** — `uv run python scripts/cypher_linter.py --errors-only --strict`
 5. **Route security audit** — `uv run python scripts/audit_route_security.py`
-6. **Skills validation** — `uv run python scripts/skills_validator.py`
-7. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
-8. **npm audit** — `npm audit --audit-level=moderate` (JS dependency vulnerabilities)
-9. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
+6. **Raw headers audit** — `uv run python scripts/audit_raw_headers.py` (advisory: H1/H2 outside approved files; `Html(Head())` outside `base_page.py` is blocking)
+7. **Skills validation** — `uv run python scripts/skills_validator.py`
+8. **Dead-code gate** — `uv run python scripts/detect_bloat.py --check` (PLANNED tier is the escape hatch)
+9. **npm audit** — `npm audit --audit-level=moderate` (JS dependency vulnerabilities)
+10. **Type checks** — MyPy + Pyright (optional, skip with `--fast`)
 
 `./dev quality-fix` passes `--fix` to auto-fixable steps.
 

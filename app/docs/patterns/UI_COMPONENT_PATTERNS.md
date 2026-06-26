@@ -413,13 +413,16 @@ Pages that return complete `Html()` documents (rather than partial HTMX fragment
 `build_head()` loads MonsterUI from **local vendor files** (`static/vendor/monsterui/`) via `BRAND_THEME.local_headers()` — no CDN dependency.
 
 ```python
-from ui.layouts.base_page import build_head
-
-# Used internally by BasePage and AuthPage
-Html(
-    build_head("Page Title", extra_css=["/static/css/calendar.css"]),
-    Body(content),
+# Pass extra_css / extra_scripts to BasePage — they are forwarded to build_head()
+return await BasePage(
+    content,
+    title="Timeline",
+    page_type=PageType.CUSTOM,
+    request=request,
+    extra_css=["/static/vendor/vis-timeline/vis-timeline-graph2d.min.css", "/static/css/timeline.css"],
+    extra_scripts=["/static/vendor/vis-timeline/vis-timeline-graph2d.min.js"],
 )
+# extra_scripts are injected before skuel.js so Alpine components can reference page-specific libs
 ```
 
 ### `AuthPage()` — Unauthenticated Pages
@@ -1735,7 +1738,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/workbench/nav.py` — Submissions sidebar
 
 **Shared:**
-- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings
+- `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only).
 - `/ui/page_contexts.py`, `/ui/tokens.py` (spacing/layout)
 - `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
 - `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; `ui/visualization/` re-exports)
