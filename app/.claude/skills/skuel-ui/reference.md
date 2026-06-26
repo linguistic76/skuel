@@ -815,6 +815,16 @@ card_row(
     P("Task complete", cls="text-[14px] font-semibold"),
 )
 
+# Selectable option row: icon tile + title + subtitle + checkmark (active/hover state lives here)
+# Used in dropdowns where one option is selected at a time (journal mode, submit dest, etc.)
+SelectableOptionRow(
+    icon="sparkles", tile_bg="bg-violet-50", icon_cls="text-violet-700",
+    title="AI Feedback", subtitle="An AI reads and responds to your entry",
+    selected_expr="dest === 'ai'", click_handler="selectDest('ai')",
+)
+# disabled=True → opacity-70, no checkmark; title_extra → badge alongside title
+# subtitle_cls → override for monospace filenames (default: muted description text)
+
 # StatusBadge — for any EntityStatus value (delegates to EntityStatus.get_badge_class())
 from ui.feedback import StatusBadge, PriorityBadge
 StatusBadge("active")       # canonical green
