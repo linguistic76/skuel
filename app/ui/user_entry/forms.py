@@ -26,15 +26,7 @@ from typing import Any
 from fasthtml.common import Button, Div, Form, Input, P, Script, Span
 from monsterui.franken import UkIcon
 
-
-def _icon_tile(icon: str, bg_cls: str, icon_cls: str, size: int = 36) -> Any:
-    """Rounded icon tile used in the destination dropdown."""
-    sz = "w-9 h-9" if size == 36 else "w-[34px] h-[34px]"
-    radius = "rounded-[9px]"
-    return Div(
-        UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
-        cls=f"{sz} {radius} flex-none flex items-center justify-center {bg_cls}",
-    )
+from ui.primitives import icon_tile
 
 
 def _dest_option_row(
@@ -87,7 +79,7 @@ def _dest_option_row(
     )
 
     return Button(
-        _icon_tile(icon, tile_bg, icon_cls, size=34),
+        icon_tile(icon, tile_bg, icon_cls),
         Div(
             title_block,
             Span(desc, cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"),
@@ -106,7 +98,7 @@ def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
     for dest, cfg in dest_configs.items():
         options.append(
             Span(
-                _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+                icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
                     Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[3px]"),

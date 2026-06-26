@@ -7,9 +7,10 @@ from typing import Any
 from fasthtml.common import Div, NotStr, P, Script, Span
 from monsterui.franken import UkIcon
 
-from ui.buttons import Button, ButtonT
+from ui.buttons import Button
 from ui.cards import Card, CardBody
 from ui.forms import Input
+from ui.primitives import icon_tile, primary_btn, section_label
 
 # Two hardcoded instruction files shown in the Instructions dropdown.
 _FIXED_INSTRUCTIONS = [
@@ -61,35 +62,6 @@ _INSTRUCTION_CONFIGS: dict[str, dict[str, str]] = {
 }
 
 
-def _icon_tile(icon: str, bg_cls: str, icon_cls: str) -> Any:
-    """Rounded 34×34 icon tile used in dropdown rows."""
-    return Div(
-        UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
-        cls=f"w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center {bg_cls}",
-    )
-
-
-def _section_label(text: str) -> Any:
-    return P(
-        text,
-        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-    )
-
-
-def _submit_btn(label: str) -> Any:
-    from fasthtml.common import Button as RawButton
-
-    return RawButton(
-        UkIcon("send", cls="w-4 h-4 flex-none"),
-        Span(label, cls="btn-label"),
-        type="submit",
-        cls=(
-            "flex items-center gap-2 bg-foreground text-background text-[14px] font-semibold "
-            "px-[18px] py-[11px] rounded-[9px] shadow-sm hover:opacity-90 transition-opacity"
-        ),
-    )
-
-
 # ---------------------------------------------------------------------------
 # Processing dropdown
 # ---------------------------------------------------------------------------
@@ -104,10 +76,12 @@ def _mode_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
         **{"x-cloak": True},
     )
     return Button(
-        _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+        icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
         Div(
             Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
-            Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"),
+            Span(
+                cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
+            ),
             cls="flex-1 min-w-0",
         ),
         check,
@@ -117,7 +91,9 @@ def _mode_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": f"selectMode('{mode_key}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
-        **{":class": f"processingMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{
+            ":class": f"processingMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
+        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
 
 
@@ -127,7 +103,7 @@ def _mode_trigger() -> Any:
     for mode_key, cfg in _MODE_CONFIGS.items():
         options.append(
             Span(
-                _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+                icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
                     Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[3px]"),
@@ -165,7 +141,7 @@ def _build_mode_dropdown() -> Any:
         **{"@click.outside": "modeMenuOpen = false"},
     )
     return Div(
-        _section_label("Processing"),
+        section_label("Processing"),
         Div(_mode_trigger(), menu, cls="relative"),
         cls="mb-6",
     )
@@ -186,10 +162,12 @@ def _instruction_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
     )
     subtitle = cfg.get("subtitle", "")
     return Button(
-        _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+        icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
         Div(
             Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
-            Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[6px]") if subtitle else None,
+            Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[6px]")
+            if subtitle
+            else None,
             cls="flex-1 min-w-0",
         ),
         check,
@@ -199,7 +177,9 @@ def _instruction_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": f"selectInstruction('{mode_key}', '{cfg['filename']}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
-        **{":class": f"instructionMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{
+            ":class": f"instructionMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
+        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
 
 
@@ -210,10 +190,12 @@ def _instruction_trigger() -> Any:
         subtitle = cfg.get("subtitle", "")
         fixed_spans.append(
             Span(
-                _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+                icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
-                    Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[3px]") if subtitle else None,
+                    Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[3px]")
+                    if subtitle
+                    else None,
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[13px] w-full",
@@ -224,7 +206,7 @@ def _instruction_trigger() -> Any:
     # Custom file trigger: blue upload tile + filename + "Your file" subtitle
     fixed_spans.append(
         Span(
-            _icon_tile("upload", "bg-blue-50", "text-blue-600"),
+            icon_tile("upload", "bg-blue-50", "text-blue-600"),
             Span(
                 Span(
                     cls="block text-[14.5px] font-semibold text-foreground truncate",
@@ -255,7 +237,7 @@ def _build_instructions_dropdown() -> Any:
     """Instructions selector — conditional on processingMode (hidden for transcribe_only)."""
     separator = Div(cls="h-px bg-slate-100 my-1 mx-2")
     choose_row = Button(
-        _icon_tile("upload", "bg-blue-50", "text-blue-600"),
+        icon_tile("upload", "bg-blue-50", "text-blue-600"),
         Div(
             Span("Choose a file…", cls="text-[14px] font-semibold text-foreground"),
             Span(
@@ -270,7 +252,9 @@ def _build_instructions_dropdown() -> Any:
             "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": "openCustomFile()"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
-        **{":class": "instructionMode === 'custom' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{
+            ":class": "instructionMode === 'custom' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"
+        },  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
     menu = Div(
         *[_instruction_option_row(key, cfg) for key, cfg in _INSTRUCTION_CONFIGS.items()],
@@ -334,7 +318,8 @@ def _shared_hidden_inputs() -> list[Any]:
 
 def _build_files_form_body() -> Any:
     """File picker with empty dropzone / filled file-card states and submit footer."""
-    from fasthtml.common import Button as RawButton, Form
+    from fasthtml.common import Button as RawButton
+    from fasthtml.common import Form
 
     empty_state = Div(
         Div(
@@ -413,7 +398,7 @@ def _build_files_form_body() -> Any:
         filled_state,
         Div(
             P("Up to 100 MB per file.", cls="text-[12.5px] text-slate-400"),
-            _submit_btn("Process"),
+            primary_btn("Process", type="submit"),
             cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
         hx_post="/submit/journals/upload",
@@ -446,7 +431,7 @@ def _build_folder_form_body() -> Any:
         ),
         Div(
             P("Watches je_in/ continuously.", cls="text-[12.5px] text-slate-400"),
-            _submit_btn("Process folder"),
+            primary_btn("Process folder", type="submit"),
             cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
         hx_post="/submit/journals/folder-process",
@@ -541,7 +526,6 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
             CardBody(
                 _build_mode_dropdown(),
                 _build_instructions_dropdown(),
-
                 # Hidden file input for custom instruction content
                 Input(
                     type="file",
@@ -550,10 +534,9 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                     cls="hidden",
                     **{"@change": "onCustomFileChange($event)"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
                 ),
-
                 # Source section
                 Div(
-                    _section_label("Source"),
+                    section_label("Source"),
                     Div(
                         RawButton(
                             "Upload files",
@@ -591,26 +574,21 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                     ),
                     cls="mb-6",
                 ),
-
                 # Files mode
                 Div(
                     _build_files_form_body(),
                     **{"x-show": "uploadMode === 'files'"},
                 ),
-
                 # Folder mode
                 Div(
                     _build_folder_form_body(),
                     **{"x-show": "uploadMode === 'folder'", "x-cloak": True},
                 ),
-
                 # HTMX status target (shared between both modes)
                 Div(id="upload-status", cls="mt-4 text-center"),
-
                 cls="bg-background shadow-sm hover:shadow-md transition-shadow",
             ),
         ),
-
         **{"x-data": alpine_data},
     )
 
