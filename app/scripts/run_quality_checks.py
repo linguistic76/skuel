@@ -135,7 +135,15 @@ def main():
     ):
         all_passed = False
 
-    # 6. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
+    # 6. Raw Headers Audit (advisory: H1/H2 outside approved files; Html(Head()) is blocking)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_raw_headers.py"],
+        "Raw Headers Audit",
+        check=False,
+    ):
+        all_passed = False
+
+    # 7. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
     if not run_command(
         ["uv", "run", "python", "scripts/skills_validator.py"],
         "Skills Validation",
