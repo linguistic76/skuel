@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 from fasthtml.common import Div, P
 
+from ui.primitives import section_label
+
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
@@ -39,10 +41,7 @@ def render_task_drawer_body(task: Task) -> FT:
         )
 
     return Div(
-        Div(
-            "Details",
-            cls="text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2",
-        ),
+        section_label("Details"),
         P(
             description,
             cls="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap",
