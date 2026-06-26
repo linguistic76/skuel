@@ -13,7 +13,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Components (/ui/buttons.py, /ui/cards.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, /ui/text.py, … — MonsterUI wrappers)
+Components (/ui/primitives.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, … — MonsterUI wrappers + SKUEL primitives)
 ```
 
 Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -22,7 +22,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/buttons.py, /ui/cards.py, /ui/forms/, etc. (Component — pick the right module)
+├─ YES → /ui/primitives.py (icon_tile, section_label, primary_btn, card_row, ButtonLink), /ui/forms/, /ui/feedback.py, etc.
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -55,9 +55,9 @@ def TaskCard(
             H4(task.title, cls="font-semibold"),
             P(task.description, cls="text-sm text-base-content/70") if show_description else None,
             CardActions(
-                Button("Edit", variant=ButtonT.ghost, size=Size.sm,
+                Button("Edit", cls=(ButtonT.ghost, ButtonT.sm),
                        **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"}),
-                Button("Complete", variant=ButtonT.success, size=Size.sm,
+                Button("Complete", cls=(ButtonT.success, ButtonT.sm),
                        **{"hx-post": f"/api/tasks/{task.uid}/complete"}),
             ) if show_actions else None,
         ),
@@ -125,7 +125,7 @@ CardGenerator.from_dataclass(
     header_badges=[StatusBadge("in_progress"), PriorityBadge("high")],
     show_labels=False,
     metadata=["Due: Dec 15", "Project: Q4"],
-    actions=Div(ButtonLink("View", href="/tasks/123", variant=ButtonT.ghost)),
+    actions=Div(ButtonLink("View", href="/tasks/123", cls=ButtonT.ghost)),
 )
 
 # Teaching row card (subtitle + badges + extra)
@@ -135,7 +135,7 @@ CardGenerator.from_dataclass(
     subtitle="by Student Name",
     header_badges=[Badge("3 pending", variant=BadgeT.warning)],
     show_labels=False,
-    actions=ButtonLink("View", href="/path", variant=ButtonT.primary, size=Size.sm),
+    actions=ButtonLink("View", href="/path", cls=(ButtonT.primary, ButtonT.sm)),
     extra=feedback_toggle,
     card_attrs={"cls": "bg-background shadow-sm mb-2"},
 )
@@ -253,7 +253,7 @@ def TasksView(context: UserContext, focus_uid: str | None = None) -> Div:
 def create_tasks_page(content: Any, request: Request | None = None) -> Any:
     return BasePage(
         Div(
-            PageHeader("Tasks", actions=Button("New Task", variant=ButtonT.primary)),
+            PageHeader("Tasks", actions=Button("New Task", cls=ButtonT.primary)),
             content,
             cls=f"{Spacing.PAGE} {Container.STANDARD}",
         ),
@@ -597,7 +597,7 @@ exercise_fields = FormGenerator.from_model(
 For forms that need full custom control beyond FormGenerator's capabilities:
 
 ```python
-from ui.buttons import Button, ButtonT
+from monsterui.franken import Button, ButtonT
 from ui.forms import LabelInput, LabelTextArea, LabelSelect
 
 def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
@@ -615,7 +615,7 @@ def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
             label="Priority",
             name="priority",
         ),
-        Button("Create Task", variant=ButtonT.primary, type="submit", cls="w-full mt-4"),
+        Button("Create Task", cls=(ButtonT.primary, "w-full mt-4"), type="submit"),
         hx_post=action_url,
         hx_target="#task-list",
         hx_swap="beforeend",
@@ -669,7 +669,7 @@ Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modal
 
 ```python
 from ui.patterns.modal import AlpineModal
-from ui.buttons import Button, ButtonT
+from monsterui.franken import Button, ButtonT
 
 @rt("/tasks/create-modal")
 async def task_create_modal(request):
@@ -677,7 +677,7 @@ async def task_create_modal(request):
     return AlpineModal(
         H3("Create Task", cls="font-bold text-lg"),
         create_task_form(action_url="/tasks/quick-add"),
-        Button("Cancel", variant=ButtonT.ghost,
+        Button("Cancel", cls=ButtonT.ghost,
                **{"@click": "showModal = false"}),
         show="showModal",
         close="showModal = false",
@@ -685,7 +685,7 @@ async def task_create_modal(request):
     )
 
 # Trigger button
-Button("New Task", variant=ButtonT.primary,
+Button("New Task", cls=ButtonT.primary,
        **{"@click": "showModal = true"})
 ```
 
@@ -698,7 +698,7 @@ def render_quick_add_form() -> Any:
         Div(
             Input(type="text", name="title", placeholder="Add a task...",
                   required=True, cls="flex-1"),
-            Button("Add", variant=ButtonT.primary, type="submit"),
+            Button("Add", cls=ButtonT.primary, type="submit"),
             cls="flex gap-2",
         ),
         hx_post="/tasks/quick-add",
@@ -726,7 +726,7 @@ Form(
         ),
         **{"x-show": "taskType === 'recurring'", "x-transition": ""},
     ),
-    Button("Create", variant=ButtonT.primary, type="submit"),
+    Button("Create", cls=ButtonT.primary, type="submit"),
     hx_post="/tasks/create",
     **{"x-data": "{ taskType: 'once' }"},
 )
@@ -774,26 +774,46 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 **MonsterUI wrapper components for SKUEL:**
 
 ```python
-from ui.buttons import Button, ButtonT, ButtonLink, IconButton
+from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
+from ui.primitives import ButtonLink, icon_tile, section_label, primary_btn, card_row
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
 from ui.layout import Size
 from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
-# Buttons
-Button("Primary", variant=ButtonT.primary)
-Button("Ghost Small", variant=ButtonT.ghost, size=Size.sm)
-Button("Delete", variant=ButtonT.outline_error)
+# Buttons — cls= API (single variant, or tuple for variant+size)
+Button("Primary", cls=ButtonT.primary)
+Button("Ghost Small", cls=(ButtonT.ghost, ButtonT.sm))
+Button("Delete", cls=ButtonT.outline_error)
 
 # ButtonLink — use for ALL action CTAs (not raw A() with ad-hoc Tailwind)
 # Raw A() is reserved for: entity title links, breadcrumbs, sidebar nav, inline text links
-# Convention: primary CTA → ButtonT.primary + Size.sm
-#             view/navigate → ButtonT.ghost + Size.sm
-#             "view all" section links → ButtonT.ghost + Size.xs
-ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
-ButtonLink("View Report →", href="/reports/1", variant=ButtonT.ghost, size=Size.sm)
-ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
+# Convention: primary CTA → ButtonT.primary + ButtonT.sm
+#             view/navigate → ButtonT.ghost + ButtonT.sm
+#             "view all" section links → ButtonT.ghost + ButtonT.xs
+ButtonLink("Submit →", href="/submit", cls=(ButtonT.primary, ButtonT.sm))
+ButtonLink("View Report →", href="/reports/1", cls=(ButtonT.ghost, ButtonT.sm))
+ButtonLink("View all →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
+
+# SKUEL Primitives (ui/primitives.py) — unified design language building blocks
+
+# Rounded semantic icon tile: md=34×34 (default), lg=42×42
+icon_tile("check-circle", bg_cls="bg-blue-50", icon_cls="text-blue-600")
+icon_tile("star", bg_cls="bg-amber-50", icon_cls="text-amber-600", size="lg")
+
+# Uppercase section divider label (CONNECTS, DETAILS, etc.)
+section_label("Connects")
+
+# Dark bg-foreground action button with leading icon — form submits, primary CTAs
+primary_btn("Submit", icon="send", type="submit")
+primary_btn("Generate", icon="sparkles", cls="w-full")
+
+# Flex row with gap-[13px] — standard icon-tile + text content layout
+card_row(
+    icon_tile("check", "bg-green-50", "text-green-600"),
+    P("Task complete", cls="text-[14px] font-semibold"),
+)
 
 # StatusBadge — for any EntityStatus value (delegates to EntityStatus.get_badge_class())
 from ui.feedback import StatusBadge, PriorityBadge
@@ -811,8 +831,10 @@ Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200"
 Alert("Error message", variant=AlertT.error)
 Alert("Task created!", variant=AlertT.success)
 
-# Cards (using tokens)
-Div(cls="bg-base-100 border border-base-200 rounded-lg p-6 hover:shadow-md transition-shadow")
+# Cards — new standard container (border-border, rounded-[12px], bg-card)
+Div(cls="border border-border rounded-[12px] bg-card p-[22px] hover:shadow-sm transition-shadow")
+# Or use MonsterUI CardContainer directly:
+Card(CardBody(...))
 
 # Loading
 Loading(variant=LoadingT.spinner, size=Size.sm)
@@ -858,7 +880,7 @@ Input(name="q", **{
 })
 
 # Delete with confirmation
-Button("Delete", variant=ButtonT.error, size=Size.sm, **{
+Button("Delete", cls=(ButtonT.error, ButtonT.sm), **{
     "hx-delete": f"/api/tasks/{uid}",
     "hx-confirm": "Delete this task?",
     "hx-target": "closest .task-card",
@@ -870,7 +892,7 @@ Button("Delete", variant=ButtonT.error, size=Size.sm, **{
 
 ```python
 # Loading button state
-Button("Save", variant=ButtonT.primary,
+Button("Save", cls=ButtonT.primary,
        **{"@click": "loading = true", ":disabled": "loading",
           "x-data": "{ loading: false }"},
        **{"@htmx:after-request": "loading = false"})
