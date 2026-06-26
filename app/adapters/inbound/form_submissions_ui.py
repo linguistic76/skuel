@@ -41,7 +41,7 @@ def create_form_submissions_ui_routes(
     async def my_forms_page(request: Request) -> Any:
         """Shell: returns immediately; content fills via HTMX."""
         require_authenticated_user(request)
-        return BasePage(
+        return await BasePage(
             Div(
                 PageHeader("My Form Submissions"),
                 content_loading_placeholder("/my-forms/content", "my-forms-content"),
@@ -103,14 +103,14 @@ def create_form_submissions_ui_routes(
         uid = request.query_params.get("uid")
 
         if not uid:
-            return BasePage(
+            return await BasePage(
                 render_error_banner("No submission UID provided"),
                 title="Form Submission",
                 page_type=PageType.STANDARD,
                 request=request,
             )
 
-        return BasePage(
+        return await BasePage(
             content_loading_placeholder(
                 f"/my-forms/detail/content?uid={uid}", "my-forms-detail-content"
             ),
