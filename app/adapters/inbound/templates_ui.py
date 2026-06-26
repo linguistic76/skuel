@@ -53,6 +53,7 @@ from ui.teaching.templates_panel import (
     PANEL_DOMAINS,
     render_templates_panel,
 )
+from ui.tokens import Container
 
 if TYPE_CHECKING:
     from services_bootstrap import Services
@@ -172,7 +173,7 @@ def create_templates_ui_routes(
                 cls="mb-4",
             ),
             body,
-            cls="max-w-4xl mx-auto p-6 space-y-4",
+            cls=f"{Container.NARROW} p-6 space-y-4",
         )
         return await BasePage(
             content=content,
