@@ -336,6 +336,21 @@ Form(hx_get="/tasks/create")
 # ✅ POST for all mutations
 Form(hx_post="/tasks/create")
 
+# ❌ Old ui.buttons import (deleted in PR E)
+from ui.buttons import Button, ButtonT, ButtonLink, IconButton
+# ✅ Button/ButtonT come from monsterui.franken directly
+from monsterui.franken import Button, ButtonT
+# ✅ ButtonLink comes from ui.primitives
+from ui.primitives import ButtonLink
+
+# ❌ Old variant=/size= Button API (ui.buttons wrapper is gone)
+Button("Edit", variant=ButtonT.ghost, size=Size.sm)
+ButtonLink("View →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
+# ✅ New cls= API — single variant, or tuple for variant+size
+Button("Edit", cls=ButtonT.ghost)
+Button("Edit", cls=(ButtonT.ghost, ButtonT.sm))
+ButtonLink("View →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
+
 # ❌ Tailwind palette over semantic tokens
 P("text", cls="text-gray-600")
 # ✅ Semantic tokens
@@ -417,7 +432,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
-| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 5 modules (March 2026; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`) |
+| `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`. Source of truth for the unified design language tokens (container, selection, typography). |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 5 modules. `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted PR E — import `Button, ButtonT, CardContainer, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`. |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
