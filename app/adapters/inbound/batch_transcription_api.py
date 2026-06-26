@@ -31,8 +31,8 @@ DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 # User-facing folder-transcribe defaults (Mike's Obsidian vault transcription dirs)
-USER_DEFAULT_INPUT_DIR = "/home/mike/0bsidian/skuel/transcribe_in"
-USER_DEFAULT_OUTPUT_DIR = "/home/mike/0bsidian/skuel/transcribe_out"
+USER_DEFAULT_INPUT_DIR = "/home/mike/0bsidian/skuel/je_in"
+USER_DEFAULT_OUTPUT_DIR = "/home/mike/0bsidian/skuel/je_out"
 
 
 def create_batch_transcription_api_routes(

@@ -33,6 +33,8 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
         "orchestrator": "user_entry_orchestrator",
         "entry_report_service": "entry_report",
         "groups_service": "groups",
+        "batch_transcription_service": "batch_transcription",
+        "processing_service": "user_entry_processor",
     },
 )
 
