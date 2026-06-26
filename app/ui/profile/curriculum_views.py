@@ -105,7 +105,7 @@ def LearningPathsDomainView(context: UserContext, focus_uid: str | None = None) 
     - Active learning paths with progress
     - Knowledge ready to learn (prerequisites met)
     """
-    # , Task 11: Add "Back to Insights" link if coming from insights
+    # Add "Back to Insights" link if coming from insights
     back_link = Div()
     if focus_uid:
         back_link = Div(

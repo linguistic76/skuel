@@ -290,9 +290,6 @@ def _item_list(
 ) -> Div:
     """Generic item list component.
 
-    , Task 11: Added focus_uid support for deep linking with highlight.
-    , Task 12: Added limit parameter and filter data attributes.
-
     Args:
         items: List of item dictionaries with title, uid, status
         empty_message: Message to show when no items
@@ -315,7 +312,7 @@ def _item_list(
         status = item.get("status", "")
         href = f"{item_href_prefix}/{uid}" if item_href_prefix and uid else None
 
-        # , Task 12: Extract filter metadata
+        # Extract filter metadata
         is_overdue = item.get("is_overdue", False)
         is_high_priority = item.get("is_high_priority", False)
         is_this_week = item.get("is_this_week", False)
@@ -336,11 +333,11 @@ def _item_list(
             cls="flex items-center justify-between",
         )
 
-        # , Task 12: Build x-show expression for filtering
+        # Build x-show expression for filtering
         # Show if: matches filter AND (showAll OR index < 10)
         x_show_expr = f"matchesFilter('{status}', {str(is_overdue).lower()}, {str(is_high_priority).lower()}, {str(is_this_week).lower()}) && (showAll || {idx} < 10)"
 
-        # , Task 11 & 12: Add data attributes and x-show for filtering
+        # Add data attributes and x-show for filtering
         item_attrs = {
             "data_uid": uid,  # For focus targeting
             "x_show": x_show_expr,  # For filtering
@@ -364,11 +361,10 @@ def _item_list(
                 )
             )
 
-    # , Task 11: Wrap in Alpine component for focus handling
-    # , Task 12: Always wrap in domainFilter for filtering
+    # Wrap in Alpine domainFilter component for focus handling and filtering
     wrapper_attrs = {"x_data": "domainFilter()"}
 
-    # , Task 11: Add focus handler if focus_uid present
+    # Add focus handler if focus_uid present
     if focus_uid:
         wrapper_attrs["x_init"] = (
             f"$nextTick(() => {{ if (window.profileFocusHandler) {{ var handler = profileFocusHandler('{focus_uid}'); handler.scrollToFocused.call({{ $el: $el, focusUid: '{focus_uid}' }}); }} }})"

@@ -3,8 +3,7 @@
 
 Wires Insights API and UI routes using DomainRouteConfig.
 
-(January 2026): Insight dashboard with dismiss/action functionality.
-, Task 17 (January 2026): Action tracking and history page.
+Insight dashboard with dismiss/action functionality and action-tracking history page.
 
 Routes:
 - GET /insights - Insights dashboard with filtering
