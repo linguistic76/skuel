@@ -10,6 +10,7 @@ from core.models.enums.principle_enums import AlignmentLevel
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid
+from ui.tokens import Container
 
 
 def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
@@ -96,7 +97,7 @@ def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
                 else P("Keep up the great work!", cls="text-success"),
             ),
         ),
-        cls="max-w-4xl mx-auto p-6",
+        cls=f"{Container.NARROW} p-6",
     )
 
 
