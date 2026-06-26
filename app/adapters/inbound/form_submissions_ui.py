@@ -6,7 +6,9 @@ UI routes for viewing and managing user's form submissions.
 
 Routes:
 - GET /my-forms - List of user's form submissions
+- GET /my-forms/content - Fragment: submission list
 - GET /my-forms/detail?uid= - Form submission detail page
+- GET /my-forms/detail/content?uid= - Fragment: submission detail
 """
 
 from typing import Any
@@ -20,6 +22,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
@@ -36,14 +39,28 @@ def create_form_submissions_ui_routes(
 
     @rt("/my-forms")
     async def my_forms_page(request: Request) -> Any:
-        """List user's form submissions."""
+        """Shell: returns immediately; content fills via HTMX."""
+        require_authenticated_user(request)
+        return await BasePage(
+            Div(
+                PageHeader("My Form Submissions"),
+                content_loading_placeholder("/my-forms/content", "my-forms-content"),
+            ),
+            title="My Form Submissions",
+            page_type=PageType.STANDARD,
+            request=request,
+        )
+
+    @rt("/my-forms/content")
+    async def my_forms_content(request: Request) -> Any:
+        """Fragment: fetches and renders the submission list."""
         user_uid = require_authenticated_user(request)
 
         result = await form_submission_service.get_my_submissions(user_uid)
         submissions = result.value if result.is_ok else []
 
         if not submissions:
-            content = Div(
+            inner = Div(
                 P("You haven't submitted any forms yet.", cls="text-muted-foreground"),
                 cls="text-center py-12",
             )
@@ -75,45 +92,49 @@ def create_form_submissions_ui_routes(
                         href=f"/my-forms/detail?uid={uid}",
                     )
                 )
-            content = Div(*rows, cls="space-y-1")
+            inner = Div(*rows, cls="space-y-1")
 
-        return BasePage(
-            Div(
-                PageHeader("My Form Submissions"),
-                content,
-            ),
-            title="My Form Submissions",
-            page_type=PageType.STANDARD,
-            request=request,
-        )
+        return Div(inner, id="my-forms-content")
 
     @rt("/my-forms/detail")
     async def form_submission_detail(request: Request) -> Any:
-        """Form submission detail page."""
-        user_uid = require_authenticated_user(request)
+        """Shell: validates UID, returns immediately; content fills via HTMX."""
+        require_authenticated_user(request)
         uid = request.query_params.get("uid")
 
         if not uid:
-            return BasePage(
+            return await BasePage(
                 render_error_banner("No submission UID provided"),
                 title="Form Submission",
                 page_type=PageType.STANDARD,
                 request=request,
             )
 
+        return await BasePage(
+            content_loading_placeholder(
+                f"/my-forms/detail/content?uid={uid}", "my-forms-detail-content"
+            ),
+            title="Form Submission",
+            page_type=PageType.STANDARD,
+            request=request,
+        )
+
+    @rt("/my-forms/detail/content")
+    async def form_submission_detail_content(request: Request) -> Any:
+        """Fragment: fetches and renders the submission detail."""
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "")
+
         result = await form_submission_service.get_submission(uid, user_uid)
         if result.is_error:
-            return BasePage(
+            return Div(
                 render_error_banner("Form submission not found"),
-                title="Form Submission",
-                page_type=PageType.STANDARD,
-                request=request,
+                id="my-forms-detail-content",
             )
 
         submission = result.value
         form_data = submission.form_data or {}
 
-        # Render form data as key-value pairs
         data_rows = []
         for key, value in form_data.items():
             data_rows.append(
@@ -124,7 +145,6 @@ def create_form_submissions_ui_routes(
                 )
             )
 
-        # Delete button
         delete_btn = Button(
             "Delete Submission",
             hx_delete=f"/api/form-submissions/delete?uid={uid}",
@@ -133,23 +153,19 @@ def create_form_submissions_ui_routes(
             cls=(ButtonT.destructive, ButtonT.sm, "mt-6"),
         )
 
-        return BasePage(
-            Div(
-                PageHeader(
-                    submission.title or "Form Submission",
-                    subtitle=f"Submitted: {str(submission.created_at)[:19]}",
-                ),
-                Div(*data_rows) if data_rows else EmptyState(title="No form data"),
-                delete_btn,
-                ButtonLink(
-                    "Back to My Forms",
-                    href="/my-forms",
-                    cls=(ButtonT.ghost, ButtonT.sm, "mt-4 ml-2"),
-                ),
+        return Div(
+            PageHeader(
+                submission.title or "Form Submission",
+                subtitle=f"Submitted: {str(submission.created_at)[:19]}",
             ),
-            title=submission.title or "Form Submission",
-            page_type=PageType.STANDARD,
-            request=request,
+            Div(*data_rows) if data_rows else EmptyState(title="No form data"),
+            delete_btn,
+            ButtonLink(
+                "Back to My Forms",
+                href="/my-forms",
+                cls=(ButtonT.ghost, ButtonT.sm, "mt-4 ml-2"),
+            ),
+            id="my-forms-detail-content",
         )
 
     return []

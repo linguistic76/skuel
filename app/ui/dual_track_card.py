@@ -66,7 +66,7 @@ def bullet_list(heading: str, items: tuple[str, ...]) -> Any:
 def gap_card(label: str, result: DualTrackResult[Any]) -> Any:
     """One perception-gap card for a single dimension."""
     badge_label, badge_cls = DIRECTION_BADGE.get(
-        result.gap_direction, ("—", "bg-gray-100 text-gray-800")
+        result.gap_direction, ("—", "bg-base-200 text-base-content/70")
     )
 
     return Card(
@@ -118,7 +118,9 @@ def render_checkin_trend(checkins: tuple[dict[str, Any], ...] | list[dict[str, A
     rows: list[Any] = []
     for snap in recent:
         direction = str(snap.get("gap_direction", ""))
-        badge_label, badge_cls = DIRECTION_BADGE.get(direction, ("—", "bg-gray-100 text-gray-800"))
+        badge_label, badge_cls = DIRECTION_BADGE.get(
+            direction, ("—", "bg-base-200 text-base-content/70")
+        )
         gap = snap.get("perception_gap")
         gap_str = f"{gap:.0%}" if isinstance(gap, int | float) else "—"
         rows.append(

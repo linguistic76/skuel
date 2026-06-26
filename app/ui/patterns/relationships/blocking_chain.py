@@ -30,6 +30,7 @@ from monsterui.franken import CardBody
 from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
+from ui.patterns.skeleton import SkeletonLines
 
 
 def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
@@ -55,7 +56,7 @@ def BlockingChainView(entity_uid: EntityUID, entity_type: str) -> Div:
             ),
             # Chain container (HTMX loads)
             Div(
-                Div("Loading blocking chain...", cls="skeleton h-32"),
+                SkeletonLines(count=3),
                 id=f"chain-{entity_uid}",
                 hx_get=f"/api/{entity_type}/{entity_uid}/lateral/chain",
                 hx_trigger="load",

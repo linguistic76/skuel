@@ -31,6 +31,7 @@ from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
 from ui.feedback import Badge, BadgeT
+from ui.patterns.skeleton import SkeletonLines
 
 
 def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
@@ -48,7 +49,7 @@ def AlternativesComparisonGrid(entity_uid: EntityUID, entity_type: str) -> Div:
             H3("Alternative Approaches", cls="text-lg font-bold mb-4"),
             # Comparison grid (HTMX loads)
             Div(
-                Div("Loading alternatives...", cls="skeleton h-48"),
+                SkeletonLines(count=5),
                 id=f"alternatives-{entity_uid}",
                 hx_get=f"/api/{entity_type}/{entity_uid}/lateral/alternatives/compare",
                 hx_trigger="load delay:300ms",
