@@ -73,7 +73,7 @@ def format_date(dt_value: Any) -> str:
 
         dt = datetime.fromisoformat(str(dt_value))
         return dt.strftime("%d %b %Y")
-    except ValueError, TypeError:
+    except (ValueError, TypeError):  # fmt: skip
         return str(dt_value)[:10]
 
 
@@ -733,7 +733,7 @@ def _render_comparison_banner(
         color = _TREND_COLOR[direction]
         try:
             delta_str = fmt.format(delta)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip
             delta_str = str(delta)
 
         delta_chips.append(Span(f"{label} {arrow}{delta_str}", cls=f"text-xs font-medium {color}"))

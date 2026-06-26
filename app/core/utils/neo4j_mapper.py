@@ -311,7 +311,7 @@ class Neo4jGenericMapper:
             module = _sys.modules.get(entity_class.__module__)
             globalns = getattr(module, "__dict__", {}) if module else {}
             type_hints = get_type_hints(entity_class, globalns=globalns, localns={})
-        except NameError, AttributeError:
+        except (NameError, AttributeError):  # fmt: skip
             # Fall back to field.type strings if resolution still fails
             type_hints = {}
         kwargs = {}
@@ -399,7 +399,7 @@ class Neo4jGenericMapper:
             ):
                 try:
                     return json.loads(value)
-                except json.JSONDecodeError, ValueError:
+                except (json.JSONDecodeError, ValueError):  # fmt: skip
                     pass
             return value
 
@@ -643,7 +643,7 @@ def coerce_int(value: object, default: int = 0) -> int:
     if isinstance(value, (int, float, str)):
         try:
             return int(value)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip
             return default
     return default
 
@@ -666,7 +666,7 @@ def coerce_float(value: object, default: float = 0.0) -> float:
     if isinstance(value, (int, float, str)):
         try:
             return float(value)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):  # fmt: skip
             return default
     return default
 
@@ -698,7 +698,7 @@ def parse_neo4j_json(value: Any, default: Any = None) -> Any:
         return default
     try:
         return json.loads(value)
-    except json.JSONDecodeError, ValueError:
+    except (json.JSONDecodeError, ValueError):  # fmt: skip
         return default
 
 

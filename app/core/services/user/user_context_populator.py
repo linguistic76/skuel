@@ -250,7 +250,7 @@ class UserContextPopulator:
                         }
                     )
                     engaged_uids.add(uid)
-            except ValueError, TypeError, AttributeError:
+            except (ValueError, TypeError, AttributeError):  # fmt: skip
                 pass
 
         # Viewed in window (exclude already mastered)
@@ -274,7 +274,7 @@ class UserContextPopulator:
                         }
                     )
                     engaged_uids.add(uid)
-            except ValueError, TypeError, AttributeError:
+            except (ValueError, TypeError, AttributeError):  # fmt: skip
                 pass
 
         context.entities_rich = {**context.entities_rich, "ku": ku_entities}
