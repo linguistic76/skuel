@@ -351,9 +351,7 @@ tests/unit/
 ├── ui/                               # UI component tests
 │   ├── test_enum_helpers.py          # 52 tests — 34 bridge/helper/builder functions
 │   ├── test_calendar_converters.py   # 28 tests — priority normalization, UID generation, 4 converters
-│   ├── test_text.py                  # 16 tests — 8 typography components
 │   ├── test_layout.py               # 18 tests — Size enum, 7 layout components
-│   ├── test_buttons.py              # 14 tests — ButtonT enum, variant/size maps, 3 builders
 │   └── test_domain_stats_config.py   # 30 tests — 6 domain stat calculators
 └── ...                               # Service/model unit tests
 ```
@@ -413,9 +411,7 @@ def test_cascade_delete_removes_relationships():
 | `tests/unit/scripts/test_cypher_linter.py` | Cypher linter unit tests (35 tests) |
 | `tests/unit/ui/test_enum_helpers.py` | UI enum bridge tests (52 tests) |
 | `tests/unit/ui/test_calendar_converters.py` | Calendar converter tests (28 tests) |
-| `tests/unit/ui/test_text.py` | Typography component tests (16 tests) |
 | `tests/unit/ui/test_layout.py` | Layout component tests (18 tests) |
-| `tests/unit/ui/test_buttons.py` | Button component tests (14 tests) |
 
 ---
 
