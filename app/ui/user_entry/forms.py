@@ -26,15 +26,7 @@ from typing import Any
 from fasthtml.common import Button, Div, Form, Input, P, Script, Span
 from monsterui.franken import UkIcon
 
-
-def _icon_tile(icon: str, bg_cls: str, icon_cls: str, size: int = 36) -> Any:
-    """Rounded icon tile used in the destination dropdown."""
-    sz = "w-9 h-9" if size == 36 else "w-[34px] h-[34px]"
-    radius = "rounded-[9px]"
-    return Div(
-        UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
-        cls=f"{sz} {radius} flex-none flex items-center justify-center {bg_cls}",
-    )
+from ui.primitives import icon_tile
 
 
 def _dest_option_row(
@@ -50,15 +42,18 @@ def _dest_option_row(
 ) -> Any:
     """One row in the destination dropdown menu."""
     base_cls = (
-        "w-full flex items-start gap-3 p-[11px] rounded-[9px] border-0 "
-        "bg-transparent text-left font-[inherit] "
+        "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
+        "text-left font-[inherit] "
     )
     if disabled:
-        base_cls += "cursor-not-allowed opacity-70"
-        action = {}
+        base_cls += "cursor-not-allowed opacity-70 bg-transparent"
+        action: dict[str, Any] = {}
     else:
-        base_cls += "cursor-pointer hover:bg-slate-50"
-        action = {"@click": f"selectDest('{dest}')"}
+        base_cls += "cursor-pointer transition-colors"
+        action = {
+            "@click": f"selectDest('{dest}')",
+            ":class": f"dest === '{dest}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'",
+        }
 
     title_block: Any = title
     if coming_soon:
@@ -74,7 +69,7 @@ def _dest_option_row(
             cls="flex items-center gap-2",
         )
     else:
-        title_block = Span(title, cls="text-sm font-semibold text-foreground")
+        title_block = Span(title, cls="text-[14px] font-semibold text-foreground")
 
     check = Span(
         UkIcon("check", cls="w-4 h-4 text-blue-600"),
@@ -84,11 +79,11 @@ def _dest_option_row(
     )
 
     return Button(
-        _icon_tile(icon, tile_bg, icon_cls, size=34),
+        icon_tile(icon, tile_bg, icon_cls),
         Div(
             title_block,
-            Span(desc, cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
-            cls="flex-1 min-w-0 pt-[1px]",
+            Span(desc, cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"),
+            cls="flex-1 min-w-0",
         ),
         check if not disabled else None,
         type="button",
@@ -103,10 +98,10 @@ def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
     for dest, cfg in dest_configs.items():
         options.append(
             Span(
-                _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
+                icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
-                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
+                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[3px]"),
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[13px] w-full",
@@ -235,7 +230,7 @@ def render_upload_form(
             ),
             cls=(
                 "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-                "bg-card border border-border rounded-[13px] p-[6px] "
+                "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
                 "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
             ),
             **{"x-show": "menuOpen"},
