@@ -6,11 +6,11 @@ Split layout: branded hero on left (desktop), login card on right.
 from typing import Any
 
 from fasthtml.common import H1, H2, A, Div, Form, P, Span
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, UkIcon
 
-from ui.buttons import Button, ButtonLink, ButtonT
 from ui.forms.components import LabelInput
 from ui.layouts.base_page import AuthPage
+from ui.primitives import ButtonLink
 
 
 def _landing_feature_item(text: str) -> Any:
@@ -110,8 +110,10 @@ def render_login_landing_page() -> Any:
                         ),
                         Button(
                             "Sign in",
-                            cls="w-full bg-primary text-primary-foreground hover:bg-primary/90",
-                            variant=ButtonT.primary,
+                            cls=(
+                                "w-full bg-primary text-primary-foreground hover:bg-primary/90",
+                                ButtonT.primary,
+                            ),
                         ),
                     ),
                     action="/login/submit",
@@ -133,8 +135,7 @@ def render_login_landing_page() -> Any:
                 ButtonLink(
                     "Create one",
                     href="/register",
-                    variant=ButtonT.secondary,
-                    cls="w-full",
+                    cls=(ButtonT.secondary, "w-full"),
                 ),
                 cls="w-full max-w-sm",
             ),

@@ -170,9 +170,9 @@ def render_empty_state_with_error(
         )
     """
     from fasthtml.common import H3
+    from monsterui.franken import ButtonT
 
-    from ui.buttons import ButtonLink, ButtonT
-    from ui.layout import Size
+    from ui.primitives import ButtonLink
 
     content = [
         H3(title, cls="text-xl font-bold text-muted-foreground mb-2"),
@@ -181,7 +181,7 @@ def render_empty_state_with_error(
 
     if action_label and action_href:
         content.append(
-            ButtonLink(action_label, href=action_href, variant=ButtonT.primary, size=Size.sm)
+            ButtonLink(action_label, href=action_href, cls=(ButtonT.primary, ButtonT.sm))
         )
 
     return Div(*content, cls="text-center py-12 px-4")

@@ -28,7 +28,7 @@ from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -342,7 +342,7 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
         )
 
     return Div(
-        SectionTitle("Milestones"),
+        section_label("Milestones"),
         Ul(*items, cls="space-y-2"),
         cls="my-4",
     )
@@ -395,7 +395,7 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
 
     return Div(
-        SectionTitle("Connections"),
+        section_label("Connections"),
         *sections,
         cls="my-4",
     )

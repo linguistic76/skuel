@@ -3,9 +3,10 @@
 from typing import Any
 
 from fasthtml.common import H1, Div, Nav, P
+from monsterui.franken import ButtonT
 
-from ui.buttons import ButtonLink, ButtonT
-from ui.layout import Container, Size
+from ui.layout import Container
+from ui.primitives import ButtonLink
 
 
 def render_404_page() -> Any:
@@ -14,10 +15,10 @@ def render_404_page() -> Any:
         Container(
             Div(
                 Div(
-                    ButtonLink("SKUEL", href="/", variant=ButtonT.ghost, cls="text-xl"),
-                    ButtonLink("Home", href="/", variant=ButtonT.ghost, size=Size.sm),
-                    ButtonLink("Search", href="/search", variant=ButtonT.ghost, size=Size.sm),
-                    ButtonLink("Askesis", href="/askesis", variant=ButtonT.ghost, size=Size.sm),
+                    ButtonLink("SKUEL", href="/", cls=(ButtonT.ghost, "text-xl")),
+                    ButtonLink("Home", href="/", cls=(ButtonT.ghost, ButtonT.sm)),
+                    ButtonLink("Search", href="/search", cls=(ButtonT.ghost, ButtonT.sm)),
+                    ButtonLink("Askesis", href="/askesis", cls=(ButtonT.ghost, ButtonT.sm)),
                     cls="flex items-center gap-2",
                 ),
                 cls="navbar flex items-center justify-between",
@@ -38,8 +39,8 @@ def render_404_page() -> Any:
                 cls="text-muted-foreground text-center mb-8 text-lg",
             ),
             Div(
-                ButtonLink("Go Home", href="/", variant=ButtonT.primary, cls="mr-2"),
-                ButtonLink("Search", href="/search", variant=ButtonT.secondary),
+                ButtonLink("Go Home", href="/", cls=(ButtonT.primary, "mr-2")),
+                ButtonLink("Search", href="/search", cls=ButtonT.secondary),
                 cls="text-center",
             ),
             cls="dashboard-header",

@@ -22,7 +22,8 @@ from itertools import islice
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -30,12 +31,11 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
+from ui.primitives import ButtonLink
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
@@ -430,8 +430,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "✅",
                 type="button",
-                variant=ButtonT.success,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/done",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -440,8 +439,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "⏭️",
                 type="button",
-                variant=ButtonT.warning,
-                size=Size.sm,
+                cls=(ButtonT.secondary, ButtonT.sm),
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/skipped",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -450,8 +448,7 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "❌",
                 type="button",
-                variant=ButtonT.error,
-                size=Size.sm,
+                cls=(ButtonT.destructive, ButtonT.sm),
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/missed",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -529,14 +526,13 @@ def create_quick_add_modal() -> Div:
                 Button(
                     "Cancel",
                     type="button",
-                    variant=ButtonT.ghost,
-                    cls="mr-2",
-                    **{"x-on:click": "closeQuickAdd()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(ButtonT.ghost, "mr-2"),
+                    **{"x-on:click": "closeQuickAdd()"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Create",
                     type="submit",
-                    variant=ButtonT.primary,
+                    cls=ButtonT.primary,
                 ),
                 cls="flex justify-end",
             ),
@@ -609,9 +605,7 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
             buttons.append(
                 Button(
                     label,
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    cls=f"cursor-default {cls_extra}",
+                    cls=(ButtonT.primary, ButtonT.sm, f"cursor-default {cls_extra}"),
                     disabled=True,
                 )
             )
@@ -621,9 +615,7 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
                 ButtonLink(
                     label,
                     href=url,
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls=cls_extra,
+                    cls=(ButtonT.ghost, ButtonT.sm, cls_extra),
                 )
             )
 
@@ -642,9 +634,8 @@ def create_quick_add_button() -> Div:
     return Div(
         Button(
             "+ Add Item",
-            variant=ButtonT.success,
-            cls="fixed bottom-6 right-6 rounded-full shadow-lg",
-            **{"x-on:click": "openQuickAdd()"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls=(ButtonT.primary, "fixed bottom-6 right-6 rounded-full shadow-lg"),
+            **{"x-on:click": "openQuickAdd()"},  # fasthtml dynamic-attr splat
         ),
     )
 
@@ -666,8 +657,7 @@ def error_response(error_message: Any) -> Div:
                 P(str(error_message), cls="text-muted-foreground"),
                 Button(
                     "Go Back",
-                    variant=ButtonT.primary,
-                    cls="mt-4",
+                    cls=(ButtonT.primary, "mt-4"),
                     onclick="window.history.back()",
                 ),
             ),
@@ -820,8 +810,8 @@ def create_item_details_modal(item: Any) -> Div:
     action_buttons = [
         Button(
             "Close",
-            variant=ButtonT.ghost,
-            **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+            cls=ButtonT.ghost,
+            **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
         )
     ]
 
@@ -831,8 +821,7 @@ def create_item_details_modal(item: Any) -> Div:
             ButtonLink(
                 "Edit Task",
                 href=f"/tasks/{item.source_uid}/edit",
-                variant=ButtonT.primary,
-                cls="mr-2",
+                cls=(ButtonT.primary, "mr-2"),
             ),
         )
     elif item.item_type == CalendarItemType.EVENT:
@@ -841,8 +830,7 @@ def create_item_details_modal(item: Any) -> Div:
             ButtonLink(
                 "Edit Event",
                 href=f"/events/{item.source_uid}/edit",
-                variant=ButtonT.success,
-                cls="mr-2",
+                cls=(ButtonT.primary, "mr-2"),
             ),
         )
     elif item.item_type == CalendarItemType.HABIT:
@@ -850,8 +838,7 @@ def create_item_details_modal(item: Any) -> Div:
             0,
             Button(
                 "Mark Complete",
-                variant=ButtonT.secondary,
-                cls="mr-2",
+                cls=(ButtonT.secondary, "mr-2"),
                 hx_post=f"/events/calendar/habit/{item.source_uid}/complete",
                 hx_swap="none",
             ),
@@ -868,10 +855,12 @@ def create_item_details_modal(item: Any) -> Div:
                 ),
                 Button(
                     UkIcon("x", cls="w-6 h-6"),
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="text-muted-foreground hover:text-muted-foreground",
-                    **{"x-on:click": close_expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                    cls=(
+                        ButtonT.ghost,
+                        ButtonT.sm,
+                        "text-muted-foreground hover:text-muted-foreground",
+                    ),
+                    **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex justify-between items-start mb-4",
             ),

@@ -21,12 +21,11 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums.principle_enums import AlignmentLevel
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -34,7 +33,7 @@ from ui.palette import StrengthColor
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -116,9 +115,7 @@ def PrincipleCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#principle-{safe_id(principle.uid)}",
         hx_swap="outerHTML",
-        variant=ButtonT.neutral,
-        size="sm",
-        cls="rounded",
+        cls=(ButtonT.default, ButtonT.sm, "rounded"),
         title=f"Mark as {new_status}",
     )
 
@@ -251,7 +248,7 @@ def PrincipleDetailView(
     philo_section = Div()
     if philo_items:
         philo_section = Div(
-            SectionTitle("Philosophical Context"),
+            section_label("Philosophical Context"),
             *philo_items,
             cls="my-4",
         )
@@ -265,7 +262,7 @@ def PrincipleDetailView(
             expr_items.append(Li(expr_text))
     if expr_items:
         expressions_section = Div(
-            SectionTitle("Expressions"),
+            section_label("Expressions"),
             Ul(*expr_items, cls="list-disc pl-6"),
             cls="my-4",
         )
@@ -274,7 +271,7 @@ def PrincipleDetailView(
     if principle.key_behaviors:
         behavior_items = [Li(b) for b in principle.key_behaviors]
         behaviors_section = Div(
-            SectionTitle("Key Behaviors"),
+            section_label("Key Behaviors"),
             Ul(*behavior_items, cls="list-disc pl-6"),
             cls="my-4",
         )
@@ -310,7 +307,7 @@ def PrincipleDetailView(
             if history_items:
                 al_items.append(MetadataField("History", Ul(*history_items, cls="space-y-1")))
         alignment_section = Div(
-            SectionTitle("Alignment"),
+            section_label("Alignment"),
             *al_items,
             cls="my-4",
         )
@@ -334,7 +331,7 @@ def PrincipleDetailView(
         )
     if conflict_items:
         conflicts_section = Div(
-            SectionTitle("Conflicts & Tensions"),
+            section_label("Conflicts & Tensions"),
             *conflict_items,
             cls="my-4",
         )
@@ -348,7 +345,7 @@ def PrincipleDetailView(
     reflection_section = Div()
     if reflection_items:
         reflection_section = Div(
-            SectionTitle("Personal Reflection"),
+            section_label("Personal Reflection"),
             *reflection_items,
             cls="my-4",
         )
@@ -468,7 +465,7 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
 
     return Div(
-        SectionTitle("Connections"),
+        section_label("Connections"),
         *sections,
         cls="my-4",
     )

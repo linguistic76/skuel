@@ -28,6 +28,8 @@ Date: 2025-12-07
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.models.type_hints import UserUID
@@ -39,13 +41,11 @@ from ui.admin.views import (
     AdminSystemComponents,
     AdminUIComponents,
 )
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.journals.components import render_batch_transcription_panel
-from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
+from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
@@ -101,8 +101,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/users",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     ButtonLink(
                         Div(
@@ -111,8 +113,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/analytics",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     ButtonLink(
                         Div(
@@ -121,8 +125,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/system",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     ButtonLink(
                         Div(
@@ -131,8 +137,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/finance/invoices",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     ButtonLink(
                         Div(
@@ -141,8 +149,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/ingest",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     ButtonLink(
                         Div(
@@ -151,8 +161,10 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                             cls="flex items-center gap-3",
                         ),
                         href="/admin/batch-transcribe",
-                        variant=ButtonT.ghost,
-                        cls="bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        cls=(
+                            ButtonT.ghost,
+                            "bg-background shadow-sm p-4 hover:shadow-md transition-shadow h-auto no-underline",
+                        ),
                     ),
                     cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 ),
@@ -365,9 +377,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         if result.is_error or not result.value:
             content = Div(
                 render_error_banner(f"No user found with UID: {uid}"),
-                ButtonLink(
-                    "← Back to Users", href="/admin/users", variant=ButtonT.ghost, cls="mt-4"
-                ),
+                ButtonLink("← Back to Users", href="/admin/users", cls=(ButtonT.ghost, "mt-4")),
             )
             return await create_admin_page(
                 content=content,
@@ -404,9 +414,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             ButtonLink(
                 "← Back to Users",
                 href="/admin/users",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mb-4",
+                cls=(ButtonT.ghost, ButtonT.sm, "mb-4"),
             ),
             PageHeader(
                 user_data.display_name or user_data.username,
@@ -454,15 +462,12 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                         ButtonLink(
                             "View submissions →",
                             href=f"/teaching/students/{uid}",
-                            variant=ButtonT.outline,
-                            size=Size.sm,
+                            cls=(ButtonT.secondary, ButtonT.sm),
                         ),
                         ButtonLink(
                             "KU progress →",
                             href=f"/teaching/students/{uid}?tab=ku",
-                            variant=ButtonT.outline,
-                            size=Size.sm,
-                            cls="ml-2",
+                            cls=(ButtonT.secondary, ButtonT.sm, "ml-2"),
                         ),
                     ),
                 ),
@@ -481,7 +486,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                     Div(
                         Button(
                             "Deactivate Account" if user_data.is_active else "Activate Account",
-                            variant=ButtonT.error if user_data.is_active else ButtonT.success,
+                            cls=ButtonT.destructive if user_data.is_active else ButtonT.primary,
                             hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
                             hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
                         ),
@@ -578,7 +583,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             Div(
                 Button(
                     "Refresh",
-                    variant=ButtonT.outline,
+                    cls=ButtonT.secondary,
                     hx_get="/admin/system",
                     hx_target="body",
                     hx_swap="outerHTML",
@@ -648,9 +653,7 @@ def _render_system_summary(status_data: dict) -> Div:
         ButtonLink(
             "View Details →",
             href="/admin/system",
-            variant=ButtonT.ghost,
-            size=Size.sm,
-            cls="mt-2",
+            cls=(ButtonT.ghost, ButtonT.sm, "mt-2"),
         ),
     )
 

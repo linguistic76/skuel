@@ -28,6 +28,7 @@ from fasthtml.common import (
     Span,
     Ul,
 )
+from monsterui.franken import Button
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -35,7 +36,6 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.buttons import Button
 from ui.patterns import PageHeader
 from ui.workbench.nav import render_submissions_sidebar_page
 

@@ -27,7 +27,8 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
-from ui.buttons import ButtonLink, ButtonT
+from monsterui.franken import ButtonT
+
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.learning_loop.exercise_status import (
@@ -40,6 +41,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.library")
 
@@ -110,8 +112,7 @@ def _submission_item(sub: "UserEntry") -> Div:
             ButtonLink(
                 "View →",
                 href=f"/gradebook/{sub.uid}",
-                variant=ButtonT.ghost,
-                size=Size.sm,
+                cls=(ButtonT.ghost, ButtonT.sm),
             ),
             cls="flex items-center gap-2",
         ),
@@ -160,9 +161,7 @@ def render_resource_list(resources: list[Any]) -> Div:
                 href=r.source_url,
                 target="_blank",
                 rel="noopener noreferrer",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="ml-auto",
+                cls=(ButtonT.ghost, ButtonT.sm, "ml-auto"),
             )
             if r.source_url
             else None

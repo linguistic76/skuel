@@ -20,16 +20,14 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Div, Form, P
-from monsterui.franken import UkIcon  # type: ignore[import-untyped]
+from monsterui.franken import Button, ButtonT, UkIcon
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from ui.buttons import Button, ButtonLink, ButtonT
 from ui.forms import LabelInput, LabelTextArea
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
@@ -42,6 +40,7 @@ from ui.patterns.sidebar import (
     alpine_mobile_section_renderer,
     alpine_section_renderer,
 )
+from ui.primitives import ButtonLink
 from ui.teaching.badges import submission_preview_badge
 from ui.teaching.cards import (
     render_class_card,
@@ -120,11 +119,12 @@ def _new_group_modal() -> Any:
             Button(
                 "Cancel",
                 type="button",
-                variant=ButtonT.ghost,
-                cls="mr-2",
-                **{"x-on:click": "open = false"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
+                cls=(ButtonT.ghost, "mr-2"),
+                **{
+                    "x-on:click": "open = false"
+                },  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
             ),
-            Button("Create", type="submit", variant=ButtonT.primary),
+            Button("Create", type="submit", cls=ButtonT.primary),
             cls="flex justify-end mt-4",
         ),
         hx_post="/api/groups/create",
@@ -291,9 +291,7 @@ def create_teaching_ui_routes(
                 ButtonLink(
                     "Back to Queue",
                     href="/teaching/queue",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    cls="mt-4",
+                    cls=(ButtonT.ghost, ButtonT.sm, "mt-4"),
                 ),
             ),
             id="review-detail-content",
@@ -512,9 +510,10 @@ def create_teaching_ui_routes(
         new_group_button = Button(
             "+ New Group",
             type="button",
-            variant=ButtonT.primary,
-            size=Size.sm,
-            **{"x-on:click": "open = true"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
+            cls=(ButtonT.primary, ButtonT.sm),
+            **{
+                "x-on:click": "open = true"
+            },  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
         )
 
         content = Div(
@@ -571,9 +570,7 @@ def create_teaching_ui_routes(
             ButtonLink(
                 "← Groups",
                 href="/teaching/groups",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-4",
+                cls=(ButtonT.ghost, ButtonT.sm, "mt-4"),
             ),
         )
 

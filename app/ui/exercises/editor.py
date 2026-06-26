@@ -9,9 +9,9 @@ Imports Form/Input/Label/Textarea — the exact signal the route thinning rule f
 from typing import Any
 
 from fasthtml.common import Div, Option, P
+from monsterui.franken import Button, ButtonT
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card
 from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.section_header import SectionHeader
 
@@ -135,12 +135,12 @@ def render_exercise_editor(
                 ),
                 # Submit buttons
                 Div(
-                    Button("Save Exercise", type="submit", variant=ButtonT.primary, cls="mr-2"),
+                    Button("Save Exercise", type="submit", cls=(ButtonT.primary, "mr-2")),
                     Button(
                         "Cancel",
                         hx_get="/exercises",
                         hx_target="#main-content",
-                        variant=ButtonT.ghost,
+                        cls=ButtonT.ghost,
                     ),
                     cls="mb-4",
                 ),

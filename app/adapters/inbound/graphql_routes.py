@@ -27,6 +27,8 @@ from fasthtml.common import (
     Textarea,
     Title,
 )
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -35,8 +37,6 @@ from adapters.inbound.graphql import GraphQLContext, create_graphql_context, cre
 from adapters.inbound.graphql.config import get_graphql_config
 from core.utils.logging import get_logger
 from services_bootstrap import Services
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 
 logger = get_logger(__name__)
 
@@ -153,7 +153,7 @@ def create_graphql_routes(app: FastHTMLApp, rt: RouteDecorator, services: Servic
                             ),
                             cls="mb-4",
                         ),
-                        Button("Execute Query", type="submit", variant=ButtonT.primary),
+                        Button("Execute Query", type="submit", cls=ButtonT.primary),
                         hx_post="/graphql/execute",
                         hx_target="#graphql-result",
                         hx_swap="innerHTML",

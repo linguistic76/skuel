@@ -15,8 +15,8 @@ import json
 from typing import Any
 
 from fasthtml.common import H3, Div, Form, P, Small, Span
+from monsterui.franken import Button, ButtonT
 
-from ui.buttons import Button, ButtonT
 from ui.forms.components import Checkbox, Input, Label
 from ui.forms.field_builder import build_field_from_schema
 
@@ -88,9 +88,8 @@ def render_inline_form_template(
             Button(
                 "Submit",
                 type="submit",
-                variant=ButtonT.primary,
-                cls="mt-4",
-                **{  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                cls=(ButtonT.primary, "mt-4"),
+                **{  # fasthtml dynamic-attr splat
                     "x-text": "submitting ? 'Submitting...' : 'Submit'",
                     ":disabled": "submitting",
                     ":class": "submitting ? 'opacity-50 cursor-not-allowed' : ''",

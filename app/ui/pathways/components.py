@@ -10,15 +10,16 @@ from fasthtml.common import (
     P,
     Span,
 )
+from monsterui.franken import Button, ButtonT
+from monsterui.franken import CardContainer as Card
 
 from core.models.pathways.pathways_request import LearningPathFilterRequest
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import LabelSelect
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.form_generator import FormGenerator
+from ui.primitives import ButtonLink
 from ui.ui_types import ActivePathData
 
 
@@ -164,9 +165,7 @@ class PathwaysUIComponents:
                 ButtonLink(
                     "Continue Learning",
                     href=f"/pathways/path/{path.uid}",
-                    variant=ButtonT.primary,
-                    size=Size.sm,
-                    cls="w-full",
+                    cls=(ButtonT.primary, ButtonT.sm, "w-full"),
                 ),
                 cls="p-4",
             ),
@@ -195,15 +194,11 @@ class PathwaysUIComponents:
             ButtonLink(
                 "View Details",
                 href=f"/pathways/path/{path['uid']}",
-                variant=ButtonT.outline,
-                size=Size.sm,
-                cls="flex-1",
+                cls=(ButtonT.secondary, ButtonT.sm, "flex-1"),
             ),
             Button(
                 "Enroll",
-                variant=ButtonT.primary,
-                size=Size.sm,
-                cls="flex-1",
+                cls=(ButtonT.primary, ButtonT.sm, "flex-1"),
                 hx_post=f"/api/pathways/enroll/{path['uid']}",
                 hx_target="#main-content",
             ),

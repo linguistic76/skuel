@@ -19,6 +19,8 @@ Date: 2026-01-21
 from typing import Any
 
 from fasthtml.common import H1, Div, P, Pre
+from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import (
     get_current_user,
@@ -28,8 +30,7 @@ from adapters.inbound.auth import (
 )
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.auth_api")
 
@@ -120,9 +121,9 @@ def create_auth_api_routes(
                         ButtonLink(
                             "Logout" if is_auth else "Login",
                             href="/logout" if is_auth else "/login",
-                            variant=ButtonT.secondary,
+                            cls=ButtonT.secondary,
                         ),
-                        ButtonLink("Home", href="/", variant=ButtonT.outline),
+                        ButtonLink("Home", href="/", cls=ButtonT.secondary),
                         cls="flex gap-3",
                     ),
                 ),

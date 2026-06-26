@@ -20,13 +20,12 @@ from fasthtml.common import (
     Div,
     Span,
 )
+from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
-from ui.buttons import ButtonLink, ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
-from ui.layout import Size
 from ui.learning_loop.report import (
     render_activity_report_detail,
     render_activity_report_list,
@@ -41,6 +40,7 @@ from ui.patterns.generate_report import (
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.activity_reports")
 
@@ -79,8 +79,7 @@ def create_activity_reports_ui_routes(
                 actions=ButtonLink(
                     "Submit Activity Report",
                     href="/submit-activity-report",
-                    variant=ButtonT.secondary,
-                    size=Size.sm,
+                    cls=(ButtonT.secondary, ButtonT.sm),
                 ),
             ),
             render_time_period_filter(),

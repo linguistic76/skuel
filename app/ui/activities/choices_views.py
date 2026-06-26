@@ -18,17 +18,16 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
+from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardContainer as Card
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
-from ui.text import SectionTitle
+from ui.primitives import section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -99,9 +98,7 @@ def ChoiceCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#choice-{safe_id(choice.uid)}",
         hx_swap="outerHTML",
-        variant=ButtonT.neutral,
-        size="sm",
-        cls="rounded",
+        cls=(ButtonT.default, ButtonT.sm, "rounded"),
         title=f"Mark as {new_status}",
     )
 
@@ -232,7 +229,7 @@ def ChoiceDetailView(
     decision_section = Div()
     if decision_items:
         decision_section = Div(
-            SectionTitle("Decision Framework"),
+            section_label("Decision Framework"),
             *decision_items,
             cls="my-4",
         )
@@ -261,7 +258,7 @@ def ChoiceDetailView(
             outcome_items.append(MetadataField("Lessons Learned", lessons_list))
         if outcome_items:
             outcome_section = Div(
-                SectionTitle("Outcome"),
+                section_label("Outcome"),
                 *outcome_items,
                 cls="my-4",
             )
@@ -299,7 +296,7 @@ def ChoiceDetailView(
     conn_section = Div()
     if connections:
         conn_section = Div(
-            SectionTitle("Connections"),
+            section_label("Connections"),
             ConnectionBadges(connections),
             cls="my-4",
         )
@@ -346,7 +343,7 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
         items.append(Li(*opt_content, cls="mb-2"))
 
     return Div(
-        SectionTitle("Options"),
+        section_label("Options"),
         Ul(*items),
         cls="my-4",
     )

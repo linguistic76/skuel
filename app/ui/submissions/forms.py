@@ -14,9 +14,9 @@ from fasthtml.common import (
     Option,
     Span,
 )
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
@@ -131,9 +131,7 @@ def render_category_display(submission: Any) -> Any:
         Badge(f"Category: {current_category.title()}", variant=BadgeT.primary),
         Button(
             "Change",
-            variant=ButtonT.ghost,
-            size=Size.xs,
-            cls="ml-2",
+            cls=(ButtonT.ghost, ButtonT.xs, "ml-2"),
             hx_get=f"/gradebook/{submission.uid}/category-selector",
             hx_target=f"#category-display-{submission.uid}",
             hx_swap="outerHTML",
@@ -151,9 +149,7 @@ def render_tags_manager(submission: Any) -> Any:
             tag,
             Button(
                 "\u00d7",
-                variant=ButtonT.ghost,
-                size=Size.xs,
-                cls="ml-1",
+                cls=(ButtonT.ghost, ButtonT.xs, "ml-1"),
                 hx_delete=f"/api/submissions/tags/remove?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_vals=f'js:{{tags: ["{tag}"]}}',
                 hx_target=f"#tags-manager-{submission.uid}",
@@ -177,7 +173,7 @@ def render_tags_manager(submission: Any) -> Any:
                 cls="max-w-xs",
                 size=Size.sm,
             ),
-            Button("Add Tag", type="submit", variant=ButtonT.primary, size=Size.sm, cls="ml-2"),
+            Button("Add Tag", type="submit", cls=(ButtonT.primary, ButtonT.sm, "ml-2")),
             cls="flex items-center mt-2",
             hx_post=f"/api/submissions/tags/add?submission_uid={submission.uid}&user_uid={submission.user_uid}",
             hx_vals="js:{tags: [document.querySelector('[name=\"new_tag\"]').value]}",
@@ -197,8 +193,7 @@ def render_status_buttons(submission: Any) -> Any:
         Div(
             Button(
                 "Publish",
-                variant=ButtonT.success,
-                size=Size.sm,
+                cls=(ButtonT.primary, ButtonT.sm),
                 hx_post=f"/api/submissions/publish?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",
@@ -206,9 +201,7 @@ def render_status_buttons(submission: Any) -> Any:
             ),
             Button(
                 "Archive",
-                variant=ButtonT.warning,
-                size=Size.sm,
-                cls="ml-2",
+                cls=(ButtonT.secondary, ButtonT.sm, "ml-2"),
                 hx_post=f"/api/submissions/archive?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",
@@ -216,9 +209,7 @@ def render_status_buttons(submission: Any) -> Any:
             ),
             Button(
                 "Mark as Draft",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="ml-2",
+                cls=(ButtonT.ghost, ButtonT.sm, "ml-2"),
                 hx_post=f"/api/submissions/draft?submission_uid={submission.uid}&user_uid={submission.user_uid}",
                 hx_target=f"#status-buttons-{submission.uid}",
                 hx_swap="outerHTML",

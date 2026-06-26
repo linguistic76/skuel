@@ -3,13 +3,13 @@
 from typing import Any
 
 from fasthtml.common import H4, H5, Code, Div, Option, P, Span, Template
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums.entity_enums import EntityStatus
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.cards import Card, CardBody
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Label, Select
-from ui.layout import Size
+from ui.primitives import ButtonLink
 
 
 def render_upload_status(
@@ -37,9 +37,7 @@ def render_upload_status(
             ButtonLink(
                 "Browse Journals",
                 href="/submit/journals/browse",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-2",
+                cls=(ButtonT.ghost, ButtonT.sm, "mt-2"),
             )
             if je_input_uid
             else None,
@@ -98,9 +96,7 @@ def render_batch_upload_status(
             ButtonLink(
                 "Browse Journals",
                 href="/submit/journals/browse",
-                variant=ButtonT.ghost,
-                size=Size.sm,
-                cls="mt-1",
+                cls=(ButtonT.ghost, ButtonT.sm, "mt-1"),
             ),
             variant=variant,
         ),
@@ -231,16 +227,21 @@ def render_batch_transcription_panel(
                 Div(
                     Button(
                         "Preview Files",
-                        variant=ButtonT.outline,
+                        cls=ButtonT.secondary,
                         type="button",
-                        **{"@click": "previewFiles()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                        **{
+                            "@click": "previewFiles()",
+                            ":disabled": "loading",
+                        },  # fasthtml dynamic-attr splat
                     ),
                     Button(
                         "Transcribe All",
-                        variant=ButtonT.primary,
+                        cls=(ButtonT.primary, "ml-2"),
                         type="button",
-                        cls="ml-2",
-                        **{"@click": "transcribeAll()", ":disabled": "loading"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                        **{
+                            "@click": "transcribeAll()",
+                            ":disabled": "loading",
+                        },  # fasthtml dynamic-attr splat
                     ),
                     cls="flex gap-2",
                 ),

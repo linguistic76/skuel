@@ -3,10 +3,10 @@
 from typing import Any
 
 from fasthtml.common import Div, Form, Label, Option, P
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardContainer as Card
 
 from ui.analytics.domain_metrics import render_metrics_cards
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody, CardHeader, CardTitle
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.page_header import PageHeader
@@ -65,7 +65,7 @@ def render_analytics_dashboard(request: Any) -> Any:
                             hx_get="/ui/analytics/view",
                             hx_include="[name='analytics_domain'],[name='period'],[name='start_date'],[name='end_date']",
                             hx_target="#analytics-display",
-                            variant=ButtonT.primary,
+                            cls=ButtonT.primary,
                         ),
                         cls="mb-4",
                     ),
@@ -113,9 +113,8 @@ def render_analytics_result(report: Any) -> Any:
         Div(
             Button(
                 "View as Markdown",
-                variant=ButtonT.ghost,
-                cls="mb-4",
-                **{"@click": "showMarkdown = !showMarkdown"},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat
+                cls=(ButtonT.ghost, "mb-4"),
+                **{"@click": "showMarkdown = !showMarkdown"},  # fasthtml dynamic-attr splat
             ),
             render_markdown_view(report.markdown_content),
             **{"x-data": "{ showMarkdown: false }"},

@@ -7,10 +7,10 @@ with results display and JavaScript handlers.
 from typing import Any
 
 from fasthtml.common import Div, Form, NotStr, P, Pre
+from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardContainer as Card
 
 from core.config.settings import get_settings
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
 from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
 
@@ -49,7 +49,7 @@ def _ingestion_card(
                     Button(
                         button_text,
                         type="button",
-                        variant=ButtonT.primary,
+                        cls=ButtonT.primary,
                         onclick=onclick,
                     ),
                     cls="mt-2",

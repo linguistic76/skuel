@@ -29,10 +29,12 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
+from monsterui.franken import CardBody
+from monsterui.franken import CardContainer as Card
+
 from adapters.inbound.auth import require_authenticated_user
 from core.services.user.unified_user_context import RichUserContext, UserContext
 from core.utils.logging import get_logger
-from ui.cards import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -457,9 +459,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Fetch shared reports
         from fasthtml.common import H4, Div, P
+        from monsterui.franken import Button, ButtonT
 
-        from ui.buttons import Button, ButtonLink, ButtonT
         from ui.layout import Size
+        from ui.primitives import ButtonLink
 
         shared_reports = []
         reports_result = await profile_orchestrator.get_shared_with_me_items(
@@ -502,8 +505,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         ButtonLink(
                             "View",
                             href=f"/gradebook/{report.uid}",
-                            variant=ButtonT.primary,
-                            size=Size.xs,
+                            cls=(ButtonT.primary, ButtonT.xs),
                         ),
                         cls="mt-3",
                     ),
@@ -520,9 +522,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             ),
             # Filter tabs
             Div(
-                Button("All", variant=ButtonT.ghost, size=Size.sm, disabled=True),
-                Button("Reports", variant=ButtonT.primary, size=Size.sm),
-                Button("Events", variant=ButtonT.ghost, size=Size.sm, disabled=True),
+                Button("All", cls=(ButtonT.ghost, ButtonT.sm), disabled=True),
+                Button("Reports", cls=(ButtonT.primary, ButtonT.sm)),
+                Button("Events", cls=(ButtonT.ghost, ButtonT.sm), disabled=True),
                 cls="flex gap-2 mb-6",
             ),
             # Shared content grid

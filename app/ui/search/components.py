@@ -24,6 +24,8 @@ __version__ = "3.0"
 from typing import Any
 
 from fasthtml.common import H3, H4, A, Div, NotStr, P, Span
+from monsterui.franken import ButtonT
+from monsterui.franken import CardContainer as Card
 
 from core.models.enums import (
     ContentType,
@@ -32,18 +34,16 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
-from ui.buttons import ButtonLink, ButtonT
-from ui.cards import Card
 from ui.enum_helpers import (
     get_content_icon,
     get_educational_icon,
     get_sel_icon,
 )
 from ui.feedback import Badge, BadgeT
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
+from ui.primitives import ButtonLink
 
 # ============================================================================
 # PAGE LAYOUT COMPONENTS
@@ -857,9 +857,7 @@ def _render_result_card(result: dict) -> Any:
     # Add footer with clean button
     card_body_items.append(
         Div(
-            ButtonLink(
-                "View Details", href=f"/{domain}/{uid}", variant=ButtonT.ghost, size=Size.sm
-            ),
+            ButtonLink("View Details", href=f"/{domain}/{uid}", cls=(ButtonT.ghost, ButtonT.sm)),
             cls="mt-4",
         )
     )

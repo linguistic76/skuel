@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import Div, Span
+from monsterui.franken import CardBody
+from monsterui.franken import CardContainer as Card
 
-from ui.cards import Card, CardBody
 from ui.layout import Grid
-from ui.text import Caption
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ def StatCard(
     )
 
     content: list[Any] = [
-        Caption(label),
+        Span(label, cls="text-xs text-muted-foreground uppercase tracking-wide"),
         Div(
             Span(str(value), cls=value_cls),
             cls="mt-1",
