@@ -48,8 +48,6 @@ def create_insights_api_routes(
     async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
         """Dismiss an insight (mark as dismissed).
 
-        , Task 17: Now accepts optional notes parameter.
-
         Args:
             request: HTTP request with authentication (optional JSON body with notes)
             uid: Insight UID to dismiss
@@ -87,8 +85,6 @@ def create_insights_api_routes(
     @boundary_handler(success_status=200)
     async def mark_insight_actioned(request: Request, uid: str) -> Result[FT]:
         """Mark an insight as actioned.
-
-        , Task 17: Now accepts optional notes parameter.
 
         Args:
             request: HTTP request with authentication (optional JSON body with notes)
@@ -133,7 +129,7 @@ def create_insights_api_routes(
         )
 
     # ========================================
-    # , Task 9: Bulk Action Endpoints
+    # Bulk Action Endpoints
     # ========================================
 
     @rt("/api/insights/bulk/dismiss", methods=["POST"])
@@ -267,7 +263,7 @@ def create_insights_api_routes(
         return await insight_store.get_action_rate_chart(user_uid)
 
     # ========================================
-    # , Task 13: Detail Modal Endpoints
+    # Detail Modal Endpoints
     # ========================================
 
     @rt("/api/insights/{uid}/details")
@@ -370,7 +366,6 @@ def create_insights_api_routes(
         domain_distribution_chart,
         type_distribution_chart,
         action_rate_chart,
-        # , Task 13: Detail modal endpoints
         get_insight_details,
         snooze_insight,
     ]

@@ -202,7 +202,7 @@ def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div
         domain_badge = Badge(insight.domain, variant=BadgeT.neutral)
         badges.append(domain_badge)
 
-    # , Task 11: Deep linking - determine link URL based on entity_uid
+    # Determine link URL based on entity_uid
     # If entity_uid exists, deep link to profile with focus parameter
     # Otherwise, fall back to filtered insights page
     link_url = (

@@ -66,8 +66,7 @@ def OverviewView(
     # Check if intelligence is available (all params provided = full mode)
     _has_intelligence = daily_plan is not None and alignment is not None
 
-    # , Task 3: Use HTMX to load intelligence section with skeleton loading state
-    # , Task 15: Added caching with Alpine.js to reduce 2-3s load times
+    # HTMX-loaded intelligence section with Alpine.js cache to absorb 2-3s load time
     from ui.patterns.skeleton import SkeletonIntelligence
 
     header = Div(
