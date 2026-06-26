@@ -12,7 +12,6 @@ from ui.cards import Card, CardBody
 from ui.forms import Input
 
 # Two hardcoded instruction files shown in the Instructions dropdown.
-# These map filename → display name.
 _FIXED_INSTRUCTIONS = [
     ("dnwf 1.md", "Daily Notes — Single"),
     ("ddnwf group of notes.md", "Daily Notes — Group"),
@@ -47,24 +46,47 @@ _INSTRUCTION_CONFIGS: dict[str, dict[str, str]] = {
         "icon": "file-text",
         "tile_bg": "bg-slate-50",
         "icon_cls": "text-slate-600",
-        "title": "dnwf 1",
+        "title": "Daily Notes — Single",
+        "subtitle": "dnwf 1.md",
         "filename": "dnwf 1.md",
     },
     "group_notes": {
         "icon": "files",
         "tile_bg": "bg-slate-50",
         "icon_cls": "text-slate-600",
-        "title": "ddnwf group of notes",
+        "title": "Daily Notes — Group",
+        "subtitle": "ddnwf group of notes.md",
         "filename": "ddnwf group of notes.md",
     },
 }
 
 
 def _icon_tile(icon: str, bg_cls: str, icon_cls: str) -> Any:
-    """Rounded icon tile used in dropdown rows."""
+    """Rounded 34×34 icon tile used in dropdown rows."""
     return Div(
         UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
         cls=f"w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center {bg_cls}",
+    )
+
+
+def _section_label(text: str) -> Any:
+    return P(
+        text,
+        cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+    )
+
+
+def _submit_btn(label: str) -> Any:
+    from fasthtml.common import Button as RawButton
+
+    return RawButton(
+        UkIcon("send", cls="w-4 h-4 flex-none"),
+        Span(label, cls="btn-label"),
+        type="submit",
+        cls=(
+            "flex items-center gap-2 bg-foreground text-background text-[14px] font-semibold "
+            "px-[18px] py-[11px] rounded-[9px] shadow-sm hover:opacity-90 transition-opacity"
+        ),
     )
 
 
@@ -84,17 +106,18 @@ def _mode_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
     return Button(
         _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
         Div(
-            Span(cfg["title"], cls="text-sm font-semibold text-foreground"),
-            Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
-            cls="flex-1 min-w-0 pt-[1px]",
+            Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
+            Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"),
+            cls="flex-1 min-w-0",
         ),
         check,
         type="button",
         cls=(
-            "w-full flex items-start gap-3 p-[11px] rounded-[9px] border-0 "
-            "bg-transparent text-left font-[inherit] cursor-pointer hover:bg-slate-50"
+            "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
+            "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": f"selectMode('{mode_key}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{":class": f"processingMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
 
 
@@ -107,7 +130,7 @@ def _mode_trigger() -> Any:
                 _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
-                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[1px]"),
+                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[3px]"),
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[13px] w-full",
@@ -134,7 +157,7 @@ def _build_mode_dropdown() -> Any:
         *[_mode_option_row(key, cfg) for key, cfg in _MODE_CONFIGS.items()],
         cls=(
             "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-            "bg-card border border-border rounded-[13px] p-[6px] "
+            "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
             "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
         ),
         **{"x-show": "modeMenuOpen"},
@@ -142,10 +165,7 @@ def _build_mode_dropdown() -> Any:
         **{"@click.outside": "modeMenuOpen = false"},
     )
     return Div(
-        P(
-            "Processing",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
+        _section_label("Processing"),
         Div(_mode_trigger(), menu, cls="relative"),
         cls="mb-6",
     )
@@ -164,32 +184,36 @@ def _instruction_option_row(mode_key: str, cfg: dict[str, str]) -> Any:
         **{"x-show": f"instructionMode === '{mode_key}'"},
         **{"x-cloak": True},
     )
+    subtitle = cfg.get("subtitle", "")
     return Button(
         _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
         Div(
-            Span(cfg["title"], cls="text-sm font-semibold text-foreground"),
-            cls="flex-1 min-w-0 pt-[1px]",
+            Span(cfg["title"], cls="text-[14px] font-semibold text-foreground"),
+            Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[6px]") if subtitle else None,
+            cls="flex-1 min-w-0",
         ),
         check,
         type="button",
         cls=(
-            "w-full flex items-start gap-3 p-[11px] rounded-[9px] border-0 "
-            "bg-transparent text-left font-[inherit] cursor-pointer hover:bg-slate-50"
+            "w-full flex items-start gap-3 px-3 py-[14px] rounded-[9px] border-0 "
+            "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": f"selectInstruction('{mode_key}', '{cfg['filename']}')"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{":class": f"instructionMode === '{mode_key}' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
 
 
 def _instruction_trigger() -> Any:
     """Full-width trigger showing the currently selected instruction set."""
-    # Spans for the two fixed options
     fixed_spans = []
     for mode_key, cfg in _INSTRUCTION_CONFIGS.items():
+        subtitle = cfg.get("subtitle", "")
         fixed_spans.append(
             Span(
                 _icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
                     Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
+                    Span(subtitle, cls="block text-[12px] text-slate-400 font-mono mt-[3px]") if subtitle else None,
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[13px] w-full",
@@ -197,15 +221,16 @@ def _instruction_trigger() -> Any:
                 **{"x-cloak": True},
             )
         )
-    # Span for custom file
+    # Custom file trigger: blue upload tile + filename + "Your file" subtitle
     fixed_spans.append(
         Span(
-            _icon_tile("upload", "bg-slate-50", "text-slate-600"),
+            _icon_tile("upload", "bg-blue-50", "text-blue-600"),
             Span(
                 Span(
                     cls="block text-[14.5px] font-semibold text-foreground truncate",
                     **{"x-text": "customInstructionFilename || 'Custom file'"},
                 ),
+                Span("Your file", cls="block text-[12px] text-slate-400 font-mono mt-[3px]"),
                 cls="flex-1 min-w-0",
             ),
             cls="flex items-center gap-[13px] w-full",
@@ -227,20 +252,25 @@ def _instruction_trigger() -> Any:
 
 
 def _build_instructions_dropdown() -> Any:
-    """Instructions selector — two fixed files + choose-a-file option."""
+    """Instructions selector — conditional on processingMode (hidden for transcribe_only)."""
     separator = Div(cls="h-px bg-slate-100 my-1 mx-2")
     choose_row = Button(
-        _icon_tile("upload", "bg-slate-50", "text-slate-600"),
+        _icon_tile("upload", "bg-blue-50", "text-blue-600"),
         Div(
-            Span("Choose a file…", cls="text-sm font-semibold text-foreground"),
-            cls="flex-1 min-w-0 pt-[1px]",
+            Span("Choose a file…", cls="text-[14px] font-semibold text-foreground"),
+            Span(
+                "Upload your own .md, .txt or .rst",
+                cls="block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]",
+            ),
+            cls="flex-1 min-w-0",
         ),
         type="button",
         cls=(
-            "w-full flex items-start gap-3 p-[11px] rounded-[9px] border-0 "
-            "bg-transparent text-left font-[inherit] cursor-pointer hover:bg-slate-50"
+            "w-full flex items-start gap-3 p-3 rounded-[9px] border-0 "
+            "text-left font-[inherit] cursor-pointer transition-colors"
         ),
         **{"@click": "openCustomFile()"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        **{":class": "instructionMode === 'custom' ? 'bg-blue-50' : 'bg-transparent hover:bg-slate-100'"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
     )
     menu = Div(
         *[_instruction_option_row(key, cfg) for key, cfg in _INSTRUCTION_CONFIGS.items()],
@@ -248,7 +278,7 @@ def _build_instructions_dropdown() -> Any:
         choose_row,
         cls=(
             "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
-            "bg-card border border-border rounded-[13px] p-[6px] "
+            "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
             "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
         ),
         **{"x-show": "instructionMenuOpen"},
@@ -256,12 +286,18 @@ def _build_instructions_dropdown() -> Any:
         **{"@click.outside": "instructionMenuOpen = false"},
     )
     return Div(
-        P(
-            "Instructions",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        Div(
+            Span(
+                "Instructions",
+                cls="text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground",
+            ),
+            Span("Pick a preset or your own file", cls="text-[11.5px] text-slate-400"),
+            cls="flex items-center justify-between mb-[9px]",
         ),
         Div(_instruction_trigger(), menu, cls="relative"),
         cls="mb-6",
+        **{"x-show": "processingMode !== 'transcribe_only'"},
+        **{"x-cloak": True},
     )
 
 
@@ -297,19 +333,72 @@ def _shared_hidden_inputs() -> list[Any]:
 
 
 def _build_files_form_body() -> Any:
-    """File picker section + submit button for 'Upload Files' mode."""
-    from fasthtml.common import Form
+    """File picker with empty dropzone / filled file-card states and submit footer."""
+    from fasthtml.common import Button as RawButton, Form
+
+    empty_state = Div(
+        Div(
+            UkIcon("upload", cls="w-6 h-6 text-blue-600"),
+            cls=(
+                "w-[46px] h-[46px] rounded-[12px] border border-border bg-background "
+                "flex items-center justify-center mb-3"
+            ),
+        ),
+        P("Drag & drop your file here", cls="text-[14.5px] font-semibold text-foreground mb-1"),
+        P(
+            Span("or "),
+            Span("browse", cls="text-blue-600 font-semibold"),
+            Span(" — audio, text, PDF, images, video"),
+            cls="text-[13px] text-muted-foreground",
+        ),
+        cls=(
+            "border-[1.5px] border-dashed border-slate-300 rounded-[12px] bg-slate-50 "
+            "px-6 py-[34px] text-center cursor-pointer flex flex-col items-center "
+            "hover:border-blue-600 hover:bg-blue-50 transition-colors mb-6"
+        ),
+        **{
+            "x-show": "!selectedFile",
+            "@click": "document.getElementById('file-input').click()",
+        },
+    )
+
+    filled_state = Div(
+        Div(
+            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
+            cls="w-[42px] h-[42px] rounded-[10px] bg-blue-50 flex items-center justify-center flex-none",
+        ),
+        Div(
+            P(
+                cls="text-[14px] font-semibold text-foreground truncate leading-snug",
+                **{"x-text": "selectedFile ? selectedFile.name : ''"},
+            ),
+            P("ready to process", cls="text-[12px] text-slate-400 font-mono mt-0.5"),
+            cls="flex-1 min-w-0",
+        ),
+        RawButton(
+            "Replace",
+            type="button",
+            cls=(
+                "text-[13px] font-medium text-foreground border border-border "
+                "rounded-[8px] px-3 py-[7px] hover:bg-slate-50 transition-colors flex-none"
+            ),
+            **{"@click": "document.getElementById('file-input').click()"},
+        ),
+        RawButton(
+            UkIcon("x", cls="w-4 h-4"),
+            type="button",
+            cls=(
+                "w-8 h-8 flex items-center justify-center rounded-lg "
+                "text-muted-foreground hover:bg-slate-100 hover:text-foreground transition-colors flex-none"
+            ),
+            **{"@click": "clearFile()"},
+        ),
+        cls="flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card mb-6",
+        **{"x-show": "selectedFile", "x-cloak": True},
+    )
 
     return Form(
         *_shared_hidden_inputs(),
-
-        # File picker label
-        P(
-            "Your file",
-            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-        ),
-
-        # Hidden file input (triggered by dropzone click)
         Input(
             type="file",
             name="file",
@@ -320,28 +409,13 @@ def _build_files_form_body() -> Any:
             multiple=True,
             **{"x-on:change": "handleFileSelect($event)"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
         ),
-
-        # Drop zone
+        empty_state,
+        filled_state,
         Div(
-            Div(
-                P("Select Files", cls="text-center mb-0", id="file-label-text"),
-                P(
-                    "Click to browse — audio, text, PDF, images, video. Multiple files supported.",
-                    cls="text-sm text-muted-foreground text-center mt-0",
-                    id="file-label-hint",
-                ),
-                cls="p-4 text-center bg-muted rounded-lg cursor-pointer border-2 border-dashed border-border",
-                **{"x-on:click": "document.getElementById('file-input').click()"},
-            ),
-            cls="mb-6",
+            P("Up to 100 MB per file.", cls="text-[12.5px] text-slate-400"),
+            _submit_btn("Process"),
+            cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
-
-        # Submit
-        Div(
-            Button("Process", variant=ButtonT.primary, type="submit"),
-            cls="text-center",
-        ),
-
         hx_post="/submit/journals/upload",
         hx_target="#upload-status",
         hx_swap="outerHTML",
@@ -357,38 +431,24 @@ def _build_files_form_body() -> Any:
 
 
 def _build_folder_form_body() -> Any:
-    """Folder info + submit button for 'Upload Folder' mode."""
+    """Folder info with je_in/ → je_out/ layout and submit footer."""
     from fasthtml.common import Code, Form
 
     return Form(
         *_shared_hidden_inputs(),
-
-        # Folder info
         Div(
-            P(
-                "Source folder",
-                cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
-            ),
-            Div(
-                Code(
-                    "je_in/",
-                    cls="text-sm font-mono text-foreground",
-                ),
-                P(
-                    "All files in this folder will be processed. Results are written to je_out/.",
-                    cls="text-xs text-muted-foreground mt-2",
-                ),
-                cls="p-4 bg-muted rounded-lg border border-border",
-            ),
-            cls="mb-6",
+            UkIcon("folder", cls="w-5 h-5 text-muted-foreground flex-none"),
+            Code("je_in/", cls="text-sm font-mono text-foreground"),
+            UkIcon("arrow-right", cls="w-4 h-4 text-slate-400 flex-none"),
+            Code("je_out/", cls="text-sm font-mono text-muted-foreground"),
+            Span("All files processed", cls="ml-auto text-[12px] text-slate-400"),
+            cls="flex items-center gap-[13px] px-4 py-[14px] bg-slate-50 border border-border rounded-[12px]",
         ),
-
-        # Submit
         Div(
-            Button("Process Folder", variant=ButtonT.primary, type="submit"),
-            cls="text-center",
+            P("Watches je_in/ continuously.", cls="text-[12.5px] text-slate-400"),
+            _submit_btn("Process folder"),
+            cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
-
         hx_post="/submit/journals/folder-process",
         hx_target="#upload-status",
         hx_swap="outerHTML",
@@ -428,21 +488,14 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
         handleFileSelect(event) {{
             const files = event.target.files;
             this.fileCount = files.length;
-            if (files.length > 0) {{
-                this.selectedFile = files[0];
-                const labelText = document.getElementById('file-label-text');
-                const labelHint = document.getElementById('file-label-hint');
-                if (labelText) labelText.textContent = files.length === 1
-                    ? files[0].name
-                    : files.length + ' files selected';
-                if (labelHint) {{
-                    const totalMB = Array.from(files)
-                        .reduce((s, f) => s + f.size, 0) / 1024 / 1024;
-                    labelHint.textContent = files.length === 1
-                        ? (files[0].size / 1024 / 1024).toFixed(2) + ' MB'
-                        : totalMB.toFixed(2) + ' MB total';
-                }}
-            }}
+            this.selectedFile = files.length > 0 ? files[0] : null;
+        }},
+
+        clearFile() {{
+            this.selectedFile = null;
+            this.fileCount = 0;
+            const fi = document.getElementById('file-input');
+            if (fi) fi.value = '';
         }},
 
         selectMode(mode) {{
@@ -486,10 +539,7 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
     return Div(
         Card(
             CardBody(
-                # Processing dropdown
                 _build_mode_dropdown(),
-
-                # Instructions dropdown (always visible)
                 _build_instructions_dropdown(),
 
                 # Hidden file input for custom instruction content
@@ -501,42 +551,45 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                     **{"@change": "onCustomFileChange($event)"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
                 ),
 
-                # Pill-style mode toggle — inside the card so the change below is
-                # immediately visible when the user switches modes
+                # Source section
                 Div(
-                    RawButton(
-                        "Upload Files",
-                        type="button",
-                        cls=(
-                            "flex-1 py-[7px] text-sm font-medium rounded-[7px] "
-                            "transition-colors cursor-pointer border-0"
-                        ),
-                        **{
-                            "@click": "uploadMode = 'files'",
-                            ":class": (
-                                "uploadMode === 'files' "
-                                "? 'bg-foreground text-background' "
-                                ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                    _section_label("Source"),
+                    Div(
+                        RawButton(
+                            "Upload files",
+                            type="button",
+                            cls=(
+                                "flex-1 py-[8px] text-[13.5px] font-semibold rounded-[7px] "
+                                "transition-colors cursor-pointer border-0"
                             ),
-                        },
-                    ),
-                    RawButton(
-                        "Upload Folder",
-                        type="button",
-                        cls=(
-                            "flex-1 py-[7px] text-sm font-medium rounded-[7px] "
-                            "transition-colors cursor-pointer border-0"
+                            **{
+                                "@click": "uploadMode = 'files'",
+                                ":class": (
+                                    "uploadMode === 'files' "
+                                    "? 'bg-foreground text-background' "
+                                    ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                                ),
+                            },
                         ),
-                        **{
-                            "@click": "uploadMode = 'folder'",
-                            ":class": (
-                                "uploadMode === 'folder' "
-                                "? 'bg-foreground text-background' "
-                                ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                        RawButton(
+                            "Watch folder",
+                            type="button",
+                            cls=(
+                                "flex-1 py-[8px] text-[13.5px] font-semibold rounded-[7px] "
+                                "transition-colors cursor-pointer border-0"
                             ),
-                        },
+                            **{
+                                "@click": "uploadMode = 'folder'",
+                                ":class": (
+                                    "uploadMode === 'folder' "
+                                    "? 'bg-foreground text-background' "
+                                    ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                                ),
+                            },
+                        ),
+                        cls="flex border border-border rounded-[10px] p-1",
                     ),
-                    cls="flex border border-border rounded-[10px] p-1 mb-6",
+                    cls="mb-6",
                 ),
 
                 # Files mode
@@ -579,14 +632,16 @@ def upload_form_script() -> Any:
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = count > 1 ? 'Processing ' + count + ' files...' : 'Processing...';
+                    var label = btn.querySelector('.btn-label');
+                    if (label) label.textContent = count > 1 ? 'Processing ' + count + ' files...' : 'Processing...';
                 }
             }
             if (form.id === 'folder-form') {
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = 'Processing folder...';
+                    var label = btn.querySelector('.btn-label');
+                    if (label) label.textContent = 'Processing folder...';
                 }
             }
         });
@@ -595,14 +650,11 @@ def upload_form_script() -> Any:
             var form = evt.detail.elt;
             if (form.id === 'upload-form') {
                 form.reset();
-                var labelText = document.getElementById('file-label-text');
-                var labelHint = document.getElementById('file-label-hint');
-                if (labelText) labelText.textContent = 'Select Files';
-                if (labelHint) labelHint.textContent = 'Click to browse — audio, text, PDF, images, video. Multiple files supported.';
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = 'Process';
+                    var label = btn.querySelector('.btn-label');
+                    if (label) label.textContent = 'Process';
                 }
                 window.dispatchEvent(new CustomEvent('journals:upload-complete'));
             }
@@ -610,7 +662,8 @@ def upload_form_script() -> Any:
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = 'Process Folder';
+                    var label = btn.querySelector('.btn-label');
+                    if (label) label.textContent = 'Process folder';
                 }
             }
         });
