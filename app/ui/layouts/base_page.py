@@ -57,6 +57,7 @@ _MU_HEADERS = _local_headers_offline_safe(
 def build_head(
     title: str,
     extra_css: list[str] | None = None,
+    extra_scripts: list[str] | None = None,
 ) -> "FT":
     """Build complete HTML head for any SKUEL page.
 
@@ -66,6 +67,8 @@ def build_head(
     Args:
         title: Page title (appended with " - SKUEL")
         extra_css: Additional CSS file paths to include
+        extra_scripts: Additional JS file paths to include (injected before
+            skuel.js so page-specific libraries are available to Alpine components)
 
     Returns:
         Head element with all required includes
@@ -77,6 +80,10 @@ def build_head(
     css_links = []
     if extra_css:
         css_links = [Link(rel="stylesheet", href=path) for path in extra_css]
+
+    script_tags = []
+    if extra_scripts:
+        script_tags = [Script(src=path) for path in extra_scripts]
 
     return Head(
         Meta(charset="UTF-8"),
@@ -96,6 +103,8 @@ def build_head(
         Link(rel="stylesheet", href="/static/css/hierarchy.css"),
         # Extra CSS for specific pages
         *css_links,
+        # Extra JS for specific pages (before skuel.js so Alpine components can reference them)
+        *script_tags,
         # SKUEL JavaScript (Alpine components) - LOAD ONLY ONCE
         Script(src="/static/js/focus_trap.js"),
         Script(src="/static/js/skuel.js"),
@@ -145,6 +154,7 @@ async def BasePage(
     request: "Request | None" = None,
     active_page: str = "",
     extra_css: list[str] | None = None,
+    extra_scripts: list[str] | None = None,
     user_display_name: str = "",
     is_authenticated: bool = True,
     is_admin: bool = False,
@@ -165,6 +175,7 @@ async def BasePage(
         request: Starlette request (preferred - auto-detects auth/admin)
         active_page: Current page key for navbar highlighting
         extra_css: Additional CSS file paths to include
+        extra_scripts: Additional JS file paths to include (injected before skuel.js)
         user_display_name: Fallback user name if no request
         is_authenticated: Fallback auth state if no request
         is_admin: Fallback admin state if no request
@@ -220,7 +231,7 @@ async def BasePage(
         )
 
     return Html(
-        build_head(title, extra_css),
+        build_head(title, extra_css, extra_scripts),
         Body(
             # Skip link for keyboard navigation (WCAG 2.1 Level AA)
             A(

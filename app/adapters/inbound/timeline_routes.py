@@ -24,7 +24,7 @@ from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes, split_csv
 from core.models.enums import EntityStatus
 from core.utils.logging import get_logger
@@ -286,7 +286,10 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
     @rt("/timelines")
     @boundary_handler()
     async def timeline_viewer(
-        request, src: str | None = None, project: str | None = None, _view: str = "timeline"
+        request: Request,
+        src: str | None = None,
+        project: str | None = None,
+        _view: str = "timeline",
     ) -> Result[FT]:
         """
         Web interface for Vis.js Timeline visualization.
@@ -301,9 +304,9 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
         user_uid = require_authenticated_user(request)
 
         try:
-            # Render page using Vis.js Timeline component
             return Result.ok(
-                render_timeline_viewer_page(
+                await render_timeline_viewer_page(
+                    request=request,
                     src=src,
                     project=project,
                     user_uid=user_uid,
@@ -312,7 +315,7 @@ def create_timeline_api_routes(_app, rt, tasks_service: Any):
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error("Timeline viewer error", error=str(e))
-            return Result.ok(render_timeline_error(str(e)))
+            return Result.ok(await render_timeline_error(str(e), request=request))
 
     return [get_tasks_timeline, get_timeline_preview, timeline_viewer]
 
