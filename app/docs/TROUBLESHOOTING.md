@@ -131,12 +131,14 @@ curl -s -w "HTTP %{http_code}\n" http://localhost:8000/tasks
 
 **Solution**:
 ```python
-# ❌ WRONG — module no longer exists
+# ❌ WRONG — modules no longer exist (deleted PR E)
 from ui.daisy_components import Button, ButtonT, Card, Progress
+from ui.buttons import Button, ButtonT   # deleted
+from ui.cards import Card, CardBody     # deleted
 
-# ✅ CORRECT — import from focused modules
-from ui.buttons import Button, ButtonT
-from ui.cards import Card, CardBody
+# ✅ CORRECT — import directly from MonsterUI
+from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
+from ui.primitives import ButtonLink  # A() wrapper for button-styled nav links
 from ui.feedback import Progress, ProgressT
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, Select, Textarea
 from ui.layout import Container, DivHStacked, Size
