@@ -17,36 +17,43 @@ Usage:
 __version__ = "2.0"  # Vis.js Timeline version
 
 
-from fasthtml.common import H1, Body, Div, Head, Html, Link, Meta, Option, P, Script, Span, Title
+from typing import TYPE_CHECKING
+
+from fasthtml.common import Div, Option, P, Span
 from monsterui.franken import Button, ButtonT
 
 from core.models.type_hints import UserUID
 from ui.feedback import Loading, LoadingT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.patterns.page_header import PageHeader
 from ui.patterns.skeleton import SkeletonTimeline
 
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
-def render_timeline_viewer_page(
+    from adapters.inbound.fasthtml_types import Request
+
+_VIS_TIMELINE_CSS = "/static/vendor/vis-timeline/vis-timeline-graph2d.min.css"
+_VIS_TIMELINE_JS = "/static/vendor/vis-timeline/vis-timeline-graph2d.min.js"
+
+
+async def render_timeline_viewer_page(
+    request: "Request",
     src: str | None = None,
     project: str | None = None,
     user_uid: UserUID | None = None,
-) -> Html:
-    """
-    Render the Vis.js timeline viewer page.
-
-    Uses Alpine.js for state management and Vis.js Timeline for visualization.
+) -> "FT":
+    """Render the Vis.js timeline viewer page via BasePage.
 
     Args:
-        src: Timeline source URL (optional, defaults to visualization API)
-        project: Optional project filter
-        user_uid: User UID for data filtering
-
-    Returns:
-        Complete HTML page for timeline viewer
+        request: Starlette request (for navbar auth detection).
+        src: Timeline data source URL (defaults to visualization API).
+        project: Optional project filter.
+        user_uid: User UID for data filtering.
     """
-    # Build data URL
     if src:
         data_url = src
     else:
@@ -62,37 +69,25 @@ def render_timeline_viewer_page(
             else "/api/visualizations/timeline"
         )
 
-    return Html(
-        Head(
-            Title("SKUEL Timeline"),
-            Meta(name="viewport", content="width=device-width, initial-scale=1"),
-            # Vis.js Timeline CSS (local vendor)
-            Link(rel="stylesheet", href="/static/vendor/vis-timeline/vis-timeline-graph2d.min.css"),
-            # Custom timeline styles
-            Link(rel="stylesheet", href="/static/css/timeline.css"),
-            Link(rel="icon", href="/static/shared-assets/favicon.ico"),
-            # Alpine.js (local)
-            Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True),
+    content = Div(
+        _render_header(),
+        Div(
+            _render_controls(),
+            _render_filters(project, user_uid),
+            _render_timeline_container(),
+            cls="timeline-page",
+            **{"x-data": f"timelineVis('{data_url}')"},
         ),
-        Body(
-            # Header
-            _render_header(),
-            # Main content wrapper with Alpine.js
-            Div(
-                # Controls row
-                _render_controls(),
-                # Filters
-                _render_filters(project, user_uid),
-                # Timeline container
-                _render_timeline_container(),
-                cls="timeline-page",
-                **{"x-data": f"timelineVis('{data_url}')"},
-            ),
-            # Vis.js Timeline library (local vendor)
-            Script(src="/static/vendor/vis-timeline/vis-timeline-graph2d.min.js"),
-            # SKUEL Alpine.js components
-            Script(src="/static/js/skuel.js"),
-        ),
+    )
+
+    return await BasePage(
+        content,
+        title="Timeline",
+        page_type=PageType.CUSTOM,
+        request=request,
+        active_page="timelines",
+        extra_css=[_VIS_TIMELINE_CSS, "/static/css/timeline.css"],
+        extra_scripts=[_VIS_TIMELINE_JS],
     )
 
 
@@ -235,29 +230,23 @@ def _render_timeline_container() -> Div:
     )
 
 
-def render_timeline_error(error_message: str) -> Html:
-    """
-    Render a timeline error page.
+async def render_timeline_error(
+    error_message: str,
+    request: "Request | None" = None,
+) -> "FT":
+    """Render a timeline error page via BasePage.
 
     Args:
-        error_message: Error message to display
-
-    Returns:
-        Error page HTML
+        error_message: Error message to display.
+        request: Starlette request for navbar auth detection.
     """
-    return Html(
-        Head(Title("Timeline Error")),
-        Body(
-            H1("Timeline Error", cls="text-2xl font-bold text-error"),
-            P(f"Error: {error_message}", cls="mt-4"),
-            P("Please check the server logs for more details.", cls="text-muted-foreground"),
-            Button(
-                "Go Back",
-                cls=(ButtonT.primary, "mt-4"),
-                onclick="history.back()",
-            ),
-        ),
+    content = Div(
+        PageHeader("Timeline Error"),
+        P(f"Error: {error_message}", cls="mt-4"),
+        P("Please check the server logs for more details.", cls="text-muted-foreground mt-2"),
+        Button("Go Back", cls=(ButtonT.primary, "mt-4"), onclick="history.back()"),
     )
+    return await BasePage(content, title="Timeline Error", request=request)
 
 
 # =============================================================================
