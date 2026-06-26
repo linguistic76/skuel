@@ -34,19 +34,10 @@ def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
 
 
 # ---------------------------------------------------------------------------
-# Tab bar — segmented control (Alpine-driven activeTab state)
+# Tab bar — underline style (Alpine-driven activeTab state)
 # ---------------------------------------------------------------------------
 
-_ACTIVE_STYLE = (
-    "background-color: hsl(var(--primary));"
-    " color: hsl(var(--primary-foreground));"
-    " border-radius: 0.375rem;"
-    " box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
-)
-_INACTIVE_STYLE = (
-    "background-color: transparent; color: hsl(var(--muted-foreground)); border-radius: 0.375rem;"
-)
-_TAB_BASE = "flex-1 text-center px-3 py-3 text-sm font-semibold cursor-pointer transition-all"
+_TAB_BASE = "px-4 py-2.5 text-[14px] font-medium cursor-pointer transition-colors -mb-px"
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
     ("library", "Library"),
@@ -59,10 +50,7 @@ def _tab_bar() -> Div:
     return Div(
         *[_tab_button(slug, label) for slug, label in _TAB_SPEC],
         role="tablist",
-        style=(
-            "display: flex; width: 100%; gap: 4px; padding: 4px;"
-            " background-color: hsl(var(--muted)); border-radius: 0.5rem; margin-bottom: 1.5rem;"
-        ),
+        cls="flex border-b border-border mb-6",
     )
 
 
@@ -74,7 +62,7 @@ def _tab_button(slug: str, label: str) -> Button:
         **{
             ":aria-selected": f"activeTab === '{slug}'",
             ":tabindex": f"activeTab === '{slug}' ? 0 : -1",
-            ":style": f"activeTab === '{slug}' ? '{_ACTIVE_STYLE}' : '{_INACTIVE_STYLE}'",
+            ":class": f"activeTab === '{slug}' ? 'border-b-2 border-primary text-foreground font-semibold' : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground'",
             "@click": f"activeTab = '{slug}'",
         },
     )

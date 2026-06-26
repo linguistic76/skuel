@@ -57,7 +57,7 @@ def HubCard(card: HubCardData) -> A:
         ),
         P(card.description, cls="text-sm text-muted-foreground"),
         href=card.href,
-        cls="bg-background rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow block",
+        cls="bg-card border border-border rounded-[12px] p-[22px] shadow-sm hover:shadow-md transition-shadow block",
     )
 
 
