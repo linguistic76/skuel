@@ -231,33 +231,34 @@ class JournalTier(StrEnum):
 
 
 class JournalMode(StrEnum):
-    """Tone and approach of the journal companion's response.
+    """Function of the journal companion's response — maps to DNWF stage.
 
-    REFLECTIVE: Warm, introspective — mirrors threads, sits with complexity.
-    DIRECT:     Concise, action-oriented — patterns named, next steps clear.
-    JESTER:     Playful, irreverent — humour with substance. Available to all tiers.
+    SCRIBE:          Stage 1 — faithful structural record of the raw entry.
+    THOUGHT_PARTNER: Stage 2 — patterns, tensions, interpretive challenge.
+    WHAT_IS_RELATED: Stage 3 — connections to knowledge, curriculum, and graph.
     """
 
-    REFLECTIVE = "reflective"
-    DIRECT = "direct"
-    JESTER = "jester"
+    SCRIBE = "scribe"
+    THOUGHT_PARTNER = "thought_partner"
+    WHAT_IS_RELATED = "what_is_related"
 
     @classmethod
     def default(cls) -> "JournalMode":
-        return cls.REFLECTIVE
+        return cls.THOUGHT_PARTNER
 
     @classmethod
     def from_string(cls, value: str | None) -> "JournalMode":
         if not value:
             return cls.default()
+        normalized = value.lower().strip().replace(" ", "_").replace("-", "_")
         try:
-            return cls(value.lower().strip())
+            return cls(normalized)
         except ValueError:
             return cls.default()
 
     def display_label(self) -> str:
         return {
-            JournalMode.REFLECTIVE: "Reflective",
-            JournalMode.DIRECT: "Direct",
-            JournalMode.JESTER: "Jester",
+            JournalMode.SCRIBE: "Scribe",
+            JournalMode.THOUGHT_PARTNER: "Thought Partner",
+            JournalMode.WHAT_IS_RELATED: "What Is Related",
         }[self]

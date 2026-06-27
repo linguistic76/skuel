@@ -1,13 +1,10 @@
 """Journal service — STANDARD single-response and FOUNDER three-stage DNWF workflows.
 
-STANDARD tier: run_standard() — single motivating response connecting the entry
-to the user's active goals, tasks, and habits; closes with graph suggestions.
+STANDARD tier: run_standard() — single response in the requested JournalMode
+(SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED); defaults to THOUGHT_PARTNER.
 
 FOUNDER tier: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
-each stage gated by user review.
-
-Both tiers accept a JournalMode that shapes the companion's tone and structure.
-Mode defaults to REFLECTIVE when not supplied.
+each stage gated by user review. Stage functions are mode-invariant.
 
 Both tiers persist entries via save_entry() → UserEntry(pipeline=JOURNAL).
 
@@ -125,11 +122,10 @@ class JournalService:
         scribe_output: str,
         review_notes: str,
         user_uid: UserUID,
-        mode: JournalMode | None = None,
     ) -> Result[str]:
-        """Stage 2: evaluative + reflective Thought Partner response across four roles."""
+        """Stage 2: Thought Partner response across four roles."""
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = stage2_system_prompt(context_summary, mode)
+        system_prompt = stage2_system_prompt(context_summary)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 1 — Scribe Record\n\n{scribe_output}\n\n"
@@ -188,11 +184,10 @@ class JournalService:
         user_uid: UserUID,
         mode: JournalMode | None = None,
     ) -> Result[str]:
-        """STANDARD tier: single response connecting the journal to active context.
+        """STANDARD tier: single response in the requested JournalMode.
 
-        Fetches active goals/tasks/habits, builds a motivating response that
-        names specific connections, and appends graph-connection suggestions when
-        enough context is present. JournalMode shapes tone and structure.
+        JournalMode selects the function (SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED).
+        Defaults to THOUGHT_PARTNER when not supplied.
 
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  LLMCaller (response generation).

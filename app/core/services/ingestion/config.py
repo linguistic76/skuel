@@ -316,7 +316,11 @@ def _file_mtime(path: Path) -> float:
     return path.stat().st_mtime
 
 
-def collect_files(directory: Path, pattern: str = "*") -> list[Path]:
+def collect_files(
+    directory: Path,
+    pattern: str = "*",
+    excluded_dirs: frozenset[str] | None = None,
+) -> list[Path]:
     """
     Collect all supported files (MD, YAML, YML) from a directory.
 
@@ -328,6 +332,8 @@ def collect_files(directory: Path, pattern: str = "*") -> list[Path]:
     Args:
         directory: Directory to search
         pattern: Glob pattern (default "*" for all files)
+        excluded_dirs: Directory names to exclude at any depth (e.g. frozenset({"je_in"})).
+            Any file whose path contains one of these names as a component is skipped.
 
     Returns:
         List of file paths sorted by modification time (newest first)
@@ -344,6 +350,9 @@ def collect_files(directory: Path, pattern: str = "*") -> list[Path]:
         all_files.extend(directory.glob(f"**/{pattern}.md"))
         all_files.extend(directory.glob(f"**/{pattern}.yaml"))
         all_files.extend(directory.glob(f"**/{pattern}.yml"))
+
+    if excluded_dirs:
+        all_files = [f for f in all_files if not any(part in excluded_dirs for part in f.parts)]
 
     return sorted(all_files, key=_file_mtime, reverse=True)
 
