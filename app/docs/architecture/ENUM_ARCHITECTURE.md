@@ -27,7 +27,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
 | `learning_enums.py` | Education, knowledge, mastery, assessment, feedback | MasteryImpact, AssessmentOutcome, FeedbackCategory, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
-| `user_enums.py` | User roles and health scoring | UserRole, ContextHealthScore |
+| `user_enums.py` | User roles, health scoring, and journal config | UserRole, ContextHealthScore, JournalTier, JournalMode |
 | `ku_enums.py` | Ku domain classification | KuCategory |
 | `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory (`get_icon()`), BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
@@ -339,6 +339,8 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 **User** (`user_enums.py`):
 - `UserRole` — 4-tier hierarchy: REGISTERED < MEMBER < TEACHER < ADMIN. Has `has_permission()` for hierarchy-aware checks. Use `UserRole.from_string()` for Neo4j-sourced values — zero raw string comparisons remain.
 - `ContextHealthScore` — POOR (0.25), FAIR (0.50), GOOD (0.75), EXCELLENT (1.0). UI display methods.
+- `JournalTier` — STANDARD (single-response workflow) / FOUNDER (DNWF three-stage). Orthogonal to UserRole.
+- `JournalMode` — REFLECTIVE (warm, introspective) / DIRECT (concise, action-oriented) / JESTER (playful, irreverent). Shapes journal companion tone. All tiers, all modes. Use `JournalMode.from_string()` for form-submitted values.
 
 **Metadata** (`metadata_enums.py`) — System-wide configuration:
 - `RelationshipType` (48 values — all entity relationship types)

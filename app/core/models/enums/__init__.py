@@ -154,7 +154,7 @@ from .user_entry_enums import (
 )
 
 # User enums - roles, health scoring, and account management
-from .user_enums import ContextHealthScore, JournalTier, UserRole, UserStatus
+from .user_enums import ContextHealthScore, JournalMode, JournalTier, UserRole, UserStatus
 
 __all__ = [
     "DOMAIN_SEL_MAPPING",
@@ -202,6 +202,7 @@ __all__ = [
     "HealthStatus",
     "IntegrationSuccess",
     "Intent",
+    "JournalMode",
     "JournalTier",
     "KnowledgeStatus",
     "KnowledgeType",

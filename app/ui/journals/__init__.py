@@ -11,12 +11,14 @@ from fasthtml.common import (
     Label,
     P,
     Small,
+    Span,
     Textarea,
 )
 from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 if TYPE_CHECKING:
+    from core.models.enums.user_enums import JournalMode
     from core.models.user.user import User
 
 # ------------------------------------------------------------------
@@ -85,6 +87,7 @@ def _StandardEntryForm() -> Any:
             ),
             cls="mb-5",
         ),
+        _ModeSelector(),
         Button(
             "Respond →",
             cls=ButtonT.default,
@@ -95,6 +98,7 @@ def _StandardEntryForm() -> Any:
             hx_indicator="#journal-loading",
         ),
         _LoadingIndicator(),
+        **{"x-data": "{ journalMode: 'reflective' }"},
     )
 
 
@@ -120,6 +124,7 @@ def _EntryForm() -> Any:
             ),
             cls="mb-5",
         ),
+        _ModeSelector(),
         Button(
             "Scribe →",
             cls=ButtonT.default,
@@ -130,6 +135,7 @@ def _EntryForm() -> Any:
             hx_indicator="#journal-loading",
         ),
         _LoadingIndicator(),
+        **{"x-data": "{ journalMode: 'reflective' }"},
     )
 
 
@@ -141,13 +147,63 @@ def _LoadingIndicator() -> Any:
     )
 
 
+def _ModeSelector() -> Any:
+    """Three-button mode toggle bound to Alpine journalMode state.
+
+    Renders a hidden input (name=journal_mode) so the selected mode is
+    submitted with the form. No wrapper x-data — caller form provides it.
+    """
+    modes = [
+        ("reflective", "Reflective"),
+        ("direct", "Direct"),
+        ("jester", "Jester"),
+    ]
+    buttons = []
+    for value, label in modes:
+        buttons.append(
+            Button(
+                label,
+                type="button",
+                cls="px-3 py-1 text-xs font-medium rounded-md transition-colors border-0",
+                **{
+                    "@click": f"journalMode = '{value}'",
+                    ":class": (
+                        f"journalMode === '{value}' "
+                        "? 'bg-foreground text-background' "
+                        ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                    ),
+                },
+            )
+        )
+    return Div(
+        Div(
+            Span("Mode", cls="text-xs font-medium text-muted-foreground mr-2"),
+            Div(
+                *buttons,
+                cls="flex border border-border rounded-lg p-0.5 gap-0.5",
+            ),
+            cls="flex items-center mb-4",
+        ),
+        Input(
+            type="hidden",
+            name="journal_mode",
+            **{"x-bind:value": "journalMode"},  # boundary: fasthtml-elements
+        ),
+    )
+
+
 # ------------------------------------------------------------------
 # Stage fragments (returned as HTMX swaps to #journal-workspace)
 # ------------------------------------------------------------------
 
 
-def Stage1Fragment(raw_entry: str, title: str, scribe_output: str) -> Any:
+def Stage1Fragment(
+    raw_entry: str, title: str, scribe_output: str, mode: "JournalMode | None" = None
+) -> Any:
     """Fragment returned after Stage 1 — Scribe completes."""
+    from core.models.enums.user_enums import JournalMode
+
+    resolved_mode = (mode or JournalMode.default()).value
     return Div(
         Card(
             CardHeader(CardTitle("Stage 1 — Scribe")),
@@ -161,7 +217,12 @@ def Stage1Fragment(raw_entry: str, title: str, scribe_output: str) -> Any:
         ),
         _ReviewGate(
             stage_target=2,
-            hidden_fields={"raw_entry": raw_entry, "title": title, "scribe_output": scribe_output},
+            hidden_fields={
+                "raw_entry": raw_entry,
+                "title": title,
+                "scribe_output": scribe_output,
+                "journal_mode": resolved_mode,
+            },
             post_url="/journals/stage2",
             next_label="Thought Partner →",
             review_placeholder="Add notes for the Thought Partner (optional)…",
@@ -176,8 +237,12 @@ def Stage2Fragment(
     title: str,
     scribe_output: str,
     thought_partner_output: str,
+    mode: "JournalMode | None" = None,
 ) -> Any:
     """Fragment returned after Stage 2 — Thought Partner completes."""
+    from core.models.enums.user_enums import JournalMode
+
+    resolved_mode = (mode or JournalMode.default()).value
     return Div(
         Card(
             CardHeader(CardTitle("Stage 2 — Thought Partner")),
@@ -196,6 +261,7 @@ def Stage2Fragment(
                 "title": title,
                 "scribe_output": scribe_output,
                 "thought_partner_output": thought_partner_output,
+                "journal_mode": resolved_mode,
             },
             post_url="/journals/stage3",
             next_label="What Is Related →",
@@ -230,11 +296,17 @@ def Stage3Fragment(
     )
 
 
-def StandardResponseFragment(raw_entry: str, title: str, response_output: str) -> Any:
+def StandardResponseFragment(
+    raw_entry: str, title: str, response_output: str, mode: "JournalMode | None" = None
+) -> Any:
     """Fragment returned after a STANDARD tier journal response."""
+    from core.models.enums.user_enums import JournalMode
+
+    resolved = mode or JournalMode.default()
+    card_title = f"Journal Response — {resolved.display_label()}"
     return Div(
         Card(
-            CardHeader(CardTitle("Journal Response")),
+            CardHeader(CardTitle(card_title)),
             CardBody(
                 P(
                     response_output,
