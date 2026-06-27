@@ -71,16 +71,6 @@ async def bootstrap_skuel() -> AppContainer:
     logger.info("🚀 Starting SKUEL bootstrap (composition root)")
 
     try:
-        # Step 0: Framework patches — must run before any request is served.
-        # Interim fix for FastHTML parse_form crashing on an empty application/json
-        # body (see docs/upstream/FASTHTML_EMPTY_JSON_PARSE_FORM.md). Remove when a
-        # FastHTML release carrying the upstream fix is pinned.
-        from adapters.inbound.fasthtml_empty_json_patch import (
-            apply_empty_json_parse_form_patch,
-        )
-
-        apply_empty_json_parse_form_patch()
-
         # Step 1: Load configuration
         config = _load_config()
 
