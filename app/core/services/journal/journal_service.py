@@ -70,7 +70,7 @@ class JournalService:
     # ------------------------------------------------------------------
 
     async def _build_context_summary(self, user_uid: UserUID) -> str:
-        """Return a short text digest of the user's active goals/tasks/habits."""
+        """Return a short text digest of the user's active goals/tasks/habits/vault notes."""
         lines: list[str] = []
 
         if self._goals:
@@ -90,6 +90,16 @@ class JournalService:
             if not habits_result.is_error and habits_result.value:
                 titles = [h.title for h in habits_result.value[:6]]
                 lines.append("Active habits: " + ", ".join(titles))
+
+        notes_result = await self._user_entry.get_vault_notes_for_context(user_uid)
+        if not notes_result.is_error and notes_result.value:
+            note_lines = []
+            for note in notes_result.value:
+                title = note.get("title", "")
+                snippet = (note.get("snippet") or "").strip()
+                entry = f"  [{title}]" + (f" {snippet}" if snippet else "")
+                note_lines.append(entry)
+            lines.append("Personal project notes:\n" + "\n".join(note_lines))
 
         return "\n".join(lines)
 

@@ -510,6 +510,24 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         return await self.backend.update(uid, updates)
 
     # =========================================================================
+    # JOURNAL CONTEXT
+    # =========================================================================
+
+    async def get_vault_notes_for_context(
+        self, user_uid: UserUID, limit: int = 8
+    ) -> Result[list[dict[str, Any]]]:
+        """Vault-synced personal notes for the journal context digest.
+
+        Returns up to ``limit`` notes (title + 300-char snippet) ordered by
+        most-recently-updated. Only entries with ``pipeline=journal`` and
+        ``vault_file_path`` in metadata are returned — the reference archive
+        (``je_raw/``, ``je_pro/``) is excluded by the pipeline filter.
+
+        Backend: _UserEntryContentMixin.get_vault_notes_for_context.
+        """
+        return await self.backend.get_vault_notes_for_context(user_uid, limit)
+
+    # =========================================================================
     # VAULT BRIDGE (ADR-070)
     # =========================================================================
 

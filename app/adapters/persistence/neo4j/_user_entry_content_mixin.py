@@ -108,6 +108,33 @@ class _UserEntryContentMixin:
         """
         return await self.execute_query(query)
 
+    async def get_vault_notes_for_context(
+        self,
+        user_uid: UserUID,
+        limit: int = 8,
+    ) -> Result[list[Neo4jProperties]]:
+        """Vault-synced personal notes for the journal context digest.
+
+        Returns the N most-recently-updated UserEntry nodes that carry a
+        ``vault_file_path`` in their metadata — the marker stamped by the
+        ingestion pipeline for entries that came in via vault sync.
+
+        Only ``pipeline = 'journal'`` entries are returned (root vault notes).
+        Reference-archive entries (``je_raw/``, ``je_pro/``) are excluded by
+        the pipeline filter. Content is truncated to 300 chars so the digest
+        stays compact.
+        """
+        cypher = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity {entity_type: 'user_entry'})
+        WHERE e.pipeline = 'journal'
+          AND e.metadata IS NOT NULL
+          AND e.metadata CONTAINS '"vault_file_path"'
+        RETURN e.title AS title, left(coalesce(e.content, ''), 300) AS snippet
+        ORDER BY coalesce(e.updated_at, e.created_at) DESC
+        LIMIT $limit
+        """
+        return await self.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
+
     async def get_entries_for_path_step(
         self,
         user_uid: UserUID,
