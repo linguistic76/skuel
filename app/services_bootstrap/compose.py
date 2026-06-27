@@ -830,15 +830,28 @@ async def compose_services(
         )
         logger.info("✅ ReportMasteryService created")
 
-        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
+        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix.
+        # Anthropic is optional — present only when ANTHROPIC_API_KEY is set.
         from core.services.llm_caller import UnifiedLLMCaller
         from core.services.report import EntryReportService
 
+        anthropic_chat = None
+        if tier.ai_enabled:
+            from adapters.external.llm import AnthropicChatAdapter
+            from core.config.credential_store import get_credential
+
+            anthropic_api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
+            if anthropic_api_key:
+                anthropic_chat = AnthropicChatAdapter(api_key=anthropic_api_key)
+                logger.info("✅ Anthropic chat adapter created")
+            else:
+                logger.info("⏭️  Anthropic chat adapter skipped (no ANTHROPIC_API_KEY)")
+
         llm_caller = None
-        if openai_chat:
+        if openai_chat or anthropic_chat:
             llm_caller = UnifiedLLMCaller(
                 openai=openai_chat,
-                anthropic=None,  # Only OpenAI configured for now
+                anthropic=anthropic_chat,
             )
             logger.info("✅ UnifiedLLMCaller created")
 
@@ -1091,6 +1104,20 @@ async def compose_services(
         # before user_entry_service existed) so generate_entry_response can do
         # the ownership-verified fetch + journal-chain eligibility check (ADR-069).
         entry_report_service.entry_service = user_entry_service
+
+        # JournalService: DNWF three-stage workflow (FULL tier only, requires llm_caller)
+        journal_service = None
+        if llm_caller is not None:
+            from core.services.journal import JournalService
+
+            journal_service = JournalService(
+                llm_caller=llm_caller,
+                user_entry_service=user_entry_service,
+                goals_service=activity_services["goals"],
+                tasks_service=activity_services["tasks"],
+                habits_service=activity_services["habits"],
+            )
+            logger.info("✅ JournalService created")
 
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
         # Domain facades are the create surfaces; ps/lp/calendar/lifepath
@@ -1567,6 +1594,8 @@ async def compose_services(
             # Cross-cutting AI services (require LLM/embeddings)
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,
+            # Journal domain — DNWF three-stage workflow (FULL tier only)
+            journal=journal_service,
             # Lateral relationship services (January 2026 - Core graph architecture)
             lateral=lateral_service,
             # Intelligence tier (ADR-043)
