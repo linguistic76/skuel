@@ -159,6 +159,12 @@ async def build_user_entry_request(
         return Result.fail(audience_result)
     audience = audience_result.value
 
+    # Pipelines that don't allow sharing (JOURNAL, REFERENCE, TRANSCRIBE_AND_STRUCTURE)
+    # are always private — coerce any explicit or defaulted audience to private so
+    # reference-archive files don't need `audience: private` in every frontmatter block.
+    if not pipeline.allows_sharing():
+        audience = _AudienceSpec(kind="private")
+
     share_with_groups: list[str] = []
     visibility: Visibility | None = None
 
