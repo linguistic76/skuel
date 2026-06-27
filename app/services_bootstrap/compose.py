@@ -1092,6 +1092,20 @@ async def compose_services(
         # the ownership-verified fetch + journal-chain eligibility check (ADR-069).
         entry_report_service.entry_service = user_entry_service
 
+        # JournalService: DNWF three-stage workflow (FULL tier only, requires llm_caller)
+        journal_service = None
+        if llm_caller is not None:
+            from core.services.journal import JournalService
+
+            journal_service = JournalService(
+                llm_caller=llm_caller,
+                user_entry_service=user_entry_service,
+                goals_service=activity_services["goals"],
+                tasks_service=activity_services["tasks"],
+                habits_service=activity_services["habits"],
+            )
+            logger.info("✅ JournalService created")
+
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
         # Domain facades are the create surfaces; ps/lp/calendar/lifepath
         # carry no create-capable method today and finance was retired with
@@ -1567,6 +1581,8 @@ async def compose_services(
             # Cross-cutting AI services (require LLM/embeddings)
             askesis_ai=askesis_ai,
             context_aware_ai=context_aware_ai,
+            # Journal domain — DNWF three-stage workflow (FULL tier only)
+            journal=journal_service,
             # Lateral relationship services (January 2026 - Core graph architecture)
             lateral=lateral_service,
             # Intelligence tier (ADR-043)
