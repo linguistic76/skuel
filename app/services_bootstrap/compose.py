@@ -1187,9 +1187,9 @@ async def compose_services(
         from core.services.vault.vault_reconciler import VaultReconciler
 
         _vault_allowed_root = (
-            config.vault.ingestion_path
+            config.vault.vault_path
             if config
-            else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
+            else pathlib.Path(os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"))
         )
         vault_bridge = FilesystemVaultAdapter(allowed_root=_vault_allowed_root)
         vault_reconciler = VaultReconciler(
