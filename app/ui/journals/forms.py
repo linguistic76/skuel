@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fasthtml.common import Button as RawButton
 from fasthtml.common import Div, NotStr, P, Script, Span
 from monsterui.franken import Button, CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
@@ -68,6 +69,48 @@ _INSTRUCTION_CONFIGS: dict[str, dict[str, str]] = {
         "filename": "ddnwf group of notes.md",
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Journal mode selector
+# ---------------------------------------------------------------------------
+
+
+def _ModeSelector() -> Any:
+    """Three-button mode toggle bound to Alpine journalMode state.
+
+    Renders a hidden input (name=journal_mode) so the selected mode is
+    submitted with the form. No wrapper x-data — caller provides it.
+    """
+    modes = [
+        ("reflective", "Reflective"),
+        ("direct", "Direct"),
+        ("jester", "Jester"),
+    ]
+    buttons = []
+    for value, label in modes:
+        buttons.append(
+            RawButton(
+                label,
+                type="button",
+                cls="px-3 py-1 text-xs font-medium rounded-md transition-colors border-0",
+                **{
+                    "@click": f"journalMode = '{value}'",
+                    ":class": (
+                        f"journalMode === '{value}' "
+                        "? 'bg-foreground text-background' "
+                        ": 'bg-transparent text-muted-foreground hover:text-foreground'"
+                    ),
+                },
+            )
+        )
+    return Div(
+        Div(
+            Span("Mode", cls="text-xs font-medium text-muted-foreground mr-2"),
+            Div(*buttons, cls="flex border border-border rounded-lg p-0.5 gap-0.5"),
+            cls="flex items-center mb-4",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +311,11 @@ def _shared_hidden_inputs() -> list[Any]:
             name="instruction_content",
             **{"x-bind:value": "customInstructionContent"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
         ),
+        Input(
+            type="hidden",
+            name="journal_mode",
+            **{"x-bind:value": "journalMode"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
+        ),
     ]
 
 
@@ -320,7 +368,7 @@ def _build_files_form_body() -> Any:
             primary_btn("Process", type="submit"),
             cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
-        hx_post="/submit/journals/upload",
+        hx_post="/journals/upload",
         hx_target="#upload-status",
         hx_swap="outerHTML",
         hx_encoding="multipart/form-data",
@@ -353,7 +401,7 @@ def _build_folder_form_body() -> Any:
             primary_btn("Process folder", type="submit"),
             cls="flex items-center justify-between pt-[22px] mt-[26px] border-t border-border",
         ),
-        hx_post="/submit/journals/folder-process",
+        hx_post="/journals/folder-process",
         hx_target="#upload-status",
         hx_swap="outerHTML",
         id="folder-form",
@@ -376,6 +424,8 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
 
     alpine_data = f"""{{
         uploadMode: 'files',
+
+        journalMode: 'reflective',
 
         processingMode: 'transcribe_only',
         modeMenuOpen: false,
@@ -438,11 +488,10 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
         }}
     }}"""
 
-    from fasthtml.common import Button as RawButton
-
     return Div(
         Card(
             CardBody(
+                _ModeSelector(),
                 _build_mode_dropdown(),
                 _build_instructions_dropdown(),
                 # Hidden file input for custom instruction content

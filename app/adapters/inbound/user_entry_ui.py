@@ -7,9 +7,7 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 
 Routes:
 - GET  /submit                           — Exercise worksheet upload form
-- GET  /submit/journals                  — Journal upload form (multi-file / folder)
-- GET  /submit/journals/browse           — Journal entry grid
-- POST /submit/journals/upload           — HTMX journal multipart upload
+- GET  /submit/journals                  — 302 redirect to /journals
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook/{uid}                  — Submission detail page
 - GET  /submissions/history              — Submission history
@@ -19,8 +17,9 @@ Routes:
 - GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
 
-All writes go through ``UserEntryService.submit_file``. All reads go through
-``UserEntryOrchestrator``.
+Journal upload routes (POST /journals/upload, POST /journals/folder-process,
+GET /journals/browse) live in journals_routes.py. All writes go through
+``UserEntryService.submit_file``. All reads go through ``UserEntryOrchestrator``.
 """
 
 from __future__ import annotations
@@ -33,31 +32,19 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H4, Div, P, Span
 from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
-from starlette.datastructures import UploadFile
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.rate_limit import rate_limited
 from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.feedback import Badge, BadgeT, StatusBadge
+from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
-from ui.journals.components import (
-    render_batch_upload_status,
-)
-from ui.journals.components import (
-    render_upload_status as render_journal_upload_status,
-)
-from ui.journals.forms import render_upload_form as render_journal_upload_form
-from ui.journals.forms import upload_form_script as render_journal_form_script
 from ui.layout import Size
 from ui.learning_loop.report import render_yours_list
-from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
@@ -73,72 +60,6 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.routes.user_entry.ui")
-
-# Instruction files directory — adapters/inbound/ → adapters/ → app root
-_JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
-
-
-def _load_journal_instruction_file(filename: str, processing_mode: str) -> str | None:
-    """Read an instruction file from data/instructions/ with path-containment guard.
-
-    Returns None when processing_mode is 'transcribe_only', filename is empty,
-    or the file does not exist within the instructions directory.
-    """
-    if processing_mode == "transcribe_only" or not filename:
-        return None
-    candidate = (_JOURNAL_INSTRUCTIONS_DIR / filename).resolve()
-    # Containment guard — reject any path traversal attempt
-    try:
-        candidate.relative_to(_JOURNAL_INSTRUCTIONS_DIR.resolve())
-    except ValueError:
-        logger.warning(f"Path traversal attempt blocked: {filename!r}")
-        return None
-    if not candidate.is_file():
-        logger.warning(f"Instruction file not found: {candidate}")
-        return None
-    return candidate.read_text(encoding="utf-8")
-
-
-async def _submit_text_file_for_llm(
-    *,
-    file_content: bytes,
-    filename: str,
-    title: str,
-    user_uid: str,
-    instructions: str | None,
-    user_entry_service: Any,
-) -> Any:
-    """Submit a text file for LLM_SUMMARY by decoding content and using create_entry.
-
-    LLM_SUMMARY reads entry.content or entry.processed_content. File-upload path
-    only sets file_path, not content — so text files must go through create_entry
-    with content= populated for the pipeline to have source text.
-    """
-    from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-
-    try:
-        text_content = file_content.decode("utf-8")
-    except UnicodeDecodeError:
-        from core.utils.result_simplified import Errors, Result
-
-        return Result.fail(
-            Errors.validation(
-                "File must be valid UTF-8 text for Instructions only mode",
-                field="file",
-            )
-        )
-
-    file_type = mimetypes.guess_type(filename)[0] or "text/plain"
-    req = UserEntryCreateRequest(
-        title=title,
-        pipeline=Pipeline.LLM_SUMMARY,
-        instructions=instructions,
-        content=text_content,
-        original_filename=filename,
-        file_size=len(file_content),
-        file_type=file_type,
-    )
-    return await user_entry_service.create_entry(request=req, user_uid=user_uid)
 
 
 def _status_value(entry: UserEntry) -> str:
@@ -198,34 +119,6 @@ def _render_respond_button(entry_uid: str) -> Any:
     )
 
 
-def _render_awaiting_response_section(entries: list[UserEntry]) -> Any:
-    """Render the "Awaiting a response" list on the journals browse page.
-
-    Empty (renders nothing) when every journal entry already has a response.
-    Each item links to the entry detail page where the response can be requested.
-    """
-    if not entries:
-        return Div()
-    return Card(
-        CardHeader(CardTitle("Awaiting a response")),
-        CardBody(
-            *[
-                Div(
-                    Span(e.title or "Untitled entry", cls="font-medium text-sm"),
-                    ButtonLink(
-                        "Open",
-                        href=f"/gradebook/{e.uid}",
-                        cls=(ButtonT.ghost, ButtonT.sm),
-                    ),
-                    cls="flex items-center justify-between p-2 border-b border-border",
-                )
-                for e in entries
-            ]
-        ),
-        cls="mb-6 bg-background shadow-sm",
-    )
-
-
 def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
     """Adapt a ``UserEntry`` to the dict shape ``render_yours_list`` expects."""
     return {
@@ -236,86 +129,6 @@ def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
         "feedback_count": 0,
         "created_at": entry.created_at,
     }
-
-
-def _render_user_entry_journal_card(entry: UserEntry) -> Any:
-    """Render a journal ``UserEntry`` card for the browse grid."""
-    file_size = entry.file_size or 0
-    file_size_mb = file_size / 1024 / 1024 if file_size else 0
-
-    meta_parts: list[str] = []
-    if entry.original_filename:
-        meta_parts.append(entry.original_filename)
-    if file_size_mb > 0:
-        meta_parts.append(f"{file_size_mb:.2f} MB")
-    if entry.file_type:
-        meta_parts.append(entry.file_type)
-
-    status_str = _status_value(entry)
-
-    action_buttons: list[Any] = []
-    if entry.status == EntityStatus.COMPLETED:
-        action_buttons.append(
-            ButtonLink(
-                "Download",
-                href=f"/submit/journals/{entry.uid}/download",
-                cls=(ButtonT.primary, ButtonT.sm),
-            )
-        )
-
-    return CardGenerator.from_dataclass(
-        {"title": entry.title or "Untitled"},
-        display_fields=[],
-        header_badges=[StatusBadge(status_str) if status_str else None],
-        show_labels=False,
-        metadata=[" \u2022 ".join(meta_parts)] if meta_parts else None,
-        actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
-        card_attrs={"cls": "mb-2"},
-    )
-
-
-def _render_user_entry_journal_grid(entries: list[UserEntry]) -> Any:
-    if not entries:
-        return Div(EmptyState(title="No journals found"), id="journals-grid-container")
-    return Div(
-        *[_render_user_entry_journal_card(e) for e in entries],
-        id="journals-grid-container",
-    )
-
-
-_JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
-_JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
-
-# Text file extensions that can be processed in folder "instructions_only" mode
-_TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
-
-
-async def _call_llm_with_instructions(
-    text: str,
-    instructions: str | None,
-    processing_service: Any,
-) -> Any:
-    """Call LLM directly on raw text for folder processing (no database records).
-
-    Uses the LLM caller embedded in the processing service. Returns Result[str].
-    """
-    from core.utils.result_simplified import Errors, Result
-
-    llm_caller = getattr(processing_service, "llm_caller", None)
-    if llm_caller is None:
-        return Result.fail(
-            Errors.business(
-                rule="llm_tier_required",
-                message="LLM processing requires INTELLIGENCE_TIER=full",
-            )
-        )
-    prompt = f"{instructions}\n\n---\n\n{text}" if instructions else text
-    try:
-        return await llm_caller.generate(
-            prompt=prompt, model=None, temperature=None, max_tokens=None
-        )
-    except Exception as e:  # safety-net: LLM call errors in folder-batch context
-        return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
 
 
 def create_user_entry_ui_routes(
@@ -339,10 +152,10 @@ def create_user_entry_ui_routes(
         entry_report_service: Used to guard delete when feedback exists
         groups_service: ``GroupService`` used by ``/submit`` to enumerate the
             student's own groups for the audience radio selector.
-        batch_transcription_service: ``BatchTranscriptionService`` for folder
-            transcription. ``None`` in CORE tier (no Deepgram).
-        processing_service: ``UserEntryProcessingService`` whose ``llm_caller``
-            is used for folder-mode LLM processing. ``None`` in CORE tier.
+        batch_transcription_service: Retained for API compatibility (journal upload
+            routes now live in journals_routes.py).
+        processing_service: Retained for API compatibility (journal upload
+            routes now live in journals_routes.py).
     """
     if user_entry_service is None:
         raise RuntimeError("UserEntryService is required — check bootstrap wiring")
@@ -521,359 +334,13 @@ def create_user_entry_ui_routes(
         return Div()
 
     # =========================================================================
-    # JOURNALS  (/submit/journals/*)
+    # JOURNALS  (/submit/journals → redirect to /journals)
     # =========================================================================
 
     @rt("/submit/journals")
     async def journals_submit_page(request: Request) -> Any:
-        """Journal upload form — transcription / AI structuring of audio, text, or documents."""
-        require_authenticated_user(request)
-
-        content = Div(
-            PageHeader(
-                "New Journal Entry",
-                subtitle="Upload a file to be processed by AI",
-                actions=ButtonLink(
-                    "Browse my journals",
-                    href="/submit/journals/browse",
-                    cls=(ButtonT.ghost, ButtonT.sm),
-                ),
-            ),
-            render_journal_upload_form(),
-            render_journal_form_script(),
-        )
-        return await render_submissions_sidebar_page(
-            content=content,
-            active="journals",
-            request=request,
-        )
-
-    @rt("/submit/journals/browse")
-    async def journals_browse_page(request: Request) -> Any:
-        """Browse the user's journal entries."""
-        user_uid = require_authenticated_user(request)
-
-        entries: list[UserEntry] = []
-        result = await orchestrator.list_journal_entries(user_uid)
-        if not result.is_error and result.value:
-            entries = list(result.value)
-
-        # Journal-chain entries with no response yet — wires
-        # get_pending_submissions(pipelines=[...]) (ADR-069). The awaiting set
-        # spans BOTH journal pipelines (EXTRACT_ACTIVITIES + TRANSCRIBE_AND_STRUCTURE),
-        # so resolve titles from the user's full entry list rather than the
-        # transcription-only journal grid (which would silently drop the former).
-        awaiting_result = await orchestrator.get_entries_awaiting_response(user_uid)
-        awaiting_uids = set(awaiting_result.value or []) if awaiting_result.is_ok else set()
-        awaiting_entries: list[UserEntry] = []
-        if awaiting_uids:
-            pool_result = await orchestrator.list_for_user(user_uid, limit=100)
-            pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
-            awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
-
-        content = Div(
-            PageHeader(
-                "My Journals",
-                subtitle="Browse your AI-processed journal entries",
-                actions=ButtonLink(
-                    "New Journal",
-                    href="/submit/journals",
-                    cls=(ButtonT.primary, ButtonT.sm),
-                ),
-            ),
-            _render_awaiting_response_section(awaiting_entries),
-            _render_user_entry_journal_grid(entries),
-        )
-        return await render_submissions_sidebar_page(
-            content=content,
-            active="journals",
-            request=request,
-        )
-
-    @rt("/submit/journals/upload")
-    @csrf_protected
-    @rate_limited(per_user=10, window_s=60)
-    async def upload_journal(request: Request) -> Any:
-        """HTMX endpoint for journal file upload.
-
-        Supports three processing modes driven by the ``processing_mode`` form field:
-        - ``transcribe_only``           — audio → text (Pipeline.TRANSCRIBE)
-        - ``transcribe_and_instructions`` — audio → transcribe + LLM (Pipeline.TRANSCRIBE_AND_STRUCTURE)
-        - ``instructions_only``         — text file → LLM (Pipeline.LLM_SUMMARY)
-
-        For ``instructions_only`` the file is decoded as UTF-8 text and submitted
-        with ``content=`` rather than a file path, so LLM_SUMMARY has source text.
-        """
-        try:
-            user_uid = require_authenticated_user(request)
-            form = await request.form()
-            raw_title = form.get("title")
-            custom_title = str(raw_title).strip() if raw_title else ""
-
-            # Folder-mode forms include upload_source=folder so the status div id
-            # matches their hx-target (avoids duplicate id="upload-status" in DOM).
-            upload_source = str(form.get("upload_source", "file"))
-            status_id = "folder-upload-status" if upload_source == "folder" else "upload-status"
-
-            raw_files = form.getlist("file")
-            uploaded_files = [f for f in raw_files if isinstance(f, UploadFile)]
-
-            if not uploaded_files:
-                return render_journal_upload_status("error", "No file provided", is_error=True)
-
-            max_journal_files = 20
-            if len(uploaded_files) > max_journal_files:
-                return render_journal_upload_status(
-                    "error",
-                    f"Too many files: {len(uploaded_files)} (max {max_journal_files})",
-                    is_error=True,
-                )
-
-            # Resolve processing mode and instruction text.
-            # Custom content (from client FileReader) takes precedence over named file.
-            processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
-            instruction_filename = str(form.get("instruction_filename", "")).strip()
-            instruction_content = str(form.get("instruction_content", "")).strip()
-            instructions = instruction_content or _load_journal_instruction_file(
-                instruction_filename, processing_mode
-            )
-
-            pipeline_map: dict[str, Pipeline] = {
-                "transcribe_only": Pipeline.TRANSCRIBE,
-                "transcribe_and_instructions": Pipeline.TRANSCRIBE_AND_STRUCTURE,
-                "instructions_only": Pipeline.LLM_SUMMARY,
-            }
-            pipeline = pipeline_map.get(processing_mode, Pipeline.TRANSCRIBE)
-
-            if len(uploaded_files) == 1:
-                uploaded_file = uploaded_files[0]
-                file_content = await uploaded_file.read()
-                filename = uploaded_file.filename or "unknown"
-                title = custom_title or filename
-
-                if processing_mode == "instructions_only":
-                    # Text file path: decode content and submit via create_entry so
-                    # LLM_SUMMARY has source text in entry.content.
-                    result = await _submit_text_file_for_llm(
-                        file_content=file_content,
-                        filename=filename,
-                        title=title,
-                        user_uid=user_uid,
-                        instructions=instructions,
-                        user_entry_service=user_entry_service,
-                    )
-                else:
-                    result = await user_entry_service.submit_file(
-                        file_content=file_content,
-                        original_filename=filename,
-                        user_uid=user_uid,
-                        pipeline=pipeline,
-                        title=title,
-                        instructions=instructions,
-                        metadata={"custom_title": custom_title} if custom_title else None,
-                    )
-
-                if result.is_error:
-                    return render_journal_upload_status("error", str(result.error), is_error=True)
-
-                entry, _outcome = result.value
-                return render_journal_upload_status(
-                    _status_value(entry),
-                    f"Journal entry created: {entry.title}",
-                    je_input_uid=entry.uid,
-                )
-
-            # Multiple files — process each and return a combined status.
-            # instructions_only is single-file only (multi-file text decode is ambiguous).
-            if processing_mode == "instructions_only":
-                return render_journal_upload_status(
-                    "error",
-                    "Instructions only mode supports a single file at a time",
-                    is_error=True,
-                )
-
-            batch_results: list[tuple[str, bool, str | None, str | None]] = []
-            for uploaded_file in uploaded_files:
-                filename = uploaded_file.filename or "unknown"
-                try:
-                    file_content = await uploaded_file.read()
-                    result = await user_entry_service.submit_file(
-                        file_content=file_content,
-                        original_filename=filename,
-                        user_uid=user_uid,
-                        pipeline=pipeline,
-                        title=filename,
-                        instructions=instructions,
-                        metadata=None,
-                    )
-                    if result.is_error:
-                        batch_results.append((filename, False, None, str(result.error)))
-                    else:
-                        entry, _outcome = result.value
-                        batch_results.append((filename, True, entry.uid, None))
-                except Exception as e:  # safety-net: per-file error boundary
-                    logger.error(f"Error processing journal file {filename!r}: {e}", exc_info=True)
-                    batch_results.append((filename, False, None, str(e)))
-
-            return render_batch_upload_status(batch_results, status_id=status_id)
-
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error uploading journal: {e}", exc_info=True)
-            return render_journal_upload_status("error", f"Upload failed: {e}", is_error=True)
-
-    @rt("/submit/journals/folder-process")
-    @csrf_protected
-    @rate_limited(per_user=5, window_s=60)
-    async def folder_process(request: Request) -> Any:
-        """HTMX endpoint: process all files in je_in/ with the selected pipeline.
-
-        Reads from ``_JE_IN`` (``/home/mike/0bsidian/skuel/je_in``) and writes
-        results to ``_JE_OUT`` (``/home/mike/0bsidian/skuel/je_out``).
-
-        Modes:
-        - ``transcribe_only``             → Deepgram audio→.txt via batch service
-        - ``transcribe_and_instructions`` → Deepgram → .txt, then LLM → .md
-        - ``instructions_only``           → read .txt/.md, apply LLM → .md
-        """
-        try:
-            require_authenticated_user(request)
-            form = await request.form()
-            processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
-            instruction_filename = str(form.get("instruction_filename", "")).strip()
-            instruction_content = str(form.get("instruction_content", "")).strip()
-            instructions = instruction_content or _load_journal_instruction_file(
-                instruction_filename, processing_mode
-            )
-
-            _JE_OUT.mkdir(parents=True, exist_ok=True)
-
-            if processing_mode == "transcribe_only":
-                if batch_transcription_service is None:
-                    return render_journal_upload_status(
-                        "error",
-                        "Transcription service not available (requires FULL tier)",
-                        is_error=True,
-                    )
-                result = await batch_transcription_service.transcribe_batch(_JE_IN, _JE_OUT)
-                if result.is_error:
-                    return render_journal_upload_status("error", str(result.error), is_error=True)
-                r = result.value
-                msg = (
-                    f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
-                    f" — results in je_out/"
-                )
-                is_err = r.failed > 0 and r.succeeded == 0
-                return render_journal_upload_status(
-                    "error" if is_err else "completed", msg, is_error=is_err
-                )
-
-            if processing_mode == "transcribe_and_instructions":
-                if batch_transcription_service is None:
-                    return render_journal_upload_status(
-                        "error",
-                        "Transcription service not available (requires FULL tier)",
-                        is_error=True,
-                    )
-                if (
-                    processing_service is None
-                    or getattr(processing_service, "llm_caller", None) is None
-                ):
-                    return render_journal_upload_status(
-                        "error",
-                        "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                        is_error=True,
-                    )
-                # Phase 1: transcribe audio → .txt in je_out/
-                transcribe_result = await batch_transcription_service.transcribe_batch(
-                    _JE_IN, _JE_OUT
-                )
-                if transcribe_result.is_error:
-                    return render_journal_upload_status(
-                        "error", str(transcribe_result.error), is_error=True
-                    )
-                succeeded_stems = {
-                    Path(r["name"]).stem
-                    for r in transcribe_result.value.results
-                    if r.get("status") == "success"
-                }
-                # Phase 2: apply LLM to each .txt → write .md
-                llm_ok = 0
-                llm_fail = 0
-                for stem in succeeded_stems:
-                    txt_path = _JE_OUT / f"{stem}.txt"
-                    if not txt_path.exists():
-                        continue
-                    text = txt_path.read_text(encoding="utf-8")
-                    llm_result = await _call_llm_with_instructions(
-                        text, instructions, processing_service
-                    )
-                    if llm_result.is_error:
-                        logger.error(f"LLM failed for {stem}: {llm_result.error}")
-                        llm_fail += 1
-                    else:
-                        (_JE_OUT / f"{stem}.md").write_text(llm_result.value, encoding="utf-8")
-                        llm_ok += 1
-                r = transcribe_result.value
-                msg = (
-                    f"{r.succeeded} transcribed, {llm_ok} structured, "
-                    f"{r.failed + llm_fail} failed — results in je_out/"
-                )
-                return render_journal_upload_status("completed", msg)
-
-            if processing_mode == "instructions_only":
-                if (
-                    processing_service is None
-                    or getattr(processing_service, "llm_caller", None) is None
-                ):
-                    return render_journal_upload_status(
-                        "error",
-                        "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                        is_error=True,
-                    )
-                if not _JE_IN.is_dir():
-                    return render_journal_upload_status(
-                        "error", f"Input folder not found: {_JE_IN}", is_error=True
-                    )
-                text_files = sorted(
-                    f
-                    for f in _JE_IN.iterdir()
-                    if f.is_file() and f.suffix.lower() in _TEXT_EXTENSIONS
-                )
-                if not text_files:
-                    return render_journal_upload_status(
-                        "error", "No text files found in je_in/", is_error=True
-                    )
-                ok = 0
-                fail = 0
-                for text_file in text_files:
-                    try:
-                        text = text_file.read_text(encoding="utf-8")
-                    except Exception:  # safety-net: per-file read error
-                        fail += 1
-                        continue
-                    llm_result = await _call_llm_with_instructions(
-                        text, instructions, processing_service
-                    )
-                    if llm_result.is_error:
-                        logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
-                        fail += 1
-                    else:
-                        (_JE_OUT / f"{text_file.stem}.md").write_text(
-                            llm_result.value, encoding="utf-8"
-                        )
-                        ok += 1
-                msg = f"{ok} processed, {fail} failed — results in je_out/"
-                return render_journal_upload_status(
-                    "completed" if ok > 0 else "error", msg, is_error=(ok == 0)
-                )
-
-            return render_journal_upload_status(
-                "error", f"Unknown processing mode: {processing_mode!r}", is_error=True
-            )
-
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error in folder-process: {e}", exc_info=True)
-            return render_journal_upload_status("error", f"Processing failed: {e}", is_error=True)
+        """Redirect to the canonical journal entry point at /journals."""
+        return RedirectResponse("/journals", status_code=302)
 
     @rt("/submit/journals/{uid}/download")
     async def download_journal(request: Request, uid: str) -> Any:
@@ -903,7 +370,7 @@ def create_user_entry_ui_routes(
                 media_type=media_type,
             )
 
-        except Exception as e:  # safety-net: HTMX fragment error boundary
+        except Exception as e:  # safety-net: download error boundary
             logger.error(f"Error downloading journal {uid}: {e}", exc_info=True)
             return Div(P(f"Download failed: {e}", cls="text-center text-error"))
 
@@ -1004,7 +471,7 @@ def create_user_entry_ui_routes(
                 ),
                 Div(
                     ButtonLink(
-                        "\u2190 Back to Submission History",
+                        "← Back to Submission History",
                         href="/submissions/history",
                         cls=ButtonT.ghost,
                     ),
@@ -1049,8 +516,6 @@ def create_user_entry_ui_routes(
         history_list,
         delete_submission,
         journals_submit_page,
-        journals_browse_page,
-        upload_journal,
         download_journal,
         respond_to_entry,
         submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}

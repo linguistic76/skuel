@@ -90,6 +90,7 @@ class UserEntry(UserOwnedEntity):
     processed_content: str | None = None
     processed_file_path: str | None = None
     instructions: str | None = None  # Pipeline-specific instructions (e.g. LLM prompt)
+    journal_mode: str | None = None  # JournalMode value captured at upload time
     max_retention: int | None = None  # FIFO cleanup limit (None = permanent)
 
     # =========================================================================
