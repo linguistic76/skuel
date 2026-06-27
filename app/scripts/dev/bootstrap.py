@@ -680,6 +680,10 @@ async def _wire_all_routes(
 
     create_today_routes(app, rt, services)
 
+    from adapters.inbound.journals_routes import create_journals_routes
+
+    create_journals_routes(app, rt, services)
+
     from adapters.inbound.settings_routes import create_settings_routes
 
     create_settings_routes(app, rt, services)

@@ -25,13 +25,17 @@ class Pipeline(StrEnum):
         NONE                      — no processing; plain submission / text entry
         TRANSCRIBE                — audio → text (Deepgram)
         TRANSCRIBE_AND_STRUCTURE  — audio → transcribed entry → LLM-structured
-                                    second entry (journal pipeline)
+                                    second entry (legacy; preserved for existing
+                                    UserEntry nodes)
         LLM_SUMMARY               — text/file → LLM summary
         EXTRACT_ACTIVITIES        — text → DSL parse → real entities (tasks,
                                     goals, habits, ...) with EXTRACTED_FROM
                                     provenance (ADR-069)
         TEACHER_REVIEW            — no processing; entry waits in teacher queue
                                     via SHARED_WITH_GROUP
+        JOURNAL                   — Journals domain entry; processing driven by
+                                    JournalTier (FOUNDER: three-stage DNWF,
+                                    STANDARD: single-response). Always private.
     """
 
     NONE = "none"
@@ -40,6 +44,7 @@ class Pipeline(StrEnum):
     LLM_SUMMARY = "llm_summary"
     EXTRACT_ACTIVITIES = "extract_activities"
     TEACHER_REVIEW = "teacher_review"
+    JOURNAL = "journal"
 
     def allows_sharing(self) -> bool:
         """Whether a UserEntry on this pipeline may carry a non-private audience.
@@ -53,7 +58,7 @@ class Pipeline(StrEnum):
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """
-        return self is not Pipeline.TRANSCRIBE_AND_STRUCTURE
+        return self not in (Pipeline.TRANSCRIBE_AND_STRUCTURE, Pipeline.JOURNAL)
 
 
 class ReportSource(StrEnum):

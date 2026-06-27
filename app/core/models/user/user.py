@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums import EnergyLevel, LearningLevel, TimeOfDay, UserRole
+from core.models.enums import EnergyLevel, JournalTier, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
 
@@ -145,6 +145,11 @@ class User:
     # User role (four-tier hierarchy)
     # REGISTERED < MEMBER < TEACHER < ADMIN
     role: UserRole = field(default_factory=UserRole.default)
+
+    # Journal workflow tier — orthogonal to UserRole
+    # STANDARD: continuous single-response workflow (default)
+    # FOUNDER:  full three-stage DNWF workflow (linguistic76 pilot)
+    journal_tier: JournalTier = field(default_factory=JournalTier.default)
 
     # Settings
     settings: dict[str, Any] = field(default_factory=dict)

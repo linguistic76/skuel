@@ -32,6 +32,7 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
     SidebarItem("Principles", "/principles", "principles", icon="compass"),
     SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
+    SidebarItem("Journal", "/journals", "journals", icon="book-open"),
 ]
 
 
