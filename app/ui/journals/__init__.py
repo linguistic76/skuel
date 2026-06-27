@@ -17,6 +17,18 @@ from fasthtml.common import (
 from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
+_PRIVACY_NOTICE = Div(
+    Span("🔒", cls="mr-1.5"),
+    Span(
+        "Your entries are private to you — no SKUEL admin can access them through the app. "
+        "When you request an AI response, your note and a brief summary of your active goals, tasks, and habits "
+        "are sent to Claude (Anthropic's API) to generate that response. "
+        "Saved entries are stored in your account only.",
+        cls="text-xs",
+    ),
+    cls="flex items-start gap-1 text-muted-foreground bg-muted/50 rounded-md px-3 py-2 mb-5",
+)
+
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
     from core.models.user.user import User
@@ -39,8 +51,9 @@ def _FounderPage() -> Any:
             H3("Daily Notes Workflow", cls="text-lg font-semibold mb-1"),
             P(
                 "Scribe → Thought Partner → What Is Related",
-                cls="text-sm text-muted-foreground mb-6",
+                cls="text-sm text-muted-foreground mb-4",
             ),
+            _PRIVACY_NOTICE,
             _EntryForm(),
             cls="max-w-2xl",
         ),
@@ -55,8 +68,9 @@ def _StandardPage() -> Any:
             H3("Journal", cls="text-lg font-semibold mb-1"),
             P(
                 "Write a note and get a response connecting it to your active goals, tasks, and habits.",
-                cls="text-sm text-muted-foreground mb-6",
+                cls="text-sm text-muted-foreground mb-4",
             ),
+            _PRIVACY_NOTICE,
             _StandardEntryForm(),
             cls="max-w-2xl",
         ),
