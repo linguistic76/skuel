@@ -70,3 +70,29 @@ def stage3_system_prompt(user_context_summary: str) -> str:
         parts.append(f"## Current User Context\n\n{user_context_summary}")
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
+
+def standard_system_prompt(user_context_summary: str) -> str:
+    """System prompt for the STANDARD tier — single motivating response.
+
+    Builds a self-contained prompt (no file dependency) that instructs the LLM
+    to respond as a warm journal companion, connect the entry to the user's active
+    context, and close with a graph-suggestion section only when context is present.
+    """
+    base = (
+        "You are a thoughtful journal companion. When the user shares their daily note, "
+        "respond in a single warm message that does three things:\n\n"
+        "1. Acknowledge what they wrote with genuine attention — reflect one or two "
+        "threads that stand out, without summarising the whole note back to them.\n\n"
+        "2. Connect their reflections to their active goals, tasks, and habits (provided "
+        "below if present). Name specifics. Be encouraging and forward-looking — this is "
+        "a partner who wants them to succeed, not a critic.\n\n"
+        "3. End with a short section titled 'What this connects to' that proposes 2-4 "
+        "knowledge threads or concepts their journal touches. Frame these as invitations "
+        "to explore, not commands. Only include this section if you can name at least two "
+        "specific connections — omit it entirely rather than give vague or generic ones.\n\n"
+        "Tone: warm, honest, encouraging. No stage structure, no clinical language. "
+        "Write as a knowledgeable friend who pays close attention."
+    )
+    if user_context_summary:
+        base += f"\n\n## User's Active Context\n\n{user_context_summary}"
+    return base

@@ -1,8 +1,12 @@
-"""DNWF three-stage journal service.
+"""Journal service — STANDARD single-response and FOUNDER three-stage DNWF workflows.
 
-Orchestrates the Daily Notes Workflow for FOUNDER-tier users: Scribe (Stage 1),
-Thought Partner (Stage 2), and What Is Related (Stage 3). Builds a concise
-user-context string from live goals/tasks/habits for Stage 2 and 3 prompts.
+STANDARD tier: run_standard() — single motivating response connecting the entry
+to the user's active goals, tasks, and habits; closes with graph suggestions.
+
+FOUNDER tier: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
+each stage gated by user review.
+
+Both tiers persist entries via save_entry() → UserEntry(pipeline=JOURNAL).
 
 See: /docs/decisions/ (ADR forthcoming)
 """
@@ -16,6 +20,7 @@ from core.services.journal.instruction_loader import (
     stage1_system_prompt,
     stage2_system_prompt,
     stage3_system_prompt,
+    standard_system_prompt,
 )
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS
@@ -36,17 +41,13 @@ _STAGE3_MAX_TOKENS = 3000
 
 
 class JournalService:
-    """Orchestrates the DNWF three-stage journal workflow.
+    """Orchestrates journal workflows for both tiers.
 
-    Stages:
-        1. Scribe — faithful structural record of the raw entry.
-        2. Thought Partner — evaluative + reflective response across four roles
-           (Person, Founder, System Builder, Jester).
-        3. What Is Related — proposed graph connections to the user's knowledge,
-           goals, tasks, and habits.
+    STANDARD: run_standard() — one-shot motivating response with context + graph hints.
+    FOUNDER:  run_stage1/2/3() — Scribe → Thought Partner → What Is Related.
 
-    Backend: UserEntryService (for persistence); GoalsService/TasksService/
-    HabitsService (for user-context summaries fed to Stage 2 and 3 prompts).
+    Backend: UserEntryService (persistence); GoalsService/TasksService/HabitsService
+    (user-context summaries); LLMCaller (all AI responses).
     """
 
     def __init__(
@@ -98,10 +99,7 @@ class JournalService:
     async def run_stage1(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
         """Stage 1: produce a faithful structural Scribe record of the raw entry."""
         system_prompt = stage1_system_prompt()
-        user_message = (
-            f"# Daily Note\n\n{raw_entry}\n\n"
-            "Please process this as Stage 1 — Scribe."
-        )
+        user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease process this as Stage 1 — Scribe."
         try:
             return await self._llm.generate(
                 prompt=user_message,
@@ -176,12 +174,38 @@ class JournalService:
             return Result.fail(Errors.integration("llm", f"Stage 3 failed: {exc}"))
 
     # ------------------------------------------------------------------
+    # Standard workflow
+    # ------------------------------------------------------------------
+
+    async def run_standard(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
+        """STANDARD tier: single response connecting the journal to active context.
+
+        Fetches active goals/tasks/habits, builds a motivating response that
+        names specific connections, and appends graph-connection suggestions when
+        enough context is present.
+
+        Backend: GoalsService, TasksService, HabitsService (context summary);
+                 LLMCaller (response generation).
+        """
+        context_summary = await self._build_context_summary(user_uid)
+        system_prompt = standard_system_prompt(context_summary)
+        user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease respond as my journal companion."
+        try:
+            return await self._llm.generate(
+                prompt=user_message,
+                model=_MODEL,
+                system_prompt=system_prompt,
+                max_tokens=_MAX_TOKENS,
+            )
+        except LLM_EXCEPTIONS as exc:
+            logger.error("Journal standard response LLM error: %s", exc)
+            return Result.fail(Errors.integration("llm", f"Journal response failed: {exc}"))
+
+    # ------------------------------------------------------------------
     # Save
     # ------------------------------------------------------------------
 
-    async def save_entry(
-        self, title: str, raw_entry: str, user_uid: UserUID
-    ) -> Result[str]:
+    async def save_entry(self, title: str, raw_entry: str, user_uid: UserUID) -> Result[str]:
         """Persist the journal entry as a UserEntry(pipeline=JOURNAL).
 
         Returns the UID of the created entry.
