@@ -78,7 +78,9 @@ def create_journals_routes(
         request: Request,
         raw_entry: str,
         title: str = "",
+        journal_mode: str = "",
     ) -> Any:
+        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, StandardResponseFragment
 
         user_uid = require_authenticated_user(request)
@@ -89,7 +91,8 @@ def create_journals_routes(
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
 
-        result = await journal_service.run_standard(raw_entry.strip(), user_uid)
+        mode = JournalMode.from_string(journal_mode)
+        result = await journal_service.run_standard(raw_entry.strip(), user_uid, mode)
         if result.is_error:
             logger.error("Journal respond failed for %s: %s", user_uid, result.expect_error())
             return ErrorFragment("Could not generate a response. Please try again.")
@@ -98,6 +101,7 @@ def create_journals_routes(
             raw_entry=raw_entry.strip(),
             title=title.strip(),
             response_output=result.value,
+            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -110,7 +114,9 @@ def create_journals_routes(
         request: Request,
         raw_entry: str,
         title: str = "",
+        journal_mode: str = "",
     ) -> Any:
+        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage1Fragment
 
         user_uid = require_authenticated_user(request)
@@ -127,6 +133,7 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
+        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
         if result.is_error:
             logger.error("Stage 1 failed for %s: %s", user_uid, result.expect_error())
@@ -136,6 +143,7 @@ def create_journals_routes(
             raw_entry=raw_entry.strip(),
             title=title.strip(),
             scribe_output=result.value,
+            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -150,7 +158,9 @@ def create_journals_routes(
         title: str = "",
         scribe_output: str = "",
         review_notes: str = "",
+        journal_mode: str = "",
     ) -> Any:
+        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
@@ -164,11 +174,13 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
+        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage2(
             raw_entry=raw_entry,
             scribe_output=scribe_output,
             review_notes=review_notes,
             user_uid=user_uid,
+            mode=mode,
         )
         if result.is_error:
             logger.error("Stage 2 failed for %s: %s", user_uid, result.expect_error())
@@ -179,6 +191,7 @@ def create_journals_routes(
             title=title,
             scribe_output=scribe_output,
             thought_partner_output=result.value,
+            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -194,6 +207,7 @@ def create_journals_routes(
         scribe_output: str = "",
         thought_partner_output: str = "",
         review_notes: str = "",
+        journal_mode: str = "",
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 
