@@ -6,6 +6,9 @@ to the user's active goals, tasks, and habits; closes with graph suggestions.
 FOUNDER tier: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
 each stage gated by user review.
 
+Both tiers accept a JournalMode that shapes the companion's tone and structure.
+Mode defaults to REFLECTIVE when not supplied.
+
 Both tiers persist entries via save_entry() → UserEntry(pipeline=JOURNAL).
 
 See: /docs/decisions/ (ADR forthcoming)
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.models.enums.user_enums import JournalMode
 from core.models.type_hints import UserUID
 from core.services.journal.instruction_loader import (
     stage1_system_prompt,
@@ -121,10 +125,11 @@ class JournalService:
         scribe_output: str,
         review_notes: str,
         user_uid: UserUID,
+        mode: JournalMode | None = None,
     ) -> Result[str]:
         """Stage 2: evaluative + reflective Thought Partner response across four roles."""
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = stage2_system_prompt(context_summary)
+        system_prompt = stage2_system_prompt(context_summary, mode)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 1 — Scribe Record\n\n{scribe_output}\n\n"
@@ -177,18 +182,23 @@ class JournalService:
     # Standard workflow
     # ------------------------------------------------------------------
 
-    async def run_standard(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
+    async def run_standard(
+        self,
+        raw_entry: str,
+        user_uid: UserUID,
+        mode: JournalMode | None = None,
+    ) -> Result[str]:
         """STANDARD tier: single response connecting the journal to active context.
 
         Fetches active goals/tasks/habits, builds a motivating response that
         names specific connections, and appends graph-connection suggestions when
-        enough context is present.
+        enough context is present. JournalMode shapes tone and structure.
 
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  LLMCaller (response generation).
         """
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = standard_system_prompt(context_summary)
+        system_prompt = standard_system_prompt(context_summary, mode)
         user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease respond as my journal companion."
         try:
             return await self._llm.generate(

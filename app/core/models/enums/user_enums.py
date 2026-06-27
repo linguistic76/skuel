@@ -228,3 +228,36 @@ class JournalTier(StrEnum):
 
     def is_founder(self) -> bool:
         return self is JournalTier.FOUNDER
+
+
+class JournalMode(StrEnum):
+    """Tone and approach of the journal companion's response.
+
+    REFLECTIVE: Warm, introspective — mirrors threads, sits with complexity.
+    DIRECT:     Concise, action-oriented — patterns named, next steps clear.
+    JESTER:     Playful, irreverent — humour with substance. Available to all tiers.
+    """
+
+    REFLECTIVE = "reflective"
+    DIRECT = "direct"
+    JESTER = "jester"
+
+    @classmethod
+    def default(cls) -> "JournalMode":
+        return cls.REFLECTIVE
+
+    @classmethod
+    def from_string(cls, value: str | None) -> "JournalMode":
+        if not value:
+            return cls.default()
+        try:
+            return cls(value.lower().strip())
+        except ValueError:
+            return cls.default()
+
+    def display_label(self) -> str:
+        return {
+            JournalMode.REFLECTIVE: "Reflective",
+            JournalMode.DIRECT: "Direct",
+            JournalMode.JESTER: "Jester",
+        }[self]
