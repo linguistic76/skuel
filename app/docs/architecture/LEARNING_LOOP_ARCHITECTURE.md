@@ -558,7 +558,7 @@ from the student to the RevisedExercise (same pattern as ADR-040 assignment auto
 
 Every node in the chain `Exercise → UserEntry → EntryReport → RevisedExercise → UserEntry → ...` is a noun — object-language, not process-language. Variation *inside* each node lives on enum fields, never on parallel types:
 
-- **`UserEntry`** carries `pipeline: Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`) — ADR-054 collapsed `ExerciseSubmission` / `JeInput` / `JeOutput` into this one type.
+- **`UserEntry`** carries `pipeline: Pipeline` (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`, `TRANSCRIBE_AND_STRUCTURE`, `EXTRACT_ACTIVITIES`, `JOURNAL`, `REFERENCE`) — ADR-054 collapsed `ExerciseSubmission` / `JeInput` / `JeOutput` into this one type.
 - **`EntryReport`** carries `report_source: ReportSource` (`HUMAN`, `LLM`, `AUTOMATIC`) and `assessment_outcome: AssessmentOutcome` (`APPROVED`, `NEEDS_REVISION`, `AI_EVALUATED`) — a single report type covers both initial and revision cycles.
 - **`RevisedExercise`** is a distinct EntityType because its hierarchy (`UserOwnedEntity` vs. `Curriculum`), ownership (teacher-owned vs. shared), `ContentOrigin` tier (`USER_CREATED` vs. `CURRICULUM`), and feedback typing (`FeedbackPoint[]` vs. plain `instructions`) all diverge from `Exercise`. "Revised" is a past-participle reading as "a kind of exercise" — not a verb phrase. The verb lives on the edge `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`.
 
