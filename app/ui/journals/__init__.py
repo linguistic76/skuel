@@ -20,8 +20,9 @@ from monsterui.franken import CardContainer as Card
 _PRIVACY_NOTICE = Div(
     Span("🔒", cls="mr-1.5"),
     Span(
-        "Your entries are private to you — SKUEL admins cannot read them. "
-        "When you request an AI response, your note is sent to Claude (Anthropic's API) to generate that response. "
+        "Your entries are private to you — no SKUEL admin can access them through the app. "
+        "When you request an AI response, your note and a brief summary of your active goals, tasks, and habits "
+        "are sent to Claude (Anthropic's API) to generate that response. "
         "Saved entries are stored in your account only.",
         cls="text-xs",
     ),
