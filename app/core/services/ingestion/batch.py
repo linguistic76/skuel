@@ -454,6 +454,7 @@ async def ingest_directory(
     progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
+    excluded_dirs: frozenset[str] | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -514,7 +515,7 @@ async def ingest_directory(
         )
 
     # Collect all supported files using simplified pattern matching
-    all_files = collect_files(directory, pattern)
+    all_files = collect_files(directory, pattern, excluded_dirs=excluded_dirs)
 
     if not all_files:
         if ingestion_mode == "full":

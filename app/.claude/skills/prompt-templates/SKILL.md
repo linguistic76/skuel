@@ -83,9 +83,9 @@ programming error, not a domain failure.
 |-------------|-----------|--------------|
 | `activity_feedback` | `ProgressReportGenerator._build_llm_prompt()` | `{time_period}`, `{depth}`, `{stats_json}`, `{insights_section}` |
 | `entry_response` | `EntryReportService.generate_entry_response()` (ADR-069 journal responses) | `{content}` |
-| `journal_activity` | `JournalOutputService._format_activity()` + `InstructionResolver` | `{content}` |
-| `journal_articulation` | `JournalOutputService._format_articulation()` + `InstructionResolver` | `{content}` |
-| `journal_exploration` | `JournalOutputService._format_exploration()` + `InstructionResolver` | `{content}` |
+| `journal_activity` | `InstructionResolver` via `EnrichmentMode.ACTIVITY_TRACKING` (`LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE` pipelines) | `{content}` |
+| `journal_articulation` | `InstructionResolver` via `EnrichmentMode.IDEA_ARTICULATION` | `{content}` |
+| `journal_exploration` | `InstructionResolver` via `EnrichmentMode.CRITICAL_THINKING` | `{content}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |

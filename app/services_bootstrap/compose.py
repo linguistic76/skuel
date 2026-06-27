@@ -1105,6 +1105,11 @@ async def compose_services(
         # the ownership-verified fetch + journal-chain eligibility check (ADR-069).
         entry_report_service.entry_service = user_entry_service
 
+        # Wire ExerciseService into UserEntryService so create_entry() can
+        # propagate exercise.enrichment_mode into entry.metadata for
+        # InstructionResolver template dispatch (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE).
+        user_entry_service.exercise_service = exercise_service
+
         # JournalService: DNWF three-stage workflow (FULL tier only, requires llm_caller)
         journal_service = None
         if llm_caller is not None:
