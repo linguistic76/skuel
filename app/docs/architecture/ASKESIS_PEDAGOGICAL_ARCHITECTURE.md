@@ -99,6 +99,24 @@ The function docstring (and body) document which fields are actually read. Don't
 
 ## 3. Journal → Pedagogical Signal Pipeline
 
+### 3.0 Journals as a Sibling AI System
+
+SKUEL has two AI companion systems that are architecturally parallel but serve different purposes:
+
+| | Askesis | Journals |
+|---|---|---|
+| Access gate | LP enrollment required | Any authenticated user |
+| Guidance model | PsBundle (PathStep + KUs) + ZPD → GuidanceMode | UserContext digest (goals/tasks/habits) + entry → JournalMode |
+| Pedagogical role | Socratic curriculum companion | Personal reflection and thinking partner |
+| Curriculum awareness | Central — anchored to PS/KU graph | None in current implementation |
+| Instruction source | Prompt templates + ZPD decision tree | Inline prompts (STANDARD) or `data/instructions/` files (FOUNDER) |
+
+**See:** `docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md` for the full Journals domain architecture, including the DNWF three-stage process and the FOUNDER tier's curriculum and business development orientation.
+
+What this section (§3) documents is specifically the pipeline **from journals back into Askesis** — how journal entries eventually become pedagogical signals that Askesis reads. It is not a description of how the Journals domain itself works.
+
+---
+
 Journals are the richest signal of where the user actually is. A journal entry after
 working with a KU reveals: what clicked, what they're still unsure about, what questions
 remain open. These are prime scaffolding targets.
