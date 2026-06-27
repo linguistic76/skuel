@@ -3,7 +3,7 @@ User Enums - Role, Health, and Account Status Enums
 ====================================================
 
 User-specific enumerations for role hierarchy, context health scoring,
-and account management.
+account management, and journal workflow tier.
 
 Four-tier role hierarchy (lowest to highest):
     REGISTERED < MEMBER < TEACHER < ADMIN
@@ -24,6 +24,10 @@ Soft-delete marks the User node with status=DELETED, scrubs PII, and keeps the
 node + OWNS-linked entities (UserEntry, Task, Goal, ...) intact so teachers can
 still render the owner's historical submissions. Hard-delete (admin-only, GDPR
 right-to-erasure) DETACH DELETEs the User + cascade over every OWNS edge.
+
+Journal tier — orthogonal to UserRole:
+    STANDARD (default) — continuous single-response workflow
+    FOUNDER            — full DNWF three-stage workflow (linguistic76 pilot)
 """
 
 from enum import StrEnum
@@ -199,3 +203,28 @@ class ContextHealthScore(StrEnum):
             ContextHealthScore.EXCELLENT: "🟢",
         }
         return icons.get(self, "⚪")
+
+
+class JournalTier(StrEnum):
+    """Journal workflow tier — orthogonal to UserRole.
+
+    STANDARD: Continuous single-response workflow for all users. AI reads the
+              journal entry, connects it to active goals/tasks/habits, and
+              returns a motivating response.
+    FOUNDER:  Full DNWF three-stage workflow (Scribe → Thought Partner →
+              What Is Related), each stage gated by user review. Reserved for
+              the linguistic76 pilot account. Paves the path for per-user
+              journal configuration.
+
+    See: /docs/decisions/ (ADR forthcoming), project_journals_domain memory.
+    """
+
+    STANDARD = "standard"
+    FOUNDER = "founder"
+
+    @classmethod
+    def default(cls) -> "JournalTier":
+        return cls.STANDARD
+
+    def is_founder(self) -> bool:
+        return self is JournalTier.FOUNDER

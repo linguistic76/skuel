@@ -118,7 +118,10 @@ class UserEntryProcessingService:
         """
         pipeline = entry.pipeline
 
-        if pipeline == Pipeline.NONE or pipeline == Pipeline.TEACHER_REVIEW:
+        if pipeline in (Pipeline.NONE, Pipeline.TEACHER_REVIEW, Pipeline.JOURNAL):
+            # JOURNAL entries are processed interactively in the Journals UI
+            # (DNWF stages for FOUNDER tier; single-response for STANDARD).
+            # The dispatcher is not involved.
             return Result.ok(entry)
 
         if pipeline == Pipeline.EXTRACT_ACTIVITIES:
