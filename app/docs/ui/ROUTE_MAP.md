@@ -132,6 +132,10 @@ Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Av
 
 ## Study
 
+### `/journals`
+
+Journal domain landing page in the Tasks+ sidebar. `GET /journals` renders `JournalsPage(user)` — a tier-aware shell (PR 1). Full workflow lands in PR 2: FOUNDER tier (`linguistic76`) runs the three-stage DNWF (Scribe → Thought Partner → What Is Related); STANDARD tier gets a continuous single-response flow connecting the entry to active goals, tasks, and habits. Journal entries are `UserEntry` nodes with `pipeline=JOURNAL` (always private; whole-entry-or-nothing graph addition). Route: `adapters/inbound/journals_routes.py`.
+
 ### `/tasks`, `/goals`
 
 Read-focused views with cross-domain connections, detail pages, and `EntityRelationshipsSection`. Other activity data viewed via ActivityReport at `/activity-reports`.
