@@ -53,8 +53,15 @@ def create_journals_routes(
         if user_result.is_error or user_result.value is None:
             return Response("Could not load user", status_code=500)
 
+        workspace = JournalsPage(user_result.value)
+
+        # HTMX fragment swap (e.g. "Write another" / "Start over" buttons target
+        # #journal-workspace with outerHTML) — return the workspace div only.
+        if request.headers.get("HX-Request"):
+            return workspace
+
         return await render_activity_sidebar_page(
-            content=JournalsPage(user_result.value),
+            content=workspace,
             active="journals",
             request=request,
             title="Journal",

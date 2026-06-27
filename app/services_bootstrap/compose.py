@@ -830,15 +830,28 @@ async def compose_services(
         )
         logger.info("✅ ReportMasteryService created")
 
-        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix
+        # UnifiedLLMCaller: routes to OpenAI or Anthropic based on model prefix.
+        # Anthropic is optional — present only when ANTHROPIC_API_KEY is set.
         from core.services.llm_caller import UnifiedLLMCaller
         from core.services.report import EntryReportService
 
+        anthropic_chat = None
+        if tier.ai_enabled:
+            from adapters.external.llm import AnthropicChatAdapter
+            from core.config.credential_store import get_credential
+
+            anthropic_api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
+            if anthropic_api_key:
+                anthropic_chat = AnthropicChatAdapter(api_key=anthropic_api_key)
+                logger.info("✅ Anthropic chat adapter created")
+            else:
+                logger.info("⏭️  Anthropic chat adapter skipped (no ANTHROPIC_API_KEY)")
+
         llm_caller = None
-        if openai_chat:
+        if openai_chat or anthropic_chat:
             llm_caller = UnifiedLLMCaller(
                 openai=openai_chat,
-                anthropic=None,  # Only OpenAI configured for now
+                anthropic=anthropic_chat,
             )
             logger.info("✅ UnifiedLLMCaller created")
 

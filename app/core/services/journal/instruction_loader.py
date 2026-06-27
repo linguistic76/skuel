@@ -15,6 +15,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final
 
+from core.utils.logging import get_logger
+
+_logger = get_logger("skuel.services.journal.instruction_loader")
+
 _APP_ROOT: Final = Path(__file__).resolve().parent.parent.parent.parent
 INSTRUCTIONS_DIR: Final = _APP_ROOT / "data" / "instructions"
 
@@ -30,6 +34,13 @@ _FILES: Final[dict[str, str]] = {
 def _load(key: str) -> str:
     path = INSTRUCTIONS_DIR / _FILES[key]
     if not path.exists():
+        if key == "main":
+            _logger.warning(
+                "DNWF primary instruction file missing: %s — "
+                "Stage 1/2/3 will run without structured prompts. "
+                "Populate data/instructions/ from your local copy.",
+                path,
+            )
         return ""
     return path.read_text(encoding="utf-8")
 
@@ -59,7 +70,3 @@ def stage3_system_prompt(user_context_summary: str) -> str:
         parts.append(f"## Current User Context\n\n{user_context_summary}")
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
-
-def instructions_available() -> bool:
-    """Return True when at least the primary instruction file exists."""
-    return (INSTRUCTIONS_DIR / _FILES["main"]).exists()
