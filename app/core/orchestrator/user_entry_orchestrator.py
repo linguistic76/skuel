@@ -114,18 +114,21 @@ class UserEntryOrchestrator:
     async def list_journal_entries(
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[UserEntry]]:
-        """Return journal-domain entries across all three journal pipelines.
+        """Return journal-domain entries across both journal pipelines.
 
         Includes:
-        - JOURNAL       — entries written via /journals (FOUNDER DNWF / STANDARD)
-        - NONE          — vault-synced personal notes (no LLM processing)
+        - JOURNAL                  — entries written via /journals UI (FOUNDER DNWF /
+                                     STANDARD) and vault-synced notes with pipeline: journal
         - TRANSCRIBE_AND_STRUCTURE — legacy audio journal entries
+
+        NONE is intentionally excluded: it is shared with plain submissions and uploads
+        that have no journal identity. Vault notes intended for journals should declare
+        ``pipeline: journal`` in their frontmatter instead.
         """
         import asyncio
 
         results = await asyncio.gather(
             self._entries.list_for_user(user_uid=user_uid, pipeline=Pipeline.JOURNAL, limit=limit),
-            self._entries.list_for_user(user_uid=user_uid, pipeline=Pipeline.NONE, limit=limit),
             self._entries.list_for_user(
                 user_uid=user_uid, pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE, limit=limit
             ),
