@@ -319,7 +319,7 @@ def create_journals_routes(
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
-            journal_mode = str(form.get("journal_mode", "reflective")).strip()
+            journal_mode = str(form.get("journal_mode", "thought_partner")).strip()
             instructions = instruction_content or _load_journal_instruction_file(
                 instruction_filename, processing_mode
             )
@@ -773,7 +773,6 @@ def create_journals_routes(
             scribe_output=scribe_output,
             review_notes=review_notes,
             user_uid=user_uid,
-            mode=mode,
         )
         if result.is_error:
             logger.error("Stage 2 failed for %s: %s", user_uid, result.expect_error())

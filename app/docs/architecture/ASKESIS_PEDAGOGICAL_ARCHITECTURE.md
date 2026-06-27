@@ -99,19 +99,46 @@ The function docstring (and body) document which fields are actually read. Don't
 
 ## 3. Journal → Pedagogical Signal Pipeline
 
+### 3.0 Journals as a Sibling AI System
+
+SKUEL has two AI companion systems that are architecturally parallel but serve different purposes:
+
+| | Askesis | Journals |
+|---|---|---|
+| Access gate | LP enrollment required | Any authenticated user |
+| Guidance model | PsBundle (PathStep + KUs) + ZPD → GuidanceMode | UserContext digest (goals/tasks/habits) + entry → JournalMode |
+| Pedagogical role | Socratic curriculum companion | Personal reflection and thinking partner |
+| Curriculum awareness | Central — anchored to PS/KU graph | None in current implementation |
+| Instruction source | Prompt templates + ZPD decision tree | Inline prompts (STANDARD) or `data/instructions/` files (FOUNDER) |
+
+**See:** `docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md` for the full Journals domain architecture, including the DNWF three-stage process and the FOUNDER tier's curriculum and business development orientation.
+
+What this section (§3) documents is specifically the pipeline **from journals back into Askesis** — how journal entries eventually become pedagogical signals that Askesis reads. It is not a description of how the Journals domain itself works.
+
+---
+
 Journals are the richest signal of where the user actually is. A journal entry after
 working with a KU reveals: what clicked, what they're still unsure about, what questions
 remain open. These are prime scaffolding targets.
 
-### Phase 1 (exists): Format
+### Phase 1 (exists): Scribe
 
-`JournalOutputGenerator` formats raw journal transcripts into clean Markdown. Three
-templates capture intent:
-- `journal_articulation.md` — user developing and articulating concepts
-- `journal_exploration.md` — user exploring an unfamiliar domain
-- `journal_activity.md` — user reflecting on a task or event
+For FOUNDER-tier journal entries, Stage 1 (`run_stage1()` in `JournalService`) produces a
+faithful structural record of the raw transcript — preserving voice, repairing transcription
+errors, and revealing structure before any interpretive work begins. This is the format step.
 
-The formatted content is stored in `processed_content` on the Journal entity.
+For STANDARD-tier entries, `JournalMode.SCRIBE` serves the same function on demand via
+`run_standard()`.
+
+The Stage 1 output surfaces in the Journals UI as the Scribe response. It is not yet
+extracted into a `JournalInsight` signal for Askesis (see Phase 2).
+
+**Note:** Three prompt templates (`journal_articulation.md`, `journal_exploration.md`,
+`journal_activity.md`) exist in `core/prompts/templates/` but belong to a separate
+`EnrichmentMode` system for background `LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE`
+UserEntry processing — they are unrelated to this Journals → Askesis signal pipeline.
+See `core/services/output/instruction_resolver.py` and `EnrichmentMode` in
+`core/models/enums/user_entry_enums.py`.
 
 ### Phase 2 (deferred): ZPD Signal Extraction
 

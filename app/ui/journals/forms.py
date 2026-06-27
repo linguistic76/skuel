@@ -83,9 +83,9 @@ def _ModeSelector() -> Any:
     submitted with the form. No wrapper x-data — caller provides it.
     """
     modes = [
-        ("reflective", "Reflective"),
-        ("direct", "Direct"),
-        ("jester", "Jester"),
+        ("scribe", "Scribe"),
+        ("thought_partner", "Thought Partner"),
+        ("what_is_related", "What Is Related"),
     ]
     buttons = []
     for value, label in modes:
@@ -425,7 +425,7 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
     alpine_data = f"""{{
         uploadMode: 'files',
 
-        journalMode: 'reflective',
+        journalMode: 'thought_partner',
 
         processingMode: 'transcribe_only',
         modeMenuOpen: false,

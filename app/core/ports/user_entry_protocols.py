@@ -385,6 +385,14 @@ class UserEntryContentOperations(Protocol):
         """List all available exercise instruction sets."""
         ...
 
+    async def get_vault_notes_for_context(
+        self,
+        user_uid: UserUID,
+        limit: int = 8,
+    ) -> Result[list[Neo4jProperties]]:
+        """Vault-synced personal notes (pipeline=journal, vault_file_path in metadata)."""
+        ...
+
     async def get_entries_for_path_step(
         self,
         user_uid: UserUID,

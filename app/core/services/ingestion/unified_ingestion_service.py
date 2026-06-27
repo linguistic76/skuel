@@ -613,6 +613,7 @@ class UnifiedIngestionService:
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
+        excluded_dirs: frozenset[str] | None = None,
     ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
@@ -659,6 +660,7 @@ class UnifiedIngestionService:
             progress_callback=progress_callback,
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
+            excluded_dirs=excluded_dirs,
         )
 
     async def ingest_vault(

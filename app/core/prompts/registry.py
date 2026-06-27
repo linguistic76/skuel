@@ -15,9 +15,9 @@ Usage:
 
 Available templates (core/prompts/templates/):
     activity_feedback             — Activity coaching feedback for ProgressReportGenerator
-    journal_activity              — Activity tracking formatter for JournalOutputGenerator
-    journal_articulation          — Idea articulation formatter for JournalOutputGenerator
-    journal_exploration           — Critical thinking formatter for JournalOutputGenerator
+    journal_activity              — EnrichmentMode.ACTIVITY_TRACKING — structures daily activity entries (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE pipelines)
+    journal_articulation          — EnrichmentMode.IDEA_ARTICULATION — develops idea entries from raw transcripts
+    journal_exploration           — EnrichmentMode.CRITICAL_THINKING — organizes critical thinking / exploration entries
     entry_response                — Reflective response to a journal entry (EntryReportService, ADR-069)
     dsl_domain_recognition        — Full domain recognition prompt for LLMDSLBridgeService
     dsl_domain_recognition_compact — Compact domain recognition prompt for LLMDSLBridgeService

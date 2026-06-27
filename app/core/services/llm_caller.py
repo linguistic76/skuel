@@ -4,8 +4,8 @@ Unified LLM Caller
 
 Routes LLM calls to OpenAI or Anthropic based on model prefix.
 
-Extracts the model-routing logic that was duplicated in EntryReportService
-and hardcoded in JournalOutputGenerator into a single reusable service.
+Extracts the model-routing logic that was duplicated across EntryReportService
+and JournalService into a single reusable service.
 
 Usage:
     caller = UnifiedLLMCaller(openai=openai_chat_adapter, anthropic=anthropic_chat_adapter)
@@ -63,8 +63,8 @@ class UnifiedLLMCaller:
     """
     Routes LLM calls to OpenAI or Anthropic based on model prefix.
 
-    Replaces duplicated routing logic in EntryReportService (lines 136-174)
-    and hardcoded OpenAI calls in JournalOutputGenerator.
+    Routes to OpenAI (gpt* prefix) or Anthropic (claude* prefix). Used by
+    EntryReportService and JournalService.
     """
 
     def __init__(

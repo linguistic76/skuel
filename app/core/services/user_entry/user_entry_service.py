@@ -57,6 +57,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
     from core.services.sharing.unified_sharing_service import UnifiedSharingService
@@ -95,12 +96,14 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         audience_resolver: AudienceResolver | None = None,
         group_service: GroupService | None = None,
         user_service: UserService | None = None,
+        exercise_service: ExerciseService | None = None,
     ) -> None:
         super().__init__(backend, "UserEntryService")  # protocol type
         self.sharing_service = sharing_service
         self.interaction_service = interaction_service
         self.event_bus = event_bus
         self.user_service = user_service
+        self.exercise_service = exercise_service
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
@@ -179,6 +182,22 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             uid = UIDGenerator.generate_random_uid("ue")
         now = datetime.now()
 
+        # Propagate exercise.enrichment_mode into metadata so InstructionResolver
+        # can select the right template during LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE
+        # processing. Caller-supplied metadata["enrichment_mode"] wins (explicit beats
+        # implicit); the exercise lookup is best-effort and a miss is non-fatal.
+        metadata: dict[str, Any] = dict(request.metadata or {})
+        if (
+            request.fulfills_exercise_uid
+            and self.exercise_service is not None
+            and "enrichment_mode" not in metadata
+        ):
+            ex_result = await self.exercise_service.get_exercise(request.fulfills_exercise_uid)
+            if ex_result.is_ok:
+                ex_em = ex_result.value.enrichment_mode
+                if ex_em is not None:
+                    metadata["enrichment_mode"] = ex_em.value
+
         entry = UserEntry(
             uid=uid,
             title=request.title,
@@ -189,7 +208,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             if request.pipeline == Pipeline.TEACHER_REVIEW
             else EntityStatus.ACTIVE,
             tags=tuple(request.tags),
-            metadata=request.metadata or {},
+            metadata=metadata,
             pipeline=request.pipeline,
             modality=request.modality,
             instructions=request.instructions,
@@ -489,6 +508,24 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(Errors.validation("No updatable fields provided", field="request"))
         updates["updated_at"] = datetime.now()
         return await self.backend.update(uid, updates)
+
+    # =========================================================================
+    # JOURNAL CONTEXT
+    # =========================================================================
+
+    async def get_vault_notes_for_context(
+        self, user_uid: UserUID, limit: int = 8
+    ) -> Result[list[dict[str, Any]]]:
+        """Vault-synced personal notes for the journal context digest.
+
+        Returns up to ``limit`` notes (title + 300-char snippet) ordered by
+        most-recently-updated. Only entries with ``pipeline=journal`` and
+        ``vault_file_path`` in metadata are returned — the reference archive
+        (``je_raw/``, ``je_pro/``) is excluded by the pipeline filter.
+
+        Backend: _UserEntryContentMixin.get_vault_notes_for_context.
+        """
+        return await self.backend.get_vault_notes_for_context(user_uid, limit)
 
     # =========================================================================
     # VAULT BRIDGE (ADR-070)
