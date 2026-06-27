@@ -122,9 +122,9 @@ def handlers(mock_services: Any, monkeypatch: pytest.MonkeyPatch) -> dict[str, A
     async def fake_base_page(**kwargs: Any) -> dict[str, Any]:
         return {"__base_page__": True, **kwargs}
 
-    import ui.layouts.base_page as base_page_module
+    import ui.patterns.sidebar as sidebar_module
 
-    monkeypatch.setattr(base_page_module, "BasePage", fake_base_page)
+    monkeypatch.setattr(sidebar_module, "BasePage", fake_base_page)
 
     from adapters.inbound.today_routes import create_today_routes
 
