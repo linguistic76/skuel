@@ -128,9 +128,11 @@ edges. The audit trail is unchanged.
 class Pipeline(StrEnum):
     NONE = "none"                              # passthrough, no processing
     TRANSCRIBE = "transcribe"                  # audio -> text (Deepgram)
-    TRANSCRIBE_AND_STRUCTURE = "transcribe_and_structure"  # audio -> text -> journal LLM
+    TRANSCRIBE_AND_STRUCTURE = "transcribe_and_structure"  # audio -> text -> journal LLM (legacy)
     LLM_SUMMARY = "llm_summary"                # text/file -> LLM summary
     TEACHER_REVIEW = "teacher_review"          # route to review queue, no processing
+    EXTRACT_ACTIVITIES = "extract_activities"  # text -> DSL parse -> real entities (ADR-069)
+    JOURNAL = "journal"                        # Journals domain; processed interactively in UI
 ```
 
 The existing `ProcessorType` enum (`LLM`/`HUMAN`/`HYBRID`/`AUTOMATIC`) was
