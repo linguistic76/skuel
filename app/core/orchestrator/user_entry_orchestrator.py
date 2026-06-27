@@ -114,12 +114,35 @@ class UserEntryOrchestrator:
     async def list_journal_entries(
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[UserEntry]]:
-        """Return journal-pipeline entries (TRANSCRIBE_AND_STRUCTURE)."""
-        return await self._entries.list_for_user(
-            user_uid=user_uid,
-            pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            limit=limit,
+        """Return journal-domain entries across both journal pipelines.
+
+        Includes:
+        - JOURNAL                  — entries written via /journals UI (FOUNDER DNWF /
+                                     STANDARD) and vault-synced notes with pipeline: journal
+        - TRANSCRIBE_AND_STRUCTURE — legacy audio journal entries
+
+        NONE is intentionally excluded: it is shared with plain submissions and uploads
+        that have no journal identity. Vault notes intended for journals should declare
+        ``pipeline: journal`` in their frontmatter instead.
+        """
+        import asyncio
+
+        results = await asyncio.gather(
+            self._entries.list_for_user(user_uid=user_uid, pipeline=Pipeline.JOURNAL, limit=limit),
+            self._entries.list_for_user(
+                user_uid=user_uid, pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE, limit=limit
+            ),
         )
+
+        entries: list[UserEntry] = []
+        for result in results:
+            if result.is_error:
+                return Result.fail(result)
+            if result.value:
+                entries.extend(result.value)
+
+        entries.sort(key=lambda e: e.created_at, reverse=True)
+        return Result.ok(entries[:limit])
 
     async def list_exercise_entries(
         self, user_uid: UserUID, limit: int = 50
