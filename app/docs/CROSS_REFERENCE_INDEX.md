@@ -19,16 +19,33 @@ For each skill, this section shows all related documentation (architecture docs,
 - [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md)
 - [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
 
-### @docker
+### @activity-domains
 
-**Description:** SKUEL's Docker setup — two-directory compose split, Dockerfile.production, startup sequences, and deployment stages
+**Description:** Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
 
-**Deployment:**
-- [DO_MIGRATION_GUIDE.md](/docs/deployment/DO_MIGRATION_GUIDE.md)
-- [AURADB_MIGRATION_GUIDE.md](/docs/deployment/AURADB_MIGRATION_GUIDE.md)
+**Architecture:**
+- [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
 
-**Other:**
-- [GENAI_SETUP.md](/docs/development/GENAI_SETUP.md)
+**Patterns (Primary):**
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md)
+
+**Domain Docs:**
+- [tasks.md](/docs/domains/tasks.md)
+- [goals.md](/docs/domains/goals.md)
+- [habits.md](/docs/domains/habits.md)
+
+**Patterns (Additional):**
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md)
+
+### @base-ai-service
+
+**Description:** BaseAIService for AI/LLM features (optional)
+
+**Intelligence:**
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+
+**ADRs:**
+- [ADR-024](/docs/decisions/ADR-024.md)
 
 ### @base-analytics-service
 
@@ -51,23 +68,6 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-024](/docs/decisions/ADR-024.md)
 - [ADR-031](/docs/decisions/ADR-031.md)
 
-### @learning-loop
-
-**Description:** SKUEL's Four-Phase Learning Loop — Exercise → UserEntry → EntryReport → RevisedExercise (anchored to PathStep via HAS_EXERCISE)
-
-**Architecture:**
-- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md)
-- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md)
-- [AUDIO_TRANSCRIPTION_ARCHITECTURE.md](/docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md)
-
-**Configuration:**
-- [DEEPGRAM_CONFIG.md](/docs/configuration/DEEPGRAM_CONFIG.md)
-
-**ADRs:**
-- [ADR-038](/docs/decisions/ADR-038-content-sharing-model.md)
-- [ADR-040](/docs/decisions/ADR-040-teacher-exercise-workflow.md)
-- [ADR-041](/docs/decisions/ADR-041-unified-ku-model.md)
-
 ### @chartjs
 
 **Description:** Chart.js data visualization in SKUEL
@@ -75,6 +75,30 @@ For each skill, this section shows all related documentation (architecture docs,
 **Architecture:**
 - [ADMIN_DASHBOARD_ARCHITECTURE.md](/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md)
 
+### @curriculum-domains
+
+**Description:** Curriculum domain patterns (KU, PS, LP)
+
+**Architecture:**
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md)
+
+**Domain Docs:**
+- [ku.md](/docs/domains/ku.md)
+- [ps.md](/docs/domains/ps.md)
+- [lp.md](/docs/domains/lp.md)
+- [moc.md](/docs/domains/moc.md)
+
+**Patterns (Additional):**
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md)
+
+**ADRs:**
+- [ADR-023](/docs/decisions/ADR-023.md)
+
+### @docker
+
+**Description:** SKUEL's Docker setup — two-directory compose split, Dockerfile.production conventions, startup sequences, and local vs Droplet vs App Platform usage
+
+*No documentation links yet.*
 
 ### @docs-skills-evolution
 
@@ -120,29 +144,27 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-020](/docs/decisions/ADR-020.md)
 
-### @ui-browser
+### @journals
 
-**Description:** SKUEL's browser interactivity layer — HTMX for server communication + Alpine.js for client-side state
+**Description:** Implementation guide for Journals domain — STANDARD/FOUNDER tiers, DNWF stages, JournalService, instruction_loader, EnrichmentMode distinction
 
 **Architecture:**
-- [ALPINE_JS_ARCHITECTURE.md](/docs/architecture/ALPINE_JS_ARCHITECTURE.md)
+- [JOURNALS_DOMAIN_ARCHITECTURE.md](/docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md)
 
-**Patterns (Primary):**
-- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
-- [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md)
+**ADRs:**
+- [ADR-003](/docs/decisions/ADR-003.md)
+- [ADR-054](/docs/decisions/ADR-054.md)
 
-**Guides:**
-- [HTMX_VERSION_STANDARDIZATION.md](/docs/guides/HTMX_VERSION_STANDARDIZATION.md)
+### @learning-loop
 
-**Patterns (Additional):**
-- [FASTHTML_TYPE_HINTS_GUIDE.md](/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md)
+**Description:** SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
+
+**Architecture:**
+- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md)
 
 ### @neo4j-cypher-patterns
 
 **Description:** Neo4j Cypher queries and SKUEL's graph patterns
-
-**Architecture:**
-- [/docs/patterns/query_architecture.md](/docs/architecture//docs/patterns/query_architecture.md)
 
 **Patterns (Primary):**
 - [query_architecture.md](/docs/patterns/query_architecture.md)
@@ -164,13 +186,28 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Other:**
 - [README.md](/monitoring/README.md)
-- [OBSERVABILITY_PHASE1_COMPLETE.md](/OBSERVABILITY_PHASE1_COMPLETE.md)
 
 **Patterns (Additional):**
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md)
 
 **ADRs:**
 - [ADR-036](/docs/decisions/ADR-036.md)
+
+### @prompt-templates
+
+**Description:** SKUEL's centralized LLM prompt template registry (PROMPT_REGISTRY) connecting services to templates
+
+*No documentation links yet.*
+
+### @pwa
+
+**Description:** Progressive Web App — service worker, manifest, offline support, caching strategies
+
+**Architecture:**
+- [PWA_ARCHITECTURE.md](/docs/architecture/PWA_ARCHITECTURE.md)
+
+**ADRs:**
+- [ADR-050](/docs/decisions/ADR-050.md)
 
 ### @pydantic
 
@@ -236,15 +273,22 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-022](/docs/decisions/ADR-022.md)
 
-### @ui-css
+### @security
 
-**Description:** SKUEL's CSS layer — MonsterUI component wrappers + Tailwind utility classes
+**Description:** Security posture, route checklist, and code review security checks
 
 **Patterns (Primary):**
-- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
+- [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md)
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md)
+
+**Other:**
+- [ROUTE_AUTH_REQUIREMENTS.md](/docs/security/ROUTE_AUTH_REQUIREMENTS.md)
 
 **Patterns (Additional):**
-- [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md)
+- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md)
+
+**ADRs:**
+- [ADR-022](/docs/decisions/ADR-022.md)
 
 ### @skuel-search-architecture
 
@@ -262,6 +306,56 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Additional):**
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md)
 
+### @skuel-ui
+
+**Description:** SKUEL UI patterns — BasePage, components, navigation, sidebars, forms (self-contained)
+
+**Patterns (Primary):**
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
+
+**Patterns (Additional):**
+- [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md)
+- [API_VALIDATION_PATTERNS.md](/docs/patterns/API_VALIDATION_PATTERNS.md)
+
+### @ui-browser
+
+**Description:** SKUEL browser interactivity — HTMX for server communication + Alpine.js for client-side state
+
+**Architecture:**
+- [ALPINE_JS_ARCHITECTURE.md](/docs/architecture/ALPINE_JS_ARCHITECTURE.md)
+
+**Patterns (Primary):**
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
+- [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md)
+
+**Patterns (Additional):**
+- [FASTHTML_TYPE_HINTS_GUIDE.md](/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md)
+- [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md)
+
+### @ui-css
+
+**Description:** SKUEL CSS layer — MonsterUI (FrankenUI + Tailwind) components
+
+**Patterns (Primary):**
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md)
+
+### @ui-error-handling
+
+**Description:** Expert guide for UI error handling patterns and user feedback
+
+**Patterns (Primary):**
+- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md)
+
+**Patterns (Additional):**
+- [RETURN_TYPE_ERROR_PROPAGATION.md](/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md)
+- [error_handling_decorators.md](/docs/patterns/error_handling_decorators.md)
+
+### @ui-orchestrator
+
+**Description:** Creating and wiring a UI Orchestrator to resolve Dependency Gravity in Hub pages
+
+**Patterns (Primary):**
+- [HUB_PAGE_PATTERN.md](/docs/patterns/HUB_PAGE_PATTERN.md)
 
 ### @user-context-intelligence
 
@@ -292,6 +386,13 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-037](/docs/decisions/ADR-037.md)
 
+### @zpd
+
+**Description:** SKUEL's Zone of Proximal Development — readiness scoring, blocking gaps, compound evidence, recommended actions, ZPD snapshots (the pedagogical gravity well)
+
+**Other:**
+- [zpd.md](/docs/user-guides/zpd.md)
+
 ---
 
 ## By Document Category
@@ -302,23 +403,25 @@ For each documentation category, this section shows which skills are relevant.
 
 - [ADMIN_DASHBOARD_ARCHITECTURE.md](/docs/architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) → @chartjs
 - [ALPINE_JS_ARCHITECTURE.md](/docs/architecture/ALPINE_JS_ARCHITECTURE.md) → @ui-browser
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) → @neo4j-cypher-patterns
-- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) → @learning-loop
+- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) → @curriculum-domains
+- [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) → @activity-domains
+- [JOURNALS_DOMAIN_ARCHITECTURE.md](/docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) → @journals
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) → @learning-loop
-- [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) → @python
+- [PWA_ARCHITECTURE.md](/docs/architecture/PWA_ARCHITECTURE.md) → @pwa
 - [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) → @vis-network
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) → @skuel-search-architecture
 - [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) → @user-context-intelligence
 
 ### Intelligence Docs
 
-- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) → @base-analytics-service
+- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) → @base-ai-service, @base-analytics-service
 - [USER_CONTEXT_INTELLIGENCE.md](/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md) → @user-context-intelligence
 
 ### Pattern Docs
 
-- [API_VALIDATION_PATTERNS.md](/docs/patterns/API_VALIDATION_PATTERNS.md) → @pydantic
+- [API_VALIDATION_PATTERNS.md](/docs/patterns/API_VALIDATION_PATTERNS.md) → @pydantic, @skuel-ui
 - [ASYNC_SYNC_DESIGN_PATTERN.md](/docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md) → @python
+- [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md) → @security
 - [CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md](/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md) → @base-analytics-service
 - [CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md) → @neo4j-cypher-patterns, @user-context-intelligence
 - [CYPHER_VS_APOC_STRATEGY.md](/docs/patterns/CYPHER_VS_APOC_STRATEGY.md) → @neo4j-cypher-patterns
@@ -326,29 +429,33 @@ For each documentation category, this section shows which skills are relevant.
 - [DOMAIN_LATERAL_SERVICE_QUICK_START.md](/docs/patterns/DOMAIN_LATERAL_SERVICE_QUICK_START.md) → @base-analytics-service
 - [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) → @pydantic, @python
 - [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) → @domain-route-config, @fasthtml
-- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) → @result-pattern
+- [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md) → @result-pattern, @security, @ui-error-handling
 - [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) → @domain-route-config, @fasthtml, @ui-browser
 - [FASTHTML_TYPE_HINTS_GUIDE.md](/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md) → @fasthtml, @ui-browser
 - [GRAPH_ACCESS_PATTERNS.md](/docs/patterns/GRAPH_ACCESS_PATTERNS.md) → @neo4j-cypher-patterns, @pytest
-- [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @ui-css
+- [HIERARCHY_COMPONENTS_GUIDE.md](/docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @skuel-ui
 - [HTMX_ACCESSIBILITY_PATTERNS.md](/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md) → @accessibility-guide, @ui-browser
+- [HUB_PAGE_PATTERN.md](/docs/patterns/HUB_PAGE_PATTERN.md) → @ui-orchestrator
+- [KNOWLEDGE_APPLICATION_TRACKING.md](/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md) → @activity-domains, @learning-loop, @neo4j-cypher-patterns
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns, @vis-network
 - [MYPY_TYPE_SAFETY_PATTERNS.md](/docs/patterns/MYPY_TYPE_SAFETY_PATTERNS.md) → @python
-- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) → @python
-- [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md) → @prometheus-grafana, @pydantic
+- [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md) → @activity-domains, @curriculum-domains, @security
+- [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md) → @prometheus-grafana, @pydantic, @skuel-ui
 - [PROTOCOL_LSP_COMPLIANCE.md](/docs/patterns/PROTOCOL_LSP_COMPLIANCE.md) → @python
 - [QUERY_PATTERNS.md](/docs/patterns/QUERY_PATTERNS.md) → @neo4j-cypher-patterns
-- [RETURN_TYPE_ERROR_PROPAGATION.md](/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md) → @result-pattern
+- [RETURN_TYPE_ERROR_PROPAGATION.md](/docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md) → @result-pattern, @ui-error-handling
 - [ROUTE_DECORATOR_ARCHITECTURE.md](/docs/patterns/ROUTE_DECORATOR_ARCHITECTURE.md) → @domain-route-config, @fasthtml, @result-pattern
 - [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) → @domain-route-config, @fasthtml
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md) → @fasthtml
-- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) → @base-analytics-service, @python
+- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) → @activity-domains, @base-analytics-service
+- [SERVICE_DOCSTRING_STYLE.md](/docs/patterns/SERVICE_DOCSTRING_STYLE.md) → @python
 - [SHARING_PATTERNS.md](/docs/patterns/SHARING_PATTERNS.md) → @pytest
 - [STANDALONE_SERVICE_PATTERN.md](/docs/patterns/STANDALONE_SERVICE_PATTERN.md) → @base-analytics-service
 - [TESTING_PATTERNS.md](/docs/patterns/TESTING_PATTERNS.md) → @pytest
-- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) → @accessibility-guide, @ui-browser, @ui-css
+- [UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) → @accessibility-guide, @skuel-ui, @ui-browser, @ui-css
+- [UI_ORCHESTRATOR_PATTERN.md](/docs/patterns/UI_ORCHESTRATOR_PATTERN.md) → @fasthtml, @ui-orchestrator
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) → @base-analytics-service, @neo4j-cypher-patterns
-- [error_handling_decorators.md](/docs/patterns/error_handling_decorators.md) → @result-pattern
+- [error_handling_decorators.md](/docs/patterns/error_handling_decorators.md) → @result-pattern, @ui-error-handling
 - [event_driven_architecture.md](/docs/patterns/event_driven_architecture.md) → @python, @result-pattern
 - [linter_rules.md](/docs/patterns/linter_rules.md) → @python
 - [protocol_architecture.md](/docs/patterns/protocol_architecture.md) → @python
@@ -358,32 +465,28 @@ For each documentation category, this section shows which skills are relevant.
 
 ### ADRs (Architecture Decision Records)
 
-- [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md) → @domain-route-config, @fasthtml
-- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md) → @python, @result-pattern
-- [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) → @base-analytics-service
-- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) → @base-analytics-service
-- [ADR-030](/docs/decisions/ADR-030-usercontext-file-consolidation.md) → @user-context-intelligence
-- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) → @base-analytics-service
-- [ADR-034](/docs/decisions/ADR-034-semantic-search-phase1-enhancement.md) → @skuel-search-architecture
-- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md) → @pydantic, @python
-- [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) → @prometheus-grafana
-- [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
-- [ADR-038](/docs/decisions/ADR-038-content-sharing-model.md) → @learning-loop, @pytest
-- [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md) → @fasthtml
-- [ADR-040](/docs/decisions/ADR-040-teacher-exercise-workflow.md) → @learning-loop
-- [ADR-041](/docs/decisions/ADR-041-unified-ku-model.md) → @learning-loop, @neo4j-cypher-patterns
-- [ADR-042](/docs/decisions/ADR-042-privacy-as-first-class-citizen.md) → @learning-loop, @pytest
-- [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) → @python, @pydantic, @activity-domains, @domain-route-config
+- [ADR-003](/docs/decisions/ADR-003.md) → @journals
+- [ADR-020](/docs/decisions/ADR-020.md) → @domain-route-config, @fasthtml
+- [ADR-022](/docs/decisions/ADR-022.md) → @python, @result-pattern, @security
+- [ADR-023](/docs/decisions/ADR-023.md) → @curriculum-domains
+- [ADR-024](/docs/decisions/ADR-024.md) → @base-ai-service, @base-analytics-service
+- [ADR-030](/docs/decisions/ADR-030.md) → @user-context-intelligence
+- [ADR-031](/docs/decisions/ADR-031.md) → @base-analytics-service
+- [ADR-035](/docs/decisions/ADR-035.md) → @pydantic, @python
+- [ADR-036](/docs/decisions/ADR-036.md) → @prometheus-grafana
+- [ADR-037](/docs/decisions/ADR-037.md) → @neo4j-cypher-patterns, @vis-network
+- [ADR-050](/docs/decisions/ADR-050.md) → @pwa
+- [ADR-054](/docs/decisions/ADR-054.md) → @journals
 
 ---
 
 ## Statistics
 
-- **Total skills:** 21
-- **Architecture docs:** 9 docs linked to skills
+- **Total skills:** 30
+- **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
-- **Pattern docs:** 45 docs linked to skills
-- **ADRs:** 16 ADRs linked to skills
+- **Pattern docs:** 43 docs linked to skills
+- **ADRs:** 12 ADRs linked to skills
 
 ---
 

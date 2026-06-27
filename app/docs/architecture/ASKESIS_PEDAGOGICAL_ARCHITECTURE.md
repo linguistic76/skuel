@@ -121,15 +121,24 @@ Journals are the richest signal of where the user actually is. A journal entry a
 working with a KU reveals: what clicked, what they're still unsure about, what questions
 remain open. These are prime scaffolding targets.
 
-### Phase 1 (exists): Format
+### Phase 1 (exists): Scribe
 
-`JournalOutputGenerator` formats raw journal transcripts into clean Markdown. Three
-templates capture intent:
-- `journal_articulation.md` — user developing and articulating concepts
-- `journal_exploration.md` — user exploring an unfamiliar domain
-- `journal_activity.md` — user reflecting on a task or event
+For FOUNDER-tier journal entries, Stage 1 (`run_stage1()` in `JournalService`) produces a
+faithful structural record of the raw transcript — preserving voice, repairing transcription
+errors, and revealing structure before any interpretive work begins. This is the format step.
 
-The formatted content is stored in `processed_content` on the Journal entity.
+For STANDARD-tier entries, `JournalMode.SCRIBE` serves the same function on demand via
+`run_standard()`.
+
+The Stage 1 output surfaces in the Journals UI as the Scribe response. It is not yet
+extracted into a `JournalInsight` signal for Askesis (see Phase 2).
+
+**Note:** Three prompt templates (`journal_articulation.md`, `journal_exploration.md`,
+`journal_activity.md`) exist in `core/prompts/templates/` but belong to a separate
+`EnrichmentMode` system for background `LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE`
+UserEntry processing — they are unrelated to this Journals → Askesis signal pipeline.
+See `core/services/output/instruction_resolver.py` and `EnrichmentMode` in
+`core/models/enums/user_entry_enums.py`.
 
 ### Phase 2 (deferred): ZPD Signal Extraction
 

@@ -1,0 +1,139 @@
+---
+name: journals
+description: >
+  Implementation guide for SKUEL's Journals domain — STANDARD single-response and FOUNDER
+  three-stage DNWF workflows. Use when building or extending journal stages, working with
+  JournalService or instruction_loader, adding a JournalMode, or integrating journals with
+  UserContext or Askesis. Keywords: journals, DNWF, Scribe, Thought Partner, What Is Related,
+  JournalMode, JournalService, run_stage1, run_stage2, run_stage3, pipeline JOURNAL.
+allowed-tools: Read, Grep, Glob
+---
+
+# Journals: Implementation Guide
+
+> "Not a curriculum companion. A personal thinking partner that meets you where you are — no enrollment required."
+
+The Journals domain provides AI-assisted reflection for any authenticated user. Two tiers,
+one `JournalService`: STANDARD delivers a single motivating response; FOUNDER runs the
+three-stage Daily Notes Workflow (DNWF) with user review between stages.
+
+---
+
+## Orientation
+
+| Stage / Mode | Method | Prompt source | Max tokens |
+|---|---|---|---|
+| Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
+| Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
+| Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
+| Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
+
+FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
+STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PARTNER`).
+
+---
+
+## Core Principles
+
+1. **Stage autonomy** — each FOUNDER stage is a self-contained LLM call. Stage 2 takes
+   Stage 1's output as a user-message input, not as a system-prompt injection.
+
+2. **Mode-invariance of stage logic** — the three FOUNDER stage functions (`stage1_system_prompt`,
+   `stage2_system_prompt`, `stage3_system_prompt`) are not parameterized by JournalMode.
+   Mode selects which stage runs (in the STANDARD tier), not how a stage runs.
+
+3. **File-driven FOUNDER prompts** — `instruction_loader.py` loads from `data/instructions/`.
+   If `dnwf 1.md` is missing, stages degrade gracefully (warning logged, empty prompt).
+   STANDARD prompts are inline strings — no file dependency.
+
+4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
+   active titles each from Goals, Tasks, and Habits. Stage 1 receives no context (sparse by
+   design — fidelity requires restraint). Stages 2 and 3 receive the digest.
+
+5. **Privacy-first** — `Pipeline.JOURNAL.allows_sharing()` returns `False`. No audience
+   picker, no sharing, no teacher visibility. Enforced at the ingestion layer too
+   (`build_user_entry_request()` coerces `audience=private`).
+
+6. **FULL tier only** — all AI journal endpoints require `INTELLIGENCE_TIER=full`. Routes
+   check this; under CORE they return an error fragment.
+
+---
+
+## Common Patterns
+
+### Adding a new stage response handler in a route
+
+```python
+# adapters/inbound/journals_routes.py
+@rt("/journals/stage1")
+async def journal_stage1(request: Request) -> FT:
+    user_uid = require_authenticated_user(request)
+    if not (await _get_user(user_uid)).journal_tier.is_founder():
+        return error_fragment("FOUNDER tier required")
+    form = await request.form()
+    raw = str(form.get("raw_entry", ""))
+    result = await services.journal.run_stage1(raw, user_uid)
+    if result.is_error:
+        return error_fragment(result)
+    return stage1_output_fragment(result.value)
+```
+
+### Extending STANDARD with a new JournalMode
+
+1. Add the value to `JournalMode` in `core/models/enums/user_enums.py`.
+2. Add a `from_string()` alias if needed.
+3. Add a branch in `_standard_base_for_mode()` in `instruction_loader.py`.
+4. Optionally add a `journal_mode_addendum()` branch for upload-pipeline hints.
+
+### Modifying Stage 2 prompt
+
+Stage 2 composes four files via `stage2_system_prompt(context_summary)` in
+`instruction_loader.py`. To change composition: add/remove a `_load(key)` call inside
+`stage2_system_prompt`. To add a new file, add an entry to `_FILES` and populate
+`data/instructions/` with the file.
+
+### Wiring a new context domain into `_build_context_summary()`
+
+`_build_context_summary()` lives in `JournalService` (`core/services/journal/journal_service.py`).
+It accepts optional `GoalsService`, `TasksService`, and `HabitsService`. To add a fourth:
+
+1. Add the service as an optional constructor parameter.
+2. Add a `search()` call with `limit=6` inside `_build_context_summary()`.
+3. Inject the service from `services_bootstrap/compose.py` when constructing `JournalService`.
+
+---
+
+## Anti-Patterns
+
+**Don't hardcode prompts in routes.** All prompt logic belongs in `instruction_loader.py`.
+Routes pass raw entry text and user UID to the service, nothing else.
+
+**Don't pass full UserContext.** `_build_context_summary()` distills a focused digest.
+Passing a 250-field `UserContext` object into the journal prompt would dilute focus and
+expose data the journal companion doesn't need.
+
+**Don't share journal entries.** `Pipeline.JOURNAL.allows_sharing()` is `False` by design.
+Never add a sharing picker to journal UI; never pass a non-private audience for journal
+entries in ingestion code.
+
+**Don't confuse EnrichmentMode templates with Journal stages.** The three templates
+`journal_articulation.md`, `journal_exploration.md`, `journal_activity.md` in
+`core/prompts/templates/` belong to the `EnrichmentMode` system for background
+`LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE` processing — they are not part of
+`JournalService` or `instruction_loader.py`.
+
+---
+
+## Cross-References
+
+| Resource | What it covers |
+|---|---|
+| `docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md` | Full domain architecture, tier comparison, privacy contract, roadmap |
+| `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md §3` | Journals → Askesis ZPD signal pipeline (Phase 2 deferred) |
+| `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
+| `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers |
+| `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
+| `adapters/inbound/journals_routes.py` | 9 routes; FOUNDER tier enforcement lives here |
+| `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
+| `core/models/enums/pipeline.py` | `Pipeline.JOURNAL`, `allows_sharing()` |
+| `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |

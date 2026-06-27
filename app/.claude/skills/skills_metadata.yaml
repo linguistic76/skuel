@@ -514,6 +514,21 @@ skills:
     patterns: []
     keywords: [zpd, zone-of-proximal-development, readiness, blocking-gaps, compound-evidence, recommended-actions, askesis, pedagogy]
 
+  - name: journals
+    description: "Implementation guide for Journals domain — STANDARD/FOUNDER tiers, DNWF stages, JournalService, instruction_loader, EnrichmentMode distinction"
+    last_reviewed: "2026-06-27"
+    foundation: [python, learning-loop]
+    dependencies: [user-context-intelligence]
+    library_package: null  # SKUEL domain, not external library
+    library_version: null
+    primary_docs:
+      - /docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md
+    related_adrs:
+      - ADR-003
+      - ADR-054
+    patterns: []
+    keywords: [journals, journal, DNWF, Scribe, Thought Partner, What Is Related, JournalMode, JournalService, instruction_loader, pipeline JOURNAL, run_stage1, run_stage2, run_stage3]
+
   # ============================================================================
   # TESTING LAYER
   # ============================================================================
@@ -574,6 +589,7 @@ skills:
 # Learning & Pedagogy:
 #   learning-loop (depends on curriculum-domains, activity-domains)
 #   zpd (depends on user-context-intelligence, curriculum-domains)
+#   journals (depends on user-context-intelligence)
 #
-# Total skills: 29
+# Total skills: 30
 # No cycles detected - graph is valid ✓

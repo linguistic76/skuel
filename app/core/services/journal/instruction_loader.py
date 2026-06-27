@@ -149,6 +149,8 @@ def journal_mode_addendum(mode: "JournalMode") -> str:
     if mode is JournalMode.SCRIBE:
         return "Process this as Stage 1 — Scribe: produce a faithful structural record."
     if mode is JournalMode.WHAT_IS_RELATED:
-        return "Process this as Stage 3 — What Is Related: identify connections to existing knowledge."
+        return (
+            "Process this as Stage 3 — What Is Related: identify connections to existing knowledge."
+        )
     # THOUGHT_PARTNER
     return "Process this as Stage 2 — Thought Partner: identify patterns, tensions, and what is emerging."
