@@ -134,7 +134,18 @@ Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Av
 
 ### `/journals`
 
-Journal domain landing page in the Tasks+ sidebar. `GET /journals` renders `JournalsPage(user)` — a tier-aware shell (PR 1). Full workflow lands in PR 2: FOUNDER tier (`linguistic76`) runs the three-stage DNWF (Scribe → Thought Partner → What Is Related); STANDARD tier gets a continuous single-response flow connecting the entry to active goals, tasks, and habits. Journal entries are `UserEntry` nodes with `pipeline=JOURNAL` (always private; whole-entry-or-nothing graph addition). Route: `adapters/inbound/journals_routes.py`.
+Journal domain landing page in the Tasks+ sidebar. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py`.
+
+**FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
+
+**Routes:**
+- `GET  /journals` — tier-aware landing; FOUNDER renders the entry form, STANDARD renders a placeholder
+- `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (`@csrf_protected`)
+- `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
+- `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
+- `POST /journals/save` — persist the entry as `UserEntry(pipeline=JOURNAL)`, always private (`@csrf_protected`)
+
+Stages 1–3 return HTMX fragments that swap `#journal-workspace`; each stage shows the AI output and a review-notes textarea before the user proceeds. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`.
 
 ### `/tasks`, `/goals`
 
