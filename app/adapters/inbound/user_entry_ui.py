@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H4, Div, P, Span
 from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
-from starlette.responses import FileResponse, RedirectResponse
+from starlette.responses import FileResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -334,13 +334,8 @@ def create_user_entry_ui_routes(
         return Div()
 
     # =========================================================================
-    # JOURNALS  (/submit/journals → redirect to /journals)
+    # JOURNALS  (download only — upload/browse live in journals_routes.py)
     # =========================================================================
-
-    @rt("/submit/journals")
-    async def journals_submit_page(request: Request) -> Any:
-        """Redirect to the canonical journal entry point at /journals."""
-        return RedirectResponse("/journals", status_code=302)
 
     @rt("/submit/journals/{uid}/download")
     async def download_journal(request: Request, uid: str) -> Any:
@@ -515,7 +510,6 @@ def create_user_entry_ui_routes(
         submissions_history,
         history_list,
         delete_submission,
-        journals_submit_page,
         download_journal,
         respond_to_entry,
         submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}

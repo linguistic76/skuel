@@ -393,15 +393,22 @@ def create_journals_routes(
                         from ui.journals import TranscriptReviewFragment
 
                         process_result = await processing_service.process(entry)
-                        transcript = ""
-                        if process_result.is_ok and process_result.value is not None:
-                            transcript = process_result.value.processed_content or ""
-                        elif process_result.is_error:
+                        if process_result.is_error:
                             logger.error(
                                 "Transcription failed for %s: %s",
                                 entry.uid,
                                 process_result.expect_error(),
                             )
+                            return render_journal_upload_status(
+                                "error",
+                                "Transcription failed — please try again.",
+                                is_error=True,
+                            )
+                        transcript = (
+                            process_result.value.processed_content or ""
+                            if process_result.value is not None
+                            else ""
+                        )
 
                         fragment = TranscriptReviewFragment(
                             transcript=transcript,
