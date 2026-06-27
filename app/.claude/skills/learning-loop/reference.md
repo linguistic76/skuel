@@ -244,7 +244,7 @@ They are orthogonal — a form submission can still be part of a pipeline.
 
 **Two creation paths — one create method (`UserEntryService.create_entry()`):**
 (The bytes-to-disk helper `UserEntryService.submit_file()` wraps `create_entry()` and is used
-by the `/submit/journals/upload` route, not by `/api/user-entries/upload`.)
+by the `/journals/upload` route, not by `/api/user-entries/upload`.)
 ```
 FILE UPLOAD PATH                            INLINE FORM PATH
 POST /api/user-entries/upload               POST /api/user-entries/form

@@ -235,7 +235,9 @@ class UserEntryProcessingService:
 
         llm_result = await self._generate(
             source_text,
-            custom_instructions=instructions or entry.instructions,
+            custom_instructions=self._apply_mode_addendum(
+                instructions or entry.instructions, entry.journal_mode
+            ),
             enrichment_mode=self._resolve_enrichment_mode(entry),
         )
         if llm_result.is_error:
@@ -316,7 +318,9 @@ class UserEntryProcessingService:
         # Phase 2 — LLM-structure the transcript
         structured = await self._generate(
             transcript.value,
-            custom_instructions=instructions or entry.instructions,
+            custom_instructions=self._apply_mode_addendum(
+                instructions or entry.instructions, entry.journal_mode
+            ),
             enrichment_mode=self._resolve_enrichment_mode(entry),
         )
         if structured.is_error:
@@ -617,6 +621,23 @@ class UserEntryProcessingService:
     # =========================================================================
     # HELPERS
     # =========================================================================
+
+    @staticmethod
+    def _apply_mode_addendum(
+        base_instructions: str | None, journal_mode_str: str | None
+    ) -> str | None:
+        """Append a JournalMode style addendum to LLM instructions when mode is set."""
+        if not journal_mode_str:
+            return base_instructions
+        from core.models.enums.user_enums import JournalMode
+        from core.services.journal.instruction_loader import journal_mode_addendum
+
+        mode = JournalMode.from_string(journal_mode_str)
+        addendum = journal_mode_addendum(mode)
+        if not addendum:
+            return base_instructions
+        combined = (base_instructions or "") + f"\n\n## Response Mode\n\n{addendum}"
+        return combined.strip() or None
 
     @staticmethod
     def _resolve_enrichment_mode(entry: UserEntry) -> EnrichmentMode:

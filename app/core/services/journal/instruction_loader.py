@@ -82,9 +82,7 @@ def stage3_system_prompt(user_context_summary: str) -> str:
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 
-def standard_system_prompt(
-    user_context_summary: str, mode: "JournalMode | None" = None
-) -> str:
+def standard_system_prompt(user_context_summary: str, mode: "JournalMode | None" = None) -> str:
     """System prompt for the STANDARD tier — single motivating response.
 
     Builds a self-contained prompt (no file dependency) that instructs the LLM
@@ -147,6 +145,14 @@ def _standard_base_for_mode(mode: "JournalMode") -> str:
         "Tone: warm, honest, encouraging. No stage structure, no clinical language. "
         "Write as a knowledgeable friend who pays close attention."
     )
+
+
+def journal_mode_addendum(mode: "JournalMode") -> str:
+    """Mode addendum for injection into upload-pipeline LLM prompts (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE).
+
+    Delegates to the same modifier used by the FOUNDER stage2 prompt.
+    """
+    return _mode_modifier(mode)
 
 
 def _mode_modifier(mode: "JournalMode") -> str:
