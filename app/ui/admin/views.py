@@ -671,11 +671,6 @@ class AdminAnalyticsComponents:
                     value=activity_data.get("goals_active", 0),
                     color="orange-600",
                 ),
-                StatItem(
-                    label="Journals Submitted",
-                    value=activity_data.get("journals_submitted", 0),
-                    color="info",
-                ),
             ]
         )
 
