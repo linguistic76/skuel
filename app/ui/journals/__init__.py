@@ -16,8 +16,6 @@ from fasthtml.common import (
 from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
-from ui.patterns.empty_state import EmptyState
-
 if TYPE_CHECKING:
     from core.models.user.user import User
 
@@ -30,7 +28,7 @@ def JournalsPage(user: "User") -> Any:
     """Tier-aware journal landing page inside the Tasks+ sidebar."""
     if user.journal_tier.is_founder():
         return _FounderPage()
-    return _StandardPlaceholderPage()
+    return _StandardPage()
 
 
 def _FounderPage() -> Any:
@@ -49,17 +47,54 @@ def _FounderPage() -> Any:
     )
 
 
-def _StandardPlaceholderPage() -> Any:
+def _StandardPage() -> Any:
     return Div(
-        EmptyState(
-            title="Journal",
-            description=(
-                "Write a journal entry and the app will connect it to your "
-                "active goals, tasks, and habits. Coming soon."
+        Div(
+            H3("Journal", cls="text-lg font-semibold mb-1"),
+            P(
+                "Write a note and get a response connecting it to your active goals, tasks, and habits.",
+                cls="text-sm text-muted-foreground mb-6",
             ),
-            icon="book-open",
+            _StandardEntryForm(),
+            cls="max-w-2xl",
         ),
+        id="journal-workspace",
         cls="p-6",
+    )
+
+
+def _StandardEntryForm() -> Any:
+    return Form(
+        Div(
+            Label("Title (optional)", cls="text-sm font-medium"),
+            Input(
+                name="title",
+                placeholder="What is today's note about?",
+                cls="w-full mt-1",
+            ),
+            cls="mb-4",
+        ),
+        Div(
+            Label("Daily note", cls="text-sm font-medium"),
+            Textarea(
+                name="raw_entry",
+                placeholder="Write your thoughts here…",
+                rows="12",
+                required=True,
+                cls="w-full mt-1 font-mono text-sm resize-y",
+            ),
+            cls="mb-5",
+        ),
+        Button(
+            "Respond →",
+            cls=ButtonT.default,
+            hx_post="/journals/respond",
+            hx_target="#journal-workspace",
+            hx_swap="outerHTML",
+            hx_include="closest form",
+            hx_indicator="#journal-loading",
+        ),
+        _LoadingIndicator(),
     )
 
 
@@ -195,6 +230,25 @@ def Stage3Fragment(
     )
 
 
+def StandardResponseFragment(raw_entry: str, title: str, response_output: str) -> Any:
+    """Fragment returned after a STANDARD tier journal response."""
+    return Div(
+        Card(
+            CardHeader(CardTitle("Journal Response")),
+            CardBody(
+                P(
+                    response_output,
+                    cls="text-sm whitespace-pre-wrap leading-relaxed",
+                ),
+            ),
+            cls="mb-6",
+        ),
+        _SaveBar(raw_entry=raw_entry, title=title),
+        id="journal-workspace",
+        cls="p-6",
+    )
+
+
 def SavedFragment(entry_uid: str) -> Any:
     """Confirmation fragment after saving the journal entry."""
     return Div(
@@ -251,9 +305,7 @@ def _ReviewGate(
     next_label: str,
     review_placeholder: str,
 ) -> Any:
-    hidden_inputs = [
-        Input(type="hidden", name=k, value=v) for k, v in hidden_fields.items()
-    ]
+    hidden_inputs = [Input(type="hidden", name=k, value=v) for k, v in hidden_fields.items()]
     return Form(
         *hidden_inputs,
         Div(

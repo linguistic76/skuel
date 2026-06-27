@@ -1,7 +1,8 @@
-"""Journals domain routes — DNWF three-stage workflow (FOUNDER) and shell (STANDARD).
+"""Journals domain routes — DNWF three-stage workflow (FOUNDER) and continuous (STANDARD).
 
 Routes:
     GET  /journals          — tier-aware landing page (Tasks+ sidebar)
+    POST /journals/respond  — STANDARD tier single-response workflow (FULL tier)
     POST /journals/stage1   — Stage 1 Scribe (FOUNDER only, FULL tier)
     POST /journals/stage2   — Stage 2 Thought Partner (FOUNDER only, FULL tier)
     POST /journals/stage3   — Stage 3 What Is Related (FOUNDER only, FULL tier)
@@ -65,6 +66,38 @@ def create_journals_routes(
             active="journals",
             request=request,
             title="Journal",
+        )
+
+    # ------------------------------------------------------------------
+    # POST /journals/respond — STANDARD tier single-response workflow
+    # ------------------------------------------------------------------
+
+    @rt("/journals/respond", methods=["POST"])
+    @csrf_protected
+    async def journals_respond(
+        request: Request,
+        raw_entry: str,
+        title: str = "",
+    ) -> Any:
+        from ui.journals import ErrorFragment, StandardResponseFragment
+
+        user_uid = require_authenticated_user(request)
+
+        if not raw_entry or not raw_entry.strip():
+            return ErrorFragment("Please write something before getting a response.")
+
+        if journal_service is None:
+            return ErrorFragment("Journal AI features are not available (CORE tier).")
+
+        result = await journal_service.run_standard(raw_entry.strip(), user_uid)
+        if result.is_error:
+            logger.error("Journal respond failed for %s: %s", user_uid, result.expect_error())
+            return ErrorFragment("Could not generate a response. Please try again.")
+
+        return StandardResponseFragment(
+            raw_entry=raw_entry.strip(),
+            title=title.strip(),
+            response_output=result.value,
         )
 
     # ------------------------------------------------------------------
