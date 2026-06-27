@@ -36,6 +36,10 @@ class Pipeline(StrEnum):
         JOURNAL                   — Journals domain entry; processing driven by
                                     JournalTier (FOUNDER: three-stage DNWF,
                                     STANDARD: single-response). Always private.
+        REFERENCE                 — Archive/training material (je_raw/, je_pro/).
+                                    Stored as-is, no processing. Excluded from
+                                    UserContext counts and Askesis context.
+                                    Always private.
     """
 
     NONE = "none"
@@ -45,6 +49,7 @@ class Pipeline(StrEnum):
     EXTRACT_ACTIVITIES = "extract_activities"
     TEACHER_REVIEW = "teacher_review"
     JOURNAL = "journal"
+    REFERENCE = "reference"
 
     def allows_sharing(self) -> bool:
         """Whether a UserEntry on this pipeline may carry a non-private audience.
@@ -58,7 +63,11 @@ class Pipeline(StrEnum):
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """
-        return self not in (Pipeline.TRANSCRIBE_AND_STRUCTURE, Pipeline.JOURNAL)
+        return self not in (
+            Pipeline.TRANSCRIBE_AND_STRUCTURE,
+            Pipeline.JOURNAL,
+            Pipeline.REFERENCE,
+        )
 
 
 class ReportSource(StrEnum):

@@ -340,7 +340,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `UserRole` — 4-tier hierarchy: REGISTERED < MEMBER < TEACHER < ADMIN. Has `has_permission()` for hierarchy-aware checks. Use `UserRole.from_string()` for Neo4j-sourced values — zero raw string comparisons remain.
 - `ContextHealthScore` — POOR (0.25), FAIR (0.50), GOOD (0.75), EXCELLENT (1.0). UI display methods.
 - `JournalTier` — STANDARD (single-response workflow) / FOUNDER (DNWF three-stage). Orthogonal to UserRole.
-- `JournalMode` — REFLECTIVE (warm, introspective) / DIRECT (concise, action-oriented) / JESTER (playful, irreverent). Shapes journal companion tone. All tiers, all modes. Use `JournalMode.from_string()` for form-submitted values.
+- `JournalMode` — SCRIBE (Stage 1, faithful record) / THOUGHT_PARTNER (Stage 2, patterns + challenge) / WHAT_IS_RELATED (Stage 3, graph connections). Selects DNWF function, not tone. Default: THOUGHT_PARTNER. Use `JournalMode.from_string()` for form-submitted values.
 
 **Metadata** (`metadata_enums.py`) — System-wide configuration:
 - `RelationshipType` (48 values — all entity relationship types)

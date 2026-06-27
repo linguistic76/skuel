@@ -118,10 +118,14 @@ class UserEntryProcessingService:
         """
         pipeline = entry.pipeline
 
-        if pipeline in (Pipeline.NONE, Pipeline.TEACHER_REVIEW, Pipeline.JOURNAL):
-            # JOURNAL entries are processed interactively in the Journals UI
-            # (DNWF stages for FOUNDER tier; single-response for STANDARD).
-            # The dispatcher is not involved.
+        if pipeline in (
+            Pipeline.NONE,
+            Pipeline.TEACHER_REVIEW,
+            Pipeline.JOURNAL,
+            Pipeline.REFERENCE,
+        ):
+            # JOURNAL: processed interactively in the Journals UI.
+            # REFERENCE: archive/training material — stored as-is, no processing.
             return Result.ok(entry)
 
         if pipeline == Pipeline.EXTRACT_ACTIVITIES:
