@@ -37,7 +37,7 @@ def render_upload_status(
             P(f"Status: {status}", cls="mb-0"),
             ButtonLink(
                 "Browse Journals",
-                href="/submit/journals/browse",
+                href="/journals/browse",
                 cls=(ButtonT.ghost, ButtonT.sm, "mt-2"),
             )
             if je_input_uid
@@ -96,7 +96,7 @@ def render_batch_upload_status(
             Div(*rows, cls="mb-2") if rows else None,
             ButtonLink(
                 "Browse Journals",
-                href="/submit/journals/browse",
+                href="/journals/browse",
                 cls=(ButtonT.ghost, ButtonT.sm, "mt-1"),
             ),
             variant=variant,

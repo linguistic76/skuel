@@ -60,6 +60,7 @@ class UserEntryDTO(UserOwnedDTO):
     processed_content: str | None = None
     processed_file_path: str | None = None
     instructions: str | None = None
+    journal_mode: str | None = None
     max_retention: int | None = None
 
     # =========================================================================
@@ -149,6 +150,7 @@ class UserEntryDTO(UserOwnedDTO):
                 "processed_content",
                 "processed_file_path",
                 "instructions",
+                "journal_mode",
                 "max_retention",
                 "modality",
             },

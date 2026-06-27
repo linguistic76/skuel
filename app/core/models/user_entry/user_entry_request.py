@@ -65,6 +65,9 @@ class UserEntryCreateRequest(CreateRequestBase):
         default=None, description="How the entry was created (FILE_UPLOAD, STRUCTURED_FORM, ...)"
     )
     instructions: str | None = Field(default=None, description="Pipeline-specific instructions")
+    journal_mode: str | None = Field(
+        default=None, description="JournalMode captured at upload time"
+    )
 
     # -------------------------------------------------------------------------
     # File metadata (populated by upload handler, not user input)

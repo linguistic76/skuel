@@ -46,6 +46,8 @@ def JournalsPage(user: "User") -> Any:
 
 
 def _FounderPage() -> Any:
+    from ui.journals.forms import render_upload_form, upload_form_script
+
     return Div(
         Div(
             H3("Daily Notes Workflow", cls="text-lg font-semibold mb-1"),
@@ -54,7 +56,8 @@ def _FounderPage() -> Any:
                 cls="text-sm text-muted-foreground mb-4",
             ),
             _PRIVACY_NOTICE,
-            _EntryForm(),
+            render_upload_form(),
+            upload_form_script(),
             cls="max-w-2xl",
         ),
         id="journal-workspace",
@@ -63,93 +66,22 @@ def _FounderPage() -> Any:
 
 
 def _StandardPage() -> Any:
+    from ui.journals.forms import render_upload_form, upload_form_script
+
     return Div(
         Div(
             H3("Journal", cls="text-lg font-semibold mb-1"),
             P(
-                "Write a note and get a response connecting it to your active goals, tasks, and habits.",
+                "Upload audio, text, or a document and get an AI response.",
                 cls="text-sm text-muted-foreground mb-4",
             ),
             _PRIVACY_NOTICE,
-            _StandardEntryForm(),
+            render_upload_form(),
+            upload_form_script(),
             cls="max-w-2xl",
         ),
         id="journal-workspace",
         cls="p-6",
-    )
-
-
-def _StandardEntryForm() -> Any:
-    return Form(
-        Div(
-            Label("Title (optional)", cls="text-sm font-medium"),
-            Input(
-                name="title",
-                placeholder="What is today's note about?",
-                cls="w-full mt-1",
-            ),
-            cls="mb-4",
-        ),
-        Div(
-            Label("Daily note", cls="text-sm font-medium"),
-            Textarea(
-                name="raw_entry",
-                placeholder="Write your thoughts here…",
-                rows="12",
-                required=True,
-                cls="w-full mt-1 font-mono text-sm resize-y",
-            ),
-            cls="mb-5",
-        ),
-        _ModeSelector(),
-        Button(
-            "Respond →",
-            cls=ButtonT.default,
-            hx_post="/journals/respond",
-            hx_target="#journal-workspace",
-            hx_swap="outerHTML",
-            hx_include="closest form",
-            hx_indicator="#journal-loading",
-        ),
-        _LoadingIndicator(),
-        **{"x-data": "{ journalMode: 'reflective' }"},
-    )
-
-
-def _EntryForm() -> Any:
-    return Form(
-        Div(
-            Label("Title (optional)", cls="text-sm font-medium"),
-            Input(
-                name="title",
-                placeholder="What is today's note about?",
-                cls="w-full mt-1",
-            ),
-            cls="mb-4",
-        ),
-        Div(
-            Label("Daily note", cls="text-sm font-medium"),
-            Textarea(
-                name="raw_entry",
-                placeholder="Write your daily note here…",
-                rows="14",
-                required=True,
-                cls="w-full mt-1 font-mono text-sm resize-y",
-            ),
-            cls="mb-5",
-        ),
-        _ModeSelector(),
-        Button(
-            "Scribe →",
-            cls=ButtonT.default,
-            hx_post="/journals/stage1",
-            hx_target="#journal-workspace",
-            hx_swap="outerHTML",
-            hx_include="closest form",
-            hx_indicator="#journal-loading",
-        ),
-        _LoadingIndicator(),
-        **{"x-data": "{ journalMode: 'reflective' }"},
     )
 
 
@@ -161,54 +93,54 @@ def _LoadingIndicator() -> Any:
     )
 
 
-def _ModeSelector() -> Any:
-    """Three-button mode toggle bound to Alpine journalMode state.
-
-    Renders a hidden input (name=journal_mode) so the selected mode is
-    submitted with the form. No wrapper x-data — caller form provides it.
-    """
-    modes = [
-        ("reflective", "Reflective"),
-        ("direct", "Direct"),
-        ("jester", "Jester"),
-    ]
-    buttons = []
-    for value, label in modes:
-        buttons.append(
-            Button(
-                label,
-                type="button",
-                cls="px-3 py-1 text-xs font-medium rounded-md transition-colors border-0",
-                **{
-                    "@click": f"journalMode = '{value}'",
-                    ":class": (
-                        f"journalMode === '{value}' "
-                        "? 'bg-foreground text-background' "
-                        ": 'bg-transparent text-muted-foreground hover:text-foreground'"
-                    ),
-                },
-            )
-        )
-    return Div(
-        Div(
-            Span("Mode", cls="text-xs font-medium text-muted-foreground mr-2"),
-            Div(
-                *buttons,
-                cls="flex border border-border rounded-lg p-0.5 gap-0.5",
-            ),
-            cls="flex items-center mb-4",
-        ),
-        Input(
-            type="hidden",
-            name="journal_mode",
-            **{"x-bind:value": "journalMode"},  # boundary: fasthtml-elements
-        ),
-    )
-
-
 # ------------------------------------------------------------------
 # Stage fragments (returned as HTMX swaps to #journal-workspace)
 # ------------------------------------------------------------------
+
+
+def TranscriptReviewFragment(transcript: str, title: str, mode_value: str) -> Any:
+    """FOUNDER tier: transcript review card shown after upload transcription.
+
+    The user reviews the transcript, optionally changes the mode, then clicks
+    "Scribe →" which posts to /journals/stage1 to begin the DNWF workflow.
+    """
+    from ui.journals.forms import _ModeSelector
+
+    return Div(
+        Card(
+            CardHeader(CardTitle("Transcript")),
+            CardBody(
+                P(
+                    transcript or "(empty transcript)",
+                    cls="text-sm whitespace-pre-wrap leading-relaxed font-mono",
+                ),
+            ),
+            cls="mb-6",
+        ),
+        Form(
+            Input(type="hidden", name="raw_entry", value=transcript),
+            Input(type="hidden", name="title", value=title),
+            _ModeSelector(),
+            Input(
+                type="hidden",
+                name="journal_mode",
+                **{"x-bind:value": "journalMode"},  # boundary: fasthtml-elements
+            ),
+            Button(
+                "Scribe →",
+                cls=ButtonT.default,
+                hx_post="/journals/stage1",
+                hx_target="#journal-workspace",
+                hx_swap="outerHTML",
+                hx_include="closest form",
+                hx_indicator="#journal-loading",
+            ),
+            _LoadingIndicator(),
+            **{"x-data": f"{{ journalMode: '{mode_value}' }}"},
+        ),
+        id="journal-workspace",
+        cls="p-6",
+    )
 
 
 def Stage1Fragment(
