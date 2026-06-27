@@ -47,8 +47,10 @@ STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PAR
    STANDARD prompts are inline strings — no file dependency.
 
 4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
-   active titles each from Goals, Tasks, and Habits. Stage 1 receives no context (sparse by
-   design — fidelity requires restraint). Stages 2 and 3 receive the digest.
+   active titles each from Goals, Tasks, and Habits, plus up to 8 vault-synced personal notes
+   (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`). Stage 1
+   receives no context (sparse by design — fidelity requires restraint). Stages 2 and 3
+   receive the digest.
 
 5. **Privacy-first** — `Pipeline.JOURNAL.allows_sharing()` returns `False`. No audience
    picker, no sharing, no teacher visibility. Enforced at the ingestion layer too

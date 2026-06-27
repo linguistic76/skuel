@@ -32,7 +32,7 @@ Journals STANDARD:  (no gate)     → UserContext digest + entry → JournalMode
 Journals FOUNDER:   (no gate)     → UserContext digest + entry + curriculum dev + biz dev     → 3-stage DNWF → outputs
 ```
 
-**UserContext digest:** `JournalService._build_context_summary()` builds a lightweight text digest — up to 6 active titles each from Goals, Tasks, and Habits. This is NOT the full UserContext object; it is a targeted life-context snapshot, not a curriculum-awareness snapshot. All three domain services are optional; the digest degrades gracefully to an empty string if any service is `None`.
+**UserContext digest:** `JournalService._build_context_summary()` builds a lightweight text digest with four sections: up to 6 active titles each from Goals, Tasks, and Habits; plus a "Personal project notes" section of up to 8 vault-synced notes (title + 300-char snippet, newest first). Vault notes are `pipeline=journal` UserEntry nodes whose `metadata["vault_file_path"]` marks them as synced from `VAULT_ROOT` rather than created via the journals UI. This is NOT the full UserContext object; it is a targeted life-context snapshot. The three domain services (Goals, Tasks, Habits) are optional and degrade gracefully to empty; `UserEntryService` is required and always present.
 
 **JournalMode vs GuidanceMode:** JournalMode selects the companion's *function* — what the AI does with the entry. Tone is uniform across all modes. This differs from GuidanceMode in Askesis, which selects both the pedagogical register and the interaction strategy.
 
@@ -165,7 +165,7 @@ class JournalInsight:
 
 ## 9. Roadmap
 
-- **Richer UserContext injection** — `_build_context_summary()` currently pulls only titles (up to 6 per domain). A future version could include habit completion rates, task priorities, goal timeframes, and recent activity for richer context.
+- **Richer UserContext injection** — `_build_context_summary()` pulls titles from Goals/Tasks/Habits (up to 6 each) and vault note snippets (up to 8). A future version could include habit completion rates, task priorities, goal timeframes, and recent activity for richer context.
 - **WHAT_IS_RELATED + curriculum graph** — Stage 3 currently has no graph query capability. A future enhancement could let it query Neo4j for related KUs and PathSteps, making connection suggestions concrete rather than inferred.
 - **ZPD signal loop** — `JournalInsight` extraction → `UserContext.journal_insights` → Askesis reads on session open. See `ASKESIS_PEDAGOGICAL_ARCHITECTURE.md §3` for the full Phase 2/3 design.
 - **Per-user journal tier configuration** — `JournalTier` is designed to be extensible. The FOUNDER pilot paves the path for user-configurable journal workflow depth without code changes.

@@ -73,7 +73,10 @@ Pipeline.JOURNAL.allows_sharing()  # → False (enforced at ingestion + UI layer
 - Up to 6 active **Goal** titles
 - Up to 6 active **Task** titles
 - Up to 6 active **Habit** titles
+- Up to 8 **Personal project notes** (vault-synced, title + 300-char snippet, newest-first)
 
-All three domain services are optional — digest degrades to empty string if any is `None`.
+Goals/Tasks/Habits services are optional — those sections degrade to empty if `None`.
+Vault notes come from `self._user_entry` (always present) via `get_vault_notes_for_context()`.
+Discriminator: `pipeline=journal` + `"vault_file_path"` in metadata (stamps set at ingestion).
 Injected into Stage 2 + Stage 3 system prompts and STANDARD prompts.
 Stage 1 deliberately receives no context.
