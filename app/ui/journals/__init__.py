@@ -22,7 +22,7 @@ _PRIVACY_NOTICE = Div(
     Span(
         "Your entries are private to you — no SKUEL admin can access them through the app. "
         "When you request an AI response, your note and a brief summary of your active goals, tasks, and habits "
-        "are sent to Claude (Anthropic's API) to generate that response. "
+        "are sent to a third-party AI model to generate that response. "
         "Saved entries are stored in your account only.",
         cls="text-xs",
     ),
@@ -243,13 +243,21 @@ def Stage3Fragment(
 
 
 def StandardResponseFragment(
-    raw_entry: str, title: str, response_output: str, mode: "JournalMode | None" = None
+    raw_entry: str,
+    title: str,
+    response_output: str,
+    mode: "JournalMode | None" = None,
+    already_saved: bool = False,
 ) -> Any:
     """Askesis-style response: avatar header, prose body, Copy icon, inline reply composer.
 
     The reply form posts original_entry + ai_response + user_reply as separate named
     fields to /journals/follow-up — no client-side combining needed, HTMX reads
     static values reliably.
+
+    already_saved: set True when the entry was persisted before this fragment is
+    returned (e.g. the instructions_only upload path) to suppress the duplicate-save
+    "Add to Journal" button.
     """
     import json as _json
 
@@ -305,14 +313,20 @@ def StandardResponseFragment(
                 **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
             ),
             Div(cls="flex-1"),
-            Button(
-                "Add to Journal",
-                type="button",
-                cls="text-xs text-muted-foreground hover:text-foreground cursor-pointer",
-                hx_post="/journals/save",
-                hx_target="#journal-workspace",
-                hx_swap="outerHTML",
-                hx_vals=_json.dumps({"raw_entry": raw_entry, "title": title}),
+            *(
+                [Span("Saved", cls="text-xs text-muted-foreground")]
+                if already_saved
+                else [
+                    Button(
+                        "Add to Journal",
+                        type="button",
+                        cls="text-xs text-muted-foreground hover:text-foreground cursor-pointer",
+                        hx_post="/journals/save",
+                        hx_target="#journal-workspace",
+                        hx_swap="outerHTML",
+                        hx_vals=_json.dumps({"raw_entry": raw_entry, "title": title}),
+                    )
+                ]
             ),
             cls="flex items-center gap-2 pb-4 mb-6 border-b border-border",
         ),

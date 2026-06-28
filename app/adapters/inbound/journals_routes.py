@@ -397,6 +397,7 @@ def create_journals_routes(
                                     title=title,
                                     response_output=llm_result.value,
                                     mode=JournalMode.from_string(journal_mode),
+                                    already_saved=True,
                                 )
                                 return HTMLResponse(
                                     content=to_xml(fragment),
