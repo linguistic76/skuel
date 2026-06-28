@@ -27,6 +27,7 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
 | Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
+| Follow-up (conversation continuation) | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode)` | `follow_up_system_prompt()` — mode base + continuation directive | 4000 |
 
 FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
 STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PARTNER`).
