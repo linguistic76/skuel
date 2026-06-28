@@ -304,11 +304,22 @@ def create_journals_routes(
                                 user_out_dir.mkdir(parents=True, exist_ok=True)
                                 output_path = user_out_dir / output_filename
                                 output_path.write_text(compiled_result.value, encoding="utf-8")
-                                await user_entry_service.update_processed_content(
+                                persist_result = await user_entry_service.update_processed_content(
                                     entry.uid,
                                     compiled_result.value,
                                     processed_file_path=str(output_path),
                                 )
+                                if persist_result.is_error:
+                                    logger.error(
+                                        "Failed to persist processed content for %s: %s",
+                                        entry.uid,
+                                        persist_result.expect_error(),
+                                    )
+                                    return render_journal_upload_status(
+                                        "error",
+                                        "Journal processed but could not save output — please try again.",
+                                        is_error=True,
+                                    )
                                 return HTMLResponse(
                                     status_code=200,
                                     headers={"HX-Redirect": f"/journals/{entry.uid}"},
@@ -370,9 +381,12 @@ def create_journals_routes(
                             headers={"HX-Redirect": f"/journals/{entry.uid}"},
                         )
 
-                return HTMLResponse(
-                    status_code=200,
-                    headers={"HX-Redirect": f"/journals/{entry.uid}"},
+                # STANDARD tier: transcription is async — no content on the entry yet.
+                # Return a status card so the user isn't stranded on a permanent spinner.
+                return render_journal_upload_status(
+                    _status_value(entry),
+                    f"Journal entry created: {entry.title}",
+                    je_input_uid=entry.uid,
                 )
 
             # Multiple files — batch processing
