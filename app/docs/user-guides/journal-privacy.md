@@ -14,7 +14,7 @@ When you write a journal entry and click **Add to Journal**, SKUEL saves it as a
 - An optional title
 - Metadata: when it was created, your account ID, the pipeline label `journal`
 
-When you request an AI response (Respond / Scribe / Thought Partner / What Is Related), your note and a short summary of your active goals, tasks, and habits are sent to Claude (Anthropic's API) to generate the response. The response is shown to you and discarded — it is not automatically saved unless you click **Add to Journal**.
+When you request an AI response (Respond / Scribe / Thought Partner / What Is Related), your note and a short summary of your active goals, tasks, and habits are sent to a third-party AI model to generate the response. The response is shown to you and discarded — it is not automatically saved unless you click **Add to Journal**.
 
 ---
 
@@ -47,11 +47,11 @@ SKUEL.app commits to the following:
 
 2. **Journals are excluded from administrative statistics.** The admin dashboard shows platform-level metrics (user counts, active goals, tasks created). Journal entry counts and content are not included in any admin view — and this is enforced in the codebase.
 
-3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to Anthropic's API for that request only. SKUEL does not log the content of your entries to application logs. Entry UIDs and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
+3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to the configured AI provider's API for that request only. SKUEL does not log the content of your entries to application logs. Entry UIDs and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
 
-4. **Anthropic's data handling.** When your journal content is sent to Claude, it is subject to [Anthropic's privacy policy](https://www.anthropic.com/privacy). SKUEL uses Anthropic's API under terms that prohibit Anthropic from training on API-submitted data by default.
+4. **AI provider data handling.** Journal content sent to the AI provider is subject to that provider's privacy policy and API terms of service. SKUEL uses provider APIs under terms that prohibit the provider from training on API-submitted data by default.
 
-5. **No sharing with third parties.** Journal content is never sold, exported, or shared with any party other than Anthropic (for AI response generation, as described above).
+5. **No sharing with third parties.** Journal content is never sold, exported, or shared with any party other than the configured AI provider (for AI response generation, as described above).
 
 ---
 

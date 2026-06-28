@@ -50,6 +50,9 @@ _JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
 _JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
 _JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
 _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
+_LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
+_LLM_MODEL_GPT = "gpt-4o-mini"
+_LLM_MAX_TOKENS = 4000
 
 
 # ---------------------------------------------------------------------------
@@ -127,10 +130,15 @@ async def _call_llm_with_instructions(
                 message="LLM processing requires INTELLIGENCE_TIER=full",
             )
         )
+    model = (
+        _LLM_MODEL_CLAUDE
+        if llm_caller.is_model_supported(_LLM_MODEL_CLAUDE)
+        else _LLM_MODEL_GPT
+    )
     prompt = f"{instructions}\n\n---\n\n{text}" if instructions else text
     try:
         return await llm_caller.generate(
-            prompt=prompt, model=None, temperature=None, max_tokens=None
+            prompt=prompt, model=model, max_tokens=_LLM_MAX_TOKENS
         )
     except Exception as e:  # safety-net: LLM call errors in folder-batch context
         return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
@@ -352,6 +360,58 @@ def create_journals_routes(
                             "error", str(result.error), is_error=True
                         )
                     entry, _outcome = result.value
+
+                    # Call the LLM on the decoded text + instructions + user context
+                    # (goals/tasks/habits/vault notes) and display the response in
+                    # the workspace rather than a dead-end status card.
+                    if processing_service is not None:
+                        try:
+                            text_content = file_content.decode("utf-8")
+                        except UnicodeDecodeError:
+                            text_content = ""
+
+                        if text_content:
+                            enriched_instructions = instructions
+                            if journal_service is not None:
+                                context_summary = await journal_service.build_context_summary(
+                                    user_uid
+                                )
+                                if context_summary:
+                                    enriched_instructions = (
+                                        instructions or ""
+                                    ) + f"\n\n---\n\n# User Context\n\n{context_summary}"
+
+                            llm_result = await _call_llm_with_instructions(
+                                text=text_content,
+                                instructions=enriched_instructions,
+                                processing_service=processing_service,
+                            )
+                            if not llm_result.is_error:
+                                from core.models.enums.user_enums import JournalMode
+                                from fasthtml.common import to_xml
+
+                                from ui.journals import StandardResponseFragment
+
+                                fragment = StandardResponseFragment(
+                                    raw_entry=text_content,
+                                    title=title,
+                                    response_output=llm_result.value,
+                                    mode=JournalMode.from_string(journal_mode),
+                                    already_saved=True,
+                                )
+                                return HTMLResponse(
+                                    content=to_xml(fragment),
+                                    headers={
+                                        "HX-Retarget": "#journal-workspace",
+                                        "HX-Reswap": "outerHTML",
+                                    },
+                                )
+                            logger.error(
+                                "LLM processing failed for %s: %s",
+                                entry.uid,
+                                llm_result.expect_error(),
+                            )
+
                     return render_journal_upload_status(
                         _status_value(entry),
                         f"Journal entry created: {entry.title}",
@@ -692,6 +752,58 @@ def create_journals_routes(
 
         return StandardResponseFragment(
             raw_entry=raw_entry.strip(),
+            title=title.strip(),
+            response_output=result.value,
+            mode=mode,
+        )
+
+    # ------------------------------------------------------------------
+    # POST /journals/follow-up — conversation continuation
+    # ------------------------------------------------------------------
+
+    @rt("/journals/follow-up", methods=["POST"])
+    @csrf_protected
+    async def journals_follow_up(
+        request: Request,
+        original_entry: str,
+        ai_response: str,
+        user_reply: str,
+        title: str = "",
+        journal_mode: str = "",
+    ) -> Any:
+        """Continue a journal conversation.
+
+        Builds combined context from the previous exchange and calls
+        run_standard() so the model responds to the follow-up, not the
+        original note alone.
+        """
+        from core.models.enums.user_enums import JournalMode
+        from ui.journals import ErrorFragment, StandardResponseFragment
+
+        user_uid = require_authenticated_user(request)
+
+        if not user_reply or not user_reply.strip():
+            return ErrorFragment("Please write something before sending.")
+
+        if journal_service is None:
+            return ErrorFragment("Journal AI features are not available (CORE tier).")
+
+        combined = (
+            f"{original_entry.strip()}"
+            f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
+            f"\n\n---\n\n# Follow-up\n\n{user_reply.strip()}"
+        )
+
+        mode = JournalMode.from_string(journal_mode)
+        result = await journal_service.run_standard(combined, user_uid, mode)
+        if result.is_error:
+            logger.error(
+                "Journal follow-up failed for %s: %s", user_uid, result.expect_error()
+            )
+            return ErrorFragment("Could not generate a response. Please try again.")
+
+        return StandardResponseFragment(
+            raw_entry=combined,
             title=title.strip(),
             response_output=result.value,
             mode=mode,
