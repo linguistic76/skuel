@@ -172,11 +172,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_hub(request: Request) -> Any:
-        """Profile hub — 3 tabs (Submissions / Library / GradeBook).
+        """Profile hub — 3 tabs (Exercises / Library / GradeBook).
 
-        The active tab is selected by `?tab=` (submissions | library | gradebook),
-        defaulting to "submissions" — the content-creation tab (Journal, Upload,
-        Submit Exercise).
+        The active tab is selected by `?tab=` (exercises | library | gradebook),
+        defaulting to "exercises" — the content-creation tab (Submit Exercise, Exercises).
         """
         user_uid = require_authenticated_user(request)
         try:

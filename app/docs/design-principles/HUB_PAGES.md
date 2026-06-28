@@ -45,7 +45,7 @@ The navbar provides five entry points. Three share a unified tabbed hub, one is 
 All four pages render `HomeHub(active_tab=...)` from `ui/home_hub.py`. The Alpine.js `x-data` initializes with the correct tab pre-selected. Clicking a different tab switches instantly (client-side, no page reload).
 
 Each tab shows a `HubDomainBlockList` populated by a `*_BLOCKS` constant:
-- **Submissions tab** — `SUBMISSIONS_BLOCKS` from `ui/workbench/hub.py`: New Journal, Submit Exercise
+- **Exercises tab** — `SUBMISSIONS_BLOCKS` from `ui/workbench/hub.py`: Submit Exercise, Exercises
 - **GradeBook tab** — `GRADEBOOK_BLOCKS` from `ui/gradebook/hub.py`: Entry Reports, Activity Reports, Revisions
 - **Library tab** — `LIBRARY_BLOCKS` from `ui/library/hub.py`: Exercises, Submission History, Resources, Ku, Path Steps
 
