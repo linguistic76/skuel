@@ -299,12 +299,14 @@ def create_journals_routes(
 
                                 from ui.journals import FileOutputFragment
 
-                                # Save compiled output to je_out/{stem}_out.md.
-                                # The _out suffix distinguishes processed output from raw input.
+                                # Save compiled output to je_out/{user_uid}/{stem}_out.md.
+                                # User-scoped subdirectory prevents filename collisions across
+                                # users and enforces ownership at the download endpoint.
                                 stem = Path(filename).stem
                                 output_filename = f"{stem}_out.md"
-                                _JE_OUT.mkdir(parents=True, exist_ok=True)
-                                (_JE_OUT / output_filename).write_text(
+                                user_out_dir = _JE_OUT / user_uid
+                                user_out_dir.mkdir(parents=True, exist_ok=True)
+                                (user_out_dir / output_filename).write_text(
                                     compiled_result.value, encoding="utf-8"
                                 )
                                 fragment = FileOutputFragment(
@@ -592,15 +594,17 @@ def create_journals_routes(
     async def journals_download_output(request: Request, filename: str) -> Any:
         """Serve a compiled journal output from je_out/ as a file download.
 
+        Files are written to je_out/{user_uid}/{filename} so ownership is
+        enforced implicitly: each user can only reach their own subdirectory.
+        No cross-user access is possible even if filenames collide.
+
         je_out/ is a pipeline staging area excluded from vault sync. Users open
         these files in Obsidian and decide what to carry into their personal vault.
         SKUEL never auto-syncs je_out/ into the vault.
-
-        Path containment guard: only .md files directly within _JE_OUT are served.
         """
         from starlette.responses import FileResponse
 
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         # Guard: no path traversal, only .md files
         if "/" in filename or "\\" in filename or ".." in filename:
@@ -608,9 +612,10 @@ def create_journals_routes(
         if not filename.endswith(".md"):
             return Response("Not found", status_code=404)
 
-        candidate = (_JE_OUT / filename).resolve()
+        user_out_dir = _JE_OUT / user_uid
+        candidate = (user_out_dir / filename).resolve()
         try:
-            candidate.relative_to(_JE_OUT.resolve())
+            candidate.relative_to(user_out_dir.resolve())
         except ValueError:
             return Response("Not found", status_code=404)
 
