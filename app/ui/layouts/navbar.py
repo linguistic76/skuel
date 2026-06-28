@@ -311,6 +311,7 @@ def create_navbar(
             _search_button(active_page, desktop_only=True),
             _askesis_button(active_page),
             _notification_badge_placeholder(),
+            _profile_button(current_user or "", active_page),
             _signout_button(),
             cls="flex items-center gap-1",
         )
@@ -322,7 +323,7 @@ def create_navbar(
             # Left: brand
             A(
                 "SKUEL",
-                href="/profile" if is_authenticated else "/",
+                href="/today" if is_authenticated else "/",
                 cls="text-sm font-bold text-primary px-2 py-1 rounded hover:bg-accent",
             ),
             # Center: desktop nav links
