@@ -145,7 +145,7 @@ revision: 1                    ← student increments for resubmissions
 ```
 
 The student fills in responses and submits the file at `POST /api/user-entries/upload`.
-The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submit`
+The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/exercise`
 form via the exercise selector or the `?exercise_uid=` deep-link hidden field); the revision
 is computed server-side by `UserEntryService._next_revision()`. The current upload endpoint
 does **not** parse the worksheet's YAML frontmatter — that auto-detection is not implemented
@@ -618,7 +618,7 @@ Students view their revisions in the GradeBook sidebar under "Revisions":
 - `GET /api/gradebook/revised-exercises/preview` — hub preview block
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderers in `ui/learning_loop/revised_exercise.py`.
-The detail page links to `/submit?exercise_uid={re_uid}` — triggering the two-path Cypher for
+The detail page links to `/submissions/exercise?exercise_uid={re_uid}` — triggering the two-path Cypher for
 `FULFILLS_REVISED_EXERCISE`. The EntryReport detail at `/entry-reports/detail?uid=` shows
 a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
 
@@ -718,7 +718,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **PS embedded forms (HTMX)** | `/learning-loop/ps/{ps_uid}/forms` | GET | Student |
 | **PS embedded form submit (HTMX)** | `/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | POST | Student |
 | **Student assignments** | `/exercises` | GET | Student |
-| **Submission** | `/submit` | POST | Student |
+| **Submission** | `/submissions/exercise` | GET | Student |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) |
 | **Submission reports** | `/api/submissions/{uid}/reports` | GET | Student (owner) |
 | **Submission exercise link** | `/gradebook/{uid}/exercise` | GET (HTMX) | Student |

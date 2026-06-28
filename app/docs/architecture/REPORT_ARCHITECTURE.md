@@ -389,9 +389,10 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 | Route | Who | What |
 |-------|-----|------|
-| `/submit` | Student | Upload files for processing |
+| `/submissions/exercise` | Student | Upload files for processing (`/submit` → 302 here) |
+| `/submissions/journal` | Student | Journal file-upload UX (Processing → Source → Browse → Process) |
 | `/submissions/{uid}` | Owner | View submission, sharing controls |
-| `/journals` | Any user | Upload files for AI processing; "Upload Folder" tab batch-transcribes from vault dirs (`/submit/journals` redirects here) |
+| `/journals` | Any user | Chat-style journal entry point; `/submissions/journal` is the file-upload alternative |
 | `/profile/shared` | Any user | "Shared With Me" inbox |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | Teacher | Submit human report on submission |

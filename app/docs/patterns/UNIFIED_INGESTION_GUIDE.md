@@ -303,8 +303,8 @@ POST /api/ingest/domain/ku
 ### User Data Ingestion
 
 Personal data enters SKUEL via:
-- **`/settings/vault`** — bidirectional Obsidian sync (primary path); daily notes with `pipeline: extract_activities` become Activity entities; task completions round-trip back to the vault.
-- **`/submit`** — exercise worksheet submission (single file, exercise-linked).
+- **`/submissions/sync`** — bidirectional Obsidian sync (primary path); daily notes with `pipeline: extract_activities` become Activity entities; task completions round-trip back to the vault. (`/settings/vault` → 301 redirect here; HTMX POST endpoints remain at `/settings/vault/sync` and `/settings/vault/consent`.)
+- **`/submissions/exercise`** — exercise worksheet submission (single file, exercise-linked). (`/submit` → 302 redirect here.)
 
 ---
 

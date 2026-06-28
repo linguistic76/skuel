@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) linking back to `/profile`. Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via `/settings/vault` (Obsidian sync) or admin ingestion. Service facades and backends are fully active.
+> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/events`), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) linking back to `/profile`. Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via `/submissions/sync` (Obsidian sync) or admin ingestion. Service facades and backends are fully active.
 
 ## When to Use This Skill
 
@@ -101,7 +101,7 @@ Every cross-domain UID field on an Activity Domain model is either a **structura
 ## Architecture Overview
 
 ```
-Obsidian vault sync (/settings/vault) → UnifiedIngestionService → Neo4j
+Obsidian vault sync (/submissions/sync) → UnifiedIngestionService → Neo4j
 Admin YAML/Markdown → UnifiedIngestionService → Service Facade → Backend → Neo4j
 ActivityReport UI ← Service Facade (read path)
 ```
