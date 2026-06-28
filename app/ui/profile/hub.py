@@ -1,8 +1,8 @@
 """Profile hub page — 3-tab personal space.
 
 /profile is the student's home: three tabs sharing the /library colored-header
-block style. The tabs (Library / Submissions / GradeBook) carry the loop
-stages: study, submit, grade. Default is "library".
+block style. The tabs (Library / Exercises / GradeBook) carry the loop
+stages: study, submit, grade. Default is "exercises".
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
 from ui.workbench.hub import SUBMISSIONS_BLOCKS
 
-_DEFAULT_TAB_SLUG = "submissions"
-_VALID_TABS = frozenset({"library", "submissions", "gradebook"})
+_DEFAULT_TAB_SLUG = "exercises"
+_VALID_TABS = frozenset({"library", "exercises", "gradebook"})
 
 
 def normalize_tab(slug: str | None) -> str:
-    """Coerce a query-string tab value to a known slug; default to submissions."""
+    """Coerce a query-string tab value to a known slug; default to exercises."""
     return slug if slug in _VALID_TABS else _DEFAULT_TAB_SLUG
 
 
 def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
-    """Profile hub — 3 tabs (Library / Submissions / GradeBook)."""
+    """Profile hub — 3 tabs (Library / Exercises / GradeBook)."""
     active_tab = normalize_tab(active_tab)
     return Div(
         _tab_bar(),
@@ -41,7 +41,7 @@ _TAB_BASE = "px-4 py-2.5 text-[14px] font-medium cursor-pointer transition-color
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
     ("library", "Library"),
-    ("submissions", "Submissions"),
+    ("exercises", "Exercises"),
     ("gradebook", "GradeBook"),
 )
 
@@ -78,7 +78,7 @@ def _tab_panels() -> Div:
         Div(
             HubDomainBlockList(SUBMISSIONS_BLOCKS),
             role="tabpanel",
-            **{"x-show": "activeTab === 'submissions'"},
+            **{"x-show": "activeTab === 'exercises'"},
         ),
         Div(
             HubDomainBlockList(GRADEBOOK_BLOCKS),
