@@ -320,6 +320,10 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 - [ ] Update CLAUDE.md: add Privacy section with pointer to this ADR
 - [ ] Update `REPORT_ARCHITECTURE.md`: reference this ADR for ACTIVITY_REPORT sharing model
 
+**User-facing docs (added post-ADR):**
+- [x] `docs/user-guides/how-your-content-is-used.md` — plain-language guide covering all content types (2026-06-27)
+- [x] `docs/user-guides/journal-privacy.md` — journal-specific policy; references the above
+
 ### Related Documentation
 - `docs/patterns/SHARING_PATTERNS.md` — update to reference UnifiedSharingService
 - `docs/architecture/REPORT_ARCHITECTURE.md` — ACTIVITY_REPORT annotation model
