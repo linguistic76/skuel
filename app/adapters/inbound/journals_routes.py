@@ -19,8 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Span, Strong
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import ButtonT, UkIcon
 from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -190,29 +189,6 @@ def _render_user_entry_journal_grid(entries: list[UserEntry]) -> Any:
     return Div(
         *[_render_user_entry_journal_card(e) for e in entries],
         id="journals-grid-container",
-    )
-
-
-def _render_awaiting_response_section(entries: list[UserEntry]) -> Any:
-    if not entries:
-        return Div()
-    return Card(
-        CardHeader(CardTitle("Awaiting a response")),
-        CardBody(
-            *[
-                Div(
-                    Span(e.title or "Untitled entry", cls="font-medium text-sm"),
-                    ButtonLink(
-                        "Open",
-                        href=f"/gradebook/{e.uid}",
-                        cls=(ButtonT.ghost, ButtonT.sm),
-                    ),
-                    cls="flex items-center justify-between p-2 border-b border-border",
-                )
-                for e in entries
-            ]
-        ),
-        cls="mb-6 bg-background shadow-sm",
     )
 
 
@@ -691,14 +667,6 @@ def create_journals_routes(
         if not result.is_error and result.value:
             entries = list(result.value)
 
-        awaiting_result = await orchestrator.get_entries_awaiting_response(user_uid)
-        awaiting_uids = set(awaiting_result.value or []) if awaiting_result.is_ok else set()
-        awaiting_entries: list[UserEntry] = []
-        if awaiting_uids:
-            pool_result = await orchestrator.list_for_user(user_uid, limit=100)
-            pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
-            awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
-
         content = Div(
             PageHeader(
                 "My Journals",
@@ -709,7 +677,6 @@ def create_journals_routes(
                     cls=(ButtonT.primary, ButtonT.sm),
                 ),
             ),
-            _render_awaiting_response_section(awaiting_entries),
             _render_user_entry_journal_grid(entries),
         )
         return await render_activity_sidebar_page(
