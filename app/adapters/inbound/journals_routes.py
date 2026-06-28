@@ -83,7 +83,6 @@ async def _submit_text_file_for_llm(
     title: str,
     user_uid: str,
     instructions: str | None,
-    journal_mode: str | None,
     user_entry_service: Any,
 ) -> Any:
     """Submit a text file for LLM_SUMMARY by decoding content and using create_entry."""
@@ -105,7 +104,6 @@ async def _submit_text_file_for_llm(
         title=title,
         pipeline=Pipeline.LLM_SUMMARY,
         instructions=instructions,
-        journal_mode=journal_mode,
         content=text_content,
         original_filename=filename,
         file_size=len(file_content),
@@ -258,6 +256,7 @@ def create_journals_routes(
         if request.headers.get("HX-Request"):
             return workspace
 
+        # PLANNED: /journals/about — privacy details + workflow guide
         page_content = Div(
             Div(
                 ButtonLink(
@@ -327,7 +326,6 @@ def create_journals_routes(
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
-            journal_mode = str(form.get("journal_mode", "thought_partner")).strip()
             instructions = instruction_content or _load_journal_instruction_file(
                 instruction_filename, processing_mode
             )
@@ -352,7 +350,6 @@ def create_journals_routes(
                         title=title,
                         user_uid=user_uid,
                         instructions=instructions,
-                        journal_mode=journal_mode,
                         user_entry_service=user_entry_service,
                     )
                     if result.is_error:
@@ -361,33 +358,18 @@ def create_journals_routes(
                         )
                     entry, _outcome = result.value
 
-                    # Call the LLM on the decoded text + instructions + user context
-                    # (goals/tasks/habits/vault notes) and display the response in
-                    # the workspace rather than a dead-end status card.
-                    if processing_service is not None:
+                    # Run all three DNWF stages in sequence and display compiled output.
+                    if journal_service is not None:
                         try:
                             text_content = file_content.decode("utf-8")
                         except UnicodeDecodeError:
                             text_content = ""
 
                         if text_content:
-                            enriched_instructions = instructions
-                            if journal_service is not None:
-                                context_summary = await journal_service.build_context_summary(
-                                    user_uid
-                                )
-                                if context_summary:
-                                    enriched_instructions = (
-                                        instructions or ""
-                                    ) + f"\n\n---\n\n# User Context\n\n{context_summary}"
-
-                            llm_result = await _call_llm_with_instructions(
-                                text=text_content,
-                                instructions=enriched_instructions,
-                                processing_service=processing_service,
+                            compiled_result = await journal_service.run_compiled(
+                                text_content, user_uid
                             )
-                            if not llm_result.is_error:
-                                from core.models.enums.user_enums import JournalMode
+                            if not compiled_result.is_error:
                                 from fasthtml.common import to_xml
 
                                 from ui.journals import StandardResponseFragment
@@ -395,8 +377,8 @@ def create_journals_routes(
                                 fragment = StandardResponseFragment(
                                     raw_entry=text_content,
                                     title=title,
-                                    response_output=llm_result.value,
-                                    mode=JournalMode.from_string(journal_mode),
+                                    response_output=compiled_result.value,
+                                    mode=None,
                                     already_saved=True,
                                 )
                                 return HTMLResponse(
@@ -407,9 +389,9 @@ def create_journals_routes(
                                     },
                                 )
                             logger.error(
-                                "LLM processing failed for %s: %s",
+                                "Compiled DNWF failed for %s: %s",
                                 entry.uid,
-                                llm_result.expect_error(),
+                                compiled_result.expect_error(),
                             )
 
                     return render_journal_upload_status(
@@ -426,7 +408,6 @@ def create_journals_routes(
                     pipeline=pipeline,
                     title=title,
                     instructions=instructions,
-                    journal_mode=journal_mode,
                     metadata={"custom_title": custom_title} if custom_title else None,
                 )
 
@@ -473,7 +454,6 @@ def create_journals_routes(
                         fragment = TranscriptReviewFragment(
                             transcript=transcript,
                             title=title,
-                            mode_value=journal_mode,
                         )
                         return HTMLResponse(
                             content=to_xml(fragment),
@@ -509,7 +489,6 @@ def create_journals_routes(
                         pipeline=pipeline,
                         title=filename,
                         instructions=instructions,
-                        journal_mode=journal_mode,
                         metadata=None,
                     )
                     if result.is_error:
@@ -825,9 +804,7 @@ def create_journals_routes(
         request: Request,
         raw_entry: str,
         title: str = "",
-        journal_mode: str = "",
     ) -> Any:
-        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage1Fragment
 
         user_uid = require_authenticated_user(request)
@@ -844,7 +821,6 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
-        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
         if result.is_error:
             logger.error("Stage 1 failed for %s: %s", user_uid, result.expect_error())
@@ -854,7 +830,6 @@ def create_journals_routes(
             raw_entry=raw_entry.strip(),
             title=title.strip(),
             scribe_output=result.value,
-            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -869,9 +844,7 @@ def create_journals_routes(
         title: str = "",
         scribe_output: str = "",
         review_notes: str = "",
-        journal_mode: str = "",
     ) -> Any:
-        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
@@ -885,7 +858,6 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
-        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage2(
             raw_entry=raw_entry,
             scribe_output=scribe_output,
@@ -901,7 +873,6 @@ def create_journals_routes(
             title=title,
             scribe_output=scribe_output,
             thought_partner_output=result.value,
-            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -917,7 +888,6 @@ def create_journals_routes(
         scribe_output: str = "",
         thought_partner_output: str = "",
         review_notes: str = "",
-        journal_mode: str = "",
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 

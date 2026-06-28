@@ -71,47 +71,6 @@ _INSTRUCTION_CONFIGS: dict[str, dict[str, str]] = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Journal mode selector
-# ---------------------------------------------------------------------------
-
-
-def _ModeSelector() -> Any:
-    """Three-button mode toggle bound to Alpine journalMode state.
-
-    Renders a hidden input (name=journal_mode) so the selected mode is
-    submitted with the form. No wrapper x-data — caller provides it.
-    """
-    modes = [
-        ("scribe", "Scribe"),
-        ("thought_partner", "Thought Partner"),
-        ("what_is_related", "What Is Related"),
-    ]
-    buttons = []
-    for value, label in modes:
-        buttons.append(
-            RawButton(
-                label,
-                type="button",
-                cls="px-3 py-1 text-xs font-medium rounded-md transition-colors border-0",
-                **{
-                    "@click": f"journalMode = '{value}'",
-                    ":class": (
-                        f"journalMode === '{value}' "
-                        "? 'bg-foreground text-background' "
-                        ": 'bg-transparent text-muted-foreground hover:text-foreground'"
-                    ),
-                },
-            )
-        )
-    return Div(
-        Div(
-            Span("Mode", cls="text-xs font-medium text-muted-foreground mr-2"),
-            Div(*buttons, cls="flex border border-border rounded-lg p-0.5 gap-0.5"),
-            cls="flex items-center mb-4",
-        ),
-    )
-
 
 # ---------------------------------------------------------------------------
 # Processing dropdown
@@ -311,11 +270,6 @@ def _shared_hidden_inputs() -> list[Any]:
             name="instruction_content",
             **{"x-bind:value": "customInstructionContent"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
         ),
-        Input(
-            type="hidden",
-            name="journal_mode",
-            **{"x-bind:value": "journalMode"},  # type: ignore[arg-type]  # boundary: fasthtml-elements
-        ),
     ]
 
 
@@ -425,8 +379,6 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
     alpine_data = f"""{{
         uploadMode: 'files',
 
-        journalMode: 'thought_partner',
-
         processingMode: 'transcribe_only',
         modeMenuOpen: false,
 
@@ -491,7 +443,6 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
     return Div(
         Card(
             CardBody(
-                _ModeSelector(),
                 _build_mode_dropdown(),
                 _build_instructions_dropdown(),
                 # Hidden file input for custom instruction content

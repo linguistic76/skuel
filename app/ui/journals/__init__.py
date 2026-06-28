@@ -3,7 +3,6 @@
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
-    H3,
     Button,
     Div,
     Form,
@@ -16,18 +15,6 @@ from fasthtml.common import (
 )
 from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
-
-_PRIVACY_NOTICE = Div(
-    Span("🔒", cls="mr-1.5"),
-    Span(
-        "Your entries are private to you — no SKUEL admin can access them through the app. "
-        "When you request an AI response, your note and a brief summary of your active goals, tasks, and habits "
-        "are sent to a third-party AI model to generate that response. "
-        "Saved entries are stored in your account only.",
-        cls="text-xs",
-    ),
-    cls="flex items-start gap-1 text-muted-foreground bg-muted/50 rounded-md px-3 py-2 mb-5",
-)
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
@@ -49,19 +36,10 @@ def _FounderPage() -> Any:
     from ui.journals.forms import render_upload_form, upload_form_script
 
     return Div(
-        Div(
-            H3("Daily Notes Workflow", cls="text-lg font-semibold mb-1"),
-            P(
-                "Scribe → Thought Partner → What Is Related",
-                cls="text-sm text-muted-foreground mb-4",
-            ),
-            _PRIVACY_NOTICE,
-            render_upload_form(),
-            upload_form_script(),
-            cls="max-w-2xl",
-        ),
+        render_upload_form(),
+        upload_form_script(),
         id="journal-workspace",
-        cls="p-6",
+        cls="p-6 max-w-2xl",
     )
 
 
@@ -69,19 +47,10 @@ def _StandardPage() -> Any:
     from ui.journals.forms import render_upload_form, upload_form_script
 
     return Div(
-        Div(
-            H3("Journal", cls="text-lg font-semibold mb-1"),
-            P(
-                "Upload audio, text, or a document and get an AI response.",
-                cls="text-sm text-muted-foreground mb-4",
-            ),
-            _PRIVACY_NOTICE,
-            render_upload_form(),
-            upload_form_script(),
-            cls="max-w-2xl",
-        ),
+        render_upload_form(),
+        upload_form_script(),
         id="journal-workspace",
-        cls="p-6",
+        cls="p-6 max-w-2xl",
     )
 
 
@@ -98,14 +67,12 @@ def _LoadingIndicator() -> Any:
 # ------------------------------------------------------------------
 
 
-def TranscriptReviewFragment(transcript: str, title: str, mode_value: str) -> Any:
-    """FOUNDER tier: transcript review card shown after upload transcription.
+def TranscriptReviewFragment(transcript: str, title: str) -> Any:
+    """FOUNDER tier: transcript review card shown after audio transcription.
 
-    The user reviews the transcript, optionally changes the mode, then clicks
-    "Scribe →" which posts to /journals/stage1 to begin the DNWF workflow.
+    The user reviews the transcript, then clicks "Scribe →" to begin the
+    DNWF interactive workflow (Stage 1 → review → Stage 2 → review → Stage 3).
     """
-    from ui.journals.forms import _ModeSelector
-
     return Div(
         Card(
             CardHeader(CardTitle("Transcript")),
@@ -120,12 +87,6 @@ def TranscriptReviewFragment(transcript: str, title: str, mode_value: str) -> An
         Form(
             Input(type="hidden", name="raw_entry", value=transcript),
             Input(type="hidden", name="title", value=title),
-            _ModeSelector(),
-            Input(
-                type="hidden",
-                name="journal_mode",
-                **{"x-bind:value": "journalMode"},  # boundary: fasthtml-elements
-            ),
             Button(
                 "Scribe →",
                 cls=ButtonT.default,
@@ -136,20 +97,14 @@ def TranscriptReviewFragment(transcript: str, title: str, mode_value: str) -> An
                 hx_indicator="#journal-loading",
             ),
             _LoadingIndicator(),
-            **{"x-data": f"{{ journalMode: '{mode_value}' }}"},
         ),
         id="journal-workspace",
         cls="p-6",
     )
 
 
-def Stage1Fragment(
-    raw_entry: str, title: str, scribe_output: str, mode: "JournalMode | None" = None
-) -> Any:
+def Stage1Fragment(raw_entry: str, title: str, scribe_output: str) -> Any:
     """Fragment returned after Stage 1 — Scribe completes."""
-    from core.models.enums.user_enums import JournalMode
-
-    resolved_mode = (mode or JournalMode.default()).value
     return Div(
         Card(
             CardHeader(CardTitle("Stage 1 — Scribe")),
@@ -167,7 +122,6 @@ def Stage1Fragment(
                 "raw_entry": raw_entry,
                 "title": title,
                 "scribe_output": scribe_output,
-                "journal_mode": resolved_mode,
             },
             post_url="/journals/stage2",
             next_label="Thought Partner →",
@@ -183,12 +137,8 @@ def Stage2Fragment(
     title: str,
     scribe_output: str,
     thought_partner_output: str,
-    mode: "JournalMode | None" = None,
 ) -> Any:
     """Fragment returned after Stage 2 — Thought Partner completes."""
-    from core.models.enums.user_enums import JournalMode
-
-    resolved_mode = (mode or JournalMode.default()).value
     return Div(
         Card(
             CardHeader(CardTitle("Stage 2 — Thought Partner")),
@@ -207,7 +157,6 @@ def Stage2Fragment(
                 "title": title,
                 "scribe_output": scribe_output,
                 "thought_partner_output": thought_partner_output,
-                "journal_mode": resolved_mode,
             },
             post_url="/journals/stage3",
             next_label="What Is Related →",
@@ -265,7 +214,7 @@ def StandardResponseFragment(
     from monsterui.franken import UkIcon
 
     resolved = mode or JournalMode.default()
-    label = f"Journal Response — {resolved.display_label()}"
+    label = "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"
 
     # Alpine state: clipboard only — form fields are plain inputs, no reactive binding.
     alpine_data = (
