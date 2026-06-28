@@ -295,10 +295,6 @@ def create_journals_routes(
                                 text_content, user_uid
                             )
                             if not compiled_result.is_error:
-                                from fasthtml.common import to_xml
-
-                                from ui.journals import FileOutputFragment
-
                                 # Save compiled output to je_out/{user_uid}/{stem}_out.md.
                                 # User-scoped subdirectory prevents filename collisions across
                                 # users and enforces ownership at the download endpoint.
@@ -306,20 +302,16 @@ def create_journals_routes(
                                 output_filename = f"{stem}_out.md"
                                 user_out_dir = _JE_OUT / user_uid
                                 user_out_dir.mkdir(parents=True, exist_ok=True)
-                                (user_out_dir / output_filename).write_text(
-                                    compiled_result.value, encoding="utf-8"
-                                )
-                                fragment = FileOutputFragment(
-                                    title=title,
-                                    output_filename=output_filename,
-                                    response_output=compiled_result.value,
+                                output_path = user_out_dir / output_filename
+                                output_path.write_text(compiled_result.value, encoding="utf-8")
+                                await user_entry_service.update_processed_content(
+                                    entry.uid,
+                                    compiled_result.value,
+                                    processed_file_path=str(output_path),
                                 )
                                 return HTMLResponse(
-                                    content=to_xml(fragment),
-                                    headers={
-                                        "HX-Retarget": "#journal-workspace",
-                                        "HX-Reswap": "outerHTML",
-                                    },
+                                    status_code=200,
+                                    headers={"HX-Redirect": f"/journals/{entry.uid}"},
                                 )
                             logger.error(
                                 "Compiled DNWF failed for %s: %s",
@@ -327,10 +319,9 @@ def create_journals_routes(
                                 compiled_result.expect_error(),
                             )
 
-                    return render_journal_upload_status(
-                        _status_value(entry),
-                        f"Journal entry created: {entry.title}",
-                        je_input_uid=entry.uid,
+                    return HTMLResponse(
+                        status_code=200,
+                        headers={"HX-Redirect": f"/journals/{entry.uid}"},
                     )
 
                 # Transcription modes — submit file
@@ -362,10 +353,6 @@ def create_journals_routes(
                         and user_result.value.journal_tier.is_founder()
                     )
                     if is_founder:
-                        from fasthtml.common import to_xml
-
-                        from ui.journals import TranscriptReviewFragment
-
                         process_result = await processing_service.process(entry)
                         if process_result.is_error:
                             logger.error(
@@ -378,28 +365,14 @@ def create_journals_routes(
                                 "Transcription failed — please try again.",
                                 is_error=True,
                             )
-                        transcript = (
-                            process_result.value.processed_content or ""
-                            if process_result.value is not None
-                            else ""
-                        )
-
-                        fragment = TranscriptReviewFragment(
-                            transcript=transcript,
-                            title=title,
-                        )
                         return HTMLResponse(
-                            content=to_xml(fragment),
-                            headers={
-                                "HX-Retarget": "#journal-workspace",
-                                "HX-Reswap": "outerHTML",
-                            },
+                            status_code=200,
+                            headers={"HX-Redirect": f"/journals/{entry.uid}"},
                         )
 
-                return render_journal_upload_status(
-                    _status_value(entry),
-                    f"Journal entry created: {entry.title}",
-                    je_input_uid=entry.uid,
+                return HTMLResponse(
+                    status_code=200,
+                    headers={"HX-Redirect": f"/journals/{entry.uid}"},
                 )
 
             # Multiple files — batch processing
@@ -627,6 +600,77 @@ def create_journals_routes(
             media_type="text/markdown; charset=utf-8",
             filename=filename,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # ------------------------------------------------------------------
+    # GET /journals/{entry_uid} — dedicated journal session page
+    # ------------------------------------------------------------------
+
+    @rt("/journals/{entry_uid}", methods=["GET"])
+    async def journal_chat(request: Request, entry_uid: str) -> Any:
+        """Dedicated chat page for a journal entry."""
+        from ui.journals import FileOutputFragment, TranscriptReviewFragment
+        from ui.journals.chat_page import JournalChatPage
+
+        user_uid = require_authenticated_user(request)
+
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        if entry_result.is_error or entry_result.value is None:
+            return Response("Not found", status_code=404)
+        entry = entry_result.value
+
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return Response("Could not load user", status_code=500)
+        user = user_result.value
+
+        recent_result = await user_entry_service.list_for_user(user_uid, limit=30)
+        recent_entries = recent_result.value if recent_result.is_ok else []
+
+        if entry.processed_file_path:
+            from fasthtml.common import Div as _Div
+
+            initial_workspace = FileOutputFragment(
+                title=entry.title or "",
+                output_filename=Path(entry.processed_file_path).name,
+                response_output=entry.processed_content or "",
+            )
+        elif entry.processed_content:
+            initial_workspace = TranscriptReviewFragment(
+                transcript=entry.processed_content,
+                title=entry.title or "",
+            )
+        else:
+            from fasthtml.common import Div as _Div, P as _P
+
+            initial_workspace = _Div(
+                _P("Processing…", cls="text-sm text-muted-foreground"),
+                id="journal-workspace",
+                cls="p-6",
+            )
+
+        page_content = JournalChatPage(
+            entry=entry,
+            recent_entries=recent_entries,
+            initial_workspace=initial_workspace,
+            user=user,
+        )
+
+        if request.headers.get("HX-Request"):
+            return page_content
+
+        from ui.layouts.base_page import BasePage
+        from ui.layouts.page_types import PageType
+
+        return await BasePage(
+            content=page_content,
+            title=entry.title or "Journal",
+            page_type=PageType.CUSTOM,
+            request=request,
+            active_page="journals",
         )
 
     # ------------------------------------------------------------------
