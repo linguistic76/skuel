@@ -39,7 +39,7 @@ def _FounderPage() -> Any:
         render_upload_form(),
         upload_form_script(),
         id="journal-workspace",
-        cls="p-6 max-w-2xl",
+        cls="py-4",
     )
 
 
@@ -50,7 +50,7 @@ def _StandardPage() -> Any:
         render_upload_form(),
         upload_form_script(),
         id="journal-workspace",
-        cls="p-6 max-w-2xl",
+        cls="py-4",
     )
 
 
@@ -210,8 +210,9 @@ def StandardResponseFragment(
     """
     import json as _json
 
-    from core.models.enums.user_enums import JournalMode
     from monsterui.franken import UkIcon
+
+    from core.models.enums.user_enums import JournalMode
 
     resolved = mode or JournalMode.default()
     label = "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"

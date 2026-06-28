@@ -18,8 +18,8 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Span
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from fasthtml.common import A, Div, Span, Strong
+from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle, UkIcon
 from monsterui.franken import CardContainer as Card
 from starlette.responses import HTMLResponse, Response
 
@@ -257,15 +257,20 @@ def create_journals_routes(
             return workspace
 
         # PLANNED: /journals/about — privacy details + workflow guide
-        page_content = Div(
-            Div(
-                ButtonLink(
-                    "Browse my journals",
-                    href="/journals/browse",
-                    cls=(ButtonT.ghost, ButtonT.sm),
-                ),
-                cls="flex justify-end px-6 pt-4",
+        browse_link = A(
+            UkIcon("library", cls="w-[19px] h-[19px] text-muted-foreground"),
+            Span(
+                Strong("Browse", cls="font-bold text-foreground"),
+                Span(" my journals", cls="font-normal text-muted-foreground"),
             ),
+            href="/journals/browse",
+            cls=(
+                "text-[18px] text-foreground hover:text-brand inline-flex items-center gap-2 "
+                "transition-colors"
+            ),
+        )
+        page_content = Div(
+            Div(browse_link, cls="flex justify-end mb-4 px-2"),
             workspace,
         )
         return await render_activity_sidebar_page(
