@@ -177,7 +177,7 @@ def _sb_session_list(entries: "list[UserEntry]", active_uid: str) -> Any:
     for e in entries:
         created = getattr(e, "created_at", None)
         if created is not None:
-            entry_date = created.date() if hasattr(created, "date") else today
+            entry_date = created.date() if isinstance(created, datetime.datetime) else today
         else:
             entry_date = today
 

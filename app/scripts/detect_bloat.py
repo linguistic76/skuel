@@ -428,11 +428,6 @@ _EXERCISES_ARCHIVE = (
 )
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
-    # --- Journals: mobile je_out sync ---
-    "load_entry_for_mobile_download": (
-        "UserEntry processed_content viewable on mobile; je_out file sync to desktop "
-        "is deferred capability — see journals mobile PLANNED work"
-    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE

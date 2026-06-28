@@ -660,7 +660,9 @@ def create_journals_routes(
         }
         recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
         recent_entries = [
-            e for e in (recent_result.value or []) if e.pipeline in _journal_pipelines
+            e
+            for e in (recent_result.value if recent_result.is_ok else [])
+            if e.pipeline in _journal_pipelines
         ][:30]
 
         if entry.processed_file_path:
