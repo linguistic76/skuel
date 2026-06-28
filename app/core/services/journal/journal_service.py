@@ -6,9 +6,8 @@ STANDARD tier: run_standard() — single response in the requested JournalMode
 FOUNDER tier: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
 each stage gated by user review. Stage functions are mode-invariant.
 
-Both tiers persist entries via save_entry() → UserEntry(pipeline=JOURNAL).
-
-See: /docs/decisions/ (ADR forthcoming)
+Entry persistence is handled by the ingestion path in the calling route,
+not by this service. See: /docs/decisions/ (ADR forthcoming)
 """
 
 from __future__ import annotations
@@ -75,7 +74,7 @@ class JournalService:
     # User-context summary (used by Stage 2 and Stage 3 prompts)
     # ------------------------------------------------------------------
 
-    async def build_context_summary(self, user_uid: UserUID) -> str:
+    async def _build_context_summary(self, user_uid: UserUID) -> str:
         """Return a short text digest of the user's active goals/tasks/habits/vault notes."""
         lines: list[str] = []
 
@@ -140,7 +139,7 @@ class JournalService:
         user_uid: UserUID,
     ) -> Result[str]:
         """Stage 2: Thought Partner response across four roles."""
-        context_summary = await self.build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(user_uid)
         system_prompt = stage2_system_prompt(context_summary)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
@@ -171,7 +170,7 @@ class JournalService:
         user_uid: UserUID,
     ) -> Result[str]:
         """Stage 3: propose graph connections to knowledge, goals, tasks, and habits."""
-        context_summary = await self.build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(user_uid)
         system_prompt = stage3_system_prompt(context_summary)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
@@ -208,7 +207,7 @@ class JournalService:
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  LLMCaller (response generation).
         """
-        context_summary = await self.build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(user_uid)
         system_prompt = standard_system_prompt(context_summary, mode)
         user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease respond as my journal companion."
         try:
@@ -287,7 +286,7 @@ class JournalService:
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  LLMCaller (response generation).
         """
-        context_summary = await self.build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(user_uid)
         system_prompt = follow_up_system_prompt(context_summary, mode)
         user_message = (
             f"# Original Note\n\n{original_entry}\n\n"
@@ -304,27 +303,3 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal follow-up LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Follow-up failed: {exc}"))
-
-    # ------------------------------------------------------------------
-    # Save
-    # ------------------------------------------------------------------
-
-    async def save_entry(self, title: str, raw_entry: str, user_uid: UserUID) -> Result[str]:
-        """Persist the journal entry as a UserEntry(pipeline=JOURNAL).
-
-        Returns the UID of the created entry.
-        """
-        from core.models.enums.pipeline import Pipeline
-        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-
-        request = UserEntryCreateRequest(
-            title=title or "Journal Entry",
-            content=raw_entry,
-            pipeline=Pipeline.JOURNAL,
-        )
-        result = await self._user_entry.create_entry(request, user_uid)
-        if result.is_error:
-            return Result.fail(result)
-        entry, _ = result.value
-        logger.info("Journal entry saved: %s (user=%s)", entry.uid, user_uid)
-        return Result.ok(entry.uid)

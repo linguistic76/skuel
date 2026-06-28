@@ -12,6 +12,7 @@ All dependencies are required — bootstrap raises if any are missing
 
 from __future__ import annotations
 
+import operator
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
@@ -141,7 +142,7 @@ class UserEntryOrchestrator:
             if result.value:
                 entries.extend(result.value)
 
-        entries.sort(key=lambda e: e.created_at, reverse=True)
+        entries.sort(key=operator.attrgetter("created_at"), reverse=True)
         return Result.ok(entries[:limit])
 
     async def list_exercise_entries(

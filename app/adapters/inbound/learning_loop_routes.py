@@ -303,7 +303,9 @@ def create_learning_loop_detail_routes(
 
         has_task_templates = False
         if ps_engagement_service is not None and user_uid:
-            has_task_templates = await ps_engagement_service.has_task_templates(uid)
+            htt_result = await ps_engagement_service.has_task_templates(uid)
+            if not htt_result.is_error:
+                has_task_templates = htt_result.value
 
         # Exercises for unauthenticated users
         exercises: list[dict] = []

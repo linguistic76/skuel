@@ -442,18 +442,18 @@ class PsEngagementService:
         """
         return await self._gateway.find_active(student_uid, ps_uid)
 
-    async def has_task_templates(self, ps_uid: str) -> bool:
-        """Return True if the PathStep has at least one TaskTemplate attached.
+    async def has_task_templates(self, ps_uid: str) -> Result[bool]:
+        """Return whether the PathStep has at least one TaskTemplate attached.
 
         Used by the PS detail UI to decide whether "Start learning" should
         trigger engagement (spawning tasks) or just toggle read-progress.
-        Fails open to False on any load error — the button degrades to the
-        simpler progress-toggle behaviour.
+        Fails open to Result.ok(False) on any load error — the button degrades
+        to the simpler progress-toggle behaviour.
         """
         bundle_res = await self._loader.load(ps_uid)
         if bundle_res.is_error:
-            return False
-        return bool(bundle_res.value.tasks)
+            return Result.ok(False)
+        return Result.ok(bool(bundle_res.value.tasks))
 
     async def list_review_items(self, student_uid: str, ps_uid: str) -> Result[list[ReviewItem]]:
         """Rich per-instance rows for the completion review screen.
