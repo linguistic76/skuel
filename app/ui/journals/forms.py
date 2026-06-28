@@ -49,8 +49,7 @@ def _build_processing_section() -> Any:
                 Span(
                     UkIcon(cfg["icon"], cls="w-[22px] h-[22px]"),
                     cls=(
-                        "w-12 h-12 flex-none rounded-xl bg-muted "
-                        "flex items-center justify-center"
+                        "w-12 h-12 flex-none rounded-xl bg-muted flex items-center justify-center"
                     ),
                 ),
                 Span(

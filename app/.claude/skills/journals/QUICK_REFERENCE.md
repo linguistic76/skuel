@@ -11,7 +11,7 @@
 | Standard | `run_standard(raw_entry, user_uid, mode=None)` | Inline strings in `instruction_loader.py` (no file dependency) | 4000 |
 | Follow-up | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode=None)` | `follow_up_system_prompt()` — mode base + continuation directive (no re-analysis) | 4000 |
 
-Stage 1 receives no UserContext (sparse by design). Stages 2 and 3 receive `build_context_summary()` digest.
+Stage 1 receives no UserContext (sparse by design). Stages 2 and 3 receive `_build_context_summary()` digest.
 
 ---
 
@@ -50,11 +50,11 @@ class JournalTier(str, Enum):
 
 | File | Purpose |
 |---|---|
-| `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry` (service method; no UI route) |
+| `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 8 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, etc. (no browse or save routes) |
+| `adapters/inbound/journals_routes.py` | 9 routes — incl. `GET /journals/je-out/{filename}` (download compiled output from `je_out/`) |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
-| `core/models/enums/pipeline.py` | `Pipeline.JOURNAL` |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
 
 ---
@@ -62,15 +62,17 @@ class JournalTier(str, Enum):
 ## Pipeline
 
 ```python
-Pipeline.JOURNAL               # All journal UserEntries use this discriminator
-Pipeline.JOURNAL.allows_sharing()  # → False (enforced at ingestion + UI layer)
+# File-upload path: input content persisted as Pipeline.LLM_SUMMARY (not Pipeline.JOURNAL).
+# AI output is NOT persisted to Neo4j — saved to je_out/{stem}_out.md as a file instead.
+Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces privacy
+                                   # for any legacy entries; new entries use LLM_SUMMARY
 ```
 
 ---
 
 ## UserContext Digest
 
-`JournalService.build_context_summary(user_uid)` builds a lightweight text block:
+`JournalService._build_context_summary(user_uid)` builds a lightweight text block:
 
 - Up to 6 active **Goal** titles
 - Up to 6 active **Task** titles

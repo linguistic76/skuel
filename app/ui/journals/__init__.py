@@ -172,6 +172,18 @@ def Stage3Fragment(
     related_output: str,
 ) -> Any:
     """Fragment returned after Stage 3 — What Is Related completes."""
+    import json as _json
+
+    from monsterui.franken import UkIcon
+
+    alpine_data = (
+        "{ copied: false,"
+        f" responseText: {_json.dumps(related_output)},"
+        "  copy() { navigator.clipboard.writeText(this.responseText)"
+        "    .then(() => { this.copied = true;"
+        "      setTimeout(() => this.copied = false, 2000); }); } }"
+    )
+
     return Div(
         Card(
             CardHeader(CardTitle("Stage 3 — What Is Related")),
@@ -180,11 +192,38 @@ def Stage3Fragment(
                     related_output,
                     cls="text-sm whitespace-pre-wrap leading-relaxed",
                 ),
+                Div(
+                    Button(
+                        UkIcon("copy", height=15, width=15),
+                        type="button",
+                        aria_label="Copy output",
+                        cls=(
+                            "w-[30px] h-[30px] flex items-center justify-center rounded-[7px]"
+                            " text-muted-foreground hover:bg-muted hover:text-foreground"
+                            " transition-colors"
+                        ),
+                        **{"@click": "copy()"},  # boundary: fasthtml-elements
+                    ),
+                    Span(
+                        "Copied!",
+                        cls="text-xs text-green-600",
+                        **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
+                    ),
+                    cls="flex items-center gap-2 mt-4",
+                ),
             ),
             cls="mb-6",
         ),
+        Button(
+            "Process another file",
+            cls=ButtonT.ghost,
+            hx_get="/journals",
+            hx_target="#journal-workspace",
+            hx_swap="outerHTML",
+        ),
         id="journal-workspace",
         cls="p-6",
+        **{"x-data": alpine_data},
     )
 
 
@@ -207,7 +246,9 @@ def StandardResponseFragment(
     from core.models.enums.user_enums import JournalMode
 
     resolved = mode or JournalMode.default()
-    label = "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"
+    label = (
+        "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"
+    )
 
     # Alpine state: clipboard only — form fields are plain inputs, no reactive binding.
     alpine_data = (
@@ -265,6 +306,162 @@ def StandardResponseFragment(
             Div(
                 Textarea(
                     placeholder="Follow up on this response…",
+                    name="user_reply",
+                    rows="3",
+                    required=True,
+                    cls=(
+                        "w-full border-none outline-none bg-transparent resize-none"
+                        " text-[15px] leading-[1.6] text-foreground"
+                        " placeholder:text-muted-foreground"
+                    ),
+                ),
+                Div(
+                    P(
+                        "Thinking…",
+                        id="journal-reply-loading",
+                        cls="text-sm text-muted-foreground htmx-indicator",
+                    ),
+                    Button(
+                        UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+                        type="submit",
+                        aria_label="Send follow-up",
+                        cls=(
+                            "w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                            " bg-foreground hover:bg-foreground/80 transition-colors"
+                        ),
+                    ),
+                    cls="flex items-center justify-end gap-3 mt-2",
+                ),
+                cls=(
+                    "border border-border rounded-[25px]"
+                    " px-[18px] pt-3 pb-3 bg-background shadow-sm"
+                ),
+            ),
+            hx_post="/journals/follow-up",
+            hx_target="#journal-workspace",
+            hx_swap="outerHTML",
+            hx_indicator="#journal-reply-loading",
+        ),
+        id="journal-workspace",
+        cls="p-6",
+        **{"x-data": alpine_data},
+    )
+
+
+def FileOutputFragment(
+    title: str,
+    output_filename: str,
+    response_output: str,
+) -> Any:
+    """Shown after a compiled journal file is processed and saved to je_out/.
+
+    The user downloads the file and opens it in Obsidian. je_out/ is explicitly
+    excluded from vault sync — the user decides what enters their personal vault.
+    SKUEL never auto-syncs je_out content into the vault.
+
+    The follow-up composer allows in-session questions about the output without
+    persisting anything; closing the tab ends the session.
+    """
+    import json as _json
+    import urllib.parse
+
+    from monsterui.franken import UkIcon
+
+    from core.models.enums.user_enums import JournalMode
+
+    safe_href = urllib.parse.quote(output_filename, safe="")
+    resolved_mode = JournalMode.default()
+
+    alpine_data = (
+        "{ copied: false,"
+        f" responseText: {_json.dumps(response_output)},"
+        "  copy() { navigator.clipboard.writeText(this.responseText)"
+        "    .then(() => { this.copied = true;"
+        "      setTimeout(() => this.copied = false, 2000); }); } }"
+    )
+
+    return Div(
+        # ── Saved banner + download ──────────────────────────────────────
+        Div(
+            Div(
+                UkIcon("file-check", height=18, width=18, cls="text-green-600 flex-shrink-0"),
+                Div(
+                    P(
+                        f"Saved to je_out/{output_filename}",
+                        cls="text-sm font-semibold",
+                    ),
+                    P(
+                        # Vault boundary: je_out is never auto-synced to your vault.
+                        # You decide what content crosses from je_out into your vault.
+                        "Open in Obsidian to review. je_out/ is not synced to your vault — "
+                        "you decide what to keep.",
+                        cls="text-xs text-muted-foreground mt-0.5",
+                    ),
+                    cls="flex-1 min-w-0",
+                ),
+                Button(
+                    UkIcon("download", height=14, width=14),
+                    Span("Download"),
+                    type="button",
+                    cls=(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px]"
+                        " text-sm font-medium bg-foreground text-background"
+                        " hover:bg-foreground/85 transition-colors border-0 cursor-pointer"
+                    ),
+                    **{
+                        "@click": f"window.location.href='/journals/je-out/{safe_href}'"
+                    },  # boundary: fasthtml-elements
+                ),
+                cls="flex items-center gap-3",
+            ),
+            cls=("rounded-xl border border-border bg-muted/40 px-4 py-3 mb-5"),
+        ),
+        # ── Avatar + label ───────────────────────────────────────────────
+        Div(
+            Div(
+                "J",
+                cls=(
+                    "w-[30px] h-[30px] rounded-full bg-foreground text-background"
+                    " flex items-center justify-center text-sm font-bold flex-shrink-0"
+                ),
+            ),
+            Span("Daily Notes Workflow", cls="text-[13px] font-semibold text-muted-foreground"),
+            cls="flex items-center gap-3 mb-4",
+        ),
+        # ── Compiled output preview ──────────────────────────────────────
+        P(
+            response_output,
+            cls="text-[14px] leading-[1.75] text-foreground whitespace-pre-wrap mb-4",
+        ),
+        # ── Action bar: Copy ─────────────────────────────────────────────
+        Div(
+            Button(
+                UkIcon("copy", height=15, width=15),
+                type="button",
+                aria_label="Copy output",
+                cls=(
+                    "w-[30px] h-[30px] flex items-center justify-center rounded-[7px]"
+                    " text-muted-foreground hover:bg-muted hover:text-foreground"
+                    " transition-colors"
+                ),
+                **{"@click": "copy()"},  # boundary: fasthtml-elements
+            ),
+            Span(
+                "Copied!",
+                cls="text-xs text-green-600",
+                **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
+            ),
+            cls="flex items-center gap-2 pb-4 mb-6 border-b border-border",
+        ),
+        # ── Follow-up composer ───────────────────────────────────────────
+        Form(
+            Input(type="hidden", name="original_entry", value=title),
+            Input(type="hidden", name="ai_response", value=response_output),
+            Input(type="hidden", name="title", value=title),
+            Input(type="hidden", name="journal_mode", value=resolved_mode.value),
+            Div(
+                Textarea(
+                    placeholder="Ask a follow-up question about this output…",
                     name="user_reply",
                     rows="3",
                     required=True,
@@ -366,5 +563,3 @@ def _ReviewGate(
         _LoadingIndicator(),
         cls="mb-4",
     )
-
-
