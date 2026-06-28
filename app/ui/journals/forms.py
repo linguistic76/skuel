@@ -336,6 +336,264 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
     )
 
 
+# ---------------------------------------------------------------------------
+# Compact right-panel variants (for /journals landing 3-column layout)
+# ---------------------------------------------------------------------------
+
+
+def _build_compact_processing_section() -> Any:
+    """Compact processing mode selector for the 320px right panel."""
+    mode_spans = []
+    for mode_key, cfg in _MODE_CONFIGS.items():
+        is_default = mode_key == "transcribe_only"
+        mode_spans.append(
+            Span(
+                Span(
+                    UkIcon(cfg["icon"], cls="w-[18px] h-[18px]"),
+                    cls="w-9 h-9 flex-none rounded-lg bg-muted flex items-center justify-center",
+                ),
+                Span(
+                    Span(cfg["title"], cls="block text-[14px] font-semibold"),
+                    Span(cfg["desc"], cls="block text-[12px] text-muted-foreground mt-0.5"),
+                    cls="flex-1 min-w-0",
+                ),
+                cls="flex items-center gap-3 flex-1 min-w-0",
+                **{"x-show": f"processingMode === '{mode_key}'"},
+                **({} if is_default else {"x-cloak": True}),  # boundary: fasthtml-elements
+            )
+        )
+
+    trigger = RawButton(
+        *mode_spans,
+        UkIcon("chevron-down", cls="w-4 h-4 text-muted-foreground"),
+        type="button",
+        cls=(
+            "w-full flex items-center gap-3 px-3 py-3 border border-border "
+            "rounded-xl bg-card hover:bg-muted/60 text-left cursor-pointer"
+        ),
+        **{"@click": "modeMenuOpen = !modeMenuOpen"},  # boundary: fasthtml-elements
+    )
+
+    option_rows = []
+    for mode_key, cfg in _MODE_CONFIGS.items():
+        option_rows.append(
+            RawButton(
+                Span(
+                    UkIcon(cfg["icon"], cls="w-4 h-4"),
+                    cls="w-7 h-7 flex-none rounded-md bg-muted flex items-center justify-center",
+                ),
+                Span(
+                    Span(cfg["title"], cls="block text-[13px] font-semibold text-foreground"),
+                    Span(cfg["desc"], cls="block text-[11.5px] text-muted-foreground mt-0.5"),
+                    cls="flex-1 min-w-0",
+                ),
+                Span(
+                    UkIcon("check", cls="w-3.5 h-3.5 text-primary"),
+                    **{
+                        "x-show": f"processingMode === '{mode_key}'",
+                        "x-cloak": True,  # boundary: fasthtml-elements
+                    },
+                ),
+                type="button",
+                cls=(
+                    "w-full flex items-center gap-2.5 p-2.5 rounded-[9px] text-left "
+                    "cursor-pointer border-0 font-[inherit] transition-colors"
+                ),
+                **{
+                    "@click": f"selectMode('{mode_key}')",  # boundary: fasthtml-elements
+                    ":class": (
+                        f"processingMode === '{mode_key}' "
+                        "? 'bg-muted' : 'bg-transparent hover:bg-muted/50'"
+                    ),
+                },
+            )
+        )
+
+    menu = dropdown_menu(
+        *option_rows,
+        **{
+            "x-show": "modeMenuOpen",
+            "x-cloak": True,  # type: ignore[arg-type]  # boundary: fasthtml-elements
+            "@click.outside": "modeMenuOpen = false",
+        },
+    )
+
+    return Div(
+        section_label("Processing"),
+        Div(trigger, menu, cls="relative"),
+        cls="mb-4",
+    )
+
+
+def _build_compact_source_section() -> Any:
+    """Compact two-tab source selector for the right panel."""
+
+    def _tab(label: str, icon: str, value: str) -> Any:
+        return RawButton(
+            UkIcon(icon, cls="w-4 h-4"),
+            Span(label),
+            type="button",
+            cls=(
+                "flex items-center justify-center gap-2 px-2 py-2 rounded-lg "
+                "text-[14px] font-medium whitespace-nowrap transition-colors "
+                "cursor-pointer border-0 font-[inherit]"
+            ),
+            **{
+                "@click": f"source = '{value}'",  # boundary: fasthtml-elements
+                ":aria-pressed": f"source === '{value}'",
+                ":class": (
+                    f"source === '{value}' "
+                    "? 'bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]' "
+                    ": 'text-muted-foreground'"
+                ),
+            },
+        )
+
+    return Div(
+        section_label("Source"),
+        Div(
+            _tab("Upload files", "file-up", "files"),
+            _tab("Upload Folder", "folder-up", "folder"),
+            cls="grid grid-cols-2 gap-1 p-1 bg-muted rounded-xl",
+        ),
+        cls="mb-4",
+    )
+
+
+def _build_compact_browse_area() -> Any:
+    """Compact browse area for the right panel."""
+    return Div(
+        Div(
+            Span(
+                Span(
+                    UkIcon("file-up", cls="w-[20px] h-[20px]"),
+                    **{"x-show": "source !== 'folder'"},
+                ),
+                Span(
+                    UkIcon("folder-up", cls="w-[20px] h-[20px]"),
+                    **{
+                        "x-show": "source === 'folder'",
+                        "x-cloak": True,  # boundary: fasthtml-elements
+                    },
+                ),
+                cls=(
+                    "w-[44px] h-[44px] rounded-[12px] bg-card border border-border "
+                    "flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                ),
+            ),
+            RawButton(
+                UkIcon("folder-open", cls="w-4 h-4"),
+                Span("Browse "),
+                Span("", **{"x-text": "source === 'folder' ? 'folder' : 'files'"}),
+                type="button",
+                cls=(
+                    "inline-flex items-center gap-2 px-5 py-2.5 rounded-[11px] "
+                    "bg-primary text-primary-foreground text-[15px] font-semibold tracking-tight "
+                    "whitespace-nowrap hover:opacity-90 cursor-pointer border-0 font-[inherit]"
+                ),
+                **{"@click": "openPicker()"},  # boundary: fasthtml-elements
+            ),
+            P(
+                "",
+                cls="text-xs text-primary font-medium",
+                **{
+                    "x-show": "fileCount > 0",
+                    "x-cloak": True,  # boundary: fasthtml-elements
+                    "x-text": "fileCount + (fileCount === 1 ? ' file selected' : ' files selected')",
+                },
+            ),
+            P("audio, text, PDF, images, video", cls="text-xs text-muted-foreground"),
+            cls="flex flex-col items-center text-center gap-2.5 px-4 py-5",
+        ),
+        cls="bg-muted/50 border border-border rounded-2xl mb-4",
+    )
+
+
+def _build_compact_process_btn() -> Any:
+    """Full-width Process button for the right panel."""
+    return primary_btn("Process", icon="send", type="submit", cls="w-full justify-center")
+
+
+def render_right_panel() -> Any:
+    """Compact upload panel for the 320px right column on /journals landing.
+
+    Shares DOM IDs (upload-form, upload-status, file-input, folder-input) with
+    render_upload_form() so upload_form_script() works without changes. Only one
+    of these two forms will be present on any given page.
+    """
+    alpine_data = """{
+        source: 'files',
+        processingMode: 'transcribe_only',
+        modeMenuOpen: false,
+        fileCount: 0,
+
+        handleFileSelect(event) {
+            this.fileCount = event.target.files.length;
+        },
+
+        openPicker() {
+            const id = this.source === 'folder' ? 'folder-input' : 'file-input';
+            const el = document.getElementById(id);
+            if (el) el.click();
+        },
+
+        selectMode(mode) {
+            this.processingMode = mode;
+            this.modeMenuOpen = false;
+        },
+    }"""
+
+    return Div(
+        Form(
+            Input(
+                type="hidden",
+                name="processing_mode",
+                **{"x-bind:value": "processingMode"},  # boundary: fasthtml-elements
+            ),
+            Input(type="hidden", name="instruction_filename", value=""),
+            Input(type="hidden", name="instruction_content", value=""),
+            Input(
+                type="file",
+                name="file",
+                id="file-input",
+                multiple=True,
+                accept="audio/*,text/*,.pdf,.doc,.docx,image/*,video/*",
+                cls="hidden",
+                **{
+                    "x-show": "source === 'files'",
+                    ":disabled": "source !== 'files'",  # boundary: fasthtml-elements
+                    "x-on:change": "handleFileSelect($event)",  # boundary: fasthtml-elements
+                },
+            ),
+            Input(
+                type="file",
+                name="file",
+                id="folder-input",
+                multiple=True,
+                webkitdirectory="",
+                cls="hidden",
+                **{
+                    "x-show": "source === 'folder'",
+                    ":disabled": "source !== 'folder'",  # boundary: fasthtml-elements
+                    "x-on:change": "handleFileSelect($event)",  # boundary: fasthtml-elements
+                },
+            ),
+            _build_compact_processing_section(),
+            _build_compact_source_section(),
+            _build_compact_browse_area(),
+            _build_compact_process_btn(),
+            hx_post="/journals/upload",
+            hx_target="#upload-status",
+            hx_swap="outerHTML",
+            hx_encoding="multipart/form-data",
+            id="upload-form",
+            **{"@journals:upload-complete.window": "fileCount = 0"},  # boundary: fasthtml-elements
+        ),
+        Div(id="upload-status", cls="mt-3"),
+        **{"x-data": alpine_data},
+    )
+
+
 def upload_form_script() -> Any:
     """HTMX event handlers for the journal upload form."""
     return Script(

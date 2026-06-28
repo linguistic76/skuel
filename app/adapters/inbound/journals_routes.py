@@ -1,10 +1,12 @@
 """Journals domain routes — DNWF three-stage workflow (FOUNDER) and continuous (STANDARD).
 
 Routes:
-    GET  /journals                      — tier-aware landing page (Tasks+ sidebar)
+    GET  /journals                      — 3-column landing page (no Tasks+ sidebar)
+    POST /journals/start                — create persistent session from text; redirects to chat
     POST /journals/upload               — file upload handler
     POST /journals/folder-process       — batch folder processing
     GET  /journals/je-out/{filename}    — download a compiled journal output from je_out/
+    GET  /journals/{entry_uid}          — dedicated journal session chat page
     POST /journals/respond              — STANDARD tier single-response workflow (FULL tier)
     POST /journals/follow-up            — conversation continuation (all tiers)
     POST /journals/stage1               — Stage 1 Scribe (FOUNDER only, FULL tier)
@@ -167,24 +169,141 @@ def create_journals_routes(
     async def journals_page(request: Request) -> Any:
         user_uid = require_authenticated_user(request)
 
-        from ui.activities.nav import render_activity_sidebar_page
-        from ui.journals import JournalsPage
+        from ui.journals.chat_page import JournalsLandingPage
 
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
             return Response("Could not load user", status_code=500)
+        user = user_result.value
 
-        workspace = JournalsPage(user_result.value)
+        _journal_pipelines = {
+            Pipeline.LLM_SUMMARY,
+            Pipeline.TRANSCRIBE,
+            Pipeline.TRANSCRIBE_AND_STRUCTURE,
+        }
+        recent_entries: list[Any] = []
+        if user_entry_service is not None:
+            recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
+            recent_entries = [
+                e
+                for e in (recent_result.value if recent_result.is_ok else [])
+                if e.pipeline in _journal_pipelines
+            ][:30]
+
+        page_content = JournalsLandingPage(user=user, recent_entries=recent_entries)
 
         if request.headers.get("HX-Request"):
-            return workspace
+            return page_content
 
-        return await render_activity_sidebar_page(
-            content=workspace,
-            active="journals",
-            request=request,
+        from ui.layouts.base_page import BasePage
+        from ui.layouts.page_types import PageType
+
+        return await BasePage(
+            content=page_content,
             title="Journal",
+            page_type=PageType.CUSTOM,
+            request=request,
+            active_page="journals",
         )
+
+    # ------------------------------------------------------------------
+    # POST /journals/start — create persistent session from text
+    # ------------------------------------------------------------------
+
+    @rt("/journals/start", methods=["POST"])
+    @csrf_protected
+    @rate_limited(per_user=10, window_s=60)
+    async def journals_start(request: Request) -> Any:
+        """Create a persistent journal session from direct text input.
+
+        Both STANDARD and FOUNDER tiers use this route. STANDARD runs
+        run_standard() and saves the response; FOUNDER runs run_stage1()
+        and saves the scribe output (marked via metadata so the chat page
+        can render Stage1Fragment with its review gate).
+
+        On success returns HX-Redirect to /journals/{entry_uid}.
+        On error returns an inline error div swapped into #start-status.
+        """
+        from fasthtml.common import Div as _Div
+        from fasthtml.common import P as _P
+
+        from core.models.enums.user_enums import JournalMode
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        def _err(msg: str) -> Any:
+            return _Div(
+                _P(msg, cls="text-sm text-destructive"),
+                id="start-status",
+            )
+
+        user_uid = require_authenticated_user(request)
+
+        form = await request.form()
+        raw_entry = str(form.get("raw_entry", "")).strip()
+
+        if not raw_entry:
+            return _err("Please write something before continuing.")
+
+        if journal_service is None:
+            return _err("Journal AI features are not available.")
+
+        if user_entry_service is None:
+            return _err("Journal service not available.")
+
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return _err("Could not load your profile.")
+
+        is_founder = user_result.value.journal_tier.is_founder()
+        title = raw_entry.split("\n")[0][:80].strip() or "Journal Entry"
+
+        req = UserEntryCreateRequest(
+            title=title,
+            pipeline=Pipeline.LLM_SUMMARY,
+            content=raw_entry,
+            metadata={"entry_type": "journal_stage1_start"} if is_founder else None,
+        )
+        create_result = await user_entry_service.create_entry(req, user_uid)
+        if create_result.is_error:
+            logger.error(
+                "journals_start create_entry failed for %s: %s",
+                user_uid,
+                create_result.expect_error(),
+            )
+            return _err("Could not save your entry. Please try again.")
+
+        entry, _ = create_result.value
+
+        if is_founder:
+            ai_result = await journal_service.run_stage1(raw_entry, user_uid)
+        else:
+            ai_result = await journal_service.run_standard(
+                raw_entry, user_uid, JournalMode.default()
+            )
+
+        if ai_result.is_error:
+            logger.error(
+                "journals_start AI call failed for %s: %s",
+                user_uid,
+                ai_result.expect_error(),
+            )
+            return _err(
+                "Could not generate a response. "
+                "Your entry was saved — try again from the session list."
+            )
+
+        persist_result = await user_entry_service.update_processed_content(
+            entry.uid, ai_result.value
+        )
+        if persist_result.is_error:
+            logger.error(
+                "journals_start persist failed for %s: %s",
+                entry.uid,
+                persist_result.expect_error(),
+            )
+            # Entry exists but has no processed content — chat page shows "Processing…"
+
+        return HTMLResponse(status_code=200, headers={"HX-Redirect": f"/journals/{entry.uid}"})
 
     # ------------------------------------------------------------------
     # POST /journals/upload — file upload handler
@@ -672,7 +791,7 @@ def create_journals_routes(
                 response_output=entry.processed_content or "",
             )
         elif entry.processed_content:
-            from ui.journals import StandardResponseFragment
+            from ui.journals import Stage1Fragment, StandardResponseFragment
 
             _transcript_pipelines = {Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
             if entry.pipeline in _transcript_pipelines:
@@ -680,9 +799,17 @@ def create_journals_routes(
                     transcript=entry.processed_content,
                     title=entry.title or "",
                 )
+            elif entry.metadata.get("entry_type") == "journal_stage1_start":
+                # FOUNDER text-start: processed_content is the scribe output from run_stage1.
+                # Render Stage1Fragment so the user can review and continue to Stage 2/3.
+                initial_workspace = Stage1Fragment(
+                    raw_entry=entry.content or "",
+                    title=entry.title or "",
+                    scribe_output=entry.processed_content,
+                )
             else:
                 initial_workspace = StandardResponseFragment(
-                    raw_entry="",
+                    raw_entry=entry.content or "",
                     title=entry.title or "",
                     response_output=entry.processed_content,
                 )
