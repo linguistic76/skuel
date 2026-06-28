@@ -72,13 +72,18 @@ logger = get_logger("skuel.routes.calendar")
 
 
 async def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
-    """Wrap calendar content in the activity sidebar page layout."""
+    """Wrap calendar content in the activity sidebar page layout.
+
+    title is intentionally not forwarded to render_activity_sidebar_page — that
+    param controls the sidebar heading, which should stay "Tasks+" for consistency
+    with the other activity domain pages. The period-specific title is already
+    rendered by PageHeader inside content.
+    """
     return await render_activity_sidebar_page(
         content=Div(content, **{"x-data": "calendarPage()"}),
         active="events",
         request=request,
         extra_css=["/static/css/calendar.css"],
-        title=title,
     )
 
 
