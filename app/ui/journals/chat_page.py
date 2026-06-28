@@ -18,6 +18,38 @@ if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
 
 
+def JournalsLandingPage(
+    user: "User",
+    recent_entries: "list[UserEntry]",
+) -> Any:
+    """3-column journal landing page — Claude.ai project-view style.
+
+    Left: collapsible session sidebar. Center: chat input + recent sessions list.
+    Right: compact Processing / Sources / Browse upload panel.
+    No Tasks+ sidebar — uses BasePage(CUSTOM) like JournalChatPage.
+    """
+    from ui.journals.forms import render_right_panel, upload_form_script
+
+    return Div(
+        journal_sidebar(recent_entries, active_uid="", user=user),
+        _landing_center_column(recent_entries),
+        Div(
+            render_right_panel(),
+            upload_form_script(),
+            cls=(
+                "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"
+            ),
+        ),
+        cls="flex overflow-hidden bg-background",
+        style="height: calc(100vh - 3.5rem);",
+        **{
+            "x-data": (
+                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false', search: '' }"
+            )
+        },
+    )
+
+
 def JournalChatPage(
     entry: "UserEntry",
     recent_entries: "list[UserEntry]",
@@ -26,7 +58,7 @@ def JournalChatPage(
 ) -> Any:
     """Full-height two-column journal session shell."""
     return Div(
-        _journal_sidebar(recent_entries, entry.uid, user),
+        journal_sidebar(recent_entries, entry.uid, user),
         Div(
             initial_workspace,
             cls="flex-1 flex flex-col overflow-hidden",
@@ -46,7 +78,7 @@ def JournalChatPage(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _journal_sidebar(
+def journal_sidebar(
     recent_entries: "list[UserEntry]",
     active_uid: str,
     user: "User",
@@ -271,3 +303,133 @@ def _js_str(s: str) -> str:
     import json
 
     return json.dumps(s)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Landing page center column
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _landing_center_column(recent_entries: "list[UserEntry]") -> Any:
+    return Div(
+        Div(
+            Div(
+                P("Journal", cls="text-[22px] font-bold text-foreground"),
+                P(
+                    "Your private thinking space.",
+                    cls="text-[15px] text-muted-foreground mt-1",
+                ),
+                cls="mb-6",
+            ),
+            _landing_text_form(),
+            _landing_session_list(recent_entries),
+            cls="max-w-[640px] mx-auto pt-10 px-6",
+        ),
+        cls="flex-1 overflow-y-auto",
+    )
+
+
+def _landing_text_form() -> Any:
+    from fasthtml.common import Form, Textarea
+
+    return Div(
+        Form(
+            Div(
+                Textarea(
+                    name="raw_entry",
+                    placeholder="What's on your mind?",
+                    rows="5",
+                    required=True,
+                    cls=(
+                        "w-full border-none outline-none bg-transparent resize-none"
+                        " text-[15px] leading-[1.6] text-foreground"
+                        " placeholder:text-muted-foreground"
+                    ),
+                ),
+                Div(
+                    Button(
+                        UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+                        type="submit",
+                        aria_label="Start journal entry",
+                        cls=(
+                            "w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                            " bg-foreground hover:bg-foreground/80 transition-colors"
+                        ),
+                    ),
+                    cls="flex justify-end mt-2",
+                ),
+                cls=(
+                    "border border-border rounded-[20px] px-[18px] pt-4 pb-3"
+                    " bg-background shadow-sm"
+                ),
+            ),
+            P(
+                "Thinking…",
+                id="start-loading",
+                cls="text-sm text-muted-foreground htmx-indicator mt-2",
+            ),
+            Div(id="start-status", cls="mt-2"),
+            hx_post="/journals/start",
+            hx_target="#start-status",
+            hx_swap="outerHTML",
+            hx_indicator="#start-loading",
+        ),
+        cls="mb-8",
+    )
+
+
+def _landing_session_list(recent_entries: "list[UserEntry]") -> Any:
+    import datetime as _dt
+
+    today = _dt.date.today()
+    yesterday = today - _dt.timedelta(days=1)
+
+    groups: dict[str, list] = {"TODAY": [], "YESTERDAY": [], "EARLIER": []}
+    for e in recent_entries:
+        created = getattr(e, "created_at", None)
+        entry_date = created.date() if isinstance(created, _dt.datetime) else today
+        if entry_date == today:
+            groups["TODAY"].append(e)
+        elif entry_date == yesterday:
+            groups["YESTERDAY"].append(e)
+        else:
+            groups["EARLIER"].append(e)
+
+    sections: list[Any] = []
+    for label, group in groups.items():
+        if not group:
+            continue
+        sections.append(
+            P(
+                label,
+                cls=(
+                    "text-[11px] font-semibold uppercase tracking-wider"
+                    " text-muted-foreground pt-4 pb-1"
+                ),
+            )
+        )
+        sections.append(Div(cls="border-t border-border mb-2"))
+        for e in group:
+            date_str = ""
+            created = getattr(e, "created_at", None)
+            if isinstance(created, _dt.datetime):
+                date_str = created.strftime("%b %d")
+            sections.append(
+                A(
+                    Span(
+                        (e.title or "Untitled")[:60],
+                        cls="text-[14px] text-foreground truncate flex-1",
+                    ),
+                    Span(date_str, cls="text-[12px] text-muted-foreground flex-shrink-0"),
+                    href=f"/journals/{e.uid}",
+                    cls=(
+                        "flex items-center justify-between gap-2 py-[9px] px-2 rounded-[8px]"
+                        " hover:bg-slate-100 transition-colors no-underline"
+                    ),
+                )
+            )
+
+    if not sections:
+        sections.append(P("No journal entries yet.", cls="text-sm text-muted-foreground py-4"))
+
+    return Div(*sections)

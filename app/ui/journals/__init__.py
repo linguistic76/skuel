@@ -18,84 +18,10 @@ from monsterui.franken import CardContainer as Card
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
-    from core.models.user.user import User
 
 # ------------------------------------------------------------------
 # Page (GET /journals)
 # ------------------------------------------------------------------
-
-
-def JournalsPage(user: "User") -> Any:
-    """Tier-aware journal landing page inside the Tasks+ sidebar."""
-    if user.journal_tier.is_founder():
-        return _FounderPage()
-    return _StandardPage()
-
-
-def _FounderPage() -> Any:
-    from ui.journals.forms import render_upload_form, upload_form_script
-
-    return Div(
-        render_upload_form(),
-        upload_form_script(),
-        id="journal-workspace",
-        cls="py-4",
-    )
-
-
-def _StandardPage() -> Any:
-    from ui.journals.forms import render_upload_form, upload_form_script
-
-    return Div(
-        render_upload_form(),
-        upload_form_script(),
-        # Divider
-        Div(
-            Div(cls="flex-1 border-t border-border"),
-            Span(
-                "or write directly", cls="text-[13px] text-muted-foreground px-4 whitespace-nowrap"
-            ),
-            Div(cls="flex-1 border-t border-border"),
-            cls="flex items-center max-w-[840px] mx-auto mt-2 mb-4",
-        ),
-        # Text-entry form — ephemeral, no UserEntry created
-        Div(
-            Form(
-                Textarea(
-                    name="raw_entry",
-                    placeholder="Write your journal entry here…",
-                    rows="6",
-                    required=True,
-                    cls=(
-                        "w-full border border-border rounded-xl px-4 py-3"
-                        " text-[15px] leading-[1.6] text-foreground bg-background"
-                        " placeholder:text-muted-foreground resize-y outline-none"
-                        " focus:ring-1 focus:ring-ring"
-                    ),
-                ),
-                Div(
-                    Button(
-                        "Get Response →",
-                        type="submit",
-                        cls=ButtonT.default,
-                    ),
-                    cls="flex justify-end mt-3",
-                ),
-                hx_post="/journals/respond",
-                hx_target="#journal-workspace",
-                hx_swap="outerHTML",
-                hx_indicator="#journal-reply-loading",
-            ),
-            P(
-                "Thinking…",
-                id="journal-reply-loading",
-                cls="text-sm text-muted-foreground htmx-indicator mt-2",
-            ),
-            cls="max-w-[840px] mx-auto",
-        ),
-        id="journal-workspace",
-        cls="py-4",
-    )
 
 
 def _LoadingIndicator() -> Any:
