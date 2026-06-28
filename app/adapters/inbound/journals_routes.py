@@ -119,15 +119,11 @@ async def _call_llm_with_instructions(
             )
         )
     model = (
-        _LLM_MODEL_CLAUDE
-        if llm_caller.is_model_supported(_LLM_MODEL_CLAUDE)
-        else _LLM_MODEL_GPT
+        _LLM_MODEL_CLAUDE if llm_caller.is_model_supported(_LLM_MODEL_CLAUDE) else _LLM_MODEL_GPT
     )
     prompt = f"{instructions}\n\n---\n\n{text}" if instructions else text
     try:
-        return await llm_caller.generate(
-            prompt=prompt, model=model, max_tokens=_LLM_MAX_TOKENS
-        )
+        return await llm_caller.generate(prompt=prompt, model=model, max_tokens=_LLM_MAX_TOKENS)
     except Exception as e:  # safety-net: LLM call errors in folder-batch context
         return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
 
@@ -652,9 +648,7 @@ def create_journals_routes(
             mode=mode,
         )
         if result.is_error:
-            logger.error(
-                "Journal follow-up failed for %s: %s", user_uid, result.expect_error()
-            )
+            logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
             return ErrorFragment("Could not generate a response. Please try again.")
 
         # Pass the combined context so further follow-ups have the full conversation.
@@ -793,4 +787,3 @@ def create_journals_routes(
             title=title,
             related_output=result.value,
         )
-

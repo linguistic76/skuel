@@ -207,7 +207,9 @@ def StandardResponseFragment(
     from core.models.enums.user_enums import JournalMode
 
     resolved = mode or JournalMode.default()
-    label = "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"
+    label = (
+        "Daily Notes Workflow" if mode is None else f"Journal Response — {resolved.display_label()}"
+    )
 
     # Alpine state: clipboard only — form fields are plain inputs, no reactive binding.
     alpine_data = (
@@ -366,5 +368,3 @@ def _ReviewGate(
         _LoadingIndicator(),
         cls="mb-4",
     )
-
-

@@ -1,8 +1,8 @@
 """Unit tests for ``PsEngagementService.has_task_templates``.
 
 Verifies the delegation contract: the method loads the bundle via
-``_TemplateLoader`` and returns True iff ``bundle.tasks`` is non-empty.
-Fails open to False on any loader error.
+``_TemplateLoader`` and returns Result.ok(True) iff ``bundle.tasks`` is
+non-empty, and Result.ok(False) on any loader error (fail-open).
 
 Real template-graph lookups are covered by integration tests.
 """
@@ -46,7 +46,7 @@ async def test_returns_true_when_task_templates_present() -> None:
 
     result = await svc.has_task_templates("ps_test")
 
-    assert result is True
+    assert result.value is True
     loader.load.assert_awaited_once_with("ps_test")
 
 
@@ -58,7 +58,7 @@ async def test_returns_false_when_no_task_templates() -> None:
 
     result = await svc.has_task_templates("ps_test")
 
-    assert result is False
+    assert result.value is False
 
 
 @pytest.mark.anyio
@@ -71,4 +71,4 @@ async def test_fails_open_to_false_on_loader_error() -> None:
 
     result = await svc.has_task_templates("ps_test")
 
-    assert result is False
+    assert result.value is False
