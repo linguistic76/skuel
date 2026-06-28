@@ -127,7 +127,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ),
                         ButtonLink(
                             "Today",
-                            href="/events",
+                            href="/events/calendar",
                             cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
                         ),
                         ButtonLink(
