@@ -1,13 +1,15 @@
 """Journals domain routes — DNWF three-stage workflow (FOUNDER) and continuous (STANDARD).
 
 Routes:
-    GET  /journals                  — tier-aware landing page (Tasks+ sidebar)
-    POST /journals/upload           — file upload handler
-    POST /journals/folder-process   — batch folder processing
-    POST /journals/respond          — STANDARD tier single-response workflow (FULL tier)
-    POST /journals/stage1           — Stage 1 Scribe (FOUNDER only, FULL tier)
-    POST /journals/stage2           — Stage 2 Thought Partner (FOUNDER only, FULL tier)
-    POST /journals/stage3           — Stage 3 What Is Related (FOUNDER only, FULL tier)
+    GET  /journals                      — tier-aware landing page (Tasks+ sidebar)
+    POST /journals/upload               — file upload handler
+    POST /journals/folder-process       — batch folder processing
+    GET  /journals/je-out/{filename}    — download a compiled journal output from je_out/
+    POST /journals/respond              — STANDARD tier single-response workflow (FULL tier)
+    POST /journals/follow-up            — conversation continuation (all tiers)
+    POST /journals/stage1               — Stage 1 Scribe (FOUNDER only, FULL tier)
+    POST /journals/stage2               — Stage 2 Thought Partner (FOUNDER only, FULL tier)
+    POST /journals/stage3               — Stage 3 What Is Related (FOUNDER only, FULL tier)
 """
 
 from __future__ import annotations
@@ -38,6 +40,9 @@ logger = get_logger("skuel.routes.journals")
 
 _JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
 _JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
+# je_out is a pipeline staging area — excluded from vault sync (_VAULT_EXCLUDED_DIRS in
+# vault_reconciler.py). Users open je_out files in Obsidian and manually decide what
+# enters their personal vault. SKUEL never auto-syncs je_out content into the vault.
 _JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
 _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
@@ -292,13 +297,20 @@ def create_journals_routes(
                             if not compiled_result.is_error:
                                 from fasthtml.common import to_xml
 
-                                from ui.journals import StandardResponseFragment
+                                from ui.journals import FileOutputFragment
 
-                                fragment = StandardResponseFragment(
-                                    raw_entry=text_content,
+                                # Save compiled output to je_out/{stem}_out.md.
+                                # The _out suffix distinguishes processed output from raw input.
+                                stem = Path(filename).stem
+                                output_filename = f"{stem}_out.md"
+                                _JE_OUT.mkdir(parents=True, exist_ok=True)
+                                (_JE_OUT / output_filename).write_text(
+                                    compiled_result.value, encoding="utf-8"
+                                )
+                                fragment = FileOutputFragment(
                                     title=title,
+                                    output_filename=output_filename,
                                     response_output=compiled_result.value,
-                                    mode=None,
                                 )
                                 return HTMLResponse(
                                     content=to_xml(fragment),
@@ -508,7 +520,7 @@ def create_journals_routes(
                         logger.error(f"LLM failed for {stem}: {llm_result.error}")
                         llm_fail += 1
                     else:
-                        (_JE_OUT / f"{stem}.md").write_text(llm_result.value, encoding="utf-8")
+                        (_JE_OUT / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
                         llm_ok += 1
                 r = transcribe_result.value
                 msg = (
@@ -555,7 +567,7 @@ def create_journals_routes(
                         logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
                         fail += 1
                     else:
-                        (_JE_OUT / f"{text_file.stem}.md").write_text(
+                        (_JE_OUT / f"{text_file.stem}_out.md").write_text(
                             llm_result.value, encoding="utf-8"
                         )
                         ok += 1
@@ -571,6 +583,46 @@ def create_journals_routes(
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error in folder-process: {e}", exc_info=True)
             return render_journal_upload_status("error", f"Processing failed: {e}", is_error=True)
+
+    # ------------------------------------------------------------------
+    # GET /journals/je-out/{filename} — download compiled journal output
+    # ------------------------------------------------------------------
+
+    @rt("/journals/je-out/{filename}", methods=["GET"])
+    async def journals_download_output(request: Request, filename: str) -> Any:
+        """Serve a compiled journal output from je_out/ as a file download.
+
+        je_out/ is a pipeline staging area excluded from vault sync. Users open
+        these files in Obsidian and decide what to carry into their personal vault.
+        SKUEL never auto-syncs je_out/ into the vault.
+
+        Path containment guard: only .md files directly within _JE_OUT are served.
+        """
+        from starlette.responses import FileResponse
+
+        require_authenticated_user(request)
+
+        # Guard: no path traversal, only .md files
+        if "/" in filename or "\\" in filename or ".." in filename:
+            return Response("Not found", status_code=404)
+        if not filename.endswith(".md"):
+            return Response("Not found", status_code=404)
+
+        candidate = (_JE_OUT / filename).resolve()
+        try:
+            candidate.relative_to(_JE_OUT.resolve())
+        except ValueError:
+            return Response("Not found", status_code=404)
+
+        if not candidate.is_file():
+            return Response("File not found", status_code=404)
+
+        return FileResponse(
+            path=str(candidate),
+            media_type="text/markdown; charset=utf-8",
+            filename=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     # ------------------------------------------------------------------
     # POST /journals/respond — STANDARD tier single-response workflow

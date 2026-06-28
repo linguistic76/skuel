@@ -16,7 +16,7 @@ The Journals domain is an AI companion for personal reflection, thinking-in-writ
 
 **Contrast with Askesis:** Askesis requires LP enrollment and is driven by the curriculum graph (PathStep + KU bundle + ZPD). Journals has no enrollment gate and is driven by UserContext + the entry itself.
 
-**Persistence:** Every journal entry is saved as `UserEntry(pipeline=Pipeline.JOURNAL)`. Entries are user-owned and always private — see §7.
+**Persistence:** SKUEL does not automatically persist journal AI outputs. File-upload processing saves compiled output to `je_out/{stem}_out.md`; the user downloads and manages these files themselves (see §7). The uploaded file content is persisted as `UserEntry(pipeline=Pipeline.LLM_SUMMARY)` for pipeline tracking, but the AI response is never automatically saved to the user's profile or vault.
 
 **Intelligence tier:** Journals requires `INTELLIGENCE_TIER=full`. All AI endpoints (`/journals/respond`, `/journals/stage1`, `/journals/stage2`, `/journals/stage3`) return an error fragment under `INTELLIGENCE_TIER=core`.
 
@@ -116,11 +116,11 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 | Component | File | Responsibility |
 |---|---|---|
-| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. `run_compiled()` is the file-upload batch path: chains all three stages without review gates. Entry persistence is handled by the ingestion path in the calling route, not by this service. |
+| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. `run_compiled()` is the file-upload batch path: chains all three stages without review gates. Does not persist entries — persistence and file output are handled by the calling route. |
 | `instruction_loader` | `core/services/journal/instruction_loader.py` | Prompt composition. STANDARD prompts are inline; FOUNDER stages load from `data/instructions/`. |
-| Routes | `adapters/inbound/journals_routes.py` | 8 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. No browse or save routes — journals flow through SKUEL and are not stored from the response screen. |
+| Routes | `adapters/inbound/journals_routes.py` | 9 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. File-upload path saves compiled output to `je_out/{stem}_out.md` and returns a download fragment. `GET /journals/je-out/{filename}` serves `je_out/` files with a path-containment guard. |
 | `JournalTier`, `JournalMode` | `core/models/enums/user_enums.py` | Tier and mode enum definitions. |
-| `Pipeline.JOURNAL` | `core/models/enums/pipeline.py` | Pipeline discriminator for all journal UserEntries. |
+| `Pipeline.LLM_SUMMARY` | `core/models/enums/pipeline.py` | Pipeline used when persisting uploaded file content as a UserEntry (input tracking only; the AI output is not persisted). |
 
 `JournalService` takes `LLMCallerProtocol` + `UserEntryService` (required) and `GoalsService` / `TasksService` / `HabitsService` (all optional — omitting them degrades `_build_context_summary()` to empty string).
 
@@ -137,9 +137,13 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 | `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
 | `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
 
-These folders are **pipeline artifacts**, not vault content. The vault sync path (`/settings/vault`) skips all four unconditionally. The main upload path (`/journals` → "Upload files" tab) also does not write to any of them — it persists directly to Neo4j as a `UserEntry(pipeline=Pipeline.JOURNAL)` and returns the AI response through the chat interface.
+These folders are **pipeline artifacts**, not vault content. The vault sync path (`/settings/vault`) skips all four unconditionally.
 
-The `je_out/` exclusion is the load-bearing one: without it, transcript files would be ingested as plain-text UserEntries on every vault sync.
+The main upload path (`/journals` → "Upload files" tab, FOUNDER tier) **writes the compiled AI output directly to `je_out/{stem}_out.md`** and returns a download fragment — the AI response is a file, not a profile record. The user opens the `_out` file in Obsidian and manually extracts what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
+
+The `_out` suffix convention (`{stem}_out.md`) distinguishes processed output from raw input at a glance. All three write paths (single file upload, `transcribe_and_instructions`, `instructions_only` folder batch) use this convention.
+
+The `je_out/` exclusion is the load-bearing one: without it, output files would be ingested as plain-text UserEntries on every vault sync.
 
 ## 8. Privacy Contract
 
