@@ -140,7 +140,7 @@ entries in ingestion code.
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
-| `adapters/inbound/journals_routes.py` | 8 routes; FOUNDER tier enforcement lives here |
+| `adapters/inbound/journals_routes.py` | 9 routes; FOUNDER tier enforcement lives here; `GET /journals/je-out/{filename}` serves compiled outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
-| `core/models/enums/pipeline.py` | `Pipeline.JOURNAL`, `allows_sharing()` |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (file-upload input); `Pipeline.JOURNAL` (privacy contract; no new entries created after save_entry deletion) |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |

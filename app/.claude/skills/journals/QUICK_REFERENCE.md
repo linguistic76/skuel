@@ -52,9 +52,9 @@ class JournalTier(str, Enum):
 |---|---|
 | `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 8 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, etc. (no browse or save routes) |
+| `adapters/inbound/journals_routes.py` | 9 routes — incl. `GET /journals/je-out/{filename}` (download compiled output from `je_out/`) |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
-| `core/models/enums/pipeline.py` | `Pipeline.JOURNAL` |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
 
 ---
@@ -62,8 +62,10 @@ class JournalTier(str, Enum):
 ## Pipeline
 
 ```python
-Pipeline.JOURNAL               # All journal UserEntries use this discriminator
-Pipeline.JOURNAL.allows_sharing()  # → False (enforced at ingestion + UI layer)
+# File-upload path: input content persisted as Pipeline.LLM_SUMMARY (not Pipeline.JOURNAL).
+# AI output is NOT persisted to Neo4j — saved to je_out/{stem}_out.md as a file instead.
+Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces privacy
+                                   # for any legacy entries; new entries use LLM_SUMMARY
 ```
 
 ---
