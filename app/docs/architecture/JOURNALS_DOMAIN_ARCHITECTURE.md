@@ -132,7 +132,7 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 
 | Folder | Role | Flow direction |
 |--------|------|----------------|
-| `je_in/` | Batch-transcription audio input | User drops files → journals UI processes |
+| `je_in/` | Batch-transcription audio input | `POST /journals/folder-process` (backend-only; not surfaced in capture UI since the "Watch folder" tab was removed) |
 | `je_out/` | Batch-transcription transcript output | `.txt`/`.md` written by `BatchTranscriptionService` |
 | `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
 | `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
