@@ -261,7 +261,7 @@ def create_journals_routes(
             title=title,
             pipeline=Pipeline.LLM_SUMMARY,
             content=raw_entry,
-            metadata={"entry_type": "journal_stage1_start"} if is_founder else None,
+            metadata={"entry_type": "journal_stage1_start"} if is_founder else {},
         )
         create_result = await user_entry_service.create_entry(req, user_uid)
         if create_result.is_error:
@@ -468,7 +468,7 @@ def create_journals_routes(
                     pipeline=pipeline,
                     title=title,
                     instructions=instructions,
-                    metadata={"custom_title": custom_title} if custom_title else None,
+                    metadata={"custom_title": custom_title} if custom_title else {},
                 )
 
                 if result.is_error:
@@ -534,7 +534,7 @@ def create_journals_routes(
                         pipeline=pipeline,
                         title=filename,
                         instructions=instructions,
-                        metadata=None,
+                        metadata={},
                     )
                     if result.is_error:
                         batch_results.append((filename, False, None, str(result.error)))
