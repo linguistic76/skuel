@@ -271,6 +271,11 @@ def _sb_identity_footer(user: "User") -> Any:
 
 
 def _js_str(s: str) -> str:
-    """Produce a JS string literal safe to embed in an Alpine x-show expression."""
-    escaped = s.replace("\\", "\\\\").replace("'", "\\'")
-    return f"'{escaped}'"
+    """Produce a JS string literal safe to embed in an Alpine x-show expression.
+
+    json.dumps() produces a quoted JS string that handles newlines, tabs, and
+    other line terminators that single-quote manual escaping misses.
+    """
+    import json
+
+    return json.dumps(s)
