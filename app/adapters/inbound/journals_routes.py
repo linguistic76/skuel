@@ -687,7 +687,8 @@ def create_journals_routes(
                     response_output=entry.processed_content,
                 )
         else:
-            from fasthtml.common import Div as _Div, P as _P
+            from fasthtml.common import Div as _Div
+            from fasthtml.common import P as _P
 
             initial_workspace = _Div(
                 _P("Processing…", cls="text-sm text-muted-foreground"),
@@ -771,9 +772,13 @@ def create_journals_routes(
         Builds combined context from the previous exchange and calls
         run_standard() so the model responds to the follow-up, not the
         original note alone.
+
+        Returns FollowUpFragment: two chat bubbles appended to #journal-thread
+        plus OOB inputs that update the hidden context fields in #journal-composer.
+        The conversation thread grows without replacing the workspace.
         """
         from core.models.enums.user_enums import JournalMode
-        from ui.journals import ErrorFragment, StandardResponseFragment
+        from ui.journals import ErrorFragment, FollowUpFragment
 
         user_uid = require_authenticated_user(request)
 
@@ -795,16 +800,17 @@ def create_journals_routes(
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
             return ErrorFragment("Could not generate a response. Please try again.")
 
-        # Pass the combined context so further follow-ups have the full conversation.
+        # Accumulate conversation context so further follow-ups have the full history.
         combined = (
             f"{original_entry.strip()}"
             f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
             f"\n\n---\n\n# Follow-up\n\n{user_reply.strip()}"
         )
-        return StandardResponseFragment(
-            raw_entry=combined,
+        return FollowUpFragment(
+            user_reply=user_reply.strip(),
+            ai_text=result.value,
+            combined=combined,
             title=title.strip(),
-            response_output=result.value,
             mode=mode,
         )
 
