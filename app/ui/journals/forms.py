@@ -295,6 +295,7 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                     cls="hidden",
                     **{
                         "x-show": "source === 'files'",
+                        ":disabled": "source !== 'files'",  # boundary: fasthtml-elements
                         "x-on:change": "handleFileSelect($event)",  # boundary: fasthtml-elements
                     },
                 ),
@@ -308,6 +309,7 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                     cls="hidden",
                     **{
                         "x-show": "source === 'folder'",
+                        ":disabled": "source !== 'folder'",  # boundary: fasthtml-elements
                         "x-on:change": "handleFileSelect($event)",  # boundary: fasthtml-elements
                     },
                 ),
