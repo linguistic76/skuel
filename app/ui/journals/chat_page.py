@@ -93,7 +93,7 @@ def _journal_sidebar(
             ),
             Div(cls="flex-1"),
             Div(
-                (user.display_name or user.username or "U")[0].upper(),
+                (user.display_name or user.title or "U")[0].upper(),
                 cls=(
                     "w-[30px] h-[30px] rounded-full bg-foreground/10 text-foreground"
                     " flex items-center justify-center text-sm font-semibold"
@@ -239,8 +239,8 @@ def _session_item(entry: "UserEntry", active: bool) -> Any:
 
 
 def _sb_identity_footer(user: "User") -> Any:
-    initials = (user.display_name or user.username or "U")[0].upper()
-    name = user.display_name or user.username or "User"
+    initials = (user.display_name or user.title or "U")[0].upper()
+    name = user.display_name or user.title or "User"
     tier = getattr(user.journal_tier, "value", str(user.journal_tier)).upper()
     return Div(
         Div(

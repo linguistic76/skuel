@@ -299,7 +299,9 @@ def create_journals_routes(
                                 # User-scoped subdirectory prevents filename collisions across
                                 # users and enforces ownership at the download endpoint.
                                 stem = Path(filename).stem
-                                output_filename = f"{stem}_out.md"
+                                # Entry UID suffix prevents collisions when the same
+                                # basename is uploaded more than once.
+                                output_filename = f"{stem}_{entry.uid}_out.md"
                                 user_out_dir = _JE_OUT / user_uid
                                 user_out_dir.mkdir(parents=True, exist_ok=True)
                                 output_path = user_out_dir / output_filename
@@ -635,10 +637,16 @@ def create_journals_routes(
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
 
+        from adapters.inbound.result_helpers import require_found
+        from core.utils.result_simplified import ErrorCategory
+
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
-        if entry_result.is_error or entry_result.value is None:
-            return Response("Not found", status_code=404)
-        entry = entry_result.value
+        found = require_found(entry_result, "Journal entry", entry_uid)
+        if found.is_error:
+            err = found.expect_error()
+            status = 404 if err.category == ErrorCategory.NOT_FOUND else 500
+            return Response("Not found" if status == 404 else "Service error", status_code=status)
+        entry = found.value
 
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
