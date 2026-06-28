@@ -142,6 +142,54 @@ def _standard_base_for_mode(mode: "JournalMode") -> str:
     )
 
 
+def follow_up_system_prompt(user_context_summary: str, mode: "JournalMode | None" = None) -> str:
+    """System prompt for a follow-up turn in a journal conversation.
+
+    Uses a follow-up-specific base that omits any structural formatting rules
+    (e.g. '# What is Emerging') so the LLM responds conversationally rather
+    than re-running its analysis template.
+    """
+    from core.models.enums.user_enums import JournalMode
+
+    resolved = mode if mode is not None else JournalMode.default()
+    base = _follow_up_base(resolved)
+    parts = [base]
+    if user_context_summary:
+        parts.append(f"## User's Active Context\n\n{user_context_summary}")
+    return "\n\n".join(parts)
+
+
+def _follow_up_base(mode: "JournalMode") -> str:
+    """Conversational follow-up base — no structural headings or analysis templates."""
+    from core.models.enums.user_enums import JournalMode
+
+    if mode is JournalMode.SCRIBE:
+        return (
+            "You are a faithful scribe continuing a conversation. The user has reviewed "
+            "your previous record and is following up.\n\n"
+            "Respond directly to their question or correction. If they want a revision, "
+            "make it. If they're asking about a choice you made, explain it briefly. "
+            "Keep the same close, faithful, non-interpretive stance — no headers, no analysis."
+        )
+    if mode is JournalMode.WHAT_IS_RELATED:
+        return (
+            "You are a knowledge connector continuing a conversation. The user has read "
+            "your previous connections and is following up.\n\n"
+            "Respond directly to their question or reaction. Expand a specific connection, "
+            "drop one that doesn't land, or surface a new one they've prompted. "
+            "No new full connection maps — just the thread they've pulled."
+        )
+    # THOUGHT_PARTNER (default)
+    return (
+        "You are a thoughtful journal companion continuing a conversation. The user has "
+        "read your previous response and is following up.\n\n"
+        "Respond directly and conversationally — no headers, no fresh analysis structure. "
+        "Engage with what they've raised: expand a point, offer a challenge, draw a "
+        "connection, or reflect back what you're noticing. Keep the same honest, "
+        "attentive, respectful tone."
+    )
+
+
 def journal_mode_addendum(mode: "JournalMode") -> str:
     """Function addendum injected into upload-pipeline LLM prompts (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE)."""
     from core.models.enums.user_enums import JournalMode
