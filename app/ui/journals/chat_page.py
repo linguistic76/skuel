@@ -29,14 +29,13 @@ def JournalChatPage(
         _journal_sidebar(recent_entries, entry.uid, user),
         Div(
             initial_workspace,
-            cls="flex-1 overflow-y-auto",
+            cls="flex-1 flex flex-col overflow-hidden",
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
             "x-data": (
-                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false',"
-                " search: '' }"
+                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false', search: '' }"
             )
         },
     )
@@ -76,8 +75,7 @@ def _journal_sidebar(
                 aria_label="Expand sidebar",
                 **{
                     "@click": (
-                        "sidebarOpen = true;"
-                        " localStorage.setItem('journal-sidebar', 'true')"
+                        "sidebarOpen = true; localStorage.setItem('journal-sidebar', 'true')"
                     )
                 },
             ),
@@ -123,12 +121,7 @@ def _sb_header() -> Any:
             ),
             type="button",
             aria_label="Collapse sidebar",
-            **{
-                "@click": (
-                    "sidebarOpen = false;"
-                    " localStorage.setItem('journal-sidebar', 'false')"
-                )
-            },
+            **{"@click": ("sidebarOpen = false; localStorage.setItem('journal-sidebar', 'false')")},
         ),
         cls="flex items-center justify-between px-4 py-4",
     )
@@ -231,8 +224,7 @@ def _session_item(entry: "UserEntry", active: bool) -> Any:
         ),
         **{
             "x-show": (
-                "search === '' || "
-                f"{_js_str(title)}.toLowerCase().includes(search.toLowerCase())"
+                f"search === '' || {_js_str(title)}.toLowerCase().includes(search.toLowerCase())"
             )
         },
     )
