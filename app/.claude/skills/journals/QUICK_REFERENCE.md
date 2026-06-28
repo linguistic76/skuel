@@ -52,7 +52,7 @@ class JournalTier(str, Enum):
 |---|---|
 | `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 10 routes — upload redirects to `GET /journals/{entry_uid}` (dedicated chat page); `GET /journals/je-out/{filename}` downloads compiled output |
+| `adapters/inbound/journals_routes.py` | 11 routes — `POST /journals/start` (text entry → create UserEntry → HX-Redirect to chat page); upload also redirects to `GET /journals/{entry_uid}` (dedicated chat page); `GET /journals/je-out/{filename}` downloads compiled output |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
