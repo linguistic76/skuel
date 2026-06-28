@@ -36,7 +36,8 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.services.journal")
 
-_MODEL = "claude-sonnet-4-6"
+_MODEL_CLAUDE = "claude-sonnet-4-6"
+_MODEL_GPT = "gpt-4o-mini"
 _MAX_TOKENS = 4000
 _STAGE3_MAX_TOKENS = 3000
 
@@ -65,11 +66,15 @@ class JournalService:
         self._tasks = tasks_service
         self._habits = habits_service
 
+    def _resolve_model(self) -> str:
+        """Return the best available LLM model based on configured adapters."""
+        return _MODEL_CLAUDE if self._llm.is_model_supported(_MODEL_CLAUDE) else _MODEL_GPT
+
     # ------------------------------------------------------------------
     # User-context summary (used by Stage 2 and Stage 3 prompts)
     # ------------------------------------------------------------------
 
-    async def _build_context_summary(self, user_uid: UserUID) -> str:
+    async def build_context_summary(self, user_uid: UserUID) -> str:
         """Return a short text digest of the user's active goals/tasks/habits/vault notes."""
         lines: list[str] = []
 
@@ -114,7 +119,7 @@ class JournalService:
         try:
             return await self._llm.generate(
                 prompt=user_message,
-                model=_MODEL,
+                model=self._resolve_model(),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )
@@ -134,7 +139,7 @@ class JournalService:
         user_uid: UserUID,
     ) -> Result[str]:
         """Stage 2: Thought Partner response across four roles."""
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self.build_context_summary(user_uid)
         system_prompt = stage2_system_prompt(context_summary)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
@@ -145,7 +150,7 @@ class JournalService:
         try:
             return await self._llm.generate(
                 prompt=user_message,
-                model=_MODEL,
+                model=self._resolve_model(),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )
@@ -165,7 +170,7 @@ class JournalService:
         user_uid: UserUID,
     ) -> Result[str]:
         """Stage 3: propose graph connections to knowledge, goals, tasks, and habits."""
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self.build_context_summary(user_uid)
         system_prompt = stage3_system_prompt(context_summary)
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
@@ -176,7 +181,7 @@ class JournalService:
         try:
             return await self._llm.generate(
                 prompt=user_message,
-                model=_MODEL,
+                model=self._resolve_model(),
                 system_prompt=system_prompt,
                 max_tokens=_STAGE3_MAX_TOKENS,
             )
@@ -202,13 +207,13 @@ class JournalService:
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  LLMCaller (response generation).
         """
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self.build_context_summary(user_uid)
         system_prompt = standard_system_prompt(context_summary, mode)
         user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease respond as my journal companion."
         try:
             return await self._llm.generate(
                 prompt=user_message,
-                model=_MODEL,
+                model=self._resolve_model(),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )

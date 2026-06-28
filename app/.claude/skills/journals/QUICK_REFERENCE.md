@@ -9,7 +9,7 @@
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
 | Standard | `run_standard(raw_entry, user_uid, mode=None)` | Inline strings in `instruction_loader.py` (no file dependency) | 4000 |
 
-Stage 1 receives no UserContext (sparse by design). Stages 2 and 3 receive `_build_context_summary()` digest.
+Stage 1 receives no UserContext (sparse by design). Stages 2 and 3 receive `build_context_summary()` digest.
 
 ---
 
@@ -50,7 +50,7 @@ class JournalTier(str, Enum):
 |---|---|
 | `core/services/journal/journal_service.py` | `JournalService` — 4 AI methods + `save_entry` |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 9 routes — `/journals/respond`, `/journals/stage1/2/3`, save, etc. |
+| `adapters/inbound/journals_routes.py` | 10 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, save, etc. |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.JOURNAL` |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
@@ -68,7 +68,7 @@ Pipeline.JOURNAL.allows_sharing()  # → False (enforced at ingestion + UI layer
 
 ## UserContext Digest
 
-`JournalService._build_context_summary(user_uid)` builds a lightweight text block:
+`JournalService.build_context_summary(user_uid)` builds a lightweight text block:
 
 - Up to 6 active **Goal** titles
 - Up to 6 active **Task** titles
