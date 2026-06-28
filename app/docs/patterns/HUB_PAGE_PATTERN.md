@@ -17,7 +17,7 @@ This document covers *how to build one*.
 
 ## Architecture
 
-**Home** (`/home`) is the **post-login landing hub** — a three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab and a Settings footer. `/submissions`, `/gradebook`, and `/library` render the same `HomeHub(active_tab=...)` with the matching tab pre-selected. Hub view in `ui/home_hub.py`.
+**`/submissions`**, **`/gradebook`**, and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`ui/home_hub.py`) is retired; these three routes are now independent `BasePage(STANDARD)` pages.
 
 **Profile** (`/profile`) is the **personal overview hub** — Activity Domains (6 HTMX lazy-loaded preview blocks inline) and three tabs (Exercises / Library / GradeBook). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -288,26 +288,19 @@ def ActivityHubView() -> Div:
     return Div(PageHeader(...), HubDomainBlockList(_ACTIVITY_BLOCKS))
 ```
 
-### Unified tabbed hub (`/home`, `/submissions`, `/gradebook`, `/library`)
+### MOC root pages (`/submissions`, `/gradebook`, `/library`)
 
-`HomeHub(active_tab)` in `ui/home_hub.py` renders all three tab panels using the `*_BLOCKS` constants:
+Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `_moc_card()` components. No sidebar, no Alpine state. Defined in:
 
-```python
-# *_BLOCKS constants (no hub functions — just data):
-# ui/workbench/hub.py  → SUBMISSIONS_BLOCKS (2 blocks)
-# ui/gradebook/hub.py  → GRADEBOOK_BLOCKS (3 blocks)
-# ui/library/hub.py    → LIBRARY_BLOCKS (5 blocks)
+- `adapters/inbound/user_entry_ui.py` — `submissions_moc` and `gradebook_moc`
+- `adapters/inbound/library_ui.py` — `library_moc`
 
-def HomeHub(active_tab: str = "submissions") -> Div:
-    """x-data initializes with active_tab; all three panels rendered, x-show controls visibility."""
-```
-
-**Preview endpoints:**
+**HTMX preview endpoints** (still used by profile and teaching hubs):
 - Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
 - Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
 - GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `entry_reports_ui.py`, `activity_reports_ui.py`, `revised_exercises_ui.py`)
-- Submissions: `/api/submissions/{section}/preview` (3 sections: upload, submit, journal — in `user_entry_ui.py`); history preview served via `/api/submissions/history/preview` (rendered in Library tab)
-- Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB — 3 buckets in one call) + `/api/teaching/students/{uid}/ku/preview` (independent — in `teaching_ui.py`)
+- Submissions: `/api/submissions/{section}/preview` (3 sections in `user_entry_ui.py`)
+- Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB) + `/api/teaching/students/{uid}/ku/preview` (in `teaching_ui.py`)
 
 ## Usage: Graph-Driven Hub Page
 
@@ -321,7 +314,7 @@ section = HubSection("Contents", cards)
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
 
-**Files:** `ui/home_hub.py` (unified tabbed hub — `HomeHub(active_tab)`), `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`), `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`), `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Retired Hubs
 
@@ -330,6 +323,7 @@ section = HubSection("Contents", cards)
 | `/curriculum` | `/profile` (301 redirect) |
 | `/study` | `/profile` (301 redirect) |
 | `/activities` | — (no redirect, route deleted; content lives in `/profile`) |
+| `HomeHub(active_tab=...)` | Three independent MOC root pages (`/submissions`, `/gradebook`, `/library`) |
 
 ## File Locations
 
@@ -341,8 +335,8 @@ section = HubSection("Contents", cards)
 | Activity hub view | `ui/activities/activity_hub.py` (embedded in `/profile`) |
 | Activity hub redirect | — (removed; `/activities` route no longer exists) |
 | Activity sidebar | `ui/activities/nav.py` |
-| Unified tabbed hub | `ui/home_hub.py` (`HomeHub(active_tab)`) |
-| GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) |
+| MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`, `gradebook_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |
+| GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`, used by HTMX previews) |
 | GradeBook sidebar | `ui/gradebook/nav.py` |
 | Library block definitions | `ui/library/hub.py` (`LIBRARY_BLOCKS`) |
 | Library sidebar | `ui/library/nav.py` |
