@@ -142,6 +142,31 @@ def _standard_base_for_mode(mode: "JournalMode") -> str:
     )
 
 
+def follow_up_system_prompt(user_context_summary: str, mode: "JournalMode | None" = None) -> str:
+    """System prompt for a follow-up turn in a journal conversation.
+
+    Instructs the LLM to respond to the user's question or reaction directly,
+    rather than re-running the full analysis template on the original note.
+    """
+    from core.models.enums.user_enums import JournalMode
+
+    resolved = mode if mode is not None else JournalMode.default()
+    # Keep the companion's function identity (SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED)
+    # but add explicit continuation framing so the LLM doesn't re-run its template.
+    base = _standard_base_for_mode(resolved)
+    continuation = (
+        "\n\n## Continuation\n\n"
+        "The conversation above is already in progress. The user has read your previous "
+        "response and is following up. Respond directly and conversationally to their "
+        "follow-up — do not re-analyze the original note from scratch or repeat your "
+        "previous response structure. Build on what you already said."
+    )
+    parts = [base + continuation]
+    if user_context_summary:
+        parts.append(f"## User's Active Context\n\n{user_context_summary}")
+    return "\n\n".join(parts)
+
+
 def journal_mode_addendum(mode: "JournalMode") -> str:
     """Function addendum injected into upload-pipeline LLM prompts (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE)."""
     from core.models.enums.user_enums import JournalMode
