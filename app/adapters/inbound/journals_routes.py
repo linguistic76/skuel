@@ -788,20 +788,26 @@ def create_journals_routes(
         if journal_service is None:
             return ErrorFragment("Journal AI features are not available (CORE tier).")
 
-        combined = (
-            f"{original_entry.strip()}"
-            f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
-            f"\n\n---\n\n# Follow-up\n\n{user_reply.strip()}"
-        )
-
         mode = JournalMode.from_string(journal_mode)
-        result = await journal_service.run_standard(combined, user_uid, mode)
+        result = await journal_service.run_follow_up(
+            original_entry=original_entry.strip(),
+            ai_response=ai_response.strip(),
+            user_reply=user_reply.strip(),
+            user_uid=user_uid,
+            mode=mode,
+        )
         if result.is_error:
             logger.error(
                 "Journal follow-up failed for %s: %s", user_uid, result.expect_error()
             )
             return ErrorFragment("Could not generate a response. Please try again.")
 
+        # Pass the combined context so further follow-ups have the full conversation.
+        combined = (
+            f"{original_entry.strip()}"
+            f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
+            f"\n\n---\n\n# Follow-up\n\n{user_reply.strip()}"
+        )
         return StandardResponseFragment(
             raw_entry=combined,
             title=title.strip(),

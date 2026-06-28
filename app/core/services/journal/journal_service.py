@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from core.models.enums.user_enums import JournalMode
 from core.models.type_hints import UserUID
 from core.services.journal.instruction_loader import (
+    follow_up_system_prompt,
     stage1_system_prompt,
     stage2_system_prompt,
     stage3_system_prompt,
@@ -220,6 +221,45 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal standard response LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Journal response failed: {exc}"))
+
+    # ------------------------------------------------------------------
+    # Follow-up (conversation continuation)
+    # ------------------------------------------------------------------
+
+    async def run_follow_up(
+        self,
+        original_entry: str,
+        ai_response: str,
+        user_reply: str,
+        user_uid: UserUID,
+        mode: JournalMode | None = None,
+    ) -> Result[str]:
+        """Respond to the user's follow-up without re-running the full analysis template.
+
+        Uses follow_up_system_prompt() which adds a continuation directive on top of
+        the mode's base instructions, preventing the LLM from re-producing headings
+        like '# What is Emerging' for a conversational reply.
+
+        Backend: GoalsService, TasksService, HabitsService (context summary);
+                 LLMCaller (response generation).
+        """
+        context_summary = await self.build_context_summary(user_uid)
+        system_prompt = follow_up_system_prompt(context_summary, mode)
+        user_message = (
+            f"# Original Note\n\n{original_entry}\n\n"
+            f"# Previous Response\n\n{ai_response}\n\n"
+            f"# Follow-up\n\n{user_reply}"
+        )
+        try:
+            return await self._llm.generate(
+                prompt=user_message,
+                model=self._resolve_model(),
+                system_prompt=system_prompt,
+                max_tokens=_MAX_TOKENS,
+            )
+        except LLM_EXCEPTIONS as exc:
+            logger.error("Journal follow-up LLM error: %s", exc)
+            return Result.fail(Errors.integration("llm", f"Follow-up failed: {exc}"))
 
     # ------------------------------------------------------------------
     # Save
