@@ -358,8 +358,22 @@ def create_journals_routes(
                         )
                     entry, _outcome = result.value
 
-                    # Run all three DNWF stages in sequence and display compiled output.
+                    # Run all three DNWF stages in sequence (FOUNDER only) and display
+                    # compiled output. STANDARD users fall through to the status card.
                     if journal_service is not None:
+                        user_result = await user_service.get_user(user_uid)
+                        is_founder = (
+                            user_result.is_ok
+                            and user_result.value is not None
+                            and user_result.value.journal_tier.is_founder()
+                        )
+                        if not is_founder:
+                            return render_journal_upload_status(
+                                _status_value(entry),
+                                f"Journal entry created: {entry.title}",
+                                je_input_uid=entry.uid,
+                            )
+
                         try:
                             text_content = file_content.decode("utf-8")
                         except UnicodeDecodeError:

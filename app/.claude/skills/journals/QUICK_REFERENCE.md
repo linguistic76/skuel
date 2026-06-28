@@ -7,6 +7,7 @@
 | Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | `dnwf 1.md` + `Stance + Direction.md` + `roles interventions.md` + `inline_metadata_ie_short_codes.md` + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
+| Compiled (file upload) | `run_compiled(raw_entry, user_uid)` | Chains stage1→stage2→stage3; single markdown output | — |
 | Standard | `run_standard(raw_entry, user_uid, mode=None)` | Inline strings in `instruction_loader.py` (no file dependency) | 4000 |
 | Follow-up | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode=None)` | `follow_up_system_prompt()` — mode base + continuation directive (no re-analysis) | 4000 |
 

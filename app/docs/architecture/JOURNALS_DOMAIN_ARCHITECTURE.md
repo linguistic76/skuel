@@ -40,7 +40,7 @@ Journals FOUNDER:   (no gate)     → UserContext digest + entry + curriculum de
 
 ## 3. JournalMode: Three Functions
 
-JournalMode maps to the three stages of the DNWF process. In STANDARD tier, the user selects a mode directly. In FOUNDER tier, the stages run in sequence and mode is determined by position in the workflow.
+JournalMode maps to the three stages of the DNWF process. In STANDARD tier, mode selects the inline system prompt (SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED) — it is not exposed as a user-facing selector in the upload form. In FOUNDER tier, the stages run in fixed sequence (Scribe → Thought Partner → What Is Related); mode is not a user input at any stage.
 
 | Mode | DNWF Stage | What it does | Default? |
 |---|---|---|---|
@@ -62,7 +62,7 @@ JournalMode maps to the three stages of the DNWF process. In STANDARD tier, the 
 |---|---|---|
 | Access | All authenticated users | `User.journal_tier = FOUNDER` |
 | Workflow | Single-response (one-shot) | Three-stage sequential, gated by user review between stages |
-| Mode selection | User selects JournalMode; one response | Stages run in order; mode maps to which stage you are in |
+| Mode selection | JournalMode shapes the inline system prompt; not user-selectable from UI | Stages run in fixed order (Scribe → TP → WIR); mode is not a user input |
 | Instruction source | Inline strings in `instruction_loader.py` (no file dependency) | Files from `data/instructions/` |
 | UserContext injection | All modes | Stage 2 and Stage 3 only (Stage 1 is context-free by design) |
 | Gating enforcement | None | Route layer: `journal_tier.is_founder()` check before stage1/2/3 handlers |
@@ -116,7 +116,7 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 | Component | File | Responsibility |
 |---|---|---|
-| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Five AI methods (`run_stage1/2/3`, `run_standard`, `run_follow_up`) + `save_entry`. |
+| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry`. `run_compiled()` is the file-upload batch path: chains all three stages without review gates. |
 | `instruction_loader` | `core/services/journal/instruction_loader.py` | Prompt composition. STANDARD prompts are inline; FOUNDER stages load from `data/instructions/`. |
 | Routes | `adapters/inbound/journals_routes.py` | 10 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. |
 | `JournalTier`, `JournalMode` | `core/models/enums/user_enums.py` | Tier and mode enum definitions. |
