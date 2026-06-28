@@ -9,7 +9,6 @@ from fasthtml.common import (
     Input,
     Label,
     P,
-    Small,
     Span,
     Textarea,
 )
@@ -162,7 +161,6 @@ def Stage2Fragment(
             next_label="What Is Related →",
             review_placeholder="Reactions or corrections before Stage 3 (optional)…",
         ),
-        _SaveBar(raw_entry=raw_entry, title=title),
         id="journal-workspace",
         cls="p-6",
     )
@@ -185,7 +183,6 @@ def Stage3Fragment(
             ),
             cls="mb-6",
         ),
-        _SaveBar(raw_entry=raw_entry, title=title),
         id="journal-workspace",
         cls="p-6",
     )
@@ -196,17 +193,12 @@ def StandardResponseFragment(
     title: str,
     response_output: str,
     mode: "JournalMode | None" = None,
-    already_saved: bool = False,
 ) -> Any:
     """Askesis-style response: avatar header, prose body, Copy icon, inline reply composer.
 
     The reply form posts original_entry + ai_response + user_reply as separate named
     fields to /journals/follow-up — no client-side combining needed, HTMX reads
     static values reliably.
-
-    already_saved: set True when the entry was persisted before this fragment is
-    returned (e.g. the instructions_only upload path) to suppress the duplicate-save
-    "Add to Journal" button.
     """
     import json as _json
 
@@ -244,7 +236,7 @@ def StandardResponseFragment(
             response_output,
             cls="text-[15px] leading-[1.75] text-foreground whitespace-pre-wrap mb-4",
         ),
-        # ── Action bar: Copy · Add to Journal ───────────────────────────
+        # ── Action bar: Copy ────────────────────────────────────────────
         Div(
             Button(
                 UkIcon("copy", height=15, width=15),
@@ -261,22 +253,6 @@ def StandardResponseFragment(
                 "Copied!",
                 cls="text-xs text-green-600",
                 **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
-            ),
-            Div(cls="flex-1"),
-            *(
-                [Span("Saved", cls="text-xs text-muted-foreground")]
-                if already_saved
-                else [
-                    Button(
-                        "Add to Journal",
-                        type="button",
-                        cls="text-xs text-muted-foreground hover:text-foreground cursor-pointer",
-                        hx_post="/journals/save",
-                        hx_target="#journal-workspace",
-                        hx_swap="outerHTML",
-                        hx_vals=_json.dumps({"raw_entry": raw_entry, "title": title}),
-                    )
-                ]
             ),
             cls="flex items-center gap-2 pb-4 mb-6 border-b border-border",
         ),
@@ -328,28 +304,6 @@ def StandardResponseFragment(
         id="journal-workspace",
         cls="p-6",
         **{"x-data": alpine_data},
-    )
-
-
-def SavedFragment(entry_uid: str) -> Any:
-    """Confirmation fragment after saving the journal entry."""
-    return Div(
-        Card(
-            CardBody(
-                P("Journal entry added.", cls="text-sm font-medium mb-1"),
-                Small(f"ID: {entry_uid}", cls="text-xs text-muted-foreground"),
-            ),
-        ),
-        Button(
-            "Write another",
-            cls=ButtonT.ghost,
-            hx_get="/journals",
-            hx_target="#journal-workspace",
-            hx_swap="outerHTML",
-            cls_="mt-4",
-        ),
-        id="journal-workspace",
-        cls="p-6",
     )
 
 
@@ -414,17 +368,3 @@ def _ReviewGate(
     )
 
 
-def _SaveBar(raw_entry: str, title: str) -> Any:
-    return Form(
-        Input(type="hidden", name="raw_entry", value=raw_entry),
-        Input(type="hidden", name="title", value=title),
-        Button(
-            "Add to Journal",
-            cls=ButtonT.primary,
-            hx_post="/journals/save",
-            hx_target="#journal-workspace",
-            hx_swap="outerHTML",
-            hx_include="closest form",
-        ),
-        cls="mt-2",
-    )

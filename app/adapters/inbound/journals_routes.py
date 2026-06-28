@@ -4,12 +4,10 @@ Routes:
     GET  /journals                  — tier-aware landing page (Tasks+ sidebar)
     POST /journals/upload           — file upload handler
     POST /journals/folder-process   — batch folder processing
-    GET  /journals/browse           — journal history
     POST /journals/respond          — STANDARD tier single-response workflow (FULL tier)
     POST /journals/stage1           — Stage 1 Scribe (FOUNDER only, FULL tier)
     POST /journals/stage2           — Stage 2 Thought Partner (FOUNDER only, FULL tier)
     POST /journals/stage3           — Stage 3 What Is Related (FOUNDER only, FULL tier)
-    POST /journals/save             — persist journal entry as UserEntry(pipeline=JOURNAL)
 """
 
 from __future__ import annotations
@@ -18,8 +16,6 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Span, Strong
-from monsterui.franken import ButtonT, UkIcon
 from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -30,13 +26,8 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.feedback import StatusBadge
 from ui.journals.components import render_batch_upload_status
 from ui.journals.components import render_upload_status as render_journal_upload_status
-from ui.patterns.card_generator import CardGenerator
-from ui.patterns.empty_state import EmptyState
-from ui.patterns.page_header import PageHeader
-from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -148,50 +139,6 @@ def _status_value(entry: UserEntry) -> str:
     return str(status) if status else "submitted"
 
 
-def _render_user_entry_journal_card(entry: UserEntry) -> Any:
-    file_size = entry.file_size or 0
-    file_size_mb = file_size / 1024 / 1024 if file_size else 0
-
-    meta_parts: list[str] = []
-    if entry.original_filename:
-        meta_parts.append(entry.original_filename)
-    if file_size_mb > 0:
-        meta_parts.append(f"{file_size_mb:.2f} MB")
-    if entry.file_type:
-        meta_parts.append(entry.file_type)
-
-    status_str = _status_value(entry)
-
-    action_buttons: list[Any] = []
-    if entry.status == EntityStatus.COMPLETED:
-        action_buttons.append(
-            ButtonLink(
-                "Download",
-                href=f"/submit/journals/{entry.uid}/download",
-                cls=(ButtonT.primary, ButtonT.sm),
-            )
-        )
-
-    return CardGenerator.from_dataclass(
-        {"title": entry.title or "Untitled"},
-        display_fields=[],
-        header_badges=[StatusBadge(status_str) if status_str else None],
-        show_labels=False,
-        metadata=[" • ".join(meta_parts)] if meta_parts else None,
-        actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
-        card_attrs={"cls": "mb-2"},
-    )
-
-
-def _render_user_entry_journal_grid(entries: list[UserEntry]) -> Any:
-    if not entries:
-        return Div(EmptyState(title="No journals found"), id="journals-grid-container")
-    return Div(
-        *[_render_user_entry_journal_card(e) for e in entries],
-        id="journals-grid-container",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Route factory
 # ---------------------------------------------------------------------------
@@ -208,7 +155,6 @@ def create_journals_routes(
     user_service = services.user
     journal_service = services.journal  # None when INTELLIGENCE_TIER=core
     user_entry_service = services.user_entry
-    orchestrator = services.user_entry_orchestrator
     batch_transcription_service = services.batch_transcription
     processing_service = services.user_entry_processor
 
@@ -232,25 +178,8 @@ def create_journals_routes(
         if request.headers.get("HX-Request"):
             return workspace
 
-        # PLANNED: /journals/about — privacy details + workflow guide
-        browse_link = A(
-            UkIcon("library", cls="w-[19px] h-[19px] text-muted-foreground"),
-            Span(
-                Strong("Browse", cls="font-bold text-foreground"),
-                Span(" my journals", cls="font-normal text-muted-foreground"),
-            ),
-            href="/journals/browse",
-            cls=(
-                "text-[18px] text-foreground hover:text-brand inline-flex items-center gap-2 "
-                "transition-colors"
-            ),
-        )
-        page_content = Div(
-            Div(browse_link, cls="flex justify-end mb-4 px-2"),
-            workspace,
-        )
         return await render_activity_sidebar_page(
-            content=page_content,
+            content=workspace,
             active="journals",
             request=request,
             title="Journal",
@@ -374,7 +303,6 @@ def create_journals_routes(
                                     title=title,
                                     response_output=compiled_result.value,
                                     mode=None,
-                                    already_saved=True,
                                 )
                                 return HTMLResponse(
                                     content=to_xml(fragment),
@@ -649,44 +577,6 @@ def create_journals_routes(
             return render_journal_upload_status("error", f"Processing failed: {e}", is_error=True)
 
     # ------------------------------------------------------------------
-    # GET /journals/browse — journal history
-    # ------------------------------------------------------------------
-
-    @rt("/journals/browse", methods=["GET"])
-    async def journals_browse(request: Request) -> Any:
-        """Browse the user's journal entries."""
-        if orchestrator is None:
-            return Response("Journal browse not available", status_code=503)
-
-        user_uid = require_authenticated_user(request)
-
-        from ui.activities.nav import render_activity_sidebar_page
-
-        entries: list[UserEntry] = []
-        result = await orchestrator.list_journal_entries(user_uid)
-        if not result.is_error and result.value:
-            entries = list(result.value)
-
-        content = Div(
-            PageHeader(
-                "My Journals",
-                subtitle="Browse your AI-processed journal entries",
-                actions=ButtonLink(
-                    "New Journal",
-                    href="/journals",
-                    cls=(ButtonT.primary, ButtonT.sm),
-                ),
-            ),
-            _render_user_entry_journal_grid(entries),
-        )
-        return await render_activity_sidebar_page(
-            content=content,
-            active="journals",
-            request=request,
-            title="My Journals",
-        )
-
-    # ------------------------------------------------------------------
     # POST /journals/respond — STANDARD tier single-response workflow
     # ------------------------------------------------------------------
 
@@ -904,34 +794,3 @@ def create_journals_routes(
             related_output=result.value,
         )
 
-    # ------------------------------------------------------------------
-    # POST /journals/save — persist entry
-    # ------------------------------------------------------------------
-
-    @rt("/journals/save", methods=["POST"])
-    @csrf_protected
-    async def journals_save(
-        request: Request,
-        raw_entry: str,
-        title: str = "",
-    ) -> Any:
-        from ui.journals import ErrorFragment, SavedFragment
-
-        user_uid = require_authenticated_user(request)
-
-        if not raw_entry or not raw_entry.strip():
-            return ErrorFragment("Cannot save an empty entry.")
-
-        if journal_service is None:
-            return ErrorFragment("Journal save is not available (CORE tier).")
-
-        result = await journal_service.save_entry(
-            title=title.strip(),
-            raw_entry=raw_entry.strip(),
-            user_uid=user_uid,
-        )
-        if result.is_error:
-            logger.error("Journal save failed for %s: %s", user_uid, result.expect_error())
-            return ErrorFragment("Could not save your journal entry.")
-
-        return SavedFragment(entry_uid=result.value)
