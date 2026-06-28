@@ -116,9 +116,9 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 | Component | File | Responsibility |
 |---|---|---|
-| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry`. `run_compiled()` is the file-upload batch path: chains all three stages without review gates. |
+| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry` (service-level only — no UI route). `run_compiled()` is the file-upload batch path: chains all three stages without review gates. |
 | `instruction_loader` | `core/services/journal/instruction_loader.py` | Prompt composition. STANDARD prompts are inline; FOUNDER stages load from `data/instructions/`. |
-| Routes | `adapters/inbound/journals_routes.py` | 10 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. |
+| Routes | `adapters/inbound/journals_routes.py` | 8 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. No browse or save routes — journals flow through SKUEL and are not stored from the response screen. |
 | `JournalTier`, `JournalMode` | `core/models/enums/user_enums.py` | Tier and mode enum definitions. |
 | `Pipeline.JOURNAL` | `core/models/enums/pipeline.py` | Pipeline discriminator for all journal UserEntries. |
 

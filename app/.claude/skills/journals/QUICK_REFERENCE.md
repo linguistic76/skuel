@@ -50,9 +50,9 @@ class JournalTier(str, Enum):
 
 | File | Purpose |
 |---|---|
-| `core/services/journal/journal_service.py` | `JournalService` — 4 AI methods + `save_entry` |
+| `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry` (service method; no UI route) |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 10 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, save, etc. |
+| `adapters/inbound/journals_routes.py` | 8 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, etc. (no browse or save routes) |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.JOURNAL` |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
