@@ -96,8 +96,7 @@ Renders `HomeHub(active_tab='library')` — Library tab pre-selected; block defi
 Renders `HomeHub(active_tab='submissions')` — Submissions tab pre-selected; block definitions in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
 - `/submit` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon).
-- `/journals` — journal entry point; file + folder upload, JournalMode selector, transcription pipeline. (`/submit/journals` redirects here.)
-- `/journals/browse` — grid of the user's AI-processed journal entries.
+- `/journals` — journal entry point; file + folder upload, processing mode selector, transcription pipeline. (`/submit/journals` redirects here.)
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
 - `/settings/vault` — Obsidian bidirectional sync (primary personal-data ingestion path).
 
@@ -140,10 +139,12 @@ Journal domain landing page in the Tasks+ sidebar. Routes in `adapters/inbound/j
 
 **Routes:**
 - `GET  /journals` — tier-aware landing; FOUNDER renders the entry form, STANDARD renders a placeholder
+- `POST /journals/upload` — file/folder upload handler; returns transcript review (FOUNDER) or status card (STANDARD)
+- `POST /journals/respond` — STANDARD tier single AI response (`@csrf_protected`)
+- `POST /journals/follow-up` — reply to an AI response (`@csrf_protected`)
 - `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (`@csrf_protected`)
 - `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
 - `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
-- `POST /journals/save` — persist the entry as `UserEntry(pipeline=JOURNAL)`, always private (`@csrf_protected`)
 
 Stages 1–3 return HTMX fragments that swap `#journal-workspace`; each stage shows the AI output and a review-notes textarea before the user proceeds. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`.
 

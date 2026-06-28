@@ -7,6 +7,7 @@
 | Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | `dnwf 1.md` + `Stance + Direction.md` + `roles interventions.md` + `inline_metadata_ie_short_codes.md` + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
+| Compiled (file upload) | `run_compiled(raw_entry, user_uid)` | Chains stage1→stage2→stage3; single markdown output | — |
 | Standard | `run_standard(raw_entry, user_uid, mode=None)` | Inline strings in `instruction_loader.py` (no file dependency) | 4000 |
 | Follow-up | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode=None)` | `follow_up_system_prompt()` — mode base + continuation directive (no re-analysis) | 4000 |
 
@@ -49,9 +50,9 @@ class JournalTier(str, Enum):
 
 | File | Purpose |
 |---|---|
-| `core/services/journal/journal_service.py` | `JournalService` — 4 AI methods + `save_entry` |
+| `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry` (service method; no UI route) |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 10 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, save, etc. |
+| `adapters/inbound/journals_routes.py` | 8 routes — `/journals/respond`, `/journals/follow-up`, `/journals/stage1/2/3`, etc. (no browse or save routes) |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.JOURNAL` |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
