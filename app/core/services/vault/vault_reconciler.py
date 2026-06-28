@@ -60,9 +60,14 @@ logger = get_logger("skuel.services.vault.reconciler")
 _BASE36 = string.ascii_lowercase + string.digits
 
 # Folders inside the vault root that are never ingested into SKUEL.
-# je_in/ holds ephemeral raw journal input — files there are processed
-# through the journals UI, not the vault sync pipeline.
-_VAULT_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in"})
+# All four je_* folders are pipeline staging areas for the journals
+# batch-transcription workflow, not vault content — they must not be
+# ingested via vault sync regardless of what files land in them.
+#   je_in  — raw audio input (ephemeral; processed via journals UI)
+#   je_out — transcript output (.txt/.md written by batch transcription)
+#   je_raw — reference archive input (Pipeline.REFERENCE, stored as-is)
+#   je_pro — reference archive processed output
+_VAULT_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
 _UNCHECKED_RE = re.compile(r"^[-*]\s*\[\s*\]")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
 
