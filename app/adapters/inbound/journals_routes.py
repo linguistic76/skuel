@@ -631,18 +631,26 @@ def create_journals_routes(
         recent_entries = recent_result.value if recent_result.is_ok else []
 
         if entry.processed_file_path:
-            from fasthtml.common import Div as _Div
-
             initial_workspace = FileOutputFragment(
                 title=entry.title or "",
                 output_filename=Path(entry.processed_file_path).name,
                 response_output=entry.processed_content or "",
             )
         elif entry.processed_content:
-            initial_workspace = TranscriptReviewFragment(
-                transcript=entry.processed_content,
-                title=entry.title or "",
-            )
+            from ui.journals import StandardResponseFragment
+
+            _transcript_pipelines = {Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
+            if entry.pipeline in _transcript_pipelines:
+                initial_workspace = TranscriptReviewFragment(
+                    transcript=entry.processed_content,
+                    title=entry.title or "",
+                )
+            else:
+                initial_workspace = StandardResponseFragment(
+                    raw_entry="",
+                    title=entry.title or "",
+                    response_output=entry.processed_content,
+                )
         else:
             from fasthtml.common import Div as _Div, P as _P
 
