@@ -126,7 +126,22 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 ---
 
-## 7. Privacy Contract
+## 7. Vault Sync Boundary: The `je_*` Folders
+
+The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. They are excluded from `_VAULT_EXCLUDED_DIRS` in `vault_reconciler.py`.
+
+| Folder | Role | Flow direction |
+|--------|------|----------------|
+| `je_in/` | Batch-transcription audio input | User drops files → journals UI processes |
+| `je_out/` | Batch-transcription transcript output | `.txt`/`.md` written by `BatchTranscriptionService` |
+| `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
+| `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
+
+These folders are **pipeline artifacts**, not vault content. The vault sync path (`/settings/vault`) skips all four unconditionally. The main upload path (`/journals` → "Upload files" tab) also does not write to any of them — it persists directly to Neo4j as a `UserEntry(pipeline=Pipeline.JOURNAL)` and returns the AI response through the chat interface.
+
+The `je_out/` exclusion is the load-bearing one: without it, transcript files would be ingested as plain-text UserEntries on every vault sync.
+
+## 8. Privacy Contract
 
 - All journal entries are persisted with `pipeline=Pipeline.JOURNAL`.
 - `Pipeline.JOURNAL.allows_sharing()` returns `False`. No audience picker is offered in the UI; sharing cannot be unlocked through the API.
@@ -137,7 +152,7 @@ Full policy: `docs/user-guides/journal-privacy.md`
 
 ---
 
-## 8. Journals as ZPD Signal (Phase 2, Deferred)
+## 9. Journals as ZPD Signal (Phase 2, Deferred)
 
 The Journals domain produces the richest signal of where the user actually is — what clicked, what remains unresolved, what questions are still open. This signal is intended to feed Askesis, but the extraction pipeline is deferred.
 
@@ -163,7 +178,7 @@ class JournalInsight:
 
 ---
 
-## 9. Roadmap
+## 10. Roadmap
 
 - **Richer UserContext injection** — `_build_context_summary()` pulls titles from Goals/Tasks/Habits (up to 6 each) and vault note snippets (up to 8). A future version could include habit completion rates, task priorities, goal timeframes, and recent activity for richer context.
 - **WHAT_IS_RELATED + curriculum graph** — Stage 3 currently has no graph query capability. A future enhancement could let it query Neo4j for related KUs and PathSteps, making connection suggestions concrete rather than inferred.
@@ -172,7 +187,7 @@ class JournalInsight:
 
 ---
 
-## 10. Cross-References
+## 11. Cross-References
 
 | Resource | What it covers |
 |---|---|
