@@ -330,9 +330,13 @@ def create_journals_routes(
                                 compiled_result.expect_error(),
                             )
 
-                    return HTMLResponse(
-                        status_code=200,
-                        headers={"HX-Redirect": f"/journals/{entry.uid}"},
+                    # Fallthrough: CORE tier (no journal_service), empty file, or LLM error.
+                    # Entry exists but has no processed content — show a status card so the
+                    # user isn't stranded on a permanent spinner at /journals/{uid}.
+                    return render_journal_upload_status(
+                        _status_value(entry),
+                        f"Journal entry created: {entry.title}",
+                        je_input_uid=entry.uid,
                     )
 
                 # Transcription modes — submit file
@@ -641,8 +645,15 @@ def create_journals_routes(
             return Response("Could not load user", status_code=500)
         user = user_result.value
 
-        recent_result = await user_entry_service.list_for_user(user_uid, limit=30)
-        recent_entries = recent_result.value if recent_result.is_ok else []
+        _journal_pipelines = {
+            Pipeline.LLM_SUMMARY,
+            Pipeline.TRANSCRIBE,
+            Pipeline.TRANSCRIBE_AND_STRUCTURE,
+        }
+        recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
+        recent_entries = [
+            e for e in (recent_result.value or []) if e.pipeline in _journal_pipelines
+        ][:30]
 
         if entry.processed_file_path:
             initial_workspace = FileOutputFragment(
