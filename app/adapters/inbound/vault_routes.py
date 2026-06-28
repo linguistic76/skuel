@@ -5,7 +5,8 @@ Vault Bridge Routes — ADR-070
 Bidirectional Obsidian ↔ SKUEL sync endpoints.
 
 Routes:
-    GET  /settings/vault         — User-facing sync page with "Sync from Obsidian" button.
+    GET  /submissions/sync       — Vault sync page (canonical URL, submissions MOC section).
+    GET  /settings/vault         — 301 redirect → /submissions/sync (legacy URL preserved).
     POST /settings/vault/sync    — HTMX endpoint: run sync, return HTML results fragment.
     POST /settings/vault/consent — HTMX endpoint: grant write consent then run sync.
     POST /api/vault/sync         — JSON API: run sync (returns VaultSyncStats dict).
@@ -29,6 +30,7 @@ from fasthtml.common import (
     Ul,
 )
 from monsterui.franken import Button
+from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -160,9 +162,9 @@ def create_vault_routes(
     # UI routes
     # ------------------------------------------------------------------
 
-    @rt("/settings/vault")
-    async def vault_settings_page(request: Request) -> Any:
-        """Vault sync settings page — 'Sync from Obsidian' button."""
+    @rt("/submissions/sync")
+    async def submissions_sync_page(request: Request) -> Any:
+        """Vault sync page under the Submissions MOC."""
         require_authenticated_user(request)
 
         content = Div(
@@ -187,9 +189,14 @@ def create_vault_routes(
 
         return await render_submissions_sidebar_page(
             content=content,
-            active="vault-sync",
+            active="sync",
             request=request,
         )
+
+    @rt("/settings/vault")
+    async def vault_settings_redirect(request: Request) -> Any:
+        """301 redirect — canonical URL moved to /submissions/sync."""
+        return RedirectResponse(url="/submissions/sync", status_code=301)
 
     @rt("/settings/vault/sync", methods=["POST"])
     @csrf_protected

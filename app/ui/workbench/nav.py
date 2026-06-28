@@ -1,7 +1,7 @@
 """Submissions sidebar navigation.
 
 Renders a collapsible sidebar for Submissions pages:
-Submit, Journals, Submission History, Obsidian Sync.
+Exercise, Journal, Sync, History.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 SUBMISSIONS_STORAGE_KEY = "submissions-sidebar"
 
 SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Exercise", "/submit", "submit", icon="send"),
-    SidebarItem("Journals", "/submit/journals", "journals", icon="book-open"),
+    SidebarItem("Exercise", "/submissions/exercise", "exercise", icon="send"),
+    SidebarItem("Journal", "/submissions/journal", "journal", icon="book-open"),
+    SidebarItem("Sync", "/submissions/sync", "sync", icon="refresh-cw"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
-    SidebarItem("Obsidian Sync", "/settings/vault", "vault-sync", icon="refresh-cw"),
 ]
 
 
@@ -32,7 +32,7 @@ async def render_submissions_sidebar_page(
 
     Args:
         content: The page content to render in the main area.
-        active: The active sidebar item slug (e.g. "upload", "submit", "history").
+        active: The active sidebar item slug (e.g. "exercise", "journal", "sync", "history").
         request: The request object for auth detection.
     """
     return await SidebarPage(
@@ -43,5 +43,5 @@ async def render_submissions_sidebar_page(
         storage_key=SUBMISSIONS_STORAGE_KEY,
         request=request,
         active_page="submissions",
-        title_href="/profile?tab=submissions",
+        title_href="/submissions",
     )
