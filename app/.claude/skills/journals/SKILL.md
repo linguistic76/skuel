@@ -46,7 +46,7 @@ STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PAR
    If `dnwf 1.md` is missing, stages degrade gracefully (warning logged, empty prompt).
    STANDARD prompts are inline strings — no file dependency.
 
-4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
+4. **Context digest, not full UserContext** — `build_context_summary()` extracts up to 6
    active titles each from Goals, Tasks, and Habits, plus up to 8 vault-synced personal notes
    (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`). Stage 1
    receives no context (sparse by design — fidelity requires restraint). Stages 2 and 3
@@ -94,13 +94,13 @@ Stage 2 composes four files via `stage2_system_prompt(context_summary)` in
 `stage2_system_prompt`. To add a new file, add an entry to `_FILES` and populate
 `data/instructions/` with the file.
 
-### Wiring a new context domain into `_build_context_summary()`
+### Wiring a new context domain into `build_context_summary()`
 
-`_build_context_summary()` lives in `JournalService` (`core/services/journal/journal_service.py`).
+`build_context_summary()` lives in `JournalService` (`core/services/journal/journal_service.py`).
 It accepts optional `GoalsService`, `TasksService`, and `HabitsService`. To add a fourth:
 
 1. Add the service as an optional constructor parameter.
-2. Add a `search()` call with `limit=6` inside `_build_context_summary()`.
+2. Add a `search()` call with `limit=6` inside `build_context_summary()`.
 3. Inject the service from `services_bootstrap/compose.py` when constructing `JournalService`.
 
 ---
@@ -110,7 +110,7 @@ It accepts optional `GoalsService`, `TasksService`, and `HabitsService`. To add 
 **Don't hardcode prompts in routes.** All prompt logic belongs in `instruction_loader.py`.
 Routes pass raw entry text and user UID to the service, nothing else.
 
-**Don't pass full UserContext.** `_build_context_summary()` distills a focused digest.
+**Don't pass full UserContext.** `build_context_summary()` distills a focused digest.
 Passing a 250-field `UserContext` object into the journal prompt would dilute focus and
 expose data the journal companion doesn't need.
 
@@ -135,7 +135,7 @@ entries in ingestion code.
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
-| `adapters/inbound/journals_routes.py` | 9 routes; FOUNDER tier enforcement lives here |
+| `adapters/inbound/journals_routes.py` | 10 routes; FOUNDER tier enforcement lives here |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
 | `core/models/enums/pipeline.py` | `Pipeline.JOURNAL`, `allows_sharing()` |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |
