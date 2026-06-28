@@ -139,7 +139,7 @@ metadata:
 - **Notes** — free prose. Meeting notes, ideas, observations. No special syntax needed.
 - **End of Day** — a brief retrospective. Answering these two questions takes two minutes and makes a surprising difference over time.
 
-When this note is synced to SKUEL (via the vault sync button at [/settings/vault](/settings/vault)), the checkbox lines with `@context()` tags become Task activity items in your graph. The entire note is also stored as a journal entry so you can search and review it later.
+When this note is synced to SKUEL (via the vault sync button at [/submissions/sync](/submissions/sync)), the checkbox lines with `@context()` tags become Task activity items in your graph. The entire note is also stored as a journal entry so you can search and review it later.
 
 ---
 
@@ -317,7 +317,7 @@ When you sync this note, SKUEL creates:
 
 ## Part 4 — Standalone Activity YAML Files
 
-For activities that aren't part of a daily note — a goal you're setting for the quarter, a principle you want to live by, a habit you want to start tracking from today — write a standalone YAML file in your Obsidian vault. The vault sync at **[/settings/vault](/settings/vault)** will pick it up on the next sync.
+For activities that aren't part of a daily note — a goal you're setting for the quarter, a principle you want to live by, a habit you want to start tracking from today — write a standalone YAML file in your Obsidian vault. The vault sync at **[/submissions/sync](/submissions/sync)** will pick it up on the next sync.
 
 ### Quick examples for each type
 
@@ -430,9 +430,9 @@ When you check off a task in Obsidian, mark it with the obsidian-tasks done synt
 
 The `✅ YYYY-MM-DD` token is the date you completed it. The obsidian-tasks plugin can insert this automatically when you check the box. The next time you sync, SKUEL reads this token and marks the task as completed in your graph — including logging the completion timestamp.
 
-### Running a sync at /settings/vault
+### Running a sync at /submissions/sync
 
-Go to **[/settings/vault](/settings/vault)** and click **Sync from Obsidian**.
+Go to **[/submissions/sync](/submissions/sync)** and click **Sync from Obsidian**.
 
 SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, and writes any new task IDs back into the vault files.
 
@@ -507,7 +507,7 @@ If you're using the obsidian-tasks plugin, it inserts the `✅ date` token autom
 
 **6:00 pm — Sync**
 
-Go to **[/settings/vault](/settings/vault)** and click **Sync from Obsidian**.
+Go to **[/submissions/sync](/submissions/sync)** and click **Sync from Obsidian**.
 
 SKUEL reads today's daily note:
 - Creates a journal entry for the whole note (Focus + Notes + End of Day prose)
@@ -542,7 +542,7 @@ Go to **[/journals/browse](/journals/browse)** to see today's transcription from
 
 ### Occasionally: write a YAML file
 
-When you're setting a new goal for the quarter, or want to define a principle that's been crystallizing, write a standalone YAML file in your vault. The next sync at **[/settings/vault](/settings/vault)** will bring it into SKUEL. This doesn't have to happen every day — it's the tool for the more deliberate, structured layer of your life.
+When you're setting a new goal for the quarter, or want to define a principle that's been crystallizing, write a standalone YAML file in your vault. The next sync at **[/submissions/sync](/submissions/sync)** will bring it into SKUEL. This doesn't have to happen every day — it's the tool for the more deliberate, structured layer of your life.
 
 ---
 
@@ -552,7 +552,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 |--------------------|------------|
 | Upload a voice memo or text journal | [/journals](/journals) |
 | Browse journal entries and get AI responses | [/journals/browse](/journals/browse) |
-| Sync Obsidian vault with SKUEL (primary data path) | [/settings/vault](/settings/vault) |
+| Sync Obsidian vault with SKUEL (primary data path) | [/submissions/sync](/submissions/sync) |
 | Submit a completed exercise worksheet | [/submit](/submit) |
 
 | Template | Cadence | Primary purpose |

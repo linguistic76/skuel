@@ -93,14 +93,14 @@ Renders `HomeHub(active_tab='library')` — Library tab pre-selected; block defi
 
 ### `/submissions`
 
-Renders `HomeHub(active_tab='submissions')` — Submissions tab pre-selected; block definitions in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
+MOC root page (no sidebar) — four cards linking to the four Submissions sub-pages. Defined in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
-- `/submit` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon).
-- `/journals` — journal entry point; file + folder upload, processing mode selector, transcription pipeline. (`/submit/journals` redirects here.)
+- `/submissions/exercise` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon). Legacy `/submit` 302-redirects here.
+- `/submissions/journal` — journal file-upload UX (Processing → Source → Browse → Process); alternative entry point to `/journals`.
+- `/submissions/sync` — Obsidian bidirectional sync (primary personal-data ingestion path). Legacy `/settings/vault` 301-redirects here; HTMX POST targets remain at `/settings/vault/sync` and `/settings/vault/consent`.
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
-- `/settings/vault` — Obsidian bidirectional sync (primary personal-data ingestion path).
 
-All five use the Submissions sidebar (Exercise → Journals → History → Obsidian Sync).
+All four sub-pages use the Submissions sidebar (Exercise → Journal → Sync → History).
 
 ---
 

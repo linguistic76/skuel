@@ -35,7 +35,7 @@ Neo4j Graph (digital)
 - Without ingestion, SKUEL has no knowledge graph
 - All entity types enter the system through two ingestion paths:
   - Admin ingestion: curriculum content via `/api/ingest/*` (admin-only)
-  - User ingestion: personal data via `/settings/vault` (Obsidian bidirectional sync) or `/submit` (exercise submissions)
+  - User ingestion: personal data via `/submissions/sync` (Obsidian bidirectional sync) or `/submissions/exercise` (exercise submissions)
 - Relationships (PREREQUISITE, ENABLES, APPLIES_KNOWLEDGE, etc.) are created here
 - Enables the analog-to-digital transformation that is SKUEL's defining characteristic
 
