@@ -177,26 +177,14 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         The active tab is selected by `?tab=` (exercises | library | gradebook),
         defaulting to "exercises" — the content-creation tab (Submit Exercise, Exercises).
         """
-        user_uid = require_authenticated_user(request)
-        try:
-            context = await _get_context(user_uid)
-        except ValueError:
-            return await error_page(
-                "Unable to load your profile. Please try again.",
-                500,
-                request=request,
-            )
+        require_authenticated_user(request)
 
-        from ui.patterns.personal_header import personal_header
         from ui.profile.hub import ProfileHubView, normalize_tab
 
         active_tab = normalize_tab(request.query_params.get("tab"))
 
         return await BasePage(
-            content=Div(
-                personal_header(context),
-                ProfileHubView(active_tab=active_tab),
-            ),
+            content=ProfileHubView(active_tab=active_tab),
             title="Profile",
             request=request,
             active_page="profile",
