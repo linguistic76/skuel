@@ -104,15 +104,6 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="check-square",
     ),
     IconNavItem(
-        "Explore",
-        "",
-        "/explore",
-        "explore",
-        requires_auth=False,
-        has_dropdown=False,
-        icon="compass",
-    ),
-    IconNavItem(
         "PathSteps",
         "",
         "/path-steps",

@@ -323,7 +323,7 @@ def create_navbar(
             # Left: brand
             A(
                 "SKUEL",
-                href="/today" if is_authenticated else "/",
+                href="/explore" if is_authenticated else "/",
                 cls="text-sm font-bold text-primary px-2 py-1 rounded hover:bg-accent",
             ),
             # Center: desktop nav links
