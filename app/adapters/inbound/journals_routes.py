@@ -20,7 +20,9 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from starlette.responses import HTMLResponse, Response
+from datetime import date
+
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -740,6 +742,98 @@ def create_journals_routes(
             filename=filename,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
+
+    # ------------------------------------------------------------------
+    # GET /journals/daily/{date_str}  — find-or-create daily note
+    # GET /journals/weekly/{year}/{week} — find-or-create weekly note
+    # GET /journals/monthly/{year}/{month} — find-or-create monthly note
+    #
+    # These must be declared before the {entry_uid} catch-all below.
+    # FastHTML resolves routes in declaration order.
+    # ------------------------------------------------------------------
+
+    @rt("/journals/daily/{date_str}", methods=["GET"])
+    async def journal_daily_note(request: Request, date_str: str) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            target_date = date.today()
+        uid = f"ue:daily:{target_date.isoformat()}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Daily Note: {target_date.strftime('%A, %B %d, %Y')}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "daily", "period_key": target_date.isoformat()},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
+
+    @rt("/journals/weekly/{year}/{week}", methods=["GET"])
+    async def journal_weekly_note(request: Request, year: int, week: int) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        uid = f"ue:weekly:{year}-W{week:02d}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Weekly Note: W{week}, {year}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "weekly", "period_key": f"{year}-W{week:02d}"},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
+
+    @rt("/journals/monthly/{year}/{month}", methods=["GET"])
+    async def journal_monthly_note(request: Request, year: int, month: int) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        uid = f"ue:monthly:{year}-{month:02d}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            month_name = date(year, month, 1).strftime("%B")
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Monthly Note: {month_name} {year}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "monthly", "period_key": f"{year}-{month:02d}"},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
 
     # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
