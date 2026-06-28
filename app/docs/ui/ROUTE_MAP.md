@@ -133,20 +133,22 @@ Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Av
 
 ### `/journals`
 
-Journal domain landing page in the Tasks+ sidebar. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py`.
+Journal domain. Upload landing at `/journals`; dedicated chat session at `/journals/{entry_uid}`. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py` + `ui/journals/chat_page.py`.
 
 **FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
 
 **Routes:**
-- `GET  /journals` — tier-aware landing; FOUNDER renders the entry form, STANDARD renders a placeholder
-- `POST /journals/upload` — file/folder upload handler; returns transcript review (FOUNDER) or status card (STANDARD)
+- `GET  /journals` — tier-aware landing (Tasks+ sidebar); upload form for file/folder
+- `POST /journals/upload` — file/folder upload handler; redirects to `/journals/{uid}` after processing (`HX-Redirect`)
+- `GET  /journals/{entry_uid}` — dedicated chat page (Askesis-inspired sidebar + workspace); initial workspace selected by `entry.pipeline` + `processed_file_path`
+- `GET  /journals/je-out/{filename}` — download a compiled je_out file (user-scoped, ownership-guarded)
 - `POST /journals/respond` — STANDARD tier single AI response (`@csrf_protected`)
 - `POST /journals/follow-up` — reply to an AI response (`@csrf_protected`)
 - `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (`@csrf_protected`)
 - `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
 - `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
 
-Stages 1–3 return HTMX fragments that swap `#journal-workspace`; each stage shows the AI output and a review-notes textarea before the user proceeds. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`.
+Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` on the chat page. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`. Compiled je_out files are persisted via `UserEntry.processed_file_path`; the chat page shows the "automatically saved" banner when this field is set.
 
 ### `/tasks`, `/goals`
 
