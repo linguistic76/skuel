@@ -5,7 +5,7 @@ Calendar UI Routes
 Page views and HTMX fragment endpoints for the calendar.
 
 Routes:
-    GET /events                                            — Default (current month)
+    GET /events/calendar                                    — Redirect to current month
     GET /events/month/{year}/{month}                       — Month view shell
     GET /events/month/{year}/{month}/content               — Month grid fragment
     GET /events/week/{date_str}                            — Week view shell
@@ -29,6 +29,7 @@ from fasthtml.common import (
     Script,
 )
 from monsterui.franken import Button, ButtonT
+from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -45,6 +46,7 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
+from ui.activities.nav import render_activity_sidebar_page
 from ui.calendar.components import (
     create_day_timeline,
     create_item_details_modal,
@@ -56,8 +58,6 @@ from ui.calendar.components import (
 )
 from ui.feedback import Alert, AlertT
 from ui.layout import Container
-from ui.layouts.base_page import BasePage
-from ui.layouts.page_types import PageType
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
@@ -72,17 +72,13 @@ logger = get_logger("skuel.routes.calendar")
 
 
 async def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
-    """Wrap calendar content in BasePage for consistent document structure.
-
-    Uses BasePage to get shared head (PWA, service worker, etc.) plus calendar CSS.
-    """
-    return await BasePage(
+    """Wrap calendar content in the activity sidebar page layout."""
+    return await render_activity_sidebar_page(
         content=Div(content, **{"x-data": "calendarPage()"}),
-        title=title,
-        page_type=PageType.CUSTOM,
+        active="events",
         request=request,
-        active_page="events",
         extra_css=["/static/css/calendar.css"],
+        title=title,
     )
 
 
@@ -102,6 +98,13 @@ _get_next_day = next_day
 
 def create_calendar_ui_routes(_app, rt, calendar_service):
     """Register calendar page and HTMX fragment routes."""
+
+    @rt("/events/calendar")
+    async def calendar_today(request: Request) -> Any:
+        """Entry point — redirect to current month calendar view."""
+        require_authenticated_user(request)
+        today = date.today()
+        return RedirectResponse(f"/events/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/events/month/{year}/{month}")
     async def calendar_month(request: Request, year: int, month: int) -> Any:
