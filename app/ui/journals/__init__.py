@@ -576,6 +576,21 @@ def FollowUpFragment(
     )
 
 
+def FollowUpErrorFragment(message: str) -> Any:
+    """Error notification appended to #journal-thread when a follow-up call fails.
+
+    Unlike ErrorFragment, this carries no id and no workspace-level swap — it is
+    appended via hx-swap="beforeend" and sits inline in the conversation thread.
+    """
+    from monsterui.franken import UkIcon
+
+    return Div(
+        UkIcon("alert-circle", height=15, width=15, cls="text-destructive flex-shrink-0"),
+        P(message, cls="text-sm text-destructive"),
+        cls="flex items-center gap-2 py-3 px-1 text-destructive",
+    )
+
+
 def ErrorFragment(message: str) -> Any:
     """Error state fragment for any stage failure."""
     return Div(

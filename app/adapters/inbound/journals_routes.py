@@ -778,15 +778,15 @@ def create_journals_routes(
         The conversation thread grows without replacing the workspace.
         """
         from core.models.enums.user_enums import JournalMode
-        from ui.journals import ErrorFragment, FollowUpFragment
+        from ui.journals import FollowUpErrorFragment, FollowUpFragment
 
         user_uid = require_authenticated_user(request)
 
         if not user_reply or not user_reply.strip():
-            return ErrorFragment("Please write something before sending.")
+            return FollowUpErrorFragment("Please write something before sending.")
 
         if journal_service is None:
-            return ErrorFragment("Journal AI features are not available (CORE tier).")
+            return FollowUpErrorFragment("Journal AI features are not available (CORE tier).")
 
         mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_follow_up(
@@ -798,7 +798,7 @@ def create_journals_routes(
         )
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
-            return ErrorFragment("Could not generate a response. Please try again.")
+            return FollowUpErrorFragment("Could not generate a response. Please try again.")
 
         # Accumulate conversation context so further follow-ups have the full history.
         combined = (
