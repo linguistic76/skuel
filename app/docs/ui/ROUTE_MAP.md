@@ -59,7 +59,7 @@ is a "Self-Assessment" section on each activity detail page → `POST /{domain}/
 
 ### `/home` — Post-Login Landing Hub
 
-No `UserContext` on the page itself. Three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab; Settings button in footer. `/submissions`, `/gradebook`, `/library` render the same `HomeHub()` with the matching tab pre-selected via the `active_tab` param. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
+Legacy hub superseded. `/submissions`, `/gradebook`, and `/library` are now standalone MOC root pages (sidebar-free 2×2 card grids). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
 
 Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path.
 
@@ -83,17 +83,26 @@ Flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking).
 
 ### `/gradebook`
 
-Renders `HomeHub(active_tab='gradebook')` — GradeBook tab pre-selected; block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`). Child pages use `SidebarPage` with GradeBook sidebar; nav defined in `ui/gradebook/nav.py`.
+MOC root page (no sidebar) — three cards linking to the three GradeBook sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`gradebook_moc`). Child pages use `SidebarPage` with GradeBook sidebar; nav defined in `ui/gradebook/nav.py`.
 
-Study sub-pages — `/entry-reports`, `/entry-reports/detail`, `/activity-reports`, `/submit-activity-report`, `/revised-exercises`, `/revised-exercises/detail` — use `SidebarPage` via GradeBook sidebar.
+- `/entry-reports` — AI and teacher feedback on submitted exercises and journals; detail at `/entry-reports/detail`.
+- `/activity-reports` — Holistic reports aggregating activity patterns and progress; submit at `/submit-activity-report`.
+- `/revised-exercises` — Exercises returned for revision with teacher comments; detail at `/revised-exercises/detail`.
+
+All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry`.
 
 ### `/library`
 
-Renders `HomeHub(active_tab='library')` — Library tab pre-selected; block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`). Child pages use `SidebarPage` with Library sidebar; nav defined in `ui/library/nav.py`.
+MOC root page (no sidebar) — four cards linking to the four Library sub-pages. Defined in `adapters/inbound/library_ui.py` (`library_moc`). Child pages use `SidebarPage` with Library sidebar; nav defined in `ui/library/nav.py`.
+
+- `/library/exercises` — exercises assigned via group membership, with submission and feedback status.
+- `/library/resources` — admin-curated content (books, talks, films, podcasts, articles).
+- `/library/ku` — user's bookmarked atomic knowledge units.
+- `/library/path-steps` — user's enrolled path steps.
 
 ### `/submissions`
 
-MOC root page (no sidebar) — four cards linking to the four Submissions sub-pages. Defined in `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
+MOC root page (no sidebar) — four cards linking to the four Submissions sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
 - `/submissions/exercise` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon). Legacy `/submit` 302-redirects here.
 - `/submissions/journal` — journal file-upload UX (Processing → Source → Browse → Process); alternative entry point to `/journals`.

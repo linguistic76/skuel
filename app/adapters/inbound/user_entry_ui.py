@@ -11,6 +11,7 @@ Routes:
 - GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
 - GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
+- GET  /gradebook                        — MOC root: links to Entry Reports, Activity Reports, Revised Exercises
 - GET  /gradebook/{uid}                  — Submission detail page
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
@@ -522,6 +523,74 @@ def create_user_entry_ui_routes(
         return _render_entry_responses(responses)
 
     # =========================================================================
+    # GRADEBOOK MOC ROOT
+    # =========================================================================
+
+    @rt("/gradebook")
+    async def gradebook_moc(request: Request) -> Any:
+        """GradeBook MOC — links to all 3 sub-pages, no sidebar."""
+        require_authenticated_user(request)
+
+        def _moc_card(
+            title: str,
+            description: str,
+            href: str,
+            icon: str,
+            icon_bg: str = "bg-muted",
+        ) -> Any:
+            return A(
+                Div(
+                    Div(
+                        UkIcon(icon, height=28, width=28),
+                        cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
+                    ),
+                    H2(title, cls="text-lg font-semibold mb-1"),
+                    P(description, cls="text-sm text-muted-foreground"),
+                    cls="p-6",
+                ),
+                href=href,
+                cls=(
+                    "block border border-border rounded-2xl bg-card "
+                    "hover:border-primary/40 hover:shadow-md transition-all duration-150"
+                ),
+            )
+
+        content = Div(
+            PageHeader("GradeBook", subtitle="Review your feedback, reports, and revised work"),
+            Div(
+                _moc_card(
+                    "Entry Reports",
+                    "AI and teacher feedback on your submitted exercises and journals.",
+                    "/entry-reports",
+                    "clipboard-check",
+                    "bg-blue-50",
+                ),
+                _moc_card(
+                    "Activity Reports",
+                    "Holistic reports aggregating your activity patterns and progress.",
+                    "/activity-reports",
+                    "bar-chart-2",
+                    "bg-amber-50",
+                ),
+                _moc_card(
+                    "Revised Exercises",
+                    "Exercises returned for revision with teacher comments and scoring.",
+                    "/revised-exercises",
+                    "refresh-cw",
+                    "bg-emerald-50",
+                ),
+                cls="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6",
+            ),
+        )
+
+        return await BasePage(
+            content=content,
+            title="GradeBook",
+            request=request,
+            active_page="gradebook",
+        )
+
+    # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
     # =========================================================================
 
@@ -628,6 +697,7 @@ def create_user_entry_ui_routes(
         delete_submission,
         download_journal,
         respond_to_entry,
+        gradebook_moc,
         submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}
     ]
 
