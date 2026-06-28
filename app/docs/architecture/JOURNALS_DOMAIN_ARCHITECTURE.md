@@ -139,7 +139,9 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 
 These folders are **pipeline artifacts**, not vault content. The vault sync path (`/settings/vault`) skips all four unconditionally.
 
-The main upload path (`/journals` → "Upload files" tab, FOUNDER tier) **writes the compiled AI output directly to `je_out/{stem}_out.md`** and returns a download fragment — the AI response is a file, not a profile record. The user opens the `_out` file in Obsidian and manually extracts what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
+The main upload path (`/journals` → "Upload files" tab, FOUNDER tier) **writes the compiled AI output to `je_out/{user_uid}/{stem}_out.md`** and returns a download fragment — the AI response is a file, not a profile record. The user opens the `_out` file in Obsidian and manually extracts what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
+
+The user-scoped subdirectory (`je_out/{user_uid}/`) prevents filename collisions across users and enforces ownership at the download endpoint implicitly — `GET /journals/je-out/{filename}` resolves within the authenticated user's subdirectory only.
 
 The `_out` suffix convention (`{stem}_out.md`) distinguishes processed output from raw input at a glance. All three write paths (single file upload, `transcribe_and_instructions`, `instructions_only` folder batch) use this convention.
 
