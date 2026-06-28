@@ -29,27 +29,19 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ### Top-Level Navigation Structure
 
-The navbar provides five entry points. Three share a unified tabbed hub, one is a static container hub, and one is a personal overview:
-
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/home` | Tabbed hub (default: Submissions tab) | Submissions blocks, GradeBook blocks, Library blocks |
-| `/submissions` | Tabbed hub (Submissions tab active) | Same as `/home` — Submissions tab pre-selected |
-| `/gradebook` | Tabbed hub (GradeBook tab active) | Same as `/home` — GradeBook tab pre-selected |
-| `/library` | Tabbed hub (Library tab active) | Same as `/home` — Library tab pre-selected |
+| `/submissions` | MOC root (sidebar-free card hub) | Exercise, Journal, Sync, History |
+| `/gradebook` | MOC root (sidebar-free card hub) | Entry Reports, Activity Reports, Revised Exercises |
+| `/library` | MOC root (sidebar-free card hub) | Exercises, Resources, Ku, Path Steps |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
 | `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks) |
 
-### Unified Tabbed Hub (`/home`, `/submissions`, `/gradebook`, `/library`)
+### MOC Root Pages (`/submissions`, `/gradebook`, `/library`)
 
-All four pages render `HomeHub(active_tab=...)` from `ui/home_hub.py`. The Alpine.js `x-data` initializes with the correct tab pre-selected. Clicking a different tab switches instantly (client-side, no page reload).
+Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`, `gradebook_moc`) and `adapters/inbound/library_ui.py` (`library_moc`).
 
-Each tab shows a `HubDomainBlockList` populated by a `*_BLOCKS` constant:
-- **Exercises tab** — `SUBMISSIONS_BLOCKS` from `ui/workbench/hub.py`: Submit Exercise, Exercises
-- **GradeBook tab** — `GRADEBOOK_BLOCKS` from `ui/gradebook/hub.py`: Entry Reports, Activity Reports, Revisions
-- **Library tab** — `LIBRARY_BLOCKS` from `ui/library/hub.py`: Exercises, Submission History, Resources, Ku, Path Steps
-
-Visiting any of the four URLs lands you on the same interface with the appropriate tab highlighted. Child pages use `SidebarPage` for within-section navigation.
+Child pages use `SidebarPage` for within-section navigation. Sidebar `title_href` links back to the MOC root (e.g. `/library`, `/gradebook`, `/submissions`).
 
 ### Static Container Hub (Teaching)
 
@@ -61,14 +53,14 @@ Visiting any of the four URLs lands you on the same interface with the appropria
 
 - **Activity Domains** — embedded directly in `/profile` as 6 HTMX lazy-loaded preview blocks. Activity sidebar (shared across `/tasks`, `/goals`, etc.) links back to `/profile`.
 
-### Library Data Pattern
+### Library Sub-Page Data Pattern
 
-Library tabs show **user-specific filtered content**, not full listings:
+Library sub-pages show **user-specific filtered content**, not full listings:
 
-- **Ku tab** (`/library/ku`) — Only the user's bookmarked (PINNED) Ku, fetched via `backend.get_many()` with pinned UIDs from `UserRelationshipService.get_pinned_entities()`.
-- **Path Steps tab** (`/library/path-steps`) — Only enrolled (IN_PROGRESS) steps, fetched via `backend.get_many()` with enrolled UIDs from `PsMasteryService.get_in_progress_step_uids()`.
-- **Exercises tab** (`/library/exercises`) — Exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`: assigned (via group) + personal (linked to IN_PROGRESS PathSteps).
-- **Resources tab** (`/library/resources`) — All `Resource` entities (admin-curated, shared).
+- **Ku** (`/library/ku`) — Only the user's bookmarked (PINNED) Ku, fetched via `backend.get_many()` with pinned UIDs from `UserRelationshipService.get_pinned_entities()`.
+- **Path Steps** (`/library/path-steps`) — Only enrolled (IN_PROGRESS) steps, fetched via `backend.get_many()` with enrolled UIDs from `PsMasteryService.get_in_progress_step_uids()`.
+- **Exercises** (`/library/exercises`) — Exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`: assigned (via group) + personal (linked to IN_PROGRESS PathSteps).
+- **Resources** (`/library/resources`) — All `Resource` entities (admin-curated, shared).
 
 **Key principle:** Fetch only what the user needs by UID, not all entities with arbitrary limits.
 

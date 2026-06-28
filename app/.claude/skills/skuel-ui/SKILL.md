@@ -95,7 +95,7 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 | `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
 | `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
 | `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
-| `/submissions` | Submissions hub | `STANDARD` | `HomeHub(active_tab='submissions')` — same tabbed interface as `/home` |
+| `/submissions` | Submissions MOC root | `STANDARD` | Sidebar-free 2×2 card hub linking to Exercise, Journal, Sync, History |
 
 ```python
 from ui.layouts.page_types import PageType
@@ -438,14 +438,14 @@ When building a new SKUEL page or feature, verify:
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
-| `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for Submissions tab in `HomeHub` |
+| `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for HTMX preview endpoints |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
-| `/adapters/inbound/user_entry_ui.py` | Submission preview + history endpoints, journal submit/browse/download (the `/submissions` hub root is a `/profile?tab=submissions` tab) |
+| `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_moc` (MOC root), submission preview + history endpoints, journal submit/browse/download |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
-| `/adapters/inbound/library_ui.py` | `/library` sidebar pages + dual-purpose routes: `/library/exercises` (status-aware, uses `ExerciseStatusRow`), `/library/resources`, `/library/ku` (PINNED only, fetched via `backend.get_many()` by pinned UIDs), `/library/path-steps` (IN_PROGRESS only, fetched via `backend.get_many()` by enrolled UIDs). Exercise status helpers extracted to `ui/learning_loop/exercise_status.py` |
+| `/adapters/inbound/library_ui.py` | `library_moc` (MOC root at `/library`) + sidebar sub-pages: `/library/exercises` (status-aware), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only). Exercise status helpers in `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/explore_ui.py` | Reading-first `/explore` surface + `/explore/library` catalog + `/explore/read/{uid}` alias + API routes. PS/Ku detail pages and learning loop fragments are in `learning_loop_routes.py`. |
 | `/adapters/inbound/user_entry_routes.py` | UserEntry hub orchestrator (`create_user_entry_routes`) — wires user_entry_ui, entry_reports_ui, activity_reports_ui, revised_exercises_ui sub-factories |
 | `/ui/learning_loop/` | Shared learning loop renderers: `exercise_status.py` (status pills, action links, exercise list), `submissions_section.py` (PS submissions), `feedback_section.py` (PS feedback) |
