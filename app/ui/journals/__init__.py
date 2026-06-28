@@ -245,25 +245,125 @@ def Stage3Fragment(
 def StandardResponseFragment(
     raw_entry: str, title: str, response_output: str, mode: "JournalMode | None" = None
 ) -> Any:
-    """Fragment returned after a STANDARD tier journal response."""
+    """Askesis-style response: avatar header, prose body, Copy icon, inline reply composer.
+
+    The reply form posts original_entry + ai_response + user_reply as separate named
+    fields to /journals/follow-up — no client-side combining needed, HTMX reads
+    static values reliably.
+    """
+    import json as _json
+
     from core.models.enums.user_enums import JournalMode
+    from monsterui.franken import UkIcon
 
     resolved = mode or JournalMode.default()
-    card_title = f"Journal Response — {resolved.display_label()}"
+    label = f"Journal Response — {resolved.display_label()}"
+
+    # Alpine state: clipboard only — form fields are plain inputs, no reactive binding.
+    alpine_data = (
+        "{ copied: false,"
+        f" responseText: {_json.dumps(response_output)},"
+        "  copy() { navigator.clipboard.writeText(this.responseText)"
+        "    .then(() => { this.copied = true;"
+        "      setTimeout(() => this.copied = false, 2000); }); } }"
+    )
+
     return Div(
-        Card(
-            CardHeader(CardTitle(card_title)),
-            CardBody(
-                P(
-                    response_output,
-                    cls="text-sm whitespace-pre-wrap leading-relaxed",
+        # ── Avatar + mode label ──────────────────────────────────────────
+        Div(
+            Div(
+                "J",
+                cls=(
+                    "w-[30px] h-[30px] rounded-full bg-foreground text-background"
+                    " flex items-center justify-center text-sm font-bold flex-shrink-0"
                 ),
             ),
-            cls="mb-6",
+            Span(label, cls="text-[13px] font-semibold text-muted-foreground"),
+            cls="flex items-center gap-3 mb-4",
         ),
-        _SaveBar(raw_entry=raw_entry, title=title),
+        # ── Response prose ───────────────────────────────────────────────
+        P(
+            response_output,
+            cls="text-[15px] leading-[1.75] text-foreground whitespace-pre-wrap mb-4",
+        ),
+        # ── Action bar: Copy · Add to Journal ───────────────────────────
+        Div(
+            Button(
+                UkIcon("copy", height=15, width=15),
+                type="button",
+                aria_label="Copy response",
+                cls=(
+                    "w-[30px] h-[30px] flex items-center justify-center rounded-[7px]"
+                    " text-muted-foreground hover:bg-muted hover:text-foreground"
+                    " transition-colors"
+                ),
+                **{"@click": "copy()"},  # boundary: fasthtml-elements
+            ),
+            Span(
+                "Copied!",
+                cls="text-xs text-green-600",
+                **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
+            ),
+            Div(cls="flex-1"),
+            Button(
+                "Add to Journal",
+                type="button",
+                cls="text-xs text-muted-foreground hover:text-foreground cursor-pointer",
+                hx_post="/journals/save",
+                hx_target="#journal-workspace",
+                hx_swap="outerHTML",
+                hx_vals=_json.dumps({"raw_entry": raw_entry, "title": title}),
+            ),
+            cls="flex items-center gap-2 pb-4 mb-6 border-b border-border",
+        ),
+        # ── Reply composer — server combines context, no Alpine binding ──
+        Form(
+            Input(type="hidden", name="original_entry", value=raw_entry),
+            Input(type="hidden", name="ai_response", value=response_output),
+            Input(type="hidden", name="title", value=title),
+            Input(type="hidden", name="journal_mode", value=resolved.value),
+            Div(
+                Textarea(
+                    placeholder="Follow up on this response…",
+                    name="user_reply",
+                    rows="3",
+                    required=True,
+                    cls=(
+                        "w-full border-none outline-none bg-transparent resize-none"
+                        " text-[15px] leading-[1.6] text-foreground"
+                        " placeholder:text-muted-foreground"
+                    ),
+                ),
+                Div(
+                    P(
+                        "Thinking…",
+                        id="journal-reply-loading",
+                        cls="text-sm text-muted-foreground htmx-indicator",
+                    ),
+                    Button(
+                        UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+                        type="submit",
+                        aria_label="Send follow-up",
+                        cls=(
+                            "w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                            " bg-foreground hover:bg-foreground/80 transition-colors"
+                        ),
+                    ),
+                    cls="flex items-center justify-end gap-3 mt-2",
+                ),
+                cls=(
+                    "border border-border rounded-[25px]"
+                    " px-[18px] pt-3 pb-3 bg-background shadow-sm"
+                ),
+            ),
+            hx_post="/journals/follow-up",
+            hx_target="#journal-workspace",
+            hx_swap="outerHTML",
+            hx_indicator="#journal-reply-loading",
+        ),
         id="journal-workspace",
         cls="p-6",
+        **{"x-data": alpine_data},
     )
 
 
