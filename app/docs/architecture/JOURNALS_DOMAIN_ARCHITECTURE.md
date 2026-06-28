@@ -32,7 +32,7 @@ Journals STANDARD:  (no gate)     → UserContext digest + entry → JournalMode
 Journals FOUNDER:   (no gate)     → UserContext digest + entry + curriculum dev + biz dev     → 3-stage DNWF → outputs
 ```
 
-**UserContext digest:** `JournalService.build_context_summary()` builds a lightweight text digest with four sections: up to 6 active titles each from Goals, Tasks, and Habits; plus a "Personal project notes" section of up to 8 vault-synced notes (title + 300-char snippet, newest first). Vault notes are `pipeline=journal` UserEntry nodes whose `metadata["vault_file_path"]` marks them as synced from `VAULT_ROOT` rather than created via the journals UI. This is NOT the full UserContext object; it is a targeted life-context snapshot. The three domain services (Goals, Tasks, Habits) are optional and degrade gracefully to empty; `UserEntryService` is required and always present.
+**UserContext digest:** `JournalService._build_context_summary()` builds a lightweight text digest with four sections: up to 6 active titles each from Goals, Tasks, and Habits; plus a "Personal project notes" section of up to 8 vault-synced notes (title + 300-char snippet, newest first). Vault notes are `pipeline=journal` UserEntry nodes whose `metadata["vault_file_path"]` marks them as synced from `VAULT_ROOT` rather than created via the journals UI. This is NOT the full UserContext object; it is a targeted life-context snapshot. The three domain services (Goals, Tasks, Habits) are optional and degrade gracefully to empty; `UserEntryService` is required and always present.
 
 **JournalMode vs GuidanceMode:** JournalMode selects the companion's *function* — what the AI does with the entry. Tone is uniform across all modes. This differs from GuidanceMode in Askesis, which selects both the pedagogical register and the interaction strategy.
 
@@ -116,13 +116,13 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 | Component | File | Responsibility |
 |---|---|---|
-| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods (`run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`) + `save_entry` (service-level only — no UI route). `run_compiled()` is the file-upload batch path: chains all three stages without review gates. |
+| `JournalService` | `core/services/journal/journal_service.py` | Orchestrates both tiers. Six AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. `run_compiled()` is the file-upload batch path: chains all three stages without review gates. Entry persistence is handled by the ingestion path in the calling route, not by this service. |
 | `instruction_loader` | `core/services/journal/instruction_loader.py` | Prompt composition. STANDARD prompts are inline; FOUNDER stages load from `data/instructions/`. |
 | Routes | `adapters/inbound/journals_routes.py` | 8 routes. FOUNDER enforcement (`journal_tier.is_founder()`) lives at the route layer. No browse or save routes — journals flow through SKUEL and are not stored from the response screen. |
 | `JournalTier`, `JournalMode` | `core/models/enums/user_enums.py` | Tier and mode enum definitions. |
 | `Pipeline.JOURNAL` | `core/models/enums/pipeline.py` | Pipeline discriminator for all journal UserEntries. |
 
-`JournalService` takes `LLMCallerProtocol` + `UserEntryService` (required) and `GoalsService` / `TasksService` / `HabitsService` (all optional — omitting them degrades `build_context_summary()` to empty string).
+`JournalService` takes `LLMCallerProtocol` + `UserEntryService` (required) and `GoalsService` / `TasksService` / `HabitsService` (all optional — omitting them degrades `_build_context_summary()` to empty string).
 
 ---
 
@@ -180,7 +180,7 @@ class JournalInsight:
 
 ## 10. Roadmap
 
-- **Richer UserContext injection** — `build_context_summary()` pulls titles from Goals/Tasks/Habits (up to 6 each) and vault note snippets (up to 8). A future version could include habit completion rates, task priorities, goal timeframes, and recent activity for richer context.
+- **Richer UserContext injection** — `_build_context_summary()` pulls titles from Goals/Tasks/Habits (up to 6 each) and vault note snippets (up to 8). A future version could include habit completion rates, task priorities, goal timeframes, and recent activity for richer context.
 - **WHAT_IS_RELATED + curriculum graph** — Stage 3 currently has no graph query capability. A future enhancement could let it query Neo4j for related KUs and PathSteps, making connection suggestions concrete rather than inferred.
 - **ZPD signal loop** — `JournalInsight` extraction → `UserContext.journal_insights` → Askesis reads on session open. See `ASKESIS_PEDAGOGICAL_ARCHITECTURE.md §3` for the full Phase 2/3 design.
 - **Per-user journal tier configuration** — `JournalTier` is designed to be extensible. The FOUNDER pilot paves the path for user-configurable journal workflow depth without code changes.
