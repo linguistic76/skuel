@@ -387,15 +387,8 @@ def FileOutputFragment(
                 UkIcon("file-check", height=18, width=18, cls="text-green-600 flex-shrink-0"),
                 Div(
                     P(
-                        f"Saved to je_out/{output_filename}",
+                        "Your file is automatically saved in your Journal Output folder.",
                         cls="text-sm font-semibold",
-                    ),
-                    P(
-                        # Vault boundary: je_out is never auto-synced to your vault.
-                        # You decide what content crosses from je_out into your vault.
-                        "Open in Obsidian to review. je_out/ is not synced to your vault — "
-                        "you decide what to keep.",
-                        cls="text-xs text-muted-foreground mt-0.5",
                     ),
                     cls="flex-1 min-w-0",
                 ),
@@ -427,11 +420,6 @@ def FileOutputFragment(
             ),
             Span("Daily Notes Workflow", cls="text-[13px] font-semibold text-muted-foreground"),
             cls="flex items-center gap-3 mb-4",
-        ),
-        # ── Compiled output preview ──────────────────────────────────────
-        P(
-            response_output,
-            cls="text-[14px] leading-[1.75] text-foreground whitespace-pre-wrap mb-4",
         ),
         # ── Action bar: Copy ─────────────────────────────────────────────
         Div(
