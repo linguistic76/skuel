@@ -295,31 +295,36 @@ def create_journals_routes(
                                 text_content, user_uid
                             )
                             if not compiled_result.is_error:
-                                from fasthtml.common import to_xml
-
-                                from ui.journals import FileOutputFragment
-
                                 # Save compiled output to je_out/{user_uid}/{stem}_out.md.
                                 # User-scoped subdirectory prevents filename collisions across
                                 # users and enforces ownership at the download endpoint.
                                 stem = Path(filename).stem
-                                output_filename = f"{stem}_out.md"
+                                # Entry UID suffix prevents collisions when the same
+                                # basename is uploaded more than once.
+                                output_filename = f"{stem}_{entry.uid}_out.md"
                                 user_out_dir = _JE_OUT / user_uid
                                 user_out_dir.mkdir(parents=True, exist_ok=True)
-                                (user_out_dir / output_filename).write_text(
-                                    compiled_result.value, encoding="utf-8"
+                                output_path = user_out_dir / output_filename
+                                output_path.write_text(compiled_result.value, encoding="utf-8")
+                                persist_result = await user_entry_service.update_processed_content(
+                                    entry.uid,
+                                    compiled_result.value,
+                                    processed_file_path=str(output_path),
                                 )
-                                fragment = FileOutputFragment(
-                                    title=title,
-                                    output_filename=output_filename,
-                                    response_output=compiled_result.value,
-                                )
+                                if persist_result.is_error:
+                                    logger.error(
+                                        "Failed to persist processed content for %s: %s",
+                                        entry.uid,
+                                        persist_result.expect_error(),
+                                    )
+                                    return render_journal_upload_status(
+                                        "error",
+                                        "Journal processed but could not save output — please try again.",
+                                        is_error=True,
+                                    )
                                 return HTMLResponse(
-                                    content=to_xml(fragment),
-                                    headers={
-                                        "HX-Retarget": "#journal-workspace",
-                                        "HX-Reswap": "outerHTML",
-                                    },
+                                    status_code=200,
+                                    headers={"HX-Redirect": f"/journals/{entry.uid}"},
                                 )
                             logger.error(
                                 "Compiled DNWF failed for %s: %s",
@@ -327,6 +332,9 @@ def create_journals_routes(
                                 compiled_result.expect_error(),
                             )
 
+                    # Fallthrough: CORE tier (no journal_service), empty file, or LLM error.
+                    # Entry exists but has no processed content — show a status card so the
+                    # user isn't stranded on a permanent spinner at /journals/{uid}.
                     return render_journal_upload_status(
                         _status_value(entry),
                         f"Journal entry created: {entry.title}",
@@ -362,10 +370,6 @@ def create_journals_routes(
                         and user_result.value.journal_tier.is_founder()
                     )
                     if is_founder:
-                        from fasthtml.common import to_xml
-
-                        from ui.journals import TranscriptReviewFragment
-
                         process_result = await processing_service.process(entry)
                         if process_result.is_error:
                             logger.error(
@@ -378,24 +382,13 @@ def create_journals_routes(
                                 "Transcription failed — please try again.",
                                 is_error=True,
                             )
-                        transcript = (
-                            process_result.value.processed_content or ""
-                            if process_result.value is not None
-                            else ""
-                        )
-
-                        fragment = TranscriptReviewFragment(
-                            transcript=transcript,
-                            title=title,
-                        )
                         return HTMLResponse(
-                            content=to_xml(fragment),
-                            headers={
-                                "HX-Retarget": "#journal-workspace",
-                                "HX-Reswap": "outerHTML",
-                            },
+                            status_code=200,
+                            headers={"HX-Redirect": f"/journals/{entry.uid}"},
                         )
 
+                # STANDARD tier: transcription is async — no content on the entry yet.
+                # Return a status card so the user isn't stranded on a permanent spinner.
                 return render_journal_upload_status(
                     _status_value(entry),
                     f"Journal entry created: {entry.title}",
@@ -627,6 +620,100 @@ def create_journals_routes(
             media_type="text/markdown; charset=utf-8",
             filename=filename,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # ------------------------------------------------------------------
+    # GET /journals/{entry_uid} — dedicated journal session page
+    # ------------------------------------------------------------------
+
+    @rt("/journals/{entry_uid}", methods=["GET"])
+    async def journal_chat(request: Request, entry_uid: str) -> Any:
+        """Dedicated chat page for a journal entry."""
+        from ui.journals import FileOutputFragment, TranscriptReviewFragment
+        from ui.journals.chat_page import JournalChatPage
+
+        user_uid = require_authenticated_user(request)
+
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+
+        from adapters.inbound.result_helpers import require_found
+        from core.utils.result_simplified import ErrorCategory
+
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        found = require_found(entry_result, "Journal entry", entry_uid)
+        if found.is_error:
+            err = found.expect_error()
+            status = 404 if err.category == ErrorCategory.NOT_FOUND else 500
+            return Response("Not found" if status == 404 else "Service error", status_code=status)
+        entry = found.value
+
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return Response("Could not load user", status_code=500)
+        user = user_result.value
+
+        _journal_pipelines = {
+            Pipeline.LLM_SUMMARY,
+            Pipeline.TRANSCRIBE,
+            Pipeline.TRANSCRIBE_AND_STRUCTURE,
+        }
+        recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
+        recent_entries = [
+            e
+            for e in (recent_result.value if recent_result.is_ok else [])
+            if e.pipeline in _journal_pipelines
+        ][:30]
+
+        if entry.processed_file_path:
+            initial_workspace = FileOutputFragment(
+                title=entry.title or "",
+                output_filename=Path(entry.processed_file_path).name,
+                response_output=entry.processed_content or "",
+            )
+        elif entry.processed_content:
+            from ui.journals import StandardResponseFragment
+
+            _transcript_pipelines = {Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
+            if entry.pipeline in _transcript_pipelines:
+                initial_workspace = TranscriptReviewFragment(
+                    transcript=entry.processed_content,
+                    title=entry.title or "",
+                )
+            else:
+                initial_workspace = StandardResponseFragment(
+                    raw_entry="",
+                    title=entry.title or "",
+                    response_output=entry.processed_content,
+                )
+        else:
+            from fasthtml.common import Div as _Div, P as _P
+
+            initial_workspace = _Div(
+                _P("Processing…", cls="text-sm text-muted-foreground"),
+                id="journal-workspace",
+                cls="p-6",
+            )
+
+        page_content = JournalChatPage(
+            entry=entry,
+            recent_entries=recent_entries,
+            initial_workspace=initial_workspace,
+            user=user,
+        )
+
+        if request.headers.get("HX-Request"):
+            return page_content
+
+        from ui.layouts.base_page import BasePage
+        from ui.layouts.page_types import PageType
+
+        return await BasePage(
+            content=page_content,
+            title=entry.title or "Journal",
+            page_type=PageType.CUSTOM,
+            request=request,
+            active_page="journals",
         )
 
     # ------------------------------------------------------------------

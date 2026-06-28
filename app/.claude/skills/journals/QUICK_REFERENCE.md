@@ -52,7 +52,7 @@ class JournalTier(str, Enum):
 |---|---|
 | `core/services/journal/journal_service.py` | `JournalService` — 6 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 9 routes — incl. `GET /journals/je-out/{filename}` (download compiled output from `je_out/`) |
+| `adapters/inbound/journals_routes.py` | 10 routes — upload redirects to `GET /journals/{entry_uid}` (dedicated chat page); `GET /journals/je-out/{filename}` downloads compiled output |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
@@ -63,7 +63,9 @@ class JournalTier(str, Enum):
 
 ```python
 # File-upload path: input content persisted as Pipeline.LLM_SUMMARY (not Pipeline.JOURNAL).
-# AI output is NOT persisted to Neo4j — saved to je_out/{stem}_out.md as a file instead.
+# Compiled AI output IS persisted: update_processed_content() writes processed_content +
+# processed_file_path to the UserEntry; je_out/{user_uid}/{stem}_out.md is also written to disk.
+# The GET /journals/{entry_uid} chat page reads processed_file_path to show the download banner.
 Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces privacy
                                    # for any legacy entries; new entries use LLM_SUMMARY
 ```
