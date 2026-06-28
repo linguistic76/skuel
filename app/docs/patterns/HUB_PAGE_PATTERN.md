@@ -19,7 +19,7 @@ This document covers *how to build one*.
 
 **Home** (`/home`) is the **post-login landing hub** — a three-tab interface (Submissions / GradeBook / Library) with HTMX-loaded domain blocks per tab and a Settings footer. `/submissions`, `/gradebook`, and `/library` render the same `HomeHub(active_tab=...)` with the matching tab pre-selected. Hub view in `ui/home_hub.py`.
 
-**Profile** (`/profile`) is the **personal overview hub** — Focus/Velocity indicators, Activity Domains (6 HTMX lazy-loaded preview blocks inline), the Nous community feed placeholder, and Settings. The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Profile** (`/profile`) is the **personal overview hub** — Activity Domains (6 HTMX lazy-loaded preview blocks inline) and three tabs (Exercises / Library / GradeBook). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
 Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
 
@@ -267,17 +267,9 @@ Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizer
 
 ## Usage: Profile Hub (Personal Overview)
 
-Profile renders personal state from `UserContext`:
+Profile renders via `ProfileHubView(active_tab)` — no UserContext on the critical path. The route only calls `require_authenticated_user(request)` for auth, then renders the tab layout directly.
 
-```python
-def ProfileHubView(context: UserContext) -> Div:
-    return Div(
-        personal_header(context),           # Focus + Velocity (shared component)
-        ActivityHubView(),                  # 6 Activity Domain preview blocks (inline)
-    )
-```
-
-`personal_header(context)` requires a `UserContext` already in scope (use on `/profile` and the HTMX fragment endpoint). For pages that load `UserContext` only for the header, use `personal_header_placeholder()` instead — it renders an HTMX div that lazy-loads via `GET /api/personal-header` without blocking the page render. Both are defined in `ui/patterns/personal_header.py`; the endpoint is registered in `adapters/inbound/home_routes.py`.
+`personal_header(context)` (Focus + Velocity) lives in `ui/patterns/personal_header.py` and is used on `/home` and the HTMX fragment endpoint (`GET /api/personal-header`). For pages that don't already have `UserContext` loaded, use `personal_header_placeholder()` — an HTMX div that lazy-loads without blocking the page render. The endpoint is registered in `adapters/inbound/home_routes.py`.
 
 ## Usage: HTMX Hub Pages (Activity, GradeBook, Library, Submissions)
 
