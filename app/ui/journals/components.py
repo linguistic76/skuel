@@ -10,7 +10,6 @@ from core.models.enums.entity_enums import EntityStatus
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Label, Select
 from ui.patterns.skeleton import SkeletonList
-from ui.primitives import ButtonLink
 
 
 def render_upload_status(
@@ -35,13 +34,6 @@ def render_upload_status(
             H4("Submitted to AI", cls="mb-0"),
             P(f"Entry: {je_input_uid}", cls="mb-0") if je_input_uid else None,
             P(f"Status: {status}", cls="mb-0"),
-            ButtonLink(
-                "Browse Journals",
-                href="/journals/browse",
-                cls=(ButtonT.ghost, ButtonT.sm, "mt-2"),
-            )
-            if je_input_uid
-            else None,
             variant=AlertT.success,
         ),
         id="upload-status",
@@ -94,11 +86,6 @@ def render_batch_upload_status(
         Alert(
             H4(summary, cls="mb-2"),
             Div(*rows, cls="mb-2") if rows else None,
-            ButtonLink(
-                "Browse Journals",
-                href="/journals/browse",
-                cls=(ButtonT.ghost, ButtonT.sm, "mt-1"),
-            ),
             variant=variant,
         ),
         id=status_id,

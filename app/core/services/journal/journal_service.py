@@ -223,6 +223,50 @@ class JournalService:
             return Result.fail(Errors.integration("llm", f"Journal response failed: {exc}"))
 
     # ------------------------------------------------------------------
+    # Compiled output
+    # ------------------------------------------------------------------
+
+    async def run_compiled(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
+        """Run all three DNWF stages in sequence and return a single compiled document.
+
+        Used for file-based (batch) processing where interactive review between
+        stages is not possible. Produces Stage 1 → Stage 2 → Stage 3 output with no
+        review notes between stages.
+        """
+        stage1 = await self.run_stage1(raw_entry, user_uid)
+        if stage1.is_error:
+            return stage1
+        scribe_output = stage1.value
+
+        stage2 = await self.run_stage2(
+            raw_entry=raw_entry,
+            scribe_output=scribe_output,
+            review_notes="",
+            user_uid=user_uid,
+        )
+        if stage2.is_error:
+            return stage2
+        thought_partner_output = stage2.value
+
+        stage3 = await self.run_stage3(
+            raw_entry=raw_entry,
+            thought_partner_output=thought_partner_output,
+            review_notes="",
+            user_uid=user_uid,
+        )
+        if stage3.is_error:
+            return stage3
+
+        compiled = (
+            f"# Stage 1 — Scribe\n\n{scribe_output}"
+            f"\n\n---\n\n"
+            f"# Stage 2 — What Is Emerging\n\n{thought_partner_output}"
+            f"\n\n---\n\n"
+            f"# Stage 3 — What Is Related\n\n{stage3.value}"
+        )
+        return Result.ok(compiled)
+
+    # ------------------------------------------------------------------
     # Follow-up (conversation continuation)
     # ------------------------------------------------------------------
 

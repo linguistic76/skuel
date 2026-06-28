@@ -26,11 +26,13 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
+| Compiled (file upload) | `run_compiled(raw_entry, user_uid)` | Chains stage1 → stage2 → stage3; returns single markdown doc | — |
 | Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
 | Follow-up (conversation continuation) | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode)` | `follow_up_system_prompt()` — mode base + continuation directive | 4000 |
 
 FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
-STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PARTNER`).
+`run_compiled()` is the batch path: file upload (`instructions_only` mode) chains all three stages
+without interactive review, producing a single markdown document with all three sections.
 
 ---
 
@@ -41,7 +43,9 @@ STANDARD runs once with the JournalMode the user selected (default: `THOUGHT_PAR
 
 2. **Mode-invariance of stage logic** — the three FOUNDER stage functions (`stage1_system_prompt`,
    `stage2_system_prompt`, `stage3_system_prompt`) are not parameterized by JournalMode.
-   Mode selects which stage runs (in the STANDARD tier), not how a stage runs.
+   `JournalMode` shapes the STANDARD tier's inline system prompt; it is not exposed as a user
+   choice in the upload form (no mode selector). The FOUNDER stages are always Scribe → Thought
+   Partner → What Is Related regardless of mode.
 
 3. **File-driven FOUNDER prompts** — `instruction_loader.py` loads from `data/instructions/`.
    If `dnwf 1.md` is missing, stages degrade gracefully (warning logged, empty prompt).
@@ -136,7 +140,7 @@ entries in ingestion code.
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
-| `adapters/inbound/journals_routes.py` | 10 routes; FOUNDER tier enforcement lives here |
+| `adapters/inbound/journals_routes.py` | 8 routes; FOUNDER tier enforcement lives here |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
 | `core/models/enums/pipeline.py` | `Pipeline.JOURNAL`, `allows_sharing()` |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |

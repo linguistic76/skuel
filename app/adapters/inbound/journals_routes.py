@@ -4,12 +4,10 @@ Routes:
     GET  /journals                  — tier-aware landing page (Tasks+ sidebar)
     POST /journals/upload           — file upload handler
     POST /journals/folder-process   — batch folder processing
-    GET  /journals/browse           — journal history
     POST /journals/respond          — STANDARD tier single-response workflow (FULL tier)
     POST /journals/stage1           — Stage 1 Scribe (FOUNDER only, FULL tier)
     POST /journals/stage2           — Stage 2 Thought Partner (FOUNDER only, FULL tier)
     POST /journals/stage3           — Stage 3 What Is Related (FOUNDER only, FULL tier)
-    POST /journals/save             — persist journal entry as UserEntry(pipeline=JOURNAL)
 """
 
 from __future__ import annotations
@@ -18,9 +16,6 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Span
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -31,13 +26,8 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.feedback import StatusBadge
 from ui.journals.components import render_batch_upload_status
 from ui.journals.components import render_upload_status as render_journal_upload_status
-from ui.patterns.card_generator import CardGenerator
-from ui.patterns.empty_state import EmptyState
-from ui.patterns.page_header import PageHeader
-from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -83,7 +73,6 @@ async def _submit_text_file_for_llm(
     title: str,
     user_uid: str,
     instructions: str | None,
-    journal_mode: str | None,
     user_entry_service: Any,
 ) -> Any:
     """Submit a text file for LLM_SUMMARY by decoding content and using create_entry."""
@@ -105,7 +94,6 @@ async def _submit_text_file_for_llm(
         title=title,
         pipeline=Pipeline.LLM_SUMMARY,
         instructions=instructions,
-        journal_mode=journal_mode,
         content=text_content,
         original_filename=filename,
         file_size=len(file_content),
@@ -151,73 +139,6 @@ def _status_value(entry: UserEntry) -> str:
     return str(status) if status else "submitted"
 
 
-def _render_user_entry_journal_card(entry: UserEntry) -> Any:
-    file_size = entry.file_size or 0
-    file_size_mb = file_size / 1024 / 1024 if file_size else 0
-
-    meta_parts: list[str] = []
-    if entry.original_filename:
-        meta_parts.append(entry.original_filename)
-    if file_size_mb > 0:
-        meta_parts.append(f"{file_size_mb:.2f} MB")
-    if entry.file_type:
-        meta_parts.append(entry.file_type)
-
-    status_str = _status_value(entry)
-
-    action_buttons: list[Any] = []
-    if entry.status == EntityStatus.COMPLETED:
-        action_buttons.append(
-            ButtonLink(
-                "Download",
-                href=f"/submit/journals/{entry.uid}/download",
-                cls=(ButtonT.primary, ButtonT.sm),
-            )
-        )
-
-    return CardGenerator.from_dataclass(
-        {"title": entry.title or "Untitled"},
-        display_fields=[],
-        header_badges=[StatusBadge(status_str) if status_str else None],
-        show_labels=False,
-        metadata=[" • ".join(meta_parts)] if meta_parts else None,
-        actions=Div(*action_buttons, cls="flex gap-2") if action_buttons else None,
-        card_attrs={"cls": "mb-2"},
-    )
-
-
-def _render_user_entry_journal_grid(entries: list[UserEntry]) -> Any:
-    if not entries:
-        return Div(EmptyState(title="No journals found"), id="journals-grid-container")
-    return Div(
-        *[_render_user_entry_journal_card(e) for e in entries],
-        id="journals-grid-container",
-    )
-
-
-def _render_awaiting_response_section(entries: list[UserEntry]) -> Any:
-    if not entries:
-        return Div()
-    return Card(
-        CardHeader(CardTitle("Awaiting a response")),
-        CardBody(
-            *[
-                Div(
-                    Span(e.title or "Untitled entry", cls="font-medium text-sm"),
-                    ButtonLink(
-                        "Open",
-                        href=f"/gradebook/{e.uid}",
-                        cls=(ButtonT.ghost, ButtonT.sm),
-                    ),
-                    cls="flex items-center justify-between p-2 border-b border-border",
-                )
-                for e in entries
-            ]
-        ),
-        cls="mb-6 bg-background shadow-sm",
-    )
-
-
 # ---------------------------------------------------------------------------
 # Route factory
 # ---------------------------------------------------------------------------
@@ -234,7 +155,6 @@ def create_journals_routes(
     user_service = services.user
     journal_service = services.journal  # None when INTELLIGENCE_TIER=core
     user_entry_service = services.user_entry
-    orchestrator = services.user_entry_orchestrator
     batch_transcription_service = services.batch_transcription
     processing_service = services.user_entry_processor
 
@@ -258,19 +178,8 @@ def create_journals_routes(
         if request.headers.get("HX-Request"):
             return workspace
 
-        page_content = Div(
-            Div(
-                ButtonLink(
-                    "Browse my journals",
-                    href="/journals/browse",
-                    cls=(ButtonT.ghost, ButtonT.sm),
-                ),
-                cls="flex justify-end px-6 pt-4",
-            ),
-            workspace,
-        )
         return await render_activity_sidebar_page(
-            content=page_content,
+            content=workspace,
             active="journals",
             request=request,
             title="Journal",
@@ -327,7 +236,6 @@ def create_journals_routes(
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
-            journal_mode = str(form.get("journal_mode", "thought_partner")).strip()
             instructions = instruction_content or _load_journal_instruction_file(
                 instruction_filename, processing_mode
             )
@@ -352,7 +260,6 @@ def create_journals_routes(
                         title=title,
                         user_uid=user_uid,
                         instructions=instructions,
-                        journal_mode=journal_mode,
                         user_entry_service=user_entry_service,
                     )
                     if result.is_error:
@@ -361,33 +268,32 @@ def create_journals_routes(
                         )
                     entry, _outcome = result.value
 
-                    # Call the LLM on the decoded text + instructions + user context
-                    # (goals/tasks/habits/vault notes) and display the response in
-                    # the workspace rather than a dead-end status card.
-                    if processing_service is not None:
+                    # Run all three DNWF stages in sequence (FOUNDER only) and display
+                    # compiled output. STANDARD users fall through to the status card.
+                    if journal_service is not None:
+                        user_result = await user_service.get_user(user_uid)
+                        is_founder = (
+                            user_result.is_ok
+                            and user_result.value is not None
+                            and user_result.value.journal_tier.is_founder()
+                        )
+                        if not is_founder:
+                            return render_journal_upload_status(
+                                _status_value(entry),
+                                f"Journal entry created: {entry.title}",
+                                je_input_uid=entry.uid,
+                            )
+
                         try:
                             text_content = file_content.decode("utf-8")
                         except UnicodeDecodeError:
                             text_content = ""
 
                         if text_content:
-                            enriched_instructions = instructions
-                            if journal_service is not None:
-                                context_summary = await journal_service.build_context_summary(
-                                    user_uid
-                                )
-                                if context_summary:
-                                    enriched_instructions = (
-                                        instructions or ""
-                                    ) + f"\n\n---\n\n# User Context\n\n{context_summary}"
-
-                            llm_result = await _call_llm_with_instructions(
-                                text=text_content,
-                                instructions=enriched_instructions,
-                                processing_service=processing_service,
+                            compiled_result = await journal_service.run_compiled(
+                                text_content, user_uid
                             )
-                            if not llm_result.is_error:
-                                from core.models.enums.user_enums import JournalMode
+                            if not compiled_result.is_error:
                                 from fasthtml.common import to_xml
 
                                 from ui.journals import StandardResponseFragment
@@ -395,9 +301,8 @@ def create_journals_routes(
                                 fragment = StandardResponseFragment(
                                     raw_entry=text_content,
                                     title=title,
-                                    response_output=llm_result.value,
-                                    mode=JournalMode.from_string(journal_mode),
-                                    already_saved=True,
+                                    response_output=compiled_result.value,
+                                    mode=None,
                                 )
                                 return HTMLResponse(
                                     content=to_xml(fragment),
@@ -407,9 +312,9 @@ def create_journals_routes(
                                     },
                                 )
                             logger.error(
-                                "LLM processing failed for %s: %s",
+                                "Compiled DNWF failed for %s: %s",
                                 entry.uid,
-                                llm_result.expect_error(),
+                                compiled_result.expect_error(),
                             )
 
                     return render_journal_upload_status(
@@ -426,7 +331,6 @@ def create_journals_routes(
                     pipeline=pipeline,
                     title=title,
                     instructions=instructions,
-                    journal_mode=journal_mode,
                     metadata={"custom_title": custom_title} if custom_title else None,
                 )
 
@@ -473,7 +377,6 @@ def create_journals_routes(
                         fragment = TranscriptReviewFragment(
                             transcript=transcript,
                             title=title,
-                            mode_value=journal_mode,
                         )
                         return HTMLResponse(
                             content=to_xml(fragment),
@@ -509,7 +412,6 @@ def create_journals_routes(
                         pipeline=pipeline,
                         title=filename,
                         instructions=instructions,
-                        journal_mode=journal_mode,
                         metadata=None,
                     )
                     if result.is_error:
@@ -675,53 +577,6 @@ def create_journals_routes(
             return render_journal_upload_status("error", f"Processing failed: {e}", is_error=True)
 
     # ------------------------------------------------------------------
-    # GET /journals/browse — journal history
-    # ------------------------------------------------------------------
-
-    @rt("/journals/browse", methods=["GET"])
-    async def journals_browse(request: Request) -> Any:
-        """Browse the user's journal entries."""
-        if orchestrator is None:
-            return Response("Journal browse not available", status_code=503)
-
-        user_uid = require_authenticated_user(request)
-
-        from ui.activities.nav import render_activity_sidebar_page
-
-        entries: list[UserEntry] = []
-        result = await orchestrator.list_journal_entries(user_uid)
-        if not result.is_error and result.value:
-            entries = list(result.value)
-
-        awaiting_result = await orchestrator.get_entries_awaiting_response(user_uid)
-        awaiting_uids = set(awaiting_result.value or []) if awaiting_result.is_ok else set()
-        awaiting_entries: list[UserEntry] = []
-        if awaiting_uids:
-            pool_result = await orchestrator.list_for_user(user_uid, limit=100)
-            pool = list(pool_result.value) if pool_result.is_ok and pool_result.value else entries
-            awaiting_entries = [e for e in pool if e.uid in awaiting_uids]
-
-        content = Div(
-            PageHeader(
-                "My Journals",
-                subtitle="Browse your AI-processed journal entries",
-                actions=ButtonLink(
-                    "New Journal",
-                    href="/journals",
-                    cls=(ButtonT.primary, ButtonT.sm),
-                ),
-            ),
-            _render_awaiting_response_section(awaiting_entries),
-            _render_user_entry_journal_grid(entries),
-        )
-        return await render_activity_sidebar_page(
-            content=content,
-            active="journals",
-            request=request,
-            title="My Journals",
-        )
-
-    # ------------------------------------------------------------------
     # POST /journals/respond — STANDARD tier single-response workflow
     # ------------------------------------------------------------------
 
@@ -825,9 +680,7 @@ def create_journals_routes(
         request: Request,
         raw_entry: str,
         title: str = "",
-        journal_mode: str = "",
     ) -> Any:
-        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage1Fragment
 
         user_uid = require_authenticated_user(request)
@@ -844,7 +697,6 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
-        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage1(raw_entry.strip(), user_uid)
         if result.is_error:
             logger.error("Stage 1 failed for %s: %s", user_uid, result.expect_error())
@@ -854,7 +706,6 @@ def create_journals_routes(
             raw_entry=raw_entry.strip(),
             title=title.strip(),
             scribe_output=result.value,
-            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -869,9 +720,7 @@ def create_journals_routes(
         title: str = "",
         scribe_output: str = "",
         review_notes: str = "",
-        journal_mode: str = "",
     ) -> Any:
-        from core.models.enums.user_enums import JournalMode
         from ui.journals import ErrorFragment, Stage2Fragment
 
         user_uid = require_authenticated_user(request)
@@ -885,7 +734,6 @@ def create_journals_routes(
         if not user_result.value.journal_tier.is_founder():
             return ErrorFragment("Founder workflow is not available for your account.")
 
-        mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_stage2(
             raw_entry=raw_entry,
             scribe_output=scribe_output,
@@ -901,7 +749,6 @@ def create_journals_routes(
             title=title,
             scribe_output=scribe_output,
             thought_partner_output=result.value,
-            mode=mode,
         )
 
     # ------------------------------------------------------------------
@@ -917,7 +764,6 @@ def create_journals_routes(
         scribe_output: str = "",
         thought_partner_output: str = "",
         review_notes: str = "",
-        journal_mode: str = "",
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 
@@ -948,34 +794,3 @@ def create_journals_routes(
             related_output=result.value,
         )
 
-    # ------------------------------------------------------------------
-    # POST /journals/save — persist entry
-    # ------------------------------------------------------------------
-
-    @rt("/journals/save", methods=["POST"])
-    @csrf_protected
-    async def journals_save(
-        request: Request,
-        raw_entry: str,
-        title: str = "",
-    ) -> Any:
-        from ui.journals import ErrorFragment, SavedFragment
-
-        user_uid = require_authenticated_user(request)
-
-        if not raw_entry or not raw_entry.strip():
-            return ErrorFragment("Cannot save an empty entry.")
-
-        if journal_service is None:
-            return ErrorFragment("Journal save is not available (CORE tier).")
-
-        result = await journal_service.save_entry(
-            title=title.strip(),
-            raw_entry=raw_entry.strip(),
-            user_uid=user_uid,
-        )
-        if result.is_error:
-            logger.error("Journal save failed for %s: %s", user_uid, result.expect_error())
-            return ErrorFragment("Could not save your journal entry.")
-
-        return SavedFragment(entry_uid=result.value)
