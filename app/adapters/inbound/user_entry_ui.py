@@ -6,11 +6,13 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 ``submissions_ui``, ``submissions_hub_routes``, and ``journals_ui`` surfaces.
 
 Routes:
-- GET  /submit                           — Exercise worksheet upload form
-- GET  /submit/journals                  — 302 redirect to /journals
+- GET  /submissions                      — MOC root: links to all 4 sub-pages (no sidebar)
+- GET  /submissions/exercise             — Exercise worksheet upload form (canonical)
+- GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
+- GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook/{uid}                  — Submission detail page
-- GET  /submissions/history              — Submission history
+- GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
 - GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
@@ -29,10 +31,10 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, Div, P, Span
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from fasthtml.common import H2, H4, A, Div, P, Span
+from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle, UkIcon
 from monsterui.franken import CardContainer as Card
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -44,6 +46,7 @@ from core.utils.logging import get_logger
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
+from ui.layouts.base_page import BasePage
 from ui.learning_loop.report import render_yours_list
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_inline_error
@@ -165,12 +168,86 @@ def create_user_entry_ui_routes(
     logger.info("Creating UserEntry UI routes")
 
     # =========================================================================
-    # SUBMIT
+    # SUBMISSIONS MOC ROOT
     # =========================================================================
 
-    @rt("/submit")
-    async def submit_page(request: Request) -> Any:
-        """Exercise worksheet upload form."""
+    @rt("/submissions")
+    async def submissions_moc(request: Request) -> Any:
+        """Submissions MOC — links to all 4 sub-pages, no sidebar."""
+        require_authenticated_user(request)
+
+        def _moc_card(
+            title: str,
+            description: str,
+            href: str,
+            icon: str,
+            icon_bg: str = "bg-muted",
+        ) -> Any:
+            return A(
+                Div(
+                    Div(
+                        UkIcon(icon, height=28, width=28),
+                        cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
+                    ),
+                    H2(title, cls="text-lg font-semibold mb-1"),
+                    P(description, cls="text-sm text-muted-foreground"),
+                    cls="p-6",
+                ),
+                href=href,
+                cls=(
+                    "block border border-border rounded-2xl bg-card "
+                    "hover:border-primary/40 hover:shadow-md transition-all duration-150"
+                ),
+            )
+
+        content = Div(
+            PageHeader("Submissions", subtitle="Choose how you want to submit or sync your work"),
+            Div(
+                _moc_card(
+                    "Exercise",
+                    "Upload a completed exercise worksheet for teacher or AI feedback.",
+                    "/submissions/exercise",
+                    "send",
+                    "bg-blue-50",
+                ),
+                _moc_card(
+                    "Journal",
+                    "Upload audio, text, or files to be transcribed and processed by AI.",
+                    "/submissions/journal",
+                    "book-open",
+                    "bg-violet-50",
+                ),
+                _moc_card(
+                    "Sync",
+                    "Pull your Obsidian Daily Notes into SKUEL and write completions back.",
+                    "/submissions/sync",
+                    "refresh-cw",
+                    "bg-emerald-50",
+                ),
+                _moc_card(
+                    "History",
+                    "Browse your past exercise submissions and feedback status.",
+                    "/submissions/history",
+                    "clock",
+                    "bg-amber-50",
+                ),
+                cls="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6",
+            ),
+        )
+
+        return await BasePage(
+            content=content,
+            title="Submissions",
+            request=request,
+            active_page="submissions",
+        )
+
+    # =========================================================================
+    # SUBMIT — EXERCISE (canonical: /submissions/exercise; legacy: /submit)
+    # =========================================================================
+
+    async def _exercise_page(request: Request) -> Any:
+        """Inner handler for the exercise upload form (shared by two routes)."""
         user_uid = require_authenticated_user(request)
 
         assigned_exercises: list[Any] = []
@@ -199,7 +276,43 @@ def create_user_entry_ui_routes(
         )
         return await render_submissions_sidebar_page(
             content=content,
-            active="submit",
+            active="exercise",
+            request=request,
+        )
+
+    @rt("/submissions/exercise")
+    async def submissions_exercise_page(request: Request) -> Any:
+        """Exercise worksheet upload form (canonical URL)."""
+        return await _exercise_page(request)
+
+    @rt("/submit")
+    async def submit_redirect(request: Request) -> Any:
+        """Legacy URL — redirect to canonical /submissions/exercise."""
+        return RedirectResponse(url="/submissions/exercise", status_code=302)
+
+    # =========================================================================
+    # SUBMIT — JOURNAL UPLOAD UX (/submissions/journal)
+    # =========================================================================
+
+    @rt("/submissions/journal")
+    async def submissions_journal_page(request: Request) -> Any:
+        """Journal file-upload UX — alternative entry point to /journals."""
+        require_authenticated_user(request)
+
+        from ui.journals.forms import render_upload_form as render_journal_form
+        from ui.journals.forms import upload_form_script as journal_script
+
+        content = Div(
+            PageHeader(
+                "New Journal Entry",
+                subtitle="Upload a file to be processed by AI",
+            ),
+            render_journal_form(),
+            journal_script(),
+        )
+        return await render_submissions_sidebar_page(
+            content=content,
+            active="journal",
             request=request,
         )
 
@@ -503,7 +616,10 @@ def create_user_entry_ui_routes(
     logger.info("UserEntry UI routes created successfully")
 
     return [
-        submit_page,
+        submissions_moc,
+        submissions_exercise_page,
+        submit_redirect,
+        submissions_journal_page,
         submit_preview,
         journal_preview,
         history_preview,

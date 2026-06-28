@@ -11,7 +11,7 @@ SUBMISSIONS_BLOCKS: list[HubBlockData] = [
         "submit",
         "send",
         "#3B82F6",
-        "/submit",
+        "/submissions/exercise",
         "/api/submissions/submit/preview",
     ),
     HubBlockData(

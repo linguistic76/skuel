@@ -152,7 +152,7 @@ def ActivityList(
                 title=f"No {domain}s found",
                 description=f"Sync your Obsidian vault to add {domain}s, or adjust your filters.",
                 action_text="Sync Vault",
-                action_href="/settings/vault",
+                action_href="/submissions/sync",
             ),
             id=list_id,
         )

@@ -26,7 +26,7 @@ def render_admin_hub_content() -> Any:
         HubCardData(
             icon="🎙️",
             name="Journals",
-            href="/submit/journals",
+            href="/submissions/journal",
             description="Upload audio, video, or text for transcription and structuring",
         ),
     ]
