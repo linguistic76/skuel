@@ -3020,4 +3020,12 @@
         if (window.lucide) lucide.createIcons();
     });
 
+    // Re-run Lucide after Alpine inserts dynamic data-lucide elements into the DOM
+    // (handles :icon= bindings on /today and similar pages).
+    if (window.MutationObserver && window.lucide) {
+        new MutationObserver(function() {
+            lucide.createIcons();
+        }).observe(document.body, { subtree: true, childList: true });
+    }
+
 })();

@@ -711,7 +711,7 @@ def _render_search_input() -> str:
     <div class="search-input-container panel-surface p-4">
         <div class="relative">
             <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
-                <uk-icon icon="search" width="20" height="20" class="h-5 w-5"></uk-icon>
+                <i data-lucide="search" class="h-5 w-5 inline-block"></i>
             </span>
             <input type="text"
                    name="query"
