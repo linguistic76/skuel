@@ -13,7 +13,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Components (/ui/primitives.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, … — MonsterUI wrappers + SKUEL primitives)
+Components (/ui/components/ — SKUEL-owned Tailwind layer; /ui/primitives.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, … — MonsterUI wrappers for pending migrations)
 ```
 
 Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -22,7 +22,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/primitives.py (icon_tile, section_label, primary_btn, card_row, ButtonLink, SelectableOptionRow, dropdown_menu, dropdown_separator, UploadDropzone, SelectedFileCard), /ui/forms/, /ui/feedback.py, etc.
+├─ YES → /ui/components/ first (Button, Alert, Icon, form set, Table, Divider, Accordion, TabContainer, layout helpers); /ui/primitives.py for ButtonLink, dropdown_menu, icon_tile, SelectableOptionRow, UploadDropzone; /ui/forms/ and monsterui.franken Card* for M5-pending call sites
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -55,9 +55,9 @@ def TaskCard(
             H4(task.title, cls="font-semibold"),
             P(task.description, cls="text-sm text-base-content/70") if show_description else None,
             CardActions(
-                Button("Edit", cls=(ButtonT.ghost, ButtonT.sm),
+                Button("Edit", cls=ButtonT.ghost, size="sm",
                        **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"}),
-                Button("Complete", cls=(ButtonT.success, ButtonT.sm),
+                Button("Complete", cls=ButtonT.primary, size="sm",
                        **{"hx-post": f"/api/tasks/{task.uid}/complete"}),
             ) if show_actions else None,
         ),
@@ -135,7 +135,7 @@ CardGenerator.from_dataclass(
     subtitle="by Student Name",
     header_badges=[Badge("3 pending", variant=BadgeT.warning)],
     show_labels=False,
-    actions=ButtonLink("View", href="/path", cls=(ButtonT.primary, ButtonT.sm)),
+    actions=ButtonLink("View", href="/path", cls=ButtonT.primary, size="sm"),
     extra=feedback_toggle,
     card_attrs={"cls": "bg-background shadow-sm mb-2"},
 )
@@ -780,22 +780,21 @@ from ui.primitives import ButtonLink, icon_tile, section_label, primary_btn, car
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
-from ui.layout import Size
-from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
+from ui.components import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
-# Buttons — cls= API (single variant, or tuple for variant+size)
+# Buttons — cls= for style variant, size= for geometry (never mix size tokens in cls tuple)
 Button("Primary", cls=ButtonT.primary)
-Button("Ghost Small", cls=(ButtonT.ghost, ButtonT.sm))
-Button("Delete", cls=ButtonT.outline_error)
+Button("Ghost Small", cls=ButtonT.ghost, size="sm")
+Button("Delete", cls=ButtonT.destructive, size="sm")
 
 # ButtonLink — use for ALL action CTAs (not raw A() with ad-hoc Tailwind)
 # Raw A() is reserved for: entity title links, breadcrumbs, sidebar nav, inline text links
-# Convention: primary CTA → ButtonT.primary + ButtonT.sm
-#             view/navigate → ButtonT.ghost + ButtonT.sm
-#             "view all" section links → ButtonT.ghost + ButtonT.xs
-ButtonLink("Submit →", href="/submit", cls=(ButtonT.primary, ButtonT.sm))
-ButtonLink("View Report →", href="/reports/1", cls=(ButtonT.ghost, ButtonT.sm))
-ButtonLink("View all →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
+# Convention: primary CTA → ButtonT.primary, size="sm"
+#             view/navigate → ButtonT.ghost, size="sm"
+#             "view all" section links → ButtonT.ghost, size="xs"
+ButtonLink("Submit →", href="/submit", cls=ButtonT.primary, size="sm")
+ButtonLink("View Report →", href="/reports/1", cls=ButtonT.ghost, size="sm")
+ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs")
 
 # SKUEL Primitives (ui/primitives.py) — unified design language building blocks
 
@@ -891,7 +890,7 @@ Input(name="q", **{
 })
 
 # Delete with confirmation
-Button("Delete", cls=(ButtonT.error, ButtonT.sm), **{
+Button("Delete", cls=ButtonT.destructive, size="sm", **{
     "hx-delete": f"/api/tasks/{uid}",
     "hx-confirm": "Delete this task?",
     "hx-target": "closest .task-card",
