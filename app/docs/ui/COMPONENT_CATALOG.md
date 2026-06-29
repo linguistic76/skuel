@@ -16,7 +16,7 @@ This catalog documents all UI components in SKUEL's design system, organized int
 All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 Level AA accessibility standards.
 
 > **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the MonsterUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
-> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. Import `Button, ButtonT` and `CardContainer as Card, CardBody, CardHeader, CardTitle, CardT` directly from `monsterui.franken`. `ButtonLink` moved to `ui/primitives.py` (thin `A()` wrapper, `cls=ButtonT.X` API). Typography helpers (`SectionTitle`, etc.) replaced by `section_label()` from `ui/primitives.py` or inline Tailwind.
+> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. Import `Button, ButtonT` and `CardContainer as Card, CardBody, CardHeader, CardTitle, CardT` directly from `monsterui.franken`. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API — M1 2026-06-29). Typography helpers (`SectionTitle`, etc.) replaced by `section_label()` from `ui/primitives.py` or inline Tailwind.
 
 ---
 
@@ -117,37 +117,38 @@ Button("Delete", cls=ButtonT.destructive)
 Button("Submit", cls=ButtonT.primary, hx_post="/api/submit", hx_target="#result")
 ```
 
-### ButtonLink(text, href, cls, **kwargs)
+### ButtonLink(text, href, cls, size, **kwargs)
 
-Button-styled link for navigation. Lives in `ui/primitives.py`. Use for all action CTAs — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links.
+Button-styled link for navigation. Lives in `ui/primitives.py`. Pure Tailwind — no UIkit dependency. Use for all action CTAs — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links.
 
 **Parameters:**
 - `*c` - Link label
 - `href: str` - URL destination
-- `cls: ButtonT | tuple` - Button style variant (uses `cls=` not `variant=`)
+- `cls: ButtonT | str | tuple` - Button style variant (colour/border/hover). Use `ButtonT.*` style tokens.
+- `size: str` - Geometry: `"xs"`, `"sm"`, `"md"` (default), `"lg"`, `"xl"`
 - `**kwargs` - Additional attributes (target, rel, download, x_show, etc.)
 
 **Variant/Size Convention:**
 
-| Action Type | cls | Examples |
-|---|---|---|
-| Primary CTA | `ButtonT.primary` or `(ButtonT.primary, ButtonT.sm)` | Submit, Start Ingestion |
-| View/Navigate | `ButtonT.ghost` or `(ButtonT.ghost, ButtonT.sm)` | View Report, Download, ← Back |
-| "View all" section links | `(ButtonT.ghost, ButtonT.xs)` | View all →, See all |
+| Action Type | cls | size | Examples |
+|---|---|---|---|
+| Primary CTA | `ButtonT.primary` | `"sm"` | Submit, Start Ingestion |
+| View/Navigate | `ButtonT.ghost` | `"sm"` | View Report, Download, ← Back |
+| "View all" section links | `ButtonT.ghost` | `"xs"` | View all →, See all |
 
 **Examples:**
 ```python
-from monsterui.franken import ButtonT
+from ui.components import ButtonT
 from ui.primitives import ButtonLink
 
 # Primary action CTA
-ButtonLink("Submit →", href="/submit?exercise_uid=123", cls=(ButtonT.primary, ButtonT.sm))
+ButtonLink("Submit →", href="/submit?exercise_uid=123", cls=ButtonT.primary, size="sm")
 
 # View/navigate action
-ButtonLink("View Report →", href="/reports/456", cls=(ButtonT.ghost, ButtonT.sm))
+ButtonLink("View Report →", href="/reports/456", cls=ButtonT.ghost, size="sm")
 
 # Section "view all" link
-ButtonLink("View all →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
+ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs")
 
 # External link
 ButtonLink("Open →", href="https://example.com", cls=ButtonT.ghost,
