@@ -762,7 +762,9 @@ def create_journals_routes(
             target_date = date.fromisoformat(date_str)
         except ValueError:
             target_date = date.today()
-        uid = f"ue:daily:{target_date.isoformat()}"
+        # user_uid in the UID makes it globally unique — two users sharing the
+        # same calendar date get independent notes without backend UID collisions.
+        uid = f"ue:daily:{user_uid}:{target_date.isoformat()}"
         result = await user_entry_service.get_entry(uid, user_uid)
         if result.is_error:
             return Response("Error loading note", status_code=500)
@@ -788,7 +790,7 @@ def create_journals_routes(
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-        uid = f"ue:weekly:{year}-W{week:02d}"
+        uid = f"ue:weekly:{user_uid}:{year}-W{week:02d}"
         result = await user_entry_service.get_entry(uid, user_uid)
         if result.is_error:
             return Response("Error loading note", status_code=500)
@@ -814,7 +816,7 @@ def create_journals_routes(
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-        uid = f"ue:monthly:{year}-{month:02d}"
+        uid = f"ue:monthly:{user_uid}:{year}-{month:02d}"
         result = await user_entry_service.get_entry(uid, user_uid)
         if result.is_error:
             return Response("Error loading note", status_code=500)
@@ -846,6 +848,16 @@ def create_journals_routes(
         if user_entry_service is None:
             return _P(
                 "Service unavailable", id="note-save-status", cls="text-[13px] text-destructive"
+            )
+        # Guard: only allow saves on owned periodic notes (daily/weekly/monthly).
+        # Prevents mutation of unrelated entries (e.g. TEACHER_REVIEW submissions)
+        # via this route.
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        if entry_result.is_error or entry_result.value is None:
+            return _P("Note not found", id="note-save-status", cls="text-[13px] text-destructive")
+        if entry_result.value.metadata.get("entry_kind") not in {"daily", "weekly", "monthly"}:
+            return _P(
+                "Not a periodic note", id="note-save-status", cls="text-[13px] text-destructive"
             )
         form = await request.form()
         content = str(form.get("content", ""))
