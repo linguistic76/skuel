@@ -211,7 +211,9 @@ is simpler than maintaining a 2.9MB dependency for color values.
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | Visual regression during call-site migration | Medium | Medium | Phase 2 is per-component; component gallery (`/admin/component-gallery`) validates parity before call-site migration |
-| Dynamic class strings missed by Tailwind scanner | Low | Low | Explicit safelist patterns in `tailwind.config.js` cover all known dynamic patterns |
+| Dynamic class strings missed by Tailwind scanner | Low | Low | Explicit safelist patterns in `tailwind.config.js` cover all known dynamic patterns; `static/js/*.js` added to Tailwind content scan (see Implementation Notes) |
+| JS-generated classes not visible to Python-based content scan | Medium | Medium | `static/js/today.js` builds classes like `bg-strength-strong/10` at runtime — covered by adding `static/js/*.js` to Tailwind content paths (see Implementation Notes) |
+| Lucide icons in Alpine-reactive DOM nodes render as blank | Medium | Medium | `<uk-icon :icon=...>` inside `x-for`/`x-if` auto-upgrades via UIkit's custom element registry; Lucide's `createIcons()` only processes elements present at call time. See M9 prerequisite below |
 | `output.css` not rebuilt after component changes | Low | Low | `./dev quality` (step 8) validates that `output.css` is up-to-date |
 
 ---
@@ -287,6 +289,55 @@ def _cls(*parts: Any) -> str:
 `ButtonT` becomes a StrEnum whose values ARE the Tailwind class strings. This preserves the
 existing call signature (`Button("text", cls=ButtonT.primary)`) while eliminating the UIkit
 class name layer entirely.
+
+### Tailwind content scanning — must include `static/js/`
+
+The Tailwind CLI scanner must cover JavaScript files that build class strings at runtime.
+`static/js/today.js`'s `strengthClass()` function returns classes like
+`bg-strength-strong/10` and `bg-strength-developing/10` that are invisible to Python-only
+scanning. Add to `tailwind.config.js`:
+
+```js
+content: [
+  "./ui/**/*.py",
+  "./adapters/inbound/**/*.py",
+  "./ui/components/**/*.py",
+  "./static/js/*.js",      // ← required; covers runtime-built Tailwind classes
+  "./templates/**/*.html",
+],
+```
+
+Verify during PR-2 that `output.css` contains the strength classes after running
+`./dev css-build`. Fix the safelist if any are missing.
+
+### M9 prerequisite — Alpine-reactive Lucide icon contexts
+
+UIkit's custom element system auto-upgrades `<uk-icon>` elements whenever they are
+inserted into the DOM, including by Alpine `x-for`/`x-if`/`x-show`. Lucide's
+`createIcons()` only processes elements present at the moment it is called.
+
+`ui/today/page.py` uses `<uk-icon :icon=...>` inside Alpine reactive blocks (e.g. the
+drawer toolbar that appears only after `openTask` becomes truthy). After M9 cutover, these
+will render as blank unless the dynamic icon contexts are handled.
+
+**Required before M9:**
+
+Option A (preferred) — replace `<uk-icon :icon="name">` with a static `Icon()` call
+inside an Alpine template that uses `x-html` or moves the icon out of the reactive block.
+This is the cleanest path: static `data-lucide` attributes present on page load are always
+processed.
+
+Option B — add a MutationObserver in `static/js/skuel.js` that watches for new
+`data-lucide` attribute additions and calls `lucide.createIcons()`:
+
+```js
+new MutationObserver(() => {
+    if (window.lucide) lucide.createIcons();
+}).observe(document.body, { subtree: true, attributeFilter: ['data-lucide'] });
+```
+
+The M6 PR (UkIcon call-site migration) is the natural point to audit every `<uk-icon
+:icon=...>` Alpine binding and convert to Option A or ensure Option B is in place.
 
 ### Already pure Tailwind (no migration needed)
 
