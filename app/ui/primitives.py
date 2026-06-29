@@ -18,7 +18,10 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import A, Button, Div, P, Span
-from monsterui.franken import ButtonT, UkIcon
+
+from ui.components import ButtonT, Icon
+from ui.components._util import _cls
+from ui.components.button import _BTN_BASE, _BTN_SIZES
 
 # Default subtitle class for option rows (description text)
 _SUBTITLE_CLS = "block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
@@ -37,7 +40,7 @@ def icon_tile(
     """
     dims = "w-[34px] h-[34px] rounded-[8px]" if size == "md" else "w-[42px] h-[42px] rounded-[10px]"
     return Div(
-        UkIcon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
+        Icon(icon, cls=f"w-[18px] h-[18px] {icon_cls}"),
         cls=f"{dims} flex-none flex items-center justify-center {bg_cls}",
     )
 
@@ -63,7 +66,7 @@ def primary_btn(
         "px-[18px] py-[11px] rounded-[9px] shadow-sm hover:opacity-90 transition-opacity"
     )
     return Button(
-        UkIcon(icon, cls="w-4 h-4 flex-none"),
+        Icon(icon, cls="w-4 h-4 flex-none"),
         Span(label, cls="btn-label"),
         cls=f"{base} {cls}".strip(),
         **kwargs,
@@ -96,22 +99,18 @@ def dropdown_menu(
 def ButtonLink(
     *c: Any,
     href: str,
-    cls: str | ButtonT = ButtonT.default,
+    cls: str | tuple = ButtonT.default,
+    size: str = "md",
     **kwargs: Any,
 ) -> Any:  # boundary: fasthtml-elements
-    """A-element styled as a MonsterUI button.
+    """A-element styled as a SKUEL button.
 
-    Pass a ButtonT variant as cls (e.g. ``cls=ButtonT.ghost``), a tuple of
-    ButtonT values (e.g. ``cls=(ButtonT.ghost, ButtonT.sm)``), or a raw
-    CSS class string.
+    Pass a ButtonT style variant as cls (e.g. ``cls=ButtonT.ghost``) and
+    use size= for geometry (``"xs"``, ``"sm"``, ``"md"``, ``"lg"``, ``"xl"``).
+    Tuple cls is accepted for backward compatibility during the M4 migration.
     """
-    if isinstance(cls, tuple):
-        cls_str = " ".join(
-            f"uk-button {part}" if i == 0 else str(part) for i, part in enumerate(cls)
-        )
-    else:
-        cls_str = f"uk-button {cls}"
-    return A(*c, href=href, cls=cls_str, **kwargs)
+    size_cls = _BTN_SIZES.get(size, _BTN_SIZES["md"])
+    return A(*c, href=href, cls=_cls(_BTN_BASE, size_cls, cls), **kwargs)
 
 
 def SelectableOptionRow(
@@ -175,7 +174,7 @@ def SelectableOptionRow(
         )
 
     check = Span(
-        UkIcon("check", cls="w-4 h-4 text-blue-600"),
+        Icon("check", cls="w-4 h-4 text-blue-600"),
         cls="flex-none pt-[3px] flex",
         **{"x-show": selected_expr},
         **{"x-cloak": True},
@@ -226,7 +225,7 @@ def UploadDropzone(
     hint_content = hint if isinstance(hint, tuple) else (hint,)
     return Div(
         Div(
-            UkIcon(icon, cls="w-6 h-6 text-blue-600"),
+            Icon(icon, cls="w-6 h-6 text-blue-600"),
             cls=(
                 "w-[46px] h-[46px] rounded-[12px] border border-border bg-background "
                 "flex items-center justify-center mb-3"
@@ -255,7 +254,7 @@ def SelectedFileCard(
     base = "flex items-center gap-[14px] px-4 py-[14px] border border-border rounded-[12px] bg-card"
     return Div(
         Div(
-            UkIcon("file-text", cls="w-5 h-5 text-blue-600"),
+            Icon("file-text", cls="w-5 h-5 text-blue-600"),
             cls="w-[42px] h-[42px] rounded-[10px] bg-blue-50 flex items-center justify-center flex-none",
         ),
         Div(
@@ -281,7 +280,7 @@ def SelectedFileCard(
             **{"@click": replace_handler},
         ),
         Button(
-            UkIcon("x", cls="w-4 h-4"),
+            Icon("x", cls="w-4 h-4"),
             type="button",
             cls=(
                 "flex-none w-8 h-8 rounded-[8px] border-0 bg-transparent "
