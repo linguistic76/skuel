@@ -17,10 +17,9 @@ Routes:
 from __future__ import annotations
 
 import mimetypes
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from datetime import date
 
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
@@ -835,6 +834,31 @@ def create_journals_routes(
                 return Response("Error creating note", status_code=500)
         return RedirectResponse(f"/journals/{uid}", status_code=302)
 
+    @rt("/journals/{entry_uid}/note", methods=["POST"])
+    @csrf_protected
+    async def journal_save_note(request: Request, entry_uid: str) -> Any:
+        """Save edited periodic-note content. Returns the #note-save-status fragment."""
+        from fasthtml.common import P as _P
+
+        from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return _P(
+                "Service unavailable", id="note-save-status", cls="text-[13px] text-destructive"
+            )
+        form = await request.form()
+        content = str(form.get("content", ""))
+        result = await user_entry_service.update_entry(
+            uid=entry_uid,
+            user_uid=user_uid,
+            request=UserEntryUpdateRequest(content=content),
+        )
+        if result.is_error:
+            logger.error("Periodic note save failed for %s: %s", entry_uid, result.expect_error())
+            return _P("Could not save", id="note-save-status", cls="text-[13px] text-destructive")
+        return _P("Saved ✓", id="note-save-status", cls="text-[13px] text-green-600")
+
     # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
     # ------------------------------------------------------------------
@@ -878,7 +902,18 @@ def create_journals_routes(
             if e.pipeline in _journal_pipelines
         ][:30]
 
-        if entry.processed_file_path:
+        if entry.metadata.get("entry_kind") in {"daily", "weekly", "monthly"}:
+            # Periodic notes (calendar integration) are plain editable markdown
+            # notes — no pipeline processing — so they render an editable view
+            # of entry.content rather than falling through to "Processing…".
+            from ui.journals import PeriodicNoteFragment
+
+            initial_workspace = PeriodicNoteFragment(
+                entry_uid=entry.uid,
+                title=entry.title or "",
+                content=entry.content or "",
+            )
+        elif entry.processed_file_path:
             initial_workspace = FileOutputFragment(
                 title=entry.title or "",
                 output_filename=Path(entry.processed_file_path).name,

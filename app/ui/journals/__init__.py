@@ -539,6 +539,54 @@ def ErrorFragment(message: str) -> Any:
     )
 
 
+def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
+    """Editable periodic note (daily / weekly / monthly).
+
+    Mirrors the Obsidian Calendar plugin's periodic-note UX: open the note for
+    a day, week, or month, read what is already there, edit it, and save. The
+    existing ``content`` prefills the textarea; the Save button POSTs to
+    ``/journals/{uid}/note`` via HTMX. The CSRF token rides the request header
+    (attached by ``static/js/skuel.js``), matching the other journal HTMX forms.
+    """
+    return Div(
+        Div(
+            P(title or "Note", cls="text-[20px] font-bold text-foreground mb-4"),
+            Form(
+                Textarea(
+                    content,
+                    name="content",
+                    placeholder="Write your note for this period…",
+                    rows="18",
+                    cls=(
+                        "w-full border border-border rounded-[16px] px-[18px] py-4"
+                        " bg-background text-[15px] leading-[1.7] text-foreground"
+                        " resize-y outline-none focus:border-foreground/30"
+                    ),
+                ),
+                Div(
+                    P("", id="note-save-status", cls="text-[13px] text-green-600"),
+                    Button(
+                        "Save",
+                        type="submit",
+                        cls=(
+                            "inline-flex items-center px-4 py-2 rounded-[10px]"
+                            " bg-foreground text-background text-sm font-semibold"
+                            " hover:bg-foreground/85 transition-colors border-0 cursor-pointer"
+                        ),
+                    ),
+                    cls="flex items-center justify-end gap-3 mt-3",
+                ),
+                hx_post=f"/journals/{entry_uid}/note",
+                hx_target="#note-save-status",
+                hx_swap="outerHTML",
+            ),
+            cls="max-w-[760px] mx-auto w-full px-6 py-8",
+        ),
+        id="journal-workspace",
+        cls="flex-1 overflow-y-auto",
+    )
+
+
 # ------------------------------------------------------------------
 # Shared helpers
 # ------------------------------------------------------------------
