@@ -777,7 +777,7 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 ```python
 from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
 from ui.primitives import ButtonLink, icon_tile, section_label, primary_btn, card_row
-from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
 from ui.layout import Size
@@ -847,8 +847,8 @@ Div(cls="border border-border rounded-[12px] bg-card p-[22px] hover:shadow-sm tr
 # Or use MonsterUI CardContainer directly:
 Card(CardBody(...))
 
-# Loading
-Loading(variant=LoadingT.spinner, size=Size.sm)
+# Loading (CSS-only spinner — no variant param)
+Loading(size=Size.sm)
 ```
 
 **Responsive layout:**

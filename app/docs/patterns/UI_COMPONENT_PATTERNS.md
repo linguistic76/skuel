@@ -372,7 +372,7 @@ from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody, CardTitle, CardT
 from ui.primitives import ButtonLink
 from ui.enum_helpers import get_submission_status_badge_class
-from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, LoadingT, Progress, ProgressT, RadialProgress
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, Progress, ProgressT, RadialProgress
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
@@ -823,13 +823,10 @@ Manual `Table(Thead(...), Tbody(...))` is only needed for non-data-driven layout
 ## Loading States
 
 ```python
-# Spinner (default)
-Loading(size=Size.md)
-
-# Different types
-Loading(variant=LoadingT.dots)
-Loading(variant=LoadingT.ring)
-Loading(variant=LoadingT.bars)
+# CSS-only spinner — no variant param; use size to control dimensions
+Loading()              # md (default)
+Loading(size=Size.sm)
+Loading(size=Size.lg)
 
 # HTMX loading indicator
 Button("Save",
