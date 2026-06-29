@@ -1136,7 +1136,7 @@ All 6 domain filter configs are centralised in `FILTER_CONFIGS: dict[str, Filter
 
 **Live category options (2026-06-10):** `with_user_categories(config, categories)` rebuilds the Category dropdown from the user's distinct category values (`service.search.list_user_categories`). Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories` — the content route replaces the static enum options with "All" + live values, drops the dropdown at 0-1 categories, and falls back to the static config if the fetch fails.
 
-**Note:** Uses SKUEL's `Select` from `ui.forms`. Both `Select` and `LabelSelect` render native `<select>` elements with `uk-select` CSS — MonsterUI's `MLabelSelect` wrapped in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission (fixed in #345/#349).
+**Note:** Uses SKUEL's `Select` from `ui.forms`. Both `Select` and `LabelSelect` render native `<select>` elements with Tailwind styling (`_SELECT_BASE`) — they avoid MonsterUI's `MLabelSelect` which wrapped in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission (fixed in #345/#349; forms migrated to pure Tailwind in #443).
 
 ### Tasks Views (Active)
 
