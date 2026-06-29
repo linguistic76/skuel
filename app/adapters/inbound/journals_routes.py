@@ -17,10 +17,11 @@ Routes:
 from __future__ import annotations
 
 import mimetypes
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from starlette.responses import HTMLResponse, Response
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -742,6 +743,135 @@ def create_journals_routes(
         )
 
     # ------------------------------------------------------------------
+    # GET /journals/daily/{date_str}  — find-or-create daily note
+    # GET /journals/weekly/{year}/{week} — find-or-create weekly note
+    # GET /journals/monthly/{year}/{month} — find-or-create monthly note
+    #
+    # These must be declared before the {entry_uid} catch-all below.
+    # FastHTML resolves routes in declaration order.
+    # ------------------------------------------------------------------
+
+    @rt("/journals/daily/{date_str}", methods=["GET"])
+    async def journal_daily_note(request: Request, date_str: str) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            target_date = date.today()
+        # user_uid in the UID makes it globally unique — two users sharing the
+        # same calendar date get independent notes without backend UID collisions.
+        uid = f"ue:daily:{user_uid}:{target_date.isoformat()}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Daily Note: {target_date.strftime('%A, %B %d, %Y')}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "daily", "period_key": target_date.isoformat()},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
+
+    @rt("/journals/weekly/{year}/{week}", methods=["GET"])
+    async def journal_weekly_note(request: Request, year: int, week: int) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        uid = f"ue:weekly:{user_uid}:{year}-W{week:02d}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Weekly Note: W{week}, {year}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "weekly", "period_key": f"{year}-W{week:02d}"},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
+
+    @rt("/journals/monthly/{year}/{month}", methods=["GET"])
+    async def journal_monthly_note(request: Request, year: int, month: int) -> Any:
+        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        uid = f"ue:monthly:{user_uid}:{year}-{month:02d}"
+        result = await user_entry_service.get_entry(uid, user_uid)
+        if result.is_error:
+            return Response("Error loading note", status_code=500)
+        if result.value is None:
+            month_name = date(year, month, 1).strftime("%B")
+            create_result = await user_entry_service.create_entry(
+                UserEntryCreateRequest(
+                    uid=uid,
+                    title=f"Monthly Note: {month_name} {year}",
+                    content="",
+                    pipeline=Pipeline.NONE,
+                    metadata={"entry_kind": "monthly", "period_key": f"{year}-{month:02d}"},
+                ),
+                user_uid=user_uid,
+            )
+            if create_result.is_error:
+                return Response("Error creating note", status_code=500)
+        return RedirectResponse(f"/journals/{uid}", status_code=302)
+
+    @rt("/journals/{entry_uid}/note", methods=["POST"])
+    @csrf_protected
+    async def journal_save_note(request: Request, entry_uid: str) -> Any:
+        """Save edited periodic-note content. Returns the #note-save-status fragment."""
+        from fasthtml.common import P as _P
+
+        from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return _P(
+                "Service unavailable", id="note-save-status", cls="text-[13px] text-destructive"
+            )
+        # Guard: only allow saves on owned periodic notes (daily/weekly/monthly).
+        # Prevents mutation of unrelated entries (e.g. TEACHER_REVIEW submissions)
+        # via this route.
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        if entry_result.is_error or entry_result.value is None:
+            return _P("Note not found", id="note-save-status", cls="text-[13px] text-destructive")
+        if entry_result.value.metadata.get("entry_kind") not in {"daily", "weekly", "monthly"}:
+            return _P(
+                "Not a periodic note", id="note-save-status", cls="text-[13px] text-destructive"
+            )
+        form = await request.form()
+        content = str(form.get("content", ""))
+        result = await user_entry_service.update_entry(
+            uid=entry_uid,
+            user_uid=user_uid,
+            request=UserEntryUpdateRequest(content=content),
+        )
+        if result.is_error:
+            logger.error("Periodic note save failed for %s: %s", entry_uid, result.expect_error())
+            return _P("Could not save", id="note-save-status", cls="text-[13px] text-destructive")
+        return _P("Saved ✓", id="note-save-status", cls="text-[13px] text-green-600")
+
+    # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
     # ------------------------------------------------------------------
 
@@ -784,7 +914,18 @@ def create_journals_routes(
             if e.pipeline in _journal_pipelines
         ][:30]
 
-        if entry.processed_file_path:
+        if entry.metadata.get("entry_kind") in {"daily", "weekly", "monthly"}:
+            # Periodic notes (calendar integration) are plain editable markdown
+            # notes — no pipeline processing — so they render an editable view
+            # of entry.content rather than falling through to "Processing…".
+            from ui.journals import PeriodicNoteFragment
+
+            initial_workspace = PeriodicNoteFragment(
+                entry_uid=entry.uid,
+                title=entry.title or "",
+                content=entry.content or "",
+            )
+        elif entry.processed_file_path:
             initial_workspace = FileOutputFragment(
                 title=entry.title or "",
                 output_filename=Path(entry.processed_file_path).name,
