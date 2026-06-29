@@ -22,8 +22,7 @@ from itertools import islice
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
-from monsterui.franken import CardBody, CardHeader, CardTitle, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -31,7 +30,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size

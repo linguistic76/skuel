@@ -3,11 +3,9 @@
 from typing import Any
 
 from fasthtml.common import H4, H5, Code, Div, Option, P, Span, Template
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.models.enums.entity_enums import EntityStatus
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Alert, AlertT
 from ui.forms import Input, Label, Select
 from ui.patterns.skeleton import SkeletonList

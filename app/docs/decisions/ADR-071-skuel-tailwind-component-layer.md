@@ -243,8 +243,8 @@ Approximate sequence (re-evaluated after Phase 1):
 | M1 | `ui/primitives.py` — `ButtonLink`, `UkIcon` wrapper | Foundation |
 | M2 | `ui/feedback.py` — Alert, Loading, Progress | Removes `monsterui.daisy` |
 | M3 | `ui/layout.py` — remove 3 MonsterUI re-exports | Clean |
-| M4 | All `ButtonT` + `Button` call sites | 84 sites |
-| M5 | All `Card*` call sites | 55 sites |
+| M4 ✅ | All `ButtonT` + `Button` call sites | 84 sites (#440 2026-06-29) |
+| M5 ✅ | All `Card*` call sites | 55 sites (#441 2026-06-29) |
 | M6 | All `UkIcon` call sites | 32 sites |
 | M7 | Form components (`ui/forms/`) | Variable |
 | M8 | Remaining components (Accordion, TabContainer, Divider, Table, NavContainer) | ~10 each |

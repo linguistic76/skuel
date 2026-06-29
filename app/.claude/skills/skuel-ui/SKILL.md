@@ -28,7 +28,7 @@ allowed-tools: Read, Grep, Glob
 - `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
 - `Alert`, `AlertT`, `Loading`, `Progress`
 - `Icon` (Lucide), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
-- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — in the package; M5 call-site migration pending (existing code still imports from `monsterui.franken`)
+- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — M5 ✅ complete (2026-06-29); import from `ui.components`
 
 CSS cutover and MonsterUI removal happen at M9–M10 (pending). Until then `build_head()` still loads MonsterUI vendor files alongside `ui.components` output.
 
@@ -38,7 +38,7 @@ CSS cutover and MonsterUI removal happen at M9–M10 (pending). Until then `buil
 
 > "Commit to a direction before coding. Intent through tokens — never ad-hoc hex or fonts."
 
-The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX. MonsterUI/FrankenUI is migrating out per ADR-071 (M1–M4 complete; M5+ pending). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
+The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX. MonsterUI/FrankenUI is migrating out per ADR-071 (M1–M5 complete). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
 
 **Pre-coding pass — commit to four dimensions before writing FT:**
 1. **Purpose** — what problem, who uses it (mirror the route's `*PageContext`).
@@ -358,8 +358,8 @@ from monsterui.franken import Button, ButtonT
 from ui.components import Button, ButtonT
 # ✅ ButtonLink — from ui.primitives
 from ui.primitives import ButtonLink
-# ✅ Card family — M5 pending, still from monsterui.franken
-from monsterui.franken import CardContainer, CardBody, CardHeader, CardTitle
+# ✅ Card family — M5 complete, use ui.components
+from ui.components import Card, CardBody, CardHeader, CardTitle
 
 # ❌ Old tuple cls+size pattern
 Button("Edit", cls=(ButtonT.ghost, ButtonT.sm))
@@ -450,8 +450,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`, `SelectableOptionRow()`, `dropdown_menu()`, `dropdown_separator()`, `UploadDropzone()`, `SelectedFileCard()`. Source of truth for the unified design language tokens (container, selection, typography). `SelectableOptionRow` is the canonical option-row with icon+title+subtitle+checkmark — active/hover state strings live here only. `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states. |
-| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). Card family (`CardContainer`, `CardBody`, `CardHeader`, `CardTitle`) still from `monsterui.franken` — M5 migration pending; `ButtonLink` from `ui/primitives.py`. |
-| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071, M1–M4 live).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`. Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) is in the package but M5 call-site migration is pending. |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). `ButtonLink` from `ui/primitives.py`. |
+| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071, M1–M5 live).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |

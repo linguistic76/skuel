@@ -19,14 +19,12 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType

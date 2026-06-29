@@ -8,11 +8,9 @@ Submission content display and row components for detail views.
 from typing import Any
 
 from fasthtml.common import H3, H4, Div, Form, Input, Label, P, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.models.report.entry_report import EntryReport
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.forms import Textarea
 from ui.layout import Size

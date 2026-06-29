@@ -7,11 +7,9 @@ with results display and JavaScript handlers.
 from typing import Any
 
 from fasthtml.common import Div, Form, NotStr, P, Pre
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.config.settings import get_settings
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
 

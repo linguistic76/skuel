@@ -51,10 +51,9 @@ from enum import Enum
 from typing import Any, get_args, get_origin
 
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.utils.logging import get_logger
+from ui.components import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
 from ui.layout import FlexItem, Row

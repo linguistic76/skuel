@@ -3,10 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H4, Div, P, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import ButtonT
+from ui.components import ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.primitives import ButtonLink
@@ -36,23 +34,20 @@ def render_queue_item(item: dict[str, Any]) -> Any:
 
     return Div(
         Card(
-            CardBody(
-                H4(subject_uid, cls="font-semibold mb-1"),
-                P(
-                    f"{date_str} · {time_period}",
-                    cls="text-xs text-muted-foreground mb-2",
-                ),
-                Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
-                P(message, cls="text-sm text-muted-foreground mb-3") if message else None,
-                ButtonLink(
-                    "Start Review",
-                    href=review_href,
-                    cls=ButtonT.primary,
-                    size="sm",
-                ),
-                cls="p-4",
+            H4(subject_uid, cls="font-semibold mb-1"),
+            P(
+                f"{date_str} · {time_period}",
+                cls="text-xs text-muted-foreground mb-2",
             ),
-            cls="bg-background shadow-sm mb-3",
+            Div(*domain_badges, cls="flex flex-wrap gap-1 mb-2") if domain_badges else None,
+            P(message, cls="text-sm text-muted-foreground mb-3") if message else None,
+            ButtonLink(
+                "Start Review",
+                href=review_href,
+                cls=ButtonT.primary,
+                size="sm",
+            ),
+            cls="bg-background shadow-sm mb-3 p-4",
         ),
     )
 

@@ -26,10 +26,9 @@ Layout (2 alternatives):
 from typing import Any
 
 from fasthtml.common import H3, Div, Table, Tbody, Td, Th, Thead, Tr
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
+from ui.components import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.patterns.skeleton import SkeletonLines
 

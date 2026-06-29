@@ -3,10 +3,9 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, P, Span
-from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
-from ui.components import ButtonT
+from ui.components import ButtonT, Card
 from ui.feedback import Progress
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink

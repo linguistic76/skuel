@@ -9,10 +9,8 @@ from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState

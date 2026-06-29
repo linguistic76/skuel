@@ -3,10 +3,9 @@
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from core.models.enums.principle_enums import AlignmentLevel
+from ui.components import Card, CardBody, CardHeader, CardTitle
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.stats_grid import StatCard, StatItem, StatsGrid

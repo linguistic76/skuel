@@ -15,8 +15,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Form, P
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from core.models.enums import (
     DecisionQualityLevel,
@@ -25,7 +23,7 @@ from core.models.enums import (
     ProductivityLevel,
 )
 from core.models.shared.dual_track import DualTrackResult
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.dual_track_card import gap_card, level_options, render_checkin_trend
 from ui.forms import LabelSelect, LabelTextArea
 from ui.primitives import section_label

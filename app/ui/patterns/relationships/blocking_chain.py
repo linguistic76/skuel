@@ -26,10 +26,9 @@ Layout:
 from typing import Any
 
 from fasthtml.common import H3, A, Div, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import EntityUID
+from ui.components import Card, CardBody
 from ui.patterns.skeleton import SkeletonLines
 
 

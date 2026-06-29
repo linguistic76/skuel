@@ -8,9 +8,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import Div, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
+from ui.components import Card, CardBody
 from ui.layout import Grid
 
 
