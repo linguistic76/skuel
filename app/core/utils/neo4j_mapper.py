@@ -391,6 +391,15 @@ class Neo4jGenericMapper:
         # Guard: if target_type is still a string annotation (get_type_hints fallback),
         # detect common dict/list patterns and attempt JSON parsing.
         if isinstance(target_type, str):
+            # Always convert neo4j temporal types to Python natives, even when
+            # the target type annotation couldn't be resolved — prevents
+            # AttributeError on strftime/date operations in callers.
+            if isinstance(value, Neo4jTime):
+                return value.to_native()
+            if isinstance(value, Neo4jDate):
+                return value.to_native()
+            if isinstance(value, Neo4jDateTime):
+                return value.to_native()
             if (
                 (
                     target_type == "dict"
