@@ -4,7 +4,7 @@ Provides a complete relationships section for entity detail pages across all 9 d
 Combines blocking chain, alternatives grid, and relationship graph in a collapsible layout.
 
 Features:
-- Collapsible sections per relationship type (MonsterUI Accordion)
+- Collapsible sections per relationship type (Alpine.js Accordion)
 - HTMX lazy loading (staggered for performance)
 - Responsive grid (1 col mobile, 2 col desktop)
 - Empty states handled by child components
@@ -20,9 +20,9 @@ Usage:
 """
 
 from fasthtml.common import Div
-from monsterui.franken import Accordion, AccordionItem
 
 from core.models.type_hints import EntityUID
+from ui.components import Accordion, AccordionItem
 from ui.patterns.relationships.alternatives_grid import AlternativesComparisonGrid
 from ui.patterns.relationships.blocking_chain import BlockingChainView
 from ui.patterns.relationships.relationship_graph import RelationshipGraphView

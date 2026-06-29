@@ -304,7 +304,7 @@ Div(
 ### Navigation (`ui/navigation.py`)
 
 ```python
-from ui.navigation import Menu, MenuItem, Dropdown, DropdownTrigger, DropdownContent, Tabs, Tab
+from ui.navigation import Menu, MenuItem, Dropdown, DropdownTrigger, DropdownContent, Tabs
 
 # Dropdown menu
 Dropdown(
@@ -318,12 +318,12 @@ Dropdown(
     end=True,   # align right
 )
 
-# Tabs
+# Tabs — each argument is a (label, content) tuple (Alpine.js-driven)
 Tabs(
-    Tab("List", active=True, hx_get="/tasks?view=list", hx_target="#content"),
-    Tab("Calendar", hx_get="/tasks?view=calendar", hx_target="#content"),
-    Tab("Analytics", hx_get="/tasks?view=analytics", hx_target="#content"),
-    boxed=True,
+    ("List", list_panel),
+    ("Calendar", calendar_panel),
+    ("Analytics", analytics_panel),
+    active_tab=0,
 )
 ```
 

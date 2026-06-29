@@ -5,6 +5,8 @@ Invoice UI Views
 UI components for the Invoice section of the Finance Hub.
 """
 
+from typing import Any
+
 from fasthtml.common import (
     H3,
     A,
@@ -16,10 +18,10 @@ from fasthtml.common import (
     Option,
     Select,
     Span,
-    Td,
     Textarea,
 )
 
+from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.finance.types import InvoiceRow, InvoiceStats
 from ui.patterns.page_header import PageHeader
@@ -152,15 +154,15 @@ class InvoiceViews:
             "cancelled": "bg-secondary text-muted-foreground",
         }
 
-        from fasthtml.common import Th
+        from ui.components.table import Th
 
-        def _inv_header_render(col: str) -> Th:
+        def _inv_header_render(col: str) -> Any:
             base = "py-3 px-4 text-sm font-semibold text-muted-foreground"
             if col == "Amount":
                 return Th(col, cls=f"{base} text-right")
             return Th(col, cls=f"{base} text-left")
 
-        def _inv_cell_render(k: str, v: object) -> Td:
+        def _inv_cell_render(k: str, v: object) -> Any:
             styles = {
                 "Counterparty": "py-3 px-4 font-medium",
                 "Amount": "py-3 px-4 text-right font-semibold",

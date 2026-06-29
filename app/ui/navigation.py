@@ -1,16 +1,13 @@
 """
-SKUEL Navigation Components (MonsterUI)
-=========================================
+SKUEL Navigation Components
+==============================
 
-Navbar, Menu, MenuItem, Dropdown, Tabs, Tab wrappers.
-Uses MonsterUI/UIkit navigation components.
+Navbar, Menu, MenuItem, Dropdown, Tabs wrappers.
 """
 
 from typing import Any
 
 from fasthtml.common import Div
-from monsterui.franken import NavContainer as MNavContainer
-from monsterui.franken import TabContainer as MTabContainer
 
 __all__ = [
     "Navbar",
@@ -23,7 +20,6 @@ __all__ = [
     "DropdownTrigger",
     "DropdownContent",
     "Tabs",
-    "Tab",
 ]
 
 
@@ -68,7 +64,7 @@ def NavbarEnd(*c: Any, cls: str = "", **kwargs: Any) -> Any:
 
 def Menu(*c: Any, cls: str = "", horizontal: bool = False, **kwargs: Any) -> Any:
     """
-    Menu wrapper using MonsterUI NavContainer.
+    Menu wrapper.
 
     Args:
         *c: Menu items
@@ -76,13 +72,12 @@ def Menu(*c: Any, cls: str = "", horizontal: bool = False, **kwargs: Any) -> Any
         horizontal: If True, renders horizontally
         **kwargs: Additional HTML attributes
     """
-    cls_parts = []
-    if horizontal:
-        cls_parts.append("flex flex-row gap-1")
+    from fasthtml.common import Ul
+
+    cls_parts = ["flex flex-row gap-1"] if horizontal else ["flex flex-col gap-1"]
     if cls:
         cls_parts.append(cls)
-
-    return MNavContainer(*c, cls=" ".join(cls_parts) if cls_parts else None, **kwargs)
+    return Ul(*c, cls=" ".join(cls_parts), **kwargs)
 
 
 def MenuItem(*c: Any, cls: str = "", _active: bool = False, **kwargs: Any) -> Any:
@@ -162,53 +157,8 @@ def DropdownContent(
     return Ul(*c, tabindex=tabindex, cls=" ".join(classes), **kwargs)
 
 
-def Tabs(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """
-    Tabs wrapper using MonsterUI TabContainer.
+def Tabs(*c: Any, cls: str = "", active_tab: int = 0, **kwargs: Any) -> Any:
+    """Tab container. Each argument should be a (label, content) tuple."""
+    from ui.components.nav import TabContainer as _TabContainer
 
-    Args:
-        *c: Tab items
-        cls: Additional CSS classes
-        **kwargs: Additional HTML attributes
-    """
-    return MTabContainer(*c, cls=cls or None, **kwargs)
-
-
-def Tab(
-    *c: Any,
-    cls: str = "",
-    active: bool = False,
-    disabled: bool = False,
-    **kwargs: Any,
-) -> Any:
-    """
-    Tab item with WCAG 2.1 Level AA compliance.
-
-    Args:
-        *c: Tab content
-        cls: Additional CSS classes
-        active: If True, marks as active tab
-        disabled: If True, disables the tab
-        **kwargs: Additional HTML attributes
-    """
-    from fasthtml.common import A, Li
-
-    classes = []
-    if active:
-        classes.append("uk-active")
-    if disabled:
-        classes.append("uk-disabled")
-    if cls:
-        classes.append(cls)
-
-    attrs = {
-        "role": "tab",
-        "aria_selected": "true" if active else "false",
-        "tabindex": 0 if active else -1,
-    }
-    attrs.update(kwargs)
-
-    return Li(
-        A(*c, **attrs),
-        cls=" ".join(classes) if classes else None,
-    )
+    return _TabContainer(*c, cls=cls, active_tab=active_tab, **kwargs)

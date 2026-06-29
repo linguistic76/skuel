@@ -17,7 +17,7 @@ SKUEL uses a **two-layer CSS architecture**:
 | **Component** | `ui/components/` (M1–M5 live) | Pre-built FT components | `Button(cls=ButtonT.primary)`, `Alert(variant=AlertT.error)`, `Card(CardBody(...))` |
 | **Utility** | Tailwind | Custom spacing, layout, one-off adjustments | `flex gap-4 p-6 rounded-lg` |
 
-**Decision Rule:** `ui/components/` first → Tailwind utilities for customization. `monsterui.franken` only for remaining not-yet-migrated components (`ui/forms/`, `ui/navigation.py`, `ui/data.py` — pending M6+).
+**Decision Rule:** `ui/components/` first → Tailwind utilities for customization. `monsterui.franken` only for `ui/theme.py` (removed at M9).
 
 ```python
 # ✅ ui.components component + Tailwind extension
@@ -215,8 +215,8 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
 | `/static/css/output.css` | Compiled Tailwind CLI output — becomes the production asset at M9 (ADR-071) |
-| `ui/components/` | **SKUEL-owned component layer (ADR-071, M1–M5 live)** — Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
-| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E). |
+| `ui/components/` | **SKUEL-owned component layer (ADR-071, M1–M8 live)** — Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Pure Tailwind wrappers (M1–M8 ✅). `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E). Only `ui/theme.py` remains on MonsterUI (M9 cutover). |
 
 ## See Also
 
