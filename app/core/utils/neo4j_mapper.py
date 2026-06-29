@@ -19,9 +19,13 @@ import json
 import types
 from contextlib import suppress
 from dataclasses import MISSING, fields, is_dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import Enum
 from typing import Any, TypeVar, Union, get_args, get_origin, get_type_hints
+
+from neo4j.time import Date as Neo4jDate
+from neo4j.time import DateTime as Neo4jDateTime
+from neo4j.time import Time as Neo4jTime
 
 from core.models.type_hints import Neo4jProperties
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
@@ -447,6 +451,8 @@ class Neo4jGenericMapper:
                         f"Field '{field_name}': Cannot parse '{value}' as date. "
                         f"Expected ISO format (YYYY-MM-DD)"
                     ) from e
+            elif isinstance(value, Neo4jDate):
+                return value.to_native()
             return value
 
         # Handle datetime
@@ -461,6 +467,24 @@ class Neo4jGenericMapper:
                         f"Field '{field_name}': Cannot parse '{value}' as datetime. "
                         f"Expected ISO format (YYYY-MM-DDTHH:MM:SS)"
                     ) from e
+            elif isinstance(value, Neo4jDateTime):
+                return value.to_native()
+            return value
+
+        # Handle time
+        elif target_type is time or (
+            inspect.isclass(target_type) and issubclass(target_type, time)
+        ):
+            if isinstance(value, str):
+                try:
+                    return time.fromisoformat(value)
+                except ValueError as e:
+                    raise ValueError(
+                        f"Field '{field_name}': Cannot parse '{value}' as time. "
+                        f"Expected ISO format (HH:MM:SS)"
+                    ) from e
+            elif isinstance(value, Neo4jTime):
+                return value.to_native()
             return value
 
         # Handle tuples
