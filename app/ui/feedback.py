@@ -13,14 +13,13 @@ from fasthtml.common import Div, Span
 from ui.components import Alert as _SKUELAlert
 from ui.components import Loading as _SKUELLoading
 from ui.components import Progress as _SKUELProgress
-from ui.components.feedback import AlertT, LoadingT
+from ui.components.feedback import AlertT
 from ui.layout import Size
 
 __all__ = [
     "AlertT",
     "BadgeT",
     "ProgressT",
-    "LoadingT",
     "Alert",
     "Badge",
     "Loading",
@@ -129,7 +128,6 @@ def Badge(
 
 def Loading(
     cls: str = "",
-    variant: LoadingT = LoadingT.spinner,
     size: Size = Size.md,
     **kwargs: Any,
 ) -> Any:
@@ -137,12 +135,9 @@ def Loading(
 
     Args:
         cls: Additional CSS classes
-        variant: Animation style (all variants render as spinner — DaisyUI variants deprecated)
         size: Spinner size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    # variant is accepted for API compat but ignored — CSS spinner is always used
-    _ = variant
     return _SKUELLoading(cls=cls, size=size.value, **kwargs)
 
 

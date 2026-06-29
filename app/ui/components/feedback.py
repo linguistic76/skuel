@@ -5,7 +5,7 @@ from fasthtml.common import Div, Span
 
 from ui.components._util import _cls
 
-__all__ = ["Alert", "AlertT", "Loading", "LoadingT", "Progress"]
+__all__ = ["Alert", "AlertT", "Loading", "Progress"]
 
 
 class AlertT(StrEnum):
@@ -13,17 +13,6 @@ class AlertT(StrEnum):
     success = "success"
     warning = "warning"
     error = "error"
-
-
-class LoadingT(StrEnum):
-    """Loading animation style tokens (CSS-only spinner uses spinner variant)."""
-
-    spinner = "spinner"
-    dots = "dots"
-    ring = "ring"
-    ball = "ball"
-    bars = "bars"
-    infinity = "infinity"
 
 
 _ALERT_CLASSES: dict[str, str] = {
@@ -110,7 +99,7 @@ def Progress(
         variant: Color token — primary, secondary, accent, info, success, warning, error.
         **kwargs: Any HTML attribute passes through (aria-*, data-*, etc.)
     """
-    pct = round(int(value) / max_val * 100) if value is not None else 0
+    pct = round(value / max_val * 100) if value is not None else 0
     fill_cls = _PROGRESS_COLORS.get(variant, _PROGRESS_COLORS["primary"])
     return Div(
         Div(cls=_cls("h-full rounded-full transition-all", fill_cls), style=f"width:{pct}%"),
