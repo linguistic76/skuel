@@ -262,7 +262,7 @@ FastHTML maps `_`→`-`: a **single** underscore → one hyphen (`hx_get`→`hx-
 
 The split is by **library**, not by punctuation: HTMX defines a colon-free double-dash alias for `hx-on`, so its event handlers are reducible; Alpine parses on the colon exclusively, so its `x-on:` / `x-bind:` / `@` / `.modifier` attrs are genuinely irreducible.
 
-**Why it matters for types:** a `**dict[str, str]` splat into a **MonsterUI component** (`Button`, `Input`, `Select`, …) trips mypy `arg-type` — the dict's `str` values spill onto the component's typed keyword slots (`disabled: bool`, `size: Size | None`). The fix follows the table:
+**Why it matters for types:** a `**dict[str, str]` splat into a **SKUEL FT component** (`Button`, `Input`, `Select`, …) trips mypy `arg-type` — the dict's `str` values spill onto the component's typed keyword slots (`disabled: bool`, `size: Size | None`). The fix follows the table:
 
 - **Reducible attrs (plain-hyphen + HTMX `hx-on::`) → use the underscore kwarg.** No splat, no suppression. (e.g. `Button("Back", hx_get="/tasks", hx_target="body")`, *not* `**{"hx-get": …}`; `Form(..., hx_on__after_request=expr)`, *not* `**{"hx-on::after-request": expr}`.)
 - **Irreducible Alpine attrs (colon / at / dot) → keep the splat + a surgical ignore:** `**{"x-on:click": expr},  # type: ignore[arg-type]  # fasthtml dynamic-attr splat`.
@@ -353,7 +353,7 @@ HTMX enhances HTML — use semantic elements, not div soup:
 ## See Also
 
 - `skuel-ui` — SKUEL-specific patterns using HTMX + Alpine (forms, navigation, sidebars)
-- `ui-css` — MonsterUI (FrankenUI + Tailwind) for styling interactive components
+- `ui-css` — CSS layer and Tailwind utilities for styling interactive components
 - `chartjs` — Chart.js visualization via `chartVis()` Alpine component
 - HTMX Docs: https://htmx.org/docs/
 - Alpine.js Docs: https://alpinejs.dev/

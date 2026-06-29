@@ -18,13 +18,27 @@ allowed-tools: Read, Grep, Glob
 
 ---
 
+## Component Layer Migration (ADR-071)
+
+`ui/components/` is SKUEL's owned component layer — thin FT functions encoding Tailwind class strings, no UIkit.
+
+**Why:** FrankenUI ships UIkit JS that directly conflicts with Alpine.js (two competing DOM state machines). ADR-071 replaces MonsterUI with SKUEL-owned components so the interactivity model is coherent: Alpine.js + HTMX, nothing else.
+
+**Current state (M1–M4 complete, 2026-06-29):** Live — import from `ui.components`:
+- `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
+- `Alert`, `AlertT`, `Loading`, `Progress`
+- `Icon` (Lucide), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
+- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — in the package; M5 call-site migration pending (existing code still imports from `monsterui.franken`)
+
+CSS cutover and MonsterUI removal happen at M9–M10 (pending). Until then `build_head()` still loads MonsterUI vendor files alongside `ui.components` output.
+
+---
+
 ## Design Direction (Aesthetic Intent)
 
 > "Commit to a direction before coding. Intent through tokens — never ad-hoc hex or fonts."
 
-The stack is fixed (FastHTML + MonsterUI/FrankenUI + Tailwind + Alpine/HTMX). Aesthetic
-intent is expressed *through existing components and tokens*, never by fighting the stack
-with raw HTML, CDN fonts, or bespoke CSS.
+The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX. MonsterUI/FrankenUI is migrating out per ADR-071 (M1–M4 complete; M5+ pending). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
 
 **Pre-coding pass — commit to four dimensions before writing FT:**
 1. **Purpose** — what problem, who uses it (mirror the route's `*PageContext`).
@@ -33,8 +47,8 @@ with raw HTML, CDN fonts, or bespoke CSS.
 4. **Tone** — pick a committed direction (refined-minimal ↔ dense-utilitarian) and hold it across the page.
 
 **Express intent through the stack:**
-- **Typography = hierarchy via components.** `PageHeader`/`SectionHeader` carry the type scale — never raw `H1()`/`H2()` with ad-hoc classes. Wholesale font swaps fight the MonsterUI Tailwind stack and are out of scope; a distinctive display font, if ever wanted, must be vendored through `build_head()` — never a CDN `<link>`, never `NotStr`.
-- **Color = semantic tokens.** Dominant-color-plus-sharp-accent via MonsterUI variants (`ButtonT.primary`, `BadgeT.accent`) and semantic tokens (`text-base-content/70`) / `/core/utils/palette.py` constants — never raw `text-gray-600` or bespoke hex. See `ui-css`.
+- **Typography = hierarchy via components.** `PageHeader`/`SectionHeader` carry the type scale — never raw `H1()`/`H2()` with ad-hoc classes. Wholesale font swaps are out of scope; a distinctive display font, if ever wanted, must be vendored through `build_head()` — never a CDN `<link>`, never `NotStr`.
+- **Color = semantic tokens.** Dominant-color-plus-sharp-accent via component variants (`ButtonT.primary`, `BadgeT.accent`) and semantic tokens (`text-base-content/70`) / `/core/utils/palette.py` constants — never raw `text-gray-600` or bespoke hex. See `ui-css`.
 - **Motion = Alpine/HTMX seams.** Reserve motion for high-impact moments — the shell-first reveal (`content_loading_placeholder` + HTMX swap) and Alpine `x-transition` — not scattered JS micro-animations. See `ui-browser`.
 - **Composition = design tokens.** Deliberate negative space OR controlled density via `Container.*`, `Spacing.*`, `Card.*` (`/ui/tokens.py`) — never magic widths.
 
@@ -46,7 +60,7 @@ with raw HTML, CDN fonts, or bespoke CSS.
 
 ### BasePage — The Foundation
 
-`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, MonsterUI (FrankenUI + Tailwind), Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
+`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, Tailwind/MonsterUI vendor files (MonsterUI transitioning out per ADR-071; cutover at M9), Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
 
 ```python
 from ui.layouts.base_page import BasePage
@@ -338,10 +352,14 @@ Form(hx_post="/tasks/create")
 
 # ❌ Old ui.buttons import (deleted in PR E)
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
-# ✅ Button/ButtonT — from monsterui.franken (until M4 migration completes)
+# ❌ monsterui.franken for Button/ButtonT — M4 complete, this is now wrong
 from monsterui.franken import Button, ButtonT
-# ✅ ButtonLink comes from ui.primitives (pure Tailwind since M1)
+# ✅ Button/ButtonT — M4 complete, use ui.components
+from ui.components import Button, ButtonT
+# ✅ ButtonLink — from ui.primitives
 from ui.primitives import ButtonLink
+# ✅ Card family — M5 pending, still from monsterui.franken
+from monsterui.franken import CardContainer, CardBody, CardHeader, CardTitle
 
 # ❌ Old tuple cls+size pattern
 Button("Edit", cls=(ButtonT.ghost, ButtonT.sm))
@@ -360,7 +378,7 @@ H1("Tasks", cls="text-3xl font-bold")
 # ✅ PageHeader/SectionHeader carry the type scale (design intent)
 PageHeader("Tasks", subtitle="Manage your daily work")
 
-# ❌ Bespoke hex or hand-linked/CDN font — fights the MonsterUI stack
+# ❌ Bespoke hex or hand-linked/CDN font — use semantic tokens; vendor fonts via build_head()
 Span("New", style="color:#7c3aed")
 # ✅ Semantic variant/token; fonts vendored via build_head()
 Badge("New", variant=BadgeT.accent)
@@ -432,8 +450,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`, `SelectableOptionRow()`, `dropdown_menu()`, `dropdown_separator()`, `UploadDropzone()`, `SelectedFileCard()`. Source of truth for the unified design language tokens (container, selection, typography). `SelectableOptionRow` is the canonical option-row with icon+title+subtitle+checkmark — active/hover state strings live here only. `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states. |
-| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI wrappers — 5 modules. `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted PR E — import `Button, ButtonT, CardContainer, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`. |
-| `ui/components/` | **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js drop-ins: `Button/ButtonT`, `Card` family, `Icon` (Lucide), `Alert/AlertT/Loading/Progress`, `Divider`, `Table/TableFromLists/TableFromDicts`, full form set, `DivFullySpaced/DivCentered/Center`, `TabContainer`, `Accordion/AccordionItem`. Import from here once a component's Phase 2 M-PR lands; MonsterUI paths remain authoritative until then. |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). Card family (`CardContainer`, `CardBody`, `CardHeader`, `CardTitle`) still from `monsterui.franken` — M5 migration pending; `ButtonLink` from `ui/primitives.py`. |
+| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071, M1–M4 live).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`. Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) is in the package but M5 call-site migration is pending. |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
@@ -471,7 +489,7 @@ When building a new SKUEL page or feature, verify:
 
 ## See Also
 
-- `ui-css` — Deep reference for MonsterUI components and Tailwind utilities
+- `ui-css` — CSS layer, Tailwind utilities, and component styling reference
 - `ui-browser` — Deep reference for HTMX patterns and Alpine.js directives
 - `fasthtml` — FastHTML route patterns and FT component system
 - `chartjs` — Chart.js analytics visualization

@@ -1,44 +1,48 @@
 ---
 name: ui-css
-description: Expert guide for SKUEL's CSS layer — MonsterUI (FrankenUI + Tailwind) components. Use when styling components, choosing between CSS layers, implementing responsive layouts, working with MonsterUI components (buttons, forms, modals, cards, navbar), or when the user mentions MonsterUI, FrankenUI, Tailwind, CSS, styling, component library, responsive design, or dark mode.
+description: Expert guide for SKUEL's CSS layer — Tailwind + ui/components/ + semantic tokens. Use when styling components, choosing between CSS layers, implementing responsive layouts, working with SKUEL components (buttons, forms, cards, navbar), or when the user mentions Tailwind, CSS, styling, component library, responsive design, dark mode, MonsterUI, or FrankenUI.
 allowed-tools: Read, Grep, Glob
 ---
 
-# SKUEL CSS Layer: MonsterUI + Tailwind
+# SKUEL CSS Layer: Tailwind + ui/components/
 
 ## Core Philosophy
 
-> "Semantic component classes that compose with Tailwind utilities — start with the most specific, fall back to utilities."
+> "Component classes that compose with Tailwind utilities — start with the most specific, fall back to utilities."
 
 SKUEL uses a **two-layer CSS architecture**:
 
-| Layer | Library | Decision Rule | Example |
-|-------|---------|---------------|---------|
-| **Component** | MonsterUI wrappers | Pre-built FastHTML components | `Button(variant=ButtonT.primary)`, `Alert(variant=AlertT.error)` |
+| Layer | Source | Decision Rule | Example |
+|-------|--------|---------------|---------|
+| **Component** | `ui/components/` (migrated) or `monsterui.franken` (M5+ pending) | Pre-built FT components | `Button(cls=ButtonT.primary)`, `Alert(variant=AlertT.error)` |
 | **Utility** | Tailwind | Custom spacing, layout, one-off adjustments | `flex gap-4 p-6 rounded-lg` |
 
-**Decision Rule:** MonsterUI wrapper first → Tailwind utilities for customization
+**Decision Rule:** `ui/components/` first → Tailwind utilities for customization. Use `monsterui.franken` only for Card family and other not-yet-migrated components (ADR-071 M5+).
 
 ```python
-# ✅ MonsterUI wrapper component + Tailwind customization
-Button("Save", variant=ButtonT.primary, cls="w-full mt-4")
+# ✅ ui.components component + Tailwind extension
+from ui.components import Button, ButtonT
+Button("Save", cls=ButtonT.primary)
+Button("Save", cls=ButtonT.primary, size="sm")   # size kwarg controls geometry
+Button("Save", cls=(ButtonT.primary, "w-full mt-4"))           # tuple to compose with extra classes
 
-# ✅ MonsterUI wrapper for forms
-Checkbox(name="agree")  # Wrapper handles styling
+# ✅ SKUEL form wrappers
+from ui.components import LabelInput
+LabelInput("Email", name="email", type="email")
 
-# ⚠️ Avoid raw Tailwind when MonsterUI has a wrapper
-Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use variant=ButtonT.primary
+# ⚠️ Avoid raw Tailwind when a component exists
+Button("Save", cls="bg-blue-600 text-white px-4 py-2 rounded")  # Use Button(cls=ButtonT.primary)
 ```
 
 ## FastHTML Integration
 
-Tailwind and MonsterUI classes work via `cls=` in FastHTML:
+Component and Tailwind classes both work via `cls=` in FastHTML:
 
 ```python
 # Single string
 Div("Content", cls="flex items-center gap-4 p-6")
 
-# Tuple: combine MonsterUI token + Tailwind utilities
+# Tuple: combine SKUEL token + Tailwind utilities
 Button("Submit", cls=(ButtonT.primary, "w-full shadow-lg"))
 
 # With Alpine.js directives via **kwargs
@@ -53,7 +57,7 @@ Div(
 
 ## Component & Utility Reference
 
-For the full code reference — MonsterUI wrapper components (buttons, form controls, cards, badges, alerts, modals, navbar, loading, tables) and the Tailwind utility reference (flex/grid layout, spacing, typography, breakpoints, semantic color tokens, states, animations) — see **[reference.md](reference.md)**.
+For the full code reference — SKUEL components (buttons, form controls, cards, badges, alerts, loading, tables) and the Tailwind utility reference (flex/grid layout, spacing, typography, breakpoints, semantic color tokens, states, animations) — see **[reference.md](reference.md)**.
 
 ---
 
@@ -93,7 +97,7 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 | Pattern | Tool |
 |---------|------|
 | Standard spacing/layout | Tailwind utilities |
-| Repeated semantic components | MonsterUI classes |
+| Repeated semantic components | Component layer (`ui/components/`) |
 | Repeated 5+ times | `@apply` in component class |
 | Complex animations/pseudo | Custom CSS |
 | Design tokens | CSS variables in `/ui/tokens.py` |
@@ -134,9 +138,9 @@ MonsterUI orchestrates three CSS frameworks loaded from **local vendor files** (
 
 **Global border radius:** `radii="sm"` (2px/4px) — set in both `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
 
-**Button & input visibility:** `main.css` overrides FrankenUI default styling for internal `.uk-btn`, `.uk-input/.uk-select/.uk-textarea` classes. Python code uses SKUEL wrapper components (Button, Input, Select) which map to these internally.
+**Input visibility:** `main.css` overrides FrankenUI default styling for `.uk-input`/`.uk-select`/`.uk-textarea` classes. This affects MonsterUI-backed form inputs (still active until M7). `Button` now comes from `ui.components` (pure Tailwind, no `.uk-btn` dependency).
 
-`output.css` is a pre-compiled Tailwind+DaisyUI file for build tooling — **NOT loaded by `build_head()`**. Only classes that appear in `franken_css.js`, `daisyui.js`, and `tailwind.css` are available at runtime.
+`output.css` is compiled by Tailwind CLI (`./dev css-build`). Currently NOT loaded by `build_head()` (MonsterUI's `tailwind.js` browser JIT is still the runtime compiler). This flips at M9 (ADR-071): `skuel_headers()` replaces `monster_headers()`, making `output.css` the production CSS asset and removing the 407KB browser JIT. Until M9 lands, only classes present in the MonsterUI vendor files are guaranteed at runtime.
 
 **Critical: DaisyUI tab classes are NOT in MonsterUI** — `.tabs`, `.tabs-boxed`, `.tab`, `.tab-active` come from DaisyUI's component CSS which is separate from the utility classes in `daisyui.js`. Using these causes collapsed/broken layouts. Use the Alpine `:style` pattern instead (see below).
 
@@ -175,13 +179,13 @@ Div(..., style="display: inline-flex; gap: 4px; padding: 4px; background-color: 
 | `hsl(var(--border))` | Light gray border | Dividers, outlines |
 | `hsl(var(--destructive))` | Red | Delete/danger states |
 
-**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. SKUEL's Card/CardBody/CardTitle/CardHeader wrappers handle this by omitting `cls` when empty. If calling MonsterUI components directly, use `cls=""` or omit the parameter.
+**MonsterUI `cls` gotcha (Card family, M5 pending):** Never pass `cls=None` to `monsterui.franken` Card components — it renders as the literal string `"None"` in the HTML class attribute. Use `cls=""` or omit `cls`. Components from `ui.components` handle this correctly via `_cls()`.
 
 ## Anti-Patterns
 
 ```python
-# ❌ Raw Tailwind when MonsterUI has it
-Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use Alert(variant=AlertT.error)
+# ❌ Raw Tailwind when a component exists
+Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use Alert(variant=AlertT.error) from ui.components
 
 # ❌ Tailwind palette instead of semantic tokens
 P("Text", cls="text-gray-600")  # Use text-base-content/70
@@ -209,13 +213,13 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | File | Purpose |
 |------|---------|
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
-| `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides (8 sections) |
-| `/static/css/output.css` | Compiled Tailwind output |
-| `ui/buttons.py`, `ui/cards.py`, `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | FastHTML MonsterUI component wrappers — 7 focused modules (March 2026) |
+| `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
+| `/static/css/output.css` | Compiled Tailwind CLI output — becomes the production asset at M9 (ADR-071) |
+| `ui/components/` | **SKUEL-owned component layer (ADR-071, M1–M4 live)** — Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers. Card family in package; M5 call-site migration pending. |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E). |
 
 ## See Also
 
-- `skuel-ui` — SKUEL-specific UI patterns (pages, forms, navigation, components)
+- `skuel-ui` — SKUEL-specific UI patterns (pages, forms, navigation, components); also covers ADR-071 migration state
 - `ui-browser` — HTMX + Alpine.js interactivity layer
 - Tailwind Docs: https://tailwindcss.com/docs
-- MonsterUI docs: see monsterui package

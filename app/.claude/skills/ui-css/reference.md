@@ -1,36 +1,36 @@
-# ui-css Reference: MonsterUI Components + Tailwind Utilities
+# ui-css Reference: SKUEL Components + Tailwind Utilities
 
 > On-demand reference for the [`ui-css`](SKILL.md) skill. SKILL.md holds the philosophy, design tokens, theming, CSS-loading architecture, and patterns; this file holds the component-by-component and utility-class detail.
 
-## MonsterUI Wrapper Component Reference
+## SKUEL Component Reference
 
-All UI components use Python wrapper functions. Import from the appropriate module.
+All UI components use Python FT functions. Import from `ui.components` for migrated components; `monsterui.franken` for Card family (M5 pending) and other not-yet-migrated components.
 
 ### Buttons
 
 ```python
-from ui.buttons import Button, ButtonT, ButtonLink, IconButton
-from ui.layout import Size
+from ui.components import Button, ButtonT
+from ui.primitives import ButtonLink
 
-# Variants
-Button("Primary", variant=ButtonT.primary)
-Button("Secondary", variant=ButtonT.secondary)
-Button("Ghost", variant=ButtonT.ghost)
-Button("Error", variant=ButtonT.error)
-Button("Success", variant=ButtonT.success)
+# Style variants (cls=) — controls colour/border/hover
+Button("Primary", cls=ButtonT.primary)
+Button("Secondary", cls=ButtonT.secondary)
+Button("Ghost", cls=ButtonT.ghost)
+Button("Destructive", cls=ButtonT.destructive)
+Button("Link", cls=ButtonT.link)
 
-# Sizes
-Button("Small", variant=ButtonT.primary, size=Size.sm)
-Button("Large", variant=ButtonT.primary, size=Size.lg)
+# Geometry (size=) — controls height/padding. Never mix size tokens in cls= tuple.
+Button("Small", cls=ButtonT.primary, size="sm")    # xs, sm, md (default), lg, xl
+Button("Large", cls=ButtonT.primary, size="lg")
+
+# Composing extra Tailwind classes with style variant
+Button("Full-width", cls=(ButtonT.primary, "w-full mt-4"))
 
 # ButtonLink — for ALL action CTAs (not raw A() with ad-hoc Tailwind)
-# primary CTA → ButtonT.primary + Size.sm | view/navigate → ButtonT.ghost + Size.sm | "view all" → ButtonT.ghost + Size.xs
-ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
-ButtonLink("View Details", href="/tasks/123", variant=ButtonT.ghost, size=Size.sm)
-ButtonLink("View all →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
-
-# Icon button
-IconButton("pencil", variant=ButtonT.ghost, size=Size.sm)
+# primary CTA → ButtonT.primary, size="sm" | view/navigate → ButtonT.ghost, size="sm" | "view all" → ButtonT.ghost, size="xs"
+ButtonLink("Submit →", href="/submit", cls=ButtonT.primary, size="sm")
+ButtonLink("View Details", href="/tasks/123", cls=ButtonT.ghost, size="sm")
+ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs")
 ```
 
 ### Form Controls
@@ -115,15 +115,15 @@ Alert("Error message", variant=AlertT.error)
 
 ```python
 # Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
-from ui.buttons import Button, ButtonT
+from ui.components import Button, ButtonT
 
 Div(
     Div(
         H3("Modal Title", cls="font-bold text-lg"),
         P("Modal content here", cls="py-4"),
         Div(
-            Button("Cancel", variant=ButtonT.ghost, **{"@click": "showModal = false"}),
-            Button("Confirm", variant=ButtonT.primary),
+            Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
+            Button("Confirm", cls=ButtonT.primary),
             cls="flex justify-end gap-2",
         ),
         cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
