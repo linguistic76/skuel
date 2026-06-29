@@ -3,7 +3,7 @@ Authentication UI Components
 ============================
 
 Reusable components for user registration and login.
-Uses MonsterUI (FrankenUI) components via SKUEL wrappers for consistent styling.
+Uses SKUEL component wrappers for consistent styling.
 
 All methods return FT component trees (not NotStr). Full-page auth views
 (login, registration) are wrapped with AuthPage() by the route handler.
@@ -50,7 +50,7 @@ class AuthComponents:
     content to be wrapped by AuthPage() in the route handler.
 
     Fragment methods (render_forgot_password_form, etc.) return content
-    rendered within the app's normal layout (which already loads MonsterUI CSS).
+    rendered within the app's normal layout (which already loads SKUEL CSS).
     """
 
     @staticmethod

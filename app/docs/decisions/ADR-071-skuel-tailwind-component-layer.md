@@ -1,16 +1,16 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
 updated: 2026-06-29
-status: accepted
+status: implemented
 category: decisions
-tags: [adr, decisions, ui, tailwind, frankenui, monsterui, alpine, components]
+tags: [adr, decisions, ui, tailwind, alpine, components]
 related: [ADR-043, ADR-050]
 related_skills: [skuel-ui, ui-browser, ui-css]
 ---
 
 # ADR-071: SKUEL-Owned Tailwind Component Layer
 
-**Status:** Accepted
+**Status:** Implemented (M10 complete 2026-06-29)
 
 **Date:** 2026-06-29
 

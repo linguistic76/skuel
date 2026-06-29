@@ -8,7 +8,7 @@ Extracted from search_routes.py for separation of concerns.
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
 
-Uses semantic HTML with TailwindCSS + MonsterUI styling.
+Uses semantic HTML with TailwindCSS.
 
 Usage:
     from ui.search.components import (
