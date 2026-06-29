@@ -262,7 +262,7 @@ class UserPreferencesComponents:
             action="/settings/save",
         )
 
-    # MonsterUI themes (class-based dark mode via Tailwind)
+    # DaisyUI themes (class-based dark mode via Tailwind)
     THEMES = [
         "light",
         "dark",

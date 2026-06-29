@@ -1,4 +1,4 @@
-"""Unified sidebar component — Tailwind + Alpine.js (MonsterUI).
+"""Unified sidebar component — Tailwind + Alpine.js.
 
 Desktop: Collapsible fixed sidebar with toggle button.
 Mobile: Horizontal tabs at top of content area.

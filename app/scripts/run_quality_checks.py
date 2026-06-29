@@ -11,9 +11,8 @@ Runs all code quality checks in sequence:
 5. Route security audit
 6. Skills validation (.claude/skills/*/SKILL.md structure)
 7. Dead-code gate
-8. MonsterUI vendor files (committed to git; re-sync after uv upgrade monsterui)
-9. npm audit (JS dependency vulnerabilities)
-10. MyPy + Pyright type checking (optional)
+8. npm audit (JS dependency vulnerabilities)
+9. MyPy + Pyright type checking (optional)
 
 `./dev typecheck-strict` runs only Pyright. See [tool.pyright] in pyproject.toml.
 
@@ -159,15 +158,7 @@ def main():
     ):
         all_passed = False
 
-    # 8. MonsterUI vendor files (committed to git; re-sync after uv upgrade monsterui)
-    if not run_command(
-        ["uv", "run", "python", "scripts/check_monsterui_vendor.py"],
-        "MonsterUI Vendor Files",
-        check=False,
-    ):
-        all_passed = False
-
-    # 9. npm Audit (security vulnerabilities in JS dependencies)
+    # 8. npm Audit (security vulnerabilities in JS dependencies)
     if not run_command(
         ["npm", "audit", "--audit-level=moderate"],
         "npm Audit (JS dependency vulnerabilities)",
@@ -175,7 +166,7 @@ def main():
     ):
         all_passed = False
 
-    # 10. Type Checking (optional - slow)
+    # 9. Type Checking (optional - slow)
     if not args.fast:
         print("\n💡 Running type checks (slow). Use --fast to skip.")
 

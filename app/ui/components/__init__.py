@@ -1,7 +1,6 @@
-"""SKUEL component layer — pure Tailwind + Alpine.js, no UIkit or MonsterUI.
+"""SKUEL component layer — pure Tailwind + Alpine.js (ADR-071).
 
-Import from this package instead of monsterui.franken / monsterui.daisy once
-call-site migration (Phase 2) is complete. All components follow the FT protocol:
+All components follow the FT protocol:
 
     Component(*c, cls="", **kwargs) -> Any
 

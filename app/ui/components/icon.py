@@ -22,4 +22,5 @@ def Icon(name: str, cls: str = "", size: int = 16, **kwargs: Any) -> Any:
         **kwargs: Any HTML attribute passes through.
     """
     dim = f"w-[{size}px] h-[{size}px]"
-    return I(data_lucide=name, cls=_cls(dim, cls), **kwargs)
+    # width/height attrs are picked up by Lucide when it replaces <i> with <svg>.
+    return I(data_lucide=name, cls=_cls(dim, cls), width=size, height=size, **kwargs)

@@ -2,7 +2,7 @@
 Curriculum Adaptive Components
 ===============================
 
-MonsterUI/Tailwind components for adaptive curriculum delivery.
+Tailwind components for adaptive curriculum delivery.
 Display curriculum content organized by SEL categories.
 
 Components:

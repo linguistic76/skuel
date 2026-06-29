@@ -24,13 +24,13 @@ allowed-tools: Read, Grep, Glob
 
 **Why:** FrankenUI ships UIkit JS that directly conflicts with Alpine.js (two competing DOM state machines). ADR-071 replaces MonsterUI with SKUEL-owned components so the interactivity model is coherent: Alpine.js + HTMX, nothing else.
 
-**Current state (M1–M4 complete, 2026-06-29):** Live — import from `ui.components`:
+**Current state (M1–M9 complete, 2026-06-29):** Live — import from `ui.components`:
 - `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
 - `Alert`, `AlertT`, `Loading`, `Progress`
 - `Icon` (Lucide), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
-- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — M5 ✅ complete (2026-06-29); import from `ui.components`
+- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — M5 ✅ complete
 
-CSS cutover and MonsterUI removal happen at M9–M10 (pending). Until then `build_head()` still loads MonsterUI vendor files alongside `ui.components` output.
+**M9 ✅ (2026-06-29):** `build_head()` now loads `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine via `skuel_headers()`. UIkit/FrankenUI/MonsterUI are no longer loaded in any browser session. M10 (pending): `uv remove monsterui`, delete vendor files.
 
 ---
 

@@ -2,59 +2,19 @@
 SKUEL Theme Configuration
 =========================
 
-Centralized theme headers for SKUEL using MonsterUI (FrankenUI + Tailwind).
-SKUEL-native configuration for frontend dependencies.
+Pure SKUEL headers built on pre-compiled Tailwind CLI (output.css),
+self-hosted Lucide icons, HTMX, and Alpine.js.
 
 Usage:
-    from ui.theme import monster_headers
+    from ui.theme import skuel_headers
 
     # In bootstrap.py
-    app, rt = fast_app(hdrs=monster_headers())
-
-Design Principles:
-- One Path Forward: MonsterUI for all UI components
-- Leverage Maintained Software: FastHTML team maintains MonsterUI
-- Progressive Enhancement: Core functionality works without JS
+    app, rt = fast_app(hdrs=(*skuel_headers(), *chartjs_headers()))
 """
 
-from pathlib import Path
 from typing import Any
 
 from fasthtml.common import Link, Script
-from monsterui.core import HEADER_URLS
-from monsterui.core import Theme as MonsterTheme
-
-# Re-export MonsterUI Theme for direct access
-Theme = MonsterTheme
-
-
-def _local_headers_offline_safe(theme: MonsterTheme, static_dir: str, **kwargs: Any) -> list[Any]:
-    """Build MonsterUI header tags from committed vendor files.
-
-    Files live in ``static/vendor/monsterui/`` and are committed to git alongside
-    all other vendor files (Alpine, HTMX, Chart.js). After ``uv upgrade monsterui``
-    run ``./dev sync-monsterui-vendor`` to re-download and commit the updated files.
-    """
-    static_path = Path(static_dir)
-    local_urls: dict[str, str] = {}
-    for name, url in HEADER_URLS.items():
-        # Extension comes from the URL path's actual suffix, not substring match —
-        # CDN hostnames like "cdn.jsdelivr.net" contain "js", which used to misclassify
-        # CSS files as .js and break stylesheet loading (browsers reject CSS served
-        # with a JS-extension URL when MIME enforcement is on).
-        ext = "css" if url.rsplit("?", 1)[0].endswith(".css") else "js"
-        fname = static_path / f"{name}.{ext}"
-        if not fname.exists():
-            raise FileNotFoundError(
-                f"MonsterUI vendor file missing: {fname}\nRun: ./dev sync-monsterui-vendor"
-            )
-        local_urls[name] = f"/{static_dir}/{fname.name}"
-    return theme._create_headers(local_urls, **kwargs)
-
-
-# Single source of truth for SKUEL's brand color.
-# Change this to switch the entire app's primary color (buttons, links, focus rings).
-BRAND_THEME = MonsterTheme.blue
 
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
@@ -64,69 +24,27 @@ CHARTJS_ADAPTER_VERSION = "3"
 LUCIDE_VERSION = "1.22.0"
 
 
-def monster_headers(
-    theme: MonsterTheme = BRAND_THEME,
-    htmx_version: str = HTMX_VERSION,
-    alpine_version: str = ALPINE_VERSION,
-) -> tuple[Any, ...]:
-    """
-    Generate SKUEL application headers with MonsterUI + HTMX + Alpine.
-
-    Args:
-        theme: MonsterUI theme to use (default: blue)
-        htmx_version: HTMX version to use
-        alpine_version: Alpine.js version (must match self-hosted file)
-
-    Returns:
-        Tuple of header elements for FastHTML fast_app()
-
-    Example:
-        from fasthtml.common import fast_app
-        from ui.theme import monster_headers
-
-        app, rt = fast_app(hdrs=monster_headers())
-    """
-    # MonsterUI theme headers (includes FrankenUI + Tailwind + Lucide icons)
-    # Serve from local static directory — no CDN dependency
-    mu_headers = _local_headers_offline_safe(
-        theme, static_dir="static/vendor/monsterui", radii="sm"
-    )
-
-    headers = list(mu_headers)
-
-    # HTMX for hypermedia — self-hosted so Firefox doesn't classify /login as
-    # cross-site and reject the csrf_token cookie (see adapters/inbound/csrf.py).
-    headers.append(Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"))
-
-    # Alpine.js (self-hosted for stability)
-    headers.append(
-        Script(src=f"/static/vendor/alpinejs/alpine.{alpine_version}.min.js", defer=True),
-    )
-
-    # SKUEL custom CSS and JS
-    headers.extend(
-        [
-            Link(rel="stylesheet", href="/static/css/main.css"),
-            Script(src="/static/js/skuel.js"),
-        ]
-    )
-
-    return tuple(headers)
-
-
 def skuel_headers(
     htmx_version: str = HTMX_VERSION,
     alpine_version: str = ALPINE_VERSION,
 ) -> tuple[Any, ...]:
-    """Pure SKUEL headers — no UIkit/MonsterUI. Replaces monster_headers() after M9 migration.
+    """Pure SKUEL headers — no UIkit/MonsterUI.
 
-    Dormant in Phase 1: not wired into bootstrap.py yet. Activated in M9 when output.css
-    switches from JIT browser compilation to pre-compiled static file.
+    Loads pre-compiled output.css (Tailwind CLI), self-hosted Lucide, HTMX,
+    Alpine.js, SKUEL's custom CSS, and SKUEL's Alpine component JS.
+
+    Example:
+        from fasthtml.common import fast_app
+        from ui.theme import skuel_headers, chartjs_headers
+
+        app, rt = fast_app(hdrs=(*skuel_headers(), *chartjs_headers()))
     """
     return (
         Link(rel="stylesheet", href="/static/css/output.css"),
         Script(src=f"/static/vendor/lucide/lucide.{LUCIDE_VERSION}.min.js"),
+        # HTMX (self-hosted — avoids cross-site CSRF cookie rejection in Firefox)
         Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"),
+        # Alpine.js (self-hosted for stability)
         Script(src=f"/static/vendor/alpinejs/alpine.{alpine_version}.min.js", defer=True),
         Link(rel="stylesheet", href="/static/css/main.css"),
         Script(src="/static/js/skuel.js"),
@@ -166,11 +84,7 @@ def pwa_headers(
 
 
 def dark_mode_script() -> Script:
-    """
-    Generate dark mode toggle script for MonsterUI theme system.
-
-    MonsterUI uses class-based dark mode (Tailwind's 'dark' class on html element).
-    """
+    """Dark mode toggle script — class-based (Tailwind 'dark' on html element)."""
     return Script("""
         (function() {
             const THEME_KEY = 'skuel-theme';
@@ -226,9 +140,6 @@ def chartjs_headers() -> tuple[Any, ...]:
 
 
 __all__ = [
-    "Theme",
-    "BRAND_THEME",
-    "monster_headers",
     "skuel_headers",
     "pwa_headers",
     "dark_mode_script",

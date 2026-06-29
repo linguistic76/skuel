@@ -345,7 +345,7 @@ Generic backend `UniversalNeo4jBackend[T]` (T constrained by `DomainModelProtoco
 | `BasePage(CUSTOM)` | Full-width, page manages layout (SidebarPage) |
 | `AuthPage()` | Unauthenticated pages (login, register, landing — no navbar/chrome) |
 
-All three load CSS through `build_head()` (local MonsterUI vendor files). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents. Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, static in `/static/`.
+All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents. Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, static in `/static/`.
 
 **Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.). `render_list_view(ctx)` is the only signature. NOT in `core/ports/` — page contexts are UI concerns.
 

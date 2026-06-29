@@ -1,5 +1,5 @@
 """
-Navbar Component - SKUEL Patterns (MonsterUI)
+Navbar Component - SKUEL Patterns
 ==============================================
 
 Navigation bar using Tailwind utilities.

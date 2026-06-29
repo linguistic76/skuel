@@ -3,8 +3,7 @@
 
 Standardized modal wrapper for SKUEL's Alpine.js-controlled modals.
 
-MonsterUI provides Modal components based on UIKit's ``data-uk-toggle`` mechanism,
-which is incompatible with SKUEL's Alpine.js state management pattern. This wrapper
+AlpineModal is a pure Alpine.js modal — no UIkit dependency. This wrapper
 standardizes the Alpine.js modal pattern (backdrop, transitions, accessibility)
 while preserving full Alpine.js control.
 

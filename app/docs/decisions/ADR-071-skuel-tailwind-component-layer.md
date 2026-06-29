@@ -1,16 +1,16 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
 updated: 2026-06-29
-status: accepted
+status: implemented
 category: decisions
-tags: [adr, decisions, ui, tailwind, frankenui, monsterui, alpine, components]
+tags: [adr, decisions, ui, tailwind, alpine, components]
 related: [ADR-043, ADR-050]
 related_skills: [skuel-ui, ui-browser, ui-css]
 ---
 
 # ADR-071: SKUEL-Owned Tailwind Component Layer
 
-**Status:** Accepted
+**Status:** Implemented (M10 complete 2026-06-29)
 
 **Date:** 2026-06-29
 
@@ -248,7 +248,7 @@ Approximate sequence (re-evaluated after Phase 1):
 | M6 ✅ | All `UkIcon` call sites | 138 sites (#442 2026-06-29) |
 | M7 ✅ | Form components (`ui/forms/`) | 1 file (#443 2026-06-29) |
 | M8 ✅ | Remaining components (`ui/data.py`, `ui/navigation.py`, `relationship_section.py`) | 4 files (#444 2026-06-29) |
-| M9 | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
+| M9 ✅ | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
 | M10 | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
 
 M4 and M5 are large but mechanical — good candidates for fresh-context agents.

@@ -3020,4 +3020,14 @@
         if (window.lucide) lucide.createIcons();
     });
 
+    // Re-run Lucide after Alpine inserts dynamic data-lucide elements into the DOM
+    // (handles x-html icon helpers on /today and similar pages).
+    // document.documentElement avoids the document.body null issue when skuel.js
+    // runs in <head> before the body is parsed; subtree:true catches all descendants.
+    if (window.MutationObserver && window.lucide) {
+        new MutationObserver(function() {
+            lucide.createIcons();
+        }).observe(document.documentElement, { subtree: true, childList: true });
+    }
+
 })();

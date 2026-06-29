@@ -89,10 +89,10 @@ def my_page():
 
 | Component | Version | Source |
 |-----------|---------|--------|
-| HTMX | 1.9.10 | CDN (unpkg.com) |
+| HTMX | 1.9.10 | Self-hosted (`/static/vendor/`) |
 | Alpine.js | 3.14.8 | Self-hosted (`/static/vendor/`) |
-| MonsterUI | Latest | `monster_headers()` |
-| Tailwind | Latest | CDN |
+| Tailwind CSS | (compiled) | `static/css/output.css` (Tailwind CLI) |
+| Lucide icons | 1.22.0 | Self-hosted (`/static/vendor/lucide/`) |
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical` for detailed patterns.
 
@@ -233,14 +233,14 @@ def my_component() -> Div:
 
 ### SKUEL Pages (Standard)
 
-SKUEL's `monster_headers()` automatically includes Alpine.js (self-hosted for stability):
+SKUEL's `skuel_headers()` automatically includes Alpine.js (self-hosted for stability):
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import monster_headers
+from ui.theme import skuel_headers, chartjs_headers
 
 app, rt = fast_app(
-    hdrs=monster_headers(),  # Includes Alpine.js 3.14.8
+    hdrs=(*skuel_headers(), *chartjs_headers()),  # Includes Alpine.js 3.14.8
 )
 ```
 

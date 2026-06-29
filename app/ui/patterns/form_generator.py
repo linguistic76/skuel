@@ -194,7 +194,7 @@ class FormGenerator:
     """
     Dynamic form generator using Pydantic model introspection.
 
-    Generates MonsterUI-styled forms with proper variant classes, ARIA support,
+    Generates SKUEL-component forms with proper variant classes, ARIA support,
     and Alpine.js validation. Supports sections, help text, pre-fill, hidden
     fields, and fragment mode for embedding in curriculum content.
 
@@ -549,7 +549,7 @@ class FormGenerator:
         value: Any = None,
     ) -> Any:
         """
-        Build a MonsterUI-styled input widget.
+        Build a SKUEL-component input widget.
 
         Uses ui/forms.py wrappers (Input, Select, Textarea, Checkbox) for
         consistent variant classes, ARIA support, and full-width defaults.
