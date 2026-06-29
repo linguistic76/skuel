@@ -27,10 +27,10 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import H4, Div, Li, Span, Ul
-from monsterui.franken import Button, ButtonT
 
 from core.models.enums.learning_enums import KnowledgeStatus
 from core.ports.query_types import Violation
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 
@@ -107,7 +107,8 @@ def render_publish_state(uid: str, status: KnowledgeStatus | None, is_teacher: b
     if show_button:
         body = Button(
             "Publish",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             hx_post=f"/explore/ps/{uid}/publish",
             hx_swap="outerHTML",
             hx_target=f"#{PUBLISH_STATE_ID}",
@@ -132,7 +133,8 @@ def render_publish_violations(uid: str, violations: list[Violation]) -> Any:
         Ul(*rows, cls="list-disc pl-5 space-y-1 mb-3 text-xs text-foreground"),
         Button(
             "Dismiss",
-            cls=(ButtonT.ghost, ButtonT.sm),
+            cls=ButtonT.ghost,
+            size="sm",
             hx_get=f"/explore/ps/{uid}/publish-state",
             hx_swap="outerHTML",
             hx_target=f"#{PUBLISH_STATE_ID}",

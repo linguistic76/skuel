@@ -17,11 +17,12 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
@@ -84,7 +85,8 @@ def TaskCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#task-{safe_id(task.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, ButtonT.sm, "rounded"),
+        cls=(ButtonT.default, "rounded"),
+        size="sm",
         title=f"Mark as {new_status}",
     )
 
@@ -219,7 +221,7 @@ def SubtaskListFragment(
                 cls="flex-1 min-w-0",
             ),
             Input(type="hidden", name="parent_uid", value=parent_uid),
-            Button("Add", type="submit", cls=(ButtonT.primary, ButtonT.sm)),
+            Button("Add", type="submit", cls=ButtonT.primary, size="sm"),
         ),
         hx_post="/tasks/subtasks/add",
         hx_target=f"#{list_id}",

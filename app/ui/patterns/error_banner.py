@@ -170,8 +170,8 @@ def render_empty_state_with_error(
         )
     """
     from fasthtml.common import H3
-    from monsterui.franken import ButtonT
 
+    from ui.components import ButtonT
     from ui.primitives import ButtonLink
 
     content = [
@@ -180,9 +180,7 @@ def render_empty_state_with_error(
     ]
 
     if action_label and action_href:
-        content.append(
-            ButtonLink(action_label, href=action_href, cls=(ButtonT.primary, ButtonT.sm))
-        )
+        content.append(ButtonLink(action_label, href=action_href, cls=ButtonT.primary, size="sm"))
 
     return Div(*content, cls="text-center py-12 px-4")
 

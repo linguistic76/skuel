@@ -3,10 +3,10 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, Form, P
-from monsterui.franken import Button, ButtonT
 from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label, Textarea
 from ui.layout import Size
@@ -86,7 +86,8 @@ def render_recommendations_page(data: dict, user_uid: UserUID) -> Any:
                     Button(
                         "Choose This Path",
                         type="submit",
-                        cls=(ButtonT.primary, ButtonT.sm),
+                        cls=ButtonT.primary,
+                        size="sm",
                     ),
                     cls="p-4 pt-0",
                 ),

@@ -27,8 +27,9 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
-from monsterui.franken import ButtonT, UkIcon
+from monsterui.franken import UkIcon
 
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -114,7 +115,8 @@ def _submission_item(sub: "UserEntry") -> Div:
             ButtonLink(
                 "View →",
                 href=f"/gradebook/{sub.uid}",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             ),
             cls="flex items-center gap-2",
         ),
@@ -163,7 +165,8 @@ def render_resource_list(resources: list[Any]) -> Div:
                 href=r.source_url,
                 target="_blank",
                 rel="noopener noreferrer",
-                cls=(ButtonT.ghost, ButtonT.sm, "ml-auto"),
+                cls=(ButtonT.ghost, "ml-auto"),
+                size="sm",
             )
             if r.source_url
             else None

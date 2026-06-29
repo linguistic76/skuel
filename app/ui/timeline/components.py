@@ -20,9 +20,9 @@ __version__ = "2.0"  # Vis.js Timeline version
 from typing import TYPE_CHECKING
 
 from fasthtml.common import Div, Option, P, Span
-from monsterui.franken import Button, ButtonT
 
 from core.models.type_hints import UserUID
+from ui.components import Button, ButtonT
 from ui.feedback import Loading
 from ui.forms import Input, Label, Select
 from ui.layout import Size
@@ -110,19 +110,22 @@ def _render_controls() -> Div:
             Span("Zoom:", cls="text-sm text-muted-foreground mr-2"),
             Button(
                 "+",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 **{"@click": "zoomIn()"},  # fasthtml dynamic-attr splat
                 title="Zoom in",
             ),
             Button(
                 "-",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 **{"@click": "zoomOut()"},  # fasthtml dynamic-attr splat
                 title="Zoom out",
             ),
             Button(
                 "Fit All",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 **{"@click": "fit()"},  # fasthtml dynamic-attr splat
                 title="Fit all items",
             ),
@@ -131,7 +134,8 @@ def _render_controls() -> Div:
         # Refresh button
         Button(
             "Refresh",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             **{"@click": "refresh()"},  # fasthtml dynamic-attr splat
         ),
         cls="controls flex justify-between items-center p-4 border-b",
@@ -187,7 +191,8 @@ def _render_filters(project: str | None = None, user_uid: UserUID | None = None)
         ),
         Button(
             "Apply Filters",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             **{"@click": "applyFilters()"},  # fasthtml dynamic-attr splat
         ),
         # Hidden user_uid for API calls
@@ -214,7 +219,8 @@ def _render_timeline_container() -> Div:
             ),
             Button(
                 "Retry",
-                cls=(ButtonT.destructive, ButtonT.sm, "mt-2"),
+                cls=(ButtonT.destructive, "mt-2"),
+                size="sm",
                 **{"@click": "refresh()"},  # fasthtml dynamic-attr splat
             ),
             cls="flex flex-col items-center justify-center h-full",
@@ -275,13 +281,13 @@ def create_embedded_timeline(
         controls.append(
             Div(
                 Button(
-                    "+", cls=(ButtonT.ghost, ButtonT.xs), **{"@click": "zoomIn()"}
+                    "+", cls=ButtonT.ghost, size="xs", **{"@click": "zoomIn()"}
                 ),  # fasthtml dynamic-attr splat
                 Button(
-                    "-", cls=(ButtonT.ghost, ButtonT.xs), **{"@click": "zoomOut()"}
+                    "-", cls=ButtonT.ghost, size="xs", **{"@click": "zoomOut()"}
                 ),  # fasthtml dynamic-attr splat
                 Button(
-                    "Fit", cls=(ButtonT.ghost, ButtonT.xs), **{"@click": "fit()"}
+                    "Fit", cls=ButtonT.ghost, size="xs", **{"@click": "fit()"}
                 ),  # fasthtml dynamic-attr splat
                 cls="absolute top-2 right-2 flex gap-1 z-10",
             )

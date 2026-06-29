@@ -20,11 +20,12 @@ Usage:
 from typing import Any, ClassVar
 
 from fasthtml.common import A, Div, Form, Option, P, Span, Td
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
+from ui.components import Button, ButtonT
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
@@ -85,11 +86,13 @@ class AdminUIComponents:
                 ButtonLink(
                     "View",
                     href=f"/admin/users/{user.uid}",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                 ),
                 Button(
                     "Edit Role",
-                    cls=(ButtonT.primary, ButtonT.sm),
+                    cls=ButtonT.primary,
+                    size="sm",
                     hx_get=f"/admin/users/{user.uid}/role-form",
                     hx_target=f"#role-form-{uid_css}",
                     hx_swap="innerHTML",
@@ -99,7 +102,8 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Deactivate",
-                        cls=(ButtonT.destructive, ButtonT.sm),
+                        cls=ButtonT.destructive,
+                        size="sm",
                         hx_post=f"/api/admin/users/{user.uid}/deactivate",
                         hx_confirm="Are you sure you want to deactivate this user?",
                         hx_swap="outerHTML",
@@ -110,7 +114,8 @@ class AdminUIComponents:
                 actions.append(
                     Button(
                         "Activate",
-                        cls=(ButtonT.primary, ButtonT.sm),
+                        cls=ButtonT.primary,
+                        size="sm",
                         hx_post=f"/api/admin/users/{user.uid}/activate",
                         hx_swap="outerHTML",
                         hx_target=f"#user-card-{uid_css}",
@@ -197,7 +202,8 @@ class AdminUIComponents:
                     "": ButtonLink(
                         "View",
                         href=f"/admin/users/{uid}",
-                        cls=(ButtonT.ghost, ButtonT.xs),
+                        cls=ButtonT.ghost,
+                        size="xs",
                     ),
                 }
             )
@@ -246,12 +252,14 @@ class AdminUIComponents:
                 Button(
                     "Save",
                     type="submit",
-                    cls=(ButtonT.primary, ButtonT.sm),
+                    cls=ButtonT.primary,
+                    size="sm",
                 ),
                 Button(
                     "Cancel",
                     type="button",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                     onclick="this.closest('form').remove()",
                 ),
                 cls="flex items-center gap-2",
@@ -405,7 +413,8 @@ class AdminUIComponents:
                     "": ButtonLink(
                         "View →",
                         href=f"/admin/users/{uid}",
-                        cls=(ButtonT.ghost, ButtonT.xs, "text-primary"),
+                        cls=(ButtonT.ghost, "text-primary"),
+                        size="xs",
                     ),
                 }
             )
@@ -496,7 +505,8 @@ class AdminUIComponents:
                     ButtonLink(
                         "View Full KU Detail →",
                         href=f"/teaching/learning/user/{user_uid}",
-                        cls=(ButtonT.ghost, ButtonT.sm, "ml-4"),
+                        cls=(ButtonT.ghost, "ml-4"),
+                        size="sm",
                     ),
                     cls="flex items-center mb-3",
                 ),

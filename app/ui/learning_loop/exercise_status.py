@@ -17,9 +17,9 @@ Data shape: ExerciseStatusRow TypedDict (core/ports/query_types.py).
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
-from monsterui.franken import ButtonT
 
 from core.ports.query_types import ExerciseStatusRow
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -71,19 +71,22 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
         return ButtonLink(
             "Submit →",
             href=submit_href,
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
         )
     if status == "submitted":
         return ButtonLink(
             "View Submission →",
             href=f"/gradebook/{row['submission_uid']}",
-            cls=(ButtonT.ghost, ButtonT.sm),
+            cls=ButtonT.ghost,
+            size="sm",
         )
     # feedback_available or revision_requested
     return ButtonLink(
         "View Report →",
         href=f"/entry-reports/detail?uid={row['report_uid']}",
-        cls=(ButtonT.ghost, ButtonT.sm),
+        cls=ButtonT.ghost,
+        size="sm",
     )
 
 
@@ -106,7 +109,8 @@ def exercise_item(row: ExerciseStatusRow, from_ps: str | None = None) -> Div:
             ButtonLink(
                 "Download",
                 href=f"/api/exercises/md?uid={row['uid']}",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             ),
             exercise_action_link(row, from_ps=from_ps),
             cls="flex items-center gap-2",

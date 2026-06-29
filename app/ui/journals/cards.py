@@ -3,11 +3,11 @@
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import ButtonT
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.exercises.exercise import Exercise
 from core.models.user_entry.user_entry import UserEntry
+from ui.components import ButtonT
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.primitives import ButtonLink
@@ -41,7 +41,8 @@ def render_journal_card(je_input: UserEntry) -> Any:
             ButtonLink(
                 "Download",
                 href=f"/submit/journals/{je_input.uid}/download",
-                cls=(ButtonT.primary, ButtonT.sm),
+                cls=ButtonT.primary,
+                size="sm",
             )
         )
 

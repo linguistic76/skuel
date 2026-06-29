@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Div, P
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
+from ui.components import ButtonT
 from ui.groups.shared_preview import _format_shared_at
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader

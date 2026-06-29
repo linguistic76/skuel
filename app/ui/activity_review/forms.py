@@ -3,10 +3,11 @@
 from typing import Any
 
 from fasthtml.common import Div, Form, Input, NotStr, Option, Script
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from ui.activity_review.types import DOMAIN_CHOICES
+from ui.components import Button, ButtonT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect, LabelTextArea
 
 

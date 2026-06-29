@@ -8,10 +8,11 @@ Submission content display and row components for detail views.
 from typing import Any
 
 from fasthtml.common import H3, H4, Div, Form, Input, Label, P, Span
-from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardBody
 from monsterui.franken import CardContainer as Card
 
 from core.models.report.entry_report import EntryReport
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.forms import Textarea
 from ui.layout import Size
@@ -229,7 +230,8 @@ def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[E
                             Div(
                                 Button(
                                     "+ Add feedback point",
-                                    cls=(ButtonT.ghost, ButtonT.sm),
+                                    cls=ButtonT.ghost,
+                                    size="sm",
                                     type="button",
                                     **{"@click": "addPoint()"},  # fasthtml dynamic-attr splat
                                 ),
@@ -324,7 +326,8 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
 
     delete_btn = Button(
         "Delete",
-        cls=(ButtonT.destructive, ButtonT.sm, "text-xs"),
+        cls=(ButtonT.destructive, "text-xs"),
+        size="sm",
         **{"@click.stop": ""},  # fasthtml dynamic-attr splat
         hx_post=f"/api/teaching/submissions/{item.uid}/delete",
         hx_target=f"#row-{dom_id}",
@@ -565,7 +568,8 @@ def render_class_member_row(item: ClassMember) -> Div:
         actions=ButtonLink(
             "View Submissions",
             href=f"/teaching/students/{item.user_uid}",
-            cls=(ButtonT.ghost, ButtonT.sm),
+            cls=ButtonT.ghost,
+            size="sm",
         ),
         card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )

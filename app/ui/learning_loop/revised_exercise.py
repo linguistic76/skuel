@@ -17,10 +17,11 @@ from fasthtml.common import (
     P,
     Span,
 )
-from monsterui.franken import ButtonT, CardBody
+from monsterui.franken import CardBody
 from monsterui.franken import CardContainer as Card
 
 from core.models.enums.learning_enums import FeedbackCategory
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -142,14 +143,16 @@ def render_revised_exercise_detail(entity: Any) -> Any:
             ButtonLink(
                 "View Original Exercise",
                 href=f"/exercises/get?uid={original_exercise_uid}",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             )
         )
         links.append(
             ButtonLink(
                 "Submit Revision",
                 href=f"/submit?exercise_uid={uid}",
-                cls=(ButtonT.primary, ButtonT.sm),
+                cls=ButtonT.primary,
+                size="sm",
             )
         )
     if report_uid:
@@ -157,7 +160,8 @@ def render_revised_exercise_detail(entity: Any) -> Any:
             ButtonLink(
                 "View Report",
                 href=f"/entry-reports/detail?uid={report_uid}",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             )
         )
 
@@ -222,7 +226,8 @@ def render_revised_exercise_card(entity: Any) -> Any:
                 ButtonLink(
                     "View Details",
                     href=f"/revised-exercises/detail?uid={uid}",
-                    cls=(ButtonT.secondary, ButtonT.sm, "mt-2"),
+                    cls=(ButtonT.secondary, "mt-2"),
+                    size="sm",
                 ),
                 cls="p-4",
             ),

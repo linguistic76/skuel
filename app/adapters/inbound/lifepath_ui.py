@@ -15,7 +15,6 @@ UI Routes:
 from typing import Any
 
 from fasthtml.common import Div
-from monsterui.franken import ButtonT
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -23,6 +22,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.utils.logging import get_logger
+from ui.components import ButtonT
 from ui.lifepath import (
     lifepath_sidebar_page,
     render_alignment_dashboard,

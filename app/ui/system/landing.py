@@ -6,8 +6,9 @@ Split layout: branded hero on left (desktop), login card on right.
 from typing import Any
 
 from fasthtml.common import H1, H2, A, Div, Form, P, Span
-from monsterui.franken import Button, ButtonT, UkIcon
+from monsterui.franken import UkIcon
 
+from ui.components import Button, ButtonT
 from ui.forms.components import LabelInput
 from ui.layouts.base_page import AuthPage
 from ui.primitives import ButtonLink

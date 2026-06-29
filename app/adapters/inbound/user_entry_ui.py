@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H4, A, Div, P, Span
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle, UkIcon
+from monsterui.franken import CardBody, CardHeader, CardTitle, UkIcon
 from monsterui.franken import CardContainer as Card
 from starlette.responses import FileResponse, RedirectResponse
 
@@ -44,6 +44,7 @@ from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
@@ -91,7 +92,8 @@ def _render_entry_responses(responses: list[dict[str, Any]]) -> Any:
                     ButtonLink(
                         "View",
                         href=f"/entry-reports/detail?uid={r.get('uid')}",
-                        cls=(ButtonT.ghost, ButtonT.sm),
+                        cls=ButtonT.ghost,
+                        size="sm",
                     ),
                     cls="flex items-center justify-between p-2 border-b border-border",
                 )
@@ -114,7 +116,8 @@ def _render_respond_button(entry_uid: str) -> Any:
     """Button that requests a reflective LLM response for a journal entry."""
     return Button(
         "Get a reflective response",
-        cls=(ButtonT.secondary, ButtonT.sm, "mt-4"),
+        cls=(ButtonT.secondary, "mt-4"),
+        size="sm",
         hx_post="/api/entry-reports/respond",
         hx_vals=json.dumps({"entry_uid": entry_uid}),
         hx_target="#entry-responses",

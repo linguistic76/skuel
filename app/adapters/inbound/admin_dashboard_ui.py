@@ -28,7 +28,7 @@ Date: 2025-12-07
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import make_service_getter, require_admin
@@ -41,6 +41,7 @@ from ui.admin.views import (
     AdminSystemComponents,
     AdminUIComponents,
 )
+from ui.components import Button, ButtonT
 from ui.journals.components import render_batch_transcription_panel
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
@@ -414,7 +415,8 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             ButtonLink(
                 "← Back to Users",
                 href="/admin/users",
-                cls=(ButtonT.ghost, ButtonT.sm, "mb-4"),
+                cls=(ButtonT.ghost, "mb-4"),
+                size="sm",
             ),
             PageHeader(
                 user_data.display_name or user_data.username,
@@ -462,12 +464,14 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
                         ButtonLink(
                             "View submissions →",
                             href=f"/teaching/students/{uid}",
-                            cls=(ButtonT.secondary, ButtonT.sm),
+                            cls=ButtonT.secondary,
+                            size="sm",
                         ),
                         ButtonLink(
                             "KU progress →",
                             href=f"/teaching/students/{uid}?tab=ku",
-                            cls=(ButtonT.secondary, ButtonT.sm, "ml-2"),
+                            cls=(ButtonT.secondary, "ml-2"),
+                            size="sm",
                         ),
                     ),
                 ),
@@ -653,7 +657,8 @@ def _render_system_summary(status_data: dict) -> Div:
         ButtonLink(
             "View Details →",
             href="/admin/system",
-            cls=(ButtonT.ghost, ButtonT.sm, "mt-2"),
+            cls=(ButtonT.ghost, "mt-2"),
+            size="sm",
         ),
     )
 

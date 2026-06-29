@@ -15,8 +15,8 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Div, P
-from monsterui.franken import ButtonT
 
+from ui.components import ButtonT
 from ui.groups.shared_preview import GroupSharedPreviewList
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
