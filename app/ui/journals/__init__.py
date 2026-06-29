@@ -16,6 +16,7 @@ from fasthtml.common import (
 from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
+from ui.components import Button as StyledButton
 from ui.components import ButtonT
 
 if TYPE_CHECKING:
@@ -214,7 +215,7 @@ def TranscriptReviewFragment(transcript: str, title: str) -> Any:
         Form(
             Input(type="hidden", name="raw_entry", value=transcript),
             Input(type="hidden", name="title", value=title),
-            Button(
+            StyledButton(
                 "Scribe →",
                 cls=ButtonT.default,
                 hx_post="/journals/stage1",
@@ -528,7 +529,7 @@ def ErrorFragment(message: str) -> Any:
                 P(message, cls="text-xs text-muted-foreground"),
             ),
         ),
-        Button(
+        StyledButton(
             "Start over",
             cls=ButtonT.ghost,
             hx_get="/journals",
@@ -614,7 +615,7 @@ def _ReviewGate(
             ),
             cls="mb-4",
         ),
-        Button(
+        StyledButton(
             next_label,
             cls=ButtonT.default,
             hx_post=post_url,
