@@ -104,13 +104,25 @@ Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 ### Optional field: `uid` (deterministic upsert)
 
 By default a UserEntry is minted a random `ue_<...>` UID and **created**
-fresh on every ingest. Supply an explicit `uid:` (e.g. a periodic-note id
-like `ue:daily:2026-06-16`) and the service switches to **MERGE-on-uid
-upsert** instead: re-ingesting an edited file updates the existing node in
-place rather than duplicating it or tripping the uid constraint.
+fresh on every ingest. When a deterministic UID is known, the service
+switches to **MERGE-on-uid upsert** instead: re-ingesting an edited file
+updates the existing node in place rather than duplicating it.
 `created_at` is preserved across re-syncs; `updated_at` and content are
 refreshed. The exercise-linked turn-in path (`fulfills_exercise_uid`)
 always mints a random UID and is unaffected.
+
+**Periodic notes** (`entry_kind: daily | weekly | monthly`) get a
+deterministic UID automatically — no explicit `uid:` needed:
+
+| `entry_kind` | auto-derived UID |
+|--------------|-----------------|
+| `daily` | `ue:daily:{user_uid}:{date}` (e.g. `ue:daily:user_mike:2026-06-28`) |
+| `weekly` | `ue:weekly:{user_uid}:{week_of}` |
+| `monthly` | `ue:monthly:{user_uid}:{YYYY-MM}` |
+
+This is the same UID the calendar routes use, so vault-synced daily notes
+resolve to the correct SKUEL journal page automatically. You may still
+supply an explicit `uid:` to override.
 
 ### Markdown body → `content`
 

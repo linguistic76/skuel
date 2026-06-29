@@ -191,14 +191,17 @@ def create_day_cell(
         more_element.append(Div("+more", cls="text-xs text-muted-foreground mt-1"))
 
     # Date number links to the Daily Note (Obsidian Calendar-style).
+    # hx-boost="false" opts out of HTMX boost so the 302 redirect from
+    # /journals/daily/{date} triggers a full browser navigation instead of
+    # being swapped into the current HTMX target.
     daily_href = f"/journals/daily/{cell_date.isoformat()}"
-    # Today's date header with badge for visibility
     if is_today:
         date_header = Div(
             A(
                 str(cell_date.day),
                 href=daily_href,
                 title="Daily note",
+                **{"hx-boost": "false"},
                 cls="text-lg font-bold text-primary hover:opacity-70",
             ),
             Badge("Today", variant=BadgeT.primary, size=Size.sm, cls="ml-2"),
@@ -209,6 +212,7 @@ def create_day_cell(
             str(cell_date.day),
             href=daily_href,
             title="Daily note",
+            **{"hx-boost": "false"},
             cls=(
                 "text-sm font-semibold mb-1 block hover:text-primary "
                 f"{'text-foreground' if is_current_month else 'text-foreground/40'}"
