@@ -24,8 +24,8 @@ from fasthtml.common import (
     Td,
     Ul,
 )
-from monsterui.franken import Button, ButtonT
 
+from ui.components import Button, ButtonT
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 

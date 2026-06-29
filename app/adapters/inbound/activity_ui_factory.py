@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
-from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -29,6 +28,7 @@ from adapters.inbound.fasthtml_types import Request
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
+from ui.components import ButtonT
 from ui.dual_track_card import render_dual_track_result
 from ui.patterns import PageHeader
 from ui.patterns.error_banner import render_error_banner

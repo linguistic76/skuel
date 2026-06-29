@@ -16,9 +16,9 @@ Usage:
 """
 
 from fasthtml.common import Span
-from monsterui.franken import Button, ButtonT
 
 from core.models.type_hints import EntityUID
+from ui.components import Button, ButtonT
 
 
 def PinButton(
@@ -71,21 +71,12 @@ def PinButton(
         htmx_attrs["hx_post"] = "/api/user/pins"
         htmx_attrs["hx_vals"] = f'{{"entity_uid": "{entity_uid}"}}'
 
-    # Variant and size as MonsterUI ButtonT cls tuple
     button_variant = ButtonT.primary if is_pinned else ButtonT.ghost
-    size_cls_map: dict[str, ButtonT] = {
-        "xs": ButtonT.xs,
-        "sm": ButtonT.sm,
-        "lg": ButtonT.lg,
-        "xl": ButtonT.xl,
-    }
-    cls_parts: list[ButtonT] = [button_variant]
-    if size in size_cls_map:
-        cls_parts.append(size_cls_map[size])
 
     return Button(
         *content,
-        cls=tuple(cls_parts),
+        cls=button_variant,
+        size=size,
         **htmx_attrs,  # fasthtml dynamic-attr splat
     )
 

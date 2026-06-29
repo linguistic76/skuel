@@ -13,9 +13,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fasthtml.common import A, Div, P, Span
-from monsterui.franken import ButtonT, UkIcon
+from monsterui.franken import UkIcon
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
+from ui.components import ButtonT
 from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
 
@@ -209,7 +210,8 @@ def HubDomainBlock(block: HubBlockData) -> Div:
             ButtonLink(
                 "View all \u2192",
                 href=block.view_all_href or block.href,
-                cls=(ButtonT.ghost, ButtonT.xs),
+                cls=ButtonT.ghost,
+                size="xs",
             ),
             cls="flex items-center justify-between mb-3",
         ),

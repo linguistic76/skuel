@@ -10,7 +10,6 @@ Detail view lives at /explore/ps/{uid} (explore_ui.py).
 from typing import Any, cast
 
 from fasthtml.common import A, Div, P, Request, Span
-from monsterui.franken import Button, ButtonT
 from starlette.datastructures import FormData
 
 from adapters.inbound.auth import require_authenticated_user
@@ -27,6 +26,7 @@ from core.services.ps_engagement.ps_engagement_service import (
 )
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
+from ui.components import Button, ButtonT
 from ui.explore.ps_completion_review import render_review_error, render_review_form
 from ui.explore.ps_publish_state import (
     render_publish_state,
@@ -60,7 +60,8 @@ def _start_step_button(uid: str, is_in_progress: bool, is_mastered: bool) -> Any
         return Badge("In Progress", variant=BadgeT.secondary, size=Size.sm)
     return Button(
         "Start Learning",
-        cls=(ButtonT.primary, ButtonT.sm),
+        cls=ButtonT.primary,
+        size="sm",
         hx_post=f"/api/path-steps/{uid}/start",
         hx_swap="outerHTML",
         hx_target="this",
@@ -99,7 +100,8 @@ def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
     if engagement is None:
         body: Any = Button(
             "Engage with this Path Step",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             hx_post=f"/explore/ps/{uid}/engage",
             hx_swap="outerHTML",
             hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
@@ -109,14 +111,16 @@ def render_engagement_actions(uid: str, engagement: Engagement | None) -> Any:
             Badge("Engaged", variant=BadgeT.success, size=Size.sm),
             Button(
                 "Complete",
-                cls=(ButtonT.primary, ButtonT.sm),
+                cls=ButtonT.primary,
+                size="sm",
                 hx_get=f"/explore/ps/{uid}/complete-review",
                 hx_swap="outerHTML",
                 hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
             ),
             Button(
                 "Abandon",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 hx_post=f"/explore/ps/{uid}/abandon",
                 hx_swap="outerHTML",
                 hx_target=f"#{_ENGAGEMENT_ACTIONS_ID}",
@@ -201,7 +205,8 @@ def create_path_steps_ui_routes(
         if not count_result.is_error and (count_result.value or 0) >= 2:
             return Button(
                 "Limit reached (2)",
-                cls=(ButtonT.destructive, ButtonT.sm),
+                cls=ButtonT.destructive,
+                size="sm",
                 disabled=True,
                 title="You can enrol in at most 2 Path Steps at once",
             )
@@ -211,7 +216,8 @@ def create_path_steps_ui_routes(
         if result.is_error:
             return Button(
                 "Error",
-                cls=(ButtonT.destructive, ButtonT.sm),
+                cls=ButtonT.destructive,
+                size="sm",
                 disabled=True,
             )
 
@@ -228,13 +234,15 @@ def create_path_steps_ui_routes(
         if result.is_error:
             return Button(
                 "Error",
-                cls=(ButtonT.destructive, ButtonT.sm),
+                cls=ButtonT.destructive,
+                size="sm",
                 disabled=True,
             )
 
         return Button(
             "Marked as Read",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             disabled=True,
         )
 
@@ -249,7 +257,8 @@ def create_path_steps_ui_routes(
         if result.is_error:
             return Button(
                 "Error",
-                cls=(ButtonT.destructive, ButtonT.sm),
+                cls=ButtonT.destructive,
+                size="sm",
                 disabled=True,
             )
 

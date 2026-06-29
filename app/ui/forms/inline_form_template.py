@@ -15,8 +15,8 @@ import json
 from typing import Any
 
 from fasthtml.common import H3, Div, Form, P, Small, Span
-from monsterui.franken import Button, ButtonT
 
+from ui.components import Button, ButtonT
 from ui.forms.components import Checkbox, Input, Label
 from ui.forms.field_builder import build_field_from_schema
 

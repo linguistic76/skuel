@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
-from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardBody
 from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
+from ui.components import Button, ButtonT
 from ui.forms import Label, LabelCheckbox, LabelInput, LabelTextArea, Select
 from ui.patterns.error_banner import render_inline_error
 
@@ -79,7 +80,8 @@ def _render_form(form: "FormTemplate", ps_uid: str) -> Div:
                     Button(
                         "Submit",
                         type="submit",
-                        cls=(ButtonT.primary, ButtonT.sm, "mt-4"),
+                        cls=(ButtonT.primary, "mt-4"),
+                        size="sm",
                     ),
                     hx_post=f"/learning-loop/ps/{ps_uid}/forms/{form.uid}/submit",
                     hx_target=f'[id="form-{form.uid}"]',

@@ -3,8 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, NotStr, Span
-from monsterui.franken import Button, ButtonT
 
+from ui.components import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
 from ui.insights.filters import InsightsFilters
 from ui.insights.insight_card import InsightCard
@@ -104,7 +104,8 @@ def render_filter_form(filters: InsightsFilters) -> Any:
             Button(
                 "Clear",
                 type="button",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 **{"@click": "clearFilters()"},  # fasthtml dynamic-attr splat
             ),
             # Loading indicator (shown during debounce/navigation)
@@ -141,17 +142,20 @@ def render_bulk_action_bar() -> Any:
             Div(
                 Button(
                     "Dismiss Selected",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                     **{"@click": "bulkDismiss()"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Mark as Actioned",
-                    cls=(ButtonT.primary, ButtonT.sm),
+                    cls=ButtonT.primary,
+                    size="sm",
                     **{"@click": "bulkMarkActioned()"},  # fasthtml dynamic-attr splat
                 ),
                 Button(
                     "Deselect All",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                     **{"@click": "deselectAll()"},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex gap-2",

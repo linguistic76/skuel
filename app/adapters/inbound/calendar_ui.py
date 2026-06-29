@@ -28,7 +28,6 @@ from fasthtml.common import (
     P,
     Script,
 )
-from monsterui.franken import Button, ButtonT
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -56,6 +55,7 @@ from ui.calendar.components import (
     create_week_grid,
     error_response,
 )
+from ui.components import Button, ButtonT
 from ui.feedback import Alert, AlertT
 from ui.layout import Container
 from ui.patterns.loading import content_loading_placeholder
@@ -128,22 +128,26 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous",
                             href=f"/events/month/{prev_y}/{prev_m}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         ButtonLink(
                             "Today",
                             href="/events/calendar",
-                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
+                            cls=(ButtonT.primary, "mx-2"),
+                            size="sm",
                         ),
                         ButtonLink(
                             "Next →",
                             href=f"/events/month/{next_y}/{next_m}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         ButtonLink(
                             "📝",
                             href=f"/journals/monthly/{year}/{month}",
-                            cls=(ButtonT.ghost, ButtonT.sm, "ml-4"),
+                            cls=(ButtonT.ghost, "ml-4"),
+                            size="sm",
                             title="Monthly Note",
                         ),
                         cls="flex justify-center items-center mb-6",
@@ -195,17 +199,20 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous Week",
                             href=f"/events/week/{_get_prev_week(week_start)}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         ButtonLink(
                             "This Week",
                             href=f"/events/week/{date.today().isoformat()}",
-                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
+                            cls=(ButtonT.primary, "mx-2"),
+                            size="sm",
                         ),
                         ButtonLink(
                             "Next Week →",
                             href=f"/events/week/{_get_next_week(week_start)}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         cls="flex justify-center mb-6",
                     ),
@@ -260,17 +267,20 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
                         ButtonLink(
                             "← Previous Day",
                             href=f"/events/day/{_get_prev_day(target_date)}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         ButtonLink(
                             "Today",
                             href=f"/events/day/{date.today().isoformat()}",
-                            cls=(ButtonT.primary, ButtonT.sm, "mx-2"),
+                            cls=(ButtonT.primary, "mx-2"),
+                            size="sm",
                         ),
                         ButtonLink(
                             "Next Day →",
                             href=f"/events/day/{_get_next_day(target_date)}",
-                            cls=(ButtonT.ghost, ButtonT.sm),
+                            cls=ButtonT.ghost,
+                            size="sm",
                         ),
                         cls="flex justify-center mb-6",
                     ),

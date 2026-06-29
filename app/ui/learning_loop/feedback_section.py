@@ -21,9 +21,9 @@ Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 from typing import Any
 
 from fasthtml.common import Div, Span
-from monsterui.franken import ButtonT
 
 from core.ports.query_types import PathStepSubmissionRow
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState

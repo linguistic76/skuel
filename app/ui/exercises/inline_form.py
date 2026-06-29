@@ -20,8 +20,8 @@ import json
 from typing import Any
 
 from fasthtml.common import H3, Div, Form
-from monsterui.franken import Button, ButtonT
 
+from ui.components import Button, ButtonT
 from ui.forms.field_builder import build_field_from_schema
 
 

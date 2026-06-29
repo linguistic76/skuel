@@ -14,11 +14,11 @@ Components:
 from typing import Any
 
 from fasthtml.common import Div, P
-from monsterui.franken import ButtonT
 
 from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
+from ui.components import ButtonT
 from ui.enum_helpers import get_sel_icon
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
 from ui.patterns.card_generator import CardGenerator

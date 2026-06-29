@@ -18,10 +18,11 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
@@ -98,7 +99,8 @@ def ChoiceCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#choice-{safe_id(choice.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, ButtonT.sm, "rounded"),
+        cls=(ButtonT.default, "rounded"),
+        size="sm",
         title=f"Mark as {new_status}",
     )
 

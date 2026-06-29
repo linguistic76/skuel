@@ -3,10 +3,11 @@
 from typing import Any
 
 from fasthtml.common import Div, Form, Label, Option, P
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from ui.analytics.domain_metrics import render_metrics_cards
+from ui.components import Button, ButtonT
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
 from ui.patterns.page_header import PageHeader

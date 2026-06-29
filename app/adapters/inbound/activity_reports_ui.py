@@ -20,11 +20,11 @@ from fasthtml.common import (
     Div,
     Span,
 )
-from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
+from ui.components import ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
     render_activity_report_detail,
@@ -79,7 +79,8 @@ def create_activity_reports_ui_routes(
                 actions=ButtonLink(
                     "Submit Activity Report",
                     href="/submit-activity-report",
-                    cls=(ButtonT.secondary, ButtonT.sm),
+                    cls=ButtonT.secondary,
+                    size="sm",
                 ),
             ),
             render_time_period_filter(),
