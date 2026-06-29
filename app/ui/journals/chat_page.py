@@ -97,7 +97,9 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
     from datetime import date, timedelta
 
     kind = entry.metadata.get("entry_kind", "daily")
-    period_key = entry.metadata.get("period_key", "")
+    # period_key is stamped by the calendar routes but not by vault ingestion;
+    # the UID always encodes it as the last colon-delimited segment.
+    period_key = entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1]
     today = date.today()
 
     if kind == "daily":
