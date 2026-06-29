@@ -177,7 +177,7 @@ Form(
 
 ```python
 from ui.feedback import Alert, AlertT, Badge, BadgeT, StatusBadge, PriorityBadge
-from ui.feedback import Loading, LoadingT, Progress, ProgressT
+from ui.feedback import Loading, Progress, ProgressT
 
 # Alerts
 Alert("Changes saved successfully!", variant=AlertT.success)
@@ -194,9 +194,9 @@ StatusBadge("blocked")      # -> red badge
 PriorityBadge("critical")   # -> red badge
 PriorityBadge("low")        # -> green badge
 
-# Loading spinners
-Loading(size=Size.lg)
-Loading(variant=LoadingT.dots, size=Size.sm)
+# Loading spinners (CSS-only — no variant param)
+Loading()              # md default
+Loading(size=Size.sm)
 
 # Progress bars
 Progress(value=75, variant=ProgressT.success)
