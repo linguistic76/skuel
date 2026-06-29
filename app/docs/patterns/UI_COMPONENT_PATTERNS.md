@@ -45,6 +45,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/forms/`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (5 modules; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer as Card, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`)
+- `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Call-site migration (Phase 2) pending — import from here once a component's M-PR lands.
 
 ---
 
@@ -357,6 +358,10 @@ Defined in `/static/css/input.css`:
 ---
 
 ## Import Pattern (MonsterUI Wrappers)
+
+> **ADR-071 migration in progress.** Once a component's Phase 2 PR lands, import it from
+> `ui.components` instead of the MonsterUI paths below. Until then, use the MonsterUI paths.
+> See `/docs/decisions/ADR-071-skuel-tailwind-component-layer.md`.
 
 ```python
 # Pure HTML elements from FastHTML
