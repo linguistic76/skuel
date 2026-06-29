@@ -44,7 +44,8 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
-- `/ui/forms/`, `/ui/feedback.py`, `/ui/layout.py`, `/ui/navigation.py`, `/ui/data.py` - MonsterUI wrappers (5 modules; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer as Card, CardBody` directly from `monsterui.franken`; `ButtonLink` from `ui/primitives.py`)
+- `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers (M2/M3 migrated off MonsterUI); `ButtonLink` in `ui/primitives.py` (also pure Tailwind, M1)
+- `/ui/forms/`, `/ui/navigation.py`, `/ui/data.py` — MonsterUI wrappers (pending M7/M8 migration; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer as Card, CardBody` directly from `monsterui.franken`)
 - `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Call-site migration (Phase 2) pending — import from here once a component's M-PR lands.
 
 ---
@@ -653,7 +654,7 @@ DivCentered(
 ### Grid Layout
 
 ```python
-# Responsive grid (1 col mobile, 2 on sm, 3 on md+)
+# Responsive grid (1 col mobile, 2 on sm, 3 on lg+)
 Grid(
     Card(CardHeader(CardTitle("Card 1")), CardBody(P("Content"))),
     Card(CardHeader(CardTitle("Card 2")), CardBody(P("Content"))),
