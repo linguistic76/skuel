@@ -301,14 +301,16 @@ scanning. Add to `tailwind.config.js`:
 content: [
   "./ui/**/*.py",
   "./adapters/inbound/**/*.py",
+  "./core/**/*.py",         // ← required; enum badge classes live here (EntityStatus, HabitEssentiality, etc.)
   "./ui/components/**/*.py",
-  "./static/js/*.js",      // ← required; covers runtime-built Tailwind classes
+  "./static/js/*.js",       // ← required; covers runtime-built Tailwind classes
   "./templates/**/*.html",
 ],
 ```
 
-Verify during PR-2 that `output.css` contains the strength classes after running
-`./dev css-build`. Fix the safelist if any are missing.
+Verify during PR-2 that `output.css` contains the strength classes and enum badge utilities
+(e.g. `bg-gray-100 text-gray-600`) after running `./dev css-build`. Fix the safelist if any
+are missing.
 
 ### M9 prerequisite — Alpine-reactive Lucide icon contexts
 

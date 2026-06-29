@@ -3009,4 +3009,15 @@
 
     });
 
+    // Initialize Lucide icons after Alpine has set up the DOM.
+    // Guards on window.lucide so this is a no-op until skuel_headers() is activated (M9).
+    document.addEventListener('alpine:initialized', function() {
+        if (window.lucide) lucide.createIcons();
+    });
+
+    // Re-run on HTMX content swaps so icons injected via HTMX are also rendered.
+    document.addEventListener('htmx:afterSwap', function() {
+        if (window.lucide) lucide.createIcons();
+    });
+
 })();
