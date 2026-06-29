@@ -115,7 +115,7 @@ render_error_banner(
 )
 ```
 
-**Important:** Do NOT pass `role="alert"` to `Alert()` — MonsterUI's `MAlert` already sets `role="alert"` internally, and duplicating it causes a `TypeError: got multiple values for keyword argument 'role'`.
+**Important:** Do NOT pass `role="alert"` to `Alert()` — SKUEL's `Alert` already sets `role="alert"` internally, and duplicating it causes a `TypeError: got multiple values for keyword argument 'role'`.
 
 ### 4. Pure Computation Helpers
 
