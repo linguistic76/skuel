@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from itertools import islice
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, Div, Form, Option, P, Span
+from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
 from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle, UkIcon
 from monsterui.franken import CardContainer as Card
 
@@ -80,6 +80,11 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
         current_date <= calendar_data.end_date
         or current_date.month == calendar_data.start_date.month
     ):
+        # Each grid row starts on a Monday — same anchor ISO weeks use, so the
+        # first cell's ISO week number labels the whole row.
+        week_start_date = current_date
+        iso_year, iso_week, _ = week_start_date.isocalendar()
+
         week_cells = []
         for _ in range(7):
             # Get items for this date
@@ -99,7 +104,17 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
 
             current_date += timedelta(days=1)
 
-        weeks.append(Div(*week_cells, cls="grid grid-cols-7 gap-0"))
+        # Week-number cell links to the Weekly Note (Obsidian Calendar-style).
+        week_num_cell = A(
+            str(iso_week),
+            href=f"/journals/weekly/{iso_year}/{iso_week}",
+            title=f"Weekly note — W{iso_week}, {iso_year}",
+            cls=(
+                "border-r border-b p-2 flex items-center justify-center text-xs"
+                " text-muted-foreground hover:text-primary hover:bg-muted cursor-pointer"
+            ),
+        )
+        weeks.append(Div(week_num_cell, *week_cells, cls="grid grid-cols-8 gap-0"))
 
         # Stop if we've gone past the end of the month
         if (
@@ -109,13 +124,17 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
             break
 
     return Div(
-        # Day headers
+        # Day headers (leading "W" column for week numbers)
         Div(
+            Div(
+                "W",
+                cls="text-center font-semibold py-2 border-b border-r text-xs text-muted-foreground",
+            ),
             *[
                 Div(day, cls="text-center font-semibold py-2 border-b")
                 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             ],
-            cls="grid grid-cols-7 gap-0 mb-0",
+            cls="grid grid-cols-8 gap-0 mb-0",
         ),
         # Week rows
         *weeks,
@@ -171,17 +190,29 @@ def create_day_cell(
     if has_more:
         more_element.append(Div("+more", cls="text-xs text-muted-foreground mt-1"))
 
+    # Date number links to the Daily Note (Obsidian Calendar-style).
+    daily_href = f"/journals/daily/{cell_date.isoformat()}"
     # Today's date header with badge for visibility
     if is_today:
         date_header = Div(
-            Span(str(cell_date.day), cls="text-lg font-bold text-primary"),
+            A(
+                str(cell_date.day),
+                href=daily_href,
+                title="Daily note",
+                cls="text-lg font-bold text-primary hover:opacity-70",
+            ),
             Badge("Today", variant=BadgeT.primary, size=Size.sm, cls="ml-2"),
             cls="flex items-center mb-1",
         )
     else:
-        date_header = Div(
+        date_header = A(
             str(cell_date.day),
-            cls=f"text-sm font-semibold mb-1 {'text-foreground' if is_current_month else 'text-foreground/40'}",
+            href=daily_href,
+            title="Daily note",
+            cls=(
+                "text-sm font-semibold mb-1 block hover:text-primary "
+                f"{'text-foreground' if is_current_month else 'text-foreground/40'}"
+            ),
         )
 
     # Cell styling - more prominent today indicator with ring
