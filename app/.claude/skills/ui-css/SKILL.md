@@ -14,10 +14,10 @@ SKUEL uses a **two-layer CSS architecture**:
 
 | Layer | Source | Decision Rule | Example |
 |-------|--------|---------------|---------|
-| **Component** | `ui/components/` (migrated) or `monsterui.franken` (M5+ pending) | Pre-built FT components | `Button(cls=ButtonT.primary)`, `Alert(variant=AlertT.error)` |
+| **Component** | `ui/components/` (M1–M5 live) | Pre-built FT components | `Button(cls=ButtonT.primary)`, `Alert(variant=AlertT.error)`, `Card(CardBody(...))` |
 | **Utility** | Tailwind | Custom spacing, layout, one-off adjustments | `flex gap-4 p-6 rounded-lg` |
 
-**Decision Rule:** `ui/components/` first → Tailwind utilities for customization. Use `monsterui.franken` only for Card family and other not-yet-migrated components (ADR-071 M5+).
+**Decision Rule:** `ui/components/` first → Tailwind utilities for customization. `monsterui.franken` only for remaining not-yet-migrated components (`ui/forms/`, `ui/navigation.py`, `ui/data.py` — pending M6+).
 
 ```python
 # ✅ ui.components component + Tailwind extension
@@ -179,7 +179,7 @@ Div(..., style="display: inline-flex; gap: 4px; padding: 4px; background-color: 
 | `hsl(var(--border))` | Light gray border | Dividers, outlines |
 | `hsl(var(--destructive))` | Red | Delete/danger states |
 
-**MonsterUI `cls` gotcha (Card family, M5 pending):** Never pass `cls=None` to `monsterui.franken` Card components — it renders as the literal string `"None"` in the HTML class attribute. Use `cls=""` or omit `cls`. Components from `ui.components` handle this correctly via `_cls()`.
+**`cls` gotcha (remaining `monsterui.franken` wrappers):** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute. Use `cls=""` or omit `cls`. Components from `ui.components` handle this correctly via `_cls()`. Cards migrated to `ui.components` (M5) and are not affected.
 
 ## Anti-Patterns
 
@@ -215,7 +215,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
 | `/static/css/output.css` | Compiled Tailwind CLI output — becomes the production asset at M9 (ADR-071) |
-| `ui/components/` | **SKUEL-owned component layer (ADR-071, M1–M4 live)** — Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers. Card family in package; M5 call-site migration pending. |
+| `ui/components/` | **SKUEL-owned component layer (ADR-071, M1–M5 live)** — Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
 | `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Remaining MonsterUI wrappers. `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E). |
 
 ## See Also

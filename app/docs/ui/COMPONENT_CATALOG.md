@@ -16,7 +16,8 @@ This catalog documents all UI components in SKUEL's design system, organized int
 All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 Level AA accessibility standards.
 
 > **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the MonsterUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
-> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. Import `Button, ButtonT` and `CardContainer as Card, CardBody, CardHeader, CardTitle, CardT` directly from `monsterui.franken`. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API — M1 2026-06-29). Typography helpers (`SectionTitle`, etc.) replaced by `section_label()` from `ui/primitives.py` or inline Tailwind.
+> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API — M1 2026-06-29). Typography helpers replaced by `section_label()` or inline Tailwind.
+> **Note (2026-06-29 M4/M5):** `Button`/`ButtonT` and all `Card*` components now import from `ui.components`, not `monsterui.franken`.
 
 ---
 
@@ -26,7 +27,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 |----------|------------|----------|
 | **Buttons** | Button, ButtonT | `monsterui.franken` (direct) |
 | **ButtonLink** | ButtonLink | `ui/primitives.py` (`A()` wrapper, `cls=ButtonT.X`) |
-| **Cards** | Card (=CardContainer), CardBody, CardHeader, CardTitle, CardT | `monsterui.franken` (direct) |
+| **Cards** | Card, CardBody, CardHeader, CardTitle, CardFooter | `ui.components` |
 | **Primitives** | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` | `ui/primitives.py` |
 | **Forms** | Input, Select, Textarea, Checkbox, Radio, Toggle, Range, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox | `ui/forms/` |
 | **Feedback** | Alert, Badge, StatusBadge, PriorityBadge, Loading, Progress, RadialProgress | `ui/feedback.py` |
@@ -45,7 +46,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 
 | Module | Symbols |
 |--------|---------|
-| `monsterui.franken` | `Button`, `ButtonT`, `CardContainer` (import as `Card`), `CardBody`, `CardHeader`, `CardTitle`, `CardT` |
+| `monsterui.franken` | remaining not-yet-migrated wrappers (forms, nav, data — M6+ pending) |
 | `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
@@ -57,7 +58,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 
 **Import pattern:**
 ```python
-from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody, CardHeader, CardTitle
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.primitives import ButtonLink, section_label
 from ui.forms import Input, LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Select, Textarea
 from ui.enum_helpers import get_submission_status_badge_class
@@ -159,50 +160,38 @@ ButtonLink("Open →", href="https://example.com", cls=ButtonT.ghost,
 
 ## Card
 
-**Location:** `monsterui.franken` (direct — `ui/cards.py` deleted PR E). Import as `from monsterui.franken import CardContainer as Card, CardBody, CardHeader, CardTitle, CardT`.
+**Location:** `ui.components` (M5 ✅ 2026-06-29). Import as `from ui.components import Card, CardBody, CardHeader, CardTitle, CardFooter`.
 
 Container component for grouping related content.
 
 **MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute.
 
-### Card(*children, variant, cls, **kwargs)
+### Card(*children, cls, **kwargs)
 
-Generic card container. `CardT` is re-exported directly from MonsterUI — use MonsterUI's real variants.
+Generic card container. Renders a `<div>` with `rounded-lg border bg-card text-card-foreground shadow-sm`. Style variations via `cls=` + Tailwind tokens (e.g. `Card.INTERACTIVE` from `ui.tokens`).
 
 **Parameters:**
-- `*children` - Content elements (should include CardBody for proper styling)
-- `variant: CardT` - Style variant (default: `CardT.default`)
-  - `CardT.default` - Standard card
-  - `CardT.primary` - Primary emphasis
-  - `CardT.secondary` - Muted/secondary
-  - `CardT.destructive` - Danger/destructive
-  - `CardT.hover` - Lift + shadow on hover
-- `cls: str` - Additional CSS classes
-- `**kwargs` - Additional attributes (id, etc.)
+- `*children` - Content elements (use `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`)
+- `cls: str | tuple` - Additional Tailwind classes
+- `**kwargs` - Passed to the underlying `<div>` (HTMX, Alpine, id, etc.)
 
 **Examples:**
 ```python
-from monsterui.franken import CardContainer as Card, CardBody, CardHeader, CardTitle, CardT
+from ui.components import Card, CardBody, CardHeader, CardTitle, CardFooter
 from fasthtml.common import P
 
-# Default card with semantic header
+# Standard card
 Card(
     CardHeader(CardTitle("Task Details")),
     CardBody(P("Complete the quarterly report by Friday")),
 )
 
-# Primary emphasis card
-Card(
-    CardHeader(CardTitle("Important")),
-    CardBody(P("Highlighted content")),
-    variant=CardT.primary,
-)
-
-# Interactive hover card
+# Interactive (hover shadow) — compose with token
+from ui.tokens import Card as CardTokens
 Card(
     CardHeader(CardTitle("Statistics")),
     CardBody(P("Total: 42")),
-    variant=CardT.hover,
+    cls=CardTokens.INTERACTIVE,
 )
 ```
 
@@ -436,7 +425,7 @@ Row(
 - **Section labels:** `section_label()` from `ui/primitives.py` (or `H2` / `H3` with Tailwind classes)
 - **Small/muted text:** inline `Span("…", cls="text-sm text-muted-foreground")` or `P("…", cls="text-xs text-muted-foreground")`
 - **Truncated text:** inline Tailwind `line-clamp-{1|2|3}` via `cls="line-clamp-2"`
-- **Card title:** `CardTitle` from `monsterui.franken` (same as before, but import from monsterui now)
+- **Card title:** `CardTitle` from `ui.components` (M5 ✅)
 
 **`cls` gotcha (historical):** The SKUEL wrappers merged `cls` to avoid duplicate-kwarg errors. MonsterUI components accept `cls` directly — no merge needed.
 
@@ -1446,9 +1435,9 @@ Quick alphabetical index:
 **MonsterUI Wrappers:**
 - **Alert / AlertT** - `ui.feedback`
 - **Badge / BadgeT** - `ui.feedback`
-- **Button / ButtonT** - `monsterui.franken` (direct)
+- **Button / ButtonT** - `ui.components` (M4 ✅)
 - **ButtonLink** - `ui.primitives` (`cls=ButtonT.X`, not `variant=`)
-- **Card (=CardContainer) / CardBody / CardHeader / CardTitle / CardT** - `monsterui.franken` (direct)
+- **Card / CardBody / CardHeader / CardTitle / CardFooter** - `ui.components` (M5 ✅)
 - **Checkbox / Radio / Toggle / Range** - `ui.forms`
 - **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
 - **Divider / DividerSplit / DividerT** - `ui.data`

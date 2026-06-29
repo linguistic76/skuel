@@ -45,7 +45,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers (M2/M3 migrated off MonsterUI); `ButtonLink` in `ui/primitives.py` (also pure Tailwind, M1)
-- `/ui/forms/`, `/ui/navigation.py`, `/ui/data.py` — MonsterUI wrappers (pending M7/M8 migration; `ui/buttons.py` + `ui/cards.py` deleted PR E — import `Button, ButtonT, CardContainer as Card, CardBody` directly from `monsterui.franken`)
+- `/ui/forms/`, `/ui/navigation.py`, `/ui/data.py` — MonsterUI wrappers (pending M6+ migration; `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components` M4/M5 ✅)
 - `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Call-site migration (Phase 2) pending — import from here once a component's M-PR lands.
 
 ---
@@ -368,8 +368,8 @@ Defined in `/static/css/input.css`:
 # Pure HTML elements from FastHTML
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
-# MonsterUI direct imports (buttons + cards wrappers deleted PR E)
-from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody, CardTitle, CardT
+# ui.components — Button/ButtonT (M4), Card family (M5)
+from ui.components import Button, ButtonT, Card, CardBody, CardTitle
 from ui.primitives import ButtonLink
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, Progress, ProgressT, RadialProgress
@@ -946,7 +946,7 @@ Card(
 )
 ```
 
-Import from `monsterui.franken`: `CardContainer as Card, CardBody, CardHeader, CardTitle`. The `p-6` and `bg-background shadow-sm` classes are provided automatically by MonsterUI's `uk-card-body` and `uk-card` — only add external layout classes like `mb-6` to `Card()`.
+Import from `ui.components`: `Card, CardBody, CardHeader, CardTitle` (M5 ✅). Base padding and background are built into the component classes — add layout-only classes like `mb-6` to `Card()`.
 
 **Adoption status:** All card titles across ~12 files use semantic `CardHeader(CardTitle(...))`. Zero raw H2/H3 inside Card.
 
