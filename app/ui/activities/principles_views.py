@@ -21,11 +21,10 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
 
 from core.models.enums.principle_enums import AlignmentLevel
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card
+from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -110,7 +109,7 @@ def PrincipleCard(
     toggle_cls = "" if not is_inactive else "text-muted-foreground"
 
     toggle_btn = Button(
-        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
+        Icon(toggle_icon, size=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/principles/{principle.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#principle-{safe_id(principle.uid)}",
@@ -445,7 +444,7 @@ def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
         links = [
             Li(
-                UkIcon(icon, height=12, width=12, cls="inline mr-2"),
+                Icon(icon, size=12, cls="inline mr-2"),
                 A(
                     conn.get("title", conn.get("connected_uid", "?")),
                     href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",

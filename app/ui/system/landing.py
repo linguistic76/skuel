@@ -6,9 +6,8 @@ Split layout: branded hero on left (desktop), login card on right.
 from typing import Any
 
 from fasthtml.common import H1, H2, A, Div, Form, P, Span
-from monsterui.franken import UkIcon
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Icon
 from ui.forms.components import LabelInput
 from ui.layouts.base_page import AuthPage
 from ui.primitives import ButtonLink
@@ -19,7 +18,7 @@ def _landing_feature_item(text: str) -> Any:
     return Div(
         Div(
             Span(
-                UkIcon("check", cls="text-white"),
+                Icon("check", cls="text-white"),
                 cls="flex items-center justify-center w-6 h-6 rounded-full bg-white/20",
             ),
             P(text, cls="text-blue-50 text-sm"),

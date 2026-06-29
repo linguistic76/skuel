@@ -8,7 +8,8 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 from typing import Any
 
 from fasthtml.common import Button, Div, Form, Input, P, Span, Textarea
-from monsterui.franken import UkIcon
+
+from ui.components import Icon
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC: full chat shell
@@ -96,14 +97,14 @@ def _sidebar(username: str, learning_path_label: str) -> Any:
         # Collapsed rail (shown when closed)
         Div(
             Button(
-                UkIcon("panel-left-open", height=16, width=16),
+                Icon("panel-left-open", size=16),
                 cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-slate-600 transition-colors",
                 type="button",
                 aria_label="Expand sidebar",
                 **{"@click": "sidebarOpen = true"},
             ),
             Button(
-                UkIcon("square-pen", height=16, width=16, cls="text-slate-600"),
+                Icon("square-pen", size=16, cls="text-slate-600"),
                 cls="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-slate-100 transition-colors",
                 type="button",
                 aria_label="New chat",
@@ -127,7 +128,7 @@ def _sb_header() -> Any:
     return Div(
         Span("Askesis", cls="text-[17px] font-bold tracking-tight text-foreground"),
         Button(
-            UkIcon("panel-left-close", height=16, width=16),
+            Icon("panel-left-close", size=16),
             cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-slate-600 transition-colors",
             type="button",
             aria_label="Collapse sidebar",
@@ -140,7 +141,7 @@ def _sb_header() -> Any:
 def _sb_new_chat_btn() -> Any:
     return Div(
         Button(
-            UkIcon("square-pen", height=17, width=17, cls="text-slate-600 shrink-0"),
+            Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
             Span("New chat", cls="text-[14px] font-semibold text-foreground"),
             cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-slate-50 transition-colors shadow-sm",
             type="button",
@@ -152,7 +153,7 @@ def _sb_new_chat_btn() -> Any:
 def _sb_search_field() -> Any:
     return Div(
         Div(
-            UkIcon("search", height=15, width=15, cls="text-muted-foreground shrink-0"),
+            Icon("search", size=15, cls="text-muted-foreground shrink-0"),
             Input(
                 type="search",
                 placeholder="Search chats",
@@ -189,7 +190,10 @@ def _sb_account_footer(username: str, learning_path_label: str) -> Any:
                 cls="w-[30px] h-[30px] rounded-full bg-foreground/10 text-foreground flex items-center justify-center text-sm font-semibold shrink-0",
             ),
             Div(
-                Div(username, cls="text-[13.5px] font-semibold text-foreground leading-tight"),
+                Div(
+                    username,
+                    cls="text-[13.5px] font-semibold text-foreground leading-tight",
+                ),
                 Div(
                     learning_path_label,
                     cls="text-[11.5px] text-muted-foreground leading-tight truncate",
@@ -197,7 +201,7 @@ def _sb_account_footer(username: str, learning_path_label: str) -> Any:
                 cls="flex-1 min-w-0",
             ),
             Button(
-                UkIcon("settings-2", height=16, width=16, cls="text-muted-foreground"),
+                Icon("settings-2", size=16, cls="text-muted-foreground"),
                 cls="hover:text-foreground transition-colors",
                 type="button",
                 aria_label="Response mode settings",
@@ -213,14 +217,22 @@ def _response_mode_panel() -> Any:
     """Response mode picker — floats above the account footer row when settingsOpen."""
     modes = [
         ("direct", "Direct", "Clear, informational answers from your curriculum"),
-        ("socratic", "Socratic", "Probes your understanding with questions, doesn't give answers"),
-        ("exploratory", "Exploratory", "Guided discovery through scaffolding and connections"),
+        (
+            "socratic",
+            "Socratic",
+            "Probes your understanding with questions, doesn't give answers",
+        ),
+        (
+            "exploratory",
+            "Exploratory",
+            "Guided discovery through scaffolding and connections",
+        ),
     ]
     return Div(
         Div(
             Span("Response mode", cls="text-[13px] font-semibold text-foreground"),
             Button(
-                UkIcon("x", height=14, width=14),
+                Icon("x", size=14),
                 cls="text-muted-foreground hover:text-foreground transition-colors",
                 type="button",
                 aria_label="Close settings",
@@ -303,7 +315,7 @@ def _top_bar() -> Any:
     return Div(
         Button(
             Span("Sonnet 4.5", cls="text-[15.5px] font-semibold text-foreground"),
-            UkIcon("chevron-down", height=16, width=16, cls="text-muted-foreground"),
+            Icon("chevron-down", size=16, cls="text-muted-foreground"),
             cls="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors",
             type="button",
         ),
@@ -372,7 +384,7 @@ def _composer_form() -> Any:
 
 def _kb_pill() -> Any:
     return Button(
-        UkIcon("book-open-text", height=14, width=14, cls="shrink-0 text-strength-core"),
+        Icon("book-open-text", size=14, cls="shrink-0 text-strength-core"),
         Span("Knowledge base", cls="text-[13px] font-semibold text-strength-core"),
         cls="flex items-center gap-1.5 px-3 py-1.5 rounded-[18px] transition-colors",
         style="background:#f4f1fc; border:1px solid #e0d9f4;",
@@ -382,7 +394,7 @@ def _kb_pill() -> Any:
 
 def _send_btn() -> Any:
     return Button(
-        UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+        Icon("arrow-up", size=16, cls="text-white"),
         cls="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-foreground hover:bg-foreground/80 transition-colors",
         type="submit",
         aria_label="Send message",
@@ -409,7 +421,7 @@ def _sources_accordion(sources: list[dict]) -> Any:
     return Div(
         Button(
             Div(
-                UkIcon("book-open-text", height=16, width=16, cls="text-strength-core shrink-0"),
+                Icon("book-open-text", size=16, cls="text-strength-core shrink-0"),
                 Span("Sources", cls="text-[13px] font-semibold text-foreground"),
                 Span(
                     str(count),
@@ -418,12 +430,11 @@ def _sources_accordion(sources: list[dict]) -> Any:
                 cls="flex items-center gap-1.5",
             ),
             Div(
-                Span(caption, cls="text-[12px] text-muted-foreground mr-2") if caption else None,
+                (Span(caption, cls="text-[12px] text-muted-foreground mr-2") if caption else None),
                 Div(
-                    UkIcon(
+                    Icon(
                         "chevron-down",
-                        height=16,
-                        width=16,
+                        size=16,
                         cls="text-muted-foreground transition-transform duration-200",
                     ),
                     **{":class": "sourcesOpen ? '' : '-rotate-90'"},
@@ -450,20 +461,18 @@ def _source_card(n: int, source: dict) -> Any:
     origin = source.get("origin", "")
 
     if kind == "ku":
-        icon = UkIcon("gem", height=14, width=14, cls="text-strength-core shrink-0")
+        icon = Icon("gem", size=14, cls="text-strength-core shrink-0")
     elif kind == "submission":
-        icon = UkIcon("file-text", height=14, width=14, cls="text-strength-strong shrink-0")
+        icon = Icon("file-text", size=14, cls="text-strength-strong shrink-0")
     else:
-        icon = UkIcon("globe", height=14, width=14, cls="text-muted-foreground shrink-0")
+        icon = Icon("globe", size=14, cls="text-muted-foreground shrink-0")
 
     title_row: list[Any] = [
         icon,
         Span(title, cls="text-[13.5px] font-semibold text-foreground truncate"),
     ]
     if kind == "web" and source.get("url"):
-        title_row.append(
-            UkIcon("arrow-up-right", height=13, width=13, cls="text-muted-foreground shrink-0")
-        )
+        title_row.append(Icon("arrow-up-right", size=13, cls="text-muted-foreground shrink-0"))
 
     return Div(
         Div(
@@ -472,12 +481,19 @@ def _source_card(n: int, source: dict) -> Any:
         ),
         Div(
             Div(*title_row, cls="flex items-center gap-1.5"),
-            P(snippet, cls="text-[12.5px] text-muted-foreground leading-[1.5] line-clamp-2 mt-0.5")
-            if snippet
-            else None,
-            Span(origin, cls="text-[11px] text-muted-foreground font-mono mt-1 block")
-            if origin
-            else None,
+            (
+                P(
+                    snippet,
+                    cls="text-[12.5px] text-muted-foreground leading-[1.5] line-clamp-2 mt-0.5",
+                )
+                if snippet
+                else None
+            ),
+            (
+                Span(origin, cls="text-[11px] text-muted-foreground font-mono mt-1 block")
+                if origin
+                else None
+            ),
         ),
         cls="flex gap-3 px-3 py-[11px] hover:bg-slate-50 transition-colors",
     )
@@ -500,7 +516,7 @@ def _action_bar() -> Any:
 
 def _icon_ghost_btn(icon: str, label: str) -> Any:
     return Button(
-        UkIcon(icon, height=15, width=15),
+        Icon(icon, size=15),
         cls="w-[30px] h-[30px] flex items-center justify-center rounded-[7px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors",
         type="button",
         aria_label=label,
@@ -510,7 +526,7 @@ def _icon_ghost_btn(icon: str, label: str) -> Any:
 def _circle_btn(icon: str, label: str, bordered: bool = False) -> Any:
     border_cls = "border border-border" if bordered else ""
     return Button(
-        UkIcon(icon, height=16, width=16),
+        Icon(icon, size=16),
         cls=f"w-[34px] h-[34px] rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors {border_cls}".strip(),
         type="button",
         aria_label=label,

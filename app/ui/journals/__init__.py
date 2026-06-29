@@ -60,7 +60,7 @@ def _AiBubble(label: str, text: str) -> Any:
     """
     import json as _json
 
-    from monsterui.franken import UkIcon
+    from ui.components import Icon
 
     alpine_data = (
         "{ copied: false,"
@@ -89,7 +89,7 @@ def _AiBubble(label: str, text: str) -> Any:
             # Copy action
             Div(
                 Button(
-                    UkIcon("copy", height=15, width=15),
+                    Icon("copy", size=15),
                     type="button",
                     aria_label="Copy response",
                     cls=(
@@ -124,7 +124,7 @@ def _Composer(
     Hidden inputs carry IDs so the follow-up route can update them via
     HTMX out-of-band swaps without resetting the textarea.
     """
-    from monsterui.franken import UkIcon
+    from ui.components import Icon
 
     return Form(
         Input(
@@ -160,7 +160,7 @@ def _Composer(
                     cls="text-sm text-muted-foreground htmx-indicator",
                 ),
                 Button(
-                    UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+                    Icon("arrow-up", size=16, cls="text-white"),
                     type="submit",
                     aria_label="Send follow-up",
                     cls=(
@@ -377,9 +377,8 @@ def FileOutputFragment(
     import json as _json
     import urllib.parse
 
-    from monsterui.franken import UkIcon
-
     from core.models.enums.user_enums import JournalMode
+    from ui.components import Icon
 
     safe_href = urllib.parse.quote(output_filename, safe="")
     resolved_mode = JournalMode.default()
@@ -397,7 +396,7 @@ def FileOutputFragment(
             # Saved banner + download
             Div(
                 Div(
-                    UkIcon("file-check", height=18, width=18, cls="text-green-600 flex-shrink-0"),
+                    Icon("file-check", size=18, cls="text-green-600 flex-shrink-0"),
                     Div(
                         P(
                             "Your file is automatically saved in your Journal Output folder.",
@@ -406,7 +405,7 @@ def FileOutputFragment(
                         cls="flex-1 min-w-0",
                     ),
                     Button(
-                        UkIcon("download", height=14, width=14),
+                        Icon("download", size=14),
                         Span("Download"),
                         type="button",
                         cls=(
@@ -438,7 +437,7 @@ def FileOutputFragment(
                     ),
                     Div(
                         Button(
-                            UkIcon("copy", height=15, width=15),
+                            Icon("copy", size=15),
                             type="button",
                             aria_label="Copy output",
                             cls=(
@@ -509,10 +508,10 @@ def FollowUpErrorFragment(message: str) -> Any:
     Unlike ErrorFragment, this carries no id and no workspace-level swap — it is
     appended via hx-swap="beforeend" and sits inline in the conversation thread.
     """
-    from monsterui.franken import UkIcon
+    from ui.components import Icon
 
     return Div(
-        UkIcon("alert-circle", height=15, width=15, cls="text-destructive flex-shrink-0"),
+        Icon("alert-circle", size=15, cls="text-destructive flex-shrink-0"),
         P(message, cls="text-sm text-destructive"),
         cls="flex items-center gap-2 py-3 px-1 text-destructive",
     )

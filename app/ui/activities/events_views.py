@@ -16,10 +16,9 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card
+from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
@@ -78,7 +77,7 @@ def EventCard(
     toggle_cls = "text-green-600" if is_completed else ""
 
     toggle_btn = Button(
-        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
+        Icon(toggle_icon, size=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/events/{event.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#event-{safe_id(event.uid)}",

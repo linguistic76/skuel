@@ -18,11 +18,11 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
 
 from core.models.enums.activity_enums import ProgressLevel
 from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
+from ui.components import Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.patterns.page_header import PageHeader
@@ -334,7 +334,7 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
 
         items.append(
             Li(
-                UkIcon(icon, height=16, width=16, cls=f"inline mr-2 {icon_cls}"),
+                Icon(icon, size=16, cls=f"inline mr-2 {icon_cls}"),
                 Span(ms.title, cls=text_cls),
                 Small(date_str, cls="text-muted-foreground") if date_str else "",
                 cls="mb-2",
@@ -374,7 +374,7 @@ def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
         )
         links = [
             Li(
-                UkIcon(icon, height=12, width=12, cls="inline mr-1"),
+                Icon(icon, size=12, cls="inline mr-1"),
                 A(
                     conn.get("title", conn.get("connected_uid", "?")),
                     href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",

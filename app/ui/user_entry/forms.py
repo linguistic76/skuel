@@ -24,8 +24,8 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Button, Div, Form, Input, P, Script, Span
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.primitives import (
     SelectableOptionRow,
     SelectedFileCard,
@@ -56,7 +56,7 @@ def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
 
     return Button(
         *options,
-        UkIcon("chevron-down", cls="w-[18px] h-[18px] text-slate-400 flex-none"),
+        Icon("chevron-down", cls="w-[18px] h-[18px] text-slate-400 flex-none"),
         type="button",
         cls=(
             "w-full flex items-center gap-[13px] px-[14px] py-3 "
@@ -219,7 +219,7 @@ def render_upload_form(
 
     # Card footer: file size limit hint + send button
     send_btn_enabled = Button(
-        UkIcon("send", cls="w-4 h-4"),
+        Icon("send", cls="w-4 h-4"),
         Span(**{"x-text": "sendLabel"}),
         type="submit",
         cls=(
@@ -232,7 +232,7 @@ def render_upload_form(
     )
 
     send_btn_disabled = Span(
-        UkIcon("send", cls="w-4 h-4"),
+        Icon("send", cls="w-4 h-4"),
         Span(**{"x-text": "sendLabel"}),
         cls=(
             "inline-flex items-center gap-[9px] px-[18px] py-[11px] rounded-[9px] "
@@ -252,7 +252,7 @@ def render_upload_form(
     # Success toast (fixed bottom-center)
     toast = Div(
         Span(
-            UkIcon("check", cls="w-[18px] h-[18px]"),
+            Icon("check", cls="w-[18px] h-[18px]"),
             cls="text-green-400 flex",
         ),
         Span("Submission sent", cls="text-sm font-semibold"),

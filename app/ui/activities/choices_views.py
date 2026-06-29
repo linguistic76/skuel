@@ -18,10 +18,9 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card
+from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
@@ -93,7 +92,7 @@ def ChoiceCard(
     toggle_cls = "text-green-600" if is_decided else ""
 
     toggle_btn = Button(
-        UkIcon(toggle_icon, height=16, width=16, cls=f"inline {toggle_cls}"),
+        Icon(toggle_icon, size=16, cls=f"inline {toggle_cls}"),
         hx_post=f"/api/choices/{choice.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#choice-{safe_id(choice.uid)}",
@@ -333,7 +332,7 @@ def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None
         text_cls = "font-bold" if is_selected else ""
 
         opt_content: list[Any] = [
-            UkIcon(icon, height=16, width=16, cls=f"inline mr-2 {icon_cls}"),
+            Icon(icon, size=16, cls=f"inline mr-2 {icon_cls}"),
             Span(opt.title or opt.uid, cls=text_cls),
         ]
         if is_selected:
