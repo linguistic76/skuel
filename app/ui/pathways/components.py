@@ -10,10 +10,9 @@ from fasthtml.common import (
     P,
     Span,
 )
-from monsterui.franken import CardContainer as Card
 
 from core.models.pathways.pathways_request import LearningPathFilterRequest
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.forms import LabelSelect
 from ui.layout import Size

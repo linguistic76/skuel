@@ -3,9 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, P
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
+from ui.components import Card, CardBody, CardHeader, CardTitle
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader

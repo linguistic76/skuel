@@ -33,8 +33,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H4, A, Div, P, Span
-from monsterui.franken import CardBody, CardHeader, CardTitle, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -44,7 +43,7 @@ from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size

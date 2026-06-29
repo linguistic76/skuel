@@ -16,13 +16,12 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import CardBody, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked

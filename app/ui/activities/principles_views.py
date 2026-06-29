@@ -21,12 +21,11 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import CardBody, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 
 from core.models.enums.principle_enums import AlignmentLevel
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked

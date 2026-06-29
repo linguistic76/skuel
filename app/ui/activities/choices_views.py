@@ -18,11 +18,10 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import CardBody, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader

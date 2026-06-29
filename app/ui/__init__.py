@@ -1,9 +1,6 @@
 """SKUEL UI Design System — MonsterUI + Typography-First Architecture."""
 
-from monsterui.franken import CardBody, CardHeader, CardT, CardTitle
-from monsterui.franken import CardContainer as Card
-
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.feedback import (
     Alert,
     AlertT,
@@ -57,8 +54,8 @@ __all__ = [
     # Cards
     "Card",
     "CardBody",
+    "CardFooter",
     "CardHeader",
-    "CardT",
     "CardTitle",
     # Feedback
     "Alert",

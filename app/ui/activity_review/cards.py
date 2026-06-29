@@ -3,10 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H4, Div, P, Span
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import ButtonT
+from ui.components import ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.primitives import ButtonLink

@@ -28,8 +28,6 @@ Date: 2025-12-07
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from core.models.type_hints import UserUID
@@ -41,7 +39,7 @@ from ui.admin.views import (
     AdminSystemComponents,
     AdminUIComponents,
 )
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.journals.components import render_batch_transcription_panel
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader

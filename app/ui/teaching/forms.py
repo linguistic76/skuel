@@ -12,10 +12,8 @@ from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, Form, Input, Label, P, Strong
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Textarea
 from ui.patterns.empty_state import EmptyState
 

@@ -8,9 +8,8 @@ Pure rendering functions for exercise list and card views.
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.patterns.card_generator import CardGenerator
 

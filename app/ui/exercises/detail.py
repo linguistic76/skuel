@@ -8,10 +8,8 @@ Pure rendering functions for exercise detail and transparency views.
 from typing import Any
 
 from fasthtml.common import H3, H4, A, Code, Div, Li, P, Pre, Span, Ul
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader

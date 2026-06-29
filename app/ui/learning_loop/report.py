@@ -26,10 +26,8 @@ from fasthtml.common import (
     Ul,
 )
 from fasthtml.common import Button as HtmlButton
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
