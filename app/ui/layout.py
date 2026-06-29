@@ -2,25 +2,16 @@
 SKUEL Layout Components
 ========================
 
-Size enum and layout helper components. Re-exports MonsterUI layout primitives
-where possible, keeps SKUEL adapters for gap/align parameters.
-
-MonsterUI provides: DivFullySpaced, DivCentered, DivHStacked, DivVStacked, Grid, Center.
-SKUEL keeps thin adapters for: DivHStacked/DivVStacked (gap=int), Grid (cols/responsive).
+Size enum and layout helper components. Pure Tailwind — no MonsterUI dependency.
 """
 
 from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div
-from monsterui.franken import (
-    Center,
-    DivCentered,
-    DivFullySpaced,
-)
-from monsterui.franken import (
-    Grid as MGrid,
-)
+
+from ui.components._util import _cls
+from ui.components.layout import Center, DivCentered, DivFullySpaced
 
 __all__ = [
     "Size",
@@ -99,6 +90,17 @@ def DivVStacked(
     return Div(*c, cls=" ".join(classes), **kwargs)
 
 
+# Responsive column breakpoints: mobile-first, 1 col → N cols at wider viewports.
+_RESPONSIVE_COLS: dict[int, str] = {
+    1: "grid-cols-1",
+    2: "grid-cols-1 sm:grid-cols-2",
+    3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+    4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+    5: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5",
+    6: "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6",
+}
+
+
 def Grid(
     *c: Any,
     cols: int = 1,
@@ -107,22 +109,21 @@ def Grid(
     responsive: bool = True,
     **kwargs: Any,
 ) -> Any:
-    """
-    CSS Grid wrapper delegating to MonsterUI's responsive Grid.
+    """CSS Grid container.
 
     Args:
         *c: Grid items
-        cols: Maximum number of columns
+        cols: Number of columns (max columns when responsive=True)
         gap: Gap size (Tailwind spacing scale)
         cls: Additional CSS classes
-        responsive: If True, auto-calculates responsive breakpoints
+        responsive: If True, uses mobile-first breakpoints (1 col → cols at wider viewports)
         **kwargs: Additional HTML attributes
     """
-    gap_cls = f"gap-{gap} {cls}".strip() if cls else f"gap-{gap}"
-
     if responsive:
-        return MGrid(*c, cols_max=cols, cls=gap_cls, **kwargs)
-    return MGrid(*c, cols=cols, cls=gap_cls, **kwargs)
+        col_cls = _RESPONSIVE_COLS.get(cols, f"grid-cols-1 sm:grid-cols-2 lg:grid-cols-{cols}")
+    else:
+        col_cls = f"grid-cols-{cols}"
+    return Div(*c, cls=_cls(f"grid {col_cls} gap-{gap}", cls), **kwargs)
 
 
 def Container(*c: Any, cls: str = "", size: str = "7xl", **kwargs: Any) -> Any:
