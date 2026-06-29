@@ -155,12 +155,12 @@ Nav(
 ### Loading
 
 ```python
-from ui.feedback import Loading, LoadingT
+from ui.feedback import Loading
 from ui.layout import Size
 
-Loading(variant=LoadingT.spinner, size=Size.sm)
-Loading(variant=LoadingT.spinner, size=Size.md)
-Loading(variant=LoadingT.dots)
+Loading(size=Size.sm)
+Loading(size=Size.md)
+Loading()  # md default
 ```
 
 ### Tables & Dividers

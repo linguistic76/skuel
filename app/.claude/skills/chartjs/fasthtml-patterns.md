@@ -170,7 +170,7 @@ def custom_chart(data_url: str, chart_type: str = "line") -> Div:
         Div(
             # Loading state
             Div(
-                Loading(variant=LoadingT.spinner, size=Size.md),
+                Loading(size=Size.md),
                 P("Loading...", cls="text-sm mt-2"),
                 cls="flex flex-col items-center justify-center h-full",
                 **{"x-show": "loading"},
