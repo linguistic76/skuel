@@ -92,7 +92,7 @@ Bigger than `HubCard` — more padding, larger icon, full description paragraph,
 class HubBlockData:
     label: str
     slug: str
-    icon: str               # Feather icon name (UkIcon)
+    icon: str               # Lucide icon name (rendered via Icon)
     color: str              # hex color for header
     href: str               # "View all" link
     preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint

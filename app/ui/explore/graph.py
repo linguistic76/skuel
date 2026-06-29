@@ -16,7 +16,8 @@ Usage:
 from typing import TYPE_CHECKING
 
 from fasthtml.common import Button, Div, NotStr, Span
-from monsterui.franken import UkIcon
+
+from ui.components import Icon
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -128,7 +129,7 @@ def ExploreGraphView(
 
     # Expand button (visible in sidebar mode)
     expand_btn = Button(
-        UkIcon("maximize-2", height=14, width=14),
+        Icon("maximize-2", size=14),
         type="button",
         cls="absolute top-2 right-2 w-7 h-7 flex items-center justify-center"
         " rounded-md bg-background/80 border border-border hover:bg-accent"
@@ -139,7 +140,7 @@ def ExploreGraphView(
 
     # Empty state — shown when graph has no nodes
     empty_state = Div(
-        UkIcon("share-2", height=32, width=32),
+        Icon("share-2", size=32),
         Span(
             "Start exploring to see your graph",
             cls="text-xs text-muted-foreground mt-2",

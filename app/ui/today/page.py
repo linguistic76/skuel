@@ -33,8 +33,8 @@ from fasthtml.common import (
     Template,
     Ul,
 )
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.primitives import section_label
 
 if TYPE_CHECKING:
@@ -170,27 +170,27 @@ def _ribbons_column() -> FT:
 
 
 def _empty_state() -> FT:
-    return Template(
+    # x-show (not x-if) keeps the icon in DOM so lucide.createIcons() processes it at page load.
+    # x-if inserts nodes lazily — after createIcons() has already run — leaving a blank icon.
+    return Div(
         Div(
-            Div(
-                UkIcon("check-circle-2", height=28, width=28),
-                cls=(
-                    "mx-auto mb-5 w-14 h-14 rounded-lg bg-priority-low/15 text-priority-low "
-                    "flex items-center justify-center"
-                ),
+            Icon("check-circle-2", size=28),
+            cls=(
+                "mx-auto mb-5 w-14 h-14 rounded-lg bg-priority-low/15 text-priority-low "
+                "flex items-center justify-center"
             ),
-            H2(
-                "You're caught up.",
-                cls="text-[22px] font-bold tracking-tight mb-2",
-            ),
-            P(
-                "No nodes scheduled for today. This is the point where most apps would "
-                "offer you more to do. SKUEL suggests you close the laptop.",
-                cls="text-[13.5px] text-muted-foreground leading-relaxed",
-            ),
-            cls="text-center mx-auto max-w-md py-20 px-8",
         ),
-        **{"x-if": "allEmpty"},
+        H2(
+            "You're caught up.",
+            cls="text-[22px] font-bold tracking-tight mb-2",
+        ),
+        P(
+            "No nodes scheduled for today. This is the point where most apps would "
+            "offer you more to do. SKUEL suggests you close the laptop.",
+            cls="text-[13.5px] text-muted-foreground leading-relaxed",
+        ),
+        cls="text-center mx-auto max-w-md py-20 px-8",
+        **{"x-show": "allEmpty"},
     )
 
 
@@ -266,7 +266,7 @@ def _task_row(*, is_triage: bool) -> FT:
     )
 
     open_btn = Button(
-        UkIcon("play", height=12, width=12),
+        Icon("play", size=12),
         type="button",
         cls="w-7 h-7 rounded flex-none flex items-center justify-center",
         **{
@@ -322,7 +322,7 @@ def _task_row(*, is_triage: bool) -> FT:
 def _triage_bar() -> FT:
     heading = Div(
         Div(
-            UkIcon("alert-triangle", height=13, width=13),
+            Icon("alert-triangle", size=13),
             cls=(
                 "w-[22px] h-[22px] rounded bg-destructive/15 text-destructive "
                 "flex items-center justify-center"
@@ -743,13 +743,13 @@ def _drawer_toolbar() -> FT:
         ),
     )
     star_btn = Button(
-        UkIcon("star", height=14, width=14),
+        Icon("star", size=14),
         type="button",
         cls="w-7 h-7 rounded hover:bg-muted flex items-center justify-center",
         **{":hx-post": "`/today/tasks/${openTask.id}/star`", "aria-label": "Star"},
     )
     close_btn = Button(
-        UkIcon("x", height=14, width=14),
+        Icon("x", size=14),
         type="button",
         cls="w-7 h-7 rounded hover:bg-muted flex items-center justify-center",
         **{"@click": "closeDrawer()", "aria-label": "Close drawer"},
@@ -807,7 +807,7 @@ def _drawer_title_meta() -> FT:
 
 def _drawer_primary_action() -> FT:
     return Button(
-        UkIcon("check", height=16, width=16),
+        Icon("check", size=16),
         "Mark complete",
         type="button",
         cls=(
@@ -853,7 +853,7 @@ def _drawer_connects() -> FT:
     def _row(icon: str, label: str, field_expr: str, if_expr: str) -> FT:
         return Template(
             Div(
-                UkIcon(icon, height=14, width=14, cls="text-muted-foreground"),
+                Icon(icon, size=14, cls="text-muted-foreground"),
                 Span(label, cls="text-muted-foreground"),
                 Span(cls="font-medium", **{"x-text": field_expr}),
                 cls="flex items-center gap-2 text-[13px]",

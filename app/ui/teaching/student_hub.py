@@ -6,8 +6,8 @@ GradeBook, Library).
 """
 
 from fasthtml.common import A, Div
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.patterns.hub import HubBlockData, HubDomainBlockList
 from ui.patterns.page_header import PageHeader
 
@@ -53,7 +53,7 @@ def StudentHub(student_name: str, student_uid: str) -> Div:
     ]
 
     back_link = A(
-        UkIcon("arrow-left", height=16, width=16, cls="inline mr-1"),
+        Icon("arrow-left", size=16, cls="inline mr-1"),
         "Students",
         href="/teaching/students",
         cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-4",

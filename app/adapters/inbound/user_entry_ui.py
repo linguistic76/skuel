@@ -33,7 +33,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H4, A, Div, P, Span
-from monsterui.franken import UkIcon
 from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -43,7 +42,7 @@ from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
@@ -189,7 +188,7 @@ def create_user_entry_ui_routes(
             return A(
                 Div(
                     Div(
-                        UkIcon(icon, height=28, width=28),
+                        Icon(icon, size=28),
                         cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
                     ),
                     H2(title, cls="text-lg font-semibold mb-1"),
@@ -543,7 +542,7 @@ def create_user_entry_ui_routes(
             return A(
                 Div(
                     Div(
-                        UkIcon(icon, height=28, width=28),
+                        Icon(icon, size=28),
                         cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
                     ),
                     H2(title, cls="text-lg font-semibold mb-1"),

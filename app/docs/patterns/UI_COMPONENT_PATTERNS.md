@@ -102,7 +102,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-04-06c):** Avatar dropdown removed from navbar left section — Tasks+ icon already links to `/profile`, making it redundant. Sign-out icon added to navbar right section (Search + bell + Sign out). Focus+Velocity header extracted from `/profile` to shared `personal_header()` in `ui/patterns/personal_header.py` and added to top of `/home`. Nous placeholder removed from `/profile`. `/home` route now fetches `UserContext` via `get_rich_unified_context()`.
 
-**Evolution (2026-06-24):** Profile avatar button removed from navbar right section. Askesis flame icon (`UkIcon("flame")`) added linking to `/askesis`, placed between Search and notification bell. Right section is now: Search + Askesis (flame) + bell + Sign out. Brand "SKUEL" link (→ `/profile`) is the entry point to the profile hub.
+**Evolution (2026-06-24):** Profile avatar button removed from navbar right section. Askesis flame icon (`Icon("flame")`) added linking to `/askesis`, placed between Search and notification bell. Right section is now: Search + Askesis (flame) + bell + Sign out. Brand "SKUEL" link (→ `/profile`) is the entry point to the profile hub.
 
 **Evolution (2026-06-28):** Profile avatar button (`_profile_button`) re-wired into navbar right section, placed between notification bell and Sign out. Brand "SKUEL" link updated from `/profile` → `/explore` (the ZPD-surfaced reading focal point — primary landing destination after login). `Explore` removed from `ICON_NAV_ITEMS`; the brand link is now the sole entry point. Right section is now: Search + Askesis (flame) + bell + Profile avatar + Sign out.
 

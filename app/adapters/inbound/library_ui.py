@@ -27,9 +27,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
-from monsterui.franken import UkIcon
-
-from ui.components import ButtonT
+from ui.components import ButtonT, Icon
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -233,7 +231,7 @@ def create_library_ui_routes(
             return A(
                 Div(
                     Div(
-                        UkIcon(icon, height=28, width=28),
+                        Icon(icon, size=28),
                         cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
                     ),
                     H2(title, cls="text-lg font-semibold mb-1"),

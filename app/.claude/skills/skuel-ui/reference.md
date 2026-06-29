@@ -516,7 +516,7 @@ return await SidebarPage(
     item_renderer=alpine_section_renderer("section"),
     mobile_item_renderer=alpine_mobile_section_renderer("section"),
     alpine_state="{ section: 'pending' }",           # shared x-data on wrapper
-    title_prefix=A(UkIcon("arrow-left"), href="/back"),  # back arrow in sidebar header
+    title_prefix=A(Icon("arrow-left"), href="/back"),  # back arrow in sidebar header
 )
 ```
 

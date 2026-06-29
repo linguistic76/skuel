@@ -11,8 +11,8 @@ from typing import Any
 
 from fasthtml.common import Button as RawButton
 from fasthtml.common import Div, Form, Input, NotStr, P, Script, Span
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.primitives import dropdown_menu, primary_btn, section_label
 
 _MODE_CONFIGS: dict[str, dict[str, str]] = {
@@ -47,7 +47,7 @@ def _build_processing_section() -> Any:
         mode_spans.append(
             Span(
                 Span(
-                    UkIcon(cfg["icon"], cls="w-[22px] h-[22px]"),
+                    Icon(cfg["icon"], cls="w-[22px] h-[22px]"),
                     cls=(
                         "w-12 h-12 flex-none rounded-xl bg-muted flex items-center justify-center"
                     ),
@@ -65,7 +65,7 @@ def _build_processing_section() -> Any:
 
     trigger = RawButton(
         *mode_spans,
-        UkIcon("chevron-down", cls="w-5 h-5 text-muted-foreground"),
+        Icon("chevron-down", cls="w-5 h-5 text-muted-foreground"),
         type="button",
         cls=(
             "w-full flex items-center gap-[18px] px-5 py-[18px] border border-border "
@@ -79,7 +79,7 @@ def _build_processing_section() -> Any:
         option_rows.append(
             RawButton(
                 Span(
-                    UkIcon(cfg["icon"], cls="w-[18px] h-[18px]"),
+                    Icon(cfg["icon"], cls="w-[18px] h-[18px]"),
                     cls="w-8 h-8 flex-none rounded-lg bg-muted flex items-center justify-center",
                 ),
                 Span(
@@ -91,7 +91,7 @@ def _build_processing_section() -> Any:
                     cls="flex-1 min-w-0",
                 ),
                 Span(
-                    UkIcon("check", cls="w-4 h-4 text-primary"),
+                    Icon("check", cls="w-4 h-4 text-primary"),
                     **{
                         "x-show": f"processingMode === '{mode_key}'",
                         "x-cloak": True,  # boundary: fasthtml-elements
@@ -138,7 +138,7 @@ def _build_source_section() -> Any:
 
     def _tab(label: str, icon: str, value: str) -> Any:
         return RawButton(
-            UkIcon(icon, cls="w-[18px] h-[18px]"),
+            Icon(icon, cls="w-[18px] h-[18px]"),
             Span(label),
             type="button",
             cls=(
@@ -180,11 +180,11 @@ def _build_browse_area() -> Any:
             # Icon badge — swaps with active source tab
             Span(
                 Span(
-                    UkIcon("file-up", cls="w-[26px] h-[26px]"),
+                    Icon("file-up", cls="w-[26px] h-[26px]"),
                     **{"x-show": "source !== 'folder'"},
                 ),
                 Span(
-                    UkIcon("folder-up", cls="w-[26px] h-[26px]"),
+                    Icon("folder-up", cls="w-[26px] h-[26px]"),
                     **{
                         "x-show": "source === 'folder'",
                         "x-cloak": True,  # boundary: fasthtml-elements
@@ -197,7 +197,7 @@ def _build_browse_area() -> Any:
             ),
             # Browse button — triggers appropriate hidden file input
             RawButton(
-                UkIcon("folder-open", cls="w-[19px] h-[19px]"),
+                Icon("folder-open", cls="w-[19px] h-[19px]"),
                 Span("Browse "),
                 Span("", **{"x-text": "source === 'folder' ? 'folder' : 'files'"}),
                 type="button",
@@ -349,7 +349,7 @@ def _build_compact_processing_section() -> Any:
         mode_spans.append(
             Span(
                 Span(
-                    UkIcon(cfg["icon"], cls="w-[18px] h-[18px]"),
+                    Icon(cfg["icon"], cls="w-[18px] h-[18px]"),
                     cls="w-9 h-9 flex-none rounded-lg bg-muted flex items-center justify-center",
                 ),
                 Span(
@@ -365,7 +365,7 @@ def _build_compact_processing_section() -> Any:
 
     trigger = RawButton(
         *mode_spans,
-        UkIcon("chevron-down", cls="w-4 h-4 text-muted-foreground"),
+        Icon("chevron-down", cls="w-4 h-4 text-muted-foreground"),
         type="button",
         cls=(
             "w-full flex items-center gap-3 px-3 py-3 border border-border "
@@ -379,7 +379,7 @@ def _build_compact_processing_section() -> Any:
         option_rows.append(
             RawButton(
                 Span(
-                    UkIcon(cfg["icon"], cls="w-4 h-4"),
+                    Icon(cfg["icon"], cls="w-4 h-4"),
                     cls="w-7 h-7 flex-none rounded-md bg-muted flex items-center justify-center",
                 ),
                 Span(
@@ -388,7 +388,7 @@ def _build_compact_processing_section() -> Any:
                     cls="flex-1 min-w-0",
                 ),
                 Span(
-                    UkIcon("check", cls="w-3.5 h-3.5 text-primary"),
+                    Icon("check", cls="w-3.5 h-3.5 text-primary"),
                     **{
                         "x-show": f"processingMode === '{mode_key}'",
                         "x-cloak": True,  # boundary: fasthtml-elements
@@ -430,7 +430,7 @@ def _build_compact_source_section() -> Any:
 
     def _tab(label: str, icon: str, value: str) -> Any:
         return RawButton(
-            UkIcon(icon, cls="w-4 h-4"),
+            Icon(icon, cls="w-4 h-4"),
             Span(label),
             type="button",
             cls=(
@@ -466,11 +466,11 @@ def _build_compact_browse_area() -> Any:
         Div(
             Span(
                 Span(
-                    UkIcon("file-up", cls="w-[20px] h-[20px]"),
+                    Icon("file-up", cls="w-[20px] h-[20px]"),
                     **{"x-show": "source !== 'folder'"},
                 ),
                 Span(
-                    UkIcon("folder-up", cls="w-[20px] h-[20px]"),
+                    Icon("folder-up", cls="w-[20px] h-[20px]"),
                     **{
                         "x-show": "source === 'folder'",
                         "x-cloak": True,  # boundary: fasthtml-elements
@@ -482,7 +482,7 @@ def _build_compact_browse_area() -> Any:
                 ),
             ),
             RawButton(
-                UkIcon("folder-open", cls="w-4 h-4"),
+                Icon("folder-open", cls="w-4 h-4"),
                 Span("Browse "),
                 Span("", **{"x-text": "source === 'folder' ? 'folder' : 'files'"}),
                 type="button",

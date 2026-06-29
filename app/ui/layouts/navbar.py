@@ -17,9 +17,9 @@ Usage:
 from typing import Any
 
 from fasthtml.common import A, Div, Nav, Span
-from monsterui.franken import UkIcon
 
 from adapters.inbound.fasthtml_types import Request
+from ui.components import Icon
 from ui.layouts.nav_config import (
     ICON_NAV_ITEMS,
     MAIN_NAV_ITEMS,
@@ -71,7 +71,7 @@ def _search_button(active_page: str = "", desktop_only: bool = False) -> A:
     visibility = "hidden sm:inline-flex" if desktop_only else "inline-flex"
     return A(
         Span("Search", cls="sr-only"),
-        UkIcon("search", cls="size-6", aria_hidden="true"),
+        Icon("search", cls="size-6", aria_hidden="true"),
         href="/search",
         cls=f"{visibility} items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
     )
@@ -81,7 +81,7 @@ def _signout_button() -> A:
     """Sign-out icon button."""
     return A(
         Span("Sign out", cls="sr-only"),
-        UkIcon("log-out", cls="size-6", aria_hidden="true"),
+        Icon("log-out", cls="size-6", aria_hidden="true"),
         href="/logout",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
     )
@@ -93,7 +93,7 @@ def _notification_button(unread_count: int = 0) -> Any:
 
     button_content: list[Any] = [
         Span("View notifications", cls="sr-only"),
-        UkIcon("bell", cls="size-6", aria_hidden="true"),
+        Icon("bell", cls="size-6", aria_hidden="true"),
     ]
     if unread_count > 0:
         button_content.append(
@@ -151,7 +151,7 @@ def _askesis_button(active_page: str) -> A:
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     return A(
         Span("Askesis", cls="sr-only"),
-        UkIcon("flame", cls="size-6", aria_hidden="true"),
+        Icon("flame", cls="size-6", aria_hidden="true"),
         href="/askesis",
         cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
         **({"aria-current": "page"} if is_active else {}),
@@ -181,7 +181,7 @@ def _admin_right_section(current_user: str) -> Div:
             cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
         ),
         A(
-            UkIcon("log-out", cls="size-4", aria_hidden="true"),
+            Icon("log-out", cls="size-4", aria_hidden="true"),
             Span("Sign out"),
             href="/logout",
             cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-accent",
@@ -239,7 +239,7 @@ def create_navbar(
                 Div(
                     A(
                         Span("Menu", cls="sr-only"),
-                        UkIcon("menu", cls="size-5", aria_hidden="true"),
+                        Icon("menu", cls="size-5", aria_hidden="true"),
                         cls="sm:hidden inline-flex items-center justify-center size-11 rounded-full"
                         " hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer",
                         **{"@click": "mobileMenuOpen = !mobileMenuOpen", "aria-label": "Open menu"},
@@ -352,7 +352,7 @@ def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
     color_cls = "text-primary" if is_active else "text-muted-foreground"
     extra: dict[str, Any] = {"aria-current": "page"} if is_active else {}
     return A(
-        UkIcon(item.icon or "circle", cls="size-5", aria_hidden="true"),
+        Icon(item.icon or "circle", cls="size-5", aria_hidden="true"),
         Span(item.label, cls="text-xs mt-0.5"),
         Span(f"Go to {item.label}", cls="sr-only"),
         href=item.href,

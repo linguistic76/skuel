@@ -13,10 +13,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from fasthtml.common import A, Div, P, Span
-from monsterui.franken import UkIcon
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
-from ui.components import ButtonT
+from ui.components import ButtonT, Icon
 from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
 
@@ -151,7 +150,7 @@ class HubBlockData:
 
     label: str
     slug: str
-    icon: str  # Feather icon name (UkIcon)
+    icon: str  # Lucide icon name (rendered via Icon)
     color: str  # hex color for header
     href: str  # Target for the header label link (primary action)
     preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
@@ -198,7 +197,7 @@ def HubDomainBlock(block: HubBlockData) -> Div:
         # Domain header — icon + title + "View all" link
         Div(
             A(
-                UkIcon(block.icon, cls="size-4"),
+                Icon(block.icon, cls="size-4"),
                 Span(
                     block.label,
                     cls="text-sm font-semibold uppercase tracking-wider",

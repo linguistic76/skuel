@@ -17,10 +17,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Button, Div, Form, Input, Label, P, Section, Span, Textarea
-from monsterui.franken import UkIcon
 
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
+from ui.components import Icon
 from ui.dual_track_card import gap_card, render_checkin_trend
 
 if TYPE_CHECKING:
@@ -109,7 +109,7 @@ def render_ku_mastery_section(
                     cls="block mt-4",
                 ),
                 Button(
-                    UkIcon("git-branch", cls="w-4 h-4"),
+                    Icon("git-branch", cls="w-4 h-4"),
                     " See my perception gap",
                     type="submit",
                     cls=(

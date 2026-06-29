@@ -29,8 +29,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Button, Div, Li, P, Span, Ul
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
@@ -66,7 +66,7 @@ class SidebarItem:
 
 def _chevron_svg() -> "FT":
     """Collapse toggle chevron icon."""
-    return UkIcon("chevron-left", height=16, width=16, cls="", aria_hidden="true")
+    return Icon("chevron-left", size=16, cls="", aria_hidden="true")
 
 
 def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
@@ -75,9 +75,7 @@ def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
     header_children: list[Any] = []
 
     if item.icon:
-        header_children.append(
-            UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true")
-        )
+        header_children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
 
     header_children.append(Span(item.label, cls="flex-1"))
 
@@ -86,10 +84,9 @@ def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
 
     # Chevron that rotates when expanded
     header_children.append(
-        UkIcon(
+        Icon(
             "chevron-down",
-            height=14,
-            width=14,
+            size=14,
             cls="transition-transform duration-200",
             **{":class": "open ? 'rotate-180' : ''"},
         )
@@ -141,7 +138,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     children: list[Any] = []
 
     if item.icon:
-        children.append(UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true"))
+        children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
 
     children.append(Span(item.label, cls="flex-1"))
 
@@ -149,15 +146,19 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
         # Two-line item (Askesis style)
         content = Div(
             Div(
-                UkIcon(item.icon, height=18, width=18, cls="mr-2 shrink-0", aria_hidden="true")
-                if item.icon
-                else "",
+                (
+                    Icon(item.icon, size=18, cls="mr-2 shrink-0", aria_hidden="true")
+                    if item.icon
+                    else ""
+                ),
                 Span(item.label, cls="font-medium"),
                 cls="flex items-center",
             ),
-            P(item.description, cls="text-xs opacity-60 mt-0.5 ml-7")
-            if item.icon
-            else P(item.description, cls="text-xs opacity-60 mt-0.5"),
+            (
+                P(item.description, cls="text-xs opacity-60 mt-0.5 ml-7")
+                if item.icon
+                else P(item.description, cls="text-xs opacity-60 mt-0.5")
+            ),
             cls="w-full",
         )
         return Li(
@@ -196,7 +197,9 @@ def SidebarLink(text: str, href: str) -> "FT":
     )
 
 
-def alpine_section_renderer(state_var: str = "section") -> Callable[[SidebarItem, bool], Any]:
+def alpine_section_renderer(
+    state_var: str = "section",
+) -> Callable[[SidebarItem, bool], Any]:
     """Item renderer for Alpine-driven section switching (no page navigation).
 
     Items use @click to set Alpine state variable instead of href links.
@@ -206,9 +209,7 @@ def alpine_section_renderer(state_var: str = "section") -> Callable[[SidebarItem
     def _render(item: SidebarItem, _is_active: bool) -> "FT":
         children: list[Any] = []
         if item.icon:
-            children.append(
-                UkIcon(item.icon, height=18, width=18, cls="shrink-0", aria_hidden="true")
-            )
+            children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
         children.append(Span(item.label, cls="flex-1"))
         if item.badge_text:
             children.append(
@@ -246,9 +247,7 @@ def alpine_mobile_section_renderer(
     def _render(item: SidebarItem, _is_active: bool) -> "FT":
         tab_children: list[Any] = []
         if item.icon:
-            tab_children.append(
-                UkIcon(item.icon, height=16, width=16, cls="shrink-0", aria_hidden="true")
-            )
+            tab_children.append(Icon(item.icon, size=16, cls="shrink-0", aria_hidden="true"))
         tab_children.append(Span(item.label))
         if item.badge_text:
             tab_children.append(Span(item.badge_text, cls="ml-1 text-xs"))
@@ -319,7 +318,7 @@ def SidebarNav(
 
     title_el: Any
     if title_icon:
-        icon_el = UkIcon(title_icon, height=24, width=24, cls="text-primary")
+        icon_el = Icon(title_icon, size=24, cls="text-primary")
         if title_href:
             title_el = A(icon_el, href=title_href, aria_label=title)
         else:
@@ -394,9 +393,7 @@ def SidebarNav(
             is_active = item.slug == active
             tab_children: list[Any] = []
             if item.icon:
-                tab_children.append(
-                    UkIcon(item.icon, height=16, width=16, cls="shrink-0", aria_hidden="true")
-                )
+                tab_children.append(Icon(item.icon, size=16, cls="shrink-0", aria_hidden="true"))
             tab_children.append(Span(item.label))
             tab_items.append(
                 A(

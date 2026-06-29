@@ -16,12 +16,11 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card
+from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -90,7 +89,7 @@ def HabitCard(
         icon_cls = ""
 
     toggle_btn = Button(
-        UkIcon(icon, height=16, width=16, cls=f"inline {icon_cls}"),
+        Icon(icon, size=16, cls=f"inline {icon_cls}"),
         hx_post=f"/api/habits/{habit.uid}/status",
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#habit-{safe_id(habit.uid)}",

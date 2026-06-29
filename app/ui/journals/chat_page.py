@@ -11,7 +11,8 @@ import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, Input, P, Span
-from monsterui.franken import UkIcon
+
+from ui.components import Icon
 
 if TYPE_CHECKING:
     from core.models.user.user import User
@@ -155,7 +156,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
     return Div(
         Div(
             A(
-                UkIcon("chevron-left", height=14, width=14),
+                Icon("chevron-left", size=14),
                 Span("Calendar", cls="text-[13px]"),
                 href="/events/calendar",
                 cls=(
@@ -171,7 +172,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         ),
         Div(
             A(
-                UkIcon("chevron-left", height=13, width=13),
+                Icon("chevron-left", size=13),
                 Span(prev_label, cls="text-[11px]"),
                 href=prev_url,
                 cls=(
@@ -181,7 +182,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             ),
             A(
                 Span(next_label, cls="text-[11px]"),
-                UkIcon("chevron-right", height=13, width=13),
+                Icon("chevron-right", size=13),
                 href=next_url,
                 cls=(
                     "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
@@ -273,7 +274,7 @@ def journal_sidebar(
         # Collapsed rail (shown when closed)
         Div(
             Button(
-                UkIcon("panel-left-open", height=16, width=16),
+                Icon("panel-left-open", size=16),
                 cls=(
                     "w-8 h-8 flex items-center justify-center rounded-lg"
                     " text-muted-foreground hover:bg-slate-100 hover:text-slate-600"
@@ -288,7 +289,7 @@ def journal_sidebar(
                 },
             ),
             Button(
-                UkIcon("square-pen", height=16, width=16, cls="text-slate-600"),
+                Icon("square-pen", size=16, cls="text-slate-600"),
                 cls=(
                     "w-8 h-8 flex items-center justify-center rounded-lg"
                     " border border-border hover:bg-slate-100 transition-colors"
@@ -321,7 +322,7 @@ def _sb_header() -> Any:
     return Div(
         Span("Journal", cls="text-[17px] font-bold tracking-tight text-foreground"),
         Button(
-            UkIcon("panel-left-close", height=16, width=16),
+            Icon("panel-left-close", size=16),
             cls=(
                 "w-8 h-8 flex items-center justify-center rounded-lg"
                 " text-muted-foreground hover:bg-slate-100 hover:text-slate-600"
@@ -338,7 +339,7 @@ def _sb_header() -> Any:
 def _sb_new_journal_btn() -> Any:
     return Div(
         A(
-            UkIcon("square-pen", height=17, width=17, cls="text-slate-600 shrink-0"),
+            Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
             Span("New Journal", cls="text-[14px] font-semibold text-foreground"),
             href="/journals",
             cls=(
@@ -354,7 +355,7 @@ def _sb_new_journal_btn() -> Any:
 def _sb_search_field() -> Any:
     return Div(
         Div(
-            UkIcon("search", height=15, width=15, cls="text-muted-foreground shrink-0"),
+            Icon("search", size=15, cls="text-muted-foreground shrink-0"),
             Input(
                 type="search",
                 placeholder="Search sessions",
@@ -524,7 +525,7 @@ def _landing_text_form() -> Any:
                 ),
                 Div(
                     Button(
-                        UkIcon("arrow-up", height=16, width=16, cls="text-white"),
+                        Icon("arrow-up", size=16, cls="text-white"),
                         type="submit",
                         aria_label="Start journal entry",
                         cls=(
