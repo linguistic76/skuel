@@ -15,6 +15,12 @@ module.exports = {
     { pattern: /^items-(start|center|end|stretch|baseline)$/ },
     'flex-grow', 'flex-shrink', 'flex-shrink-0',
     { pattern: /^max-w-(sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl)$/ },
+    // Icon component emits w-[Npx] h-[Npx] at runtime — not statically scannable by Tailwind CLI.
+    // Sizes sourced from grep "size=" across all Icon() call sites (2026-06-29).
+    'w-[10px]', 'h-[10px]', 'w-[12px]', 'h-[12px]', 'w-[13px]', 'h-[13px]',
+    'w-[14px]', 'h-[14px]', 'w-[15px]', 'h-[15px]', 'w-[16px]', 'h-[16px]',
+    'w-[17px]', 'h-[17px]', 'w-[18px]', 'h-[18px]', 'w-[24px]', 'h-[24px]',
+    'w-[28px]', 'h-[28px]', 'w-[32px]', 'h-[32px]',
   ],
   darkMode: 'class',
   theme: {
