@@ -3,6 +3,7 @@ module.exports = {
   content: [
     "./ui/**/*.py",
     "./adapters/inbound/**/*.py",
+    "./core/**/*.py",
     "./components/**/*.py",
     "./ui/components/**/*.py",
     "./static/js/*.js",
