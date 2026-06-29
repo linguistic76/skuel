@@ -20,7 +20,6 @@ from typing import Any, Union, get_args, get_origin
 
 from fasthtml.common import H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
-from monsterui.franken import UkIcon
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -35,7 +34,7 @@ from core.ports import (
     PydanticFieldInfo,
 )
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Icon
 from ui.forms import Checkbox, Input, Label, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")
@@ -237,7 +236,7 @@ class FormGenerator:
                 or a config mapping
                 ``{"Section": {"fields": [...], "icon": "calendar", "accent": "amber"}}``.
                 Accent values are Tailwind color names (blue, amber, emerald, violet,
-                rose, cyan). Icon values are Lucide icon names rendered via UkIcon.
+                rose, cyan). Icon values are Lucide icon names rendered via Icon.
             custom_widgets: Override specific field widgets (still wrapped with label)
             help_texts: Per-field help: {"field": "Helpful text"}
             labels: Override per-field label text (priority over Pydantic description).
@@ -439,7 +438,7 @@ class FormGenerator:
             if icon_name:
                 header_children.append(
                     Div(
-                        UkIcon(icon_name, height=18, width=18, cls=icon_text_cls),
+                        Icon(icon_name, size=18, cls=icon_text_cls),
                         cls=(
                             f"size-9 rounded-md flex items-center justify-center "
                             f"shrink-0 {icon_bg_cls}"

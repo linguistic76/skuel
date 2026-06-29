@@ -30,9 +30,9 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
 
 from core.models.enums import UserRole
+from ui.components import Icon
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -49,7 +49,7 @@ def render_ps_not_found(uid: str) -> Div:
     """Render the not-found state for a PathStep detail fragment."""
     return Div(
         A(
-            UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+            Icon("arrow-left", cls="w-3.5 h-3.5"),
             " Explore",
             href="/explore",
             cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
@@ -154,7 +154,7 @@ def render_ps_detail_content(
 
 def _back_link() -> "FT":
     return A(
-        UkIcon("arrow-left", cls="w-[15px] h-[15px]"),
+        Icon("arrow-left", cls="w-[15px] h-[15px]"),
         " Explore",
         href="/explore",
         cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-muted-foreground hover:text-foreground mb-[18px]",
@@ -164,7 +164,7 @@ def _back_link() -> "FT":
 def _footer_nav() -> "FT":
     return Div(
         A(
-            UkIcon("arrow-left", cls="w-4 h-4"),
+            Icon("arrow-left", cls="w-4 h-4"),
             " Back to Explore",
             href="/explore",
             cls="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground",
@@ -222,7 +222,7 @@ def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
 
 def _kind_badge() -> "FT":
     return Span(
-        UkIcon("route", cls="w-[13px] h-[13px]"),
+        Icon("route", cls="w-[13px] h-[13px]"),
         " Path step",
         cls=(
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] "
@@ -234,7 +234,7 @@ def _kind_badge() -> "FT":
 
 def _bookmark_btn(uid: str) -> "FT":
     return Button(
-        UkIcon("bookmark", cls="w-3.5 h-3.5"),
+        Icon("bookmark", cls="w-3.5 h-3.5"),
         Span("", **{"x-text": "bookmarked ? 'Saved' : 'Save'"}),
         type="button",
         cls=(
@@ -261,7 +261,7 @@ def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
     if est_minutes:
         items.append(
             Span(
-                UkIcon("clock", cls="w-3.5 h-3.5"),
+                Icon("clock", cls="w-3.5 h-3.5"),
                 f" {est_minutes} min",
                 cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground",
             )
@@ -324,7 +324,7 @@ def _action_bar(uid: str) -> "FT":
                 ),
                 # read / completed
                 Span(
-                    UkIcon("check", cls="w-[15px] h-[15px]"),
+                    Icon("check", cls="w-[15px] h-[15px]"),
                     " Completed",
                     cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-priority-low whitespace-nowrap",
                     **{"x-show": "status === 'read'"},
@@ -339,7 +339,7 @@ def _action_bar(uid: str) -> "FT":
                         "",
                         **{"x-text": "status === 'learning' ? 'Mark as read' : 'Start learning'"},
                     ),
-                    UkIcon("arrow-right", cls="w-[15px] h-[15px]"),
+                    Icon("arrow-right", cls="w-[15px] h-[15px]"),
                     type="button",
                     cls=(
                         "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
@@ -354,7 +354,7 @@ def _action_bar(uid: str) -> "FT":
                 ),
                 # Review again (read state)
                 Button(
-                    UkIcon("rotate-ccw", cls="w-3.5 h-3.5"),
+                    Icon("rotate-ccw", cls="w-3.5 h-3.5"),
                     " Review again",
                     type="button",
                     cls=(
@@ -380,7 +380,7 @@ def _unauthenticated_cta() -> "FT":
     return Div(
         A(
             "Log in to track your progress",
-            UkIcon("arrow-right", cls="w-[15px] h-[15px]"),
+            Icon("arrow-right", cls="w-[15px] h-[15px]"),
             href="/login",
             cls=(
                 "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
@@ -497,14 +497,14 @@ def _deps_accordion() -> "FT":
         Button(
             # Status tile
             Span(
-                UkIcon("check", cls="w-[15px] h-[15px]", stroke_width="2.2"),
+                Icon("check", cls="w-[15px] h-[15px]", stroke_width="2.2"),
                 cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
                 **{
                     "x-show": "allMet",
                 },
             ),
             Span(
-                UkIcon("lock", cls="w-[15px] h-[15px]", stroke_width="2.2"),
+                Icon("lock", cls="w-[15px] h-[15px]", stroke_width="2.2"),
                 cls="w-7 h-7 rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
                 **{
                     "x-show": "!allMet",
@@ -533,8 +533,8 @@ def _deps_accordion() -> "FT":
             ),
             # Chevron
             Span(
-                UkIcon("chevron-up", cls="w-[18px] h-[18px]", **{"x-show": "depsOpen"}),
-                UkIcon("chevron-down", cls="w-[18px] h-[18px]", **{"x-show": "!depsOpen"}),
+                Icon("chevron-up", cls="w-[18px] h-[18px]", **{"x-show": "depsOpen"}),  # type: ignore[arg-type]  # boundary: fasthtml-elements
+                Icon("chevron-down", cls="w-[18px] h-[18px]", **{"x-show": "!depsOpen"}),  # type: ignore[arg-type]  # boundary: fasthtml-elements
                 cls="text-muted-foreground flex-none",
             ),
             type="button",
@@ -555,14 +555,14 @@ def _deps_accordion() -> "FT":
             Ul(
                 Li(
                     Span(
-                        UkIcon("check", cls="w-3 h-3", stroke_width="2.4"),
+                        Icon("check", cls="w-3 h-3", stroke_width="2.4"),
                         cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
                         **{
                             "x-show": "dep.status === 'met'",
                         },
                     ),
                     Span(
-                        UkIcon("lock", cls="w-3 h-3", stroke_width="2.4"),
+                        Icon("lock", cls="w-3 h-3", stroke_width="2.4"),
                         cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
                         **{
                             "x-show": "dep.status !== 'met'",

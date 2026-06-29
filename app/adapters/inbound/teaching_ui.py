@@ -20,14 +20,13 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Div, Form, P
-from monsterui.franken import UkIcon
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Icon
 from ui.forms import LabelInput, LabelTextArea
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
@@ -437,7 +436,7 @@ def create_teaching_ui_routes(
 
         # Back arrow linking to student hub
         back_arrow = A(
-            UkIcon("arrow-left", height=18, width=18),
+            Icon("arrow-left", size=18),
             href=f"/teaching/students/{uid}",
             cls="p-1.5 rounded hover:bg-accent transition-colors inline-flex items-center",
             aria_label="Back to student overview",
@@ -446,7 +445,7 @@ def create_teaching_ui_routes(
         # Mobile back link (above tabs)
         mobile_back = Div(
             A(
-                UkIcon("arrow-left", height=14, width=14, cls="inline mr-1"),
+                Icon("arrow-left", size=14, cls="inline mr-1"),
                 display_name,
                 href=f"/teaching/students/{uid}",
                 cls="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1",

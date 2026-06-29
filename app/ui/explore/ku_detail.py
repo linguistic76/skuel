@@ -28,9 +28,9 @@ from fasthtml.common import (
     Section,
     Span,
 )
-from monsterui.franken import UkIcon
 
 from core.models.type_hints import EntityUID
+from ui.components import Icon
 from ui.explore.ku_mastery import render_ku_mastery_section
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -58,7 +58,7 @@ def render_ku_not_found(uid: str) -> Div:
     """Render the not-found state for a Ku detail fragment."""
     return Div(
         A(
-            UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+            Icon("arrow-left", cls="w-3.5 h-3.5"),
             " Explore",
             href="/explore",
             cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground mb-6",
@@ -150,7 +150,7 @@ def render_ku_detail_content(
 
 def _back_link() -> "FT":
     return A(
-        UkIcon("arrow-left", cls="w-3.5 h-3.5"),
+        Icon("arrow-left", cls="w-3.5 h-3.5"),
         " Explore",
         href="/explore",
         hx_get="/explore",
@@ -162,7 +162,7 @@ def _back_link() -> "FT":
 def _footer_nav() -> "FT":
     return Div(
         A(
-            UkIcon("arrow-left", cls="w-4 h-4"),
+            Icon("arrow-left", cls="w-4 h-4"),
             " Back to Explore",
             href="/explore",
             hx_get="/explore",
@@ -201,7 +201,7 @@ def _article_header(
     return Header(
         Div(
             Span(
-                UkIcon(kind_icon, cls="w-3 h-3"),
+                Icon(kind_icon, cls="w-3 h-3"),
                 f" {kind_label}",
                 cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-muted-foreground",
             ),
@@ -259,7 +259,7 @@ def _reading_body(content_html: str) -> "FT":
 def _end_of_read_marker() -> "FT":
     return Div(
         Span(cls="h-px flex-1 bg-border"),
-        UkIcon("check-circle", cls="w-4 h-4 text-muted-foreground/60"),
+        Icon("check-circle", cls="w-4 h-4 text-muted-foreground/60"),
         Span(cls="h-px flex-1 bg-border"),
         cls="flex items-center gap-3 my-9",
     )

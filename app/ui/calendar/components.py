@@ -22,7 +22,6 @@ from itertools import islice
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
-from monsterui.franken import UkIcon
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -30,7 +29,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
@@ -899,7 +898,7 @@ def create_item_details_modal(item: Any) -> Div:
                     cls="text-2xl font-bold flex items-center",
                 ),
                 Button(
-                    UkIcon("x", cls="w-6 h-6"),
+                    Icon("x", cls="w-6 h-6"),
                     cls=(ButtonT.ghost, "text-muted-foreground hover:text-muted-foreground"),
                     size="sm",
                     **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat

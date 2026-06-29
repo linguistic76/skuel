@@ -11,8 +11,8 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Small, Span
-from monsterui.franken import UkIcon
 
+from ui.components import Icon
 from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ def CurriculumOriginField(ps_uid: str, ps_title: str) -> "FT":
     """
     icon = CONNECTION_ICONS["path_step"][0]
     return Div(
-        UkIcon(icon, height=14, width=14, cls="inline mr-1"),
+        Icon(icon, size=14, cls="inline mr-1"),
         Span("From learning step: ", cls="text-muted-foreground"),
         A(
             ps_title or ps_uid,
@@ -88,7 +88,7 @@ def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
 
         badges.append(
             A(
-                UkIcon(icon, height=12, width=12, cls="inline mr-1"),
+                Icon(icon, size=12, cls="inline mr-1"),
                 title,
                 href=href,
                 cls="inline-flex items-center mr-2",
@@ -118,7 +118,7 @@ def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
         icon = CONNECTION_ICONS.get(domain, ("link", "#"))[0]
         parts.append(
             Span(
-                UkIcon(icon, height=10, width=10, cls="inline"),
+                Icon(icon, size=10, cls="inline"),
                 f" {count}",
                 cls="text-muted-foreground text-sm mr-2",
             )

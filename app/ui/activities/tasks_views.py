@@ -17,11 +17,10 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import UkIcon
 
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card
+from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
@@ -74,10 +73,9 @@ def TaskCard(
     # Status toggle button
     new_status = "active" if is_completed else "completed"
     toggle_btn = Button(
-        UkIcon(
+        Icon(
             "check" if is_completed else "circle",
-            height=16,
-            width=16,
+            size=16,
             cls=f"inline {'text-green-600' if is_completed else ''}",
         ),
         hx_post=f"/api/tasks/{task.uid}/status",
@@ -195,7 +193,7 @@ def SubtaskListFragment(
     parent_el: Any = ""
     if parent:
         parent_el = Div(
-            UkIcon("corner-left-up", height=13, width=13, cls="flex-none text-muted-foreground"),
+            Icon("corner-left-up", size=13, cls="flex-none text-muted-foreground"),
             A(
                 parent.title or parent.uid,
                 href=f"/tasks/detail?uid={parent.uid}",
@@ -245,10 +243,9 @@ def _subtask_row(task: "Task") -> "FT":
     icon_cls = f"flex-none {'text-success' if is_completed else 'text-muted-foreground'}"
     title_cls = "text-sm line-through text-muted-foreground" if is_completed else "text-sm"
     return Div(
-        UkIcon(
+        Icon(
             "check-circle" if is_completed else "circle",
-            height=14,
-            width=14,
+            size=14,
             cls=icon_cls,
         ),
         A(

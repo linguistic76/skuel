@@ -34,7 +34,8 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import UkIcon
+
+from ui.components import Icon
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -224,7 +225,7 @@ def _why_now_panel(featured: dict[str, Any]) -> "FT":
 
     return Div(
         Div(
-            UkIcon("compass", cls="w-4 h-4 text-primary flex-none mt-0.5"),
+            Icon("compass", cls="w-4 h-4 text-primary flex-none mt-0.5"),
             P(
                 Span("Why now — ", cls="font-semibold text-foreground"),
                 why_now_text,
@@ -236,7 +237,7 @@ def _why_now_panel(featured: dict[str, Any]) -> "FT":
             Button(
                 "Why am I ready?",
                 Span(
-                    UkIcon("chevron-down"),
+                    Icon("chevron-down"),
                     cls="w-3.5 h-3.5 inline-flex items-center transition-transform",
                     **{":class": "{'rotate-180': whyOpen}"},
                 ),
@@ -268,7 +269,7 @@ def _evidence_item(row: dict[str, Any]) -> "FT":
     text = row.get("text", "")
 
     if met is True:
-        indicator: FT = UkIcon("check", cls="w-[15px] h-[15px] text-green-600 flex-none mt-0.5")
+        indicator: FT = Icon("check", cls="w-[15px] h-[15px] text-green-600 flex-none mt-0.5")
         text_cls = "text-[12.5px] leading-snug text-foreground/80"
     else:
         indicator = Span(
@@ -287,7 +288,7 @@ def _evidence_item(row: dict[str, Any]) -> "FT":
 def _hero_actions(uid: str, minutes: int) -> "FT":
     return Div(
         A(
-            UkIcon("book-open", cls="w-[17px] h-[17px]"),
+            Icon("book-open", cls="w-[17px] h-[17px]"),
             " Read",
             href=f"/explore/read/{uid}",
             cls=(
@@ -298,7 +299,7 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
         ),
         Span(f"{minutes} min read", cls="font-mono text-[12.5px] text-muted-foreground"),
         Button(
-            UkIcon("bookmark", cls="w-[17px] h-[17px]"),
+            Icon("bookmark", cls="w-[17px] h-[17px]"),
             type="button",
             cls=(
                 "ml-auto w-[38px] h-[38px] border border-border bg-card rounded-lg "
@@ -417,7 +418,7 @@ def _in_progress_row(r: dict[str, Any]) -> "FT":
 
     return A(
         Span(
-            UkIcon("book-marked", cls="w-[18px] h-[18px]"),
+            Icon("book-marked", cls="w-[18px] h-[18px]"),
             cls="flex-none w-[38px] h-[38px] rounded-lg flex items-center justify-center bg-violet-50 text-violet-700",
         ),
         Span(
@@ -432,7 +433,7 @@ def _in_progress_row(r: dict[str, Any]) -> "FT":
             ),
             cls="flex-1 min-w-0",
         ),
-        UkIcon("chevron-right", cls="w-[18px] h-[18px] text-muted-foreground/70 flex-none"),
+        Icon("chevron-right", cls="w-[18px] h-[18px] text-muted-foreground/70 flex-none"),
         href=f"/explore/read/{r.get('uid', '')}",
         cls=(
             "w-full flex items-center gap-3.5 px-4 py-3.5 border border-border "
@@ -483,7 +484,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
 
     return Div(
         Span(
-            UkIcon("layers", cls="w-3 h-3"),
+            Icon("layers", cls="w-3 h-3"),
             " Path step",
             cls="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium tracking-[0.1em] uppercase text-primary rounded-md px-2.5 py-1 bg-primary/8",
         ),
@@ -535,7 +536,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
 
     if status == "read":
         node: FT = Span(
-            UkIcon("check", cls="w-3 h-3"),
+            Icon("check", cls="w-3 h-3"),
             cls="flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center bg-muted border border-border text-muted-foreground",
         )
         title_cls = "text-[14px] text-muted-foreground line-through"
@@ -633,7 +634,7 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
 
     return Button(
         Span(
-            UkIcon(icon_name, cls="w-4 h-4"),
+            Icon(icon_name, cls="w-4 h-4"),
             cls=f"flex-none w-[34px] h-[34px] rounded-lg flex items-center justify-center {icon_bg_cls}",
         ),
         Span(
@@ -647,7 +648,7 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
                     cls=f"font-mono text-[9.5px] font-medium tracking-[0.06em] uppercase rounded px-1.5 py-0.5 {label_cls}",
                 ),
                 Span(
-                    UkIcon("lock", cls="w-2.5 h-2.5"),
+                    Icon("lock", cls="w-2.5 h-2.5"),
                     " locked",
                     cls="inline-flex items-center gap-1 font-mono text-[9.5px] text-muted-foreground bg-muted rounded px-1.5 py-0.5",
                 )
@@ -760,7 +761,7 @@ def _library_section(plan: dict[str, Any]) -> "FT":
             cls="mt-1 text-[13px] text-muted-foreground leading-relaxed",
         ),
         A(
-            UkIcon("search", cls="w-4 h-4 text-muted-foreground/70"),
+            Icon("search", cls="w-4 h-4 text-muted-foreground/70"),
             Span(
                 "Search ideas, paths, and tags…",
                 cls="flex-1 text-[13.5px] text-muted-foreground/70",
@@ -775,14 +776,14 @@ def _library_section(plan: dict[str, Any]) -> "FT":
             *tag_links,
             A(
                 "Browse all ",
-                UkIcon("arrow-right", cls="w-3.5 h-3.5"),
+                Icon("arrow-right", cls="w-3.5 h-3.5"),
                 href="/explore/library",
                 cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary px-1 py-1",
             ),
             cls="flex flex-wrap items-center gap-2 mt-3.5",
         ),
         A(
-            UkIcon("share-2", cls="w-3.5 h-3.5"),
+            Icon("share-2", cls="w-3.5 h-3.5"),
             " View learning graph",
             href="/explore/graph",
             cls=(
