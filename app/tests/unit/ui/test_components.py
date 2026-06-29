@@ -11,7 +11,7 @@ from fasthtml.common import to_xml
 
 from ui.components._util import _cls
 from ui.components.accordion import Accordion, AccordionItem
-from ui.components.button import Button, ButtonT
+from ui.components.button import _BTN_SIZES, Button, ButtonT
 from ui.components.card import Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.components.divider import Divider, DividerLine, DividerSplit, DividerT
 from ui.components.feedback import Alert, AlertT, Loading
@@ -170,6 +170,28 @@ class TestButton:
     def test_custom_cls_added(self) -> None:
         xml = to_xml(Button("x", cls="my-extra-class"))
         assert "my-extra-class" in xml
+
+    def test_default_size_md_applied(self) -> None:
+        xml = to_xml(Button("x", cls=ButtonT.primary))
+        assert "h-9" in xml
+
+    def test_size_sm(self) -> None:
+        xml = to_xml(Button("x", size="sm"))
+        assert "h-8" in xml
+
+    def test_size_lg(self) -> None:
+        xml = to_xml(Button("x", size="lg"))
+        assert "h-11" in xml
+
+    def test_size_kwarg_and_style_cls_coexist(self) -> None:
+        xml = to_xml(Button("x", cls=ButtonT.primary, size="sm"))
+        assert "bg-primary" in xml
+        assert "h-8" in xml
+
+    def test_all_sizes_defined(self) -> None:
+        for size_name in ("xs", "sm", "md", "lg", "xl"):
+            assert size_name in _BTN_SIZES
+            assert _BTN_SIZES[size_name]
 
 
 # ============================================================================
