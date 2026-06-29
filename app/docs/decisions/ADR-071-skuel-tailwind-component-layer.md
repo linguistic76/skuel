@@ -199,7 +199,7 @@ is simpler than maintaining a 2.9MB dependency for color values.
 
 - ⚠️ **One-time migration cost** — 192 MonsterUI import sites across ~60 production files.
   Heaviest: `ButtonT` (84 sites), `CardContainer` (55 sites), `Button` (54 sites),
-  `UkIcon` (32 sites). Mechanical but non-trivial.
+  `UkIcon` (138 sites). Mechanical but non-trivial.
 - ⚠️ **SKUEL owns component maintenance** — bugs in `Card` or `Button` are ours to fix. This
   is acceptable given the upstream risk being traded away.
 - ⚠️ **Tailwind CLI must run before serving** — `./dev css-build` is a required build step.
@@ -245,7 +245,7 @@ Approximate sequence (re-evaluated after Phase 1):
 | M3 | `ui/layout.py` — remove 3 MonsterUI re-exports | Clean |
 | M4 ✅ | All `ButtonT` + `Button` call sites | 84 sites (#440 2026-06-29) |
 | M5 ✅ | All `Card*` call sites | 55 sites (#441 2026-06-29) |
-| M6 | All `UkIcon` call sites | 32 sites |
+| M6 ✅ | All `UkIcon` call sites | 138 sites (#442 2026-06-29) |
 | M7 | Form components (`ui/forms/`) | Variable |
 | M8 | Remaining components (Accordion, TabContainer, Divider, Table, NavContainer) | ~10 each |
 | M9 | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
