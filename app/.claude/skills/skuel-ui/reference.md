@@ -22,7 +22,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/components/ first (Button, Alert, Icon, form set, Table, Divider, Accordion, TabContainer, layout helpers); /ui/primitives.py for ButtonLink, dropdown_menu, icon_tile, SelectableOptionRow, UploadDropzone; /ui/forms/ and monsterui.franken Card* for M5-pending call sites
+├─ YES → /ui/components/ first (Button, Alert, Icon, form set, Table, Divider, Accordion, TabContainer, Card family, layout helpers); /ui/primitives.py for ButtonLink, dropdown_menu, icon_tile, SelectableOptionRow, UploadDropzone; /ui/forms/ for form wrappers
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -775,7 +775,7 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 **MonsterUI wrapper components for SKUEL:**
 
 ```python
-from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.primitives import ButtonLink, icon_tile, section_label, primary_btn, card_row
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading
 from ui.forms import LabelInput, LabelTextArea, LabelSelect, LabelCheckbox, Input, Select, Textarea, Checkbox
@@ -843,7 +843,7 @@ Alert("Task created!", variant=AlertT.success)
 
 # Cards — new standard container (border-border, rounded-[12px], bg-card)
 Div(cls="border border-border rounded-[12px] bg-card p-[22px] hover:shadow-sm transition-shadow")
-# Or use MonsterUI CardContainer directly:
+# Or use Card from ui.components:
 Card(CardBody(...))
 
 # Loading (CSS-only spinner — no variant param)

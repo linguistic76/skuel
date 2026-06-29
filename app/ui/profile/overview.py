@@ -13,10 +13,10 @@ See: /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H2, H3, A, Canvas, Div, P, Span
-from monsterui.franken import CardContainer as Card
 
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
+from ui.components import Card
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 from ui.patterns.empty_state import EmptyState
 

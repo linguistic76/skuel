@@ -731,7 +731,6 @@ class TestPackageExports:
             "Alert",
             "AlertT",
             "Loading",
-            "LoadingT",
             "Input",
             "Label",
             "LabelCheckbox",

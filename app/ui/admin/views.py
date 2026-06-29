@@ -20,12 +20,10 @@ Usage:
 from typing import Any, ClassVar
 
 from fasthtml.common import A, Div, Form, Option, P, Span, Td
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select

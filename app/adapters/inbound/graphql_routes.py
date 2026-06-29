@@ -27,8 +27,6 @@ from fasthtml.common import (
     Textarea,
     Title,
 )
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -37,7 +35,7 @@ from adapters.inbound.graphql import GraphQLContext, create_graphql_context, cre
 from adapters.inbound.graphql.config import get_graphql_config
 from core.utils.logging import get_logger
 from services_bootstrap import Services
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 
 logger = get_logger(__name__)
 

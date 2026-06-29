@@ -14,10 +14,8 @@ from fasthtml.common import (
     Option,
     Span,
 )
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size

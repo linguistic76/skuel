@@ -17,11 +17,9 @@ from fasthtml.common import (
     P,
     Span,
 )
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from core.models.enums.learning_enums import FeedbackCategory
-from ui.components import ButtonT
+from ui.components import ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState

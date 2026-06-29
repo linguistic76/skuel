@@ -29,12 +29,10 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
-
 from adapters.inbound.auth import require_authenticated_user
 from core.services.user.unified_user_context import RichUserContext, UserContext
 from core.utils.logging import get_logger
+from ui.components import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size

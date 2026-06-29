@@ -16,13 +16,12 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import CardBody, UkIcon
-from monsterui.franken import CardContainer as Card
+from monsterui.franken import UkIcon
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -170,9 +169,9 @@ def HabitCard(
 
     opacity = "opacity-75" if is_completed or is_paused else ""
     return Card(
-        CardBody(header, cls="p-3"),
+        header,
         id=f"habit-{safe_id(habit.uid)}",
-        cls=f"mb-2 {opacity}",
+        cls=f"mb-2 p-3 {opacity}",
     )
 
 
@@ -181,16 +180,13 @@ def _insight_card(pattern: dict[str, Any], positive: bool) -> "FT":
     confidence_pct = int(float(pattern.get("confidence", 0.0)) * 100)
     badge_variant = BadgeT.success if positive else BadgeT.warning
     return Card(
-        CardBody(
-            DivHStacked(
-                Span(str(pattern.get("pattern", "")), cls="font-medium"),
-                Badge(f"{confidence_pct}% confidence", variant=badge_variant),
-                cls="justify-between flex-wrap gap-2",
-            ),
-            Small(str(pattern.get("recommendation", "")), cls="text-muted-foreground"),
-            cls="p-3 space-y-1",
+        DivHStacked(
+            Span(str(pattern.get("pattern", "")), cls="font-medium"),
+            Badge(f"{confidence_pct}% confidence", variant=badge_variant),
+            cls="justify-between flex-wrap gap-2",
         ),
-        cls="mb-2",
+        Small(str(pattern.get("recommendation", "")), cls="text-muted-foreground"),
+        cls="mb-2 p-3 space-y-1",
     )
 
 

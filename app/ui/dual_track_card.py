@@ -16,12 +16,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, Div, Form, Li, Option, P, Span, Ul
-from monsterui.franken import CardBody, CardHeader, CardTitle
-from monsterui.franken import CardContainer as Card
 
 from core.constants import DualTrackCheckin
 from core.models.shared.dual_track import DualTrackResult
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.forms import LabelSelect, LabelTextArea
 from ui.primitives import section_label
 

@@ -9,11 +9,9 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
-from monsterui.franken import CardBody
-from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
-from ui.components import Button, ButtonT
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Label, LabelCheckbox, LabelInput, LabelTextArea, Select
 from ui.patterns.error_banner import render_inline_error
 
