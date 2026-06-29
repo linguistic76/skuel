@@ -1,20 +1,19 @@
 """
-SKUEL Feedback Components (MonsterUI)
-======================================
+SKUEL Feedback Components
+==========================
 
-Alert, Badge, Loading, Progress, RadialProgress wrappers.
-Uses MonsterUI where available, Tailwind utilities for semantic badges.
+Alert, Badge, Loading, Progress, RadialProgress — pure Tailwind, no MonsterUI.
 """
 
 from enum import StrEnum
 from typing import Any
 
 from fasthtml.common import Div, Span
-from monsterui.daisy import Alert as MAlert
-from monsterui.daisy import AlertT as MAlertT
-from monsterui.daisy import Loading as MLoading
-from monsterui.daisy import LoadingT as MLoadingT
 
+from ui.components import Alert as _SKUELAlert
+from ui.components import Loading as _SKUELLoading
+from ui.components import Progress as _SKUELProgress
+from ui.components.feedback import AlertT, LoadingT
 from ui.layout import Size
 
 __all__ = [
@@ -30,24 +29,6 @@ __all__ = [
     "RadialProgress",
     "StatusBadge",
 ]
-
-
-class AlertT(StrEnum):
-    """Alert variant types."""
-
-    info = "info"
-    success = "success"
-    warning = "warning"
-    error = "error"
-
-
-# Mapping SKUEL AlertT to MonsterUI AlertT
-_ALERT_MAP: dict[str, MAlertT] = {
-    "info": MAlertT.info,
-    "success": MAlertT.success,
-    "warning": MAlertT.warning,
-    "error": MAlertT.error,
-}
 
 
 class BadgeT(StrEnum):
@@ -92,25 +73,13 @@ class ProgressT(StrEnum):
     error = "error"
 
 
-class LoadingT(StrEnum):
-    """Loading spinner variant types."""
-
-    spinner = "spinner"
-    dots = "dots"
-    ring = "ring"
-    ball = "ball"
-    bars = "bars"
-    infinity = "infinity"
-
-
 def Alert(
     *c: Any,
     cls: str = "",
     variant: AlertT = AlertT.info,
     **kwargs: Any,
 ) -> Any:
-    """
-    Alert wrapper using MonsterUI.
+    """Semantic alert box.
 
     Args:
         *c: Alert content
@@ -118,11 +87,7 @@ def Alert(
         variant: Alert style variant (info, success, warning, error)
         **kwargs: Additional HTML attributes
     """
-    mu_variant = _ALERT_MAP.get(variant.value, MAlertT.info)
-    cls_parts = [mu_variant]
-    if cls:
-        cls_parts.append(cls)
-    return MAlert(*c, cls=tuple(cls_parts), **kwargs)
+    return _SKUELAlert(*c, variant=variant, cls=cls, **kwargs)
 
 
 def Badge(
@@ -132,8 +97,7 @@ def Badge(
     size: Size | None = None,
     **kwargs: Any,
 ) -> Any:
-    """
-    Badge/pill component using Tailwind utility classes.
+    """Badge/pill component using Tailwind utility classes.
 
     Args:
         *c: Badge content
@@ -169,35 +133,17 @@ def Loading(
     size: Size = Size.md,
     **kwargs: Any,
 ) -> Any:
-    """
-    Loading spinner using MonsterUI.
+    """Loading spinner.
 
     Args:
         cls: Additional CSS classes
-        variant: Loading animation type
-        size: Loading size (xs, sm, md, lg)
+        variant: Animation style (all variants render as spinner — DaisyUI variants deprecated)
+        size: Spinner size (xs, sm, md, lg)
         **kwargs: Additional HTML attributes
     """
-    # Map SKUEL LoadingT to MonsterUI LoadingT
-    mu_loading_map: dict[str, MLoadingT] = {
-        "spinner": MLoadingT.spinner,
-        "dots": MLoadingT.dots,
-        "ring": MLoadingT.ring,
-        "ball": MLoadingT.ball,
-        "bars": MLoadingT.bars,
-        "infinity": MLoadingT.infinity,
-    }
-    mu_size_map: dict[str, MLoadingT] = {
-        "xs": MLoadingT.xs,
-        "sm": MLoadingT.sm,
-        "md": MLoadingT.md,
-        "lg": MLoadingT.lg,
-    }
-
-    mu_variant = mu_loading_map.get(variant.value, MLoadingT.spinner)
-    mu_size = mu_size_map.get(size.value, MLoadingT.md)
-
-    return MLoading(cls=(mu_variant, mu_size, cls) if cls else (mu_variant, mu_size), **kwargs)
+    # variant is accepted for API compat but ignored — CSS spinner is always used
+    _ = variant
+    return _SKUELLoading(cls=cls, size=size.value, **kwargs)
 
 
 def Progress(
@@ -207,29 +153,16 @@ def Progress(
     variant: ProgressT = ProgressT.primary,
     **kwargs: Any,
 ) -> Any:
-    """
-    Progress bar using MonsterUI.
+    """Horizontal progress bar.
 
     Args:
-        value: Current progress value (None for indeterminate)
+        value: Current progress value (None for empty bar)
         max_val: Maximum value (default 100)
         cls: Additional CSS classes
         variant: Progress color variant
         **kwargs: Additional HTML attributes
     """
-    from monsterui.franken import Progress as MProgress
-
-    cls_parts = []
-    if cls:
-        cls_parts.append(cls)
-
-    attrs: dict[str, Any] = {"max": str(max_val)}
-    if value is not None:
-        attrs["value"] = str(int(value))
-    if cls_parts:
-        attrs["cls"] = " ".join(cls_parts)
-
-    return MProgress(**attrs, **kwargs)
+    return _SKUELProgress(value=value, max_val=max_val, cls=cls, variant=variant.value, **kwargs)
 
 
 def RadialProgress(
@@ -239,13 +172,12 @@ def RadialProgress(
     size: str = "4rem",
     **kwargs: Any,
 ) -> Any:
-    """
-    Radial progress (circular) — custom SKUEL component (no MonsterUI equivalent).
+    """Radial progress (circular) — custom SKUEL SVG component.
 
     Args:
         value: Progress percentage (0-100)
         cls: Additional CSS classes
-        variant: Color variant (ignored in MonsterUI — uses primary)
+        variant: Color variant (reserved for future use)
         size: Size as CSS value (e.g., "4rem", "5rem")
         **kwargs: Additional HTML attributes
     """
@@ -254,7 +186,6 @@ def RadialProgress(
         classes.append(cls)
 
     pct = int(value)
-    # SVG-based radial progress
     return Div(
         Div(
             f"{pct}%",
