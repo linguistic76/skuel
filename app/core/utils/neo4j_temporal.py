@@ -81,9 +81,16 @@ def convert_neo4j_time(value: Any, default: time | None = None) -> time | None:
             except ValueError:
                 return default
 
-    # Neo4j Time type — detected via module name
+    # Neo4j Time type — detected via module name.
+    # Preserve microsecond precision and tzinfo to match to_native() behaviour.
     if _is_neo4j_temporal(value) and type(value).__name__ == "Time":
-        return time(value.hour, value.minute, value.second or 0)
+        return time(
+            value.hour,
+            value.minute,
+            value.second or 0,
+            getattr(value, "nanosecond", 0) // 1000,
+            getattr(value, "tzinfo", None),
+        )
 
     return default
 
@@ -106,7 +113,9 @@ def convert_neo4j_datetime(value: Any, default: datetime | None = None) -> datet
     if isinstance(value, datetime):
         return value
 
-    # Neo4j DateTime type — detected via module name
+    # Neo4j DateTime type — detected via module name.
+    # Preserve microsecond precision (nanosecond // 1000) and tzinfo so that
+    # the conversion matches neo4j.time.DateTime.to_native() exactly.
     if _is_neo4j_temporal(value) and type(value).__name__ == "DateTime":
         return datetime(
             value.year,
@@ -115,6 +124,8 @@ def convert_neo4j_datetime(value: Any, default: datetime | None = None) -> datet
             value.hour,
             value.minute,
             value.second or 0,
+            getattr(value, "nanosecond", 0) // 1000,
+            getattr(value, "tzinfo", None),
         )
 
     return default
