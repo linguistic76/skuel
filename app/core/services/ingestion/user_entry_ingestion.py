@@ -17,6 +17,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.metadata_enums import Visibility
@@ -221,8 +222,33 @@ async def build_user_entry_request(
     if file_path.is_absolute():
         ingestion_metadata["vault_file_path"] = str(file_path)
 
+    # Derive a deterministic UID for periodic notes so vault-synced files land
+    # on the same UID that the calendar routes use:
+    # ue:{entry_kind}:{user_uid}:{period_key}.  This makes the SKUEL journal
+    # page show Obsidian content rather than a blank placeholder.  Falls back
+    # to the explicit `uid:` field, or None (random mint) for non-periodic
+    # entries.  The `date:` field is parsed by PyYAML as datetime.date, so
+    # .isoformat() normalises it to the string the routes expect.
+    uid_override: str | None = data.get("uid")
+    if not uid_override:
+        entry_kind = metadata.get("entry_kind") if isinstance(metadata, dict) else None
+        if entry_kind == "daily":
+            raw_date = data.get("date")
+            if raw_date is not None:
+                date_str = raw_date.isoformat() if isinstance(raw_date, (date, datetime)) else str(raw_date)
+                uid_override = f"ue:daily:{user_uid}:{date_str}"
+        elif entry_kind == "weekly":
+            week_of = data.get("week_of")
+            if week_of is not None:
+                uid_override = f"ue:weekly:{user_uid}:{week_of}"
+        elif entry_kind == "monthly":
+            month_of = data.get("month_of")
+            if month_of is not None:
+                month_str = month_of.isoformat()[:7] if isinstance(month_of, (date, datetime)) else str(month_of)
+                uid_override = f"ue:monthly:{user_uid}:{month_str}"
+
     request = UserEntryCreateRequest(
-        uid=data.get("uid"),
+        uid=uid_override,
         title=str(title),
         content=content,
         tags=tags,
