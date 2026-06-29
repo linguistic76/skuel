@@ -61,6 +61,7 @@ HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
 CHARTJS_VERSION = "4"
 CHARTJS_ADAPTER_VERSION = "3"
+LUCIDE_VERSION = "1.22.0"
 
 
 def monster_headers(
@@ -111,6 +112,25 @@ def monster_headers(
     )
 
     return tuple(headers)
+
+
+def skuel_headers(
+    htmx_version: str = HTMX_VERSION,
+    alpine_version: str = ALPINE_VERSION,
+) -> tuple[Any, ...]:
+    """Pure SKUEL headers — no UIkit/MonsterUI. Replaces monster_headers() after M9 migration.
+
+    Dormant in Phase 1: not wired into bootstrap.py yet. Activated in M9 when output.css
+    switches from JIT browser compilation to pre-compiled static file.
+    """
+    return (
+        Link(rel="stylesheet", href="/static/css/output.css"),
+        Script(src=f"/static/vendor/lucide/lucide.{LUCIDE_VERSION}.min.js"),
+        Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"),
+        Script(src=f"/static/vendor/alpinejs/alpine.{alpine_version}.min.js", defer=True),
+        Link(rel="stylesheet", href="/static/css/main.css"),
+        Script(src="/static/js/skuel.js"),
+    )
 
 
 def pwa_headers(
@@ -209,6 +229,7 @@ __all__ = [
     "Theme",
     "BRAND_THEME",
     "monster_headers",
+    "skuel_headers",
     "pwa_headers",
     "dark_mode_script",
     "htmx_extensions",
@@ -217,4 +238,5 @@ __all__ = [
     "ALPINE_VERSION",
     "CHARTJS_VERSION",
     "CHARTJS_ADAPTER_VERSION",
+    "LUCIDE_VERSION",
 ]

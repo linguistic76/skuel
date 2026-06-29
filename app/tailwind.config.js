@@ -4,7 +4,16 @@ module.exports = {
     "./ui/**/*.py",
     "./adapters/inbound/**/*.py",
     "./components/**/*.py",
+    "./ui/components/**/*.py",
+    "./static/js/*.js",
     "./templates/**/*.html",
+  ],
+  safelist: [
+    { pattern: /^gap-(0|1|2|3|4|5|6|8|10|12|16)$/ },
+    { pattern: /^grid-cols-(1|2|3|4|5|6)$/ },
+    { pattern: /^items-(start|center|end|stretch|baseline)$/ },
+    'flex-grow', 'flex-shrink', 'flex-shrink-0',
+    { pattern: /^max-w-(sm|md|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl)$/ },
   ],
   darkMode: 'class',
   theme: {
@@ -14,14 +23,28 @@ module.exports = {
         mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
-        // Semantic color tokens
+        // Base semantic tokens — components reference these via bg-primary, bg-card etc.
+        // Values are hsl() wrappers over CSS vars owned by input.css; DaisyUI still
+        // provides runtime fallbacks until Phase 2 removes it.
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+        popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+
+        // SKUEL domain tokens — merged with shadcn/ui base tokens where names overlap
         surface: {
           DEFAULT: 'var(--surface)',
           secondary: 'var(--surface-secondary)',
           elevated: 'var(--surface-elevated)',
         },
         border: {
-          DEFAULT: 'var(--border)',
+          DEFAULT: 'hsl(var(--border))',
           muted: 'var(--border-muted)',
         },
         content: {
@@ -30,7 +53,8 @@ module.exports = {
           muted: 'var(--content-muted)',
         },
         accent: {
-          DEFAULT: 'var(--accent)',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
           hover: 'var(--accent-hover)',
         },
         status: {
