@@ -246,7 +246,7 @@ Approximate sequence (re-evaluated after Phase 1):
 | M4 ✅ | All `ButtonT` + `Button` call sites | 84 sites (#440 2026-06-29) |
 | M5 ✅ | All `Card*` call sites | 55 sites (#441 2026-06-29) |
 | M6 ✅ | All `UkIcon` call sites | 138 sites (#442 2026-06-29) |
-| M7 | Form components (`ui/forms/`) | Variable |
+| M7 ✅ | Form components (`ui/forms/`) | 1 file (#443 2026-06-29) |
 | M8 | Remaining components (Accordion, TabContainer, Divider, Table, NavContainer) | ~10 each |
 | M9 | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
 | M10 | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
