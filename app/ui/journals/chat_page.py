@@ -73,6 +73,182 @@ def JournalChatPage(
     )
 
 
+def PeriodicNotePage(
+    entry: "UserEntry",
+    initial_workspace: Any,
+) -> Any:
+    """Full-height layout for periodic notes (daily/weekly/monthly).
+
+    Uses a compact calendar navigation sidebar instead of the journal session
+    sidebar — periodic notes are date-oriented, not pipeline-session-oriented.
+    """
+    return Div(
+        _periodic_note_sidebar(entry),
+        Div(
+            initial_workspace,
+            cls="flex-1 flex flex-col overflow-hidden",
+        ),
+        cls="flex overflow-hidden bg-background",
+        style="height: calc(100vh - 3.5rem);",
+    )
+
+
+def _periodic_note_sidebar(entry: "UserEntry") -> Any:
+    from datetime import date, timedelta
+
+    kind = entry.metadata.get("entry_kind", "daily")
+    # period_key is stamped by the calendar routes but not by vault ingestion;
+    # the UID always encodes it as the last colon-delimited segment.
+    period_key = entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1]
+    today = date.today()
+
+    if kind == "daily":
+        try:
+            ref_date = date.fromisoformat(period_key)
+        except ValueError:
+            ref_date = today
+        highlight_dates: set[date] = {ref_date}
+        prev_d = ref_date - timedelta(days=1)
+        next_d = ref_date + timedelta(days=1)
+        prev_url = f"/journals/daily/{prev_d.isoformat()}"
+        next_url = f"/journals/daily/{next_d.isoformat()}"
+        prev_label = prev_d.strftime("%a, %b %-d")
+        next_label = next_d.strftime("%a, %b %-d")
+    elif kind == "weekly":
+        parts = period_key.split("-W")
+        try:
+            year_w = int(parts[0]) if len(parts) > 0 else today.year
+            week_w = int(parts[1]) if len(parts) > 1 else today.isocalendar()[1]
+            ref_date = date.fromisocalendar(year_w, week_w, 1)
+        except ValueError:
+            ref_date = today - timedelta(days=today.weekday())
+        highlight_dates = {ref_date + timedelta(days=i) for i in range(7)}
+        prev_mon = ref_date - timedelta(weeks=1)
+        next_mon = ref_date + timedelta(weeks=1)
+        py, pw, _ = prev_mon.isocalendar()
+        ny, nw, _ = next_mon.isocalendar()
+        prev_url = f"/journals/weekly/{py}/{pw}"
+        next_url = f"/journals/weekly/{ny}/{nw}"
+        prev_label = f"Week {pw}"
+        next_label = f"Week {nw}"
+    elif kind == "monthly":
+        parts = period_key.split("-")
+        try:
+            year_m = int(parts[0]) if len(parts) > 0 else today.year
+            month_m = int(parts[1]) if len(parts) > 1 else today.month
+            ref_date = date(year_m, month_m, 1)
+        except ValueError:
+            ref_date = today.replace(day=1)
+        highlight_dates = set()
+        prev_d = (ref_date - timedelta(days=1)).replace(day=1)
+        next_d = (ref_date + timedelta(days=32)).replace(day=1)
+        prev_url = f"/journals/monthly/{prev_d.year}/{prev_d.month}"
+        next_url = f"/journals/monthly/{next_d.year}/{next_d.month}"
+        prev_label = prev_d.strftime("%b %Y")
+        next_label = next_d.strftime("%b %Y")
+    else:
+        ref_date = today
+        highlight_dates = set()
+        prev_url = next_url = "/events/calendar"
+        prev_label = next_label = ""
+
+    return Div(
+        Div(
+            A(
+                UkIcon("chevron-left", height=14, width=14),
+                Span("Calendar", cls="text-[13px]"),
+                href="/events/calendar",
+                cls=(
+                    "flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                    " transition-colors no-underline"
+                ),
+            ),
+            cls="px-4 py-3 border-b border-border",
+        ),
+        Div(
+            _mini_month_calendar(ref_date, highlight_dates),
+            cls="flex-1 py-2",
+        ),
+        Div(
+            A(
+                UkIcon("chevron-left", height=13, width=13),
+                Span(prev_label, cls="text-[11px]"),
+                href=prev_url,
+                cls=(
+                    "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+                    " transition-colors no-underline"
+                ),
+            ),
+            A(
+                Span(next_label, cls="text-[11px]"),
+                UkIcon("chevron-right", height=13, width=13),
+                href=next_url,
+                cls=(
+                    "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
+                    " transition-colors no-underline"
+                ),
+            ),
+            cls="flex items-center justify-between px-3 py-3 border-t border-border",
+        ),
+        cls="w-[220px] flex-shrink-0 border-r border-border bg-slate-50 flex flex-col",
+    )
+
+
+def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime.date]") -> Any:
+    import calendar as _cal
+    from datetime import date
+
+    today = date.today()
+    year, month = ref_date.year, ref_date.month
+    month_name = ref_date.strftime("%B %Y")
+    dow_headers = ["M", "T", "W", "T", "F", "S", "S"]
+    weeks = _cal.monthcalendar(year, month)
+
+    def _day_cell(day_num: int) -> Any:
+        if day_num == 0:
+            return Div(cls="w-7 h-7")
+        d = date(year, month, day_num)
+        is_hi = d in highlight_dates
+        is_today = d == today
+        if is_hi and is_today:
+            cls = (
+                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                " bg-foreground text-background font-bold ring-2 ring-offset-1 ring-foreground"
+            )
+        elif is_hi:
+            cls = (
+                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                " bg-foreground text-background font-semibold"
+            )
+        elif is_today:
+            cls = (
+                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                " ring-1 ring-foreground font-medium text-foreground"
+            )
+        else:
+            cls = (
+                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                " hover:bg-slate-200 text-foreground"
+            )
+        return A(str(day_num), href=f"/journals/daily/{d.isoformat()}", cls=f"{cls} no-underline")
+
+    return Div(
+        Div(
+            Span(month_name, cls="text-[12px] font-semibold text-foreground"),
+            cls="flex justify-center mb-3 px-1",
+        ),
+        Div(
+            *[
+                Div(h, cls="w-7 text-[10px] text-muted-foreground text-center font-medium")
+                for h in dow_headers
+            ],
+            cls="flex gap-0.5 mb-1",
+        ),
+        *[Div(*[_day_cell(d) for d in week], cls="flex gap-0.5 mb-0.5") for week in weeks],
+        cls="px-3",
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Sidebar
 # ─────────────────────────────────────────────────────────────────────────────

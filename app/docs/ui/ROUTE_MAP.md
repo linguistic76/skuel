@@ -149,7 +149,7 @@ Journal domain. Upload landing at `/journals`; dedicated chat session at `/journ
 **Routes:**
 - `GET  /journals` — tier-aware landing (Tasks+ sidebar); upload form for file/folder
 - `POST /journals/upload` — file/folder upload handler; redirects to `/journals/{uid}` after processing (`HX-Redirect`)
-- `GET  /journals/{entry_uid}` — dedicated chat page (Askesis-inspired sidebar + workspace); initial workspace selected by `entry.pipeline` + `processed_file_path`
+- `GET  /journals/{entry_uid}` — dedicated chat page; initial workspace selected by `entry.pipeline` + `processed_file_path`. Periodic notes (`entry_kind` ∈ {daily, weekly, monthly}) render `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav); all other entries use `JournalChatPage` (Askesis-inspired session sidebar).
 - `GET  /journals/je-out/{filename}` — download a compiled je_out file (user-scoped, ownership-guarded)
 - `POST /journals/respond` — STANDARD tier single AI response (`@csrf_protected`)
 - `POST /journals/follow-up` — reply to an AI response (`@csrf_protected`)
