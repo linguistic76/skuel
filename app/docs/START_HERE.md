@@ -24,7 +24,7 @@ Read this page first, then follow the links in order.
 |-------|-----------|-------|
 | Web framework | FastHTML (Python, server-rendered HTML) | `adapters/inbound/` |
 | UI interactivity | HTMX + Alpine.js | `static/js/`, `ui/` |
-| Styling | MonsterUI (FrankenUI + Tailwind) | `static/css/` |
+| Styling | Tailwind CSS (pre-compiled `output.css`) + Lucide icons | `static/css/`, `ui/components/` |
 | Database | Neo4j (graph database) | `adapters/persistence/neo4j/` |
 | Domain logic | Python services + frozen dataclasses | `core/services/`, `core/models/` |
 | Package manager | uv | `pyproject.toml`, `uv.lock` |

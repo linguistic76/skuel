@@ -248,7 +248,7 @@ Approximate sequence (re-evaluated after Phase 1):
 | M6 ✅ | All `UkIcon` call sites | 138 sites (#442 2026-06-29) |
 | M7 ✅ | Form components (`ui/forms/`) | 1 file (#443 2026-06-29) |
 | M8 ✅ | Remaining components (`ui/data.py`, `ui/navigation.py`, `relationship_section.py`) | 4 files (#444 2026-06-29) |
-| M9 | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
+| M9 ✅ | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
 | M10 | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
 
 M4 and M5 are large but mechanical — good candidates for fresh-context agents.
