@@ -37,6 +37,7 @@ from ui.theme import (
     ALPINE_VERSION,
     BRAND_THEME,
     HTMX_VERSION,
+    LUCIDE_VERSION,
     _local_headers_offline_safe,
     pwa_headers,
 )
@@ -91,6 +92,9 @@ def build_head(
         Title(f"{title} - SKUEL"),
         # MonsterUI headers (FrankenUI CSS/JS + Tailwind + Lucide icons) — cached at import
         *_MU_HEADERS,
+        # Lucide icons (self-hosted) — transition bridge until M9 cutover; skuel.js calls
+        # lucide.createIcons() on alpine:initialized and htmx:afterSwap
+        Script(src=f"/static/vendor/lucide/lucide.{LUCIDE_VERSION}.min.js"),
         # HTMX for hypermedia (self-hosted — see ui/theme.py:monster_headers)
         Script(src=f"/static/vendor/htmx.org/htmx.{HTMX_VERSION}.min.js"),
         # Alpine.js (self-hosted, version-pinned)
