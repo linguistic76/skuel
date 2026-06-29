@@ -13,8 +13,9 @@ Components:
 
 from typing import Any
 
-from fasthtml.common import FT, H3, Div, Span, Strong, Td
+from fasthtml.common import FT, H3, Div, Span, Strong
 
+from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 
@@ -116,7 +117,7 @@ def EntityBreakdownTable(entity_counts: dict[str, int]) -> FT | None:
     if not entity_counts:
         return None
 
-    def _breakdown_cell_render(k: str, v: object) -> Td:
+    def _breakdown_cell_render(k: str, v: object) -> Any:
         if k == "Entity Type":
             return Td(v, cls="font-semibold")
         if k == "Count":
@@ -154,7 +155,7 @@ def ErrorsTable(errors: list[dict[str, Any]]) -> FT | None:
     if not errors:
         return None
 
-    def _error_cell_render(k: str, v: object) -> Td:
+    def _error_cell_render(k: str, v: object) -> Any:
         styles = {
             "File": "font-mono text-xs max-w-xs truncate",
             "Error": "text-sm",
