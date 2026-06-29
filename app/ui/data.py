@@ -2,12 +2,11 @@
 SKUEL Data Display Components
 ================================
 
-Table and Divider display components using MonsterUI.
+Table and Divider display components.
 """
 
-from monsterui.franken import Divider as MDivider
-from monsterui.franken import DividerSplit, DividerT, TableFromDicts, TableFromLists, TableT
-from monsterui.franken import Table as MTable
+from ui.components.divider import Divider, DividerSplit, DividerT
+from ui.components.table import Table, TableFromDicts, TableFromLists, TableT
 
 __all__ = [
     "Table",
@@ -18,8 +17,3 @@ __all__ = [
     "DividerSplit",
     "DividerT",
 ]
-
-
-# Re-export MonsterUI Table and Divider directly
-Table = MTable
-Divider = MDivider

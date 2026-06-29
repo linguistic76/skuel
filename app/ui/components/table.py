@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
@@ -19,11 +20,13 @@ __all__ = [
 
 
 class TableT(StrEnum):
-    """Table style modifier tokens. Compose via cls=(TableT.striped,)."""
+    """Table style modifier tokens. Compose via cls=(TableT.striped, TableT.sm)."""
 
     default = ""
     striped = "[&_tbody_tr:nth-child(odd)]:bg-muted/50"
     hover = "[&_tbody_tr:hover]:bg-muted/50"
+    sm = "[&_td]:py-1.5 [&_td]:px-2 [&_th]:px-2 text-xs"
+    divider = "[&_tr]:border-b [&_tr]:border-border"
 
 
 def Table(*c: Any, cls: str | tuple = "", **kwargs: Any) -> Any:  # boundary: fasthtml-elements
@@ -76,12 +79,36 @@ def TableFromLists(
 
 
 def TableFromDicts(
-    data: list[dict[str, Any]],
+    data: list[dict[str, Any]] | None = None,
     cls: str | tuple = "",
     header_map: dict[str, str] | None = None,
+    *,
+    header_data: list[str] | None = None,
+    body_data: list[dict[str, Any]] | None = None,
+    body_cell_render: Callable[[str, Any], Any] | None = None,
+    header_cell_render: Callable[[str], Any] | None = None,
     **kwargs: Any,
 ) -> Any:
-    """Build a styled table from a list of dicts. Keys of the first dict become headers."""
+    """Build a styled table from a list of dicts.
+
+    Accepts two calling conventions:
+    - Simple: TableFromDicts(data, cls, header_map) — keys of first dict become headers
+    - Extended: TableFromDicts(header_data=[...], body_data=[...], body_cell_render=fn)
+    """
+    if header_data is not None and body_data is not None:
+        if header_cell_render:
+            head = Thead(Tr(*[header_cell_render(h) for h in header_data]))
+        else:
+            head = Thead(Tr(*[Th(h) for h in header_data]))
+        rows = []
+        for row in body_data:
+            cells = [
+                body_cell_render(h, row.get(h, "")) if body_cell_render else Td(row.get(h, ""))
+                for h in header_data
+            ]
+            rows.append(Tr(*cells))
+        return Table(head, Tbody(*rows), cls=cls, **kwargs)
+
     if not data:
         return Table(cls=cls, **kwargs)
     keys = list(data[0].keys())
