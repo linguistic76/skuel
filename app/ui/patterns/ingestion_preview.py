@@ -21,11 +21,11 @@ from fasthtml.common import (
     Div,
     Li,
     P,
-    Td,
     Ul,
 )
 
 from ui.components import Button, ButtonT
+from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
 
@@ -134,7 +134,7 @@ def FilesToCreateTable(files_to_create: list[dict[str, Any]]) -> FT | None:
     if not files_to_create:
         return None
 
-    def _create_cell_render(k: str, v: object) -> Td:
+    def _create_cell_render(k: str, v: object) -> Any:
         styles = {"UID": "font-mono text-xs", "File": "font-mono text-xs max-w-xs truncate"}
         return Td(v, cls=styles.get(k, ""))
 
@@ -186,7 +186,7 @@ def FilesToUpdateTable(files_to_update: list[dict[str, Any]]) -> FT | None:
     if not files_to_update:
         return None
 
-    def _update_cell_render(k: str, v: object) -> Td:
+    def _update_cell_render(k: str, v: object) -> Any:
         styles = {
             "UID": "font-mono text-xs",
             "Changes": "text-sm text-muted-foreground",

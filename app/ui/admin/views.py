@@ -19,11 +19,12 @@ Usage:
 
 from typing import Any, ClassVar
 
-from fasthtml.common import A, Div, Form, Option, P, Span, Td
+from fasthtml.common import A, Div, Form, Option, P, Span
 
 from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
@@ -174,7 +175,7 @@ class AdminUIComponents:
                 cls="bg-background shadow-sm",
             )
 
-        def _user_cell_render(k: str, v: object) -> Td:
+        def _user_cell_render(k: str, v: object) -> Any:
             styles = {
                 "Username": "font-medium",
                 "Email": "text-muted-foreground",
@@ -354,7 +355,7 @@ class AdminUIComponents:
         centered_cols = {"Tasks", "Goals", "Habits", "KUs"}
 
         def _activity_header_render(col: str) -> object:
-            from fasthtml.common import Th
+            from ui.components.table import Th
 
             if col in centered_cols:
                 return Th(col, cls="text-center")
@@ -362,7 +363,7 @@ class AdminUIComponents:
                 return Th("", cls="text-right")
             return Th(col)
 
-        def _activity_cell_render(k: str, v: object) -> Td:
+        def _activity_cell_render(k: str, v: object) -> Any:
             if k in centered_cols:
                 return Td(v, cls="text-center")
             styles = {
@@ -534,7 +535,7 @@ class AdminUIComponents:
 
         from ui.enum_helpers import get_submission_status_badge_class
 
-        def _report_cell_render(k: str, v: object) -> Td:
+        def _report_cell_render(k: str, v: object) -> Any:
             if k == "Title":
                 return Td(v, cls="font-medium text-sm")
             if k == "Created":
@@ -944,13 +945,13 @@ class AdminLearningComponents:
         centered_cols = {"Viewed", "In Progress", "Mastered", "Bookmarked", "Total"}
 
         def _progress_header_render(col: str) -> object:
-            from fasthtml.common import Th
+            from ui.components.table import Th
 
             if col in centered_cols:
                 return Th(col, cls="text-center")
             return Th(col)
 
-        def _progress_cell_render(k: str, v: object) -> Td:
+        def _progress_cell_render(k: str, v: object) -> Any:
             if k == "Mastered":
                 return Td(v, cls="text-center font-semibold")
             if k in centered_cols:
@@ -1068,7 +1069,7 @@ class AdminLearningComponents:
 
         from ui.enum_helpers import get_submission_status_badge_class
 
-        def _cell_render(k: str, v: object) -> Td:
+        def _cell_render(k: str, v: object) -> Any:
             if k == "Title":
                 return Td(v, cls="font-medium text-sm")
             if k in ("Submitted", "Exercise"):
