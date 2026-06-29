@@ -6,6 +6,7 @@ from fasthtml.common import Div
 from ui.components._util import _cls
 
 __all__ = [
+    "Checkbox",
     "Input",
     "Label",
     "LabelCheckbox",
@@ -165,13 +166,14 @@ def LabelInput(
     error_text: str | None = None,
     lbl_cls: str = "",
     cls: str = "space-y-2",
+    input_cls: str = "",
     **kwargs: Any,
 ) -> Any:
     """Label + Input combo with ARIA wiring."""
     element_id = str(kwargs.setdefault("id", str(kwargs.get("name", "input"))))
     return Div(
         Label(label, cls=lbl_cls, fr=element_id),
-        Input(help_text=help_text, error_text=error_text, **kwargs),
+        Input(cls=input_cls, help_text=help_text, error_text=error_text, **kwargs),
         cls=cls,
     )
 
@@ -183,13 +185,14 @@ def LabelTextArea(
     error_text: str | None = None,
     lbl_cls: str = "",
     cls: str = "space-y-2",
+    input_cls: str = "",
     **kwargs: Any,
 ) -> Any:
     """Label + TextArea combo with ARIA wiring."""
     element_id = str(kwargs.setdefault("id", str(kwargs.get("name", "textarea"))))
     return Div(
         Label(label, cls=lbl_cls, fr=element_id),
-        TextArea(help_text=help_text, error_text=error_text, **kwargs),
+        TextArea(cls=input_cls, help_text=help_text, error_text=error_text, **kwargs),
         cls=cls,
     )
 
@@ -219,7 +222,7 @@ def LabelCheckbox(
     **kwargs: Any,
 ) -> Any:
     """Label + Checkbox combo."""
-    checkbox_id = str(kwargs.get("id", kwargs.get("name", "checkbox")))
+    checkbox_id = str(kwargs.pop("id", kwargs.get("name", "checkbox")))
     return Div(
         Div(
             fh.Input(type="checkbox", cls="h-4 w-4 rounded border-input", id=checkbox_id, **kwargs),
@@ -228,6 +231,11 @@ def LabelCheckbox(
         ),
         cls=cls,
     )
+
+
+def Checkbox(cls: str = "", **kwargs: Any) -> Any:
+    """Standalone checkbox input (no label). Use LabelCheckbox when a label is needed."""
+    return fh.Input(type="checkbox", cls=_cls("h-4 w-4 rounded border-input", cls), **kwargs)
 
 
 def Switch(cls: str = "", checked: bool = False, **kwargs: Any) -> Any:
