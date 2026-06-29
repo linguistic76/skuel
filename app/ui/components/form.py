@@ -222,7 +222,7 @@ def LabelCheckbox(
     **kwargs: Any,
 ) -> Any:
     """Label + Checkbox combo."""
-    checkbox_id = str(kwargs.get("id", kwargs.get("name", "checkbox")))
+    checkbox_id = str(kwargs.pop("id", kwargs.get("name", "checkbox")))
     return Div(
         Div(
             fh.Input(type="checkbox", cls="h-4 w-4 rounded border-input", id=checkbox_id, **kwargs),
