@@ -484,14 +484,18 @@ if stats.is_ok:
         print(f"  - {error['file']}: {error['error']}")
 ```
 
-### ingest_vault(path, subdirs=None)
+### ingest_vault(path, subdirs=None, *, user_uid=None)
 
 Ingest an Obsidian vault. Optionally limit to specific subdirectories.
+`user_uid` overrides the service's `default_user_uid` for all entities in
+this run — the API routes pass `current_user.uid` so vault content lands
+under the authenticated user, not `user_system`.
 
 ```python
 stats = await service.ingest_vault(
     Path("/home/mike/0bsidian/skuel"),
-    subdirs=["docs", "curriculum"]  # Optional: limit to these folders
+    subdirs=["docs", "curriculum"],  # Optional: limit to these folders
+    user_uid=UserUID("user_mike"),   # Optional: override default user
 )
 ```
 

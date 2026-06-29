@@ -48,7 +48,7 @@ class _RouteRegistry:
 
 
 def _admin_user_service() -> MagicMock:
-    user = SimpleNamespace(role=UserRole.ADMIN)
+    user = SimpleNamespace(role=UserRole.ADMIN, uid="user_admin")
     user.has_permission = lambda _required: True
     svc = MagicMock()
     svc.get_user = AsyncMock(return_value=Result.ok(user))

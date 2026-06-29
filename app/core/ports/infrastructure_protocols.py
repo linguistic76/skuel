@@ -380,6 +380,8 @@ class IngestionOperations(Protocol):
         validate_targets: bool = False,
         progress_callback: Any | None = None,
         dry_run: bool = False,
+        *,
+        user_uid: UserUID | None = None,
     ) -> "Result[IngestionStats | IncrementalStats | DryRunPreview]":
         """Ingest all supported files in a directory."""
         ...
@@ -388,6 +390,8 @@ class IngestionOperations(Protocol):
         self,
         vault_path: Path,
         subdirs: list[str] | None = None,
+        *,
+        user_uid: UserUID | None = None,
     ) -> "Result[IngestionStats]":
         """Ingest an Obsidian vault or specific subdirectories."""
         ...
