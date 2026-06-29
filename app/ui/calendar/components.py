@@ -220,7 +220,7 @@ def create_day_cell(
         )
 
     # Cell styling - more prominent today indicator with ring
-    cell_cls = "border-r border-b p-2 min-h-[100px] "
+    cell_cls = "border-r border-b p-2 min-h-[100px] cursor-pointer "
     if is_today:
         cell_cls += "bg-primary/10 ring-2 ring-primary ring-inset"
     elif is_current_month:
@@ -228,6 +228,10 @@ def create_day_cell(
     else:
         cell_cls += "bg-muted"
 
+    # onclick with event.target===this replicates Alpine's .self modifier:
+    # fires only when clicking the cell background, not a child element.
+    # Plain JS (not Alpine x-on) so it works in HTMX-swapped content without
+    # needing Alpine.initTree() to re-process the new DOM nodes.
     return Div(
         # Date number (with Today badge if applicable)
         date_header,
@@ -238,6 +242,7 @@ def create_day_cell(
         # More indicator
         *more_element,
         cls=cell_cls,
+        onclick=f"if(event.target===this)window.location.href='{daily_href}'",
     )
 
 
