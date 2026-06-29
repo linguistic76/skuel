@@ -45,8 +45,9 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers (M2/M3 migrated off MonsterUI); `ButtonLink` in `ui/primitives.py` (also pure Tailwind, M1)
-- `/ui/forms/`, `/ui/navigation.py`, `/ui/data.py` — MonsterUI wrappers (pending M6+ migration; `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components` M4/M5 ✅)
-- `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Call-site migration (Phase 2) pending — import from here once a component's M-PR lands.
+- `/ui/forms/` — pure Tailwind wrappers (M7 ✅); `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components` M4/M5 ✅
+- `/ui/navigation.py`, `/ui/data.py` — pure Tailwind wrappers (M8 ✅); no longer MonsterUI-backed
+- `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Only `ui/theme.py` remains on MonsterUI (cutover at M9).
 
 ---
 
@@ -376,7 +377,7 @@ from ui.feedback import Alert, AlertT, Badge, BadgeT, Loading, Progress, Progres
 from ui.forms import Checkbox, Input, LabelCheckbox, LabelInput, LabelSelect, LabelTextArea, Radio, Range, Select, Textarea, Toggle
 from ui.layout import Container, DivCentered, DivFullySpaced, DivHStacked, DivVStacked, Grid, Size
 from ui.patterns.modal import AlpineModal  # Standardized Alpine.js modal wrapper
-from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tab, Tabs
+from ui.navigation import Dropdown, DropdownContent, DropdownTrigger, Menu, MenuItem, Navbar, NavbarCenter, NavbarEnd, NavbarStart, Tabs
 from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, TableFromLists, TableT
 # Standard FastHTML elements — always from fasthtml.common
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
@@ -759,12 +760,14 @@ Navbar(
 
 ### Tabs
 
+`Tabs()` delegates to `ui.components.nav.TabContainer` — each argument is a `(label, content)` tuple:
+
 ```python
 Tabs(
-    Tab("All", active=True, hx_get="/tasks?filter=all", hx_target="#task-list"),
-    Tab("Active", hx_get="/tasks?filter=active", hx_target="#task-list"),
-    Tab("Completed", hx_get="/tasks?filter=completed", hx_target="#task-list"),
-    boxed=True
+    ("All", task_list_panel),
+    ("Active", active_panel),
+    ("Completed", completed_panel),
+    active_tab=0,
 )
 ```
 
