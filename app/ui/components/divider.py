@@ -36,5 +36,5 @@ def DividerLine(cls: str = "", **kwargs: Any) -> Any:
 
 
 def DividerSplit(*c: Any, cls: str = "", **kwargs: Any) -> Any:
-    """Alias for Divider with centred label — matches MonsterUI DividerSplit signature."""
+    """Alias for Divider with centred label."""
     return Divider(*c, cls=cls, **kwargs)

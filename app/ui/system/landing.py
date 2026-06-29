@@ -31,7 +31,7 @@ def render_login_landing_page() -> Any:
     """Render the landing page with login form for unauthenticated users.
 
     Split layout: branded hero on left (desktop), login card on right.
-    Uses AuthPage for consistent MonsterUI CSS loading.
+    Uses AuthPage for consistent CSS loading.
     """
     content = Div(
         # Left side: Branded hero panel (desktop only)

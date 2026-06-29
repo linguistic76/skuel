@@ -48,8 +48,7 @@ def DivHStacked(
     """
     Horizontal flex stack with configurable gap.
 
-    SKUEL adapter: MonsterUI's DivHStacked doesn't accept gap=int,
-    so we keep this wrapper to translate gap/align to Tailwind classes.
+    Wraps Tailwind flex-row with configurable gap/align as named kwargs.
 
     Args:
         *c: Child elements
@@ -74,8 +73,7 @@ def DivVStacked(
     """
     Vertical flex stack with configurable gap.
 
-    SKUEL adapter: MonsterUI's DivVStacked doesn't accept gap=int,
-    so we keep this wrapper to translate gap/align to Tailwind classes.
+    Wraps Tailwind flex-col with configurable gap/align as named kwargs.
 
     Args:
         *c: Child elements

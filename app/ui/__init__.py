@@ -1,4 +1,4 @@
-"""SKUEL UI Design System — MonsterUI + Typography-First Architecture."""
+"""SKUEL UI Design System — Pure Tailwind + Alpine.js Architecture."""
 
 from ui.components import Button, ButtonT, Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.feedback import (

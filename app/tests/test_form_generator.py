@@ -549,8 +549,8 @@ class TestCustomWidgets:
 # ============================================================================
 
 
-class TestMonsterUIIntegration:
-    """Test that generated widgets use MonsterUI wrapper components."""
+class TestSKUELComponentIntegration:
+    """Test that generated widgets use SKUEL component wrappers."""
 
     def test_text_input_renders(self):
         form = FormGenerator.from_model(

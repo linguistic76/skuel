@@ -73,7 +73,7 @@ function showResult(result, isError) {
         const msg = result.error || result.message || 'Ingestion failed';
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
-                <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <i data-lucide="x" class="shrink-0 h-6 w-6 inline-block"></i>
                 <span class="font-semibold">${msg}</span>
             </div>`;
     } else {
@@ -98,7 +98,7 @@ function showResult(result, isError) {
 
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
-                <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <i data-lucide="check" class="shrink-0 h-6 w-6 inline-block"></i>
                 <div>
                     <span class="font-semibold">Ingested successfully</span>
                     <span class="text-sm opacity-80 ml-2">${summary}</span>
@@ -199,7 +199,7 @@ function showRegenResult(result, isError) {
             || result.message || result.error || 'Regeneration failed';
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
-                <uk-icon icon="x" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <i data-lucide="x" class="shrink-0 h-6 w-6 inline-block"></i>
                 <span class="font-semibold">${msg}</span>
             </div>`;
     } else {
@@ -212,7 +212,7 @@ function showRegenResult(result, isError) {
         const summary = `${succeeded}/${processed} succeeded &middot; ${failed} failed &middot; ${skippedCurrent} already-current &middot; ${skippedNoBody} no-body &middot; ${duration}s`;
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
-                <uk-icon icon="check" width="24" height="24" class="shrink-0 h-6 w-6"></uk-icon>
+                <i data-lucide="check" class="shrink-0 h-6 w-6 inline-block"></i>
                 <div>
                     <span class="font-semibold">Chunks regenerated</span>
                     <span class="text-sm opacity-80 ml-2">${summary}</span>

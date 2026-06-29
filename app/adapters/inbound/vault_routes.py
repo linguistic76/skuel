@@ -37,7 +37,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from ui.components import Button
+from ui.components import Button, Loading
 from ui.patterns import PageHeader
 from ui.workbench.nav import render_submissions_sidebar_page
 
@@ -59,12 +59,7 @@ def _sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spi
             label,
             type="submit",
         ),
-        Span(
-            "",
-            id=spinner_id,
-            cls="htmx-indicator ml-3",
-            **{"uk-spinner": "ratio: 0.6"},
-        ),
+        Loading(size="sm", id=spinner_id, cls="htmx-indicator ml-3"),
         hx_post="/settings/vault/sync",
         hx_target="#vault-results",
         hx_swap="innerHTML",
@@ -91,12 +86,7 @@ def _consent_form() -> Div:
                     "Allow and sync",
                     type="submit",
                 ),
-                Span(
-                    "",
-                    id="consent-spinner",
-                    cls="htmx-indicator ml-3",
-                    **{"uk-spinner": "ratio: 0.6"},
-                ),
+                Loading(size="sm", id="consent-spinner", cls="htmx-indicator ml-3"),
                 hx_post="/settings/vault/consent",
                 hx_target="#vault-results",
                 hx_swap="innerHTML",

@@ -216,11 +216,6 @@ case "$1" in
     docker compose down "$@"
     ;;
 
-  sync-monsterui-vendor)
-    echo -e "${GREEN}Syncing MonsterUI vendor files from CDN...${NC}"
-    uv run python scripts/sync_monsterui_vendor.py
-    ;;
-
   install-hooks)
     echo -e "${GREEN}Installing git hooks...${NC}"
     repo_root=$(git rev-parse --show-toplevel)
@@ -268,7 +263,6 @@ case "$1" in
     echo ""
     echo "Dependencies:"
     echo "  ./dev deps                    - List outdated direct deps + intentional pins (alias: outdated)"
-    echo "  ./dev sync-monsterui-vendor   - Re-download MonsterUI vendor files after 'uv upgrade monsterui'"
     echo ""
     echo "Documentation:"
     echo "  ./dev docs-check      - Check if docs need updating (runs post-commit hook)"
