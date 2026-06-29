@@ -209,7 +209,7 @@ def create_ingestion_api_routes(
             if not path.exists():
                 return Result.fail(Errors.not_found("File", str(path)))
 
-            result = await unified_ingestion.ingest_file(path)
+            result = await unified_ingestion.ingest_file(path, user_uid=current_user.uid)
 
             if result.is_ok:
                 return Result.ok({"success": True, **result.value})
@@ -273,6 +273,7 @@ def create_ingestion_api_routes(
                 pattern=pattern,
                 batch_size=batch_size,
                 ingestion_mode=ingestion_mode,
+                user_uid=current_user.uid,
             )
 
             if result.is_ok:
@@ -341,7 +342,9 @@ def create_ingestion_api_routes(
             if not path.exists() or not path.is_dir():
                 return Result.fail(Errors.not_found("Vault", str(path)))
 
-            result = await unified_ingestion.ingest_vault(path, subdirs=subdirs)
+            result = await unified_ingestion.ingest_vault(
+                path, subdirs=subdirs, user_uid=current_user.uid
+            )
 
             if result.is_ok:
                 stats = result.value
@@ -495,6 +498,7 @@ def create_ingestion_api_routes(
                 source_path,
                 pattern=pattern,
                 dry_run=dry_run,
+                user_uid=current_user.uid,
             )
 
             if result.is_error:

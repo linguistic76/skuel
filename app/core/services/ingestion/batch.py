@@ -990,6 +990,7 @@ async def ingest_vault(
     vault_path: Path,
     ingest_directory_fn: Any,  # Callable for directory ingestion
     subdirs: list[str] | None = None,
+    user_uid: UserUID | None = None,
 ) -> Result[IngestionStats]:
     """
     Ingest an entire Obsidian vault or specific subdirectories.
@@ -1017,7 +1018,7 @@ async def ingest_vault(
             logger.warning(f"Directory does not exist: {directory}")
             continue
 
-        result = await ingest_directory_fn(directory)
+        result = await ingest_directory_fn(directory, user_uid=user_uid)
         if result.is_ok:
             stats = result.value
             aggregated.total_files += stats.total_files

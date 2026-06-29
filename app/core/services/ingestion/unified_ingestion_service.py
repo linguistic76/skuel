@@ -667,6 +667,8 @@ class UnifiedIngestionService:
         self,
         vault_path: Path,
         subdirs: list[str] | None = None,
+        *,
+        user_uid: UserUID | None = None,
     ) -> Result[IngestionStats]:
         """
         Ingest an entire Obsidian vault or specific subdirectories.
@@ -677,6 +679,7 @@ class UnifiedIngestionService:
             vault_path=vault_path,
             ingest_directory_fn=self.ingest_directory,
             subdirs=subdirs,
+            user_uid=user_uid or self.default_user_uid,
         )
 
     async def ingest_bundle(self, bundle_path: Path) -> Result[BundleStats]:
