@@ -19,7 +19,7 @@ from fasthtml.common import (
 from monsterui.franken import UkIcon
 
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card, CardBody
+from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.patterns.page_header import PageHeader
@@ -155,9 +155,9 @@ def EventCard(
 
     opacity = "opacity-75" if is_completed else ""
     return Card(
-        CardBody(header, cls="p-3"),
+        header,
         id=f"event-{safe_id(event.uid)}",
-        cls=f"mb-2 {opacity}",
+        cls=f"mb-2 p-3 {opacity}",
     )
 
 

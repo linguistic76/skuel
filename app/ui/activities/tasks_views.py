@@ -21,7 +21,7 @@ from monsterui.franken import UkIcon
 
 from core.utils.activity_stats import compute_task_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
-from ui.components import Button, ButtonT, Card, CardBody
+from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
@@ -140,9 +140,9 @@ def TaskCard(
     )
 
     return Card(
-        CardBody(header, cls="p-3"),
+        header,
         id=f"task-{safe_id(task.uid)}",
-        cls=f"mb-2 {'opacity-75' if is_completed else ''}",
+        cls=f"mb-2 p-3 {'opacity-75' if is_completed else ''}",
     )
 
 
