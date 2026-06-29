@@ -338,18 +338,17 @@ Form(hx_post="/tasks/create")
 
 # ❌ Old ui.buttons import (deleted in PR E)
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
-# ✅ Button/ButtonT come from monsterui.franken directly
+# ✅ Button/ButtonT — from monsterui.franken (until M4 migration completes)
 from monsterui.franken import Button, ButtonT
-# ✅ ButtonLink comes from ui.primitives
+# ✅ ButtonLink comes from ui.primitives (pure Tailwind since M1)
 from ui.primitives import ButtonLink
 
-# ❌ Old variant=/size= Button API (ui.buttons wrapper is gone)
-Button("Edit", variant=ButtonT.ghost, size=Size.sm)
-ButtonLink("View →", href="/tasks", variant=ButtonT.ghost, size=Size.xs)
-# ✅ New cls= API — single variant, or tuple for variant+size
-Button("Edit", cls=ButtonT.ghost)
+# ❌ Old tuple cls+size pattern
 Button("Edit", cls=(ButtonT.ghost, ButtonT.sm))
 ButtonLink("View →", href="/tasks", cls=(ButtonT.ghost, ButtonT.xs))
+# ✅ New: style via cls=, geometry via size= kwarg
+Button("Edit", cls=ButtonT.ghost, size="sm")
+ButtonLink("View →", href="/tasks", cls=ButtonT.ghost, size="xs")
 
 # ❌ Tailwind palette over semantic tokens
 P("text", cls="text-gray-600")
