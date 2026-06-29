@@ -878,16 +878,13 @@ def create_journals_routes(
     @rt("/journals/{entry_uid}", methods=["GET"])
     async def journal_chat(request: Request, entry_uid: str) -> Any:
         """Dedicated chat page for a journal entry."""
-        from ui.journals import FileOutputFragment, TranscriptReviewFragment
-        from ui.journals.chat_page import JournalChatPage
+        from adapters.inbound.result_helpers import require_found
+        from core.utils.result_simplified import ErrorCategory
 
         user_uid = require_authenticated_user(request)
 
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-
-        from adapters.inbound.result_helpers import require_found
-        from core.utils.result_simplified import ErrorCategory
 
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
         found = require_found(entry_result, "Journal entry", entry_uid)
@@ -896,6 +893,36 @@ def create_journals_routes(
             status = 404 if err.category == ErrorCategory.NOT_FOUND else 500
             return Response("Not found" if status == 404 else "Service error", status_code=status)
         entry = found.value
+
+        from ui.layouts.base_page import BasePage
+        from ui.layouts.page_types import PageType
+
+        # Periodic notes use a calendar navigation sidebar, not the journal session sidebar.
+        if entry.metadata.get("entry_kind") in {"daily", "weekly", "monthly"}:
+            from ui.journals import PeriodicNoteFragment
+            from ui.journals.chat_page import PeriodicNotePage
+
+            initial_workspace = PeriodicNoteFragment(
+                entry_uid=entry.uid,
+                title=entry.title or "",
+                content=entry.content or "",
+            )
+            page_content = PeriodicNotePage(entry=entry, initial_workspace=initial_workspace)
+
+            if request.headers.get("HX-Request"):
+                return page_content
+
+            return await BasePage(
+                content=page_content,
+                title=entry.title or "Periodic Note",
+                page_type=PageType.CUSTOM,
+                request=request,
+                active_page="calendar",
+            )
+
+        # Regular journal session entries
+        from ui.journals import FileOutputFragment, TranscriptReviewFragment
+        from ui.journals.chat_page import JournalChatPage
 
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
@@ -914,18 +941,7 @@ def create_journals_routes(
             if e.pipeline in _journal_pipelines
         ][:30]
 
-        if entry.metadata.get("entry_kind") in {"daily", "weekly", "monthly"}:
-            # Periodic notes (calendar integration) are plain editable markdown
-            # notes — no pipeline processing — so they render an editable view
-            # of entry.content rather than falling through to "Processing…".
-            from ui.journals import PeriodicNoteFragment
-
-            initial_workspace = PeriodicNoteFragment(
-                entry_uid=entry.uid,
-                title=entry.title or "",
-                content=entry.content or "",
-            )
-        elif entry.processed_file_path:
+        if entry.processed_file_path:
             initial_workspace = FileOutputFragment(
                 title=entry.title or "",
                 output_filename=Path(entry.processed_file_path).name,
@@ -973,9 +989,6 @@ def create_journals_routes(
 
         if request.headers.get("HX-Request"):
             return page_content
-
-        from ui.layouts.base_page import BasePage
-        from ui.layouts.page_types import PageType
 
         return await BasePage(
             content=page_content,

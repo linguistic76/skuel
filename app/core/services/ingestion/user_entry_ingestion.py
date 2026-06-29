@@ -235,7 +235,11 @@ async def build_user_entry_request(
         if entry_kind == "daily":
             raw_date = data.get("date")
             if raw_date is not None:
-                date_str = raw_date.isoformat() if isinstance(raw_date, (date, datetime)) else str(raw_date)
+                date_str = (
+                    raw_date.isoformat()
+                    if isinstance(raw_date, (date, datetime))
+                    else str(raw_date)
+                )
                 uid_override = f"ue:daily:{user_uid}:{date_str}"
         elif entry_kind == "weekly":
             week_of = data.get("week_of")
@@ -244,7 +248,11 @@ async def build_user_entry_request(
         elif entry_kind == "monthly":
             month_of = data.get("month_of")
             if month_of is not None:
-                month_str = month_of.isoformat()[:7] if isinstance(month_of, (date, datetime)) else str(month_of)
+                month_str = (
+                    month_of.isoformat()[:7]
+                    if isinstance(month_of, (date, datetime))
+                    else str(month_of)
+                )
                 uid_override = f"ue:monthly:{user_uid}:{month_str}"
 
     request = UserEntryCreateRequest(
