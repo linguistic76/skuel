@@ -5,7 +5,7 @@ from fasthtml.common import Div, Span
 
 from ui.components._util import _cls
 
-__all__ = ["Alert", "AlertT", "Loading", "LoadingT"]
+__all__ = ["Alert", "AlertT", "Loading", "Progress"]
 
 
 class AlertT(StrEnum):
@@ -13,17 +13,6 @@ class AlertT(StrEnum):
     success = "success"
     warning = "warning"
     error = "error"
-
-
-class LoadingT(StrEnum):
-    """Loading animation style tokens (CSS-only spinner uses spinner variant)."""
-
-    spinner = "spinner"
-    dots = "dots"
-    ring = "ring"
-    ball = "ball"
-    bars = "bars"
-    infinity = "infinity"
 
 
 _ALERT_CLASSES: dict[str, str] = {
@@ -79,5 +68,43 @@ def Loading(cls: str = "", size: str = "md", **kwargs: Any) -> Any:
         cls=_cls(_LOADING_BASE, size_cls, cls),
         role="status",
         **{"aria-label": "Loading"},
+        **kwargs,
+    )
+
+
+_PROGRESS_COLORS: dict[str, str] = {
+    "primary": "bg-primary",
+    "secondary": "bg-secondary",
+    "accent": "bg-violet-500",
+    "info": "bg-blue-500",
+    "success": "bg-green-500",
+    "warning": "bg-yellow-500",
+    "error": "bg-red-500",
+}
+
+
+def Progress(
+    value: int | float | None = None,
+    max_val: int = 100,
+    cls: str = "",
+    variant: str = "primary",
+    **kwargs: Any,
+) -> Any:  # boundary: fasthtml-elements
+    """Horizontal progress bar.
+
+    Args:
+        value: Current progress (0–max_val). None renders an empty bar.
+        max_val: Maximum value (default 100).
+        cls: Additional Tailwind classes applied to the track.
+        variant: Color token — primary, secondary, accent, info, success, warning, error.
+        **kwargs: Any HTML attribute passes through (aria-*, data-*, etc.)
+    """
+    pct = round(value / max_val * 100) if value is not None else 0
+    fill_cls = _PROGRESS_COLORS.get(variant, _PROGRESS_COLORS["primary"])
+    return Div(
+        Div(cls=_cls("h-full rounded-full transition-all", fill_cls), style=f"width:{pct}%"),
+        cls=_cls("w-full bg-secondary rounded-full overflow-hidden h-2", cls),
+        role="progressbar",
+        **{"aria-valuenow": str(pct), "aria-valuemin": "0", "aria-valuemax": "100"},
         **kwargs,
     )

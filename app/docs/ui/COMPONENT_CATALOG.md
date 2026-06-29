@@ -50,7 +50,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
 | `ui.patterns.modal` | `AlpineModal` — standardized Alpine.js modal wrapper (backdrop, transitions, close-on-backdrop) |
-| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `LoadingT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
+| `ui.feedback` | `AlertT`, `BadgeT`, `ProgressT`, `Alert`, `Badge`, `Loading`, `Progress`, `RadialProgress` |
 | `ui.enum_helpers` | `get_submission_status_badge_class`, `get_status_badge_class`, `get_priority_badge_class`, ... |
 | `ui.navigation` | `Navbar`, `NavbarStart`, `NavbarCenter`, `NavbarEnd`, `Menu`, `MenuItem`, `Dropdown`, `DropdownTrigger`, `DropdownContent`, `Tabs`, `Tab` |
 | `ui.data` | `Table`, `TableFromDicts`, `TableFromLists`, `TableT`, `Divider`, `DividerSplit`, `DividerT` |
@@ -1455,7 +1455,7 @@ Quick alphabetical index:
 - **Dropdown / DropdownTrigger / DropdownContent** - `ui.navigation`
 - **Input / Select / Textarea** - `ui.forms`
 - **LabelInput / LabelTextArea / LabelSelect / LabelCheckbox** - `ui.forms`
-- **Loading / LoadingT** - `ui.feedback`
+- **Loading** - `ui.feedback` (CSS-only spinner — no variant param; use `size=Size.sm/md/lg`)
 - **Menu / MenuItem / Navbar** - `ui.navigation`
 - **AlpineModal** - `/ui/patterns/modal.py` — standardized Alpine.js modal wrapper (backdrop, transitions, accessibility)
 - **Progress / ProgressT / RadialProgress** - `ui.feedback`

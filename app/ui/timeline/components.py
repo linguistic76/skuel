@@ -23,7 +23,7 @@ from fasthtml.common import Div, Option, P, Span
 from monsterui.franken import Button, ButtonT
 
 from core.models.type_hints import UserUID
-from ui.feedback import Loading, LoadingT
+from ui.feedback import Loading
 from ui.forms import Input, Label, Select
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -291,7 +291,7 @@ def create_embedded_timeline(
         *controls,
         # Loading
         Div(
-            Loading(variant=LoadingT.spinner, size=Size.sm),
+            Loading(size=Size.sm),
             cls="flex items-center justify-center h-full",
             **{"x-show": "loading"},
         ),

@@ -14,7 +14,7 @@ from ui.components.accordion import Accordion, AccordionItem
 from ui.components.button import Button, ButtonT
 from ui.components.card import Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.components.divider import Divider, DividerLine, DividerSplit, DividerT
-from ui.components.feedback import Alert, AlertT, Loading, LoadingT
+from ui.components.feedback import Alert, AlertT, Loading, Progress
 from ui.components.form import (
     Input,
     Label,
@@ -65,7 +65,7 @@ __all__ = [
     "Alert",
     "AlertT",
     "Loading",
-    "LoadingT",
+    "Progress",
     # Form
     "Input",
     "Label",

@@ -103,7 +103,7 @@ ui/components/
     button.py        — Button, ButtonT (StrEnum of Tailwind class strings)
     card.py          — Card, CardHeader, CardBody, CardTitle, CardFooter
     icon.py          — Icon (UkIcon replacement, data-lucide attribute)
-    feedback.py      — Alert, AlertT, Loading, LoadingT, Progress, ProgressT
+    feedback.py      — Alert, AlertT, Loading, Progress, ProgressT
     form.py          — Input, TextArea, Select, Label, LabelInput, LabelTextArea, ...
     divider.py       — Divider
     table.py         — Table, TableFromLists, TableFromDicts, Td, Th, Tbody, TableT
