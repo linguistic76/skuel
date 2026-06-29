@@ -12,9 +12,10 @@ Date: 2025-10-14
 from typing import Any
 
 from fasthtml.common import Div, Form, Option, P, Span
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
+from ui.components import Button, ButtonT
 from ui.feedback import Alert, AlertT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect
 from ui.patterns.page_header import PageHeader

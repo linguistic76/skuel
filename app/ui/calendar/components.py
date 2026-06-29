@@ -22,7 +22,7 @@ from itertools import islice
 from typing import Any
 
 from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle, UkIcon
+from monsterui.franken import CardBody, CardHeader, CardTitle, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from core.models.event.calendar_models import (
@@ -31,6 +31,7 @@ from core.models.event.calendar_models import (
     CalendarItemType,
     CalendarOccurrence,
 )
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.forms import Input, Label, Select
 from ui.layout import Size
@@ -470,7 +471,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "✅",
                 type="button",
-                cls=(ButtonT.primary, ButtonT.sm),
+                cls=ButtonT.primary,
+                size="sm",
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/done",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -479,7 +481,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "⏭️",
                 type="button",
-                cls=(ButtonT.secondary, ButtonT.sm),
+                cls=ButtonT.secondary,
+                size="sm",
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/skipped",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -488,7 +491,8 @@ def create_habit_check_in(item: CalendarItem) -> Div:
             Button(
                 "❌",
                 type="button",
-                cls=(ButtonT.destructive, ButtonT.sm),
+                cls=ButtonT.destructive,
+                size="sm",
                 hx_post=f"/events/calendar/habit/{habit_uid}/record/missed",
                 hx_target=f"#habit-status-{habit_uid}",
                 hx_swap="innerHTML",
@@ -645,7 +649,8 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
             buttons.append(
                 Button(
                     label,
-                    cls=(ButtonT.primary, ButtonT.sm, f"cursor-default {cls_extra}"),
+                    cls=(ButtonT.primary, f"cursor-default {cls_extra}"),
+                    size="sm",
                     disabled=True,
                 )
             )
@@ -655,7 +660,8 @@ def create_view_switcher(current_view: str, target_date: date) -> Div:
                 ButtonLink(
                     label,
                     href=url,
-                    cls=(ButtonT.ghost, ButtonT.sm, cls_extra),
+                    cls=(ButtonT.ghost, cls_extra),
+                    size="sm",
                 )
             )
 
@@ -895,11 +901,8 @@ def create_item_details_modal(item: Any) -> Div:
                 ),
                 Button(
                     UkIcon("x", cls="w-6 h-6"),
-                    cls=(
-                        ButtonT.ghost,
-                        ButtonT.sm,
-                        "text-muted-foreground hover:text-muted-foreground",
-                    ),
+                    cls=(ButtonT.ghost, "text-muted-foreground hover:text-muted-foreground"),
+                    size="sm",
                     **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
                 ),
                 cls="flex justify-between items-start mb-4",

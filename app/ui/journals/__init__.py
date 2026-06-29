@@ -13,8 +13,10 @@ from fasthtml.common import (
     Span,
     Textarea,
 )
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
+
+from ui.components import ButtonT
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode

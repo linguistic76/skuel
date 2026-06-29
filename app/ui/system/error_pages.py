@@ -3,8 +3,8 @@
 from typing import Any
 
 from fasthtml.common import H1, Div, Nav, P
-from monsterui.franken import ButtonT
 
+from ui.components import ButtonT
 from ui.layout import Container
 from ui.primitives import ButtonLink
 
@@ -16,9 +16,9 @@ def render_404_page() -> Any:
             Div(
                 Div(
                     ButtonLink("SKUEL", href="/", cls=(ButtonT.ghost, "text-xl")),
-                    ButtonLink("Home", href="/", cls=(ButtonT.ghost, ButtonT.sm)),
-                    ButtonLink("Search", href="/search", cls=(ButtonT.ghost, ButtonT.sm)),
-                    ButtonLink("Askesis", href="/askesis", cls=(ButtonT.ghost, ButtonT.sm)),
+                    ButtonLink("Home", href="/", cls=ButtonT.ghost, size="sm"),
+                    ButtonLink("Search", href="/search", cls=ButtonT.ghost, size="sm"),
+                    ButtonLink("Askesis", href="/askesis", cls=ButtonT.ghost, size="sm"),
                     cls="flex items-center gap-2",
                 ),
                 cls="navbar flex items-center justify-between",

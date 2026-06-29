@@ -6,8 +6,8 @@ Reusable building blocks consumed by curriculum_views.py and overview.py.
 from typing import Any
 
 from fasthtml.common import H3, A, Div, Li, Option, Span, Ul
-from monsterui.franken import Button, ButtonT
 
+from ui.components import Button, ButtonT
 from ui.forms import Label, Select
 from ui.patterns.empty_state import EmptyState
 
@@ -89,7 +89,8 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
         filter_buttons.append(
             Button(
                 label,
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
                 **{  # fasthtml dynamic-attr splat
                     "x-bind:class": f"{{'bg-primary text-primary-foreground': filterPreset === '{value}', '': filterPreset !== '{value}'}}",
                     "x-on:click": f"filterPreset = '{value}'",
@@ -126,7 +127,8 @@ def DomainFilterControls(domain: str, total_count: int) -> Div:
                         f"Show Less (showing {total_count})",
                         x_show="showAll",
                     ),
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                     **{"x-on:click": "toggleShowAll()"},  # fasthtml dynamic-attr splat
                 ),
                 cls="ml-auto",

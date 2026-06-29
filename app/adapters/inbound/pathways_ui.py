@@ -19,13 +19,14 @@ from fasthtml.common import (
     Span,
     Ul,
 )
-from monsterui.franken import Button, ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from core.models.type_hints import EntityUID
 from core.utils.logging import get_logger
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -160,12 +161,14 @@ def create_pathways_ui_routes(
                             ButtonLink(
                                 "Browse Learning Paths",
                                 href="/pathways/browse",
-                                cls=(ButtonT.primary, ButtonT.sm),
+                                cls=ButtonT.primary,
+                                size="sm",
                             ),
                             ButtonLink(
                                 "Browse Learning Steps",
                                 href="/pathways/steps",
-                                cls=(ButtonT.secondary, ButtonT.sm),
+                                cls=ButtonT.secondary,
+                                size="sm",
                             ),
                             cls="flex flex-wrap gap-2",
                         ),
@@ -436,7 +439,8 @@ def create_pathways_ui_routes(
                     if is_enrolled
                     else Button(
                         "Enroll Now",
-                        cls=(ButtonT.primary, ButtonT.lg),
+                        cls=ButtonT.primary,
+                        size="lg",
                         hx_post=f"/api/pathways/enroll/{path_uid}",
                         hx_target="#main-content",
                     ),

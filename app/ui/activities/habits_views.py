@@ -16,12 +16,13 @@ from fasthtml.common import (
     Small,
     Span,
 )
-from monsterui.franken import Button, ButtonT, CardBody, UkIcon
+from monsterui.franken import CardBody, UkIcon
 from monsterui.franken import CardContainer as Card
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
 from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.components import Button, ButtonT
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -95,7 +96,8 @@ def HabitCard(
         hx_vals=f'{{"status": "{new_status}"}}',
         hx_target=f"#habit-{safe_id(habit.uid)}",
         hx_swap="outerHTML",
-        cls=(ButtonT.default, ButtonT.sm, "rounded"),
+        cls=(ButtonT.default, "rounded"),
+        size="sm",
         title=f"Mark as {new_status}",
     )
 

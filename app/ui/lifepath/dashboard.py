@@ -3,10 +3,10 @@
 from typing import Any
 
 from fasthtml.common import H3, Div, P, Span
-from monsterui.franken import ButtonT
 from monsterui.franken import CardContainer as Card
 
 from core.models.type_hints import UserUID
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, Progress
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -23,7 +23,8 @@ def render_dashboard_content(status: dict, user_uid: UserUID) -> Any:
             ButtonLink(
                 "Express Your Vision",
                 href="/lifepath/vision",
-                cls=(ButtonT.primary, ButtonT.lg),
+                cls=ButtonT.primary,
+                size="lg",
             ),
             cls="container mx-auto px-4 py-8 text-center",
         )

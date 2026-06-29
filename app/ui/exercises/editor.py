@@ -9,9 +9,9 @@ Imports Form/Input/Label/Textarea — the exact signal the route thinning rule f
 from typing import Any
 
 from fasthtml.common import Div, Option, P
-from monsterui.franken import Button, ButtonT
 from monsterui.franken import CardContainer as Card
 
+from ui.components import Button, ButtonT
 from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.section_header import SectionHeader
 

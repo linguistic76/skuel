@@ -8,8 +8,8 @@ Summary card components for teaching views.
 from typing import Any
 
 from fasthtml.common import A, Div, P
-from monsterui.franken import ButtonT
 
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
@@ -57,7 +57,8 @@ def render_queue_item(item: QueueItem) -> Div:
         actions=ButtonLink(
             "Review",
             href=f"/teaching/review/{item.submission_uid}",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
         ),
         card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )
@@ -80,12 +81,14 @@ def render_student_summary_card(item: StudentSummary) -> Div:
             ButtonLink(
                 "Exercises Submitted",
                 href=f"/teaching/students/{item.student_uid}?tab=pending",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             ),
             ButtonLink(
                 "KU Progress",
                 href=f"/teaching/students/{item.student_uid}?tab=ku",
-                cls=(ButtonT.ghost, ButtonT.sm),
+                cls=ButtonT.ghost,
+                size="sm",
             ),
             cls="flex gap-2",
         ),
@@ -129,7 +132,8 @@ def render_class_card(item: ClassSummary) -> Div:
         actions=ButtonLink(
             "View Group",
             href=f"/teaching/groups/{item.uid}?name={item.name}",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
         ),
         card_attrs={"cls": "bg-background shadow-sm mb-2"},
     )

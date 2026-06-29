@@ -21,8 +21,8 @@ Usage:
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Li, P, Span, Ul
-from monsterui.franken import ButtonT
 
+from ui.components import ButtonT
 from ui.explore.graph import ExploreGraphView
 from ui.patterns.sidebar import SidebarPage
 from ui.primitives import ButtonLink
@@ -100,7 +100,8 @@ def _build_section(
                 ButtonLink(
                     "See all",
                     href=see_all_href,
-                    cls=(ButtonT.ghost, ButtonT.xs, "mx-4 mb-2"),
+                    cls=(ButtonT.ghost, "mx-4 mb-2"),
+                    size="xs",
                     x_show="!expanded",
                 ),
             )

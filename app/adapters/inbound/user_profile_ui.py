@@ -446,8 +446,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         # Fetch shared reports
         from fasthtml.common import H4, Div, P
-        from monsterui.franken import Button, ButtonT
 
+        from ui.components import Button, ButtonT
         from ui.layout import Size
         from ui.primitives import ButtonLink
 
@@ -492,7 +492,8 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
                         ButtonLink(
                             "View",
                             href=f"/gradebook/{report.uid}",
-                            cls=(ButtonT.primary, ButtonT.xs),
+                            cls=ButtonT.primary,
+                            size="xs",
                         ),
                         cls="mt-3",
                     ),
@@ -509,9 +510,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             ),
             # Filter tabs
             Div(
-                Button("All", cls=(ButtonT.ghost, ButtonT.sm), disabled=True),
-                Button("Reports", cls=(ButtonT.primary, ButtonT.sm)),
-                Button("Events", cls=(ButtonT.ghost, ButtonT.sm), disabled=True),
+                Button("All", cls=ButtonT.ghost, size="sm", disabled=True),
+                Button("Reports", cls=ButtonT.primary, size="sm"),
+                Button("Events", cls=ButtonT.ghost, size="sm", disabled=True),
                 cls="flex gap-2 mb-6",
             ),
             # Shared content grid

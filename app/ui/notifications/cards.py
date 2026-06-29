@@ -9,9 +9,10 @@ from datetime import datetime
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import Button, ButtonT, CardBody
+from monsterui.franken import CardBody
 from monsterui.franken import CardContainer as Card
 
+from ui.components import Button, ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -63,7 +64,8 @@ def render_notification_card(notif: dict[str, Any]) -> Div:
     if not is_read:
         mark_read_btn = Button(
             "Mark read",
-            cls=(ButtonT.ghost, ButtonT.xs),
+            cls=ButtonT.ghost,
+            size="xs",
             hx_post=f"/notifications/{notif['uid']}/read",
             hx_target=f"#notif-{notif['uid']}",
             hx_swap="outerHTML",
@@ -90,7 +92,8 @@ def render_notification_card(notif: dict[str, Any]) -> Div:
                         ButtonLink(
                             "View →",
                             href=link_href,
-                            cls=(ButtonT.ghost, ButtonT.xs),
+                            cls=ButtonT.ghost,
+                            size="xs",
                         ),
                         mark_read_btn,
                         cls="flex items-center gap-3 mt-2",

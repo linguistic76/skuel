@@ -9,10 +9,10 @@ UI routes for displaying and managing event-driven insights.
 from typing import Any
 
 from fasthtml.common import Div, P, Span
-from monsterui.franken import ButtonT
 
 from adapters.inbound.auth import require_authenticated_user
 from core.utils.logging import get_logger
+from ui.components import ButtonT
 from ui.insights.components import (
     render_bulk_action_bar,
     render_charts_section,
@@ -150,7 +150,8 @@ def create_insights_ui_routes(
                 ButtonLink(
                     "📜 View History",
                     href="/insights/history",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                 ),
                 cls="mb-4",
             ),

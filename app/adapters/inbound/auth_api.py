@@ -19,7 +19,7 @@ Date: 2026-01-21
 from typing import Any
 
 from fasthtml.common import H1, Div, P, Pre
-from monsterui.franken import ButtonT, CardBody, CardHeader, CardTitle
+from monsterui.franken import CardBody, CardHeader, CardTitle
 from monsterui.franken import CardContainer as Card
 
 from adapters.inbound.auth import (
@@ -30,6 +30,7 @@ from adapters.inbound.auth import (
 )
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
+from ui.components import ButtonT
 from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.auth_api")

@@ -20,13 +20,14 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Div, Form, P
-from monsterui.franken import Button, ButtonT, UkIcon
+from monsterui.franken import UkIcon
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from ui.components import Button, ButtonT
 from ui.forms import LabelInput, LabelTextArea
 from ui.layouts.base_page import BasePage
 from ui.patterns.empty_state import EmptyState
@@ -291,7 +292,8 @@ def create_teaching_ui_routes(
                 ButtonLink(
                     "Back to Queue",
                     href="/teaching/queue",
-                    cls=(ButtonT.ghost, ButtonT.sm, "mt-4"),
+                    cls=(ButtonT.ghost, "mt-4"),
+                    size="sm",
                 ),
             ),
             id="review-detail-content",
@@ -510,7 +512,8 @@ def create_teaching_ui_routes(
         new_group_button = Button(
             "+ New Group",
             type="button",
-            cls=(ButtonT.primary, ButtonT.sm),
+            cls=ButtonT.primary,
+            size="sm",
             **{
                 "x-on:click": "open = true"
             },  # fasthtml dynamic-attr splat: Alpine colon attr has no underscore-kwarg form
@@ -570,7 +573,8 @@ def create_teaching_ui_routes(
             ButtonLink(
                 "← Groups",
                 href="/teaching/groups",
-                cls=(ButtonT.ghost, ButtonT.sm, "mt-4"),
+                cls=(ButtonT.ghost, "mt-4"),
+                size="sm",
             ),
         )
 

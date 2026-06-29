@@ -20,7 +20,7 @@ from typing import Any, Union, get_args, get_origin
 
 from fasthtml.common import H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
-from monsterui.franken import Button, ButtonT, UkIcon
+from monsterui.franken import UkIcon
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
@@ -35,6 +35,7 @@ from core.ports import (
     PydanticFieldInfo,
 )
 from core.utils.logging import get_logger
+from ui.components import Button, ButtonT
 from ui.forms import Checkbox, Input, Label, Select, Textarea
 
 logger = get_logger("skuel.components.form_generator")

@@ -26,7 +26,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from fasthtml.common import Div
-from monsterui.franken import ButtonT
 from starlette.responses import RedirectResponse
 
 from adapters.inbound._template_form_parsing import parse_template_form_body
@@ -39,6 +38,7 @@ from core.services.conversion_service import ConversionServiceV2
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
+from ui.components import ButtonT
 from ui.layouts.base_page import BasePage
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
@@ -168,7 +168,8 @@ def create_templates_ui_routes(
                 ButtonLink(
                     "← Back to PathStep",
                     href=f"/explore/ps/{ps_uid}",
-                    cls=(ButtonT.ghost, ButtonT.sm),
+                    cls=ButtonT.ghost,
+                    size="sm",
                 ),
                 cls="mb-4",
             ),
