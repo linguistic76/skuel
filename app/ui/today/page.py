@@ -170,27 +170,27 @@ def _ribbons_column() -> FT:
 
 
 def _empty_state() -> FT:
-    return Template(
+    # x-show (not x-if) keeps the icon in DOM so lucide.createIcons() processes it at page load.
+    # x-if inserts nodes lazily — after createIcons() has already run — leaving a blank icon.
+    return Div(
         Div(
-            Div(
-                Icon("check-circle-2", size=28),
-                cls=(
-                    "mx-auto mb-5 w-14 h-14 rounded-lg bg-priority-low/15 text-priority-low "
-                    "flex items-center justify-center"
-                ),
+            Icon("check-circle-2", size=28),
+            cls=(
+                "mx-auto mb-5 w-14 h-14 rounded-lg bg-priority-low/15 text-priority-low "
+                "flex items-center justify-center"
             ),
-            H2(
-                "You're caught up.",
-                cls="text-[22px] font-bold tracking-tight mb-2",
-            ),
-            P(
-                "No nodes scheduled for today. This is the point where most apps would "
-                "offer you more to do. SKUEL suggests you close the laptop.",
-                cls="text-[13.5px] text-muted-foreground leading-relaxed",
-            ),
-            cls="text-center mx-auto max-w-md py-20 px-8",
         ),
-        **{"x-if": "allEmpty"},
+        H2(
+            "You're caught up.",
+            cls="text-[22px] font-bold tracking-tight mb-2",
+        ),
+        P(
+            "No nodes scheduled for today. This is the point where most apps would "
+            "offer you more to do. SKUEL suggests you close the laptop.",
+            cls="text-[13.5px] text-muted-foreground leading-relaxed",
+        ),
+        cls="text-center mx-auto max-w-md py-20 px-8",
+        **{"x-show": "allEmpty"},
     )
 
 
