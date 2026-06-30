@@ -98,6 +98,33 @@ def StatCard(
     return card
 
 
+def IconStat(label: str, value: Any, icon: str, color_class: str = "") -> Div:
+    """Compact centered stat tile with an emoji/icon, label, and value.
+
+    Distinct from StatCard: no Card wrapper, icon-led, centered — meant to sit
+    inside a caller-provided grid (e.g. ingestion dashboards, dry-run previews).
+
+    Args:
+        label: Stat label (e.g. "Total Files").
+        value: The value to display (coerced to str).
+        icon: Emoji or icon glyph shown above the label.
+        color_class: Optional Tailwind color class applied to the value
+            (e.g. "text-success").
+
+    Returns:
+        A centered Div tile.
+
+    Example:
+        IconStat("Successful", 42, "✅", "text-success")
+    """
+    return Div(
+        Div(icon, cls="text-2xl"),
+        Div(label, cls="text-sm text-muted-foreground"),
+        Div(str(value), cls=f"text-2xl font-bold {color_class}".strip()),
+        cls="p-4 text-center",
+    )
+
+
 def StatsGrid(
     stats: list[StatItem],
     cols: int = 4,

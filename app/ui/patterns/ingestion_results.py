@@ -18,6 +18,7 @@ from fasthtml.common import FT, H3, Div, Span, Strong
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Badge, BadgeT
+from ui.patterns.stats_grid import IconStat
 
 
 def IngestionResultsSummary(stats: Any) -> FT:
@@ -50,10 +51,10 @@ def IngestionResultsSummary(stats: Any) -> FT:
     return Div(
         # Summary cards
         Div(
-            StatCard("Total Files", total_files, "📁"),
-            StatCard("Successful", successful, "✅", "text-success"),
-            StatCard("Failed", failed, "❌", "text-error" if failed > 0 else ""),
-            StatCard("Duration", f"{duration:.1f}s", "⏱️"),
+            IconStat("Total Files", total_files, "📁"),
+            IconStat("Successful", successful, "✅", "text-success"),
+            IconStat("Failed", failed, "❌", "text-error" if failed > 0 else ""),
+            IconStat("Duration", f"{duration:.1f}s", "⏱️"),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Incremental ingestion stats (if present)
@@ -61,8 +62,8 @@ def IngestionResultsSummary(stats: Any) -> FT:
             Div(
                 H3("Ingestion Efficiency", cls="text-lg font-semibold mb-2"),
                 Div(
-                    StatCard("Files Skipped", files_skipped, "⏭️", "text-info"),
-                    StatCard("Efficiency", f"{ingestion_efficiency:.1f}%", "🎯", "text-success"),
+                    IconStat("Files Skipped", files_skipped, "⏭️", "text-info"),
+                    IconStat("Efficiency", f"{ingestion_efficiency:.1f}%", "🎯", "text-success"),
                     cls="grid grid-cols-2 gap-4 shadow rounded-lg mb-4 w-full",
                 ),
             )
@@ -72,35 +73,14 @@ def IngestionResultsSummary(stats: Any) -> FT:
         # Graph changes section
         H3("Neo4j Changes", cls="text-lg font-semibold mb-2 mt-4"),
         Div(
-            StatCard("Nodes Created", nodes_created, "🔵"),
-            StatCard("Nodes Updated", nodes_updated, "🔄"),
-            StatCard("Edges Created", relationships_created, "🔗"),
+            IconStat("Nodes Created", nodes_created, "🔵"),
+            IconStat("Nodes Updated", nodes_updated, "🔄"),
+            IconStat("Edges Created", relationships_created, "🔗"),
             cls="grid grid-cols-3 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Errors table (if any)
         ErrorsTable(errors) if errors else None,
         cls="ingestion-results-summary",
-    )
-
-
-def StatCard(label: str, value: Any, icon: str, color_class: str = "") -> FT:
-    """
-    Stat card for displaying a single metric.
-
-    Args:
-        label: Stat label
-        value: Stat value
-        icon: Emoji icon
-        color_class: Optional Tailwind color class (e.g., "text-success")
-
-    Returns:
-        FastHTML component
-    """
-    return Div(
-        Div(icon, cls="text-2xl"),
-        Div(label, cls="text-sm text-muted-foreground"),
-        Div(str(value), cls=f"text-2xl font-bold {color_class}"),
-        cls="p-4 text-center",
     )
 
 
@@ -253,7 +233,6 @@ def ProgressIndicator(operation_id: str) -> FT:
 
 __all__ = [
     "IngestionResultsSummary",
-    "StatCard",
     "EntityBreakdownTable",
     "ErrorsTable",
     "ProgressIndicator",
