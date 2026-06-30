@@ -149,10 +149,6 @@ Combined modal and drag-drop functionality for calendar views.
 
 Standalone modal component (when drag-drop not needed).
 
-### calendarDrag()
-
-Standalone drag-drop component (when modal not needed).
-
 ### timelineViewer(src)
 
 Markwhen timeline integration with filtering and URL history.

@@ -788,11 +788,10 @@ All Alpine.js `x-data` component definitions live in `/static/js/skuel.js`.
 |-----------|-------|-------------|
 | `collapsibleSidebar` | `x-data="collapsibleSidebar('profile')"` | Sidebar collapse/expand with localStorage persistence. Pass a `storageKey` to remember state. |
 | `accessibleModal` | `x-data="accessibleModal({ isOpen: false })"` | WCAG-compliant modal with focus trapping, Escape to close, and backdrop click handling. |
-| `accessibleTabs` | `x-data="accessibleTabs({ defaultTab: 'overview' })"` | Keyboard-navigable tabs (Arrow keys, Home/End). Manages `aria-selected` and panel visibility. |
 | `searchFilters` | `x-data="searchFilters()"` | Search input + filter dropdowns with debounced HTMX requests. |
 | `loadingButton` | `x-data="loadingButton()"` | Disables button and shows spinner on click until HTMX response arrives. |
 | `formValidator` | `x-data="formValidator()"` | Client-side validation with per-field error display. Validates on blur and submit. |
-| `toastManager` | `x-data="toastManager()"` | Toast notification stack. Methods: `addToast(message, type, duration)`, auto-dismiss. |
+| `toastManager` | `x-data="toastManager"` | Toast notification stack. Triggered by `X-Toast-Message`/`X-Toast-Type` HTMX response headers or a `$dispatch('toast', { message, type })` event. Methods: `show(message, type, duration)`, `dismiss(id)`, auto-dismiss. |
 
 ```python
 # Example: accessible modal with Alpine.js x-show + Tailwind
@@ -824,7 +823,7 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 
 | Component | Domain |
 |-----------|--------|
-| `calendarPage`, `calendarModal`, `calendarDrag` | Calendar views |
+| `calendarPage`, `calendarModal` | Calendar views |
 | `hierarchyTree` | Goal/KU hierarchy tree views |
 | `relationshipGraph` | Vis.js lateral relationship graphs |
 | `choiceOptions` | Choice domain option management |
