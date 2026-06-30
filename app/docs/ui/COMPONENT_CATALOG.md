@@ -98,7 +98,7 @@ Primary action button. Pass style via `cls=ButtonT.X` (not `variant=`).
   - `ButtonT.secondary` - Gray background with border
   - `ButtonT.ghost` - Transparent with hover
   - `ButtonT.destructive` - Red for destructive actions
-  - `ButtonT.sm` / `ButtonT.lg` / `ButtonT.xs` - Size modifiers (combine in tuple)
+- `size` - Geometry as a string: `"xs"` / `"sm"` / `"md"` (default) / `"lg"` / `"xl"`. Style (`cls`) and geometry (`size`) are separate kwargs and never collide.
 - `**kwargs` - Additional attributes (type, disabled, hx_post, etc.)
 
 **Examples:**
@@ -108,8 +108,8 @@ from ui.components import Button, ButtonT
 # Primary action
 Button("Save Changes", cls=ButtonT.primary)
 
-# Secondary action, small
-Button("Cancel", cls=(ButtonT.secondary, ButtonT.sm))
+# Secondary action, small — style via cls=, geometry via size=
+Button("Cancel", cls=ButtonT.secondary, size="sm")
 
 # Destructive action
 Button("Delete", cls=ButtonT.destructive)
@@ -581,7 +581,7 @@ CardGenerator.from_dataclass(
     subtitle="by Student Name",
     header_badges=[feedback_badge, status_badge("pending")],
     show_labels=False,
-    actions=ButtonLink("Review", href="/teaching/review/uid", variant=ButtonT.primary, size=Size.sm),
+    actions=ButtonLink("Review", href="/teaching/review/uid", cls=ButtonT.primary, size="sm"),
     extra=feedback_toggle_div,
     card_attrs={"cls": "bg-background shadow-sm mb-2"},
 )
