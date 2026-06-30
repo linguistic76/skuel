@@ -173,8 +173,12 @@ class LLMDSLBridgeService:
 
     **Pipeline integration (wired — ADR-069):**
 
-    `UserEntryProcessingService._run_extract_activities` runs transform() as
-    the optional pre-pass of `Pipeline.EXTRACT_ACTIVITIES`: on success the
+    `UserEntryProcessingService._run_extract_activities` runs
+    transform_with_context() as the optional pre-pass of
+    `Pipeline.EXTRACT_ACTIVITIES`, grounded in the user's active goals via the
+    shared `core.services.dsl.grounding` builder — the same grounding the inert
+    journal "Suggested activities" panel uses, so the entity-creating path and
+    the preview path recognise prose against identical context. On success the
     returned `activity_lines` are appended to the working text under an
     `## Extracted Activities` heading before the Analog parser runs; on
     failure the run degrades to parser-only over the original text (the

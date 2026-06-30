@@ -46,6 +46,8 @@ from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
+from core.services.dsl.grounding import goals_as_context
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -55,6 +57,7 @@ if TYPE_CHECKING:
     from core.ports.transcription_protocols import TranscriptionPort
     from core.services.dsl.activity_extractor import ActivityExtractorService
     from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
+    from core.services.goals_service import GoalsService
     from core.services.llm_caller import UnifiedLLMCaller
     from core.services.output.instruction_resolver import InstructionResolver
     from core.services.user_entry.user_entry_service import UserEntryService
@@ -82,6 +85,7 @@ class UserEntryProcessingService:
         activity_extractor: ActivityExtractorService | None = None,
         dsl_bridge: LLMDSLBridgeService | None = None,
         user_service: UserService | None = None,
+        goals_service: GoalsService | None = None,
     ) -> None:
         self.entry_service = entry_service
         self.transcription_adapter = transcription_adapter
@@ -91,6 +95,11 @@ class UserEntryProcessingService:
         self.activity_extractor = activity_extractor
         self.dsl_bridge = dsl_bridge
         self.user_service = user_service
+        # Grounds the bridge pre-pass in the user's active goals — the same
+        # grounding the inert journal "Suggested activities" panel uses, so the
+        # entity-creating path and the preview path recognise prose against the
+        # identical context (core.services.dsl.grounding). None → ungrounded.
+        self.goals_service = goals_service
         self.logger = get_logger("skuel.services.user_entry.processing")
 
     # =========================================================================
@@ -427,7 +436,17 @@ class UserEntryProcessingService:
             bridge_text = "\n".join(
                 ln for ln in source_text.splitlines() if not _CHECKBOX_RE.match(ln)
             )
-            bridge_result = await self.dsl_bridge.transform(bridge_text, user_uid=entry.user_uid)
+            # Ground the pre-pass in the user's active goals — the SAME grounding
+            # the journal "Suggested activities" preview uses (shared builder), so
+            # this entity-creating path recognises and goal-links prose against
+            # the identical context. Grounding is soft: it degrades to ungrounded
+            # (None) when no goals service is wired or the query fails.
+            grounding_titles = await fetch_active_goal_titles(self.goals_service, entry.user_uid)
+            bridge_result = await self.dsl_bridge.transform_with_context(
+                bridge_text,
+                user_uid=entry.user_uid,
+                active_goals=goals_as_context(grounding_titles),
+            )
             if bridge_result.is_error:
                 # Degrade, don't fail: the Analog parser still runs over the
                 # original text; tagged lines extract regardless.

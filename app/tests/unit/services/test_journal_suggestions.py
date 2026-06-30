@@ -268,9 +268,7 @@ class TestActiveGoalTitles:
     @pytest.mark.asyncio
     async def test_no_goals_service_returns_empty(self):
         service = _make_service(dsl_bridge=MagicMock(), goals_service=None)
-        result = await service.active_goal_titles("user_mike")
-        assert result.is_ok
-        assert result.value == []
+        assert await service.active_goal_titles("user_mike") == []
 
     @pytest.mark.asyncio
     async def test_returns_active_titles(self):
@@ -281,23 +279,22 @@ class TestActiveGoalTitles:
         goals_service.get_active = AsyncMock(return_value=Result.ok([g1, g2]))
         service = _make_service(dsl_bridge=MagicMock(), goals_service=goals_service)
 
-        result = await service.active_goal_titles("user_mike")
-        assert result.is_ok
-        assert result.value == ["Run a marathon", "Ship SKUEL"]
+        assert await service.active_goal_titles("user_mike") == ["Run a marathon", "Ship SKUEL"]
         goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
 
     @pytest.mark.asyncio
-    async def test_goals_error_propagates(self):
-        # A goals-query failure surfaces so the route can degrade to text-only
-        # keying, rather than silently keying on empty grounding.
+    async def test_goals_error_degrades_to_empty(self):
+        # Grounding is a soft signal shared by the suggestion preview and the
+        # EXTRACT_ACTIVITIES extractor: a goals-query failure degrades to no
+        # grounding (empty titles), never an error — the bridge enhances, never
+        # gates. The route then keys the cache on text-only.
         goals_service = MagicMock()
         goals_service.get_active = AsyncMock(
             return_value=Result.fail(Errors.database("get_active", "boom"))
         )
         service = _make_service(dsl_bridge=MagicMock(), goals_service=goals_service)
 
-        result = await service.active_goal_titles("user_mike")
-        assert result.is_error
+        assert await service.active_goal_titles("user_mike") == []
 
 
 class TestGroundingDigest:
