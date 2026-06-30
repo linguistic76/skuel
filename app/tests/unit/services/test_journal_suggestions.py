@@ -237,6 +237,16 @@ class TestSuggestActivities:
         goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
 
 
+class TestSuggestionsAvailable:
+    def test_true_when_bridge_wired(self):
+        assert _make_service(dsl_bridge=MagicMock()).suggestions_available is True
+
+    def test_false_when_bridge_none(self):
+        # FULL tier with llm_caller but no OpenAI key: service exists, bridge
+        # doesn't. The route uses this to avoid caching a bridge-less empty panel.
+        assert _make_service(dsl_bridge=None).suggestions_available is False
+
+
 class TestSuggestionGrounding:
     @pytest.mark.asyncio
     async def test_no_bridge_returns_empty(self):

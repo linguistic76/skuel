@@ -76,6 +76,17 @@ class JournalService:
         """Return the best available LLM model based on configured adapters."""
         return _MODEL_CLAUDE if self._llm.is_model_supported(_MODEL_CLAUDE) else _MODEL_GPT
 
+    @property
+    def suggestions_available(self) -> bool:
+        """Whether the activity-suggestion bridge is wired (FULL tier + OpenAI key).
+
+        ``JournalService`` can exist (``llm_caller`` present) while the DSL bridge
+        is ``None`` — e.g. FULL tier with an Anthropic key but no OpenAI key. The
+        suggestions route checks this so a bridge-unavailable empty result is
+        never cached (a poisoned empty panel would survive a later key change).
+        """
+        return self._dsl_bridge is not None
+
     # ------------------------------------------------------------------
     # User-context summary (used by Stage 2 and Stage 3 prompts)
     # ------------------------------------------------------------------

@@ -891,9 +891,12 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        # CORE tier (no journal_service) → cheat-sheet pointer, no LLM call.
-        if journal_service is None:
-            return SuggestedActivitiesPanel(tier_core=True)
+        # Bridge unavailable (CORE tier, or FULL tier without an OpenAI key) →
+        # cheat-sheet pointer, no LLM call and no cache write. Caching an empty
+        # result here would poison the panel: it would survive a later key
+        # change for users with no active goals (grounding stays "").
+        if journal_service is None or not journal_service.suggestions_available:
+            return SuggestedActivitiesPanel(unavailable=True)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
 
