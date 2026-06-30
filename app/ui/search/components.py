@@ -690,7 +690,7 @@ def _render_active_filter_badges() -> str:
 
             <!-- Clear All Button -->
             <button type="button"
-                    class="btn btn-ghost btn-sm text-error"
+                    class="inline-flex items-center justify-center font-medium transition-colors h-8 px-3 text-sm rounded-md hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-error"
                     x-on:click="clearAllFilters()"
                     x-show="hasActiveFilters">
                 Clear All
@@ -978,6 +978,15 @@ def _render_pagination(response: SearchResponse) -> Any:
     current_page = page_info["current_page"]
     total_pages = page_info["total_pages"]
 
+    # SKUEL button class strings (mirror ui.components.Button + ButtonT, size="sm").
+    btn_sm = (
+        "inline-flex items-center justify-center font-medium transition-colors h-8 px-3 "
+        "text-sm rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    )
+    btn_outline = "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+    btn_primary = "bg-primary text-primary-foreground hover:bg-primary/90"
+    btn_disabled = "pointer-events-none opacity-50"
+
     return Div(
         Div(
             # Previous button
@@ -987,13 +996,13 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"btn btn-sm {'btn-disabled opacity-50' if current_page <= 1 else 'btn-outline'}",
+                cls=f"{btn_sm} {btn_disabled if current_page <= 1 else btn_outline}",
             ),
             # Page numbers (show current and surrounding pages)
             *[
                 A(
                     str(page),
-                    cls=f"btn btn-sm {'btn-primary' if page == current_page else 'btn-outline'}",
+                    cls=f"{btn_sm} {btn_primary if page == current_page else btn_outline}",
                 )
                 for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3))
             ],
@@ -1004,7 +1013,7 @@ def _render_pagination(response: SearchResponse) -> Any:
                 hx_get="/search/results",
                 hx_target="#search-results",
                 hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"btn btn-sm {'btn-disabled opacity-50' if not response.has_more_pages() else 'btn-outline'}",
+                cls=f"{btn_sm} {btn_disabled if not response.has_more_pages() else btn_outline}",
             ),
             cls="flex justify-center gap-1",
         ),
