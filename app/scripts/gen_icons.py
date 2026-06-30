@@ -39,7 +39,10 @@ SAFELIST = {"help-circle", "circle"}
 # (pattern, file globs) — each pattern's first group is a kebab-case icon name.
 SCAN_RULES: list[tuple[str, tuple[str, ...]]] = [
     (r'Icon\("([a-z0-9-]+)"', ("ui/**/*.py", "adapters/**/*.py")),
-    (r'"icon":\s*"([a-z0-9-]+)"', ("ui/**/*.py",)),
+    (r'"icon":\s*"([a-z0-9-]+)"', ("ui/**/*.py", "adapters/**/*.py")),
+    # icon="name" / icon='name' — nav configs (SidebarItem, nav_config) pass icon
+    # names this way and later render them via Icon(item.icon).
+    (r"""icon=["']([a-z0-9-]+)["']""", ("ui/**/*.py", "adapters/**/*.py")),
     (r"icon:\s*'([a-z0-9-]+)'", ("static/**/*.js",)),
     (r'data-lucide="([a-z0-9-]+)"', ("static/**/*.js", "ui/**/*.py")),
 ]

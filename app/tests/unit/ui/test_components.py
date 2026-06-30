@@ -7,7 +7,7 @@ not as exact string equality, so minor whitespace differences don't break tests.
 
 from __future__ import annotations
 
-from fasthtml.common import to_xml
+from fasthtml.common import Div, to_xml
 
 from ui.components._util import _cls
 from ui.components.accordion import Accordion, AccordionItem
@@ -251,34 +251,46 @@ class TestCard:
 
 
 class TestIcon:
+    # Icon() returns an inline-SVG NotStr (a str); production nests it inside FT
+    # trees, so assert on str(Icon(...)). See ui/components/icon.py.
     def test_renders_without_error(self) -> None:
         assert Icon("check") is not None
 
-    def test_data_lucide_attribute(self) -> None:
-        xml = to_xml(Icon("check"))
-        assert "data-lucide" in xml
-        assert "check" in xml
+    def test_renders_inline_svg(self) -> None:
+        # Server-rendered inline SVG — no lucide data-lucide attribute.
+        markup = str(Icon("check"))
+        assert "<svg" in markup
+        assert "data-lucide" not in markup
+        assert "<path" in markup  # check icon geometry
 
     def test_icon_name_x(self) -> None:
-        xml = to_xml(Icon("x"))
-        assert "data-lucide" in xml
+        markup = str(Icon("x"))
+        assert "<svg" in markup
+        assert "data-lucide" not in markup
+
+    def test_unknown_name_falls_back(self) -> None:
+        # Unknown names render the help-circle fallback, never blank / never error.
+        markup = str(Icon("definitely-not-an-icon"))
+        assert "<svg" in markup
+        assert "<path" in markup
+
+    def test_nests_in_ft_tree(self) -> None:
+        # The real usage: Icon embedded in an FT element renders unescaped via to_xml.
+        xml = to_xml(Div(Icon("check")))
+        assert "<svg" in xml
+        assert "&lt;svg" not in xml  # not HTML-escaped
 
     def test_size_emitted(self) -> None:
-        xml = to_xml(Icon("check", size=24))
-        assert "24px" in xml
+        assert "24px" in str(Icon("check", size=24))
 
     def test_cls_passthrough(self) -> None:
-        xml = to_xml(Icon("check", cls="text-blue-600"))
-        assert "text-blue-600" in xml
+        assert "text-blue-600" in str(Icon("check", cls="text-blue-600"))
 
     def test_kwargs_passthrough(self) -> None:
-        xml = to_xml(Icon("check", id="icon-1"))
-        assert 'id="icon-1"' in xml
+        assert 'id="icon-1"' in str(Icon("check", id="icon-1"))
 
     def test_different_icons_differ(self) -> None:
-        xml_check = to_xml(Icon("check"))
-        xml_x = to_xml(Icon("x"))
-        assert xml_check != xml_x
+        assert str(Icon("check")) != str(Icon("x"))
 
 
 # ============================================================================
