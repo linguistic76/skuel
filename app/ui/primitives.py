@@ -33,7 +33,7 @@ def icon_tile(
     """Rounded semantic icon tile.
 
     Args:
-        icon:     Lucide icon name.
+        icon:     Icon name (see ``ui/components/icon.py``).
         bg_cls:   Background class, e.g. ``"bg-blue-50"``.
         icon_cls: Icon colour class, e.g. ``"text-blue-600"``.
         size:     ``"md"`` (34×34, default) or ``"lg"`` (42×42).
@@ -132,7 +132,7 @@ def SelectableOptionRow(
     are canonical here — never duplicate in call sites.
 
     Args:
-        icon: Lucide icon name for the tile.
+        icon: Icon name for the tile (see ``ui/components/icon.py``).
         tile_bg: Tile background class, e.g. ``"bg-blue-50"``.
         icon_cls: Icon colour class, e.g. ``"text-blue-600"``.
         title: Primary text.

@@ -455,38 +455,6 @@
             };
         });
 
-        // Standalone drag-drop component (for cases where only drag is needed)
-        Alpine.data('calendarDrag', function() {
-            return {
-                draggedItemId: null,
-
-                handleDragStart: function(event, itemId) {
-                    this.draggedItemId = itemId;
-                    event.dataTransfer.effectAllowed = 'move';
-                },
-
-                handleDragOver: function(event) {
-                    event.preventDefault();
-                },
-
-                handleDrop: function(event, newDateTime) {
-                    event.preventDefault();
-
-                    if (!this.draggedItemId) return;
-
-                    // Set hidden form values for HTMX submission
-                    this.$refs.rescheduleUid.value = this.draggedItemId;
-                    this.$refs.rescheduleTime.value = newDateTime;
-
-                    // Trigger HTMX form submission
-                    htmx.trigger(this.$refs.rescheduleForm, 'submit');
-
-                    // Clear drag state
-                    this.draggedItemId = null;
-                }
-            };
-        });
-
         // ---------------------------------------------------------------------
         // Collapsible Section Component
         // ---------------------------------------------------------------------
@@ -2003,130 +1971,6 @@
         });
 
         // ---------------------------------------------------------------------
-        // Phase 2, Task 8: Accessible Tabs
-        // ---------------------------------------------------------------------
-        /**
-         * Accessible Tabs Component
-         * ========================
-         *
-         * WCAG 2.1 Level AA compliant tab management.
-         *
-         * Features:
-         * - aria-selected="true/false" management
-         * - tabindex toggling (0 for active, -1 for inactive)
-         * - Arrow key navigation (Left/Right, Home/End)
-         * - Integration with HTMX tab switching
-         *
-         * Usage:
-         * <div x-data="accessibleTabs({ activeTab: 'list' })" role="tablist">
-         *     <a role="tab"
-         *        :aria-selected="activeTab === 'list'"
-         *        :tabindex="activeTab === 'list' ? 0 : -1"
-         *        @click="setActiveTab('list')"
-         *        @keydown="handleTabKeydown($event, 'list')">
-         *        List
-         *     </a>
-         * </div>
-         *
-         * WCAG Success Criteria:
-         * - 2.1.1 Keyboard (Level A): Full keyboard navigation
-         * - 2.4.3 Focus Order (Level A): Logical tab order
-         * - 4.1.2 Name, Role, Value (Level A): Proper ARIA attributes
-         */
-        Alpine.data('accessibleTabs', function(options) {
-            var defaults = {
-                activeTab: null,
-                onTabChange: null
-            };
-            var config = Object.assign({}, defaults, options || {});
-
-            return {
-                activeTab: config.activeTab,
-
-                /**
-                 * Set the active tab and update ARIA attributes.
-                 * @param {string} tabId - The ID of the tab to activate
-                 */
-                setActiveTab: function(tabId) {
-                    this.activeTab = tabId;
-
-                    // Call optional callback
-                    if (typeof config.onTabChange === 'function') {
-                        config.onTabChange(tabId);
-                    }
-                },
-
-                /**
-                 * Handle keyboard navigation within tabs.
-                 * @param {KeyboardEvent} e - Keyboard event
-                 * @param {string} currentTabId - ID of the current tab
-                 */
-                handleTabKeydown: function(e, currentTabId) {
-                    var self = this;
-                    var handled = false;
-
-                    // Get all tab elements
-                    var tablist = e.target.closest('[role="tablist"]');
-                    if (!tablist) return;
-
-                    var tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
-                    var currentIndex = tabs.indexOf(e.target);
-
-                    if (currentIndex === -1) return;
-
-                    switch (e.key) {
-                        case 'ArrowLeft':
-                        case 'ArrowUp':
-                            // Move to previous tab (circular)
-                            var prevIndex = currentIndex === 0 ? tabs.length - 1 : currentIndex - 1;
-                            self.focusAndActivateTab(tabs[prevIndex]);
-                            handled = true;
-                            break;
-
-                        case 'ArrowRight':
-                        case 'ArrowDown':
-                            // Move to next tab (circular)
-                            var nextIndex = currentIndex === tabs.length - 1 ? 0 : currentIndex + 1;
-                            self.focusAndActivateTab(tabs[nextIndex]);
-                            handled = true;
-                            break;
-
-                        case 'Home':
-                            // Move to first tab
-                            self.focusAndActivateTab(tabs[0]);
-                            handled = true;
-                            break;
-
-                        case 'End':
-                            // Move to last tab
-                            self.focusAndActivateTab(tabs[tabs.length - 1]);
-                            handled = true;
-                            break;
-                    }
-
-                    if (handled) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                },
-
-                /**
-                 * Focus a tab and trigger its click to activate.
-                 * @param {HTMLElement} tab - Tab element to focus and activate
-                 */
-                focusAndActivateTab: function(tab) {
-                    if (!tab) return;
-
-                    // Focus the tab
-                    tab.focus();
-
-                    // Trigger click to activate (works with HTMX)
-                    tab.click();
-                }
-            };
-        });
-
-        // ---------------------------------------------------------------------
         // Phase 4, Task 16: Debounced Insight Filters
         // ---------------------------------------------------------------------
         /**
@@ -2350,39 +2194,10 @@
     });
 
     // =========================================================================
-    // Ku Search Panel
+    // Explore Search Panel
     // =========================================================================
 
     document.addEventListener('alpine:init', function() {
-
-        Alpine.data('kuSearch', function() {
-            return {
-                query: '',
-                activeTag: '',
-
-                init: function() {
-                    // reactive state — query tracked via x-model, activeTag via hidden input
-                },
-
-                setTag: function(tag) {
-                    var self = this;
-                    if (self.activeTag === tag) {
-                        self.activeTag = '';
-                    } else {
-                        self.activeTag = tag;
-                    }
-                    // fire HTMX search with updated tag value
-                    self.$nextTick(function() {
-                        var form = self.$refs.searchInput.closest('form');
-                        var params = new URLSearchParams(new FormData(form));
-                        htmx.ajax('GET', '/api/ku/search?' + params.toString(), {
-                            target: '#ku-list',
-                            swap: 'innerHTML'
-                        });
-                    });
-                }
-            };
-        });
 
         Alpine.data('exploreSearch', function(initialTag) {
             return {

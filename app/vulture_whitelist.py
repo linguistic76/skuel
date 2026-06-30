@@ -44,7 +44,6 @@ ActivityReportGeneratorBackendOperations  # noqa: F821, B018
 ReviewQueueBackendOperations  # noqa: F821, B018
 UserProgressBackendOperations  # noqa: F821, B018
 SupportsRichComparison  # noqa: F821, B018
-ProfileDomainItem  # noqa: F821, B018
 
 # Protocol method parameters — names define keyword-callable contracts
 new_instructions  # noqa: F821, B018
