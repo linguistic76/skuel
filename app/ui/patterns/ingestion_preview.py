@@ -28,6 +28,7 @@ from ui.components import Button, ButtonT
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
+from ui.patterns.stats_grid import IconStat
 
 
 def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
@@ -56,30 +57,10 @@ def DryRunPreviewComponent(preview: Any, operation_id: str | None = None) -> FT:
         H2("Dry-Run Preview", cls="text-2xl font-bold mb-4"),
         # Summary stats
         Div(
-            Div(
-                Div("📊", cls="text-2xl"),
-                Div("Total Files", cls="text-sm text-muted-foreground"),
-                Div(str(total_files), cls="text-2xl font-bold"),
-                cls="p-4 text-center",
-            ),
-            Div(
-                Div("➕", cls="text-2xl text-success"),
-                Div("To Create", cls="text-sm text-muted-foreground"),
-                Div(str(len(files_to_create)), cls="text-2xl font-bold text-success"),
-                cls="p-4 text-center",
-            ),
-            Div(
-                Div("🔄", cls="text-2xl text-warning"),
-                Div("To Update", cls="text-sm text-muted-foreground"),
-                Div(str(len(files_to_update)), cls="text-2xl font-bold text-warning"),
-                cls="p-4 text-center",
-            ),
-            Div(
-                Div("⏭️", cls="text-2xl text-muted-foreground"),
-                Div("To Skip", cls="text-sm text-muted-foreground"),
-                Div(str(len(files_to_skip)), cls="text-2xl font-bold text-muted-foreground"),
-                cls="p-4 text-center",
-            ),
+            IconStat("Total Files", total_files, "📊"),
+            IconStat("To Create", len(files_to_create), "➕", "text-success"),
+            IconStat("To Update", len(files_to_update), "🔄", "text-warning"),
+            IconStat("To Skip", len(files_to_skip), "⏭️", "text-muted-foreground"),
             cls="grid grid-cols-2 lg:grid-cols-4 gap-4 shadow rounded-lg mb-4 w-full",
         ),
         # Relationship stats

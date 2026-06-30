@@ -79,9 +79,10 @@ def TaskCard(title: str, desc: str, stat: str, prio: str, uid: str): ...
 ### Common Patterns Library
 
 ```python
-from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard
+from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard, IconStat
 from ui.patterns.stats_grid import StatItem
-from ui.patterns import ProgressMetric, SettingToggle
+from ui.patterns import SettingToggle
+from ui.feedback import Progress, ProgressT
 
 # Empty state — primary list view with CTA
 EmptyState(
@@ -146,11 +147,14 @@ from ui.feedback import StatusBadge
 StatusBadge("active")       # EntityStatus-driven green badge
 StatusBadge("in_progress")  # EntityStatus-driven yellow badge
 
-# Single stat with semantic color
+# Single stat with semantic color (Card-wrapped label/value)
 StatCard(label="Completion Rate", value="85%", color="success")
 
-# Progress bar with auto color thresholds
-ProgressMetric("Data Quality", 0.88)  # green ≥80%, yellow ≥60%, red <60%
+# Compact icon-led stat tile (centered, no Card — for dashboards/previews)
+IconStat("Successful", 42, "✅", "text-success")
+
+# Progress bar — pick the variant for the color you want
+Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/...
 ```
 
 ### EmptyState Usage Rules
