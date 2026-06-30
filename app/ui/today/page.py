@@ -170,8 +170,8 @@ def _ribbons_column() -> FT:
 
 
 def _empty_state() -> FT:
-    # x-show (not x-if) keeps the icon in DOM so lucide.createIcons() processes it at page load.
-    # x-if inserts nodes lazily — after createIcons() has already run — leaving a blank icon.
+    # x-show (not x-if) keeps the empty-state block in the DOM and toggles visibility,
+    # matching the other always-rendered sections; icons are server-rendered inline SVG.
     return Div(
         Div(
             Icon("check-circle-2", size=28),
@@ -214,7 +214,7 @@ def _task_row(*, is_triage: bool) -> FT:
         row_classes += " border border-border"
 
     kind_icon = Div(
-        Span(**{"x-html": "kindIconHtml(t.kind)"}),
+        Span(cls="block w-3.5 h-3.5", **{"x-html": "kindIconHtml(t.kind)"}),
         cls=(
             "w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center "
             "bg-blue-50 text-blue-600"
@@ -582,7 +582,7 @@ def _now_marker() -> FT:
 
 def _rituals_list() -> FT:
     dot = Div(
-        Span(**{"x-html": "ritualIconHtml(r.time)"}),
+        Span(cls="block w-2.5 h-2.5", **{"x-html": "ritualIconHtml(r.time)"}),
         cls="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center",
         **{
             ":class": (
@@ -724,7 +724,7 @@ def _drawer_inner() -> FT:
 
 def _drawer_toolbar() -> FT:
     kind_chip = Span(
-        Span(**{"x-html": "openTaskIconHtml()"}),
+        Span(cls="block w-3 h-3", **{"x-html": "openTaskIconHtml()"}),
         Span(**{"x-text": "seed.kinds[openTask.kind]?.label || openTask.kind"}),
         cls=(
             "inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10.5px] "
