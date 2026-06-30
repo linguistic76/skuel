@@ -1110,6 +1110,22 @@ async def compose_services(
         # InstructionResolver template dispatch (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE).
         user_entry_service.exercise_service = exercise_service
 
+        # Optional Digital pre-pass: LLM bridge tags untagged prose before the
+        # Analog parser runs. FULL tier only; a keyless bridge would error on
+        # every transform() call, so it degrades to None (parser-only) too.
+        # Built before JournalService so the journals "Suggested activities"
+        # panel and the EXTRACT_ACTIVITIES processor share one instance.
+        dsl_bridge = None
+        if tier.ai_enabled:
+            from adapters.external.llm import create_llm_dsl_bridge
+
+            bridge = create_llm_dsl_bridge()
+            dsl_bridge = bridge if bridge.chat_port is not None else None
+            if dsl_bridge is None:
+                logger.info("⏭️  DSL bridge skipped (no OpenAI key) — parser-only extraction")
+        else:
+            logger.info("⏭️  DSL bridge skipped (intelligence tier: CORE) — parser-only extraction")
+
         # JournalService: DNWF three-stage workflow (FULL tier only, requires llm_caller)
         journal_service = None
         if llm_caller is not None:
@@ -1121,6 +1137,7 @@ async def compose_services(
                 goals_service=activity_services["goals"],
                 tasks_service=activity_services["tasks"],
                 habits_service=activity_services["habits"],
+                dsl_bridge=dsl_bridge,
             )
             logger.info("✅ JournalService created")
 
@@ -1145,20 +1162,6 @@ async def compose_services(
             calendar_service=None,
             lifepath_service=None,
         )
-
-        # Optional Digital pre-pass: LLM bridge tags untagged prose before the
-        # Analog parser runs. FULL tier only; a keyless bridge would error on
-        # every transform() call, so it degrades to None (parser-only) too.
-        dsl_bridge = None
-        if tier.ai_enabled:
-            from adapters.external.llm import create_llm_dsl_bridge
-
-            bridge = create_llm_dsl_bridge()
-            dsl_bridge = bridge if bridge.chat_port is not None else None
-            if dsl_bridge is None:
-                logger.info("⏭️  DSL bridge skipped (no OpenAI key) — parser-only extraction")
-        else:
-            logger.info("⏭️  DSL bridge skipped (intelligence tier: CORE) — parser-only extraction")
 
         user_entry_processor = UserEntryProcessingService(
             entry_service=user_entry_service,
