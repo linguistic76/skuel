@@ -672,6 +672,25 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 ---
 
+### StatTile(label, value)
+
+Compact centered value-over-label stat tile — no icon, no Card wrapper. Sits inside a
+caller-provided grid (e.g. profile `DomainSummaryCard`). Distinct from `IconStat`
+(icon-led, label/value order) and `StatCard` (Card-wrapped, label-over-value).
+
+**Parameters:**
+- `label: str` - Stat label shown beneath the value
+- `value: str | int` - Stat value (coerced to str)
+
+**Example:**
+```python
+from ui.patterns.stats_grid import StatTile
+
+StatTile("Active", 42)
+```
+
+---
+
 ## EmptyState
 
 **Location:** `/ui/patterns/empty_state.py`
