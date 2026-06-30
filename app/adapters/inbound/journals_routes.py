@@ -891,11 +891,10 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        # Bridge unavailable (CORE tier, or FULL tier without an OpenAI key) →
-        # cheat-sheet pointer, no LLM call and no cache write. Caching an empty
-        # result here would poison the panel: it would survive a later key
-        # change for users with no active goals (grounding stays "").
-        if journal_service is None or not journal_service.suggestions_available:
+        # CORE tier (no journal_service) → inert cheat-sheet pointer. The
+        # FULL-tier-without-OpenAI-key case is handled below, AFTER the ownership
+        # and allowlist guards, so it can't shortcut the 404 invariant.
+        if journal_service is None:
             return SuggestedActivitiesPanel(unavailable=True)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -919,6 +918,13 @@ def create_journals_routes(
         # entries are out of scope for this panel — treat as not found here.
         if entry.pipeline not in _JOURNAL_PIPELINES:
             return Response("Not found", status_code=404)
+
+        # Bridge unavailable (FULL tier without an OpenAI key): inert panel, but
+        # only after the ownership + allowlist guards above so missing / foreign /
+        # non-journal uids still 404. No LLM call and no cache write — caching a
+        # bridge-less empty result would survive a later key change.
+        if not journal_service.suggestions_available:
+            return SuggestedActivitiesPanel(unavailable=True)
 
         content = entry.content or entry.processed_content or ""
 
@@ -952,14 +958,22 @@ def create_journals_routes(
         # Persist for next visit, failure-isolated: a cache-write miss must not
         # break the panel the user is looking at. updated_at bumps on write, but
         # the session list orders by created_at, so ordering is unaffected.
+        #
+        # update_entry replaces metadata wholesale, so merge the cache subfield
+        # into the LATEST metadata (re-read here, not the stale page-load
+        # snapshot) to avoid clobbering a concurrent metadata write. The cache
+        # values are still keyed by the page-load content/grounding fingerprint;
+        # a future read validates that against the then-current values.
         from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
 
+        latest = await user_entry_service.get_entry(entry_uid, user_uid)
+        base_metadata = latest.value.metadata if latest.is_ok and latest.value else entry.metadata
         persist = await user_entry_service.update_entry(
             entry_uid,
             user_uid,
             UserEntryUpdateRequest(
                 metadata=metadata_with_cached_suggestions(
-                    entry.metadata, result.value, content, grounding
+                    base_metadata, result.value, content, grounding
                 )
             ),
         )
