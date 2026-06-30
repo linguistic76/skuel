@@ -396,7 +396,7 @@ from ui.layout import Row, FlexItem
 # Horizontal row with gap
 Row(
     Button("Save"),
-    Button("Cancel", variant="secondary"),
+    Button("Cancel", cls=ButtonT.secondary),
     gap=2,
     justify="end",
 )
@@ -467,7 +467,7 @@ PageHeader(title="Tasks")
 PageHeader(
     title="Tasks",
     subtitle="Manage your tasks and projects",
-    actions=ButtonLink("New Task", href="/tasks/new", variant="primary"),
+    actions=ButtonLink("New Task", href="/tasks/new", cls=ButtonT.primary),
 )
 
 # With breadcrumbs
@@ -1259,7 +1259,7 @@ Form(
         name="priority",
         options=[("low", "Low"), ("medium", "Medium"), ("high", "High")],
     ),
-    Button("Save", variant="primary", type="submit"),
+    Button("Save", cls=ButtonT.primary, type="submit"),
     hx_post="/api/tasks",
     hx_target="#result",
 )

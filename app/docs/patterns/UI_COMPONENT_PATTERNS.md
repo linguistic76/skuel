@@ -340,7 +340,7 @@ PageHeader("Goals", subtitle="Track and achieve your goals")
 
 # Section header with optional action link
 SectionHeader("Recent Tasks")
-SectionHeader("Active Goals", action=ButtonLink("View All", href="/goals", variant=ButtonT.ghost, size=Size.xs))
+SectionHeader("Active Goals", action=ButtonLink("View All", href="/goals", cls=ButtonT.ghost, size="xs"))
 ```
 
 ### CSS Spacing Tokens
@@ -460,29 +460,35 @@ SKUEL uses Python enums for type-safe component variants:
 
 ### Buttons
 
+`ButtonT` is a `StrEnum` of Tailwind class strings. Style via **`cls=`** (not `variant=`);
+geometry via the **`size=`** string kwarg. The enum is slim — `default`, `primary`,
+`secondary`, `ghost`, `destructive`, `link` (no `error`/`success`/`warning`/`accent`/`outline`).
+
 ```python
-# Primary action
-Button("Submit", variant=ButtonT.primary)
+# Primary action — cls=, not variant=
+Button("Submit", cls=ButtonT.primary)
 
 # Secondary/Ghost
-Button("Cancel", variant=ButtonT.ghost)
-Button("Back", variant=ButtonT.secondary)
+Button("Cancel", cls=ButtonT.ghost)
+Button("Back", cls=ButtonT.secondary)
 
-# Semantic colors
-Button("Delete", variant=ButtonT.error)
-Button("Save", variant=ButtonT.success)
-Button("Warn", variant=ButtonT.warning)
+# Destructive (was ButtonT.error)
+Button("Delete", cls=ButtonT.destructive)
 
-# With size
-Button("Small", variant=ButtonT.primary, size=Size.sm)
-Button("Large", variant=ButtonT.primary, size=Size.lg)
+# With size (string: "xs" | "sm" | "md" | "lg" | "xl")
+Button("Small", cls=ButtonT.primary, size="sm")
+Button("Large", cls=ButtonT.primary, size="lg")
 
-# Outline style
-Button("Outline", variant=ButtonT.primary, outline=True)
+# Bordered/outline style is the default variant
+Button("Outline", cls=ButtonT.default)
 
 # With HTMX
-Button("Load More", variant=ButtonT.ghost, hx_get="/items?page=2", hx_target="#list")
+Button("Load More", cls=ButtonT.ghost, hx_get="/items?page=2", hx_target="#list")
 ```
+
+> For status-colored success/warning/error UI, use **badges/alerts** (`ui.feedback`), which
+> keep `variant=` and the full color enum (see [Badges](#badges) / [Alerts](#alerts)) — the
+> button and feedback enums are deliberately different.
 
 ### Alerts
 
@@ -522,7 +528,7 @@ Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200"
 ```python
 Progress(value=75, variant=ProgressT.primary)
 Progress(value=100, variant=ProgressT.success)
-RadialProgress(75, variant=ButtonT.success)
+RadialProgress(75, cls="text-success")   # color via cls; variant= is reserved/unused
 ```
 
 ---
@@ -536,7 +542,7 @@ Card(
     CardBody(
         H2("Title"),
         P("Description"),
-        Button("Action", variant=ButtonT.primary)
+        Button("Action", cls=ButtonT.primary)
     ),
     cls="hover:shadow-lg"  # Additional classes optional
 )
@@ -544,38 +550,38 @@ Card(
 
 ### Card with Actions
 
+`CardActions` is deleted — use `CardFooter` (add `justify-end` for right-aligned actions):
+
 ```python
 Card(
     CardBody(
-        CardTitle(H3("Task Name")),
+        CardTitle("Task Name"),
         P("Task description here", cls="text-muted-foreground"),
-        CardActions(
-            Button("Edit", variant=ButtonT.ghost, size=Size.sm),
-            Button("Complete", variant=ButtonT.success, size=Size.sm),
-        )
+        CardFooter(
+            Button("Edit", cls=ButtonT.ghost, size="sm"),
+            Button("Complete", cls=ButtonT.primary, size="sm"),
+            cls="justify-end gap-2",
+        ),
     )
 )
 ```
 
-### Card Variants
+### Card Styling
 
-`CardT` comes from `ui.components` — use its variants:
+`Card` has **no `variant=`** (`CardT` is deleted). The base is a bordered, rounded surface;
+adjust emphasis with Tailwind classes via `cls=`:
 
 ```python
-# Default card
-Card(CardBody(...), variant=CardT.default)
+# Default card (base bordered surface)
+Card(CardBody(...))
 
-# Primary emphasis
-Card(CardBody(...), variant=CardT.primary)
-
-# Secondary/muted
-Card(CardBody(...), variant=CardT.secondary)
-
-# Destructive/danger
-Card(CardBody(...), variant=CardT.destructive)
+# Emphasis / muted / danger — semantic-token border + background via cls
+Card(CardBody(...), cls="border-primary")
+Card(CardBody(...), cls="bg-muted")
+Card(CardBody(...), cls="border-destructive")
 
 # Hover effect (lift + shadow on hover)
-Card(CardBody(...), variant=CardT.hover)
+Card(CardBody(...), cls="hover:shadow-md transition-shadow")
 ```
 
 ---
@@ -591,7 +597,7 @@ Form(
     LabelInput("Email", type="email", name="email", placeholder="Enter email"),
     LabelInput("Password", type="password", name="password"),
     LabelCheckbox("Remember me", name="remember"),
-    Button("Sign In", variant=ButtonT.primary, type="submit"),
+    Button("Sign In", cls=ButtonT.primary, type="submit"),
     hx_post="/login",
     hx_target="#result",
 )
@@ -616,8 +622,10 @@ LabelTextArea("Description", name="description", rows="4", placeholder="Enter de
 
 ### Input Sizing
 
+`Input` has no `size=` parameter — adjust geometry with Tailwind classes via `cls=`:
+
 ```python
-Input(size=Size.sm)  # Small input
+Input(cls="h-8 text-sm")  # Smaller input
 ```
 
 ---
@@ -644,7 +652,7 @@ DivVStacked(
 # Space between (e.g., header with title and actions)
 DivFullySpaced(
     H2("Dashboard"),
-    Button("Add New", variant=ButtonT.primary),
+    Button("Add New", cls=ButtonT.primary),
 )
 
 # Centered content
@@ -698,9 +706,9 @@ AlpineModal(
     H3("Confirm Delete"),
     P("Are you sure you want to delete this item?"),
     Div(
-        Button("Cancel", variant=ButtonT.ghost,
+        Button("Cancel", cls=ButtonT.ghost,
                **{"@click": "showConfirm = false"}),
-        Button("Delete", variant=ButtonT.error,
+        Button("Delete", cls=ButtonT.destructive,
                hx_delete="/api/items/123",
                hx_target="#item-list"),
         cls="flex gap-2 justify-end mt-4",
@@ -723,7 +731,7 @@ AlpineModal(
 # Open modal
 Button("Delete",
        **{"@click": "showConfirm = true"},
-       variant=ButtonT.error)
+       cls=ButtonT.destructive)
 ```
 
 **Parameters:**
@@ -755,7 +763,7 @@ Navbar(
         )
     ),
     NavbarEnd(
-        Button("Logout", variant=ButtonT.ghost, size=Size.sm)
+        Button("Logout", cls=ButtonT.ghost, size="sm")
     )
 )
 ```
@@ -777,7 +785,7 @@ Tabs(
 
 ```python
 Dropdown(
-    DropdownTrigger(Button("Options", variant=ButtonT.ghost)),
+    DropdownTrigger(Button("Options", cls=ButtonT.ghost)),
     DropdownContent(
         MenuItem(A("Edit", href="#")),
         MenuItem(A("Duplicate", href="#")),
@@ -808,12 +816,12 @@ TableFromDicts(
         {
             "Name": "Task 1",
             "Status": Badge("Active", variant=BadgeT.success),
-            "Actions": Button("Edit", variant=ButtonT.ghost, size=Size.xs),
+            "Actions": Button("Edit", cls=ButtonT.ghost, size="xs"),
         },
         {
             "Name": "Task 2",
             "Status": Badge("Pending", variant=BadgeT.warning),
-            "Actions": Button("Edit", variant=ButtonT.ghost, size=Size.xs),
+            "Actions": Button("Edit", cls=ButtonT.ghost, size="xs"),
         },
     ],
     body_cell_render=_cell_render,
@@ -835,7 +843,7 @@ Loading(size=Size.lg)
 
 # HTMX loading indicator
 Button("Save",
-       variant=ButtonT.primary,
+       cls=ButtonT.primary,
        hx_post="/save",
        hx_indicator="#loading")
 
@@ -863,11 +871,12 @@ def TaskCard(task: Task) -> Any:
                 Span(f"Due: {task.due_date}", cls="text-xs text-muted-foreground/50") if task.due_date else None,
                 gap=2
             ),
-            CardActions(
-                Button("Edit", variant=ButtonT.ghost, size=Size.sm,
+            CardFooter(
+                Button("Edit", cls=ButtonT.ghost, size="sm",
                        hx_get=f"/tasks/{task.uid}/edit", hx_target="#modal"),
-                Button("Complete", variant=ButtonT.success, size=Size.sm,
+                Button("Complete", cls=ButtonT.primary, size="sm",
                        hx_post=f"/api/tasks/{task.uid}/complete", hx_target="#task-list"),
+                cls="justify-end gap-2",
             ),
         ),
         cls=f"border-l-4 {_priority_border(task.priority)}"
@@ -965,17 +974,17 @@ Action links (Submit, View Report, Download, View all) must use `ButtonLink()` �
 # BAD: Ad-hoc styled text link for a CTA
 A("Submit →", href="/submit", cls="text-xs text-primary hover:underline")
 
-# GOOD: ButtonLink with semantic variant
-ButtonLink("Submit →", href="/submit", variant=ButtonT.primary, size=Size.sm)
+# GOOD: ButtonLink with semantic style (cls=) + geometry (size=)
+ButtonLink("Submit →", href="/submit", cls=ButtonT.primary, size="sm")
 ```
 
-**ButtonLink variant/size convention:**
+**ButtonLink style/size convention:**
 
-| Action Type | Variant | Size | Examples |
+| Action Type | `cls` | `size` | Examples |
 |---|---|---|---|
-| Primary CTA | `ButtonT.primary` | `Size.sm` | Submit, Start Ingestion |
-| View/Navigate | `ButtonT.ghost` | `Size.sm` | View Report, Download, Back |
-| "View all" section links | `ButtonT.ghost` | `Size.xs` | View all →, See all |
+| Primary CTA | `ButtonT.primary` | `"sm"` | Submit, Start Ingestion |
+| View/Navigate | `ButtonT.ghost` | `"sm"` | View Report, Download, Back |
+| "View all" section links | `ButtonT.ghost` | `"xs"` | View all →, See all |
 
 ### Don't Use Raw `Span()` for Status Badges
 
@@ -1099,8 +1108,8 @@ Card(
 ### Do Add `cls` for Additional Classes
 
 ```python
-# GOOD: Extra classes via cls parameter
-Button("Full Width", variant=ButtonT.primary, cls="w-full")
+# GOOD: Extra classes via cls parameter (Button merges style + extras into one cls)
+Button("Full Width", cls=f"{ButtonT.primary} w-full")
 Badge("New", variant=BadgeT.error, cls="animate-pulse")
 ```
 

@@ -198,8 +198,7 @@ def SELCategoryCard(category: SELCategory, progress: SELCategoryProgress) -> Any
         actions=ButtonLink(
             "Continue Learning →",
             href=f"/path-steps?sel={category.value}",
-            variant=ButtonT.primary,
-            cls="w-full",
+            cls=f"{ButtonT.primary} w-full",
         ),
     )
 
@@ -233,8 +232,7 @@ def AdaptiveKUCard(ku: Ku, prerequisites_met: bool = True) -> Any:
         actions=ButtonLink(
             "Start Learning →",
             href=f"/ku/{ku.uid}",
-            variant=ButtonT.primary,
-            cls="w-full",
+            cls=f"{ButtonT.primary} w-full",
         ),
     )
 ```
