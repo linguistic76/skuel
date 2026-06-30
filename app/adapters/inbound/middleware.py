@@ -8,6 +8,8 @@ Web framework middleware that belongs in the adapter layer, not in core utilitie
 import time
 from typing import Any
 
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
 from core.utils.logging import generate_request_id, get_logger, request_id_context
 
 logger = get_logger("skuel.middleware.timing")
@@ -121,15 +123,15 @@ class StaticCacheHeadersMiddleware:
 
     _STATIC_PREFIX = "/static/"
 
-    def __init__(self, app: Any) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
-    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or not scope.get("path", "").startswith(self._STATIC_PREFIX):
             await self.app(scope, receive, send)
             return
 
-        async def send_wrapper(message: dict[str, Any]) -> None:
+        async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
                 if not any(key.lower() == b"cache-control" for key, _ in headers):
