@@ -259,9 +259,9 @@ async function regenerateChunks() {
 }
 </script>
 """.replace(
-    "__ICON_X__", str(Icon("x", cls="shrink-0 h-6 w-6 inline-block"))
+    "__ICON_X__", str(Icon("x", size=24, cls="shrink-0 inline-block"))
 ).replace(
-    "__ICON_CHECK__", str(Icon("check", cls="shrink-0 h-6 w-6 inline-block"))
+    "__ICON_CHECK__", str(Icon("check", size=24, cls="shrink-0 inline-block"))
 )
 
 

@@ -72,10 +72,10 @@ _KIND_ICONS: dict[str, tuple[str, str]] = {
 
 
 def _build_kinds() -> dict[str, KindMeta]:
-    """kind -> {label, icon_svg}. icon_svg fills its wrapper (w-full h-full);
-    the call site sizes it. Pre-rendered so the client needs no createIcons()."""
+    """kind -> {label, icon_svg}. icon_svg is a fully-sized inline <svg> (14px),
+    pre-rendered so the client needs no createIcons()."""
     return {
-        kind: {"label": label, "icon_svg": str(Icon(icon, cls="w-full h-full"))}
+        kind: {"label": label, "icon_svg": str(Icon(icon, size=14))}
         for kind, (icon, label) in _KIND_ICONS.items()
     }
 
@@ -320,8 +320,8 @@ class TodayOrchestrator:
             "rituals": rituals,
             "kinds": _build_kinds(),
             "ritual_icons": {
-                "past": str(Icon("check", cls="w-full h-full")),
-                "upcoming": str(Icon("sunrise", cls="w-full h-full")),
+                "past": str(Icon("check", size=10)),
+                "upcoming": str(Icon("sunrise", size=10)),
             },
         }
         return Result.ok(ctx)

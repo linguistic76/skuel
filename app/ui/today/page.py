@@ -214,7 +214,7 @@ def _task_row(*, is_triage: bool) -> FT:
         row_classes += " border border-border"
 
     kind_icon = Div(
-        Span(cls="block w-3.5 h-3.5", **{"x-html": "kindIconHtml(t.kind)"}),
+        Span(**{"x-html": "kindIconHtml(t.kind)"}),
         cls=(
             "w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center "
             "bg-blue-50 text-blue-600"
@@ -582,7 +582,7 @@ def _now_marker() -> FT:
 
 def _rituals_list() -> FT:
     dot = Div(
-        Span(cls="block w-2.5 h-2.5", **{"x-html": "ritualIconHtml(r.time)"}),
+        Span(**{"x-html": "ritualIconHtml(r.time)"}),
         cls="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center",
         **{
             ":class": (
@@ -724,7 +724,7 @@ def _drawer_inner() -> FT:
 
 def _drawer_toolbar() -> FT:
     kind_chip = Span(
-        Span(cls="block w-3 h-3", **{"x-html": "openTaskIconHtml()"}),
+        Span(**{"x-html": "openTaskIconHtml()"}),
         Span(**{"x-text": "seed.kinds[openTask.kind]?.label || openTask.kind"}),
         cls=(
             "inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10.5px] "
