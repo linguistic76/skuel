@@ -281,7 +281,17 @@ class TestIcon:
         assert "&lt;svg" not in xml  # not HTML-escaped
 
     def test_size_emitted(self) -> None:
-        assert "24px" in str(Icon("check", size=24))
+        # Default size is applied via width/height attributes (not a w-[Npx] class),
+        # so a cls width utility can override it without a Tailwind class-order fight.
+        markup = str(Icon("check", size=24))
+        assert 'width="24"' in markup
+        assert 'height="24"' in markup
+
+    def test_cls_width_overrides_default(self) -> None:
+        # cls keeps its width util; the default lives only in the attribute.
+        markup = str(Icon("check", cls="w-6 h-6"))
+        assert "w-6 h-6" in markup
+        assert "w-[" not in markup  # no competing arbitrary-value default class
 
     def test_cls_passthrough(self) -> None:
         assert "text-blue-600" in str(Icon("check", cls="text-blue-600"))
