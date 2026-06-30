@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H3, A, Button, Div, Li, P, Span, Ul
 
 from ui.components import Icon
+from ui.feedback import Badge, BadgeT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 
@@ -59,7 +60,6 @@ class SidebarItem:
     icon: str = ""
     description: str = ""
     badge_text: str = ""
-    badge_cls: str = "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
     hx_attrs: dict[str, str] = field(default_factory=dict)
     children: list["SidebarItem"] = field(default_factory=list)
 
@@ -80,7 +80,7 @@ def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
     header_children.append(Span(item.label, cls="flex-1"))
 
     if item.badge_text:
-        header_children.append(Span(item.badge_text, cls=item.badge_cls))
+        header_children.append(Badge(item.badge_text, variant=BadgeT.neutral))
 
     # Chevron that rotates when expanded
     header_children.append(
@@ -171,7 +171,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
         )
 
     if item.badge_text:
-        children.append(Span(item.badge_text, cls=item.badge_cls))
+        children.append(Badge(item.badge_text, variant=BadgeT.neutral))
 
     # Badge placeholder for async OOB swap (Phase 5 sidebar badges)
     children.append(Span(id=f"sidebar-badge-{item.slug}"))
@@ -212,12 +212,7 @@ def alpine_section_renderer(
             children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
         children.append(Span(item.label, cls="flex-1"))
         if item.badge_text:
-            children.append(
-                Span(
-                    item.badge_text,
-                    cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10",
-                )
-            )
+            children.append(Badge(item.badge_text, variant=BadgeT.primary))
 
         return Li(
             Div(
