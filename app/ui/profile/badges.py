@@ -3,9 +3,12 @@
 Status and count badges for the profile sidebar.
 """
 
+from typing import Any
+
 from fasthtml.common import Span
 
 from core.services.user.domain_health import DomainStatus
+from ui.feedback import Badge, BadgeT
 
 
 def HealthIndicator(status: str) -> Span:
@@ -32,7 +35,7 @@ def HealthIndicator(status: str) -> Span:
     )
 
 
-def CountBadge(count: int, active: int | None = None) -> Span:
+def CountBadge(count: int, active: int | None = None) -> Any:  # boundary: fasthtml-elements
     """
     Count badge showing total (optionally with active subset).
 
@@ -41,18 +44,10 @@ def CountBadge(count: int, active: int | None = None) -> Span:
         active: Optional active/pending count to highlight
 
     Returns:
-        Span element with count display
+        A neutral Badge with the count display
     """
-    if active is not None and active > 0:
-        return Span(
-            f"{active}/{count}",
-            cls="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full",
-        )
-
-    return Span(
-        str(count),
-        cls="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full",
-    )
+    text = f"{active}/{count}" if active is not None and active > 0 else str(count)
+    return Badge(text, variant=BadgeT.neutral)
 
 
 __all__ = [
