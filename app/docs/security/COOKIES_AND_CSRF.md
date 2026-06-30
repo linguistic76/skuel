@@ -179,7 +179,7 @@ This is the posture the project commits to keeping.
 |---|---|
 | Adding a new mutating route | Wrap the handler in `@csrf_protected`. For hand-built forms, drop `csrf_hidden_input()` as the first child of `Form()`. Forms rendered through `FormGenerator` include it automatically. |
 | Adding a new static-asset path | Nothing — `/static/*` is already mint-exempt by prefix. |
-| Adding a non-form JSON POST from JS | Either use HTMX (the hook handles it) or read `document.cookie` for `csrf_token` and attach it as `X-CSRF-Token`. |
+| Adding a non-form JSON POST from JS | Either use HTMX (the hook handles it) or attach `'X-CSRF-Token': window.SKUEL.csrf()` to the request `headers`. `window.SKUEL.csrf()` (in `static/js/skuel.js`) is the single helper that reads the cookie — never hand-roll the `document.cookie` regex. |
 | Adding a new auth page like /login | Return it with `Cache-Control: no-store` (see §5.2). |
 | Loosening `SameSite` on any cookie | Audit. This is the scenario the double-submit exists for. Verify all three mirror paths from §3 still fire in whatever flow you're enabling. |
 | Writing anything cryptographic | Don't. Use `secrets`, `hmac`, `bcrypt`, and whatever the framework provides. |
@@ -231,7 +231,7 @@ Notice how many of these are *configuration* or *library drop-ins*, not new code
 
 - [`adapters/inbound/csrf.py`](../../adapters/inbound/csrf.py) — the CSRF module, including the design doc at the top
 - [`adapters/inbound/auth/session.py`](../../adapters/inbound/auth/session.py) — session cookie configuration
-- [`static/js/skuel.js`](../../static/js/skuel.js) — the two JS mirror paths (lines 73–110)
+- [`static/js/skuel.js`](../../static/js/skuel.js) — the `window.SKUEL.csrf()` cookie-read helper plus the two JS mirror paths (HTMX `htmx:configRequest` hook and the capture-phase native-form `submit` sync)
 - [`.claude/skills/security/SKILL.md`](../../.claude/skills/security/SKILL.md) — broader security patterns: ownership verification, error stripping, Cypher injection guards
 - [`docs/security/ROUTE_AUTH_REQUIREMENTS.md`](./ROUTE_AUTH_REQUIREMENTS.md) — per-route auth requirements
 - [`docs/patterns/AUTH_PATTERNS.md`](../patterns/AUTH_PATTERNS.md) — authentication patterns (cookie-based + graph-native)

@@ -27,6 +27,16 @@
     };
 
     /**
+     * Read the csrf_token cookie for double-submit CSRF (see adapters/inbound/csrf.py).
+     * Attach the return value as the X-CSRF-Token header on every mutating fetch().
+     * Returns '' when the cookie is absent — safe for truthiness-guarded consumers.
+     */
+    window.SKUEL.csrf = function() {
+        var m = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    };
+
+    /**
      * Live Region Announcer - Task 10: HTMX + Screen Reader Integration
      * Announces dynamic content changes to screen readers via ARIA live regions.
      *
@@ -68,19 +78,15 @@
         // -------------------------------------------------------------------
         // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
         // Paired with adapters/inbound/csrf.py (the cookie is set by
-        // CSRFMiddleware and readable because HttpOnly=False).
+        // CSRFMiddleware and readable because HttpOnly=False). The cookie read
+        // is centralized in window.SKUEL.csrf().
         // -------------------------------------------------------------------
-        function readCsrfCookie() {
-            var match = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
-            return match ? decodeURIComponent(match[1]) : null;
-        }
-
         body.addEventListener('htmx:configRequest', function(event) {
             var method = (event.detail.verb || '').toUpperCase();
             if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
                 return;
             }
-            var token = readCsrfCookie();
+            var token = window.SKUEL.csrf();
             if (token) {
                 event.detail.headers['X-CSRF-Token'] = token;
             }
@@ -98,7 +104,7 @@
                 form.hasAttribute('hx-delete') || form.hasAttribute('hx-patch')) {
                 return;
             }
-            var token = readCsrfCookie();
+            var token = window.SKUEL.csrf();
             if (!token) return;
             var existing = form.querySelector('input[name="csrf_token"]');
             if (existing) {
@@ -1131,7 +1137,10 @@
                     // Send bulk delete request
                     fetch('/api/' + this.entityType + '/bulk-delete', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.SKUEL.csrf(),
+                        },
                         body: JSON.stringify({uids: this.selected}),
                     })
                     .then(function(response) { return response.json(); })
@@ -1182,7 +1191,10 @@
                     // Send move request
                     fetch(this.moveEndpoint.replace('{uid}', this.draggedNode), {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.SKUEL.csrf(),
+                        },
                         body: JSON.stringify({new_parent_uid: newParentUid}),
                     })
                     .then(function(response) { return response.json(); })
@@ -1237,7 +1249,10 @@
                     var self = this;
                     fetch('/api/' + this.entityType + '/' + uid, {
                         method: 'PATCH',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.SKUEL.csrf(),
+                        },
                         body: JSON.stringify({title: newTitle}),
                     })
                     .then(function(response) { return response.json(); })
@@ -1358,7 +1373,8 @@
                         var response = await fetch('/api/insights/bulk/dismiss', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': window.SKUEL.csrf()
                             },
                             body: JSON.stringify({ uids: uids })
                         });
@@ -1387,7 +1403,8 @@
                         var response = await fetch('/api/insights/bulk/action', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json'
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': window.SKUEL.csrf()
                             },
                             body: JSON.stringify({ uids: uids })
                         });
@@ -1747,7 +1764,10 @@
 
                     fetch('/api/insights/' + this.insightUid + '/snooze', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': window.SKUEL.csrf(),
+                        },
                         body: JSON.stringify({days: days})
                     })
                         .then(function(response) {
@@ -2626,11 +2646,6 @@
                 preview: null,
                 result: null,
 
-                _csrf: function() {
-                    var m = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
-                    return m ? decodeURIComponent(m[1]) : '';
-                },
-
                 _call: async function(previewOnly) {
                     this.loading = true;
                     this.error = '';
@@ -2640,7 +2655,7 @@
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-CSRF-Token': this._csrf()
+                                'X-CSRF-Token': window.SKUEL.csrf()
                             },
                             body: JSON.stringify({
                                 input_dir: this.inputDir,
