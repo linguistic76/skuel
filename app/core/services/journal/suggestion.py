@@ -110,25 +110,34 @@ def build_suggestions(activity_lines: list[str]) -> list[SuggestedActivity]:
 # ---------------------------------------------------------------------------
 
 
-def _content_fingerprint(content: str) -> str:
-    """Stable hash of the source text — the cache validity key."""
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+def _content_fingerprint(content: str, grounding: str = "") -> str:
+    """Stable hash over every input to the bridge — the cache validity key.
+
+    Covers the source text *and* the active-goal grounding string: a goal change
+    must invalidate the cache even when the (effectively immutable) entry text is
+    unchanged. ``\\x00`` separates the fields so concatenation can't collide.
+    """
+    return hashlib.sha256(f"{content}\x00{grounding}".encode()).hexdigest()
 
 
 def metadata_with_cached_suggestions(
-    metadata: dict[str, Any], items: list[SuggestedActivity], content: str
+    metadata: dict[str, Any],
+    items: list[SuggestedActivity],
+    content: str,
+    grounding: str = "",
 ) -> dict[str, Any]:
     """Return a copy of ``metadata`` with the suggestions cache entry merged in.
 
-    Stores the source-text fingerprint alongside the serialised suggestions.
-    The route persists the result after a fresh compute; ``read_cached_suggestions``
-    reads it back. A recognised-nothing result (empty ``items``) is cached too —
-    it still represents a completed bridge pass worth not repeating.
+    Stores the (text + grounding) fingerprint alongside the serialised
+    suggestions. The route persists the result after a fresh compute;
+    ``read_cached_suggestions`` reads it back. A recognised-nothing result
+    (empty ``items``) is cached too — it still represents a completed bridge
+    pass worth not repeating.
     """
     return {
         **metadata,
         _CACHE_KEY: {
-            "fingerprint": _content_fingerprint(content),
+            "fingerprint": _content_fingerprint(content, grounding),
             "items": [
                 {"domain": i.domain, "dsl_line": i.dsl_line, "description": i.description}
                 for i in items
@@ -138,19 +147,20 @@ def metadata_with_cached_suggestions(
 
 
 def read_cached_suggestions(
-    metadata: dict[str, Any], content: str
+    metadata: dict[str, Any], content: str, grounding: str = ""
 ) -> list[SuggestedActivity] | None:
     """Return memoised suggestions when the cache is fresh, else ``None``.
 
-    Fresh = the cached fingerprint matches the current source text. A miss
-    (absent or stale cache, or a malformed payload) returns ``None`` so the
-    caller recomputes; a cached *empty* list returns ``[]`` (recognised nothing,
-    but still skips the LLM). The ``None`` vs ``[]`` distinction is load-bearing.
+    Fresh = the cached fingerprint matches the current source text *and* the
+    active-goal grounding. A miss (absent or stale cache, or a malformed
+    payload) returns ``None`` so the caller recomputes; a cached *empty* list
+    returns ``[]`` (recognised nothing, but still skips the LLM). The ``None``
+    vs ``[]`` distinction is load-bearing.
     """
     cache = metadata.get(_CACHE_KEY)
     if not isinstance(cache, dict):
         return None
-    if cache.get("fingerprint") != _content_fingerprint(content):
+    if cache.get("fingerprint") != _content_fingerprint(content, grounding):
         return None
     raw_items = cache.get("items")
     if not isinstance(raw_items, list):

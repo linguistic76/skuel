@@ -136,6 +136,15 @@ class TestSuggestionCache:
         # Source text changed since the cache was written → recompute.
         assert read_cached_suggestions(meta, "edited text") is None
 
+    def test_grounding_change_invalidates_cache(self):
+        # Same entry text, but the active-goal grounding changed (goal added /
+        # renamed / completed) → recompute, don't serve goal-stale suggestions.
+        content = "thoughts on the marathon"
+        meta = metadata_with_cached_suggestions({}, self._items(), content, "Run a marathon")
+        assert read_cached_suggestions(meta, content, "Run a marathon") is not None
+        assert read_cached_suggestions(meta, content, "Run a 5k") is None
+        assert read_cached_suggestions(meta, content, "") is None
+
     def test_cached_empty_returns_empty_list_not_none(self):
         # A recognised-nothing result is cached; the None vs [] distinction is
         # what lets the route skip the LLM on a prose-only entry.
@@ -226,3 +235,63 @@ class TestSuggestActivities:
         _, kwargs = bridge.transform_with_context.call_args
         assert kwargs["active_goals"] == [{"title": "Run a marathon"}]
         goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
+
+
+class TestSuggestionGrounding:
+    @pytest.mark.asyncio
+    async def test_no_bridge_returns_empty(self):
+        # CORE tier: no grounding signal, so the cache key carries no goal axis.
+        service = _make_service(dsl_bridge=None)
+        result = await service.suggestion_grounding("user_mike")
+        assert result.is_ok
+        assert result.value == ""
+
+    @pytest.mark.asyncio
+    async def test_digests_active_goal_titles(self):
+        bridge = MagicMock()
+        g1, g2 = MagicMock(), MagicMock()
+        g1.title, g2.title = "Run a marathon", "Ship SKUEL"
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([g1, g2]))
+        service = _make_service(dsl_bridge=bridge, goals_service=goals_service)
+
+        result = await service.suggestion_grounding("user_mike")
+        assert result.is_ok
+        assert result.value == "Run a marathon\nShip SKUEL"
+
+    @pytest.mark.asyncio
+    async def test_goals_error_propagates(self):
+        # A goals-query failure surfaces so the route can degrade to text-only
+        # keying, rather than silently keying on empty grounding.
+        bridge = MagicMock()
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(
+            return_value=Result.fail(Errors.database("get_active", "boom"))
+        )
+        service = _make_service(dsl_bridge=bridge, goals_service=goals_service)
+
+        result = await service.suggestion_grounding("user_mike")
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_matches_suggest_activities_grounding_source(self):
+        # Both paths must read the same active-goal titles, or the cache key
+        # would drift from the context that produced the suggestions.
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(
+            return_value=Result.ok(
+                DSLTransformResult(original_text="x", transformed_text="", activity_lines=[])
+            )
+        )
+        goal = MagicMock()
+        goal.title = "Run a marathon"
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([goal]))
+        service = _make_service(dsl_bridge=bridge, goals_service=goals_service)
+
+        grounding = await service.suggestion_grounding("user_mike")
+        await service.suggest_activities("training thoughts", "user_mike")
+
+        _, kwargs = bridge.transform_with_context.call_args
+        assert grounding.is_ok
+        assert [g["title"] for g in kwargs["active_goals"]] == grounding.value.split("\n")

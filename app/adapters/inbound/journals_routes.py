@@ -926,7 +926,14 @@ def create_journals_routes(
             read_cached_suggestions,
         )
 
-        cached = read_cached_suggestions(entry.metadata, content)
+        # The cache key folds in the active-goal grounding (not just the entry
+        # text): a journal entry's text is effectively immutable, so a goal
+        # change would otherwise keep serving stale suggestions forever. A
+        # grounding-fetch error degrades to text-only keying (never stale).
+        grounding_result = await journal_service.suggestion_grounding(user_uid)
+        grounding = grounding_result.value if grounding_result.is_ok else ""
+
+        cached = read_cached_suggestions(entry.metadata, content, grounding)
         if cached is not None:
             return SuggestedActivitiesPanel(items=cached)
 
@@ -944,7 +951,9 @@ def create_journals_routes(
             entry_uid,
             user_uid,
             UserEntryUpdateRequest(
-                metadata=metadata_with_cached_suggestions(entry.metadata, result.value, content)
+                metadata=metadata_with_cached_suggestions(
+                    entry.metadata, result.value, content, grounding
+                )
             ),
         )
         if persist.is_error:
