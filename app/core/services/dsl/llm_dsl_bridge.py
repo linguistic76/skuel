@@ -452,7 +452,7 @@ class LLMDSLBridgeService:
             # from. Returns "" (no section at all) when there is nothing to ground.
             return (
                 "## USER CONTEXT (background only — do NOT create activities from "
-                "these; use only to link via @goal()/@principle())\n" + "\n".join(parts)
+                "these; use only to recognise/classify items in the journal)\n" + "\n".join(parts)
             )
 
         return ""

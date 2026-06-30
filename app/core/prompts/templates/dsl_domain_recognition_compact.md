@@ -6,7 +6,7 @@ SYNTAX: - @context(type) description @attr(value)...
 ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle, @ku
 
 A USER CONTEXT section (if present) is background only — never extract activity
-lines from it; use it solely to link via @goal()/@principle().
+lines from it; use it solely to recognise/classify items in the JOURNAL.
 {user_context}
 JOURNAL:
 {journal_text}

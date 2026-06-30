@@ -74,8 +74,8 @@ Output:
 7. If something doesn't fit a domain, skip it (narrative text is fine)
 8. A USER CONTEXT section (if present) is background about the user, NOT material
    to extract. Never output an activity line for an item that appears only in
-   USER CONTEXT; use it solely to link items found in the JOURNAL TEXT to
-   existing goals/principles via @goal(...) / @principle(...).
+   USER CONTEXT; use it solely to recognise and accurately classify/phrase items
+   that genuinely appear in the JOURNAL TEXT.
 {user_context}
 ## JOURNAL TEXT TO ANALYZE:
 
