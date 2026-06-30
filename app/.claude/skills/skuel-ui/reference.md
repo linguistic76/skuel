@@ -79,7 +79,7 @@ def TaskCard(title: str, desc: str, stat: str, prio: str, uid: str): ...
 ### Common Patterns Library
 
 ```python
-from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard, IconStat
+from ui.patterns import PageHeader, SectionHeader, EmptyState, StatsGrid, StatCard, IconStat, StatTile
 from ui.patterns.stats_grid import StatItem
 from ui.patterns import SettingToggle
 from ui.feedback import Progress, ProgressT
@@ -152,6 +152,9 @@ StatCard(label="Completion Rate", value="85%", color="success")
 
 # Compact icon-led stat tile (centered, no Card — for dashboards/previews)
 IconStat("Successful", 42, "✅", "text-success")
+
+# Compact value-over-label stat tile (centered, no icon, no Card)
+StatTile("Active", 42)
 
 # Progress bar — pick the variant for the color you want
 Progress(value=88, variant=ProgressT.success)  # success/warning/error/primary/...

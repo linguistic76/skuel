@@ -125,6 +125,29 @@ def IconStat(label: str, value: str | int, icon: str, color_class: str = "") -> 
     )
 
 
+def StatTile(label: str, value: str | int) -> Div:
+    """Compact centered value-over-label stat tile (no icon, no Card wrapper).
+
+    Distinct from IconStat (icon-led) and StatCard (Card-wrapped): value-first,
+    meant to sit inside a caller-provided grid (e.g. profile DomainSummaryCard).
+
+    Args:
+        label: Stat label shown beneath the value (e.g. "Active").
+        value: The value to display (coerced to str).
+
+    Returns:
+        A centered Div tile.
+
+    Example:
+        StatTile("Active", 42)
+    """
+    return Div(
+        Div(str(value), cls="text-2xl font-bold text-foreground"),
+        Div(label, cls="text-sm text-muted-foreground"),
+        cls="text-center",
+    )
+
+
 def StatsGrid(
     stats: list[StatItem],
     cols: int = 4,
