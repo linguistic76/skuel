@@ -54,11 +54,12 @@ def TaskCard(
         CardBody(
             H4(task.title, cls="font-semibold"),
             P(task.description, cls="text-sm text-base-content/70") if show_description else None,
-            CardActions(
+            CardFooter(   # CardActions is deleted — CardFooter is the action area
                 Button("Edit", cls=ButtonT.ghost, size="sm",
                        **{"hx-get": f"/tasks/{task.uid}/edit", "hx-target": "#modal"}),
                 Button("Complete", cls=ButtonT.primary, size="sm",
                        **{"hx-post": f"/api/tasks/{task.uid}/complete"}),
+                cls="justify-end gap-2",
             ) if show_actions else None,
         ),
         cls=f"{Card.INTERACTIVE} {cls}".strip(),
@@ -207,7 +208,7 @@ def GoalCard(goal: Goal, show_actions: bool = True) -> Any:
     return Card(CardBody(
         H4(goal.title),
         Badge(goal.status.value, variant=BadgeT.success),
-        CardActions(Button("Update", ...)) if show_actions else None,
+        CardFooter(Button("Update", ...), cls="justify-end") if show_actions else None,
     ))
 
 # Strategy 2: Static class for grouped domain components
