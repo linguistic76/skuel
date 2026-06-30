@@ -86,8 +86,8 @@ programming error, not a domain failure.
 | `journal_activity` | `InstructionResolver` via `EnrichmentMode.ACTIVITY_TRACKING` (`LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE` pipelines) | `{content}` |
 | `journal_articulation` | `InstructionResolver` via `EnrichmentMode.IDEA_ARTICULATION` | `{content}` |
 | `journal_exploration` | `InstructionResolver` via `EnrichmentMode.CRITICAL_THINKING` | `{content}` |
-| `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}` |
-| `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}` |
+| `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}` |
+| `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}` |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |
