@@ -57,12 +57,25 @@ def JournalChatPage(
     initial_workspace: Any,
     user: "User",
 ) -> Any:
-    """Full-height two-column journal session shell."""
+    """Full-height three-column journal session shell.
+
+    Left: session sidebar. Center: workspace (reflection). Right: lazy-loaded
+    "Suggested activities" panel (FULL tier) — copyable @context() lines the
+    user moves into their own notes. The panel is inert; it creates nothing.
+    """
+    from ui.journals import SuggestedActivitiesContainer
+
     return Div(
         journal_sidebar(recent_entries, entry.uid, user),
         Div(
             initial_workspace,
             cls="flex-1 flex flex-col overflow-hidden",
+        ),
+        Div(
+            SuggestedActivitiesContainer(entry.uid),
+            cls=(
+                "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"
+            ),
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",

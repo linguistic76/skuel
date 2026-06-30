@@ -872,6 +872,47 @@ def create_journals_routes(
         return _P("Saved ✓", id="note-save-status", cls="text-[13px] text-green-600")
 
     # ------------------------------------------------------------------
+    # POST /journals/suggest-activities — lazy-loaded "Suggested activities" panel
+    #
+    # Declared before the {entry_uid} catch-all (FastHTML resolves in order).
+    # Reads the persisted entry, runs the bridge, returns inert copyable DSL
+    # lines. Creates and persists nothing (the prose + suggestions boundary).
+    # ------------------------------------------------------------------
+
+    @rt("/journals/suggest-activities", methods=["POST"])
+    @csrf_protected
+    @rate_limited(per_user=20, window_s=60)
+    async def journals_suggest_activities(request: Request) -> Any:
+        from ui.journals import SuggestedActivitiesPanel
+
+        user_uid = require_authenticated_user(request)
+
+        # CORE tier (no journal_service) → cheat-sheet pointer, no LLM call.
+        if journal_service is None:
+            return SuggestedActivitiesPanel(tier_core=True)
+        if user_entry_service is None:
+            return SuggestedActivitiesPanel()
+
+        form = await request.form()
+        entry_uid = str(form.get("entry_uid", "")).strip()
+        if not entry_uid:
+            return SuggestedActivitiesPanel()
+
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        if entry_result.is_error or entry_result.value is None:
+            return SuggestedActivitiesPanel()
+
+        entry = entry_result.value
+        content = entry.content or entry.processed_content or ""
+
+        result = await journal_service.suggest_activities(content, user_uid)
+        if result.is_error:
+            logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
+            return SuggestedActivitiesPanel(error=True)
+
+        return SuggestedActivitiesPanel(items=result.value)
+
+    # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
     # ------------------------------------------------------------------
 

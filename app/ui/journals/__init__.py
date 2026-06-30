@@ -19,6 +19,7 @@ from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
+    from core.services.journal.suggestion import SuggestedActivity
 
 # ------------------------------------------------------------------
 # Page (GET /journals)
@@ -590,6 +591,126 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
 # ------------------------------------------------------------------
 # Shared helpers
 # ------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------
+# Suggested activities panel (prose + suggestions model)
+# ------------------------------------------------------------------
+
+
+def SuggestedActivitiesContainer(entry_uid: str) -> Any:
+    """Lazy-loading placeholder for the "Suggested activities" panel.
+
+    Posts the entry UID to ``/journals/suggest-activities`` on load; the
+    endpoint fetches the entry content (ownership-checked) and returns the
+    rendered panel, swapped into this container's innerHTML. The CSRF token
+    rides the HTMX request header (attached by ``static/js/skuel.js``).
+    """
+    import json as _json
+
+    return Div(
+        P("Finding activities…", cls="text-[13px] text-muted-foreground"),
+        id="suggested-activities",
+        hx_post="/journals/suggest-activities",
+        hx_trigger="load",
+        hx_vals=_json.dumps({"entry_uid": entry_uid}),
+        hx_swap="innerHTML",
+    )
+
+
+def SuggestedActivitiesPanel(
+    items: "list[SuggestedActivity] | None" = None,
+    *,
+    tier_core: bool = False,
+    error: bool = False,
+) -> Any:
+    """Inner content of the suggestions panel — copyable, domain-tagged DSL lines.
+
+    States: CORE-tier note, error, empty, or a list of suggestion rows. The
+    panel is inert — copying a line creates nothing; entities exist only after
+    the user pastes a line into a synced folder.
+    """
+    items = items or []
+
+    header = Div(
+        P("Suggested activities", cls="text-[14px] font-semibold text-foreground"),
+        P(
+            "Copy any line into a Periodic Note or your captures folder. "
+            "Nothing is saved automatically.",
+            cls="text-[12px] text-muted-foreground mt-1 leading-snug",
+        ),
+        cls="mb-3",
+    )
+
+    if tier_core:
+        body: Any = P(
+            "Suggestions need FULL tier. You can still type @context() lines "
+            "yourself — see the context DSL cheat-sheet.",
+            cls="text-[12.5px] text-muted-foreground leading-snug",
+        )
+    elif error:
+        body = P(
+            "Couldn't generate suggestions just now — your reflection is unaffected.",
+            cls="text-[12.5px] text-muted-foreground leading-snug",
+        )
+    elif not items:
+        body = P(
+            "No activities recognised yet — write a bit more, or tag them yourself.",
+            cls="text-[12.5px] text-muted-foreground leading-snug",
+        )
+    else:
+        body = Div(*[_suggestion_row(item) for item in items], cls="space-y-2")
+
+    return Div(header, body)
+
+
+def _suggestion_row(item: "SuggestedActivity") -> Any:
+    """One copyable suggestion: domain chip + copy button + the canonical DSL line."""
+    import json as _json
+
+    from ui.components import Icon
+
+    alpine_data = (
+        "{ copied: false,"
+        f" line: {_json.dumps(item.dsl_line)},"
+        "  copy() { navigator.clipboard.writeText(this.line)"
+        "    .then(() => { this.copied = true;"
+        "      setTimeout(() => this.copied = false, 2000); }); } }"
+    )
+
+    return Div(
+        Div(
+            Span(
+                item.domain,
+                cls=(
+                    "text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5"
+                    " rounded-[4px] bg-foreground/10 text-foreground/70 flex-shrink-0"
+                ),
+            ),
+            Button(
+                Icon("copy", size=13),
+                Span(
+                    "Copied!",
+                    cls="text-[10px] text-green-600",
+                    **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
+                ),
+                type="button",
+                aria_label="Copy activity line",
+                cls=(
+                    "ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[6px]"
+                    " text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                ),
+                **{"@click": "copy()"},  # boundary: fasthtml-elements
+            ),
+            cls="flex items-center gap-2 mb-1",
+        ),
+        P(
+            item.dsl_line,
+            cls="text-[12px] font-mono leading-snug text-foreground/80 break-words",
+        ),
+        cls="rounded-[10px] border border-border bg-background px-3 py-2",
+        **{"x-data": alpine_data},  # boundary: fasthtml-elements
+    )
 
 
 def _ReviewGate(
