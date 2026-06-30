@@ -436,30 +436,43 @@ class UserEntryProcessingService:
             bridge_text = "\n".join(
                 ln for ln in source_text.splitlines() if not _CHECKBOX_RE.match(ln)
             )
-            # Ground the pre-pass in the user's active goals — the SAME grounding
-            # the journal "Suggested activities" preview uses (shared builder), so
-            # this entity-creating path recognises and goal-links prose against
-            # the identical context. Grounding is soft: it degrades to ungrounded
-            # (None) when no goals service is wired or the query fails.
-            grounding_titles = await fetch_active_goal_titles(self.goals_service, entry.user_uid)
-            bridge_result = await self.dsl_bridge.transform_with_context(
-                bridge_text,
-                user_uid=entry.user_uid,
-                active_goals=goals_as_context(grounding_titles),
-            )
-            if bridge_result.is_error:
-                # Degrade, don't fail: the Analog parser still runs over the
-                # original text; tagged lines extract regardless.
-                bridge_error = str(bridge_result.expect_error())
-                self.logger.warning(
-                    f"DSL bridge degraded to parser-only for {entry.uid}: {bridge_error}"
+            # Skip the bridge when the strip left nothing (a checkbox-only note):
+            # the obsidian-tasks adapter owns those lines, and there is no prose
+            # to tag. This guard is load-bearing now that the call is grounded —
+            # transform_with_context prepends the active-goal context BEFORE
+            # transform()'s blank-input check, so an empty bridge_text + non-empty
+            # grounding would otherwise call the LLM on just the user's goal
+            # titles and could append @context lines extracted from the GOALS
+            # rather than the entry (phantom entities/provenance). The Analog
+            # parser still runs over the original checkbox text below.
+            if bridge_text.strip():
+                # Ground the pre-pass in the user's active goals — the SAME
+                # grounding the journal "Suggested activities" preview uses
+                # (shared builder), so this entity-creating path recognises and
+                # goal-links prose against the identical context. Grounding is
+                # soft: it degrades to ungrounded (None) when no goals service is
+                # wired or the query fails.
+                grounding_titles = await fetch_active_goal_titles(
+                    self.goals_service, entry.user_uid
                 )
-            elif bridge_result.value.activity_lines:
-                working_text = (
-                    source_text
-                    + "\n\n## Extracted Activities\n"
-                    + "\n".join(bridge_result.value.activity_lines)
+                bridge_result = await self.dsl_bridge.transform_with_context(
+                    bridge_text,
+                    user_uid=entry.user_uid,
+                    active_goals=goals_as_context(grounding_titles),
                 )
+                if bridge_result.is_error:
+                    # Degrade, don't fail: the Analog parser still runs over the
+                    # original text; tagged lines extract regardless.
+                    bridge_error = str(bridge_result.expect_error())
+                    self.logger.warning(
+                        f"DSL bridge degraded to parser-only for {entry.uid}: {bridge_error}"
+                    )
+                elif bridge_result.value.activity_lines:
+                    working_text = (
+                        source_text
+                        + "\n\n## Extracted Activities\n"
+                        + "\n".join(bridge_result.value.activity_lines)
+                    )
 
         # --- Existing-hash read (guard 2 input) -------------------------------
         # Read on every run, not only under force: if a prior run wrote edges

@@ -477,7 +477,10 @@ class TestExtractActivities:
 
     @pytest.mark.asyncio
     async def test_bridge_failure_degrades_to_parser_only(self):
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Tagged @context(task)")
+        # Non-checkbox prose so the bridge actually runs (a checkbox-only entry
+        # would be stripped to empty and skip the bridge — see
+        # test_checkbox_only_entry_skips_bridge).
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="some prose to tag")
         svc = _extract_entry_service(entry)
 
         bridge = MagicMock()
@@ -534,6 +537,41 @@ class TestExtractActivities:
         assert working.startswith("untagged prose")
         assert "## Extracted Activities" in working
         assert "- @context(task) Call mom" in working
+
+    @pytest.mark.asyncio
+    async def test_checkbox_only_entry_skips_bridge(self):
+        # Regression (Codex P1): a checkbox-only note leaves bridge_text empty
+        # after the ADR-070 strip. The grounded transform_with_context prepends
+        # the goal context BEFORE transform()'s blank check, so without this
+        # guard an empty entry + active goals would call the LLM on just the goal
+        # titles and could append @context lines extracted from the GOALS. The
+        # bridge must be skipped entirely; the parser still runs over the
+        # original checkbox text.
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Call mom 🆔 sk_abc123")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock()
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        g1 = MagicMock()
+        g1.title = "Run a marathon"
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([g1]))
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        dispatcher.goals_service = goals_service
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        bridge.transform_with_context.assert_not_called()
+        # Parser still runs over the ORIGINAL checkbox text.
+        assert extractor.extract_and_create.await_args.kwargs["content_override"] == entry.content
 
     @pytest.mark.asyncio
     async def test_bridge_pre_pass_is_grounded_in_active_goals(self):
