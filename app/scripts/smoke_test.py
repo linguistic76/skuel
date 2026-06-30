@@ -86,27 +86,50 @@ def find_chrome() -> str:
 # JS error signatures that mean a script failed (not a handled app-level error
 # like "Failed to load ...: HTTP 404", which is normal in a server-less fixture).
 # Scoped tightly so component init() noise (fetch/WS failures) does NOT false-fail.
+# "Uncaught (in promise)" catches async throws — Chrome puts "(in promise)"
+# between "Uncaught" and the error type, so the plain "Uncaught TypeError" marker
+# would miss them.
 _JS_ERROR_MARKERS = (
     "Alpine Expression Error",
     "is not defined",
     "Uncaught ReferenceError",
     "Uncaught TypeError",
     "Uncaught SyntaxError",
+    "Uncaught (in promise)",
 )
 
-# One representative x-data expression per Alpine.data() registry block in
-# skuel.js. If any is registered in the wrong lifecycle hook (DOMContentLoaded vs
-# alpine:init, see #468), Alpine logs "<component> is not defined" on init.
+# Every Alpine.data() component in skuel.js, with minimal valid constructor args.
+# Mounting all of them (not just the block that broke in #468) means a wrong
+# lifecycle hook (DOMContentLoaded vs alpine:init) for ANY component surfaces as
+# "<component> is not defined" on init. Kept in sync with the registry by
+# _assert_registry_in_sync() — adding a component to skuel.js without adding it
+# here fails the smoke test.
 _REGISTRY_COMPONENTS = (
-    "bulkInsightManager",
-    "domainFilter",
-    "intelligenceCache",
-    "insightFiltersDebounced({})",
+    "searchFilters",
+    "calendarPage",
+    "collapsible(true)",
+    "collapsibleSidebar('k', false)",
+    "chartVis('/x.json', 'bar')",
+    "timelineVis('/x.json')",
+    "toastManager",
+    "entityPicker",
+    "formValidator",
     "hierarchyTree({entityType: 'goal'})",
+    "bulkInsightManager",
     "relationshipGraph('uid', 'tasks', 1)",
+    "domainFilter",
     "insightDetailModal('i1')",
+    "intelligenceCache",
     "profileFocusHandler('f1')",
+    "insightFiltersDebounced({})",
     "ingestionProgress('op1')",
+    "offlineIndicator",
+    "exploreSearch('tag')",
+    "exploreGraph('mode', 'uid', 'tasks')",
+    "revisionForm",
+    "batchTranscribe",
+    "userFolderTranscribe",
+    "submit('dest', false, false)",
 )
 
 # Run before Alpine starts: neutralise component init() network side effects so
@@ -115,6 +138,32 @@ _FIXTURE_STUB_JS = (
     "window.fetch = function () { return new Promise(function () {}); };"
     "window.WebSocket = function () { return { close: function () {}, send: function () {} }; };"
 )
+
+
+def _assert_registry_in_sync() -> str | None:
+    """Fail if skuel.js registers a component not mounted by the js_smoke fixture.
+
+    Counts ``Alpine.data('name'`` registrations in skuel.js and compares the set
+    of names to the fixture's. Keeps the fixture honest: a new component added to
+    skuel.js must be added here, or it would silently escape the timing check.
+    Returns an error message, or None if in sync.
+    """
+    import re
+
+    js = (STATIC_DIR / "js" / "skuel.js").read_text(encoding="utf-8")
+    registered = set(re.findall(r"Alpine\.data\(\s*'([^']+)'", js))
+    # The fixture expression is "name" or "name(args)"; take the leading identifier.
+    mounted = {re.match(r"\w+", expr).group(0) for expr in _REGISTRY_COMPONENTS}  # type: ignore[union-attr]
+    missing = registered - mounted
+    extra = mounted - registered
+    if missing or extra:
+        parts = []
+        if missing:
+            parts.append(f"not mounted by fixture: {', '.join(sorted(missing))}")
+        if extra:
+            parts.append(f"in fixture but not in skuel.js: {', '.join(sorted(extra))}")
+        return "js_smoke fixture out of sync with skuel.js registry — " + "; ".join(parts)
+    return None
 
 
 def _render_js_smoke_fixture() -> Any:
@@ -257,6 +306,11 @@ def main() -> int:
         print(f"✗ {exc}")
         return 1
     print(f"  chrome: {chrome}")
+
+    drift = _assert_registry_in_sync()
+    if drift:
+        print(f"  ✗ {drift}")
+        return 1
 
     pages = render_pages()
     port = _free_port()
