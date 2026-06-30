@@ -22,13 +22,19 @@ normalised; lines that don't parse at all are dropped.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from core.services.dsl.activity_dsl_parser import ActivityDSLParser, ParsedActivityLine
 
 # Matches a single ``@name(value)`` DSL tag.
 _TAG_RE = re.compile(r"@\w+\([^)]*\)")
+
+# Key under ``UserEntry.metadata`` where computed suggestions are memoised so a
+# revisit of the session renders the panel without re-calling the LLM bridge.
+_CACHE_KEY = "suggested_activities"
 
 
 @dataclass(frozen=True)
@@ -94,4 +100,99 @@ def build_suggestions(activity_lines: list[str]) -> list[SuggestedActivity]:
     return suggestions
 
 
-__all__ = ["SuggestedActivity", "build_suggestions", "render_suggestion_line"]
+# ---------------------------------------------------------------------------
+# Memoisation (UserEntry.metadata cache)
+#
+# The suggestions panel lazy-loads on every visit to a journal session, but the
+# reflection text rarely changes once written — recomputing the LLM bridge each
+# time is pure repeat cost. The route memoises the result under the entry's
+# metadata, keyed by a fingerprint of the source text so an edit invalidates it.
+# ---------------------------------------------------------------------------
+
+
+def grounding_digest(titles: list[str]) -> str:
+    """Stable digest of the active-goal titles that ground a suggestion pass.
+
+    Folded into the cache key (via the fingerprint) so a goal change invalidates
+    a cached panel even though the journal text is immutable. The route computes
+    it once from a single goal snapshot and feeds that same snapshot to
+    ``suggest_activities``, so the cached panel is always keyed by the grounding
+    that produced it. Centralised here so the read and write sides can't diverge.
+    """
+    return "\n".join(titles)
+
+
+def _content_fingerprint(content: str, grounding: str = "") -> str:
+    """Stable hash over every input to the bridge — the cache validity key.
+
+    Covers the source text *and* the active-goal grounding string: a goal change
+    must invalidate the cache even when the (effectively immutable) entry text is
+    unchanged. ``\\x00`` separates the fields so concatenation can't collide.
+    """
+    return hashlib.sha256(f"{content}\x00{grounding}".encode()).hexdigest()
+
+
+def metadata_with_cached_suggestions(
+    metadata: dict[str, Any],
+    items: list[SuggestedActivity],
+    content: str,
+    grounding: str = "",
+) -> dict[str, Any]:
+    """Return a copy of ``metadata`` with the suggestions cache entry merged in.
+
+    Stores the (text + grounding) fingerprint alongside the serialised
+    suggestions. The route persists the result after a fresh compute;
+    ``read_cached_suggestions`` reads it back. A recognised-nothing result
+    (empty ``items``) is cached too — it still represents a completed bridge
+    pass worth not repeating.
+    """
+    return {
+        **metadata,
+        _CACHE_KEY: {
+            "fingerprint": _content_fingerprint(content, grounding),
+            "items": [
+                {"domain": i.domain, "dsl_line": i.dsl_line, "description": i.description}
+                for i in items
+            ],
+        },
+    }
+
+
+def read_cached_suggestions(
+    metadata: dict[str, Any], content: str, grounding: str = ""
+) -> list[SuggestedActivity] | None:
+    """Return memoised suggestions when the cache is fresh, else ``None``.
+
+    Fresh = the cached fingerprint matches the current source text *and* the
+    active-goal grounding. A miss (absent or stale cache, or a malformed
+    payload) returns ``None`` so the caller recomputes; a cached *empty* list
+    returns ``[]`` (recognised nothing, but still skips the LLM). The ``None``
+    vs ``[]`` distinction is load-bearing.
+    """
+    cache = metadata.get(_CACHE_KEY)
+    if not isinstance(cache, dict):
+        return None
+    if cache.get("fingerprint") != _content_fingerprint(content, grounding):
+        return None
+    raw_items = cache.get("items")
+    if not isinstance(raw_items, list):
+        return None
+    return [
+        SuggestedActivity(
+            domain=str(entry.get("domain", "")),
+            dsl_line=str(entry.get("dsl_line", "")),
+            description=str(entry.get("description", "")),
+        )
+        for entry in raw_items
+        if isinstance(entry, dict)
+    ]
+
+
+__all__ = [
+    "SuggestedActivity",
+    "build_suggestions",
+    "grounding_digest",
+    "metadata_with_cached_suggestions",
+    "read_cached_suggestions",
+    "render_suggestion_line",
+]

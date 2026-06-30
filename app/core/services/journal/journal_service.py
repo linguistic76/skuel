@@ -76,6 +76,17 @@ class JournalService:
         """Return the best available LLM model based on configured adapters."""
         return _MODEL_CLAUDE if self._llm.is_model_supported(_MODEL_CLAUDE) else _MODEL_GPT
 
+    @property
+    def suggestions_available(self) -> bool:
+        """Whether the activity-suggestion bridge is wired (FULL tier + OpenAI key).
+
+        ``JournalService`` can exist (``llm_caller`` present) while the DSL bridge
+        is ``None`` — e.g. FULL tier with an Anthropic key but no OpenAI key. The
+        suggestions route checks this so a bridge-unavailable empty result is
+        never cached (a poisoned empty panel would survive a later key change).
+        """
+        return self._dsl_bridge is not None
+
     # ------------------------------------------------------------------
     # User-context summary (used by Stage 2 and Stage 3 prompts)
     # ------------------------------------------------------------------
@@ -119,7 +130,10 @@ class JournalService:
     # ------------------------------------------------------------------
 
     async def suggest_activities(
-        self, content: str, user_uid: UserUID
+        self,
+        content: str,
+        user_uid: UserUID,
+        active_goal_titles: list[str] | None = None,
     ) -> Result[list[SuggestedActivity]]:
         """Recognise candidate activities in journal text as paste-ready DSL lines.
 
@@ -127,6 +141,11 @@ class JournalService:
         goals), then re-renders the result into canonical checkbox DSL. The
         lines are *inert suggestions* — the caller surfaces them for the user to
         copy into a Periodic Note or extraction folder; nothing is created here.
+
+        ``active_goal_titles`` lets the caller inject the *same* goal snapshot it
+        used to build the cache key, so a cached panel is always keyed by the
+        grounding that actually produced it (no fetch-twice skew). When ``None``,
+        the titles are fetched here.
 
         Returns an empty list (not an error) when the bridge is unavailable
         (CORE tier) or the content is blank — the panel renders a neutral state.
@@ -138,14 +157,12 @@ class JournalService:
         if self._dsl_bridge is None or not content or not content.strip():
             return Result.ok([])
 
-        active_goals: list[dict[str, str]] = []
-        if self._goals:
-            # get_active filters terminal states (completed/cancelled/archived);
-            # the bridge labels this context "active goals", so stale goals must
-            # not leak in (get_user_goals would return all).
-            goals_result = await self._goals.get_active(user_uid, limit=10)
-            if not goals_result.is_error and goals_result.value:
-                active_goals = [{"title": g.title} for g in goals_result.value]
+        if active_goal_titles is None:
+            # Grounding is a soft signal: a goals-query failure degrades to no
+            # grounding rather than failing the whole suggestion pass.
+            titles_result = await self.active_goal_titles(user_uid)
+            active_goal_titles = titles_result.value if titles_result.is_ok else []
+        active_goals = [{"title": t} for t in active_goal_titles]
 
         transform = await self._dsl_bridge.transform_with_context(
             content, user_uid, active_goals=active_goals or None
@@ -154,6 +171,27 @@ class JournalService:
             return Result.fail(transform)
 
         return Result.ok(build_suggestions(transform.value.activity_lines))
+
+    async def active_goal_titles(self, user_uid: UserUID) -> Result[list[str]]:
+        """Titles of the user's active goals — the grounding fed to the bridge.
+
+        The suggestions route fetches this once, derives the cache key from it,
+        and passes the same snapshot back into ``suggest_activities`` so the
+        cached fingerprint can never drift from the context that produced the
+        suggestions.
+
+        ``get_active`` filters terminal states (completed/cancelled/archived);
+        the bridge labels this "active goals", so stale goals must not leak in
+        (``get_user_goals`` would return all).
+
+        Backend: GoalsService.get_active.
+        """
+        if self._goals is None:
+            return Result.ok([])
+        goals_result = await self._goals.get_active(user_uid, limit=10)
+        if goals_result.is_error:
+            return Result.fail(goals_result)
+        return Result.ok([g.title for g in goals_result.value or []])
 
     # ------------------------------------------------------------------
     # Stage 1 — Scribe

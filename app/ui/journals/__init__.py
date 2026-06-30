@@ -621,14 +621,15 @@ def SuggestedActivitiesContainer(entry_uid: str) -> Any:
 def SuggestedActivitiesPanel(
     items: "list[SuggestedActivity] | None" = None,
     *,
-    tier_core: bool = False,
+    unavailable: bool = False,
     error: bool = False,
 ) -> Any:
     """Inner content of the suggestions panel — copyable, domain-tagged DSL lines.
 
-    States: CORE-tier note, error, empty, or a list of suggestion rows. The
-    panel is inert — copying a line creates nothing; entities exist only after
-    the user pastes a line into a synced folder.
+    States: bridge-unavailable note (CORE tier, or FULL without an OpenAI key),
+    error, empty, or a list of suggestion rows. The panel is inert — copying a
+    line creates nothing; entities exist only after the user pastes a line into
+    a synced folder.
     """
     items = items or []
 
@@ -642,10 +643,10 @@ def SuggestedActivitiesPanel(
         cls="mb-3",
     )
 
-    if tier_core:
+    if unavailable:
         body: Any = P(
-            "Suggestions need FULL tier. You can still type @context() lines "
-            "yourself — see the context DSL cheat-sheet.",
+            "Suggestions aren't available right now. You can still type @context() "
+            "lines yourself — see the context DSL cheat-sheet.",
             cls="text-[12.5px] text-muted-foreground leading-snug",
         )
     elif error:
