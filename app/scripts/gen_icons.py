@@ -3,22 +3,22 @@
 
 WHY: SKUEL renders icons server-side as inline ``<svg>`` (see ``ui/components/icon.py``)
 instead of shipping lucide's runtime ``createIcons()`` DOM scanner. This script harvests
-the icon geometry for *only the names the codebase actually uses* and writes them to a
-committed Python module, so the 410 KB lucide JS bundle never reaches the browser.
+the icon geometry for the names the codebase uses and writes them to a committed Python
+module, so the 410 KB lucide JS bundle never reaches the browser.
 
 SOURCE: the vendored UMD bundle ``static/vendor/lucide/lucide.<ver>.min.js`` — the exact
 pinned version already in the repo. Its ``icons`` export maps PascalCase names to icon
 nodes (``[["path", {"d": "..."}], ...]``). We read it via node (no network, no new dep).
-To switch to lucide-static later, change ``_load_icon_nodes()`` to read its ``icons/*.svg``.
+To switch to lucide-static later, change ``load_icon_nodes()`` to read its ``icons/*.svg``.
 
 USAGE:
     uv run python scripts/gen_icons.py          # regenerate after adding/removing icons
 
-The used-name surface is scanned from the codebase with the same patterns the icons are
-authored with (literal ``Icon("...")`` calls, ``"icon": "..."`` kind maps, JS seed maps,
-``data-lucide="..."``). Names that don't resolve in the bundle are WARNED and skipped, not
-fatal — comment artifacts shouldn't break the build, and ``Icon()`` falls back to a visible
-``help-circle`` at runtime for anything missing. Watch the warnings for genuine typos.
+HARVEST STRATEGY: with the lucide runtime gone, any name reaching ``Icon()`` must be in
+the registry — whether passed directly (``Icon("check")``), via a config field
+(``icon="sun"``), or through a wrapper helper (``_icon_ghost_btn("thumbs-up")``). Rather
+than enumerate every call shape (whack-a-mole), we include every quoted string literal in
+our own source that is a real lucide icon name. See ``scan_used_names`` for the trade-off.
 """
 
 from __future__ import annotations
@@ -26,7 +26,6 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -36,16 +35,12 @@ OUT = APP_ROOT / "ui/components/_icon_data.py"
 # Fallbacks Icon() references directly — always include even if no call site scans them.
 SAFELIST = {"help-circle", "circle"}
 
-# (pattern, file globs) — each pattern's first group is a kebab-case icon name.
-SCAN_RULES: list[tuple[str, tuple[str, ...]]] = [
-    (r'Icon\("([a-z0-9-]+)"', ("ui/**/*.py", "adapters/**/*.py")),
-    (r'"icon":\s*"([a-z0-9-]+)"', ("ui/**/*.py", "adapters/**/*.py")),
-    # icon="name" / icon='name' — nav configs (SidebarItem, nav_config) pass icon
-    # names this way and later render them via Icon(item.icon).
-    (r"""icon=["']([a-z0-9-]+)["']""", ("ui/**/*.py", "adapters/**/*.py")),
-    (r"icon:\s*'([a-z0-9-]+)'", ("static/**/*.js",)),
-    (r'data-lucide="([a-z0-9-]+)"', ("static/**/*.js", "ui/**/*.py")),
-]
+# Where our own source lives. NOT static/vendor/ — minified bundles are full of
+# coincidental single-letter/word matches.
+SCAN_GLOBS = ("ui/**/*.py", "adapters/**/*.py", "static/js/**/*.js")
+
+# Any quoted kebab-case literal (e.g. "check", 'chevron-down', "more-horizontal").
+LITERAL_RX = re.compile(r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
 
 
 def _pascal(name: str) -> str:
@@ -53,15 +48,23 @@ def _pascal(name: str) -> str:
     return "".join(part[:1].upper() + part[1:] for part in name.split("-"))
 
 
-def scan_used_names() -> set[str]:
-    """Union of icon names referenced anywhere in the codebase, per SCAN_RULES."""
+def scan_used_names(valid_keys: set[str]) -> set[str]:
+    """Every quoted string literal in our source that is a real lucide icon name.
+
+    Harvest-by-validity rather than pattern-matching specific call shapes: with the
+    lucide runtime removed, any name reaching Icon() — directly, via a config field
+    (icon="..."), or through a wrapper helper (_icon_ghost_btn("thumbs-up")) — must
+    be in the registry. Matching real lucide names covers all of those paths at once
+    and is robust to new call patterns. Cost: a handful of words that happen to be
+    icon names (e.g. "code", "save") get included unused — harmless in a generated file.
+    """
     names: set[str] = set(SAFELIST)
-    for pattern, globs in SCAN_RULES:
-        rx = re.compile(pattern)
-        for glob in globs:
-            for path in APP_ROOT.glob(glob):
-                if path.is_file():
-                    names.update(rx.findall(path.read_text(encoding="utf-8")))
+    for glob in SCAN_GLOBS:
+        for path in APP_ROOT.glob(glob):
+            if path.is_file():
+                for lit in LITERAL_RX.findall(path.read_text(encoding="utf-8")):
+                    if _pascal(lit) in valid_keys:
+                        names.add(lit)
     return names
 
 
@@ -91,20 +94,11 @@ def node_to_markup(node: list[list[object]]) -> str:
 
 
 def main() -> int:
-    used = scan_used_names()
     all_nodes = load_icon_nodes()
+    used = scan_used_names(set(all_nodes))
 
-    resolved: dict[str, str] = {}
-    missing: list[str] = []
-    for name in sorted(used):
-        node = all_nodes.get(_pascal(name))
-        if node is None:
-            missing.append(name)
-            continue
-        resolved[name] = node_to_markup(node)
-
-    if missing:
-        print(f"⚠ {len(missing)} used name(s) not in bundle (skipped): {', '.join(missing)}", file=sys.stderr)
+    # Every name is valid by construction (scan_used_names filters against all_nodes).
+    resolved = {name: node_to_markup(all_nodes[_pascal(name)]) for name in sorted(used)}
 
     body = "".join(f"    {name!r}: {markup!r},\n" for name, markup in resolved.items())
     OUT.write_text(
