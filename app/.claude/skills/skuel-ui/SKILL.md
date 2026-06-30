@@ -27,7 +27,7 @@ allowed-tools: Read, Grep, Glob
 **Current state (ADR-071 complete — M1–M11 all done):** Import everything from `ui.components`:
 - `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
 - `Alert`, `AlertT`, `Loading`, `Progress`
-- `Icon` (Lucide, via `data-lucide`), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
+- `Icon` (Lucide, server-rendered inline SVG — no lucide runtime), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
 - Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`)
 
 `build_head()` / `skuel_headers()` load `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine. UIkit/FrankenUI/MonsterUI/DaisyUI are gone — no `monsterui`/`daisyui` dependency, no vendor files, no browser JIT.
