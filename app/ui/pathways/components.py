@@ -13,7 +13,7 @@ from fasthtml.common import (
 
 from core.models.pathways.pathways_request import LearningPathFilterRequest
 from ui.components import Button, ButtonT, Card
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge, BadgeT, Progress
 from ui.forms import LabelSelect
 from ui.layout import Size
 from ui.patterns.card_generator import CardGenerator
@@ -141,13 +141,7 @@ class PathwaysUIComponents:
                 # Progress Bar
                 Div(
                     Div(f"{path.progress:.1f}% Complete", cls="text-sm text-muted-foreground mb-1"),
-                    Div(
-                        Div(
-                            cls="h-2 bg-primary rounded-full transition-all",
-                            style=f"width: {path.progress}%",
-                        ),
-                        cls="w-full bg-secondary rounded-full h-2",
-                    ),
+                    Progress(value=path.progress),
                     cls="mb-3",
                 ),
                 # Current Step & Time

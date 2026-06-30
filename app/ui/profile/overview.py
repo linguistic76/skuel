@@ -17,7 +17,7 @@ from fasthtml.common import H2, H3, A, Canvas, Div, P, Span
 from core.models.enums import Priority
 from core.services.user.unified_user_context import UserContext
 from ui.components import Card
-from ui.feedback import Alert, AlertT, Badge, BadgeT
+from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress, ProgressT
 from ui.patterns.empty_state import EmptyState
 
 if TYPE_CHECKING:
@@ -707,7 +707,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
     """
     # Capacity bar
     capacity_percent = int(plan.workload_utilization * 100)
-    capacity_color = "bg-success" if plan.fits_capacity else "bg-warning"
+    capacity_variant = ProgressT.success if plan.fits_capacity else ProgressT.warning
 
     # Engaged PS section (None when no active engagements)
     engaged_section = _engaged_ps_section(plan)
@@ -836,13 +836,7 @@ def _daily_work_plan_card(plan: "DailyWorkPlan") -> Div:
         # Capacity bar
         Div(
             P(f"Capacity: {capacity_percent}% utilized", cls="text-xs text-muted-foreground mb-1"),
-            Div(
-                Div(
-                    cls=f"h-2 {capacity_color} rounded-full transition-all",
-                    style=f"width: {min(capacity_percent, 100)}%",
-                ),
-                cls="h-2 bg-muted rounded-full w-full",
-            ),
+            Progress(value=min(capacity_percent, 100), variant=capacity_variant),
             cls="mb-4",
         ),
         # Engaged PS groups (above flat priorities — these are explicit commitments)
@@ -893,13 +887,7 @@ def _alignment_breakdown(alignment: "LifePathAlignment") -> Div:
                 Div(
                     Span(icon, cls="text-sm w-6"),
                     Span(name, cls="text-xs text-muted-foreground w-20"),
-                    Div(
-                        Div(
-                            cls="h-2 bg-primary rounded-full",
-                            style=f"width: {score_percent}%",
-                        ),
-                        cls="h-2 bg-muted rounded-full flex-1",
-                    ),
+                    Progress(value=score_percent, cls="flex-1"),
                     Span(f"{score_percent}%", cls="text-xs text-muted-foreground w-10 text-right"),
                     cls="flex items-center gap-2",
                 ),
