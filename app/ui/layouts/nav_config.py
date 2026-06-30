@@ -56,7 +56,7 @@ class IconNavItem:
     page_key: str
     requires_auth: bool = True
     has_dropdown: bool = False
-    icon: str = ""  # Lucide icon name — when set, renders Icon instead of letter
+    icon: str = ""  # Icon name (ui/components/icon.py); when set, renders Icon vs letter
     hide_for_teacher: bool = False
     hide_for_admin: bool = False
 

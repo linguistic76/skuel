@@ -24,7 +24,21 @@ Usage:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Body, Button, Div, Head, Html, Link, Main, Meta, P, Script, Title
+from fasthtml.common import (
+    A,
+    Body,
+    Button,
+    Div,
+    Head,
+    Html,
+    Link,
+    Main,
+    Meta,
+    P,
+    Script,
+    Template,
+    Title,
+)
 
 from ui.layouts.navbar import (
     create_bottom_nav,
@@ -40,7 +54,7 @@ if TYPE_CHECKING:
 
     from adapters.inbound.fasthtml_types import Request
 
-# Cache SKUEL headers at import time (output.css + Lucide + HTMX + Alpine + main.css + skuel.js).
+# Cache SKUEL headers at import time (output.css + HTMX + Alpine + main.css + skuel.js).
 _SKUEL_HEADERS = skuel_headers()
 
 
@@ -79,7 +93,7 @@ def build_head(
         Meta(charset="UTF-8"),
         Meta(name="viewport", content="width=device-width, initial-scale=1.0, viewport-fit=cover"),
         Title(f"{title} - SKUEL"),
-        # output.css + Lucide + HTMX + Alpine + main.css + skuel.js — cached at import
+        # output.css + HTMX + Alpine + main.css + skuel.js — cached at import
         *_SKUEL_HEADERS,
         # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships
         Link(rel="stylesheet", href="/static/vendor/vis-network/vis-network.min.css"),
@@ -146,7 +160,7 @@ async def BasePage(
     """Unified page wrapper for consistent UX across SKUEL.
 
     Provides:
-    - Consistent HTML head (output.css, HTMX, Alpine.js, Lucide)
+    - Consistent HTML head (output.css, HTMX, Alpine.js; icons are server-rendered inline SVG)
     - Navbar with active page highlighting
     - Page layout based on type (STANDARD centered, CUSTOM full-width)
     - Modal container for overlays
@@ -237,11 +251,20 @@ async def BasePage(
             ),
             # Toast notification container
             Div(
-                **{"x-data": "toastManager", "x-cloak": True, "x-show": "toasts.length > 0"},
+                **{
+                    "x-data": "toastManager",
+                    "x-cloak": True,
+                    "x-show": "toasts.length > 0",
+                    # Render toasts dispatched via the `toast` Alpine event (e.g. hierarchyTree
+                    # bulk actions). `.window` because the dispatcher is not a DOM ancestor.
+                    "@toast.window": "show($event.detail.message, $event.detail.type)",
+                },
                 cls="fixed top-4 right-4 z-50 space-y-2",
             )(
-                # Template for rendering toasts
-                Div(
+                # x-for MUST live on a <template> — Alpine only creates the `toast` iteration
+                # variable for template elements (on a plain Div the child bindings evaluate in
+                # the parent scope → "toast is not defined").
+                Template(
                     **{"x-for": "toast in toasts", ":key": "toast.id"},
                 )(
                     Div(
