@@ -3009,40 +3009,8 @@
 
     });
 
-    // Initialize Lucide icons after Alpine has set up the DOM.
-    // Guards on window.lucide so this is a no-op until skuel_headers() is activated (M9).
-    document.addEventListener('alpine:initialized', function() {
-        if (window.lucide) lucide.createIcons();
-    });
-
-    // Re-run on HTMX content swaps so icons injected via HTMX are also rendered.
-    document.addEventListener('htmx:afterSwap', function() {
-        if (window.lucide) lucide.createIcons();
-    });
-
-    // Re-run Lucide after Alpine inserts dynamic data-lucide elements into the DOM
-    // (handles x-html icon helpers on /today and similar pages).
-    // document.documentElement avoids the document.body null issue when skuel.js
-    // runs in <head> before the body is parsed; subtree:true catches all descendants.
-    //
-    // createIcons() replaces each <i data-lucide> with an <svg>, which is itself a
-    // childList mutation. Calling it directly inside the observer callback re-triggers
-    // the observer in an unbounded loop that pegs the main thread and hangs the page.
-    // Guard against self-triggering: disconnect while createIcons mutates the DOM, then
-    // reconnect, and coalesce mutation bursts into a single rAF-scheduled scan.
-    if (window.MutationObserver && window.lucide) {
-        var lucideScanScheduled = false;
-        var lucideObserver = new MutationObserver(function() {
-            if (lucideScanScheduled) return;
-            lucideScanScheduled = true;
-            requestAnimationFrame(function() {
-                lucideScanScheduled = false;
-                lucideObserver.disconnect();
-                lucide.createIcons();
-                lucideObserver.observe(document.documentElement, { subtree: true, childList: true });
-            });
-        });
-        lucideObserver.observe(document.documentElement, { subtree: true, childList: true });
-    }
+    // Icons are server-rendered inline SVG (ui/components/icon.py) and pre-rendered
+    // into x-html bindings (ui/today/orchestrator.py), so there is no client-side
+    // icon scan — no lucide.createIcons() and no MutationObserver to self-trigger.
 
 })();

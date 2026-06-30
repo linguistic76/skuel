@@ -412,8 +412,10 @@ app, rt = fast_app(hdrs=(*skuel_headers(), *pwa_headers()))
 - Compiled Tailwind CSS — `static/css/output.css` (built by `./dev css-build`)
 - HTMX 1.9.10
 - Alpine.js 3.14.8 (self-hosted)
-- Lucide icons (`data-lucide`)
 - SKUEL custom CSS/JS
+
+Icons are server-rendered inline SVG via `Icon()` (`ui/components/icon.py`) — no lucide
+runtime is loaded; there is no `data-lucide` / `createIcons()` client scan.
 
 ### `build_head()` — Canonical `<head>` for Full Documents
 

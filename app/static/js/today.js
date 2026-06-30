@@ -78,21 +78,18 @@
         }[s] || 'bg-muted text-muted-foreground';
       },
 
-      // Icon helpers — return <i data-lucide="name"> HTML for x-html bindings.
-      // x-html replaces innerHTML with a fresh element each time, so the
-      // MutationObserver in skuel.js can call lucide.createIcons() on it.
-      kindIconHtml(kind, sizeCls) {
-        sizeCls = sizeCls || 'w-3.5 h-3.5';
-        const icon = (this.seed.kinds[kind] || this.seed.kinds.submission || {icon: 'file-text'}).icon;
-        return `<i data-lucide="${icon}" class="${sizeCls} inline-block"></i>`;
+      // Icon helpers — return pre-rendered inline <svg> markup (server-built in
+      // ui/today/orchestrator.py) for x-html bindings. The SVG fills its wrapper
+      // (w-full h-full), so the call-site element controls the display size. No
+      // lucide.createIcons() / MutationObserver involved.
+      kindIconHtml(kind) {
+        return (this.seed.kinds[kind] || this.seed.kinds.submission || {}).icon_svg || '';
       },
       ritualIconHtml(hhmm) {
-        const icon = this.ritualPast(hhmm) ? 'check' : 'sunrise';
-        return `<i data-lucide="${icon}" class="w-2.5 h-2.5 inline-block"></i>`;
+        return this.ritualPast(hhmm) ? this.seed.ritual_icons.past : this.seed.ritual_icons.upcoming;
       },
       openTaskIconHtml() {
-        const icon = (this.seed.kinds[this.openTask?.kind])?.icon || 'file-text';
-        return `<i data-lucide="${icon}" class="w-3 h-3 inline-block"></i>`;
+        return (this.seed.kinds[this.openTask?.kind] || this.seed.kinds.submission || {}).icon_svg || '';
       },
 
       // Day-spine helpers

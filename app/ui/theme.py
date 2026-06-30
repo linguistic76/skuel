@@ -21,7 +21,6 @@ HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
 CHARTJS_VERSION = "4"
 CHARTJS_ADAPTER_VERSION = "3"
-LUCIDE_VERSION = "1.22.0"
 
 
 def skuel_headers(
@@ -30,8 +29,9 @@ def skuel_headers(
 ) -> tuple[Any, ...]:
     """Pure SKUEL headers — no UIkit/MonsterUI.
 
-    Loads pre-compiled output.css (Tailwind CLI), self-hosted Lucide, HTMX,
+    Loads pre-compiled output.css (Tailwind CLI), self-hosted HTMX,
     Alpine.js, SKUEL's custom CSS, and SKUEL's Alpine component JS.
+    Icons are server-rendered inline SVG (no lucide runtime).
 
     Example:
         from fasthtml.common import fast_app
@@ -41,7 +41,7 @@ def skuel_headers(
     """
     return (
         Link(rel="stylesheet", href="/static/css/output.css"),
-        Script(src=f"/static/vendor/lucide/lucide.{LUCIDE_VERSION}.min.js"),
+        # Icons are server-rendered inline SVG (ui/components/icon.py) — no lucide runtime.
         # HTMX (self-hosted — avoids cross-site CSRF cookie rejection in Firefox)
         Script(src=f"/static/vendor/htmx.org/htmx.{htmx_version}.min.js"),
         # Alpine.js (self-hosted for stability)
@@ -149,5 +149,4 @@ __all__ = [
     "ALPINE_VERSION",
     "CHARTJS_VERSION",
     "CHARTJS_ADAPTER_VERSION",
-    "LUCIDE_VERSION",
 ]
