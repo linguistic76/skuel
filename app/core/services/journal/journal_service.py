@@ -29,8 +29,10 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
+    from core.services.journal.suggestion import SuggestedActivity
     from core.services.tasks_service import TasksService
     from core.services.user_entry.user_entry_service import UserEntryService
 
@@ -59,12 +61,16 @@ class JournalService:
         goals_service: GoalsService | None = None,
         tasks_service: TasksService | None = None,
         habits_service: HabitsService | None = None,
+        dsl_bridge: LLMDSLBridgeService | None = None,
     ) -> None:
         self._llm = llm_caller
         self._user_entry = user_entry_service
         self._goals = goals_service
         self._tasks = tasks_service
         self._habits = habits_service
+        # Optional Digital pre-pass that turns prose into @context() lines for
+        # the "Suggested activities" panel. None on CORE tier (no panel).
+        self._dsl_bridge = dsl_bridge
 
     def _resolve_model(self) -> str:
         """Return the best available LLM model based on configured adapters."""
@@ -107,6 +113,47 @@ class JournalService:
             lines.append("Personal project notes:\n" + "\n".join(note_lines))
 
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # Suggested activities (prose → paste-ready @context() lines)
+    # ------------------------------------------------------------------
+
+    async def suggest_activities(
+        self, content: str, user_uid: UserUID
+    ) -> Result[list[SuggestedActivity]]:
+        """Recognise candidate activities in journal text as paste-ready DSL lines.
+
+        Runs the LLM bridge over ``content`` (grounded in the user's active
+        goals), then re-renders the result into canonical checkbox DSL. The
+        lines are *inert suggestions* — the caller surfaces them for the user to
+        copy into a Periodic Note or extraction folder; nothing is created here.
+
+        Returns an empty list (not an error) when the bridge is unavailable
+        (CORE tier) or the content is blank — the panel renders a neutral state.
+
+        Backend: GoalsService (grounding); LLMDSLBridgeService (recognition).
+        """
+        from core.services.journal.suggestion import build_suggestions
+
+        if self._dsl_bridge is None or not content or not content.strip():
+            return Result.ok([])
+
+        active_goals: list[dict[str, str]] = []
+        if self._goals:
+            # get_active filters terminal states (completed/cancelled/archived);
+            # the bridge labels this context "active goals", so stale goals must
+            # not leak in (get_user_goals would return all).
+            goals_result = await self._goals.get_active(user_uid, limit=10)
+            if not goals_result.is_error and goals_result.value:
+                active_goals = [{"title": g.title} for g in goals_result.value]
+
+        transform = await self._dsl_bridge.transform_with_context(
+            content, user_uid, active_goals=active_goals or None
+        )
+        if transform.is_error:
+            return Result.fail(transform)
+
+        return Result.ok(build_suggestions(transform.value.activity_lines))
 
     # ------------------------------------------------------------------
     # Stage 1 — Scribe

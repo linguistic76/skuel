@@ -52,6 +52,13 @@ _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
 _LLM_MODEL_GPT = "gpt-4o-mini"
 _LLM_MAX_TOKENS = 4000
 
+# Pipelines that constitute a journal *session* (vs. periodic notes, teacher
+# review, or extraction entries). Used to filter session lists and to gate the
+# suggestions panel to journal content only.
+_JOURNAL_PIPELINES = frozenset(
+    {Pipeline.LLM_SUMMARY, Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -177,18 +184,13 @@ def create_journals_routes(
             return Response("Could not load user", status_code=500)
         user = user_result.value
 
-        _journal_pipelines = {
-            Pipeline.LLM_SUMMARY,
-            Pipeline.TRANSCRIBE,
-            Pipeline.TRANSCRIBE_AND_STRUCTURE,
-        }
         recent_entries: list[Any] = []
         if user_entry_service is not None:
             recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
             recent_entries = [
                 e
                 for e in (recent_result.value if recent_result.is_ok else [])
-                if e.pipeline in _journal_pipelines
+                if e.pipeline in _JOURNAL_PIPELINES
             ][:30]
 
         page_content = JournalsLandingPage(user=user, recent_entries=recent_entries)
@@ -872,6 +874,59 @@ def create_journals_routes(
         return _P("Saved ✓", id="note-save-status", cls="text-[13px] text-green-600")
 
     # ------------------------------------------------------------------
+    # POST /journals/suggest-activities — lazy-loaded "Suggested activities" panel
+    #
+    # Declared before the {entry_uid} catch-all (FastHTML resolves in order).
+    # Reads the persisted entry, runs the bridge, returns inert copyable DSL
+    # lines. Creates and persists nothing (the prose + suggestions boundary).
+    # ------------------------------------------------------------------
+
+    @rt("/journals/suggest-activities", methods=["POST"])
+    @csrf_protected
+    @rate_limited(per_user=20, window_s=60)
+    async def journals_suggest_activities(request: Request) -> Any:
+        from adapters.inbound.result_helpers import require_found
+        from core.utils.result_simplified import ErrorCategory
+        from ui.journals import SuggestedActivitiesPanel
+
+        user_uid = require_authenticated_user(request)
+
+        # CORE tier (no journal_service) → cheat-sheet pointer, no LLM call.
+        if journal_service is None:
+            return SuggestedActivitiesPanel(tier_core=True)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+
+        form = await request.form()
+        entry_uid = str(form.get("entry_uid", "")).strip()
+        if not entry_uid:
+            return Response("Not found", status_code=404)
+
+        # Ownership invariant: missing / not-owned → 404 (never a 200 empty panel
+        # for someone else's UID). require_found applies the not-found guard.
+        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
+        found = require_found(entry_result, "Journal entry", entry_uid)
+        if found.is_error:
+            status = 404 if found.expect_error().category == ErrorCategory.NOT_FOUND else 500
+            return Response("Not found" if status == 404 else "Service error", status_code=status)
+        entry = found.value
+
+        # Allowlist: only journal-session entries get LLM suggestions. Periodic
+        # notes (user types @context directly), teacher-review, and extraction
+        # entries are out of scope for this panel — treat as not found here.
+        if entry.pipeline not in _JOURNAL_PIPELINES:
+            return Response("Not found", status_code=404)
+
+        content = entry.content or entry.processed_content or ""
+
+        result = await journal_service.suggest_activities(content, user_uid)
+        if result.is_error:
+            logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
+            return SuggestedActivitiesPanel(error=True)
+
+        return SuggestedActivitiesPanel(items=result.value)
+
+    # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
     # ------------------------------------------------------------------
 
@@ -929,16 +984,11 @@ def create_journals_routes(
             return Response("Could not load user", status_code=500)
         user = user_result.value
 
-        _journal_pipelines = {
-            Pipeline.LLM_SUMMARY,
-            Pipeline.TRANSCRIBE,
-            Pipeline.TRANSCRIBE_AND_STRUCTURE,
-        }
         recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
         recent_entries = [
             e
             for e in (recent_result.value if recent_result.is_ok else [])
-            if e.pipeline in _journal_pipelines
+            if e.pipeline in _JOURNAL_PIPELINES
         ][:30]
 
         if entry.processed_file_path:

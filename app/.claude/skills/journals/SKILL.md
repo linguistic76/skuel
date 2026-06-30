@@ -29,6 +29,7 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Compiled (file upload) | `run_compiled(raw_entry, user_uid)` | Chains stage1 → stage2 → stage3; returns single markdown doc | — |
 | Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
 | Follow-up (conversation continuation) | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode)` | `follow_up_system_prompt()` — mode base + continuation directive | 4000 |
+| Suggested activities (panel) | `suggest_activities(content, user_uid)` | LLM bridge (`transform_with_context`) → `@context()` lines re-rendered to checkbox DSL via `suggestion.py` (bridge tags preserved verbatim) | — |
 
 FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
 `run_compiled()` is the batch path: file upload (`instructions_only` mode) chains all three stages
@@ -138,9 +139,10 @@ entries in ingestion code.
 | `docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md` | Full domain architecture, tier comparison, privacy contract, roadmap |
 | `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md §3` | Journals → Askesis ZPD signal pipeline (Phase 2 deferred) |
 | `docs/user-guides/journal-privacy.md` | Privacy policy and enforcement commitments |
-| `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers |
+| `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers; `suggest_activities()` powers the panel |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
-| `adapters/inbound/journals_routes.py` | 10 routes; FOUNDER tier enforcement lives here; `GET /journals/{entry_uid}` is the dedicated chat page; `GET /journals/je-out/{filename}` serves compiled outputs |
+| `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render, preserving the bridge's tags verbatim (deadlines/priorities not normalised, so nothing is lost). Inert; user copies into a Periodic Note / extraction folder, never auto-created |
+| `adapters/inbound/journals_routes.py` | 11 routes; FOUNDER tier enforcement lives here; `GET /journals/{entry_uid}` is the dedicated chat page; `POST /journals/suggest-activities` returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves compiled outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
 | `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (file-upload input); `Pipeline.JOURNAL` (privacy contract; no new entries created after save_entry deletion) |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |
