@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +42,13 @@ SCAN_GLOBS = ("ui/**/*.py", "adapters/**/*.py", "static/js/**/*.js")
 
 # Any quoted kebab-case literal (e.g. "check", 'chevron-down', "more-horizontal").
 LITERAL_RX = re.compile(r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
+
+# Direct ``Icon("name")`` / ``Icon('name')`` calls — the unambiguous chokepoint.
+# Unlike the permissive whole-source scan (which keeps only literals that *happen* to be
+# real lucide names), a literal first arg to Icon() can only ever be meant as an icon, so
+# a typo here is always a bug. The generator would silently drop it and the icon would
+# fall back to help-circle at runtime — this regex lets us fail the build instead.
+ICON_CALL_RX = re.compile(r"""\bIcon\(\s*["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
 
 
 def _pascal(name: str) -> str:
@@ -66,6 +74,25 @@ def scan_used_names(valid_keys: set[str]) -> set[str]:
                     if _pascal(lit) in valid_keys:
                         names.add(lit)
     return names
+
+
+def direct_icon_call_names() -> dict[str, str]:
+    """Map every direct ``Icon("literal")`` name to the source file it appears in.
+
+    Only literal first arguments are returned; ``Icon(name)`` (a variable) is dynamic
+    and can't be validated statically. These literals are where a typo most often slips
+    through unnoticed — the generator drops an unknown name, so the icon renders a silent
+    help-circle fallback with no build error. Consumed by the build-time check in
+    ``main()`` and by the icon-name unit test, which asserts each resolves to a registry
+    key.
+    """
+    found: dict[str, str] = {}
+    for glob in SCAN_GLOBS:
+        for path in APP_ROOT.glob(glob):
+            if path.is_file():
+                for name in ICON_CALL_RX.findall(path.read_text(encoding="utf-8")):
+                    found.setdefault(name, str(path.relative_to(APP_ROOT)))
+    return found
 
 
 def load_icon_nodes() -> dict[str, list[list[object]]]:
@@ -95,7 +122,25 @@ def node_to_markup(node: list[list[object]]) -> str:
 
 def main() -> int:
     all_nodes = load_icon_nodes()
-    used = scan_used_names(set(all_nodes))
+    valid_keys = set(all_nodes)
+
+    # Fail loudly on a direct Icon("…") call whose name is not a real lucide icon —
+    # otherwise scan_used_names drops it and it renders a silent help-circle fallback.
+    unknown = {
+        name: src
+        for name, src in direct_icon_call_names().items()
+        if _pascal(name) not in valid_keys
+    }
+    if unknown:
+        listing = "\n".join(f"  Icon({name!r}) — {src}" for name, src in sorted(unknown.items()))
+        print(
+            f"✗ {len(unknown)} Icon() call(s) name a non-existent lucide icon "
+            f"(would silently fall back to help-circle):\n{listing}",
+            file=sys.stderr,
+        )
+        return 1
+
+    used = scan_used_names(valid_keys)
 
     # Every name is valid by construction (scan_used_names filters against all_nodes).
     resolved = {name: node_to_markup(all_nodes[_pascal(name)]) for name in sorted(used)}
