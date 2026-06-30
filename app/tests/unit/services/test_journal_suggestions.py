@@ -13,7 +13,7 @@ from core.services.dsl.llm_dsl_bridge import DSLTransformResult
 from core.services.journal.journal_service import JournalService
 from core.services.journal.suggestion import (
     build_suggestions,
-    render_canonical_dsl,
+    render_suggestion_line,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -63,18 +63,38 @@ class TestBuildSuggestions:
         assert "@repeat(daily)" in result[0].dsl_line
         assert "@duration(20m)" in result[0].dsl_line
 
+    def test_preserves_non_canonical_bridge_metadata(self):
+        # The bridge emits loose tags the strict parser can't normalise
+        # (@when(Friday), @priority(high)). They must survive verbatim, not be
+        # silently dropped — the user refines them when curating.
+        result = build_suggestions(["- @context(task) Finish report @when(Friday) @priority(high)"])
+        assert len(result) == 1
+        line = result[0].dsl_line
+        assert line.startswith("- [ ] Finish report @context(task)")
+        assert "@when(Friday)" in line
+        assert "@priority(high)" in line
 
-class TestRenderCanonicalDsl:
-    def test_weekly_repeat_roundtrips(self):
+
+class TestRenderSuggestionLine:
+    def test_preserves_tag_order_and_values(self):
         parsed = ActivityDSLParser().parse_line("- @context(habit) Gym @repeat(weekly:Mon,Wed,Fri)")
         assert parsed.is_ok
-        line = render_canonical_dsl(parsed.value)
-        assert line == "- [ ] Gym @context(habit) @repeat(weekly:Mon,Wed,Fri)"
+        assert render_suggestion_line(parsed.value) == (
+            "- [ ] Gym @context(habit) @repeat(weekly:Mon,Wed,Fri)"
+        )
 
     def test_bare_line_has_checkbox_and_context(self):
         parsed = ActivityDSLParser().parse_line("- @context(goal) Launch")
         assert parsed.is_ok
-        assert render_canonical_dsl(parsed.value) == "- [ ] Launch @context(goal)"
+        assert render_suggestion_line(parsed.value) == "- [ ] Launch @context(goal)"
+
+    def test_canonicalises_context_alias(self):
+        # @context value is rebuilt from the parsed EntityType (alias → canonical).
+        parsed = ActivityDSLParser().parse_line("- @context(ps) Read chapter @duration(30m)")
+        assert parsed.is_ok
+        line = render_suggestion_line(parsed.value)
+        assert "@context(path_step)" in line
+        assert "@duration(30m)" in line
 
 
 # ---------------------------------------------------------------------------
