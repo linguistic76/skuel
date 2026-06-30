@@ -8,10 +8,9 @@ from ui.patterns.form_generator import FormGenerator
 from ui.patterns.hub import HubCard, HubCardData, HubSection
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
-from ui.patterns.progress_metric import ProgressMetric
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.setting_toggle import SettingToggle
-from ui.patterns.stats_grid import StatCard, StatsGrid
+from ui.patterns.stats_grid import IconStat, StatCard, StatsGrid
 
 __all__ = [
     "CardGenerator",
@@ -20,8 +19,8 @@ __all__ = [
     "HubCard",
     "HubCardData",
     "HubSection",
+    "IconStat",
     "PageHeader",
-    "ProgressMetric",
     "SectionHeader",
     "SettingToggle",
     "StatCard",
