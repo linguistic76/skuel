@@ -919,10 +919,38 @@ def create_journals_routes(
 
         content = entry.content or entry.processed_content or ""
 
+        # Memoised: serve the cached panel when the source text is unchanged,
+        # skipping the LLM bridge call on every revisit of the session.
+        from core.services.journal.suggestion import (
+            metadata_with_cached_suggestions,
+            read_cached_suggestions,
+        )
+
+        cached = read_cached_suggestions(entry.metadata, content)
+        if cached is not None:
+            return SuggestedActivitiesPanel(items=cached)
+
         result = await journal_service.suggest_activities(content, user_uid)
         if result.is_error:
             logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
             return SuggestedActivitiesPanel(error=True)
+
+        # Persist for next visit, failure-isolated: a cache-write miss must not
+        # break the panel the user is looking at. updated_at bumps on write, but
+        # the session list orders by created_at, so ordering is unaffected.
+        from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+
+        persist = await user_entry_service.update_entry(
+            entry_uid,
+            user_uid,
+            UserEntryUpdateRequest(
+                metadata=metadata_with_cached_suggestions(entry.metadata, result.value, content)
+            ),
+        )
+        if persist.is_error:
+            logger.warning(
+                "Could not cache suggestions for %s: %s", entry_uid, persist.expect_error()
+            )
 
         return SuggestedActivitiesPanel(items=result.value)
 
