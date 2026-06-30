@@ -1,8 +1,8 @@
 # Technical Debt & Development Roadmap
 
-**Last Updated:** June 19, 2026
+**Last Updated:** June 29, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 4
+**Active TODOs:** 5
 
 ## Philosophy
 
@@ -48,6 +48,7 @@ These only make sense once there are real users generating real data. Building t
 | 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` needs historical depth. Snapshot write path now live (`ALIGNMENT_SNAPSHOT` rel on each `update_alignment_score`); trend query is real. Needs sustained engagement to be meaningful. | **30+ days** of daily alignment snapshots for at least one user |
 | 9 | `core/services/user/user_context_service.py` | 526 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. | UX design decided + **10+ daily active users** generating completion data |
 | 10 | `adapters/persistence/neo4j/query_builders/faceted_query_builder.py` | 210 | [ENHANCEMENT] | Replace string-split query parsing with `analyze_query_intent()` (already exists in `SearchIntelligenceService`). Current string split works for well-formed queries. | User-reported poor search results OR observed query mis-parse patterns in usage logs |
+| 11 | `adapters/inbound/middleware.py` | `StaticCacheHeadersMiddleware` | [PERFORMANCE] | Static assets now use a blunt `Cache-Control: no-cache` (always-correct: forces revalidation so a stale broken asset can never be served — this was the fix for the infinite-loop `skuel.js` cache trap). But FastHTML's static route doesn't honor `If-None-Match`, so every load re-downloads (~1MB) instead of returning 304. **Plan a real caching strategy**: understand cache semantics (no-cache vs immutable vs ETag/304), cache version-stamped vendor assets (lucide/alpine/htmx/chart.js/vis-network) as `immutable` + long-lived, and content-hash app assets (skuel.js, output.css) so they cache-bust by URL. | Before production deploy / when serving real traffic |
 
 ---
 
