@@ -12,6 +12,7 @@ from fasthtml.common import H3, A, Div, P, Span
 
 from core.models.type_hints import UserUID
 from core.services.user.unified_user_context import UserContext
+from ui.feedback import Progress
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.section_header import SectionHeader
 
@@ -184,13 +185,7 @@ def _learning_paths_list(context: UserContext) -> Div:
                         cls="flex items-center mb-2",
                     ),
                     # Progress bar
-                    Div(
-                        Div(
-                            cls="h-2 bg-primary rounded-full transition-all",
-                            style=f"width: {progress_percent}%",
-                        ),
-                        cls="h-2 bg-muted rounded-full w-full",
-                    ),
+                    Progress(value=progress_percent),
                     Div(
                         Span(f"{progress_percent}% complete", cls="text-xs text-muted-foreground"),
                         cls="mt-1",

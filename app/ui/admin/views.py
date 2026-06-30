@@ -26,7 +26,7 @@ from ui.admin.types import UserCardData
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.components.table import Td
 from ui.data import TableFromDicts, TableT
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -621,16 +621,16 @@ class AdminAnalyticsComponents:
             Div with visual role distribution
         """
         roles = [
-            ("Admin", stats.get("admins", 0), "bg-red-500"),
-            ("Teacher", stats.get("teachers", 0), "bg-orange-500"),
-            ("Member", stats.get("members", 0), "bg-green-500"),
-            ("Registered", stats.get("registered", 0), "bg-blue-500"),
+            ("Admin", stats.get("admins", 0), ProgressT.error),
+            ("Teacher", stats.get("teachers", 0), ProgressT.warning),
+            ("Member", stats.get("members", 0), ProgressT.success),
+            ("Registered", stats.get("registered", 0), ProgressT.info),
         ]
 
         total = sum(r[1] for r in roles) or 1  # Avoid division by zero
 
         bars = []
-        for role_name, count, color in roles:
+        for role_name, count, variant in roles:
             pct = (count / total) * 100
             bars.append(
                 Div(
@@ -639,13 +639,7 @@ class AdminAnalyticsComponents:
                         Span(str(count), cls="text-sm text-muted-foreground"),
                         cls="flex justify-between mb-1",
                     ),
-                    Div(
-                        Div(
-                            cls=f"{color} h-full rounded-full transition-all duration-300",
-                            style=f"width: {pct}%",
-                        ),
-                        cls="h-4 bg-muted rounded-full overflow-hidden",
-                    ),
+                    Progress(value=pct, variant=variant),
                     cls="mb-3",
                 )
             )

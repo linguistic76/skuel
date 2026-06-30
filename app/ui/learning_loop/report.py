@@ -28,7 +28,7 @@ from fasthtml.common import (
 from fasthtml.common import Button as HtmlButton
 
 from ui.components import Button, ButtonT, Card, CardBody
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
@@ -44,6 +44,15 @@ _PROCESSOR_BADGE_VARIANTS: dict[str, BadgeT] = {
     "automatic": BadgeT.ghost,
     "human": BadgeT.primary,
 }
+
+
+def _score_variant(score_pct: int) -> ProgressT:
+    """Map a 0–100 score to a progress color band (≥70 success, ≥40 warning, else error)."""
+    if score_pct >= 70:
+        return ProgressT.success
+    if score_pct >= 40:
+        return ProgressT.warning
+    return ProgressT.error
 
 
 def get_processor_type_str(report: Any) -> str:
@@ -284,20 +293,11 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
     score_section: Any = None
     if assessment_score is not None:
         score_pct = round(float(assessment_score) * 100)
-        if score_pct >= 70:
-            bar_color = "bg-green-500"
-        elif score_pct >= 40:
-            bar_color = "bg-amber-500"
-        else:
-            bar_color = "bg-red-500"
         score_section = Div(
             H3("Assessment Score", cls="font-semibold mb-3"),
             Div(
                 P(f"{score_pct}%", cls="text-2xl font-bold mr-4"),
-                Div(
-                    Div(cls=f"{bar_color} h-2 rounded-full", style=f"width: {score_pct}%"),
-                    cls="flex-1 bg-muted rounded-full h-2",
-                ),
+                Progress(value=score_pct, variant=_score_variant(score_pct), cls="flex-1"),
                 cls="flex items-center mb-3",
             ),
             cls="mb-6",
@@ -912,13 +912,6 @@ def _render_life_path_section(life_path: dict[str, Any]) -> Any:
         return Div()
 
     score_pct = round(score * 100) if isinstance(score, float) else 0
-    # Color based on score
-    if score_pct >= 70:
-        bar_color = "bg-green-500"
-    elif score_pct >= 40:
-        bar_color = "bg-amber-500"
-    else:
-        bar_color = "bg-red-500"
 
     details = []
     if life_path.get("life_path_title"):
@@ -952,10 +945,7 @@ def _render_life_path_section(life_path: dict[str, Any]) -> Any:
                 cls="mr-4",
             ),
             Div(
-                Div(
-                    Div(cls=f"{bar_color} h-2 rounded-full", style=f"width: {score_pct}%"),
-                    cls="w-full bg-muted rounded-full h-2",
-                ),
+                Progress(value=score_pct, variant=_score_variant(score_pct)),
                 cls="flex-1 pt-3",
             ),
             cls="flex items-start mb-3",

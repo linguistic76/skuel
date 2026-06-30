@@ -24,7 +24,7 @@ from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
 from ui.components import Icon
 from ui.dual_track_card import DualTrackSection
-from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
+from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -105,24 +105,21 @@ def GoalCard(
             )
         )
 
-    # Progress bar
-    bar_color = "bg-green-600" if on_track else "bg-yellow-600"
+    # Progress bar — variant mirrors the prior color logic
+    # (completed > overdue > on-track > behind).
     if goal.is_completed:
-        bar_color = "bg-green-600"
+        progress_variant = ProgressT.success
     elif overdue:
-        bar_color = "bg-red-600"
+        progress_variant = ProgressT.error
+    elif on_track:
+        progress_variant = ProgressT.success
+    else:
+        progress_variant = ProgressT.warning
 
     progress_el = Div(
         Div(
             Span(f"{progress_pct}%", cls="text-sm text-muted-foreground"),
-            Div(
-                Div(
-                    style=f"width: {progress_pct}%",
-                    cls=f"h-full rounded-full {bar_color}",
-                ),
-                cls="w-full bg-muted rounded-full overflow-hidden",
-                style="height: 6px;",
-            ),
+            Progress(value=progress_pct, variant=progress_variant),
             cls="flex-1 min-w-0",
         ),
         cls="mt-2",
@@ -205,15 +202,9 @@ def GoalDetailView(
             Span(f" · {track_text}", cls=f"text-sm {track_cls}"),
             cls="mb-2",
         ),
-        Div(
-            Div(
-                style=f"width: {progress_pct}%",
-                cls="h-full rounded-full bg-green-600"
-                if on_track
-                else "h-full rounded-full bg-yellow-600",
-            ),
-            cls="w-full bg-muted rounded-full overflow-hidden",
-            style="height: 10px;",
+        Progress(
+            value=progress_pct,
+            variant=ProgressT.success if on_track else ProgressT.warning,
         ),
         cls="my-4",
     )
