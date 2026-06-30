@@ -437,13 +437,11 @@ class UserEntryProcessingService:
                 ln for ln in source_text.splitlines() if not _CHECKBOX_RE.match(ln)
             )
             # Skip the bridge when the strip left nothing (a checkbox-only note):
-            # the obsidian-tasks adapter owns those lines, and there is no prose
-            # to tag. This guard is load-bearing now that the call is grounded —
-            # transform_with_context prepends the active-goal context BEFORE
-            # transform()'s blank-input check, so an empty bridge_text + non-empty
-            # grounding would otherwise call the LLM on just the user's goal
-            # titles and could append @context lines extracted from the GOALS
-            # rather than the entry (phantom entities/provenance). The Analog
+            # the obsidian-tasks adapter owns those lines and there is no prose to
+            # tag, so the goals query + LLM call would be pure waste. (Grounding
+            # safety itself lives in the bridge: the active-goal context goes to a
+            # separate, non-extractable {user_context} slot, so it can never
+            # produce phantom entities regardless of this guard.) The Analog
             # parser still runs over the original checkbox text below.
             if bridge_text.strip():
                 # Ground the pre-pass in the user's active goals — the SAME

@@ -5,6 +5,9 @@ DOMAINS: task, habit, goal, event, principle, choice, finance, ku, ls, lp, repor
 SYNTAX: - @context(type) description @attr(value)...
 ATTRS: @priority, @when, @repeat, @duration, @energy, @amount, @goal, @principle, @ku
 
+A USER CONTEXT section (if present) is background only — never extract activity
+lines from it; use it solely to link via @goal()/@principle().
+{user_context}
 JOURNAL:
 {journal_text}
 

@@ -942,7 +942,8 @@ def create_journals_routes(
         # snapshot feeds BOTH the cache key and the bridge call below, so the
         # cached panel is always keyed by the grounding that produced it (no
         # fetch-twice skew). A goals-query error degrades to text-only keying.
-        titles = await journal_service.active_goal_titles(user_uid)
+        titles_result = await journal_service.active_goal_titles(user_uid)
+        titles = titles_result.value if titles_result.is_ok else []
         grounding = grounding_digest(titles)
 
         cached = read_cached_suggestions(entry.metadata, content, grounding)

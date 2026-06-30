@@ -268,7 +268,9 @@ class TestActiveGoalTitles:
     @pytest.mark.asyncio
     async def test_no_goals_service_returns_empty(self):
         service = _make_service(dsl_bridge=MagicMock(), goals_service=None)
-        assert await service.active_goal_titles("user_mike") == []
+        result = await service.active_goal_titles("user_mike")
+        assert result.is_ok
+        assert result.value == []
 
     @pytest.mark.asyncio
     async def test_returns_active_titles(self):
@@ -279,7 +281,9 @@ class TestActiveGoalTitles:
         goals_service.get_active = AsyncMock(return_value=Result.ok([g1, g2]))
         service = _make_service(dsl_bridge=MagicMock(), goals_service=goals_service)
 
-        assert await service.active_goal_titles("user_mike") == ["Run a marathon", "Ship SKUEL"]
+        result = await service.active_goal_titles("user_mike")
+        assert result.is_ok
+        assert result.value == ["Run a marathon", "Ship SKUEL"]
         goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
 
     @pytest.mark.asyncio
@@ -287,14 +291,17 @@ class TestActiveGoalTitles:
         # Grounding is a soft signal shared by the suggestion preview and the
         # EXTRACT_ACTIVITIES extractor: a goals-query failure degrades to no
         # grounding (empty titles), never an error — the bridge enhances, never
-        # gates. The route then keys the cache on text-only.
+        # gates. The service still honours the Result[T] contract (AGENTS.md):
+        # the soft degrade surfaces as Result.ok([]), not Result.fail.
         goals_service = MagicMock()
         goals_service.get_active = AsyncMock(
             return_value=Result.fail(Errors.database("get_active", "boom"))
         )
         service = _make_service(dsl_bridge=MagicMock(), goals_service=goals_service)
 
-        assert await service.active_goal_titles("user_mike") == []
+        result = await service.active_goal_titles("user_mike")
+        assert result.is_ok
+        assert result.value == []
 
 
 class TestGroundingDigest:

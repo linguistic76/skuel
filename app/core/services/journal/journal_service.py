@@ -162,7 +162,8 @@ class JournalService:
         if active_goal_titles is None:
             # Grounding is a soft signal: a goals-query failure degrades to no
             # grounding rather than failing the whole suggestion pass.
-            active_goal_titles = await self.active_goal_titles(user_uid)
+            titles_result = await self.active_goal_titles(user_uid)
+            active_goal_titles = titles_result.value if titles_result.is_ok else []
 
         transform = await self._dsl_bridge.transform_with_context(
             content, user_uid, active_goals=goals_as_context(active_goal_titles)
@@ -172,21 +173,25 @@ class JournalService:
 
         return Result.ok(build_suggestions(transform.value.activity_lines))
 
-    async def active_goal_titles(self, user_uid: UserUID) -> list[str]:
+    async def active_goal_titles(self, user_uid: UserUID) -> Result[list[str]]:
         """Titles of the user's active goals — the grounding fed to the bridge.
 
         The suggestions route fetches this once, derives the cache key from it,
         and passes the same snapshot back into ``suggest_activities`` so the
         cached fingerprint can never drift from the context that produced the
-        suggestions. The same builder grounds the EXTRACT_ACTIVITIES extractor,
-        so the inert preview and the entity-creating path share one grounding.
+        suggestions. The same grounding builder feeds the EXTRACT_ACTIVITIES
+        extractor, so the inert preview and the entity-creating path share one
+        grounding source (`core.services.dsl.grounding`).
 
-        Grounding is soft: a missing goals service or a query failure degrades
-        to ``[]`` (ungrounded), never an error.
+        Grounding is soft: the shared builder already degrades a missing goals
+        service / query failure to ``[]`` (ungrounded). This service method wraps
+        that in ``Result.ok`` to honour the uniform service contract (AGENTS.md:
+        services return ``Result[T]``); callers keep the ``.is_error``/``.value``
+        shape and treat an empty list as "no grounding".
 
         Backend: GoalsService.get_active (via core.services.dsl.grounding).
         """
-        return await fetch_active_goal_titles(self._goals, user_uid)
+        return Result.ok(await fetch_active_goal_titles(self._goals, user_uid))
 
     # ------------------------------------------------------------------
     # Stage 1 — Scribe
