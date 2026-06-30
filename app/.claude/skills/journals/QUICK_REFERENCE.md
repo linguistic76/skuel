@@ -52,7 +52,7 @@ class JournalTier(str, Enum):
 | File | Purpose |
 |---|---|
 | `core/services/journal/journal_service.py` | `JournalService` — 7 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`, `suggest_activities`. Entry persistence handled by the ingestion path in the calling route. |
-| `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → canonical checkbox DSL re-render for the "Suggested activities" panel (inert; user copies into their own notes) |
+| `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render (bridge tags preserved verbatim) for the "Suggested activities" panel (inert; user copies into their own notes) |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
 | `adapters/inbound/journals_routes.py` | 11 routes — `POST /journals/start` (text entry → create UserEntry → HX-Redirect to chat page); upload also redirects to `GET /journals/{entry_uid}` (dedicated chat page); `GET /journals/je-out/{filename}` downloads compiled output |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
