@@ -1384,11 +1384,17 @@
                             window.location.reload();
                         } else {
                             var error = await response.json();
-                            alert('Failed to dismiss insights: ' + (error.detail || 'Unknown error'));
+                            self.$dispatch('toast', {
+                                message: 'Failed to dismiss insights: ' + (error.detail || 'Unknown error'),
+                                type: 'error',
+                            });
                         }
                     } catch (err) {
                         console.error('Bulk dismiss failed:', err);
-                        alert('Failed to dismiss insights. Please try again.');
+                        self.$dispatch('toast', {
+                            message: 'Failed to dismiss insights. Please try again.',
+                            type: 'error',
+                        });
                     }
                 },
 
@@ -1414,11 +1420,17 @@
                             window.location.reload();
                         } else {
                             var error = await response.json();
-                            alert('Failed to mark insights as actioned: ' + (error.detail || 'Unknown error'));
+                            self.$dispatch('toast', {
+                                message: 'Failed to mark insights as actioned: ' + (error.detail || 'Unknown error'),
+                                type: 'error',
+                            });
                         }
                     } catch (err) {
                         console.error('Bulk action failed:', err);
-                        alert('Failed to mark insights as actioned. Please try again.');
+                        self.$dispatch('toast', {
+                            message: 'Failed to mark insights as actioned. Please try again.',
+                            type: 'error',
+                        });
                     }
                 }
             };
@@ -1779,7 +1791,10 @@
                             window.location.reload();
                         })
                         .catch(function(err) {
-                            alert('Failed to snooze insight: ' + err.message);
+                            self.$dispatch('toast', {
+                                message: 'Failed to snooze insight: ' + err.message,
+                                type: 'error',
+                            });
                         });
                 },
 
