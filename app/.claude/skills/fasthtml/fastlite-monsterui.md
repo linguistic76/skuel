@@ -1,5 +1,7 @@
 # Fastlite Database & MonsterUI Components
 
+> **⚠️ LEGACY / EXTERNAL REFERENCE (MonsterUI section):** As of ADR-071 (complete), SKUEL no longer uses MonsterUI/FrankenUI/DaisyUI. The UI now lives in SKUEL's own pure-Tailwind + Alpine.js component layer — import from `ui.components` (`Button`, `ButtonT`, `Card`, `Alert`, `Input`, `Select`, `Icon`, `Table`, …). The MonsterUI material below is retained only as external-library background, not as current SKUEL guidance. For SKUEL UI, see the `ui-css` and `skuel-ui` skills. (The Fastlite section remains accurate.)
+
 ## Fastlite (SQLite Database)
 
 Fastlite is a CRUD-oriented API for SQLite, built on the MiniDataAPI specification. Uses APSW for optimized connections.

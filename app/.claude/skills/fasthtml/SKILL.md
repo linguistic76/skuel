@@ -670,12 +670,12 @@ def get_books_for_user(user_id: int):
 
 - [routing-patterns.md](routing-patterns.md) - Advanced routing patterns
 - [components-reference.md](components-reference.md) - Complete FT component reference
-- [fastlite-monsterui.md](fastlite-monsterui.md) - Database and UI components
+- [fastlite-monsterui.md](fastlite-monsterui.md) - fastlite database reference (UI section is LEGACY — MonsterUI replaced by `ui.components` per ADR-071)
 
 ## Related Skills
 
 - **[ui-browser](../ui-browser/SKILL.md)** - HTMX + Alpine.js patterns FastHTML uses for dynamic updates and client-side state
-- **[ui-css](../ui-css/SKILL.md)** - MonsterUI components for FastHTML
+- **[ui-css](../ui-css/SKILL.md)** - SKUEL's `ui.components` (pure Tailwind) for FastHTML
 - **[pydantic](../pydantic/SKILL.md)** - Request/response validation in FastHTML routes
 
 ## Foundation

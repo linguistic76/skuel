@@ -113,7 +113,7 @@ Does this element perform an action (same page)?
 | UI components | 3:1 | Buttons, form borders, icons |
 | Graphics (meaningful) | 3:1 | Chart elements, diagrams |
 
-**SKUEL MonsterUI Color System:**
+**SKUEL Semantic Color Tokens** (defined in `tailwind.config.js` / `static/css/input.css`):
 - `text-base-content` on `bg-base-100` - Always passes (designed for contrast)
 - `text-primary` on `bg-base-100` - Checked in theme
 - `text-error` on `bg-error` - High contrast for alerts
@@ -140,7 +140,7 @@ Does this element perform an action (same page)?
 .focus-visible:ring-2 .ring-primary .ring-offset-2
 ```
 
-**MonsterUI default:** All interactive components have built-in focus styles.
+**SKUEL components:** All interactive `ui.components` (Button, Input, Select, etc.) ship with built-in focus styles.
 
 ### 6. Touch Target Size (WCAG 2.5.5)
 
@@ -222,7 +222,7 @@ Button(
 # ❌ BAD: Light gray on white (fails WCAG)
 P("Secondary text", cls="text-gray-300")
 
-# ✅ GOOD: MonsterUI semantic colors (guaranteed contrast)
+# ✅ GOOD: SKUEL semantic color tokens (guaranteed contrast)
 P("Secondary text", cls="text-base-content/70")
 ```
 

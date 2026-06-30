@@ -203,7 +203,7 @@ def custom_graph_page(request, uid: str):
                         "x-model": "depth",
                         "@change": "loadGraph()",
                     },
-                    cls="uk-select uk-form-sm",
+                    cls="text-sm",
                 ),
 
                 # Graph container - MUST have ID matching x-ref

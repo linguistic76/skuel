@@ -646,7 +646,7 @@ Div(
             "x-model": "depth",           # Bind to Alpine state
             "@change": "loadGraph()",     # Reload graph on change
         },
-        cls="uk-select uk-form-sm",
+        cls="text-sm",
     ),
     cls="space-y-2 w-64",
 )

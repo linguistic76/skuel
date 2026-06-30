@@ -506,9 +506,9 @@ all_routes.extend(new_domain_factory.create_routes())
 
 **Pattern:**
 ```python
-from monsterui.franken import Accordion, AccordionItem
+from ui.components import Accordion, AccordionItem
 
-# MonsterUI Accordion handles collapse/expand, chevrons, and transitions
+# SKUEL Accordion (Alpine.js-driven, ADR-071) handles collapse/expand, chevrons, and transitions
 Accordion(
     AccordionItem("Blocking Dependencies", BlockingChainView(uid, etype)),
     AccordionItem("Alternative Approaches", AlternativesComparisonGrid(uid, etype)),

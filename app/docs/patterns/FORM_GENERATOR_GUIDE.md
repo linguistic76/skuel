@@ -277,7 +277,7 @@ FormGenerator.from_model(
 
 ```python
 from fasthtml.common import Div, Form, H2, P
-from ui.buttons import Button, ButtonT
+from ui.components import Button, ButtonT
 
 # PathStep content with embedded exercise form
 def render_path_step_with_exercise(path_step, exercise):
@@ -375,7 +375,7 @@ title: str = Field(..., metadata=[{"ui_placeholder": "e.g., Learn Spanish"}])
 # adapters/inbound/tasks_ui.py
 from core.models.task.task_request import TaskCreateRequest
 from ui.patterns.form_generator import FormGenerator
-from ui.cards import Card
+from ui.components import Card
 from fasthtml.common import H2
 
 class TaskUIComponents:

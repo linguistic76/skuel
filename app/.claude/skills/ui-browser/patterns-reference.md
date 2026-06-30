@@ -61,7 +61,7 @@ HTMX handles multipart file uploads natively via `hx-encoding`:
 Form(
     Input(type="file", name="files", accept=".yaml,.yml", multiple=True),
     Button("Upload", type="submit", variant=ButtonT.primary),
-    Span("", id="spinner", cls="htmx-indicator", **{"uk-spinner": "ratio: 0.6"}),
+    Span(Loading(), id="spinner", cls="htmx-indicator"),  # Loading from ui.components
     **{
         "hx-post": "/upload/files",
         "hx-target": "#results",
@@ -342,7 +342,7 @@ Adopted in: calendar components, sharing modal, insight card modal.
 
 ### Tabs
 
-**Important:** DaisyUI's `.tabs`, `.tabs-boxed`, `.tab`, `.tab-active` classes are NOT available in MonsterUI. Use Alpine `:style` with MonsterUI CSS custom properties for dynamic tab styling — this bypasses all CSS class compilation concerns.
+**Prefer SKUEL's `TabContainer` from `ui.components`** for standard tabs. For fully custom dynamic tab styling, use Alpine `:style` with SKUEL's semantic CSS custom properties (defined in `static/css/input.css`) — this bypasses all CSS class compilation concerns.
 
 ```python
 # ✅ SKUEL tab pattern — inline styles via Alpine :style (home_hub.py canonical example)
@@ -375,9 +375,9 @@ Div(
 )
 ```
 
-**Why `:style` not `:class`:**  Tailwind only compiles classes found in scanned content files at build time. Classes added dynamically via Alpine `:class` must already exist in `franken_css.js` or they have no effect. Inline styles via `:style` use CSS custom properties that MonsterUI guarantees are always defined.
+**Why `:style` not `:class`:**  Tailwind only compiles classes found in scanned content files at build time. A class added dynamically only inside an Alpine `:class` string won't be in `output.css` unless it also appears in scanned content. Inline styles via `:style` use SKUEL's semantic CSS custom properties, which are always defined.
 
-**Available MonsterUI CSS custom properties for tab styling:**
+**Available SKUEL semantic CSS custom properties for tab styling:**
 | Property | Value | Visual |
 |----------|-------|--------|
 | `hsl(var(--primary))` | Dark charcoal (240°, 5.9%, 10%) | Near-black background |
@@ -390,7 +390,7 @@ Div(
 
 ```html
 <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-  <button @click="open = !open" class="btn btn-ghost btn-circle">👤</button>
+  <button @click="open = !open" class="p-2 rounded-full hover:bg-base-200">👤</button>
   <div x-show="open" x-transition.origin.top.right
        class="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-50">
     <a href="/profile" class="block px-4 py-2 hover:bg-base-200">Profile</a>
@@ -403,14 +403,14 @@ Div(
 
 ```html
 <div x-data="{ taskType: 'once' }">
-  <select x-model="taskType" name="task_type" class="select select-bordered w-full">
+  <select x-model="taskType" name="task_type" class="w-full px-3 py-2 border border-base-300 rounded-md bg-base-100">
     <option value="once">One-time</option>
     <option value="recurring">Recurring</option>
   </select>
 
   <!-- Only show for recurring -->
   <div x-show="taskType === 'recurring'" x-transition>
-    <select name="recurrence_pattern" class="select select-bordered w-full">
+    <select name="recurrence_pattern" class="w-full px-3 py-2 border border-base-300 rounded-md bg-base-100">
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
     </select>
