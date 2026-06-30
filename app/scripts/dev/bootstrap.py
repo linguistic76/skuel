@@ -25,7 +25,11 @@ from typing import Any
 from fasthtml.common import StaticFiles, fast_app
 
 from adapters.inbound.csrf import CSRFMiddleware
-from adapters.inbound.middleware import RequestIDMiddleware, RequestTimingMiddleware
+from adapters.inbound.middleware import (
+    RequestIDMiddleware,
+    RequestTimingMiddleware,
+    StaticCacheHeadersMiddleware,
+)
 from core.config import UnifiedConfig
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
 from core.utils.logging import get_logger
@@ -423,7 +427,10 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
         logger.warning(f"⚠️ Cannot create static directory: {static_path} - {e}")
         logger.warning("📝 INFRASTRUCTURE TOLERANCE: App will run but static files won't serve")
 
-    # Mount static files (will work even if directory creation failed)
+    # Mount static files (will work even if directory creation failed).
+    # NOTE: FastHTML's catch-all static route — not this mount — is what actually
+    # serves /static/*; cache headers are applied via StaticCacheHeadersMiddleware
+    # below (which works regardless of which route serves the file).
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
     # Add request ID middleware for log correlation
@@ -432,6 +439,18 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
 
     # Add request timing middleware for performance diagnosis
     app.add_middleware(RequestTimingMiddleware)
+
+    # Force browser revalidation of static assets (Cache-Control: no-cache).
+    # Without this, heuristic caching can serve a stale asset without checking the
+    # server — that once hid a fixed skuel.js behind a cached broken version.
+    #
+    # TODO(caching): Revisit static caching strategy. `no-cache` is blunt but
+    # always-correct; a proper scheme would cache version-stamped vendor assets
+    # (lucide/alpine/htmx/chart.js/vis-network) as immutable + long-lived and
+    # content-hash app assets (skuel.js, output.css). Needs a planning pass to
+    # understand cache semantics before changing. See memory:
+    # project_lucide_mutationobserver_infinite_loop.
+    app.add_middleware(StaticCacheHeadersMiddleware)
 
     # CSRF defense-in-depth — mints csrf_token cookie on first response so the
     # HTMX layer can echo it back on state-changing requests. SameSite=Strict

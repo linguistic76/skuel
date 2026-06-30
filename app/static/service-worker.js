@@ -5,7 +5,16 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
-const CACHE_VERSION = 'skuel-v3';
+// Bumped v3 -> v4 to purge the old static cache, which may hold the broken,
+// infinite-looping skuel.js (see fix in this change). The `activate` handler
+// below deletes any cache whose key != the current versioned names, so any
+// client that had registered the service worker drops the stale skuel.js on the
+// next activation and re-precaches the fixed file.
+// NOTE: this cache-first strategy hides ALL app-asset updates between version
+// bumps, and the SW currently fails to register anyway (/service-worker.js is
+// shadowed by FastHTML's static catch-all → 404). Both are tracked as
+// TECHNICAL_DEBT.md item 11.
+const CACHE_VERSION = 'skuel-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
