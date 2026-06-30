@@ -394,8 +394,7 @@ SidebarItem(
     slug="submit",               # For active state matching
     icon="📤",                   # Optional emoji
     description="",              # Optional subtitle (renders two-line item)
-    badge_text="",               # Optional badge (e.g., count)
-    badge_cls="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground",
+    badge_text="",               # Optional badge text (rendered via feedback.Badge, neutral)
     hx_attrs={},                 # Optional HTMX attributes
 )
 ```
@@ -483,7 +482,7 @@ def _profile_item_renderer(item: SidebarItem, is_active: bool) -> Any:
     return Li(A(
         Span(item.icon, cls="text-lg"),
         Span(item.label, cls="flex-1"),
-        Span(item.badge_text, cls=item.badge_cls) if item.badge_text else "",
+        Badge(item.badge_text, variant=BadgeT.neutral) if item.badge_text else "",
         href=item.href,
         cls=f"flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-base-200 {active_cls}",
     ))
