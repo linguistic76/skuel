@@ -891,9 +891,11 @@ def create_journals_routes(
 
         user_uid = require_authenticated_user(request)
 
-        # CORE tier (no journal_service) → cheat-sheet pointer, no LLM call.
+        # CORE tier (no journal_service) → inert cheat-sheet pointer. The
+        # FULL-tier-without-OpenAI-key case is handled below, AFTER the ownership
+        # and allowlist guards, so it can't shortcut the 404 invariant.
         if journal_service is None:
-            return SuggestedActivitiesPanel(tier_core=True)
+            return SuggestedActivitiesPanel(unavailable=True)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
 
@@ -917,12 +919,68 @@ def create_journals_routes(
         if entry.pipeline not in _JOURNAL_PIPELINES:
             return Response("Not found", status_code=404)
 
+        # Bridge unavailable (FULL tier without an OpenAI key): inert panel, but
+        # only after the ownership + allowlist guards above so missing / foreign /
+        # non-journal uids still 404. No LLM call and no cache write — caching a
+        # bridge-less empty result would survive a later key change.
+        if not journal_service.suggestions_available:
+            return SuggestedActivitiesPanel(unavailable=True)
+
         content = entry.content or entry.processed_content or ""
 
-        result = await journal_service.suggest_activities(content, user_uid)
+        # Memoised: serve the cached panel when the source text is unchanged,
+        # skipping the LLM bridge call on every revisit of the session.
+        from core.services.journal.suggestion import (
+            grounding_digest,
+            metadata_with_cached_suggestions,
+            read_cached_suggestions,
+        )
+
+        # The cache key folds in the active-goal grounding (not just the entry
+        # text): a journal entry's text is effectively immutable, so a goal
+        # change would otherwise keep serving stale suggestions forever. One goal
+        # snapshot feeds BOTH the cache key and the bridge call below, so the
+        # cached panel is always keyed by the grounding that produced it (no
+        # fetch-twice skew). A goals-query error degrades to text-only keying.
+        titles_result = await journal_service.active_goal_titles(user_uid)
+        titles = titles_result.value if titles_result.is_ok else []
+        grounding = grounding_digest(titles)
+
+        cached = read_cached_suggestions(entry.metadata, content, grounding)
+        if cached is not None:
+            return SuggestedActivitiesPanel(items=cached)
+
+        result = await journal_service.suggest_activities(content, user_uid, titles)
         if result.is_error:
             logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
             return SuggestedActivitiesPanel(error=True)
+
+        # Persist for next visit, failure-isolated: a cache-write miss must not
+        # break the panel the user is looking at. updated_at bumps on write, but
+        # the session list orders by created_at, so ordering is unaffected.
+        #
+        # update_entry replaces metadata wholesale, so merge the cache subfield
+        # into the LATEST metadata (re-read here, not the stale page-load
+        # snapshot) to avoid clobbering a concurrent metadata write. The cache
+        # values are still keyed by the page-load content/grounding fingerprint;
+        # a future read validates that against the then-current values.
+        from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+
+        latest = await user_entry_service.get_entry(entry_uid, user_uid)
+        base_metadata = latest.value.metadata if latest.is_ok and latest.value else entry.metadata
+        persist = await user_entry_service.update_entry(
+            entry_uid,
+            user_uid,
+            UserEntryUpdateRequest(
+                metadata=metadata_with_cached_suggestions(
+                    base_metadata, result.value, content, grounding
+                )
+            ),
+        )
+        if persist.is_error:
+            logger.warning(
+                "Could not cache suggestions for %s: %s", entry_uid, persist.expect_error()
+            )
 
         return SuggestedActivitiesPanel(items=result.value)
 
