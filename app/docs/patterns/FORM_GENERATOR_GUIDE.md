@@ -302,7 +302,7 @@ def render_path_step_with_exercise(path_step, exercise):
             H2("Exercise", cls="text-lg font-semibold"),
             P(exercise.instructions, cls="mb-4"),
             exercise_fields,  # Fragment slots in here
-            Button("Submit Answer", type="submit", variant=ButtonT.primary),
+            Button("Submit Answer", type="submit", cls=ButtonT.primary),
             action=f"/api/submissions?exercise_uid={exercise.uid}",
             method="POST",
             hx_post=f"/api/submissions?exercise_uid={exercise.uid}",
@@ -332,7 +332,7 @@ settings_fields = FormGenerator.from_model(
 form = Form(
     basic_fields,
     settings_fields,
-    Button("Create", type="submit", variant=ButtonT.primary),
+    Button("Create", type="submit", cls=ButtonT.primary),
     action="/api/create",
     method="POST",
 )
