@@ -23,7 +23,7 @@ related_docs: []
 
 For hands-on implementation:
 1. Invoke `@skuel-ui` for BasePage patterns, page types, navigation, sidebars, and forms
-2. Invoke `@ui-css` for MonsterUI (FrankenUI + Tailwind) styling
+2. Invoke `@ui-css` for Tailwind + `ui.components` styling
 3. Invoke `@ui-browser` for HTMX server communication and Alpine.js client-side state
 4. Invoke `@accessibility-guide` for WCAG 2.1 Level AA compliance
 5. Continue below for complete component architecture
@@ -36,7 +36,7 @@ For hands-on implementation:
 
 ## Overview
 
-SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + Tailwind). This document explains the component system and how to use it.
+SKUEL uses a layered UI component architecture built on its own pure-Tailwind + Alpine.js component layer (`ui.components`, ADR-071). This document explains the component system and how to use it.
 
 **Key Files:**
 - `/ui/` - SKUEL UI design system (components, patterns, layouts, tokens)
@@ -44,10 +44,10 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 - `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
-- `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers (M2/M3 migrated off MonsterUI); `ButtonLink` in `ui/primitives.py` (also pure Tailwind, M1)
-- `/ui/forms/` — pure Tailwind wrappers (M7 ✅); `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components` M4/M5 ✅
-- `/ui/navigation.py`, `/ui/data.py` — pure Tailwind wrappers (M8 ✅); no longer MonsterUI-backed
-- `/ui/components/` - **SKUEL-owned Tailwind component layer (PR-3, ADR-071).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI. Only `ui/theme.py` remains on MonsterUI (cutover at M9).
+- `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
+- `/ui/forms/` — pure Tailwind wrappers; `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components`
+- `/ui/navigation.py`, `/ui/data.py` — pure Tailwind wrappers
+- `/ui/components/` - **SKUEL-owned Tailwind component layer (ADR-071, complete).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI/DaisyUI. `ui/theme.py` is also pure Tailwind (loads compiled `output.css`).
 
 ---
 
@@ -79,7 +79,7 @@ SKUEL uses a layered UI component architecture built on MonsterUI (FrankenUI + T
 
 **Evolution (2026-03-17c):** **⚛️** (Knowledge) icon added as first navbar item, linking to `/ku`. Emoji icons use `text-base` styling (vs `font-semibold text-sm` for letter icons). `/ku` page redesigned from SEL-category grouped sections to flat Ku listing with bookmarks + latest sidebar. Sidebar powered by `UserRelationshipService.get_pinned_entities()` for bookmarks. Navbar order: SKUEL logo → ⚛️ → C → S → avatar → logout → search → bell.
 
-**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal MonsterUI tabs instead of drawer/overlay.
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal tabs (SKUEL `TabContainer`) instead of drawer/overlay.
 
 **Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
@@ -152,7 +152,7 @@ All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Subm
 **Key Features:**
 - One component for all 6 sidebar pages
 - Desktop: Fixed sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge
-- Mobile: Horizontal MonsterUI tabs (no drawer/overlay)
+- Mobile: Horizontal tabs (SKUEL `TabContainer`, no drawer/overlay)
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
 - localStorage persistence of collapsed state
 - Screen reader announcements on toggle
@@ -359,17 +359,17 @@ Defined in `/static/css/input.css`:
 
 ---
 
-## Import Pattern (MonsterUI Wrappers)
+## Import Pattern (SKUEL Components)
 
-> **ADR-071 migration in progress.** Once a component's Phase 2 PR lands, import it from
-> `ui.components` instead of the MonsterUI paths below. Until then, use the MonsterUI paths.
-> See `/docs/decisions/ADR-071-skuel-tailwind-component-layer.md`.
+> **ADR-071 complete.** All UI is SKUEL-owned pure Tailwind + Alpine.js — import from
+> `ui.components` (which re-exports the wrapper modules below). `from monsterui.franken import ...`
+> no longer works. See `/docs/decisions/ADR-071-skuel-tailwind-component-layer.md`.
 
 ```python
 # Pure HTML elements from FastHTML
 from fasthtml.common import H1, H2, H3, P, A, Form, Li, Ul
 
-# ui.components — Button/ButtonT (M4), Card family (M5)
+# ui.components — the unified import surface (Button/ButtonT, Card family, and more)
 from ui.components import Button, ButtonT, Card, CardBody, CardTitle
 from ui.primitives import ButtonLink
 from ui.enum_helpers import get_submission_status_badge_class
@@ -383,43 +383,43 @@ from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, Tabl
 from fasthtml.common import Div, Option, Span, Tbody, Td, Th, Thead, Tr
 
 # Theme for app initialization
-from ui.theme import monster_headers, Theme
+from ui.theme import skuel_headers, Theme
 ```
 
 ---
 
 ## Theme Headers
 
-All SKUEL pages use `monster_headers()` for consistent styling:
+All SKUEL pages use `skuel_headers()` for consistent styling:
 
 ```python
 from fasthtml.common import fast_app
-from ui.theme import monster_headers, Theme
+from ui.theme import skuel_headers, Theme
 
 # Default (light theme)
-app, rt = fast_app(hdrs=monster_headers())
+app, rt = fast_app(hdrs=skuel_headers())
 
 # With custom theme
-app, rt = fast_app(hdrs=monster_headers(theme=Theme.dark))
+app, rt = fast_app(hdrs=skuel_headers(theme=Theme.dark))
 
 # With PWA support
 from ui.theme import pwa_headers
-app, rt = fast_app(hdrs=(*monster_headers(), *pwa_headers()))
+app, rt = fast_app(hdrs=(*skuel_headers(), *pwa_headers()))
 ```
 
-**What `monster_headers()` includes:**
+**What `skuel_headers()` includes:**
 - Meta viewport tags
-- MonsterUI (FrankenUI + Tailwind) styles (loaded via `monster_headers()`)
+- Compiled Tailwind CSS — `static/css/output.css` (built by `./dev css-build`)
 - HTMX 1.9.10
 - Alpine.js 3.14.8 (self-hosted)
-- Lucide icons (optional)
+- Lucide icons (`data-lucide`)
 - SKUEL custom CSS/JS
 
 ### `build_head()` — Canonical `<head>` for Full Documents
 
 Pages that return complete `Html()` documents (rather than partial HTMX fragments) use `build_head()` from `base_page.py`. This is the **single source of truth** for all `<head>` content — `BasePage` and `AuthPage` both delegate to it. Never construct a `Head(...)` manually. Never hand-assemble `<link>` tags in raw HTML strings.
 
-`build_head()` loads MonsterUI from **local vendor files** (`static/vendor/monsterui/`) via `BRAND_THEME.local_headers()` — no CDN dependency.
+`build_head()` loads the compiled Tailwind stylesheet (`static/css/output.css`) plus self-hosted HTMX, Alpine.js, and Lucide — no CDN dependency, no browser JIT.
 
 ```python
 # Pass extra_css / extra_scripts to BasePage — they are forwarded to build_head()
@@ -436,7 +436,7 @@ return await BasePage(
 
 ### `AuthPage()` — Unauthenticated Pages
 
-Login, registration, and landing pages use `AuthPage()` instead of `BasePage()`. It loads the full MonsterUI CSS stack via `build_head()` but renders no navbar, no modals, no toasts, no PWA components.
+Login, registration, and landing pages use `AuthPage()` instead of `BasePage()`. It loads the full SKUEL CSS stack (compiled Tailwind `output.css`) via `build_head()` but renders no navbar, no modals, no toasts, no PWA components.
 
 ```python
 from ui.layouts.base_page import AuthPage
@@ -454,7 +454,7 @@ Auth page content uses the same SKUEL component wrappers as the rest of the app 
 
 ## Type-Safe Variants
 
-SKUEL uses Python enums for type-safe MonsterUI variants:
+SKUEL uses Python enums for type-safe component variants:
 
 ### Buttons
 
@@ -557,7 +557,7 @@ Card(
 
 ### Card Variants
 
-CardT is re-exported from MonsterUI — use MonsterUI's real variants:
+`CardT` comes from `ui.components` — use its variants:
 
 ```python
 # Default card
@@ -935,13 +935,13 @@ PageHeader("Invoices", actions=Span(f"{count} total", cls="text-sm text-muted-fo
 Card titles must use `CardHeader(CardTitle(...))` — never raw `H2()` or `H3()` directly inside `Card()`:
 
 ```python
-# CORRECT — semantic MonsterUI structure
+# CORRECT — semantic SKUEL card structure
 Card(
     CardHeader(CardTitle("Learning Overview")),
     CardBody(content),
 )
 
-# WRONG — bypasses MonsterUI's uk-card-header/uk-card-title styling
+# WRONG — bypasses CardHeader/CardTitle styling
 Card(
     H2("Learning Overview", cls="text-xl font-semibold mb-4"),
     content,
@@ -1063,22 +1063,25 @@ Div(
 
 **Adoption status:** Used across ~5 files (calendar, sharing, insights). No hand-rolled modals remain.
 
-### Don't Use Raw MonsterUI Classes on Wrappers
+### Don't Hand-Roll Raw Utility Classes on Wrappers
 
 ```python
-# BAD: Redundant - Button wrapper already adds button classes (fully eliminated from codebase)
-Button("Click", cls="uk-btn uk-btn-primary")
+# BAD: Redundant - the Button component already encodes its own Tailwind classes
+Button("Click", cls="bg-blue-600 text-white px-4 py-2 rounded")
 
 # GOOD: Use the variant enum
-Button("Click", variant=ButtonT.primary)
+Button("Click", cls=ButtonT.primary)
 ```
 
-### Don't Import Directly from MonsterUI Package
+### Import Components from `ui.components`
 
 ```python
-# GOOD: Import Button/Card directly from MonsterUI (SKUEL wrappers deleted PR E)
-from monsterui.franken import Button, ButtonT, CardContainer as Card, CardBody
+# GOOD: Import from SKUEL's pure-Tailwind component layer (ADR-071)
+from ui.components import Button, ButtonT, Card, CardBody
 from ui.primitives import ButtonLink  # A() wrapper for button-styled nav links
+
+# BAD: monsterui no longer exists — this import fails
+# from monsterui.franken import Button, ButtonT
 ```
 
 ### Do Use Tailwind for Custom Styling
@@ -1757,7 +1760,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 
 ## See Also
 
-- `/.claude/skills/ui-css/SKILL.md` - MonsterUI (FrankenUI + Tailwind) component reference
+- `/.claude/skills/ui-css/SKILL.md` - Tailwind + `ui.components` component reference
 - `/.claude/skills/fasthtml/SKILL.md` - FastHTML framework guide
 - `/.claude/skills/ui-browser/SKILL.md` - HTMX + Alpine.js for UI state
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling

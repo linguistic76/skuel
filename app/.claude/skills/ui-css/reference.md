@@ -4,7 +4,7 @@
 
 ## SKUEL Component Reference
 
-All UI components use Python FT functions. Import from `ui.components` for migrated components; `monsterui.franken` for Card family (M5 pending) and other not-yet-migrated components.
+All UI components use Python FT functions. Import everything from `ui.components` — SKUEL's owned pure-Tailwind + Alpine.js component layer (ADR-071 complete). MonsterUI/FrankenUI/DaisyUI are removed.
 
 ### Buttons
 

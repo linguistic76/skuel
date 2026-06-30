@@ -1,7 +1,7 @@
 # SKUEL UI Component Catalog
 
-**Last Updated:** 2026-06-26
-**Status:** Complete — MonsterUI consolidated (primitives layer removed; `ui/buttons.py` + `ui/cards.py` deleted PR E)
+**Last Updated:** 2026-06-30
+**Status:** Complete — ADR-071 migration finished. SKUEL-owned pure-Tailwind component layer; MonsterUI/FrankenUI/DaisyUI removed.
 
 ---
 
@@ -9,15 +9,15 @@
 
 This catalog documents all UI components in SKUEL's design system, organized into three tiers:
 
-1. **MonsterUI Wrappers** - Semantic component wrappers (buttons, cards, badges, forms, layout, text, feedback)
+1. **SKUEL Components** - Semantic component wrappers (buttons, cards, badges, forms, layout, feedback) in `ui.components` + the `ui/` wrapper modules
 2. **Patterns** - Composed reusable components (headers, cards, grids)
 3. **Layouts** - Page structures (BasePage, domain layouts)
 
-All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 Level AA accessibility standards.
+All components are SKUEL-owned pure Tailwind + Alpine.js (ADR-071) and follow WCAG 2.1 Level AA accessibility standards.
 
-> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the MonsterUI wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
-> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API — M1 2026-06-29). Typography helpers replaced by `section_label()` or inline Tailwind.
-> **Note (2026-06-29 M4/M5):** `Button`/`ButtonT` and all `Card*` components now import from `ui.components`, not `monsterui.franken`.
+> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
+> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API). Typography helpers replaced by `section_label()` or inline Tailwind.
+> **Note (2026-06-30 ADR-071 complete):** `Button`/`ButtonT`, all `Card*`, forms, nav, data, feedback, and layout components are SKUEL-owned pure Tailwind, importable from `ui.components`. `from monsterui.franken import ...` no longer works — there is no `monsterui` (or `daisyui`) dependency.
 
 ---
 
@@ -25,7 +25,7 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 
 | Category | Components | Location |
 |----------|------------|----------|
-| **Buttons** | Button, ButtonT | `monsterui.franken` (direct) |
+| **Buttons** | Button, ButtonT | `ui.components` |
 | **ButtonLink** | ButtonLink | `ui/primitives.py` (`A()` wrapper, `cls=ButtonT.X`) |
 | **Cards** | Card, CardBody, CardHeader, CardTitle, CardFooter | `ui.components` |
 | **Primitives** | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` | `ui/primitives.py` |
@@ -37,16 +37,16 @@ All components follow MonsterUI (FrankenUI + Tailwind) conventions and WCAG 2.1 
 
 ---
 
-# MonsterUI Component Modules
+# SKUEL Component Modules
 
-Thin Python wrappers around FastHTML FT components with MonsterUI styling.
-These are the **lowest-level SKUEL building blocks** — imported directly in route files and views.
+Thin Python wrappers around FastHTML FT components encoding Tailwind class strings (pure Tailwind + Alpine.js, ADR-071).
+These are the **lowest-level SKUEL building blocks** — imported directly in route files and views. Everything is re-exported from `ui.components`.
 
 **Module map** (June 2026 — `ui/buttons.py` + `ui/cards.py` + `ui/text.py` deleted PR E):
 
 | Module | Symbols |
 |--------|---------|
-| `monsterui.franken` | remaining not-yet-migrated wrappers (forms, nav, data — M6+ pending) |
+| `ui.components` | The unified import surface — re-exports Button/ButtonT, Card*, forms, feedback, layout, data, Icon, TabContainer, Accordion, Divider |
 | `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
@@ -83,7 +83,7 @@ Basic building blocks for all SKUEL interfaces.
 
 ## Button
 
-**Location:** `monsterui.franken` (direct — `ui/buttons.py` deleted PR E)
+**Location:** `ui.components` (pure Tailwind — `ui/buttons.py` deleted PR E)
 
 Styled buttons for actions and navigation.
 
@@ -103,7 +103,7 @@ Primary action button. Pass style via `cls=ButtonT.X` (not `variant=`).
 
 **Examples:**
 ```python
-from monsterui.franken import Button, ButtonT
+from ui.components import Button, ButtonT
 
 # Primary action
 Button("Save Changes", cls=ButtonT.primary)
@@ -160,11 +160,11 @@ ButtonLink("Open →", href="https://example.com", cls=ButtonT.ghost,
 
 ## Card
 
-**Location:** `ui.components` (M5 ✅ 2026-06-29). Import as `from ui.components import Card, CardBody, CardHeader, CardTitle, CardFooter`.
+**Location:** `ui.components`. Import as `from ui.components import Card, CardBody, CardHeader, CardTitle, CardFooter`.
 
 Container component for grouping related content.
 
-**MonsterUI `cls` gotcha:** Never pass `cls=None` to MonsterUI components — it renders as the literal string `"None"` in the HTML class attribute.
+**`cls` gotcha:** `ui.components` handle `cls=None` correctly via `_cls()`. Never pass `cls=None` to a raw FT component — it renders as the literal string `"None"` in the HTML class attribute.
 
 ### Card(*children, cls, **kwargs)
 
@@ -425,9 +425,9 @@ Row(
 - **Section labels:** `section_label()` from `ui/primitives.py` (or `H2` / `H3` with Tailwind classes)
 - **Small/muted text:** inline `Span("…", cls="text-sm text-muted-foreground")` or `P("…", cls="text-xs text-muted-foreground")`
 - **Truncated text:** inline Tailwind `line-clamp-{1|2|3}` via `cls="line-clamp-2"`
-- **Card title:** `CardTitle` from `ui.components` (M5 ✅)
+- **Card title:** `CardTitle` from `ui.components`
 
-**`cls` gotcha (historical):** The SKUEL wrappers merged `cls` to avoid duplicate-kwarg errors. MonsterUI components accept `cls` directly — no merge needed.
+**`cls` handling:** `ui.components` merge extra `cls` internally via `_cls()` and handle `cls=None` safely — no duplicate-kwarg errors.
 
 ---
 
@@ -457,7 +457,7 @@ Page header component.
 **Examples:**
 ```python
 from ui.patterns.page_header import PageHeader
-from monsterui.franken import Button, ButtonT
+from ui.components import Button, ButtonT
 from ui.primitives import ButtonLink
 
 # Simple header
@@ -856,7 +856,7 @@ Standardized Alpine.js-controlled modal with backdrop overlay, click-outside-to-
 **Examples:**
 ```python
 from ui.patterns.modal import AlpineModal
-from monsterui.franken import Button, ButtonT
+from ui.components import Button, ButtonT
 
 # Simple modal with Alpine.js state
 AlpineModal(
@@ -892,7 +892,7 @@ Interactive relationship visualization components.
 
 ### EntityRelationshipsSection(entity_uid, entity_type)
 
-Complete relationships section with all three views. Uses MonsterUI `Accordion` (`multiple=True`) for collapsible sections — each sub-component is an `AccordionItem` with built-in chevron icons and collapse transitions. Relationship Network starts expanded by default.
+Complete relationships section with all three views. Uses SKUEL's `Accordion` (`multiple=True`) from `ui.components` for collapsible sections — each sub-component is an `AccordionItem` with built-in chevron icons and collapse transitions. Relationship Network starts expanded by default.
 
 **Parameters:**
 - `entity_uid: EntityUID` - Entity UID
@@ -1136,7 +1136,7 @@ All 6 domain filter configs are centralised in `FILTER_CONFIGS: dict[str, Filter
 
 **Live category options (2026-06-10):** `with_user_categories(config, categories)` rebuilds the Category dropdown from the user's distinct category values (`service.search.list_user_categories`). Goals/Habits/Principles wire it via `ActivityUIConfig.list_categories` — the content route replaces the static enum options with "All" + live values, drops the dropdown at 0-1 categories, and falls back to the static config if the fetch fails.
 
-**Note:** Uses SKUEL's `Select` from `ui.forms`. Both `Select` and `LabelSelect` render native `<select>` elements with Tailwind styling (`_SELECT_BASE`) — they avoid MonsterUI's `MLabelSelect` which wrapped in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission (fixed in #345/#349; forms migrated to pure Tailwind in #443).
+**Note:** Uses SKUEL's `Select` from `ui.components`. Both `Select` and `LabelSelect` render native `<select>` elements with Tailwind styling (`_SELECT_BASE`). (Historically MonsterUI's `MLabelSelect` wrapped the control in a `<uk-select>` web component that hid the native element from HTMX `FormData`, silently dropping values on submission — fixed in #345/#349; forms fully migrated to pure Tailwind in #443, MonsterUI removed per ADR-071.)
 
 ### Tasks Views (Active)
 
@@ -1236,7 +1236,7 @@ Standard form with validation:
 
 ```python
 from ui.forms import Input, Textarea, Select
-from monsterui.franken import Button, ButtonT
+from ui.components import Button, ButtonT
 from ui.patterns.error_banner import render_inline_error
 from fasthtml.common import Form, Div
 
@@ -1432,12 +1432,12 @@ Div(cls=f"{CONTAINERS['standard']} {SPACING['section_gap']}")
 
 Quick alphabetical index:
 
-**MonsterUI Wrappers:**
+**SKUEL Components** (pure Tailwind, all re-exported from `ui.components`):
 - **Alert / AlertT** - `ui.feedback`
 - **Badge / BadgeT** - `ui.feedback`
-- **Button / ButtonT** - `ui.components` (M4 ✅)
+- **Button / ButtonT** - `ui.components`
 - **ButtonLink** - `ui.primitives` (`cls=ButtonT.X`, not `variant=`)
-- **Card / CardBody / CardHeader / CardTitle / CardFooter** - `ui.components` (M5 ✅)
+- **Card / CardBody / CardHeader / CardTitle / CardFooter** - `ui.components`
 - **Checkbox / Radio / Toggle / Range** - `ui.forms`
 - **Container / Grid / DivHStacked / DivVStacked** - `ui.layout`
 - **Divider / DividerSplit / DividerT** - `ui.data`
@@ -1478,7 +1478,7 @@ Quick alphabetical index:
 - **Error Handling Patterns:** `/docs/patterns/ERROR_HANDLING.md`
 - **UI Component Patterns:** `/docs/patterns/UI_COMPONENT_PATTERNS.md`
 - **WCAG Accessibility Guide:** `/.claude/skills/accessibility-guide/`
-- **MonsterUI Components:** `/.claude/skills/ui-css/`
+- **SKUEL CSS / `ui.components`:** `/.claude/skills/ui-css/`
 
 ---
 

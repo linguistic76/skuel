@@ -22,15 +22,15 @@ allowed-tools: Read, Grep, Glob
 
 `ui/components/` is SKUEL's owned component layer — thin FT functions encoding Tailwind class strings, no UIkit.
 
-**Why:** FrankenUI ships UIkit JS that directly conflicts with Alpine.js (two competing DOM state machines). ADR-071 replaces MonsterUI with SKUEL-owned components so the interactivity model is coherent: Alpine.js + HTMX, nothing else.
+**Why:** FrankenUI shipped UIkit JS that directly conflicted with Alpine.js (two competing DOM state machines). ADR-071 replaced MonsterUI with SKUEL-owned components so the interactivity model is coherent: Alpine.js + HTMX, nothing else.
 
-**Current state (M1–M9 complete, 2026-06-29):** Live — import from `ui.components`:
+**Current state (ADR-071 complete — M1–M11 all done):** Import everything from `ui.components`:
 - `Button`, `ButtonT` — style via `cls=ButtonT.primary`, geometry via `size="sm"` kwarg
 - `Alert`, `AlertT`, `Loading`, `Progress`
-- `Icon` (Lucide), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
-- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`) — M5 ✅ complete
+- `Icon` (Lucide, via `data-lucide`), full form set, table set, `Divider`, `TabContainer`, `Accordion`, layout helpers
+- Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`)
 
-**M9 ✅ (2026-06-29):** `build_head()` now loads `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine via `skuel_headers()`. UIkit/FrankenUI/MonsterUI are no longer loaded in any browser session. M10 (pending): `uv remove monsterui`, delete vendor files.
+`build_head()` / `skuel_headers()` load `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine. UIkit/FrankenUI/MonsterUI/DaisyUI are gone — no `monsterui`/`daisyui` dependency, no vendor files, no browser JIT.
 
 ---
 
@@ -38,7 +38,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Commit to a direction before coding. Intent through tokens — never ad-hoc hex or fonts."
 
-The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX. MonsterUI/FrankenUI is migrating out per ADR-071 (M1–M5 complete). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
+The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX (ADR-071 complete — MonsterUI/FrankenUI/DaisyUI removed). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
 
 **Pre-coding pass — commit to four dimensions before writing FT:**
 1. **Purpose** — what problem, who uses it (mirror the route's `*PageContext`).
@@ -60,7 +60,7 @@ The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js +
 
 ### BasePage — The Foundation
 
-`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, Tailwind/MonsterUI vendor files (MonsterUI transitioning out per ADR-071; cutover at M9), Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
+`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, the compiled Tailwind CSS (`output.css` via `skuel_headers()`), Lucide, Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
 
 ```python
 from ui.layouts.base_page import BasePage
@@ -352,13 +352,13 @@ Form(hx_post="/tasks/create")
 
 # ❌ Old ui.buttons import (deleted in PR E)
 from ui.buttons import Button, ButtonT, ButtonLink, IconButton
-# ❌ monsterui.franken for Button/ButtonT — M4 complete, this is now wrong
+# ❌ monsterui.franken import — removed (ADR-071), no longer works
 from monsterui.franken import Button, ButtonT
-# ✅ Button/ButtonT — M4 complete, use ui.components
+# ✅ Button/ButtonT — use ui.components
 from ui.components import Button, ButtonT
 # ✅ ButtonLink — from ui.primitives
 from ui.primitives import ButtonLink
-# ✅ Card family — M5 complete, use ui.components
+# ✅ Card family — use ui.components
 from ui.components import Card, CardBody, CardHeader, CardTitle
 
 # ❌ Old tuple cls+size pattern
@@ -450,8 +450,8 @@ When building a new SKUEL page or feature, verify:
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
 | `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`, `SelectableOptionRow()`, `dropdown_menu()`, `dropdown_separator()`, `UploadDropzone()`, `SelectedFileCard()`. Source of truth for the unified design language tokens (container, selection, typography). `SelectableOptionRow` is the canonical option-row with icon+title+subtitle+checkmark — active/hover state strings live here only. `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states. |
-| `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py` | Pure Tailwind wrappers (M1–M8 ✅). `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). `ButtonLink` from `ui/primitives.py`. Only `ui/theme.py` remains on MonsterUI (M9 cutover). |
-| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071, M1–M8 live).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Checkbox`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
+| `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). `ButtonLink` from `ui/primitives.py`. |
+| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Checkbox`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
 | `/static/js/skuel.js` | All Alpine.data() components |
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |

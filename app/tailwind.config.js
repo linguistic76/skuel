@@ -31,8 +31,8 @@ module.exports = {
       },
       colors: {
         // Base semantic tokens — components reference these via bg-primary, bg-card etc.
-        // Values are hsl() wrappers over CSS vars owned by input.css; DaisyUI still
-        // provides runtime fallbacks until Phase 2 removes it.
+        // Values are hsl() wrappers over CSS vars owned by input.css (ADR-071: SKUEL
+        // owns these; DaisyUI removed).
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
@@ -83,6 +83,21 @@ module.exports = {
           strong:     'oklch(0.55 0.20 255)',
           developing: 'oklch(0.60 0.15 165)',
         },
+        // Semantic status + base surface tokens — formerly supplied by DaisyUI.
+        // Defined here as concrete values (ADR-071 follow-up: DaisyUI removed) so
+        // existing utilities — text-error, bg-success/10, bg-base-200, text-base-content/70 —
+        // keep compiling. Hex literals let Tailwind apply opacity modifiers (/10, /70, …).
+        // Values chosen for AA text contrast on white; mirror DaisyUI's light theme (the
+        // only theme ever active — data-theme was never toggled, so no dark variants needed).
+        error:   '#dc2626', // red-600
+        success: '#16a34a', // green-600
+        warning: '#d97706', // amber-600
+        info:    '#2563eb', // blue-600
+        neutral: '#525252', // neutral-600
+        'base-100': '#ffffff', // page background
+        'base-200': '#f3f4f6', // subtle surface (gray-100)
+        'base-300': '#e5e7eb', // borders / dividers (gray-200)
+        'base-content': '#1f2937', // body text (gray-800)
       },
       boxShadow: {
         // Soft 2px ring matching hsl(var(--ring) / 0.2) — used as focus ring.
@@ -267,10 +282,5 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/typography'),
-    require('daisyui'),
   ],
-  daisyui: {
-    themes: true,
-    darkTheme: "dark",
-  },
 }

@@ -13,7 +13,7 @@ Layouts  (/ui/layouts/, /ui/{domain}/layout.py)
     ↓ compose
 Patterns (/ui/patterns/, /ui/{domain}/views.py)
     ↓ compose
-Components (/ui/components/ — SKUEL-owned Tailwind layer; /ui/primitives.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, … — MonsterUI wrappers for pending migrations)
+Components (/ui/components/ — SKUEL-owned Tailwind layer; /ui/primitives.py, /ui/forms/, /ui/feedback.py, /ui/layout.py, … — pure Tailwind wrappers, ADR-071 complete)
 ```
 
 Each layer has a single responsibility: components handle styling, patterns handle domain semantics, layouts handle page structure.
@@ -267,7 +267,7 @@ def create_tasks_page(content: Any, request: Request | None = None) -> Any:
 
 All 6 Activity Domain list views use a shared config-driven filter bar (`/ui/activities/filter_bar.py`). Each domain defines a `FilterBarConfig` with its filter dropdowns, sort options, and HTMX targets. Route files call `ActivityFilterBar(config, current_values)` directly.
 
-**Implementation note:** Uses SKUEL's `Select` from `ui.forms`. Both `Select` and `LabelSelect` render a native `<select>` with `uk-select` CSS class so HTMX `FormData` serialization works — MonsterUI's `MSelect`/`MLabelSelect` wrap in a `<uk-select>` web component that hides the native element from form submission.
+**Implementation note:** Uses SKUEL's `Select` from `ui.components`. Both `Select` and `LabelSelect` render a native `<select>` (pure Tailwind) so HTMX `FormData` serialization works — there is no web-component wrapper to hide the native element from form submission.
 
 ```python
 from ui.activities.filter_bar import ActivityFilterBar, FILTER_CONFIGS
@@ -547,7 +547,7 @@ Alpine.data('collapsibleSidebar', function(storageKey) {
 
 ### FormGenerator (Preferred)
 
-Use `FormGenerator` for all standard forms. It introspects Pydantic request models and generates MonsterUI-styled forms with correct types, constraints, labels, and Alpine.js validation.
+Use `FormGenerator` for all standard forms. It introspects Pydantic request models and generates SKUEL-styled forms (pure Tailwind `ui.components`) with correct types, constraints, labels, and Alpine.js validation.
 
 ```python
 from ui.patterns.form_generator import FormGenerator
@@ -598,8 +598,7 @@ exercise_fields = FormGenerator.from_model(
 For forms that need full custom control beyond FormGenerator's capabilities:
 
 ```python
-from monsterui.franken import Button, ButtonT
-from ui.forms import LabelInput, LabelTextArea, LabelSelect
+from ui.components import Button, ButtonT, LabelInput, LabelTextArea, LabelSelect
 
 def create_task_form(action_url: str = "/tasks/quick-add") -> Any:
     return Form(
@@ -670,7 +669,7 @@ Use `AlpineModal` from `ui/patterns/modal.py` for all Alpine.js-controlled modal
 
 ```python
 from ui.patterns.modal import AlpineModal
-from monsterui.franken import Button, ButtonT
+from ui.components import Button, ButtonT
 
 @rt("/tasks/create-modal")
 async def task_create_modal(request):
@@ -758,7 +757,7 @@ Div(
 
 ## 6. Inline CSS Reference (SKUEL Essentials)
 
-Use MonsterUI semantic tokens, not Tailwind palette:
+Use SKUEL semantic tokens, not the raw Tailwind palette:
 
 ```python
 # ✅ semantic tokens (respect active theme)
@@ -772,7 +771,7 @@ Use MonsterUI semantic tokens, not Tailwind palette:
 "text-gray-900"  "bg-white"  "text-gray-600"
 ```
 
-**MonsterUI wrapper components for SKUEL:**
+**SKUEL component imports (pure Tailwind, ADR-071):**
 
 ```python
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle

@@ -454,9 +454,9 @@ render_error_banner("Some data may be incomplete", severity="warning")
 - **`render_inline_error()`** — compact `P` element with WCAG attributes, use for HTMX fragment returns, form field errors, and anywhere a full alert would be visually heavy
 
 **Styling:**
-- `render_error_banner()`: MonsterUI alert (red background, error icon), severity variants
+- `render_error_banner()`: SKUEL `Alert` from `ui.components` (red background, error icon), severity variants via `AlertT`
 - `render_inline_error()`: `text-error text-sm` with `role="alert"` + `aria-live="polite"`
-- `role="alert"` set automatically by MAlert in render_error_banner (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
+- `role="alert"` is set automatically by `Alert` in render_error_banner (do NOT pass it as a kwarg — causes duplicate kwarg TypeError)
 
 ---
 
