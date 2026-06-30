@@ -3024,10 +3024,25 @@
     // (handles x-html icon helpers on /today and similar pages).
     // document.documentElement avoids the document.body null issue when skuel.js
     // runs in <head> before the body is parsed; subtree:true catches all descendants.
+    //
+    // createIcons() replaces each <i data-lucide> with an <svg>, which is itself a
+    // childList mutation. Calling it directly inside the observer callback re-triggers
+    // the observer in an unbounded loop that pegs the main thread and hangs the page.
+    // Guard against self-triggering: disconnect while createIcons mutates the DOM, then
+    // reconnect, and coalesce mutation bursts into a single rAF-scheduled scan.
     if (window.MutationObserver && window.lucide) {
-        new MutationObserver(function() {
-            lucide.createIcons();
-        }).observe(document.documentElement, { subtree: true, childList: true });
+        var lucideScanScheduled = false;
+        var lucideObserver = new MutationObserver(function() {
+            if (lucideScanScheduled) return;
+            lucideScanScheduled = true;
+            requestAnimationFrame(function() {
+                lucideScanScheduled = false;
+                lucideObserver.disconnect();
+                lucide.createIcons();
+                lucideObserver.observe(document.documentElement, { subtree: true, childList: true });
+            });
+        });
+        lucideObserver.observe(document.documentElement, { subtree: true, childList: true });
     }
 
 })();
