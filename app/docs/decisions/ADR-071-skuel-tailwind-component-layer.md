@@ -10,7 +10,7 @@ related_skills: [skuel-ui, ui-browser, ui-css]
 
 # ADR-071: SKUEL-Owned Tailwind Component Layer
 
-**Status:** Implemented (M10 complete 2026-06-29)
+**Status:** Implemented (M10 2026-06-29; DaisyUI removal completed in follow-up 2026-06-30)
 
 **Date:** 2026-06-29
 
@@ -186,8 +186,10 @@ is simpler than maintaining a 2.9MB dependency for color values.
 
 - ✅ **UIkit eliminated** — no more Alpine.js/UIkit DOM state conflicts. Every interactive
   component is Alpine.js, cleanly.
-- ✅ **~50× payload reduction** — ~4.1MB → ~82KB (`output.css` ~50KB + Lucide JS ~32KB).
-  Eliminates `tailwind.js` browser JIT (production-inappropriate).
+- ✅ **Large payload reduction** — ~4.1MB → ~130KB (`output.css` ~98KB + Lucide JS ~32KB).
+  Eliminates `tailwind.js` browser JIT (production-inappropriate). (`output.css` settled at
+  ~98KB once DaisyUI's ~30 baked-in themes were stripped in the 2026-06-30 follow-up — see
+  Changelog; the earlier ~50KB estimate predated the final app-wide utility surface.)
 - ✅ **SKUEL controls the component layer** — no upstream dependency risk. Component changes
   require editing Python, not waiting for a library release.
 - ✅ **One JS model** — Alpine.js handles all client state, HTMX handles server comms.
@@ -249,7 +251,8 @@ Approximate sequence (re-evaluated after Phase 1):
 | M7 ✅ | Form components (`ui/forms/`) | 1 file (#443 2026-06-29) |
 | M8 ✅ | Remaining components (`ui/data.py`, `ui/navigation.py`, `relationship_section.py`) | 4 files (#444 2026-06-29) |
 | M9 ✅ | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
-| M10 | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
+| M10 ✅ | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
+| M11 ✅ | **DaisyUI removal** (2026-06-30 follow-up): `daisyui` dropped from `package.json` + `tailwind.config.js`; daisy color utilities (`text-error`, `bg-base-200`, …) re-homed as concrete tokens in the Tailwind config; 2 remaining daisy component-class sites (`ui/ingestion/dashboard.py`, `ui/search/components.py`) migrated to pure Tailwind. `output.css` ~195KB → ~98KB (30 baked-in themes removed). | Cleanup |
 
 M4 and M5 are large but mechanical — good candidates for fresh-context agents.
 M9 is the pivotal cutover: after it lands, UIkit is no longer loaded in any browser session.
@@ -365,3 +368,4 @@ The M6 PR (UkIcon call-site migration) is the natural point to audit every `<uk-
 |------|--------|--------|---------|
 | 2026-06-29 | Claude Code | Initial draft | 0.1 |
 | 2026-06-29 | Mike | Accepted | 1.0 |
+| 2026-06-30 | Claude Code | DaisyUI removal completed (M11); payload + status corrected | 1.1 |

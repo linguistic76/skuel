@@ -23,7 +23,8 @@ Button(
 )
 
 # ✅ Link for navigation (new page/route)
-from ui.buttons import ButtonLink, ButtonT
+from ui.primitives import ButtonLink
+from ui.components import ButtonT
 
 ButtonLink(
     "View Task Details",
@@ -128,7 +129,7 @@ Input(type="text", name="search", placeholder="Search...", aria_label="Search")
 **Implementation:**
 
 ```python
-from ui.buttons import Button, ButtonT
+from ui.components import Button, ButtonT
 # Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
 
 def create_accessible_modal(modal_id: str, title: str, content: Any) -> Any:
@@ -658,7 +659,7 @@ def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
 - **aria-hidden on decorative content:** Emojis and badges not announced
 - **aria-current="page":** Screen reader announces "current page"
 - **Semantic `<a>` for links:** Native keyboard support
-- **Focus visible:** MonsterUI menu items have built-in focus styles
+- **Focus visible:** SKUEL `ui.components` menu items have built-in focus styles
 
 ### Example 2: Task Form with Validation
 

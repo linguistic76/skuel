@@ -91,7 +91,7 @@ skills:
     keywords: [pydantic, validation, basemodel, serialization]
 
   - name: ui-css
-    description: SKUEL CSS layer — MonsterUI (FrankenUI + Tailwind) components
+    description: SKUEL CSS layer — Tailwind + ui.components (SKUEL-owned pure-Tailwind layer, ADR-071)
     last_reviewed: "2026-03-01"
     foundation: []
     dependencies: []
@@ -101,7 +101,7 @@ skills:
       - /docs/patterns/UI_COMPONENT_PATTERNS.md
     related_adrs: []
     patterns: []
-    keywords: [tailwind, monsterui, frankenui, css, styling, responsive, utility-first, components, ui, semantic, accessible]
+    keywords: [tailwind, ui.components, css, styling, responsive, utility-first, components, ui, semantic, accessible, dark-mode]
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL

@@ -136,7 +136,7 @@ from ui.daisy_components import Button, ButtonT, Card, Progress
 from ui.buttons import Button, ButtonT   # deleted
 from ui.cards import Card, CardBody     # deleted
 
-# ✅ CORRECT — Button/ButtonT (M4) and Card family (M5) from ui.components
+# ✅ CORRECT — everything imports from ui.components (pure Tailwind, ADR-071)
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.primitives import ButtonLink  # A() wrapper for button-styled nav links
 from ui.feedback import Progress, ProgressT
@@ -150,24 +150,24 @@ from ui.data import Divider, DividerSplit, DividerT, Table, TableFromDicts, Tabl
 from fasthtml.common import Div, H1, H2, H3, Option, P, Span
 ```
 
-**Rule**: SKUEL MonsterUI wrappers live in `ui/{module}.py`. Standard HTML/FastHTML components come from `fasthtml.common`. See: `/docs/ui/COMPONENT_CATALOG.md` for the full module map.
+**Rule**: SKUEL component wrappers live in `ui/{module}.py` (all re-exported from `ui.components`, pure Tailwind per ADR-071). Standard HTML/FastHTML components come from `fasthtml.common`. See: `/docs/ui/COMPONENT_CATALOG.md` for the full module map.
 
 ---
 
-### MonsterUI `cls=None` Renders Literal "None" in HTML
+### `cls=None` Renders Literal "None" in HTML
 
-**Symptom**: HTML output contains `class="uk-card-body None"` or similar — the word "None" appears as a CSS class.
+**Symptom**: HTML output contains `class="... None"` — the word "None" appears as a CSS class.
 
-**Cause**: MonsterUI renders `cls=None` as the literal string `"None"`. Passing `cls=my_var or None` when `my_var` is empty triggers this.
+**Cause**: A raw FT element renders `cls=None` as the literal string `"None"`. Passing `cls=my_var or None` when `my_var` is empty triggers this.
 
-**Solution**: SKUEL's card wrappers (`CardBody`, `CardTitle`, `CardHeader`) handle this automatically. If calling MonsterUI components directly, omit `cls` or pass `cls=""`:
+**Solution**: SKUEL's `ui.components` (`CardBody`, `CardTitle`, `CardHeader`, etc.) handle this automatically via `_cls()`. If building a raw FT element directly, omit `cls` or pass `cls=""`:
 ```python
-# ❌ WRONG — renders class="uk-card-body None"
-MCardBody(*c, cls=None)
+# ❌ WRONG — renders class="None"
+Div(*c, cls=None)
 
 # ✅ CORRECT
-MCardBody(*c)          # Omit cls entirely
-MCardBody(*c, cls="")  # Empty string is safe
+CardBody(*c)        # ui.components handle cls=None safely
+Div(*c, cls="")     # Empty string is safe on raw elements
 ```
 
 ---

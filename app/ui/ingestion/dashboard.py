@@ -117,8 +117,8 @@ function showLoading(btnEl) {
     _ingesting = true;
     const statusEl = document.getElementById('ingest-status');
     statusEl.innerHTML = `
-        <div class="alert shadow-sm">
-            <span class="animate-spin text-muted-foreground"></span>
+        <div class="flex items-center gap-3 rounded-lg border border-base-300 bg-base-200 p-4 text-sm shadow-sm">
+            <span class="inline-block animate-spin rounded-full border-2 border-current border-t-transparent w-4 h-4 text-muted-foreground"></span>
             <span>Ingesting...</span>
         </div>`;
     document.getElementById('ingest-details-card').classList.add('hidden');
