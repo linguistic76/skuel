@@ -280,6 +280,8 @@ def standalone_page():
 
 1. **Define in skuel.js:**
 
+> ⚠️ Register inside `alpine:init`, **never** `DOMContentLoaded`. Alpine loads `defer` and starts via `queueMicrotask` — it walks the DOM *before* `DOMContentLoaded` fires. Components registered in `DOMContentLoaded` are still undefined when Alpine initializes initial server-rendered `x-data`, throwing "`<component> is not defined`" on hard load (hx-boost navigation masks it via `htmx:load` re-init). See #468.
+
 ```javascript
 document.addEventListener('alpine:init', function() {
     Alpine.data('myComponent', function(initialValue) {
