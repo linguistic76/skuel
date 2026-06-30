@@ -9,7 +9,7 @@ from typing import Any
 from fasthtml.common import Div, Form, NotStr, P, Pre
 
 from core.config.settings import get_settings
-from ui.components import Button, ButtonT, Card, CardBody
+from ui.components import Button, ButtonT, Card, CardBody, Icon
 from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
 
@@ -73,7 +73,7 @@ function showResult(result, isError) {
         const msg = result.error || result.message || 'Ingestion failed';
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
-                <i data-lucide="x" class="shrink-0 h-6 w-6 inline-block"></i>
+                __ICON_X__
                 <span class="font-semibold">${msg}</span>
             </div>`;
     } else {
@@ -98,7 +98,7 @@ function showResult(result, isError) {
 
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
-                <i data-lucide="check" class="shrink-0 h-6 w-6 inline-block"></i>
+                __ICON_CHECK__
                 <div>
                     <span class="font-semibold">Ingested successfully</span>
                     <span class="text-sm opacity-80 ml-2">${summary}</span>
@@ -199,7 +199,7 @@ function showRegenResult(result, isError) {
             || result.message || result.error || 'Regeneration failed';
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
-                <i data-lucide="x" class="shrink-0 h-6 w-6 inline-block"></i>
+                __ICON_X__
                 <span class="font-semibold">${msg}</span>
             </div>`;
     } else {
@@ -212,7 +212,7 @@ function showRegenResult(result, isError) {
         const summary = `${succeeded}/${processed} succeeded &middot; ${failed} failed &middot; ${skippedCurrent} already-current &middot; ${skippedNoBody} no-body &middot; ${duration}s`;
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
-                <i data-lucide="check" class="shrink-0 h-6 w-6 inline-block"></i>
+                __ICON_CHECK__
                 <div>
                     <span class="font-semibold">Chunks regenerated</span>
                     <span class="text-sm opacity-80 ml-2">${summary}</span>
@@ -258,7 +258,11 @@ async function regenerateChunks() {
     }
 }
 </script>
-"""
+""".replace(
+    "__ICON_X__", str(Icon("x", size=24, cls="shrink-0 inline-block"))
+).replace(
+    "__ICON_CHECK__", str(Icon("check", size=24, cls="shrink-0 inline-block"))
+)
 
 
 def build_ingestion_dashboard() -> Any:

@@ -10,7 +10,7 @@ the page body never rendered and the browser/laptop froze. Nothing caught it —
 unit tests mock the DOM, and the failure is purely client-side.
 
 This test renders the unauthenticated pages that load the full global JS bundle
-(``skuel.js`` + Alpine + lucide + HTMX), serves them with the committed static
+(``skuel.js`` + Alpine + HTMX), serves them with the committed static
 assets, and loads each in headless Chrome with a bounded budget. A page that
 never reaches idle (infinite loop, runaway synchronous work) makes Chrome exceed
 the wall-clock timeout — we fail loudly instead of shipping a page that freezes.
@@ -73,7 +73,7 @@ def render_pages() -> dict[str, str]:
     """Render the unauthenticated pages that load the full global JS bundle.
 
     The login landing page is THE canary: it is a complete document whose <head>
-    pulls in skuel.js + Alpine + lucide + HTMX — exactly the bundle that froze.
+    pulls in skuel.js + Alpine + HTMX — exactly the bundle that froze.
     """
     from fasthtml.common import to_xml
 
@@ -144,7 +144,7 @@ def check_page(chrome: str, url: str, profile_dir: Path) -> tuple[bool, str]:
         return False, "DOM missing expected content (brand marker 'SKUEL' absent)"
     icon_count = dom.count("<svg")
     if icon_count == 0:
-        return False, "no <svg> in DOM — lucide.createIcons() never completed (icons unrendered)"
+        return False, "no <svg> in DOM — server-rendered inline icons (ui/components/icon.py) absent"
     return True, f"idle OK · {icon_count} icon(s) rendered · {len(dom):,} bytes"
 
 

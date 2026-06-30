@@ -19,6 +19,7 @@ from core.models.enums import EntityStatus, Priority
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from ui.components.icon import Icon
 from ui.page_contexts import (
     GoalView,
     KindMeta,
@@ -59,15 +60,24 @@ _TODAY_WINDOW = timedelta(days=0)
 
 
 # Canonical kind metadata — matches today.md §2 and handoff/today/today.html.
-# Keys are the string ``kind`` values on ``TaskView``.
-_KINDS: dict[str, KindMeta] = {
-    "submission": {"icon": "file-text", "label": "Submission"},
-    "path-step": {"icon": "route", "label": "Path step"},
-    "askesis": {"icon": "sunrise", "label": "Askesis"},
-    "journal": {"icon": "book-open", "label": "Journal"},
-    "ku": {"icon": "gem", "label": "KU"},
-    "resource": {"icon": "link", "label": "Resource"},
+# Keys are the string ``kind`` values on ``TaskView``; values are (lucide icon, label).
+_KIND_ICONS: dict[str, tuple[str, str]] = {
+    "submission": ("file-text", "Submission"),
+    "path-step": ("route", "Path step"),
+    "askesis": ("sunrise", "Askesis"),
+    "journal": ("book-open", "Journal"),
+    "ku": ("gem", "KU"),
+    "resource": ("link", "Resource"),
 }
+
+
+def _build_kinds() -> dict[str, KindMeta]:
+    """kind -> {label, icon_svg}. icon_svg is a fully-sized inline <svg> (14px),
+    pre-rendered so the client needs no createIcons()."""
+    return {
+        kind: {"label": label, "icon_svg": str(Icon(icon, size=14))}
+        for kind, (icon, label) in _KIND_ICONS.items()
+    }
 
 
 # Priority → view-string mapping. The mock uses "high" / "medium" / "low";
@@ -308,7 +318,11 @@ class TodayOrchestrator:
             "goals": goal_views,
             "tasks": task_views,
             "rituals": rituals,
-            "kinds": _KINDS,
+            "kinds": _build_kinds(),
+            "ritual_icons": {
+                "past": str(Icon("check", size=10)),
+                "upcoming": str(Icon("sunrise", size=10)),
+            },
         }
         return Result.ok(ctx)
 

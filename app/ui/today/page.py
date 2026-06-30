@@ -170,8 +170,8 @@ def _ribbons_column() -> FT:
 
 
 def _empty_state() -> FT:
-    # x-show (not x-if) keeps the icon in DOM so lucide.createIcons() processes it at page load.
-    # x-if inserts nodes lazily — after createIcons() has already run — leaving a blank icon.
+    # x-show (not x-if) keeps the empty-state block in the DOM and toggles visibility,
+    # matching the other always-rendered sections; icons are server-rendered inline SVG.
     return Div(
         Div(
             Icon("check-circle-2", size=28),

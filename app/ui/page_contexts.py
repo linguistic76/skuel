@@ -242,10 +242,14 @@ class RitualView(TypedDict):
 
 
 class KindMeta(TypedDict):
-    """Lucide icon + label per task ``kind`` string."""
+    """Label + pre-rendered inline-SVG icon markup per task ``kind`` string.
 
-    icon: str
+    ``icon_svg`` is built server-side (``ui.today.orchestrator``) from the
+    ``Icon()`` registry so the client never runs ``lucide.createIcons()``.
+    """
+
     label: str
+    icon_svg: str
 
 
 class TodayPageContext(TypedDict):
@@ -274,3 +278,4 @@ class TodayPageContext(TypedDict):
     tasks: list[TaskView]
     rituals: list[RitualView]
     kinds: dict[str, KindMeta]
+    ritual_icons: dict[str, str]  # {"past": <svg>, "upcoming": <svg>} for ritualIconHtml()
