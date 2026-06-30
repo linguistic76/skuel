@@ -140,9 +140,12 @@ class JournalService:
 
         active_goals: list[dict[str, str]] = []
         if self._goals:
-            goals_result = await self._goals.get_user_goals(user_uid)
+            # get_active filters terminal states (completed/cancelled/archived);
+            # the bridge labels this context "active goals", so stale goals must
+            # not leak in (get_user_goals would return all).
+            goals_result = await self._goals.get_active(user_uid, limit=10)
             if not goals_result.is_error and goals_result.value:
-                active_goals = [{"title": g.title} for g in goals_result.value[:10]]
+                active_goals = [{"title": g.title} for g in goals_result.value]
 
         transform = await self._dsl_bridge.transform_with_context(
             content, user_uid, active_goals=active_goals or None

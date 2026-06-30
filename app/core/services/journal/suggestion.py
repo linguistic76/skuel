@@ -38,7 +38,14 @@ class SuggestedActivity:
 
 
 def _render_repeat(repeat: dict[str, Any] | None) -> str | None:
-    """Reconstruct an ``@repeat()`` value string from the parsed repeat dict."""
+    """Reconstruct an ``@repeat()`` value string from the parsed repeat dict.
+
+    The ``dict[str, Any]`` mirrors ``ParsedActivityLine.repeat_pattern`` — a
+    genuinely heterogeneous shape whose keys and value types vary by variant
+    (``days`` is ``list[str]`` for weekly but ``list[int]`` for monthly;
+    ``interval`` is ``int``), so no single TypedDict fits.
+    """
+    # boundary: parser-owned heterogeneous repeat shape (ANY_USAGE_POLICY case C)
     if not repeat:
         return None
     kind = repeat.get("type")

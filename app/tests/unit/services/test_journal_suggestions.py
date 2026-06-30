@@ -145,10 +145,12 @@ class TestSuggestActivities:
         goal = MagicMock()
         goal.title = "Run a marathon"
         goals_service = MagicMock()
-        goals_service.get_user_goals = AsyncMock(return_value=Result.ok([goal]))
+        # get_active (not get_user_goals) so terminal goals don't leak in.
+        goals_service.get_active = AsyncMock(return_value=Result.ok([goal]))
         service = _make_service(dsl_bridge=bridge, goals_service=goals_service)
 
         await service.suggest_activities("training thoughts", "user_mike")
 
         _, kwargs = bridge.transform_with_context.call_args
         assert kwargs["active_goals"] == [{"title": "Run a marathon"}]
+        goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
