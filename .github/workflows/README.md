@@ -9,6 +9,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 |---|---|---|---|---|
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
+| **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
 | **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Skipped" check when not summoned; "Code Review Completed" check **+ PR reviews** (CHANGES_REQUESTED on findings) when summoned | **On-demand only** — `@kody start-review` (auto-review toggle OFF, 2026-05-25). The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone neither enables nor stops it. |
@@ -41,14 +42,19 @@ One workflow, path-guarded jobs, one always-on gate.
 
 ```
 changes ──┬─▶ mypy (if app py changed) ─────────────┐
-          └─▶ validate_documentation (if docs) ─────┤
-                                                     ▼
+          ├─▶ unit_tests (if app py changed) ────────┤
+          ├─▶ smoke (if py OR ui/static changed) ────┤
+          └─▶ validate_documentation (if docs) ──────┤
+                                                      ▼
 documentation_metrics (push to main only)         gate ── "CI Gate" (required)
 ```
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
-- **`mypy` / `validate_documentation`** run only when their paths changed, so
-  they're skipped (not failed) on unrelated PRs.
+- **`mypy` / `unit_tests` / `smoke` / `validate_documentation`** run only when
+  their paths changed, so they're skipped (not failed) on unrelated PRs.
+- **`smoke`** renders the unauthenticated pages and loads them in headless Chrome,
+  failing if any never reaches idle (catches client-side render hangs / infinite
+  JS loops that unit tests can't see). No server or Neo4j needed.
 - **`gate` ("CI Gate")** always runs and passes when required jobs succeeded or
   were skipped; fails only on a real failure/cancellation. **It is the single
   required status check** — required checks must report on every PR, and a

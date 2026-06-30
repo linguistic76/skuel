@@ -123,6 +123,11 @@ case "$1" in
     uv run python scripts/run_tests.py quick
     ;;
 
+  smoke)
+    echo -e "${GREEN}Running render smoke test (headless Chrome — catches client-side render hangs)${NC}"
+    uv run python scripts/smoke_test.py
+    ;;
+
   serve)
     echo -e "${GREEN}Starting SKUEL server...${NC}"
     uv run python main.py
@@ -278,6 +283,7 @@ case "$1" in
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"
+    echo "  ./dev smoke          - Render smoke test (headless Chrome; catches client-side render hangs)"
     echo "  ./dev vault-watch    - Watch vault, trigger incremental ingestion (--once for cron)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"
