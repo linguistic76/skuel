@@ -45,7 +45,7 @@
 ```python
 Form(
     # ... form controls ...
-    Button("Create Task", type="submit", variant=ButtonT.primary),
+    Button("Create Task", type="submit", cls=ButtonT.primary),
     hx_post="/tasks/quick-add",
     hx_target="#task-list",
     hx_swap="beforeend",
@@ -60,7 +60,7 @@ HTMX handles multipart file uploads natively via `hx-encoding`:
 ```python
 Form(
     Input(type="file", name="files", accept=".yaml,.yml", multiple=True),
-    Button("Upload", type="submit", variant=ButtonT.primary),
+    Button("Upload", type="submit", cls=ButtonT.primary),
     Span(Loading(), id="spinner", cls="htmx-indicator"),  # Loading from ui.components
     **{
         "hx-post": "/upload/files",
@@ -313,8 +313,8 @@ AlpineModal(
     H3("Confirm Action", cls="font-bold text-lg"),
     P("Are you sure?"),
     Div(
-        Button("Cancel", variant=ButtonT.ghost, **{"@click": "open = false"}),
-        Button("Confirm", variant=ButtonT.primary),
+        Button("Cancel", cls=ButtonT.ghost, **{"@click": "open = false"}),
+        Button("Confirm", cls=ButtonT.primary),
         cls="flex gap-2 justify-end mt-4",
     ),
     show="open",              # Alpine.js expression for visibility
