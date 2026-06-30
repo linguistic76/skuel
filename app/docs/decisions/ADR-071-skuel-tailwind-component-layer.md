@@ -134,6 +134,12 @@ removing the library.
 
 ### Decision 3 — Lucide JS as the icon strategy
 
+> **⚠️ SUPERSEDED by [ADR-072](ADR-072-server-rendered-inline-svg-icons.md) (2026-06-30).**
+> The client-side Lucide runtime described below (`data-lucide` + `lucide.createIcons()`) was
+> removed in #452 after it caused a MutationObserver infinite loop that froze the browser
+> (#450). `Icon()` now emits server-rendered inline `<svg>` from a generated registry — no
+> client-side icon JS. The rest of ADR-071 stands.
+
 `UkIcon("name")` is replaced by `Icon("name")` from `ui/components/icon.py`. Lucide JS is
 vendored at `static/vendor/lucide/` (same pattern as Alpine.js and HTMX). Icons render via
 `data-lucide` attribute; `lucide.createIcons()` is called once after Alpine initializes and

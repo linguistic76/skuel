@@ -43,12 +43,19 @@ SCAN_GLOBS = ("ui/**/*.py", "adapters/**/*.py", "static/js/**/*.js")
 # Any quoted kebab-case literal (e.g. "check", 'chevron-down', "more-horizontal").
 LITERAL_RX = re.compile(r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
 
-# Direct ``Icon("name")`` / ``Icon('name')`` calls — the unambiguous chokepoint.
-# Unlike the permissive whole-source scan (which keeps only literals that *happen* to be
-# real lucide names), a literal first arg to Icon() can only ever be meant as an icon, so
-# a typo here is always a bug. The generator would silently drop it and the icon would
-# fall back to help-circle at runtime — this regex lets us fail the build instead.
-ICON_CALL_RX = re.compile(r"""\bIcon\(\s*["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
+# Icon-intent string literals — positions where a literal can ONLY be meant as an icon
+# name, so a value that is not a real lucide icon is always a typo. Unlike the permissive
+# whole-source scan (which keeps only literals that *happen* to be real lucide names), these
+# shapes carry intent, so the generator can fail the build instead of silently dropping the
+# name and rendering a help-circle fallback at runtime. Four shapes:
+#   Icon("name")            the renderer chokepoint
+#   icon="name"             config field / keyword argument (DomainConfig, card specs, …)
+#   "icon": "name"          dict-entry config (section specs → form_generator → Icon(icon_name))
+#   _icon_ghost_btn("name") underscore-prefixed _icon_* wrapper helpers that forward to Icon()
+_KEBAB = r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']"""
+ICON_INTENT_RX = re.compile(
+    rf"""(?:\bIcon\(|\bicon\s*=|["']icon["']\s*:|\b_icon_\w*\()\s*{_KEBAB}"""
+)
 
 
 def _pascal(name: str) -> str:
@@ -76,21 +83,22 @@ def scan_used_names(valid_keys: set[str]) -> set[str]:
     return names
 
 
-def direct_icon_call_names() -> dict[str, str]:
-    """Map every direct ``Icon("literal")`` name to the source file it appears in.
+def icon_name_literals() -> dict[str, str]:
+    """Map every icon-intent string literal to the source file it appears in.
 
-    Only literal first arguments are returned; ``Icon(name)`` (a variable) is dynamic
-    and can't be validated statically. These literals are where a typo most often slips
-    through unnoticed — the generator drops an unknown name, so the icon renders a silent
-    help-circle fallback with no build error. Consumed by the build-time check in
-    ``main()`` and by the icon-name unit test, which asserts each resolves to a registry
-    key.
+    Covers the three shapes in ``ICON_INTENT_RX`` — ``Icon("name")``, ``icon="name"``,
+    and ``_icon_*("name")`` — where a literal can only be meant as an icon name. Dynamic
+    forms (``Icon(name)``, ``icon=variable``) are skipped: they can't be validated
+    statically. These literals are where a typo slips through unnoticed — the generator
+    drops an unknown name, so the icon renders a silent help-circle fallback with no build
+    error. Consumed by the build-time check in ``main()`` and by the icon-name unit test,
+    which asserts each resolves to a registry key.
     """
     found: dict[str, str] = {}
     for glob in SCAN_GLOBS:
         for path in APP_ROOT.glob(glob):
             if path.is_file():
-                for name in ICON_CALL_RX.findall(path.read_text(encoding="utf-8")):
+                for name in ICON_INTENT_RX.findall(path.read_text(encoding="utf-8")):
                     found.setdefault(name, str(path.relative_to(APP_ROOT)))
     return found
 
@@ -124,17 +132,18 @@ def main() -> int:
     all_nodes = load_icon_nodes()
     valid_keys = set(all_nodes)
 
-    # Fail loudly on a direct Icon("…") call whose name is not a real lucide icon —
-    # otherwise scan_used_names drops it and it renders a silent help-circle fallback.
+    # Fail loudly on an icon-intent literal (Icon("…"), icon="…", _icon_*("…")) whose name
+    # is not a real lucide icon — otherwise scan_used_names drops it and it renders a silent
+    # help-circle fallback.
     unknown = {
         name: src
-        for name, src in direct_icon_call_names().items()
+        for name, src in icon_name_literals().items()
         if _pascal(name) not in valid_keys
     }
     if unknown:
-        listing = "\n".join(f"  Icon({name!r}) — {src}" for name, src in sorted(unknown.items()))
+        listing = "\n".join(f"  {name!r} — {src}" for name, src in sorted(unknown.items()))
         print(
-            f"✗ {len(unknown)} Icon() call(s) name a non-existent lucide icon "
+            f"✗ {len(unknown)} icon-intent literal(s) name a non-existent lucide icon "
             f"(would silently fall back to help-circle):\n{listing}",
             file=sys.stderr,
         )
