@@ -10,6 +10,7 @@ from fasthtml.common import H3, A, Div, Li, Option, Span, Ul
 from ui.components import Button, ButtonT
 from ui.forms import Label, Select
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.stats_grid import StatTile
 
 
 def DomainFilterControls(domain: str, total_count: int) -> Div:
@@ -202,15 +203,7 @@ def DomainSummaryCard(
 
     status_bg = get_health_bg_class(status)
 
-    stats_html = []
-    for label, value in stats:
-        stats_html.append(
-            Div(
-                Div(str(value), cls="text-2xl font-bold text-foreground"),
-                Div(label, cls="text-sm text-muted-foreground"),
-                cls="text-center",
-            )
-        )
+    stats_html = [StatTile(label, value) for label, value in stats]
 
     return Div(
         Div(
