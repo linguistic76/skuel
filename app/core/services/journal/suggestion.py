@@ -110,6 +110,18 @@ def build_suggestions(activity_lines: list[str]) -> list[SuggestedActivity]:
 # ---------------------------------------------------------------------------
 
 
+def grounding_digest(titles: list[str]) -> str:
+    """Stable digest of the active-goal titles that ground a suggestion pass.
+
+    Folded into the cache key (via the fingerprint) so a goal change invalidates
+    a cached panel even though the journal text is immutable. The route computes
+    it once from a single goal snapshot and feeds that same snapshot to
+    ``suggest_activities``, so the cached panel is always keyed by the grounding
+    that produced it. Centralised here so the read and write sides can't diverge.
+    """
+    return "\n".join(titles)
+
+
 def _content_fingerprint(content: str, grounding: str = "") -> str:
     """Stable hash over every input to the bridge — the cache validity key.
 
@@ -179,6 +191,7 @@ def read_cached_suggestions(
 __all__ = [
     "SuggestedActivity",
     "build_suggestions",
+    "grounding_digest",
     "metadata_with_cached_suggestions",
     "read_cached_suggestions",
     "render_suggestion_line",

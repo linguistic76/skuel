@@ -925,22 +925,26 @@ def create_journals_routes(
         # Memoised: serve the cached panel when the source text is unchanged,
         # skipping the LLM bridge call on every revisit of the session.
         from core.services.journal.suggestion import (
+            grounding_digest,
             metadata_with_cached_suggestions,
             read_cached_suggestions,
         )
 
         # The cache key folds in the active-goal grounding (not just the entry
         # text): a journal entry's text is effectively immutable, so a goal
-        # change would otherwise keep serving stale suggestions forever. A
-        # grounding-fetch error degrades to text-only keying (never stale).
-        grounding_result = await journal_service.suggestion_grounding(user_uid)
-        grounding = grounding_result.value if grounding_result.is_ok else ""
+        # change would otherwise keep serving stale suggestions forever. One goal
+        # snapshot feeds BOTH the cache key and the bridge call below, so the
+        # cached panel is always keyed by the grounding that produced it (no
+        # fetch-twice skew). A goals-query error degrades to text-only keying.
+        titles_result = await journal_service.active_goal_titles(user_uid)
+        titles = titles_result.value if titles_result.is_ok else []
+        grounding = grounding_digest(titles)
 
         cached = read_cached_suggestions(entry.metadata, content, grounding)
         if cached is not None:
             return SuggestedActivitiesPanel(items=cached)
 
-        result = await journal_service.suggest_activities(content, user_uid)
+        result = await journal_service.suggest_activities(content, user_uid, titles)
         if result.is_error:
             logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
             return SuggestedActivitiesPanel(error=True)

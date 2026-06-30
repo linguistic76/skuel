@@ -130,7 +130,10 @@ class JournalService:
     # ------------------------------------------------------------------
 
     async def suggest_activities(
-        self, content: str, user_uid: UserUID
+        self,
+        content: str,
+        user_uid: UserUID,
+        active_goal_titles: list[str] | None = None,
     ) -> Result[list[SuggestedActivity]]:
         """Recognise candidate activities in journal text as paste-ready DSL lines.
 
@@ -138,6 +141,11 @@ class JournalService:
         goals), then re-renders the result into canonical checkbox DSL. The
         lines are *inert suggestions* — the caller surfaces them for the user to
         copy into a Periodic Note or extraction folder; nothing is created here.
+
+        ``active_goal_titles`` lets the caller inject the *same* goal snapshot it
+        used to build the cache key, so a cached panel is always keyed by the
+        grounding that actually produced it (no fetch-twice skew). When ``None``,
+        the titles are fetched here.
 
         Returns an empty list (not an error) when the bridge is unavailable
         (CORE tier) or the content is blank — the panel renders a neutral state.
@@ -149,11 +157,12 @@ class JournalService:
         if self._dsl_bridge is None or not content or not content.strip():
             return Result.ok([])
 
-        # Grounding is a soft signal: a goals-query failure degrades to no
-        # grounding rather than failing the whole suggestion pass.
-        titles_result = await self._active_goal_titles(user_uid)
-        titles = titles_result.value if titles_result.is_ok else []
-        active_goals = [{"title": t} for t in titles]
+        if active_goal_titles is None:
+            # Grounding is a soft signal: a goals-query failure degrades to no
+            # grounding rather than failing the whole suggestion pass.
+            titles_result = await self.active_goal_titles(user_uid)
+            active_goal_titles = titles_result.value if titles_result.is_ok else []
+        active_goals = [{"title": t} for t in active_goal_titles]
 
         transform = await self._dsl_bridge.transform_with_context(
             content, user_uid, active_goals=active_goals or None
@@ -163,16 +172,19 @@ class JournalService:
 
         return Result.ok(build_suggestions(transform.value.activity_lines))
 
-    async def _active_goal_titles(self, user_uid: UserUID) -> Result[list[str]]:
+    async def active_goal_titles(self, user_uid: UserUID) -> Result[list[str]]:
         """Titles of the user's active goals — the grounding fed to the bridge.
 
-        Single source for both ``suggest_activities`` (bridge context) and
-        ``suggestion_grounding`` (cache key), so the cached fingerprint can never
-        drift from the context that actually produced the suggestions.
+        The suggestions route fetches this once, derives the cache key from it,
+        and passes the same snapshot back into ``suggest_activities`` so the
+        cached fingerprint can never drift from the context that produced the
+        suggestions.
 
         ``get_active`` filters terminal states (completed/cancelled/archived);
         the bridge labels this "active goals", so stale goals must not leak in
         (``get_user_goals`` would return all).
+
+        Backend: GoalsService.get_active.
         """
         if self._goals is None:
             return Result.ok([])
@@ -180,24 +192,6 @@ class JournalService:
         if goals_result.is_error:
             return Result.fail(goals_result)
         return Result.ok([g.title for g in goals_result.value or []])
-
-    async def suggestion_grounding(self, user_uid: UserUID) -> Result[str]:
-        """Stable digest of the active-goal context that grounds suggestions.
-
-        Folded into the suggestions cache key so a change to the user's active
-        goals refreshes the panel even when the journal text is unchanged
-        (entry text is effectively immutable, so text alone is not a sufficient
-        cache key). Empty digest when grounding is unavailable (CORE tier / no
-        goals); a goals-query failure propagates so the caller can degrade.
-
-        Backend: GoalsService.get_active (via _active_goal_titles).
-        """
-        if self._dsl_bridge is None:
-            return Result.ok("")
-        titles_result = await self._active_goal_titles(user_uid)
-        if titles_result.is_error:
-            return Result.fail(titles_result)
-        return Result.ok("\n".join(titles_result.value))
 
     # ------------------------------------------------------------------
     # Stage 1 — Scribe
