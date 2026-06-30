@@ -5,8 +5,8 @@ renders a silent ``help-circle`` fallback. ``scripts/gen_icons.py`` harvests nam
 permissively (keeps only literals that *are* real lucide icons), so a typo'd name is
 dropped from ``ICON_PATHS`` instead of erroring. This test closes that gap in CI: it scans
 the same source globs for icon-intent literals — ``Icon("name")``, ``icon="name"`` config
-fields, and ``_icon_*("name")`` wrapper helpers — and asserts each name is a key in the
-committed ``ICON_PATHS``.
+fields, ``"icon": "name"`` dict-entry config, and ``_icon_*("name")`` wrapper helpers —
+and asserts each name is a key in the committed ``ICON_PATHS``.
 
 It validates against the *committed* registry (not the lucide bundle), so it needs neither
 node nor the vendored bundle, and it also catches the second failure mode — a valid icon

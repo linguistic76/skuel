@@ -47,12 +47,15 @@ LITERAL_RX = re.compile(r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']""")
 # name, so a value that is not a real lucide icon is always a typo. Unlike the permissive
 # whole-source scan (which keeps only literals that *happen* to be real lucide names), these
 # shapes carry intent, so the generator can fail the build instead of silently dropping the
-# name and rendering a help-circle fallback at runtime. Three shapes:
+# name and rendering a help-circle fallback at runtime. Four shapes:
 #   Icon("name")            the renderer chokepoint
 #   icon="name"             config field / keyword argument (DomainConfig, card specs, …)
+#   "icon": "name"          dict-entry config (section specs → form_generator → Icon(icon_name))
 #   _icon_ghost_btn("name") underscore-prefixed _icon_* wrapper helpers that forward to Icon()
 _KEBAB = r"""["']([a-z][a-z0-9]*(?:-[a-z0-9]+)*)["']"""
-ICON_INTENT_RX = re.compile(rf"""(?:\bIcon\(|\bicon\s*=|\b_icon_\w*\()\s*{_KEBAB}""")
+ICON_INTENT_RX = re.compile(
+    rf"""(?:\bIcon\(|\bicon\s*=|["']icon["']\s*:|\b_icon_\w*\()\s*{_KEBAB}"""
+)
 
 
 def _pascal(name: str) -> str:
