@@ -956,6 +956,21 @@
                 window.htmx.process(loadedElement);
             }
         });
+
+    });
+
+    // =========================================================================
+    // Alpine Component Registry
+    // =========================================================================
+    // MUST be alpine:init, not DOMContentLoaded (#468): Alpine is loaded `defer`
+    // (ui/theme.py) and starts via queueMicrotask, walking the DOM BEFORE
+    // DOMContentLoaded fires. Registering these here guarantees the components
+    // exist when Alpine initializes initial server-rendered `x-data` (e.g.
+    // bulkInsightManager / insightFiltersDebounced on /insights). Registering in
+    // DOMContentLoaded left them undefined on hard load (only hx-boost re-init
+    // via htmx:load masked it).
+
+    document.addEventListener('alpine:init', function() {
         // ---------------------------------------------------------------------
         // Hierarchy Tree Component
         // ---------------------------------------------------------------------
