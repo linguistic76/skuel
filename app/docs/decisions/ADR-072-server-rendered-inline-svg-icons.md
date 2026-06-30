@@ -105,6 +105,8 @@ a string literal can only be meant as an icon name:
 
 - `Icon("name")` — the renderer chokepoint
 - `icon="name"` — config field / keyword argument (DomainConfig, card specs, nav config, …)
+- `"icon": "name"` — dict-entry config (section/template specs that flow through
+  `form_generator` into `Icon(icon_name)`; the most common config shape)
 - `_icon_*("name")` — underscore-prefixed wrapper helpers that forward to `Icon()`
 
 Dynamic forms (`Icon(name)`, `icon=variable`) cannot be validated statically and are skipped.
