@@ -32,6 +32,13 @@ allowed-tools: Read, Grep, Glob
 
 `build_head()` / `skuel_headers()` load `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine. UIkit/FrankenUI/MonsterUI/DaisyUI are gone — no `monsterui`/`daisyui` dependency, no vendor files, no browser JIT.
 
+> ⚠️ **Two enum conventions — don't conflate them.** `ui.components.Button`/`ButtonT` take
+> style via **`cls=`** and `ButtonT` is **slim** (`default`/`primary`/`secondary`/`ghost`/
+> `destructive`/`link` — map `error`→`destructive`, no `success`/`warning`/`accent`). The
+> `ui.feedback` components (`Badge`/`Alert`/`Progress`/`RadialProgress`) keep **`variant=`**
+> with the **full** color enum (`BadgeT`/`AlertT`/`ProgressT` expose `success`/`warning`/
+> `error`/`accent`/…). So: `Button(cls=ButtonT.destructive)` but `Badge(variant=BadgeT.error)`.
+
 ---
 
 ## Design Direction (Aesthetic Intent)

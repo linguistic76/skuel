@@ -1,8 +1,15 @@
 # UI Development Guide
 
-**Last Updated:** 2026-03-10
+**Last Updated:** 2026-06-30
 
 How to build user interfaces in SKUEL. Covers the component system, page architecture, patterns, and conventions.
+
+> **Component layer (ADR-071):** SKUEL owns its component layer — thin Python FT
+> functions encoding Tailwind class strings, in `ui/components/`. MonsterUI / FrankenUI /
+> UIkit / DaisyUI are **removed**. Import components from `ui.components` (`Button`, `Card`,
+> `Icon`, forms, tables, …); `ButtonLink` lives in `ui.primitives`. The deleted modules
+> `ui/buttons.py`, `ui/cards.py`, `ui/text.py` have **no drop-in replacement** — see the
+> mapping in each section below.
 
 ---
 
@@ -13,7 +20,8 @@ SKUEL renders server-side HTML with FastHTML. The browser gets complete HTML doc
 | Layer | Tool | Role |
 |-------|------|------|
 | HTML generation | FastHTML (Python) | Build HTML elements as function calls |
-| Semantic styling | MonsterUI (FrankenUI + Tailwind CSS) | Component wrappers (`Button`, `Card`, `Badge`) + utilities |
+| Semantic styling | `ui/components/` (SKUEL-owned, Tailwind CSS) | Component wrappers (`Button`, `Card`, `Badge`) encoding Tailwind class strings |
+| Icons | Lucide (server-rendered inline SVG) | `Icon("name")` — no client-side icon runtime (ADR-072) |
 | Server communication | HTMX | Partial page updates, form submissions, lazy loading |
 | Client-side state | Alpine.js | Toggles, modals, filters, dropdowns |
 
@@ -44,7 +52,7 @@ Patterns  → PageHeader, CardGenerator, StatsGrid, EmptyState, FormGenerator
 Components → Button, Card, Badge, Input, Select, Alert, Modal, Row, Stack
 ```
 
-**Components** (`ui/buttons.py`, `ui/cards.py`, etc.) wrap MonsterUI classes into Python functions with typed parameters. They handle styling.
+**Components** (`ui/components/` — `button.py`, `card.py`, `form.py`, etc.) are Python FT functions that encode Tailwind class strings with typed parameters. They handle styling. (`ui.feedback`, `ui.layout`, `ui.navigation`, `ui.data` are sibling pure-Tailwind wrapper modules.)
 
 **Patterns** (`ui/patterns/`) compose multiple components into domain-agnostic building blocks. They handle structure.
 
@@ -54,7 +62,7 @@ Components → Button, Card, Badge, Input, Select, Alert, Modal, Row, Stack
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → ui/buttons.py, ui/cards.py, ui/forms/, etc.
+├─ YES → ui/components/ (button.py, card.py, form.py, …)
 Is it reusable across multiple domains?
 ├─ YES → ui/patterns/
 Is it domain-specific but reusable within that domain?
@@ -67,40 +75,54 @@ Is it one-off UI for a single route?
 
 ## Component Reference
 
-### Buttons (`ui/buttons.py`)
+### Buttons (`ui/components/button.py`, `ui/primitives.py`)
+
+`ButtonT` is a `StrEnum` whose values **are** Tailwind class strings. Style goes in `cls=`
+(not `variant=`); geometry goes in `size=` (a string, default `"md"`). `cls` and `size`
+never collide — `size` classes are applied before the style variant.
 
 ```python
-from ui.buttons import Button, ButtonLink, IconButton, ButtonT
-from ui.layout import Size
+from ui.components import Button, ButtonT, Icon
+from ui.primitives import ButtonLink   # ButtonLink is NOT in ui.components
 
-# Primary action
-Button("Save", variant=ButtonT.primary)
+# Primary action — style via cls=, NOT variant=
+Button("Save", cls=ButtonT.primary)
 
-# With size
-Button("Delete", variant=ButtonT.error, size=Size.sm)
+# With size (string: "xs" | "sm" | "md" | "lg" | "xl")
+Button("Delete", cls=ButtonT.destructive, size="sm")
 
-# Loading state
-Button("Saving...", variant=ButtonT.primary, loading=True, disabled=True)
-
-# Navigation (renders <a> styled as button)
+# Navigation (renders <a> styled as button) — same cls=/size= convention
 ButtonLink("View Details", href="/tasks/123")
-ButtonLink("Back", href="/tasks", variant=ButtonT.ghost, size=Size.sm)
+ButtonLink("Back", href="/tasks", cls=ButtonT.ghost, size="sm")
 
-# Icon button
-IconButton("X", variant=ButtonT.ghost, label="Close")
+# Icon-only button — IconButton is DELETED. Compose Button + Icon + an aria-label.
+Button(Icon("x"), cls=ButtonT.ghost, size="sm", **{"aria-label": "Close"})
 
-# HTMX action
-Button("Archive", variant=ButtonT.warning, hx_post="/api/tasks/archive", hx_target="#task-list")
+# HTMX action (no warning/success variant — see note; use destructive or default + cls)
+Button("Archive", cls=ButtonT.default, hx_post="/api/tasks/archive", hx_target="#task-list")
 ```
 
-**ButtonT variants:** `primary`, `secondary`, `accent`, `neutral`, `ghost`, `link`, `info`, `success`, `warning`, `error`, `outline`
+**ButtonT variants (slim, semantic):** `default`, `primary`, `secondary`, `ghost`,
+`destructive`, `link`.
 
-**Size options:** `Size.xs`, `Size.sm`, `Size.md`, `Size.lg`, `Size.xl`
+> ⚠️ **Migration note.** The old MonsterUI `ButtonT` had `accent`/`neutral`/`info`/`success`/
+> `warning`/`error`/`outline`. Those are **gone** on `ui.components.ButtonT`. Map `error` →
+> `destructive`. For status-colored *badges/alerts* (success/warning/error) use the `ui.feedback`
+> components, which keep the full `variant=` enum (see [Feedback](#feedback-uifeedbackpy)) —
+> the button and feedback enums are deliberately different.
 
-### Cards (`ui/cards.py`)
+**Size options:** `"xs"`, `"sm"`, `"md"` (default), `"lg"`, `"xl"`. (The `Size` enum in
+`ui.layout` is a `StrEnum` with the same values, so `size=Size.sm` also works, but the
+plain string is canonical for buttons.)
+
+### Cards (`ui/components/card.py`)
+
+The card family is `Card`, `CardHeader`, `CardBody`, `CardTitle`, `CardFooter`. There is
+**no `variant=`** (style via `cls=`), and `CardActions`, `CardLink`, and `CardT` are
+**deleted** — there is no 1:1 replacement.
 
 ```python
-from ui.cards import Card, CardBody, CardTitle, CardActions, CardLink, CardT
+from ui.components import Card, CardBody, CardHeader, CardTitle, CardFooter, Button, ButtonT
 
 # Standard card
 Card(
@@ -110,25 +132,24 @@ Card(
     )
 )
 
-# Bordered variant
+# Action area — CardFooter replaces the old CardActions (add justify-end for right align)
 Card(
     CardBody(
         CardTitle("Habits"),
         P("Track your daily habits"),
-        CardActions(
-            Button("Add Habit", variant=ButtonT.primary, size=Size.sm),
+        CardFooter(
+            Button("Add Habit", cls=ButtonT.primary, size="sm"),
+            cls="justify-end gap-2",
         ),
     ),
-    variant=CardT.default,
 )
 
-# Clickable card (navigates on click)
-CardLink(
-    CardBody(
-        CardTitle("Morning Routine"),
-        P("5 habits tracked"),
-    ),
+# Clickable card — CardLink is deleted. Wrap the Card in an A(), or add hx_get + cursor.
+from fasthtml.common import A
+A(
+    Card(CardBody(CardTitle("Morning Routine"), P("5 habits tracked"))),
     href="/habits/morning-routine",
+    cls="block hover:shadow-md transition-shadow",
 )
 ```
 
@@ -204,11 +225,13 @@ Progress()  # indeterminate
 
 # Radial (circular) progress
 from ui.feedback import RadialProgress
-from ui.buttons import ButtonT
-RadialProgress(75, variant=ButtonT.success, size="5rem")
-# Note: uses ButtonT for color variants (not ProgressT) — the variant value
-# is transformed internally from "btn-success" to "text-success"
+RadialProgress(75, size="5rem")            # size is a CSS length (e.g. "4rem", "5rem")
+RadialProgress(75, cls="text-success")     # color via cls (variant= is reserved/unused)
 ```
+
+> The `ui.feedback` components (`Alert`, `Badge`, `Progress`) keep the **full** color enum
+> via `variant=` (`AlertT`/`BadgeT`/`ProgressT` all expose `success`/`warning`/`error`/…).
+> This is intentionally different from `ui.components.ButtonT`, which is `cls=`-only and slim.
 
 ### Layout (`ui/layout.py`)
 
@@ -232,10 +255,12 @@ Row(
 )
 
 # FlexItem is critical for text truncation in flex layouts
-# It adds min-w-0 + overflow-hidden so text can actually shrink
+# It adds min-w-0 + overflow-hidden so text can actually shrink.
+# TruncatedText is deleted — use a P/Span with Tailwind `truncate` (1 line)
+# or `line-clamp-2` (N lines) directly.
 Row(
-    FlexItem(TruncatedText(long_title), grow=True),   # shrinks properly
-    Badge("Due Today", variant=BadgeT.warning),        # stays fixed
+    FlexItem(P(long_title, cls="truncate"), grow=True),   # shrinks properly
+    Badge("Due Today", variant=BadgeT.warning),            # stays fixed
 )
 
 # Responsive grid
@@ -252,43 +277,67 @@ Container(
 )
 
 # Space-between layout (common for headers)
+# DivFullySpaced/DivCentered/Center live in ui.components.layout (re-exported by ui.layout)
 DivFullySpaced(
     H2("Recent Tasks"),
-    ButtonLink("View All", href="/tasks", variant=ButtonT.ghost),
+    ButtonLink("View All", href="/tasks", cls=ButtonT.ghost),
 )
 ```
 
-### Typography (`ui/text.py`)
+### Typography — `ui/text.py` is DELETED
+
+`ui/text.py` and all its helpers (`PageTitle`, `SectionTitle`, `Subtitle`, `BodyText`,
+`SmallText`, `Caption`, `TruncatedText`) are **gone with no 1:1 replacement.** Page/section
+headings now come from **pattern components** that carry the type scale; body text is plain
+FastHTML elements with semantic-token Tailwind classes.
+
+| Deleted helper | Use instead |
+|----------------|-------------|
+| `PageTitle("X", subtitle=…)` | `PageHeader("X", subtitle=…)` from `ui.patterns.page_header` (h1 + subtitle + actions) |
+| `SectionTitle("X")` | `SectionHeader("X", action=…)` from `ui.patterns.section_header` (h2 + optional action) |
+| `Subtitle("X")` | `H4("X", cls="font-semibold")` (raw FastHTML element) |
+| `CardTitle("X")` | `CardTitle("X")` from `ui.components` (unchanged name, new module) |
+| `BodyText("X")` | `P("X")` |
+| `BodyText("X", muted=True)` | `P("X", cls="text-muted-foreground")` |
+| `SmallText("X")` | `Span("X", cls="text-sm text-muted-foreground")` |
+| `Caption("X")` | `Span("X", cls="text-xs font-semibold uppercase tracking-wide text-muted-foreground")` (or `section_label()` from `ui.primitives`) |
+| `TruncatedText("X", lines=2)` | `P("X", cls="line-clamp-2")` (or `truncate` for 1 line) |
 
 ```python
-from ui.text import PageTitle, SectionTitle, Subtitle
-from ui.text import BodyText, SmallText, Caption, TruncatedText
-from ui.cards import CardHeader, CardTitle  # semantic card title
+from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
+from ui.components import CardTitle
+from fasthtml.common import H4, P, Span
 
-PageTitle("Dashboard", subtitle="Welcome back, Mike")   # h1 + optional subtitle
-SectionTitle("Active Goals")                             # h2
-CardTitle("Morning Routine")                             # MonsterUI semantic card title
-Subtitle("Weekly Summary")                               # h4
+PageHeader("Dashboard", subtitle="Welcome back, Mike")   # h1 + subtitle + optional actions
+SectionHeader("Active Goals")                            # h2 + optional action
+CardTitle("Morning Routine")                             # card heading (ui.components)
+H4("Weekly Summary", cls="font-semibold")                # sub-heading
 
-BodyText("Task details go here")                         # <p>
-BodyText("Secondary info", muted=True)                   # <p> with muted color
-SmallText("Last updated 2 hours ago")                    # <span> small + muted
-Caption("PRIORITY")                                      # uppercase label
-
-TruncatedText("Very long text that overflows...", lines=2)  # line-clamp
+P("Task details go here")                                # body text
+P("Secondary info", cls="text-muted-foreground")         # muted body
+Span("Last updated 2 hours ago", cls="text-sm text-muted-foreground")
+P("Very long text that overflows...", cls="line-clamp-2")
 ```
+
+> **Always prefer `PageHeader`/`SectionHeader` over raw `H1()`/`H2()`** — they carry the
+> committed type scale (see the `skuel-ui` skill's "Design Direction"). Use raw `H4`/`P`/`Span`
+> only for sub-headings and body copy where no pattern component applies.
 
 ### Modals (Alpine.js + Tailwind)
 
+Prefer the canonical **`AlpineModal`** helper in `ui/patterns/modal.py` (pure Tailwind +
+Alpine, built to avoid the old UIkit conflict). Drop to a raw `Div` only for one-off shapes:
+
 ```python
-# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
+# Alpine.js modal — plain Div with Tailwind + x-show (when AlpineModal doesn't fit)
 Div(
     Div(
         H3("Delete Task?", cls="font-bold text-lg"),
         P("This action cannot be undone.", cls="py-4"),
         Div(
-            Button("Cancel", variant=ButtonT.ghost, **{"@click": "showModal = false"}),
-            Button("Delete", variant=ButtonT.error, hx_delete="/api/tasks/123"),
+            Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
+            Button("Delete", cls=ButtonT.destructive, hx_delete="/api/tasks/123"),
             cls="flex justify-end gap-2",
         ),
         cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
@@ -308,7 +357,7 @@ from ui.navigation import Menu, MenuItem, Dropdown, DropdownTrigger, DropdownCon
 
 # Dropdown menu
 Dropdown(
-    DropdownTrigger(Button("Options", variant=ButtonT.ghost)),
+    DropdownTrigger(Button("Options", cls=ButtonT.ghost)),
     DropdownContent(
         Menu(
             MenuItem(A("Edit", href="/edit")),
@@ -429,8 +478,8 @@ PageHeader(
     "Tasks",
     subtitle="Manage your work",
     actions=Row(
-        Button("New Task", variant=ButtonT.primary),
-        ButtonLink("Import", href="/tasks/import", variant=ButtonT.ghost),
+        Button("New Task", cls=ButtonT.primary),
+        ButtonLink("Import", href="/tasks/import", cls=ButtonT.ghost),
     ),
 )
 ```
@@ -483,7 +532,7 @@ CardGenerator.from_dataclass(
     header_badges=[StatusBadge("active"), PriorityBadge("high")],
     show_labels=False,
     metadata=["Due: Mar 15", "Project: Finance"],
-    actions=Button("View", variant=ButtonT.ghost, size=Size.sm),
+    actions=Button("View", cls=ButtonT.ghost, size="sm"),
 )
 
 # Teaching row card with subtitle
@@ -696,7 +745,7 @@ Form(
 # Delete with confirmation
 Button(
     "Delete",
-    variant=ButtonT.error,
+    cls=ButtonT.destructive,
     hx_delete=f"/api/tasks?uid={task.uid}",
     hx_confirm="Are you sure?",
     hx_target=f"#task-{task.uid}",
@@ -753,8 +802,8 @@ Div(
             H3("Delete?"),
             P("This cannot be undone."),
             Div(
-                Button("Cancel", variant=ButtonT.ghost, **{"@click": "isOpen = false"}),
-                Button("Delete", variant=ButtonT.error, hx_delete="/api/items/123"),
+                Button("Cancel", cls=ButtonT.ghost, **{"@click": "isOpen = false"}),
+                Button("Delete", cls=ButtonT.destructive, hx_delete="/api/items/123"),
                 cls="flex gap-2 justify-end mt-4",
             ),
             cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
@@ -798,16 +847,17 @@ from fasthtml.common import Div
 from adapters.inbound.fasthtml_types import Request
 
 from adapters.inbound.auth import require_authenticated_user
-from ui.buttons import Button, ButtonLink, ButtonT
-from ui.layout import Grid, Stack, Size
+from ui.components import Button, ButtonT
+from ui.primitives import ButtonLink
+from ui.layout import Grid, Stack
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.page_header import PageHeader
+from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatsGrid
-from ui.text import SectionTitle
 from ui.tokens import Spacing
 
 
@@ -839,9 +889,9 @@ def create_example_routes(app, rt, services):
         ]
         content = Stack(
             PageHeader("Example", subtitle="Your items",
-                       actions=Button("New Item", variant=ButtonT.primary)),
+                       actions=Button("New Item", cls=ButtonT.primary)),
             StatsGrid(stats),
-            SectionTitle("All Items"),
+            SectionHeader("All Items"),
             Grid(*[CardGenerator.from_dataclass(
                     {"title": e.title, "description": e.description},
                     display_fields=["description"],
@@ -885,26 +935,26 @@ def create_example_routes(app, rt, services):
 
 | File | What it does | When to edit |
 |------|-------------|--------------|
-| `static/css/output.css` | Compiled Tailwind + MonsterUI | Never — regenerated by `npx tailwindcss` |
-| `static/css/main.css` | SKUEL-specific styles (HTMX states, animations, safe areas, button/input visibility overrides — 8 sections) | Adding new HTMX transitions, animations, or component visibility enhancements |
+| `static/css/output.css` | **Compiled Tailwind — the single production CSS asset** (ADR-071). Loaded by `build_head()`. No MonsterUI, no browser-JIT compiler. | Never by hand — regenerated by `./dev css-build` |
+| `static/css/input.css` | Tailwind entry point (`@tailwind` directives) **+ SKUEL-owned semantic CSS variables** (`--background`, `--primary`, `--card`, …) | Editing theme color values or adding `@layer` rules |
+| `static/css/main.css` | SKUEL-specific styles (HTMX states, animations, safe areas, button/input visibility overrides) | Adding new HTMX transitions, animations, or component visibility enhancements |
 | `static/css/hierarchy.css` | TreeView, accordion, breadcrumbs | Adding new hierarchy components |
 | `static/css/calendar.css` | Calendar grid styling | Calendar features only |
-| `static/css/input.css` | Tailwind `@tailwind` directives | Never — this is the Tailwind entry point |
 
-**Rule:** Prefer MonsterUI component wrappers (`Button`, `Card`, `Badge`) and Tailwind utilities (`flex`, `gap-4`, `text-sm`) over custom CSS. Only add to `main.css` for things Tailwind/MonsterUI cannot express (animations, HTMX states, CSS custom properties).
+**Rule:** Prefer the `ui/components/` wrappers (`Button`, `Card`, `Badge`) and Tailwind utilities (`flex`, `gap-4`, `text-sm`) over custom CSS. Only add to `main.css` for things Tailwind cannot express (animations, HTMX states, CSS custom properties).
+
+**CSS variable ownership:** SKUEL owns its semantic CSS variables in `input.css` (the shadcn/ui token pattern), mapped to Tailwind colors in `tailwind.config.js`. DaisyUI — which previously generated these — is removed.
 
 **Global border radius:** `radii="sm"` (2px/4px) — configured in both `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible. **Do not change** without updating both files.
 
-**Button & input visibility:** `main.css` section 7 enhances MonsterUI defaults — stronger button shadows, visible default button borders, inset shadows on form inputs, and clear focus rings. This ensures buttons and form elements have well-defined edges app-wide.
+**Theme compatibility:** When adding new styles, always use the semantic token classes (e.g., `bg-background`, `text-foreground`, `text-muted-foreground`) so they adapt to theme switching — never raw `text-gray-*` or bespoke hex.
 
-**Theme compatibility:** `main.css` contains some hardcoded `oklch()` values. When adding new styles, always use MonsterUI CSS variables (e.g., `bg-background`, `text-foreground`, `text-muted-foreground`) so they adapt to theme switching.
-
-**Rebuilding CSS:** After changing Tailwind classes or `input.css`, regenerate `output.css`:
+**Rebuilding CSS:** After changing Tailwind classes or `input.css`, regenerate `output.css` (a **required build step** — missing classes are invisible at Python-edit time; the `tailwind.config.js` safelist covers dynamic class strings):
 
 ```bash
-npm run css:build          # one-time build
-npm run css:watch          # watch mode during development
-npm run css:prod           # minified for production
+./dev css-build            # one-time build  (wraps: npm run css:build)
+./dev css                  # watch mode during development
+./dev css-prod             # minified for production
 ```
 
 ---
@@ -960,7 +1010,7 @@ tabs = ActivityViewTabs.render("goals", "list", [
 ])
 ```
 
-This renders MonsterUI tabs with HTMX for dynamic content switching.
+This renders `ui.components.TabContainer` tabs (Alpine.js-driven) with HTMX for dynamic content switching.
 
 ---
 
@@ -979,7 +1029,7 @@ BasePage includes WCAG 2.1 Level AA features automatically:
 When building new components:
 
 - Use semantic elements (`H2`, `Nav`, `Section`) not generic `Div` for landmarks
-- Add `aria-label` to icon-only buttons via `IconButton(icon, label="Close")`
+- Add `aria-label` to icon-only buttons: `Button(Icon("x"), cls=ButtonT.ghost, **{"aria-label": "Close"})` (the `IconButton` helper is deleted)
 - Use `role="alert"` for error messages (already built into `Input(error_text=...)`)
 - Test keyboard navigation — Tab, Enter, Escape should work
 
@@ -989,13 +1039,13 @@ When building new components:
 
 | Purpose | File |
 |---------|------|
-| Buttons | `ui/buttons.py` |
-| Cards | `ui/cards.py` |
-| Forms | `ui/forms/` |
+| Buttons, cards, icon, tables, form set, tabs, accordion | `ui/components/` (import from `ui.components`) |
+| `ButtonLink` + shared primitives | `ui/primitives.py` |
+| Forms (`Input`, `LabelInput`, `Textarea`, …) | `ui/forms/` |
 | Badges, alerts, progress | `ui/feedback.py` |
 | Layout (flex, grid) | `ui/layout.py` |
-| Typography | `ui/text.py` |
-| Modals | Alpine.js `x-show` + Tailwind (inline) |
+| Typography | `PageHeader`/`SectionHeader` patterns + raw FastHTML `H4`/`P`/`Span` (`ui/text.py` deleted) |
+| Modals | `AlpineModal` (`ui/patterns/modal.py`) or inline Alpine `x-show` + Tailwind |
 | Nav components | `ui/navigation.py` |
 | Tables, dividers | `ui/data.py` |
 | Design tokens | `ui/tokens.py` |
