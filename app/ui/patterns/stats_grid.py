@@ -98,7 +98,7 @@ def StatCard(
     return card
 
 
-def IconStat(label: str, value: Any, icon: str, color_class: str = "") -> Div:
+def IconStat(label: str, value: str | int, icon: str, color_class: str = "") -> Div:
     """Compact centered stat tile with an emoji/icon, label, and value.
 
     Distinct from StatCard: no Card wrapper, icon-led, centered — meant to sit

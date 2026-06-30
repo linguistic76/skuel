@@ -43,10 +43,11 @@ def IngestionResultsSummary(stats: Any) -> FT:
     relationships_created = stats_dict.get("relationships_created", 0)
     errors = stats_dict.get("errors") or []
 
-    # Check if this has incremental ingestion fields
+    # Check if this has incremental ingestion fields (these are only rendered
+    # inside the has_incremental_stats guard below).
     has_incremental_stats = "files_skipped" in stats_dict
-    files_skipped = stats_dict.get("files_skipped", 0) if has_incremental_stats else None
-    ingestion_efficiency = stats_dict.get("skip_efficiency", 0.0) if has_incremental_stats else None
+    files_skipped = stats_dict.get("files_skipped", 0)
+    ingestion_efficiency = stats_dict.get("skip_efficiency", 0.0)
 
     return Div(
         # Summary cards
