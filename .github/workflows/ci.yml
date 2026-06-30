@@ -31,6 +31,7 @@ jobs:
     outputs:
       py: ${{ steps.filter.outputs.py }}
       docs: ${{ steps.filter.outputs.docs }}
+      ui: ${{ steps.filter.outputs.ui }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,6 +59,16 @@ jobs:
               - 'app/.claude/skills/**'
               - 'app/scripts/docs_*.py'
               - 'app/scripts/skills_validator.py'
+              - '.github/workflows/ci.yml'
+            ui:
+              # Client-side render surface: static assets, UI render code, the
+              # smoke test itself, and dependency pins. A JS-only change (e.g. the
+              # skuel.js infinite-loop bug) must still trigger the render smoke test.
+              - 'app/static/**'
+              - 'app/ui/**'
+              - 'app/scripts/smoke_test.py'
+              - 'app/pyproject.toml'
+              - 'app/uv.lock'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -418,12 +429,52 @@ jobs:
         working-directory: app
         run: uv run pytest tests/unit/ -x --tb=short -q
 
+  smoke:
+    name: Render Smoke Test
+    needs: changes
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --no-install-project
+
+      # google-chrome-stable is preinstalled on GitHub ubuntu-latest runners.
+      - name: Show Chrome version
+        run: google-chrome-stable --version
+
+      # Renders the unauthenticated pages (no server / no Neo4j) and loads them in
+      # headless Chrome — fails if any page never reaches idle (infinite JS loop /
+      # runaway sync work, e.g. the lucide MutationObserver freeze).
+      - name: Run render smoke test
+        working-directory: app
+        run: uv run python scripts/smoke_test.py
+
   # Always-on aggregator. This is the single status to mark required in branch
   # protection. Passes when required jobs succeeded OR were legitimately skipped
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, validate_documentation, unit_tests]
+    needs: [changes, mypy, validate_documentation, unit_tests, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -433,9 +484,10 @@ jobs:
           mypy_result="${{ needs.mypy.result }}"
           docs_result="${{ needs.validate_documentation.result }}"
           unit_tests_result="${{ needs.unit_tests.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  docs=$docs_result  unit_tests=$unit_tests_result"
+          smoke_result="${{ needs.smoke.result }}"
+          echo "changes=$changes_result  mypy=$mypy_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$docs_result" "$unit_tests_result"; do
+          for r in "$changes_result" "$mypy_result" "$docs_result" "$unit_tests_result" "$smoke_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1
