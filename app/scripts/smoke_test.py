@@ -49,7 +49,10 @@ import tempfile
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = APP_ROOT / "static"
@@ -153,7 +156,7 @@ def _assert_registry_in_sync() -> str | None:
     js = (STATIC_DIR / "js" / "skuel.js").read_text(encoding="utf-8")
     registered = set(re.findall(r"Alpine\.data\(\s*'([^']+)'", js))
     # The fixture expression is "name" or "name(args)"; take the leading identifier.
-    mounted = {re.match(r"\w+", expr).group(0) for expr in _REGISTRY_COMPONENTS}  # type: ignore[union-attr]
+    mounted = {m.group(0) for expr in _REGISTRY_COMPONENTS if (m := re.match(r"\w+", expr))}
     missing = registered - mounted
     extra = mounted - registered
     if missing or extra:
@@ -166,7 +169,7 @@ def _assert_registry_in_sync() -> str | None:
     return None
 
 
-def _render_js_smoke_fixture() -> Any:
+def _render_js_smoke_fixture() -> "FT":
     """Build a hermetic page that mounts every skuel.js registry component.
 
     Uses the real ``build_head()`` bundle so the registration timing matches
