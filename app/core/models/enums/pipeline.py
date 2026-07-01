@@ -40,6 +40,14 @@ class Pipeline(StrEnum):
                                     Stored as-is, no processing. Excluded from
                                     UserContext counts and Askesis context.
                                     Always private.
+        KNOWLEDGE                 — "Developed files": the user's own notes in
+                                    the vault ``knowledge/`` doorway, shared to
+                                    teach SKUEL about them. Stored as-is, no
+                                    processing. Unlike REFERENCE it FEEDS
+                                    UserContext (the personal-notes context
+                                    digest) rather than being archived; but it
+                                    is not a learning-loop submission, so it is
+                                    excluded from submission/journal counts.
     """
 
     NONE = "none"
@@ -50,6 +58,7 @@ class Pipeline(StrEnum):
     TEACHER_REVIEW = "teacher_review"
     JOURNAL = "journal"
     REFERENCE = "reference"
+    KNOWLEDGE = "knowledge"
 
     def allows_sharing(self) -> bool:
         """Whether a UserEntry on this pipeline may carry a non-private audience.

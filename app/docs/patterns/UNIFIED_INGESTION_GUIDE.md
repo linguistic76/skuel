@@ -82,6 +82,14 @@ Every UserEntry YAML must declare a pipeline. One of:
 - `none` — persisted as-is, no downstream processing.
 - `teacher_review` — queued for teacher feedback.
 - `llm_summary` — sent to the LLM for a structured summary.
+- `extract_activities` — DSL-parsed into real activities (the `/submissions/sync`
+  daily-note path, ADR-069). Used by `periodic_notes/`.
+- `knowledge` — "developed files": the user's own vault notes in the
+  `knowledge/` doorway, shared to teach SKUEL about them. Persisted as-is (no
+  processing) and, unlike `reference`, surfaced in the personal-notes context
+  digest that informs UserContext. Not counted as a learning-loop submission.
+- `reference` — archive/training material (`je_raw/`, `je_pro/`); stored as-is,
+  excluded from UserContext counts and Askesis context.
 
 Audio pipelines (`transcribe`, `transcribe_and_structure`) are not
 valid in YAML-ingested UserEntry files.

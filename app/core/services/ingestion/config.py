@@ -318,7 +318,12 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # deliberate "what I want SKUEL to know" channel (ADR-073). These are the ONLY folders
 # a personal vault syncs by default; everything else (je_* staging, templates, loose
 # notes) stays walled off without any configuration, fail-closed.
-_DEFAULT_SYNC_SUBDIRS: tuple[str, ...] = ("periodic_notes", "personal_notes", "activity_notes")
+_DEFAULT_SYNC_SUBDIRS: tuple[str, ...] = (
+    "periodic_notes",
+    "personal_notes",
+    "activity_notes",
+    "knowledge",
+)
 
 # Pipeline staging folders that are NEVER vault content, in any configuration.
 # je_in/je_out/je_raw/je_pro hold journal transcription artifacts — je_out in

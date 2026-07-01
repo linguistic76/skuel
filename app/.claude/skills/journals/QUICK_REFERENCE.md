@@ -84,6 +84,6 @@ Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces 
 
 Goals/Tasks/Habits services are optional — those sections degrade to empty if `None`.
 Vault notes come from `self._user_entry` (always present) via `get_vault_notes_for_context()`.
-Discriminator: `pipeline=journal` + `"vault_file_path"` in metadata (stamps set at ingestion).
+Discriminator: `pipeline IN [journal, knowledge]` + `"vault_file_path"` in metadata (stamps set at ingestion). `knowledge` = developed files in the `knowledge/` doorway, shared to teach SKUEL.
 Injected into Stage 2 + Stage 3 system prompts and STANDARD prompts.
 Stage 1 deliberately receives no context.
