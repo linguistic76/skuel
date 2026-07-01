@@ -101,7 +101,7 @@ Exercise (scope=ASSIGNED)
 1. Teacher creates Exercise (scope=ASSIGNED, targets Group)
        |
        v
-2. Student submits → UserEntryService.submit_file() (bytes→disk) / create_entry()
+2. Student submits → UserEntryService.create_entry() (via /submit ingestion, ADR-054)
        |             Creates a :UserEntry node — status SUBMITTED for the
        |             teacher_review pipeline, else ACTIVE
        v
@@ -301,7 +301,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Responsibility |
 |---------|----------|---------------|
-| `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry` / `submit_file`), exercise linking, audience resolution |
+| `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry`), exercise linking, audience resolution |
 | `UserEntryProcessingService` | `UserEntryProcessingOperations` | Pipeline dispatcher: reads `entry.pipeline`, routes to transcription / LLM processors |
 | `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
 | `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `EntryReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates EntryReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
