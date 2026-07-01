@@ -5,6 +5,14 @@ Ingestion API Routes - Unified Content Ingestion API
 API routes for the UnifiedIngestionService (ADR-014).
 Handles both MD and YAML formats for all entity types.
 
+Ownership (ADR-070):
+- These routes pass ``user_uid=current_user.uid``, but that value is only an
+  *acting-user hint*. The real owner of any USER_OWNED entity is resolved from
+  the vault descriptor governing the *target path* (VaultRegistry.resolve_by_path),
+  not from the caller's identity — so the same file yields the same owner via any
+  surface (this dashboard, the reconciler, the watcher, a bare script). Curriculum
+  (Ku/PathStep/LP/Exercise) is SHARED-by-type and receives no owner at all.
+
 Security:
 - All routes require admin role + CSRF
 - Path traversal validation via `_validate_ingestion_path`:
@@ -216,6 +224,9 @@ def create_ingestion_api_routes(
         Returns:
             Result with uid, title, entity_type, and statistics
 
+        Ownership: ``current_user.uid`` is passed as an acting-user hint only; the
+        owner is resolved from the vault descriptor for ``file_path`` (ADR-070).
+
         Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
         """
         try:
@@ -268,6 +279,9 @@ def create_ingestion_api_routes(
 
         Returns:
             Result with IngestionStats (full) or IncrementalStats (incremental/smart)
+
+        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
+        owner is resolved from the vault descriptor for its path (ADR-070).
 
         Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
         """
@@ -354,6 +368,9 @@ def create_ingestion_api_routes(
         Returns:
             Result with aggregated IngestionStats
 
+        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
+        owner is resolved from the vault descriptor for its path (ADR-070).
+
         Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
         """
         try:
@@ -412,6 +429,9 @@ def create_ingestion_api_routes(
 
         Returns:
             Result with BundleStats
+
+        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
+        owner is resolved from the vault descriptor for its path (ADR-070).
 
         Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
         """

@@ -135,6 +135,8 @@ def parse_file_sync(
     file_path: Path,
     default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
+    *,
+    owner_is_authoritative: bool = False,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Synchronous file parsing for use in thread pool.
@@ -253,7 +255,14 @@ def parse_file_sync(
 
         # Stage 5: Data preparation
         try:
-            entity_data = prepare_entity_data(entity_type, data, body, file_path, default_user_uid)
+            entity_data = prepare_entity_data(
+                entity_type,
+                data,
+                body,
+                file_path,
+                default_user_uid,
+                owner_is_authoritative=owner_is_authoritative,
+            )
         except DATA_CONVERSION_EXCEPTIONS as e:
             error = create_error(
                 file_path=file_path,
@@ -319,6 +328,8 @@ async def parse_file_for_batch(
     semaphore: asyncio.Semaphore,
     default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
+    *,
+    owner_is_authoritative: bool = False,
 ) -> tuple[EntityType | NonKuDomain, dict[str, Any], None] | tuple[None, None, dict[str, Any]]:
     """
     Parse and validate a single file for batch ingestion.
@@ -344,6 +355,7 @@ async def parse_file_for_batch(
                 file_path,
                 default_user_uid,
                 max_file_size_bytes,
+                owner_is_authoritative=owner_is_authoritative,
             )
         except (OSError, RuntimeError) as e:
             error = create_error(
@@ -456,6 +468,7 @@ async def ingest_directory(
     dry_run: bool = False,
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
     allowlist: SyncAllowlist | None = None,
+    owner_is_authoritative: bool = False,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -656,7 +669,13 @@ async def ingest_directory(
     # PARALLEL PARSING: Process all files concurrently with semaphore limiting
     semaphore = asyncio.Semaphore(max_concurrent)
     parse_tasks = [
-        parse_file_for_batch(fp, semaphore, default_user_uid, max_file_size_bytes)
+        parse_file_for_batch(
+            fp,
+            semaphore,
+            default_user_uid,
+            max_file_size_bytes,
+            owner_is_authoritative=owner_is_authoritative,
+        )
         for fp in files_to_process
     ]
     parse_results = await asyncio.gather(*parse_tasks)

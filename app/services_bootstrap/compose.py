@@ -1189,42 +1189,88 @@ async def compose_services(
             event_bus=event_bus,
         )
 
-        # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync
+        # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync.
+        # One descriptor-driven reconciler serves BOTH vaults: the admin content
+        # vault (INGESTION_PATH, curriculum) and a user's personal vault
+        # (VAULT_ROOT). Each vault is its own governed root with its own
+        # fail-closed allowlist, owner account, and filesystem bridge.
         import pathlib
 
         from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
+        from core.constants import SYSTEM_USER_UID
+        from core.models.type_hints import UserUID
+        from core.services.ingestion.config import build_sync_allowlist
+        from core.services.vault.vault_descriptor import (
+            VaultDescriptor,
+            VaultKind,
+            VaultRegistry,
+        )
         from core.services.vault.vault_reconciler import VaultReconciler
 
-        _vault_allowed_root = (
+        _personal_root = (
             config.vault.vault_path
             if config
             else pathlib.Path(os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"))
         )
-
-        # Fail-closed vault privacy wall (SKUEL_VAULT_SYNC_ALLOWED_DIRS). Bound to
-        # the same root the reconciler syncs, and late-set on the shared ingestion
-        # service so EVERY ingestion path (reconciler, /api/ingest/directory,
-        # /api/ingest/file) inherits it. Defaults to a fail-closed wall even when
-        # unconfigured; the content vault (INGESTION_PATH) is passed so a
-        # single-vault deployment isn't starved. See build_sync_allowlist.
-        from core.services.ingestion.config import build_sync_allowlist
-
         _content_root = (
             config.vault.ingestion_path
             if config
             else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
         )
-        _sync_allowlist = build_sync_allowlist(_vault_allowed_root, content_root=_content_root)
-        unified_ingestion.sync_allowlist = _sync_allowlist
-        logger.info(
-            "✅ Vault sync allowlist active (fail-closed): "
-            f"{len(_sync_allowlist.allowed_dirs)} allowed dir(s) under {_vault_allowed_root}"
+        # The account the content vault *acts as* — NOT a fictional owner stamped
+        # on curriculum. Curriculum (Ku/PathStep/LP/Exercise) is SHARED-by-type and
+        # drops its owner at persist. This account is the owner of any USER_OWNED
+        # stray that appears in the content vault, and the holder of the content
+        # vault's outbound consent. See VaultRegistry.resolve_by_path.
+        _content_owner = UserUID(
+            config.vault.content_owner_uid
+            if config
+            else os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
         )
 
-        vault_bridge = FilesystemVaultAdapter(allowed_root=_vault_allowed_root)
+        # Personal vault: fail-closed doorway wall (knowledge/ + notes folders).
+        # The wall is code-sourced (doorway defaults) — NOT read from the ambient
+        # SKUEL_VAULT_SYNC_ALLOWED_DIRS env var, which used to shadow .env and
+        # silently wall off a folder. Content vault: whole-vault (single-vault
+        # branch), curriculum fully open minus the je_* staging floor.
+        _personal_allowlist = build_sync_allowlist(_personal_root, content_root=_content_root)
+        _content_allowlist = build_sync_allowlist(_content_root, content_root=_content_root)
+
+        # Residual single-file / domain ingestion doors (/api/ingest/file, etc.)
+        # inherit the personal vault's wall; the reconciler passes each vault's
+        # own allowlist explicitly.
+        unified_ingestion.sync_allowlist = _personal_allowlist
+        logger.info(
+            "✅ Vault sync allowlists active (fail-closed): "
+            f"personal={len(_personal_allowlist.allowed_dirs)} dir(s) under {_personal_root}, "
+            f"content=whole-vault under {_content_root}"
+        )
+
+        _content_descriptor = VaultDescriptor(
+            kind=VaultKind.CONTENT,
+            root=_content_root,
+            owner_uid=_content_owner,
+            allowlist=_content_allowlist,
+            bridge=FilesystemVaultAdapter(allowed_root=_content_root),
+            supports_task_round_trip=False,  # curriculum writeback: designed-for, deferred
+        )
+        # Personal descriptor is a template; owner_uid is stamped per acting user
+        # at resolve time (SYSTEM_USER_UID here is a never-used placeholder).
+        _personal_descriptor = VaultDescriptor(
+            kind=VaultKind.PERSONAL,
+            root=_personal_root,
+            owner_uid=SYSTEM_USER_UID,
+            allowlist=_personal_allowlist,
+            bridge=FilesystemVaultAdapter(allowed_root=_personal_root),
+            supports_task_round_trip=True,
+        )
+        vault_registry = VaultRegistry(content=_content_descriptor, personal=_personal_descriptor)
+        # Give the ingestion mechanism the registry so the OWNER of USER_OWNED
+        # entities is resolved from the vault a file lives in (by-path), identical
+        # across every ingest surface (dashboard / reconciler / script / watcher).
+        unified_ingestion.vault_registry = vault_registry
         vault_reconciler = VaultReconciler(
-            vault_root=_vault_allowed_root,
-            vault_bridge=vault_bridge,
+            registry=vault_registry,
             unified_ingestion=unified_ingestion,
             user_entry_service=user_entry_service,
             tasks_service=activity_services["tasks"],
@@ -1233,7 +1279,7 @@ async def compose_services(
         logger.info(
             "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
         )
-        logger.info("✅ VaultReconciler wired (ADR-070)")
+        logger.info("✅ VaultReconciler wired (ADR-070) — content + personal descriptors")
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
