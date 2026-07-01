@@ -75,6 +75,22 @@ def test_traversal_cannot_escape_the_wall(tmp_path: Path) -> None:
     assert wall.permits(sneaky) is False
 
 
+def test_symlink_in_walled_folder_stays_walled(tmp_path: Path) -> None:
+    # A symlink inside a walled folder that points OUTSIDE the vault must not
+    # read as "ungoverned" — the wall judges a file by where it sits in the vault,
+    # not where its symlink target resolves to.
+    root = tmp_path / "vault"
+    (root / "je_raw").mkdir(parents=True)
+    outside = tmp_path / "outside" / "secret.md"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("private", encoding="utf-8")
+    link = root / "je_raw" / "secret.md"
+    link.symlink_to(outside)
+
+    wall = _wall(root, root / "periodic_notes")
+    assert wall.permits(link) is False
+
+
 # ---------------------------------------------------------------------------
 # build_sync_allowlist — env parsing
 # ---------------------------------------------------------------------------
@@ -152,6 +168,32 @@ def test_build_colon_only_is_fail_closed_wall_everything(
     wall = build_sync_allowlist(tmp_path / "vault")
     assert wall is not None
     assert wall.allowed_dirs == frozenset()
+
+
+def test_build_drops_ancestor_allow_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # An allow-dir that is an ANCESTOR of the vault root would open the whole
+    # vault — it must be dropped, leaving a fail-closed (wall-everything) result.
+    root = tmp_path / "outer" / "vault"
+    root.mkdir(parents=True)
+    monkeypatch.setenv(_ENV_VAR, str(tmp_path / "outer"))  # ancestor of root
+    wall = build_sync_allowlist(root)
+    assert wall is not None
+    assert wall.allowed_dirs == frozenset()
+    assert wall.permits(root / "anything.md") is False
+
+
+def test_build_drops_root_itself_and_outside_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Keep only entries strictly under the governed root: the root itself (opens
+    # everything) and a sibling/outside path are both dropped.
+    root = tmp_path / "vault"
+    good = root / "periodic_notes"
+    outside = tmp_path / "elsewhere"
+    monkeypatch.setenv(_ENV_VAR, f"{good}:{root}:{outside}")
+    wall = build_sync_allowlist(root)
+    assert wall is not None
+    assert wall.allowed_dirs == frozenset({good.resolve()})
 
 
 # ---------------------------------------------------------------------------

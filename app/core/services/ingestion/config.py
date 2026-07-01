@@ -29,6 +29,9 @@ from core.models.relationship_registry import (
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
 from core.models.type_hints import UserUID
+from core.utils.logging import get_logger
+
+logger = get_logger("skuel.services.ingestion.config")
 
 # ============================================================================
 # FILE SIZE LIMITS
@@ -351,14 +354,19 @@ class SyncAllowlist:
         """Whether ``path`` may be ingested (True = keep).
 
         Outside the governed root → always permitted (ungoverned tree). Inside
-        → permitted only when nested under an allowed dir. The candidate is
-        resolved first so ``..`` segments and symlinks cannot smuggle a walled
-        file past the check.
+        → permitted only when nested under an allowed dir.
+
+        The wall judges a file by *where it sits in the vault*, not where a
+        symlink target points. We canonicalize the directory chain
+        (``parent.resolve()`` — collapses ``..`` and resolves real vault dirs)
+        but keep the leaf name in place, so a symlink inside a walled folder
+        (``je_raw/secret.md -> /tmp/secret.md``) stays governed and walled
+        instead of resolving out of the vault and reading as "ungoverned".
         """
-        resolved = path.resolve()
-        if not resolved.is_relative_to(self.governed_root):
+        located = path.parent.resolve() / path.name
+        if not located.is_relative_to(self.governed_root):
             return True
-        return any(resolved.is_relative_to(allowed) for allowed in self.allowed_dirs)
+        return any(located.is_relative_to(allowed) for allowed in self.allowed_dirs)
 
 
 def build_sync_allowlist(
@@ -388,12 +396,27 @@ def build_sync_allowlist(
     ingestion, so we return ``None`` (no wall) instead — there is no distinct
     personal vault to protect there. An explicit ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``
     always wins over this guard.
+
+    Configured dirs must be *strictly under* the governed root. An entry that is
+    the root itself, an ancestor, or an unrelated path would make every file
+    ``is_relative_to`` it and silently open the whole vault — the opposite of
+    fail-closed — so such entries are dropped (with a warning). If that leaves no
+    valid dirs, the result walls everything, which is the safe direction.
     """
     governed = governed_root.resolve()
     raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
     if raw and raw.strip():
-        allowed_dirs = frozenset(Path(p.strip()).resolve() for p in raw.split(":") if p.strip())
-        return SyncAllowlist(governed_root=governed, allowed_dirs=allowed_dirs)
+        configured = [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
+        valid = frozenset(d for d in configured if d.is_relative_to(governed) and d != governed)
+        for dropped in (d for d in configured if d not in valid):
+            logger.warning(
+                "Ignoring SKUEL_VAULT_SYNC_ALLOWED_DIRS entry %s: not strictly under the "
+                "vault root %s. Allow-dirs must be subfolders of the vault; an ancestor or "
+                "outside path would defeat the fail-closed wall.",
+                dropped,
+                governed,
+            )
+        return SyncAllowlist(governed_root=governed, allowed_dirs=valid)
 
     # Unset: default to fail-closed, unless the governed root IS the content vault
     # (or an ancestor of it), where a default wall would wrongly starve curriculum
