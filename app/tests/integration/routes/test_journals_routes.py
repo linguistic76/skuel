@@ -300,6 +300,33 @@ class TestJournalsUploadZeroPersistence:
         assert "No supported audio files" in to_xml(response)
         _assert_nothing_persisted(mock_services)
 
+    async def test_single_transcribe_and_instructions_preflights_llm(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # STANDARD single audio upload with Deepgram but no LLM must fail BEFORE
+        # transcribing, so no Deepgram quota is spent (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_one = AsyncMock(
+            return_value=Result.ok("transcript")
+        )
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=None)  # no LLM
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("memo.mp3", b"audio")),
+                ("processing_mode", "transcribe_and_instructions"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "LLM service not available" in to_xml(response)
+        mock_services.batch_transcription.transcribe_one.assert_not_awaited()
+        _assert_nothing_persisted(mock_services)
+
     async def test_dedup_guard_is_mode_aware(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:

@@ -207,6 +207,19 @@ async def _process_single_upload(
             "error", "Transcription service not available (requires FULL tier)", is_error=True
         )
 
+    # Preflight the LLM step before spending Deepgram quota: STANDARD
+    # transcribe_and_instructions compiles the transcript via the LLM, so a
+    # missing llm_caller must fail up front. (FOUNDER goes to review→Scribe and
+    # does not compile here, so it needs no LLM at this stage.)
+    if (
+        processing_mode == "transcribe_and_instructions"
+        and not is_founder
+        and (processing_service is None or getattr(processing_service, "llm_caller", None) is None)
+    ):
+        return render_journal_upload_status(
+            "error", "LLM service not available (requires INTELLIGENCE_TIER=full)", is_error=True
+        )
+
     suffix = Path(filename).suffix or ".audio"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(file_content)
