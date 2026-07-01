@@ -134,3 +134,9 @@ The "stores zero / reads zero" contract is enforceable by tests, not policy alon
 - **Residual gap:** doorway notes and periodic notes are still plaintext at rest in Neo4j.
   Field-level encryption remains the planned close on operator-level access (see the privacy
   user guide).
+- **Residual (multi-tenant default):** the expanded default allowlist (`periodic_notes/` +
+  `personal_notes/` + `activity_notes/`, PR 1) is *default-on* — a deliberate single-user choice
+  so the doorways aren't dark. For a future hosted / multi-tenant deployment this is a
+  trust-boundary default worth revisiting: prefer a **per-user opt-in** over a global default
+  before that milestone, since a folder named `personal_notes/` could be assumed private. Raised
+  in review (Kody, PR #477) and deferred, not dismissed.
