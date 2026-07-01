@@ -1,12 +1,14 @@
 """Fail-closed vault privacy wall — SyncAllowlist + collect_files integration.
 
-The wall (``SKUEL_VAULT_SYNC_ALLOWED_DIRS``) scopes ingestion to explicitly
-allowed folders under the personal vault root. Everything else under the root
-(je_* journal staging, templates, loose notes) is walled off; content outside
-the root (the admin curriculum vault) is unaffected. ``permits`` is the single
-predicate every ingestion path inherits — the directory scan (``collect_files``)
-and single-file ingestion (``ingest_file``). The wall is fail-closed by default:
-an unset env var still walls the personal vault rather than opening it.
+The wall scopes ingestion to explicitly allowed folders under the personal vault
+root. Everything else under the root (je_* journal staging, templates, loose
+notes) is walled off; content outside the root (the admin curriculum vault) is
+unaffected. ``permits`` is the single predicate every ingestion path inherits —
+the directory scan (``collect_files``) and single-file ingestion (``ingest_file``).
+The wall is fail-closed by default: with no ``allowed_dirs`` it opens only the
+code-level doorway folders (``_DEFAULT_SYNC_SUBDIRS``) rather than the whole vault.
+``allowed_dirs`` is passed in explicitly — never read from the ambient process
+environment — so a stale exported var can no longer shadow the intended config.
 """
 
 from pathlib import Path
@@ -20,11 +22,9 @@ from core.services.ingestion.config import (
     collect_files,
 )
 
-_ENV_VAR = "SKUEL_VAULT_SYNC_ALLOWED_DIRS"
-
 
 def _default_allowed(root: Path) -> frozenset[Path]:
-    """The default doorway folders synced when the env var is unset (ADR-073)."""
+    """The default doorway folders synced when no allowed_dirs are given (ADR-073)."""
     return frozenset((root / subdir).resolve() for subdir in _DEFAULT_SYNC_SUBDIRS)
 
 
@@ -147,15 +147,12 @@ def test_governs(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_sync_allowlist — env parsing
+# build_sync_allowlist — explicit allowed_dirs parsing
 # ---------------------------------------------------------------------------
 
 
-def test_build_unset_defaults_to_fail_closed_wall(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # Fail-closed by default: an unset env var must NOT mean "ingest everything".
-    monkeypatch.delenv(_ENV_VAR, raising=False)
+def test_build_unset_defaults_to_fail_closed_wall(tmp_path: Path) -> None:
+    # Fail-closed by default: no allowed_dirs must NOT mean "ingest everything".
     root = tmp_path / "vault"
     wall = build_sync_allowlist(root)
     assert wall is not None
@@ -169,23 +166,17 @@ def test_build_unset_defaults_to_fail_closed_wall(
     assert wall.permits(root / "random_folder" / "r.md") is False
 
 
-def test_build_blank_defaults_to_fail_closed_wall(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv(_ENV_VAR, "   ")
+def test_build_blank_defaults_to_fail_closed_wall(tmp_path: Path) -> None:
     root = tmp_path / "vault"
-    wall = build_sync_allowlist(root)
+    wall = build_sync_allowlist(root, allowed_dirs="   ")
     assert wall is not None
     assert wall.allowed_dirs == _default_allowed(root)
 
 
-def test_build_single_vault_allows_whole_vault_minus_staging(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_single_vault_allows_whole_vault_minus_staging(tmp_path: Path) -> None:
     # When the content vault IS (or is under) the governed root, the default wall
     # would starve curriculum — so allow the WHOLE vault, keeping only the je_*
     # staging floor. governs() must still hold so full-mode reprocesses retract.
-    monkeypatch.delenv(_ENV_VAR, raising=False)
     root = tmp_path / "vault"
     wall = build_sync_allowlist(root, content_root=root)
     assert wall.allowed_dirs == frozenset({root.resolve()})
@@ -198,10 +189,7 @@ def test_build_single_vault_allows_whole_vault_minus_staging(
     )
 
 
-def test_build_distinct_vaults_get_default_wall(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv(_ENV_VAR, raising=False)
+def test_build_distinct_vaults_get_default_wall(tmp_path: Path) -> None:
     personal = tmp_path / "skuel"
     content = tmp_path / "0vault"
     wall = build_sync_allowlist(personal, content_root=content)
@@ -209,59 +197,48 @@ def test_build_distinct_vaults_get_default_wall(
     assert wall.allowed_dirs == _default_allowed(personal)
 
 
-def test_build_explicit_var_overrides_single_vault_guard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_explicit_var_overrides_single_vault_guard(tmp_path: Path) -> None:
     # An explicit allowlist wins even when content_root == governed_root.
     root = tmp_path / "vault"
-    monkeypatch.setenv(_ENV_VAR, str(root / "periodic_notes"))
-    wall = build_sync_allowlist(root, content_root=root)
+    wall = build_sync_allowlist(root, allowed_dirs=str(root / "periodic_notes"), content_root=root)
     assert wall is not None
     assert wall.allowed_dirs == frozenset({(root / "periodic_notes").resolve()})
 
 
-def test_build_parses_colon_separated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_parses_colon_separated_dirs(tmp_path: Path) -> None:
     root = tmp_path / "vault"
     a = root / "periodic_notes"
     b = root / "journal_exports"
-    monkeypatch.setenv(_ENV_VAR, f"{a}:{b}")
-    wall = build_sync_allowlist(root)
+    wall = build_sync_allowlist(root, allowed_dirs=f"{a}:{b}")
     assert wall is not None
     assert wall.governed_root == root.resolve()
     assert wall.allowed_dirs == frozenset({a.resolve(), b.resolve()})
 
 
-def test_build_colon_only_is_fail_closed_wall_everything(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv(_ENV_VAR, ":")
-    wall = build_sync_allowlist(tmp_path / "vault")
+def test_build_colon_only_is_fail_closed_wall_everything(tmp_path: Path) -> None:
+    wall = build_sync_allowlist(tmp_path / "vault", allowed_dirs=":")
     assert wall is not None
     assert wall.allowed_dirs == frozenset()
 
 
-def test_build_drops_ancestor_allow_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_drops_ancestor_allow_dir(tmp_path: Path) -> None:
     # An allow-dir that is an ANCESTOR of the vault root would open the whole
     # vault — it must be dropped, leaving a fail-closed (wall-everything) result.
     root = tmp_path / "outer" / "vault"
     root.mkdir(parents=True)
-    monkeypatch.setenv(_ENV_VAR, str(tmp_path / "outer"))  # ancestor of root
-    wall = build_sync_allowlist(root)
+    wall = build_sync_allowlist(root, allowed_dirs=str(tmp_path / "outer"))  # ancestor
     assert wall is not None
     assert wall.allowed_dirs == frozenset()
     assert wall.permits(root / "anything.md") is False
 
 
-def test_build_drops_root_itself_and_outside_dirs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_build_drops_root_itself_and_outside_dirs(tmp_path: Path) -> None:
     # Keep only entries strictly under the governed root: the root itself (opens
     # everything) and a sibling/outside path are both dropped.
     root = tmp_path / "vault"
     good = root / "periodic_notes"
     outside = tmp_path / "elsewhere"
-    monkeypatch.setenv(_ENV_VAR, f"{good}:{root}:{outside}")
-    wall = build_sync_allowlist(root)
+    wall = build_sync_allowlist(root, allowed_dirs=f"{good}:{root}:{outside}")
     assert wall is not None
     assert wall.allowed_dirs == frozenset({good.resolve()})
 

@@ -574,6 +574,12 @@ class VaultConfig:
     # Ingestion data directory (where files are staged for ingestion)
     ingestion_root: str = os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault")
 
+    # Account that owns the content vault (INGESTION_PATH). The vault distinction
+    # is established by ownership: curriculum ingests as this admin account, a
+    # personal vault as the acting user. Holder of the content vault's
+    # vault_write_consent flag (ADR-070). See core/services/vault/vault_descriptor.py.
+    content_owner_uid: str = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
+
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
 
@@ -634,6 +640,7 @@ class VaultConfig:
             sync_interval_minutes=int(os.getenv("SYNC_INTERVAL_MINUTES", "30")),
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
+            content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),
         )
 
 

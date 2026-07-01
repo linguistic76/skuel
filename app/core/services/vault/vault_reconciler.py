@@ -43,13 +43,13 @@ from core.ports.vault_bridge_protocol import (
     normalize_vault_line_hash,
 )
 from core.services.ingestion.types import DryRunPreview, IncrementalStats, IngestionStats
+from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
-    from core.ports.vault_bridge_protocol import VaultBridgePort
     from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
     from core.services.tasks_service import TasksService
     from core.services.user_entry.user_entry_service import UserEntryService
@@ -88,20 +88,21 @@ class VaultReconciler:
     """Bidirectional vault sync orchestrator (ADR-070).
 
     Wires together the ingestion pipeline (inbound) and VaultBridgePort
-    adapter (outbound) to implement the full sync loop.
+    adapter (outbound) to implement the full sync loop. Descriptor-driven: a
+    single instance serves every vault (content + personal) — the per-vault
+    root, owner, allowlist, and bridge adapter come from the
+    :class:`VaultRegistry`, not from instance state.
     """
 
     def __init__(
         self,
-        vault_root: Path,
-        vault_bridge: VaultBridgePort,
+        registry: VaultRegistry,
         unified_ingestion: UnifiedIngestionService,
         user_entry_service: UserEntryService,
         tasks_service: TasksService,
         user_service: UserService,
     ) -> None:
-        self.vault_root = vault_root
-        self._bridge = vault_bridge
+        self._registry = registry
         self._ingestion = unified_ingestion
         self._user_entry = user_entry_service
         self._tasks = tasks_service
@@ -111,45 +112,64 @@ class VaultReconciler:
     # PUBLIC API
     # =========================================================================
 
-    async def sync(self, user_uid: str, vault_path: str) -> Result[VaultSyncStats]:
-        """Run a full bidirectional vault sync for the given user.
+    async def sync(self, kind: VaultKind, user_uid: str) -> Result[VaultSyncStats]:
+        """Run a full vault sync for ``kind``.
 
-        1. Ingest the vault directory (incremental — only changed files).
-        2. Check vault-write consent (ADR-070 Decision 6 first-run gate).
-        3. For each vault-ingested UserEntry with EXTRACT_ACTIVITIES pipeline:
-           a. Find extracted tasks without a 🆔 vault_id → inject IDs.
-           b. Find extracted tasks with vault_id that are COMPLETED in SKUEL
-              → write [x] + ✅ date back to vault file.
+        ``user_uid`` is the acting user; for ``VaultKind.CONTENT`` it is ignored
+        (the content vault's fixed admin owner wins). All per-vault specifics —
+        root, ingest-owner, allowlist, outbound bridge, and whether the task
+        round-trip runs — come from the resolved :class:`VaultDescriptor`.
+
+        1. Ingest the vault directory (smart mode — only changed files),
+           attributed to the descriptor's owner, walled by the descriptor's
+           allowlist.
+        2. Check vault-write consent on the owner (ADR-070 Decision 6 first-run
+           gate).
+        3. If the vault supports the task round-trip, for each ingested
+           UserEntry with the EXTRACT_ACTIVITIES pipeline:
+           a. inject 🆔 IDs into ID-less task lines;
+           b. write ``[x]`` + ``✅ date`` for SKUEL-completed tasks.
         """
+        descriptor_result = self._registry.resolve(kind, UserUID(user_uid))
+        if descriptor_result.is_error:
+            return Result.fail(descriptor_result)
+        descriptor = descriptor_result.value
+        owner = descriptor.owner_uid
+
         stats = VaultSyncStats()
 
-        uid = UserUID(user_uid)
-
-        # Step 1: ingest (inbound — smart mode skips unchanged files)
-        # Folder exclusion is enforced inside ingest_directory via the shared
-        # fail-closed SyncAllowlist — no per-caller denylist needed here.
+        # Step 1: ingest (inbound — smart mode skips unchanged files). The
+        # descriptor's own fail-closed allowlist scopes which folders are read;
+        # entries are attributed to the descriptor's owner.
         ingest_result = await self._ingestion.ingest_directory(
-            Path(vault_path),
+            descriptor.root,
             ingestion_mode="smart",
-            user_uid=uid,
+            user_uid=owner,
+            allowlist=descriptor.allowlist,
         )
         if ingest_result.is_error:
             return Result.fail(ingest_result)
         stats.entries_ingested = _count_ingested(ingest_result.value)
 
-        # Step 2: first-run consent guard (ADR-070 Decision 6)
-        user_result = await self._user_service.get_user(uid)
+        # Steps 2–3: consent gate + outbound. Only vaults that support the task
+        # round-trip have anything to write back, so the consent gate engages
+        # there. Curriculum vaults are inbound-only today (structural no-op) — the
+        # uniform gate is ready to engage the moment curriculum writeback is built
+        # (designed-for, deferred), without blocking inbound ingest meanwhile.
+        if not descriptor.supports_task_round_trip:
+            return Result.ok(stats)
+
+        # First-run consent guard (ADR-070 Decision 6) — on the vault owner.
+        user_result = await self._user_service.get_user(owner)
         if user_result.is_error:
             return Result.fail(user_result)
         user = user_result.value
         if user is None:
-            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-
+            return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
         if not user.preferences.vault_write_consent:
             return Result.ok(VaultSyncStats(first_run_notice=True))
 
-        # Step 3: outbound — ID injection + status round-trip
-        await self._run_outbound(user_uid, stats)
+        await self._run_outbound(descriptor, stats)
         return Result.ok(stats)
 
     async def grant_consent(self, user_uid: str) -> Result[None]:
@@ -165,15 +185,16 @@ class VaultReconciler:
     # OUTBOUND
     # =========================================================================
 
-    async def _run_outbound(self, user_uid: str, stats: VaultSyncStats) -> None:
-        """Inject IDs and write done-status for all vault-ingested UserEntries."""
+    async def _run_outbound(self, descriptor: VaultDescriptor, stats: VaultSyncStats) -> None:
+        """Inject IDs and write done-status for all of the owner's vault entries."""
+        owner = descriptor.owner_uid
         page_size = 500
         offset = 0
-        resolved_vault_root = self.vault_root.resolve()
+        resolved_vault_root = descriptor.root.resolve()
 
         while True:
             entries_result = await self._user_entry.list_for_user(
-                user_uid=UserUID(user_uid),
+                user_uid=owner,
                 pipeline=Pipeline.EXTRACT_ACTIVITIES,
                 limit=page_size,
                 offset=offset,
@@ -192,7 +213,7 @@ class VaultReconciler:
                 resolved_vfp = Path(vault_file_path).resolve()
                 if not resolved_vfp.is_relative_to(resolved_vault_root):
                     continue
-                await self._process_entry_outbound(user_uid, entry, str(resolved_vfp), stats)
+                await self._process_entry_outbound(descriptor, entry, str(resolved_vfp), stats)
 
             if len(entries) < page_size:
                 break
@@ -200,12 +221,13 @@ class VaultReconciler:
 
     async def _process_entry_outbound(
         self,
-        user_uid: str,
+        descriptor: VaultDescriptor,
         entry: UserEntry,
         vault_file_path: str,
         stats: VaultSyncStats,
     ) -> None:
         """Process one UserEntry: inject IDs for new tasks, mark done for completed."""
+        owner = descriptor.owner_uid
         rels_result = await self._user_entry.get_extracted_entities(entry.uid)
         if rels_result.is_error:
             stats.errors.append(
@@ -218,7 +240,7 @@ class VaultReconciler:
             return
 
         try:
-            snapshot = await self._bridge.read_note(user_uid, vault_file_path)
+            snapshot = await descriptor.bridge.read_note(owner, vault_file_path)
         except FILE_IO_EXCEPTIONS as exc:
             stats.errors.append(f"read_note failed for {vault_file_path}: {exc}")
             return
@@ -291,8 +313,8 @@ class VaultReconciler:
         if not updates:
             return
 
-        write_result = await self._bridge.write_task_updates(
-            user_uid=user_uid,
+        write_result = await descriptor.bridge.write_task_updates(
+            user_uid=owner,
             path=vault_file_path,
             updates=updates,
             expected_sha256=snapshot.sha256,
@@ -318,9 +340,7 @@ class VaultReconciler:
             new_meta = dict(entry.metadata or {})
             new_meta["vault_sync_hash"] = write_result.new_sha256
             update_req = UserEntryUpdateRequest(metadata=new_meta)
-            update_result = await self._user_entry.update_entry(
-                entry.uid, UserUID(user_uid), update_req
-            )
+            update_result = await self._user_entry.update_entry(entry.uid, owner, update_req)
             if update_result.is_error:
                 stats.errors.append(
                     f"vault_sync_hash update failed for {entry.uid}: {update_result.expect_error()}"

@@ -647,6 +647,7 @@ class UnifiedIngestionService:
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
+        allowlist: SyncAllowlist | None = None,
     ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
@@ -673,24 +674,28 @@ class UnifiedIngestionService:
         pipeline) instead of the bulk upsert engine so the OWNS edge, audience
         resolution, and post-persist extraction (EXTRACT_ACTIVITIES) all run.
 
-        ``self.sync_allowlist`` (when configured) is applied to every scan here —
-        the single chokepoint both ingestion doors traverse — so a fail-closed
-        vault wall cannot be bypassed by any caller. Files under the governed
-        vault root are ingested only if they sit under an allowed dir.
+        The fail-closed folder allowlist is applied to every scan here — the
+        single chokepoint every ingestion door traverses — so a vault wall cannot
+        be bypassed by any caller. ``allowlist`` selects which wall: the
+        descriptor-driven reconciler passes the target vault's own allowlist; the
+        residual per-file/domain doors fall back to ``self.sync_allowlist`` (the
+        personal vault's wall). Files under the governed vault root are ingested
+        only if they sit under an allowed dir.
 
         When the wall governs ``directory``, a ``full``-mode request is upgraded to
         ``smart``: full mode skips deletion reconciliation, but fail-closed
         retraction of now-walled rows depends on it, so the wall would otherwise
-        leak on the full-mode door (``/api/ingest/directory`` defaults to full).
+        leak on a full-mode ingest.
         """
         effective_user_uid = user_uid or self.default_user_uid
+        effective_allowlist = allowlist if allowlist is not None else self.sync_allowlist
 
         effective_mode = ingestion_mode
         if (
             ingestion_mode == "full"
             and self.ingestion_backend is not None
-            and self.sync_allowlist is not None
-            and self.sync_allowlist.governs(directory)
+            and effective_allowlist is not None
+            and effective_allowlist.governs(directory)
         ):
             self.logger.info(
                 "Vault wall governs %s — upgrading full → smart ingestion so deletion "
@@ -717,7 +722,7 @@ class UnifiedIngestionService:
             progress_callback=progress_callback,
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
-            allowlist=self.sync_allowlist,
+            allowlist=effective_allowlist,
         )
 
     async def ingest_vault(

@@ -415,6 +415,7 @@ class SyncAllowlist:
 def build_sync_allowlist(
     governed_root: Path,
     *,
+    allowed_dirs: str | None = None,
     content_root: Path | None = None,
 ) -> SyncAllowlist:
     """Build the fail-closed vault-sync allowlist for ``governed_root``.
@@ -424,28 +425,32 @@ def build_sync_allowlist(
     wall must carry the governed root so callers (e.g. the full→smart upgrade) can
     ask ``governs()`` in every configuration.
 
-    ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` is a colon-separated list of absolute
-    directories under ``governed_root`` (the personal vault) that are the ONLY
-    folders whose files may be ingested. Everything else under the root is walled
-    off (never read into the graph, searched, or sent to an LLM):
+    ``allowed_dirs`` is an explicit colon-separated list of absolute directories
+    under ``governed_root`` — the ONLY folders whose files may be ingested — passed
+    in by the caller. This is deliberately **not** read from the ambient process
+    environment: a stale exported ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` used to shadow
+    ``.env`` (python-dotenv loads with ``override=False``) and silently wall off a
+    folder deep in the call stack. The code-level doorway defaults
+    (``_DEFAULT_SYNC_SUBDIRS``) are now the single source of truth for a personal
+    vault, so the common case needs no configuration at all.
 
-    - **Var set** → allowlist is exactly the listed dirs (``":"`` with no real
-      entries is a deliberate "wall everything"). Dirs must be *strictly under*
-      the governed root; the root itself, an ancestor, or an unrelated path would
-      make every file ``is_relative_to`` it and silently open the vault, so such
-      entries are dropped (with a warning) — fail-closed on misconfiguration.
-    - **Var unset, distinct personal vault** → a minimal wall allowing only the
-      default doorway folders (``_DEFAULT_SYNC_SUBDIRS`` under ``governed_root`` —
-      periodic/personal/activity notes), so an un-opted-in folder stays private
-      without configuration.
-    - **Var unset, single-vault** (``content_root`` is / is under the governed
-      root) → allow the *whole vault* (``allowed_dirs = {governed_root}``) so
-      curriculum still ingests; only the ``je_*`` staging floor (scoped inside
+    - **``allowed_dirs`` set** → allowlist is exactly the listed dirs (``":"`` with
+      no real entries is a deliberate "wall everything"). Dirs must be *strictly
+      under* the governed root; the root itself, an ancestor, or an unrelated path
+      would make every file ``is_relative_to`` it and silently open the vault, so
+      such entries are dropped (with a warning) — fail-closed on misconfiguration.
+    - **``allowed_dirs`` unset, distinct personal vault** → a minimal wall allowing
+      only the default doorway folders (``_DEFAULT_SYNC_SUBDIRS`` under
+      ``governed_root`` — periodic/personal/activity notes + knowledge), so an
+      un-opted-in folder stays private without configuration.
+    - **``allowed_dirs`` unset, single-vault** (``content_root`` is / is under the
+      governed root) → allow the *whole vault* (``allowed_dirs = {governed_root}``)
+      so curriculum still ingests; only the ``je_*`` staging floor (scoped inside
       ``permits``) applies. ``governs()`` is still true here, so full-mode
       reprocesses retract stale staging rows like the routine incremental paths.
     """
     governed = governed_root.resolve()
-    raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
+    raw = allowed_dirs
     if raw and raw.strip():
         configured = [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
         valid = frozenset(d for d in configured if d.is_relative_to(governed) and d != governed)

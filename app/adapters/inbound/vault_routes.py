@@ -35,6 +35,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from core.services.vault.vault_descriptor import VaultKind
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from ui.components import Button, Loading
@@ -194,10 +195,7 @@ def create_vault_routes(
         """HTMX endpoint: run sync, return HTML results fragment."""
         user_uid = require_authenticated_user(request)
 
-        result = await vault_reconciler.sync(
-            user_uid=user_uid,
-            vault_path=str(vault_reconciler.vault_root),
-        )
+        result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if result.is_error:
             return _sync_error_fragment(str(result.expect_error()))
 
@@ -217,10 +215,7 @@ def create_vault_routes(
         if consent_result.is_error:
             return _sync_error_fragment(str(consent_result.expect_error()))
 
-        sync_result = await vault_reconciler.sync(
-            user_uid=user_uid,
-            vault_path=str(vault_reconciler.vault_root),
-        )
+        sync_result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if sync_result.is_error:
             return _sync_error_fragment(str(sync_result.expect_error()))
 
@@ -242,9 +237,7 @@ def create_vault_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        result = await vault_reconciler.sync(
-            user_uid=user_uid, vault_path=str(vault_reconciler.vault_root)
-        )
+        result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if result.is_error:
             return Result.fail(result)
 
@@ -267,9 +260,7 @@ def create_vault_routes(
         if consent_result.is_error:
             return Result.fail(consent_result)
 
-        sync_result = await vault_reconciler.sync(
-            user_uid=user_uid, vault_path=str(vault_reconciler.vault_root)
-        )
+        sync_result = await vault_reconciler.sync(VaultKind.PERSONAL, user_uid)
         if sync_result.is_error:
             return Result.fail(sync_result)
 
