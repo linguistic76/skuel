@@ -230,6 +230,25 @@ class TestJournalsUploadZeroPersistence:
         await handlers["/journals/upload"](request=request)
         _assert_nothing_persisted(mock_services)
 
+    async def test_duplicate_basename_batch_is_rejected(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # Two files share a basename → je_out/{stem}_out.md would collide, so the
+        # batch is rejected loudly rather than silently dropping one (Kody, #478).
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("note.txt", b"first")),
+                ("file", _text_upload("note.txt", b"second")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "Duplicate filename" in to_xml(response)
+        _assert_nothing_persisted(mock_services)
+
 
 class TestSuggestActivitiesZeroPersistence:
     """`POST /journals/suggest-activities` takes content in the body, stores nothing."""

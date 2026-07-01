@@ -309,7 +309,14 @@ async def _run_batch_over_dir(
             f"{r.succeeded} transcribed, {llm_ok} structured, "
             f"{r.failed + llm_fail} failed — results in je_out/"
         )
-        return render_journal_upload_status("completed", msg, status_id=status_id)
+        # The deliverable is the structured _out.md; if nothing structured, this is
+        # a failure even when raw transcripts were written (match the other branches).
+        return render_journal_upload_status(
+            "completed" if llm_ok > 0 else "error",
+            msg,
+            is_error=(llm_ok == 0),
+            status_id=status_id,
+        )
 
     if processing_mode == "instructions_only":
         if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
@@ -572,8 +579,21 @@ def create_journals_routes(
             # (same je_in → je_out cycle as /journals/folder-process). No entries.
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
+                seen_names: set[str] = set()
                 for uploaded_file in uploaded_files:
                     name = Path(uploaded_file.filename or "unknown").name
+                    # Reject duplicate basenames: the batch keys both the temp input
+                    # and the je_out/{stem}_out.md output by basename, so a collision
+                    # would silently drop a file. Fail loudly instead.
+                    if name in seen_names:
+                        return render_journal_upload_status(
+                            "error",
+                            f"Duplicate filename in this batch: {name}. Rename one and "
+                            "retry — je_out/ outputs are keyed by filename.",
+                            is_error=True,
+                            status_id=status_id,
+                        )
+                    seen_names.add(name)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
                 return await _run_batch_over_dir(
                     tmp_path,
