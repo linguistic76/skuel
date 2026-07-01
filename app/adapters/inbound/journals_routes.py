@@ -144,6 +144,7 @@ async def _process_single_upload(
     instructions: str | None,
     user_uid: str,
     is_founder: bool,
+    retarget_workspace: bool,
     journal_service: Any,
     batch_transcription_service: Any,
     processing_service: Any,
@@ -163,11 +164,15 @@ async def _process_single_upload(
     from ui.journals import FileOutputFragment, TranscriptReviewFragment
 
     def _workspace(fragment: Any) -> Any:
-        # Success fragments are rooted at ``#journal-workspace`` (the landing
-        # centre column), but the upload form posts with ``hx_target="#upload-status"``
-        # (right panel). Retarget so the result replaces the centre workspace in
-        # place — mirrors ``/journals/start``. Error fragments keep the form's
-        # default target and are returned unwrapped.
+        # Success fragments are rooted at ``#journal-workspace``. On the
+        # ``/journals`` landing (``retarget_workspace``) the form posts with
+        # ``hx_target="#upload-status"`` (right panel), so retarget to the centre
+        # workspace in place — mirrors ``/journals/start``. On pages without a
+        # workspace (``/submissions/journal``) return the fragment unwrapped so it
+        # swaps into the form's own ``#upload-status`` target instead of retargeting
+        # to a missing element.
+        if not retarget_workspace:
+            return fragment
         return HTMLResponse(
             to_xml(fragment),
             headers={"HX-Retarget": "#journal-workspace", "HX-Reswap": "outerHTML"},
@@ -617,6 +622,11 @@ def create_journals_routes(
                 and user_result.value.journal_tier.is_founder()
             )
 
+            # Only the /journals landing form carries a #journal-workspace to
+            # retarget into; the /submissions/journal form omits this flag and
+            # keeps its result in #upload-status (Codex #478).
+            retarget_workspace = bool(form.get("workspace_target"))
+
             if len(uploaded_files) == 1:
                 uploaded_file = uploaded_files[0]
                 file_content = await uploaded_file.read()
@@ -630,6 +640,7 @@ def create_journals_routes(
                     instructions=instructions,
                     user_uid=user_uid,
                     is_founder=is_founder,
+                    retarget_workspace=retarget_workspace,
                     journal_service=journal_service,
                     batch_transcription_service=batch_transcription_service,
                     processing_service=processing_service,

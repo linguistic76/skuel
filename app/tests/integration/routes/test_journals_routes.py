@@ -29,6 +29,15 @@ def _disable_csrf_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """Clear the module-global rate-limit buckets so per-user counts don't leak
+    across tests (many handlers here share ``@rate_limited`` on ``user_mike``)."""
+    from adapters.inbound.rate_limit import reset_buckets_for_testing
+
+    reset_buckets_for_testing()
+
+
 def _make_request(user_uid: str | None = "user_mike", form: dict[str, str] | None = None) -> Any:
     session = {"user_uid": user_uid} if user_uid is not None else {}
     form_data = form or {}
@@ -231,12 +240,14 @@ class TestJournalsUploadZeroPersistence:
         tmp_path: Any,
     ) -> None:
         # FOUNDER instructions_only → run_compiled → je_out/{stem}_out.md.
+        # workspace_target=1 marks the /journals landing layout (has a workspace).
         monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_upload_request(
             [
                 ("file", _text_upload("reflection.txt", b"Ship the site by Friday.")),
                 ("processing_mode", "instructions_only"),
+                ("workspace_target", "1"),
             ]
         )
         response = await handlers["/journals/upload"](request=request)
@@ -245,6 +256,31 @@ class TestJournalsUploadZeroPersistence:
         assert (tmp_path / "reflection_out.md").read_text() == "# Compiled output"
         # Result is retargeted to the centre workspace, not the right-panel status.
         assert response.headers["HX-Retarget"] == "#journal-workspace"
+        _assert_nothing_persisted(mock_services)
+
+    async def test_single_upload_without_workspace_does_not_retarget(
+        self,
+        handlers: dict[str, Any],
+        mock_services: Any,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        # The /submissions/journal form omits workspace_target → the result must
+        # NOT retarget to a missing #journal-workspace (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("reflection.txt", b"Ship it.")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        # Returned as a bare fragment (FT), not an HX-Retarget HTMLResponse.
+        from starlette.responses import HTMLResponse
+
+        assert not isinstance(response, HTMLResponse)
         _assert_nothing_persisted(mock_services)
 
     async def test_no_file_persists_nothing(
