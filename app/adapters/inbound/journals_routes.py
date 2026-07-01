@@ -134,13 +134,24 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
     """
 
     def _text_files(directory: Path) -> dict[str, Path]:
-        if not directory.is_dir():
+        try:
+            entries = sorted(directory.iterdir()) if directory.is_dir() else []
+        except OSError as e:  # unscannable folder — degrade to no exemplars
+            logger.warning(f"Skipping journal exemplar folder {directory}: {e}")
             return {}
-        return {
-            p.stem: p
-            for p in sorted(directory.iterdir())
-            if p.is_file() and p.suffix.lower() in _TEXT_EXTENSIONS
-        }
+        return {p.stem: p for p in entries if p.is_file() and p.suffix.lower() in _TEXT_EXTENSIONS}
+
+    def _read_prefix(path: Path) -> str | None:
+        # Read only the bounded prefix — never load an oversized exemplar fully.
+        # UnicodeDecodeError (a UnicodeError, NOT an OSError) must be caught here
+        # too, or an undecodable file would abort the whole request instead of
+        # being skipped.
+        try:
+            with path.open(encoding="utf-8") as fh:
+                return fh.read(_EXEMPLAR_MAX_CHARS)
+        except (OSError, UnicodeError) as e:  # unreadable/undecodable — skip it
+            logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
+            return None
 
     raw_by_stem = _text_files(_JE_RAW)
     pro_by_stem = _text_files(_JE_PRO)
@@ -148,11 +159,9 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
     for stem in sorted(raw_by_stem.keys() & pro_by_stem.keys()):
         if len(pairs) >= _EXEMPLAR_MAX_PAIRS:
             break
-        try:
-            raw = raw_by_stem[stem].read_text(encoding="utf-8")[:_EXEMPLAR_MAX_CHARS]
-            pro = pro_by_stem[stem].read_text(encoding="utf-8")[:_EXEMPLAR_MAX_CHARS]
-        except OSError as e:  # unreadable exemplar file — skip it, never fail the request
-            logger.warning(f"Skipping unreadable journal exemplar {stem!r}: {e}")
+        raw = _read_prefix(raw_by_stem[stem])
+        pro = _read_prefix(pro_by_stem[stem])
+        if raw is None or pro is None:
             continue
         if raw.strip() and pro.strip():
             pairs.append((raw, pro))

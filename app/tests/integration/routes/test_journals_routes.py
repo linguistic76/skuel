@@ -514,6 +514,19 @@ class TestJournalExemplarLoading:
         assert len(raw_body) == _EXEMPLAR_MAX_CHARS
         assert len(pro_body) == _EXEMPLAR_MAX_CHARS
 
+    def test_undecodable_exemplar_is_skipped_not_raised(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # A non-UTF-8 exemplar must be skipped, never raise out of the helper
+        # (UnicodeDecodeError is a UnicodeError, not an OSError). Kody #480.
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "bad.md").write_bytes(b"\xff\xfe not valid utf-8")
+        (pro / "bad.md").write_text("valid partner")
+
+        assert _load_journal_exemplars() == []  # skipped cleanly, no exception
+
     def test_preamble_empty_when_no_pairs(self) -> None:
         from adapters.inbound.journals_routes import _build_exemplar_preamble
 
