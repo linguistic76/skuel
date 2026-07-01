@@ -90,6 +90,7 @@ class Plan:
     restamped_new_fm: list[Path] = field(default_factory=list)  # no fm at all
     other_subdirs: list[Path] = field(default_factory=list)  # unexpected dirs (reported)
     link_edits: dict[Path, int] = field(default_factory=dict)  # file -> # links rewritten
+    collisions: list[Path] = field(default_factory=list)  # root files whose dest name is taken
 
 
 # --------------------------------------------------------------------------- #
@@ -154,16 +155,23 @@ def _is_external(target: str) -> bool:
     return target.startswith(("http://", "https://", "mailto:", "#")) or target.startswith("/")
 
 
-def _rewrite_links(text: str, source_new_dir: Path, path_map: dict[Path, Path]) -> tuple[str, int]:
+def _rewrite_links(
+    text: str,
+    source_old_dir: Path,
+    source_new_dir: Path,
+    path_map: dict[Path, Path],
+) -> tuple[str, int]:
     """Rewrite markdown .md links in ``text`` given the old→new path map.
 
-    ``source_new_dir`` is the directory the source file will live in AFTER the
-    move. ``path_map`` maps every .md file's OLD absolute path to its NEW
-    absolute path (identity for staying files). Links are resolved against the
-    source's OLD dir implicitly via the map lookup on the resolved old target.
+    ``source_old_dir`` is where the source file lived BEFORE the move (used to
+    resolve its relative links); ``source_new_dir`` is where it lives AFTER (used
+    to recompute the new relative path). For a moved root note these differ
+    (vault root → ``knowledge/``); for a file that stays put — including a note
+    that already lived under ``knowledge/`` — they are equal. ``path_map`` maps
+    every .md file's OLD absolute path to its NEW absolute path (identity for
+    staying files).
     """
     count = 0
-    source_old_dir = path_map_inverse_dir(source_new_dir, path_map)
 
     def repl(m: re.Match[str]) -> str:
         nonlocal count
@@ -197,22 +205,28 @@ def _relpath(target: Path, start_dir: Path) -> str:
     return os.path.relpath(target, start_dir)
 
 
-# source_new_dir maps back to old dir: for moved files old dir == vault root;
-# for staying files old dir == new dir. We stash this via a small registry.
-_NEW_TO_OLD_DIR: dict[Path, Path] = {}
-
-
-def path_map_inverse_dir(source_new_dir: Path, _path_map: dict[Path, Path]) -> Path:
-    return _NEW_TO_OLD_DIR.get(source_new_dir, source_new_dir)
-
-
 # --------------------------------------------------------------------------- #
 # Planning + execution
 # --------------------------------------------------------------------------- #
 
 
-def build_plan(vault: Path, dest_name: str) -> tuple[Plan, dict[Path, Path]]:
+def resolve_dest(vault: Path, dest_name: str) -> Path:
+    """Resolve + validate the destination folder — fail-closed on unsafe values.
+
+    The destination must be a folder STRICTLY inside the vault. This rejects
+    ``--dest .`` (which would resolve to the vault root and make each move a
+    rewrite-in-place immediately followed by ``unlink`` — silent data loss) and
+    absolute / ``..`` destinations that would move notes out of the vault.
+    """
     dest = (vault / dest_name).resolve()
+    if dest == vault or vault not in dest.parents:
+        raise ValueError(
+            f"--dest must be a subfolder strictly inside the vault; got {dest!r} for vault {vault!r}"
+        )
+    return dest
+
+
+def build_plan(vault: Path, dest: Path) -> tuple[Plan, dict[Path, Path]]:
     plan = Plan()
 
     # Root-level developed files = *.md directly under the vault root.
@@ -237,7 +251,11 @@ def build_plan(vault: Path, dest_name: str) -> tuple[Plan, dict[Path, Path]]:
             path_map[md.resolve()] = md.resolve()
 
     plan.moved = root_md
-    _NEW_TO_OLD_DIR[dest] = vault  # moved files' new dir → old dir (vault root)
+
+    # Basename collisions: a root note whose name already exists under dest would
+    # be overwritten (then its source unlinked) → irreversible loss. Detect up
+    # front so the caller refuses to --apply.
+    plan.collisions = [f for f in root_md if (dest / f.name).exists()]
 
     # classify restamp kind (dry preview)
     for f in root_md:
@@ -252,21 +270,26 @@ def build_plan(vault: Path, dest_name: str) -> tuple[Plan, dict[Path, Path]]:
     return plan, path_map
 
 
-def execute(vault: Path, dest_name: str, plan: Plan, path_map: dict[Path, Path]) -> None:
-    dest = (vault / dest_name).resolve()
+def execute(vault: Path, dest: Path, plan: Plan, path_map: dict[Path, Path]) -> None:
+    if plan.collisions:  # defensive: main() already guards this
+        raise ValueError("refusing to execute: destination basename collisions present")
     dest.mkdir(exist_ok=True)
 
-    # 1) Rewrite links + restamp moved files, write to NEW location.
+    # 1) Rewrite links + restamp moved files, write to NEW location. A moved root
+    #    note came FROM the vault root (source_old_dir=vault) and lands in dest.
     for f in plan.moved:
         text = f.read_text(encoding="utf-8")
         text, kind = restamp(text)
-        text, n = _rewrite_links(text, dest, path_map)
+        text, n = _rewrite_links(text, vault, dest, path_map)
         if n:
             plan.link_edits[f] = n
         (dest / f.name).write_text(text, encoding="utf-8")
         f.unlink()  # remove old root copy after successful write
 
     # 2) Rewrite inbound links in STAYING .md files that referenced a moved file.
+    #    A staying file did not move, so old dir == new dir == its own parent —
+    #    including a note that already lived under dest/ (resolved against dest/,
+    #    not the vault root).
     moved_new = {path_map[f.resolve()] for f in plan.moved}
     for md in vault.rglob("*.md"):
         if md.resolve() in moved_new:
@@ -275,18 +298,18 @@ def execute(vault: Path, dest_name: str, plan: Plan, path_map: dict[Path, Path])
         if rel_parts and rel_parts[0] in LINK_SKIP_DIRS:
             continue
         text = md.read_text(encoding="utf-8")
-        _NEW_TO_OLD_DIR.setdefault(md.parent.resolve(), md.parent.resolve())
-        new_text, n = _rewrite_links(text, md.parent.resolve(), path_map)
+        parent = md.parent.resolve()
+        new_text, n = _rewrite_links(text, parent, parent, path_map)
         if n:
             md.write_text(new_text, encoding="utf-8")
             plan.link_edits[md] = plan.link_edits.get(md, 0) + n
 
 
-def print_plan(vault: Path, dest_name: str, plan: Plan, applied: bool) -> None:
+def print_plan(vault: Path, dest: Path, plan: Plan, applied: bool) -> None:
     verb = "MOVED" if applied else "WILL MOVE"
     print(f"\nVault: {vault}")
-    print(f"Destination folder: {vault / dest_name}\n")
-    print(f"{verb} {len(plan.moved)} developed files → {dest_name}/")
+    print(f"Destination folder: {dest}\n")
+    print(f"{verb} {len(plan.moved)} developed files → {dest.name}/")
     print(f"  • re-stamp pipeline: journal → knowledge : {len(plan.restamped_journal)}")
     print(f"  • add pipeline: knowledge (fm existed)   : {len(plan.restamped_added)}")
     print(f"  • add fresh frontmatter (none before)    : {len(plan.restamped_new_fm)}")
@@ -294,6 +317,13 @@ def print_plan(vault: Path, dest_name: str, plan: Plan, applied: bool) -> None:
         print("\n  ⚠ Unexpected subfolders under the vault root (NOT touched — review):")
         for d in plan.other_subdirs:
             print(f"      {d.name}/")
+    if plan.collisions:
+        print(
+            f"\n  ✖ {len(plan.collisions)} name collision(s) — dest already has a file of this name:"
+        )
+        for c in plan.collisions:
+            print(f"      {c.name}")
+        print("      Resolve these (rename/remove) before --apply; refusing to overwrite.")
     if applied and plan.link_edits:
         total = sum(plan.link_edits.values())
         print(f"\n  ↳ rewrote {total} markdown link(s) across {len(plan.link_edits)} file(s)")
@@ -313,14 +343,26 @@ def main() -> int:
         print(f"ERROR: vault not found: {vault}", file=sys.stderr)
         return 1
 
-    plan, path_map = build_plan(vault, args.dest)
+    try:
+        dest = resolve_dest(vault, args.dest)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    plan, path_map = build_plan(vault, dest)
     if not plan.moved:
         print("No root-level .md developed files found — nothing to do.")
         return 0
 
+    # Collisions are irreversible-loss risks: never --apply through them.
+    if args.apply and plan.collisions:
+        print_plan(vault, dest, plan, applied=False)
+        print("\nERROR: refusing to --apply with destination name collisions.", file=sys.stderr)
+        return 1
+
     if args.apply:
-        execute(vault, args.dest, plan, path_map)
-    print_plan(vault, args.dest, plan, applied=args.apply)
+        execute(vault, dest, plan, path_map)
+    print_plan(vault, dest, plan, applied=args.apply)
     return 0
 
 
