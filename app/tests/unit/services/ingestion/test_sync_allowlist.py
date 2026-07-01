@@ -168,13 +168,23 @@ def test_build_blank_defaults_to_fail_closed_wall(
     assert wall.allowed_dirs == frozenset({(root / "periodic_notes").resolve()})
 
 
-def test_build_single_vault_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # When the content vault IS (or is nested under) the governed root, a default
-    # wall would starve curriculum ingestion — so no wall is applied.
+def test_build_single_vault_allows_whole_vault_minus_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # When the content vault IS (or is under) the governed root, the default wall
+    # would starve curriculum — so allow the WHOLE vault, keeping only the je_*
+    # staging floor. governs() must still hold so full-mode reprocesses retract.
     monkeypatch.delenv(_ENV_VAR, raising=False)
     root = tmp_path / "vault"
-    assert build_sync_allowlist(root, content_root=root) is None
-    assert build_sync_allowlist(root, content_root=root / "sub") is None
+    wall = build_sync_allowlist(root, content_root=root)
+    assert wall.allowed_dirs == frozenset({root.resolve()})
+    assert wall.permits(root / "curriculum" / "ku.md") is True  # curriculum ingests
+    assert wall.permits(root / "je_out" / "t.md") is False  # staging still walled
+    assert wall.governs(root) is True
+    # content nested under the governed root is also single-vault
+    assert build_sync_allowlist(root, content_root=root / "sub").allowed_dirs == frozenset(
+        {root.resolve()}
+    )
 
 
 def test_build_distinct_vaults_get_default_wall(

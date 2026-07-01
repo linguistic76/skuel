@@ -1214,15 +1214,12 @@ async def compose_services(
             if config
             else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
         )
-        unified_ingestion.sync_allowlist = build_sync_allowlist(
-            _vault_allowed_root, content_root=_content_root
+        _sync_allowlist = build_sync_allowlist(_vault_allowed_root, content_root=_content_root)
+        unified_ingestion.sync_allowlist = _sync_allowlist
+        logger.info(
+            "✅ Vault sync allowlist active (fail-closed): "
+            f"{len(_sync_allowlist.allowed_dirs)} allowed dir(s) under {_vault_allowed_root}"
         )
-        if unified_ingestion.sync_allowlist is not None:
-            logger.info(
-                "✅ Vault sync allowlist active (fail-closed): "
-                f"{len(unified_ingestion.sync_allowlist.allowed_dirs)} allowed dir(s) "
-                f"under {_vault_allowed_root}"
-            )
 
         vault_bridge = FilesystemVaultAdapter(allowed_root=_vault_allowed_root)
         vault_reconciler = VaultReconciler(

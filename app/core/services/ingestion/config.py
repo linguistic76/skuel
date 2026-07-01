@@ -411,35 +411,32 @@ def build_sync_allowlist(
     governed_root: Path,
     *,
     content_root: Path | None = None,
-) -> SyncAllowlist | None:
+) -> SyncAllowlist:
     """Build the fail-closed vault-sync allowlist for ``governed_root``.
+
+    Always returns a ``SyncAllowlist`` (never ``None``): the ``je_*`` staging
+    floor and — when configured — a fail-closed allowlist always apply, and the
+    wall must carry the governed root so callers (e.g. the full→smart upgrade) can
+    ask ``governs()`` in every configuration.
 
     ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` is a colon-separated list of absolute
     directories under ``governed_root`` (the personal vault) that are the ONLY
     folders whose files may be ingested. Everything else under the root is walled
-    off (never read into the graph, searched, or sent to an LLM).
-
-    Fail-closed by default — the wall does NOT depend on the env var being set:
+    off (never read into the graph, searched, or sent to an LLM):
 
     - **Var set** → allowlist is exactly the listed dirs (``":"`` with no real
-      entries is a deliberate "wall everything").
-    - **Var unset** → default to a minimal wall allowing only
-      ``governed_root/{_DEFAULT_SYNC_SUBDIR}`` (SKUEL's canonical periodic-notes
-      folder). A folder that is not opted in stays private, matching the
-      advertised boundary rather than silently ingesting the whole vault.
-
-    ``content_root`` (the admin curriculum vault / ``INGESTION_PATH``) guards the
-    degenerate single-vault case: when it is unset AND the content vault is the
-    governed root (or nested under it), a default wall would break curriculum
-    ingestion, so we return ``None`` (no wall) instead — there is no distinct
-    personal vault to protect there. An explicit ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``
-    always wins over this guard.
-
-    Configured dirs must be *strictly under* the governed root. An entry that is
-    the root itself, an ancestor, or an unrelated path would make every file
-    ``is_relative_to`` it and silently open the whole vault — the opposite of
-    fail-closed — so such entries are dropped (with a warning). If that leaves no
-    valid dirs, the result walls everything, which is the safe direction.
+      entries is a deliberate "wall everything"). Dirs must be *strictly under*
+      the governed root; the root itself, an ancestor, or an unrelated path would
+      make every file ``is_relative_to`` it and silently open the vault, so such
+      entries are dropped (with a warning) — fail-closed on misconfiguration.
+    - **Var unset, distinct personal vault** → a minimal wall allowing only
+      ``governed_root/{_DEFAULT_SYNC_SUBDIR}`` (SKUEL's periodic-notes folder), so
+      an un-opted-in folder stays private without configuration.
+    - **Var unset, single-vault** (``content_root`` is / is under the governed
+      root) → allow the *whole vault* (``allowed_dirs = {governed_root}``) so
+      curriculum still ingests; only the ``je_*`` staging floor (scoped inside
+      ``permits``) applies. ``governs()`` is still true here, so full-mode
+      reprocesses retract stale staging rows like the routine incremental paths.
     """
     governed = governed_root.resolve()
     raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
@@ -456,13 +453,14 @@ def build_sync_allowlist(
             )
         return SyncAllowlist(governed_root=governed, allowed_dirs=valid)
 
-    # Unset: default to fail-closed, unless the governed root IS the content vault
-    # (or an ancestor of it), where a default wall would wrongly starve curriculum
-    # ingestion. Only a genuinely distinct personal vault gets the default wall.
+    # Var unset. Single-vault (content vault is / is under the governed root):
+    # allow the whole vault so curriculum isn't starved — the staging floor still
+    # excludes je_* and governs() still holds, so retraction works there too.
     if content_root is not None:
         content = content_root.resolve()
         if content == governed or content.is_relative_to(governed):
-            return None
+            return SyncAllowlist(governed_root=governed, allowed_dirs=frozenset({governed}))
+    # Distinct personal vault: fail-closed default to periodic-notes only.
     return SyncAllowlist(
         governed_root=governed,
         allowed_dirs=frozenset({governed / _DEFAULT_SYNC_SUBDIR}),
