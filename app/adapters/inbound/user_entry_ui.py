@@ -21,8 +21,9 @@ Routes:
 - GET  /api/submissions/history/preview  — HTMX hub preview (history)
 
 Journal upload routes (POST /journals/upload, POST /journals/folder-process,
-GET /journals/browse) live in journals_routes.py. All writes go through
-``UserEntryService.submit_file``. All reads go through ``UserEntryOrchestrator``.
+GET /journals/browse) live in journals_routes.py. Those paths are
+zero-persistence (ADR-073) — they process to je_out/ and write nothing. Reads
+go through ``UserEntryOrchestrator``.
 """
 
 from __future__ import annotations

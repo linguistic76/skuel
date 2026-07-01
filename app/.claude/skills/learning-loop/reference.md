@@ -242,9 +242,9 @@ They are orthogonal — a form submission can still be part of a pipeline.
 | `LLM_SUMMARY` | Text/file to summarize | LLM summary |
 | `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SHARED_WITH_GROUP` |
 
-**Two creation paths — one create method (`UserEntryService.create_entry()`):**
-(The bytes-to-disk helper `UserEntryService.submit_file()` wraps `create_entry()` and is used
-by the `/journals/upload` route, not by `/api/user-entries/upload`.)
+**One create method (`UserEntryService.create_entry()`):**
+(The former bytes-to-disk helper `submit_file()` was removed with ADR-073 — `/journals/upload`
+is now zero-persistence and processes to `je_out/` without creating a UserEntry.)
 ```
 FILE UPLOAD PATH                            INLINE FORM PATH
 POST /api/user-entries/upload               POST /api/user-entries/form
@@ -693,7 +693,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Substrate: PathStep** | `PsService` | `PsOperations` | `PsBackend` | CRUD, KU composition (`USES_KU`), learning state (VIEWED/IN_PROGRESS/MASTERED), organize/get_children |
 | **Phase 1: Exercise** | `ExerciseService` | `ExerciseOperations` | `ExerciseBackend` | `link_to_curriculum`, `get_exercise_for_submission`, `get_student_exercises`, `get_student_exercises_with_status`, CRUD |
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
-| **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `submit_file`, `get_entry`, `list_for_user`, `get_review_queue`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
+| **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `get_entry`, `list_for_user`, `get_review_queue`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
 | **UserEntry processing** | `UserEntryProcessingService` | `UserEntryProcessingOperations` | — (dispatches; updates via `UserEntryService`) | `process(entry)` — pipeline dispatch by `Pipeline` (TRANSCRIBE / LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE) |
 | **Submission report** | `EntryReportService` (AI) + `AssessmentService` (HUMAN) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `AssessmentOperations` for teacher assessments — split in PR #128, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node`) + `UserEntryBackend` (assessment relationship/query ops: authority check, `ASSESSMENT_OF`, auto-share) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[EntryReport]` (both sources). `AssessmentService`: `create_assessment`, `get_assessments_for_student/by_teacher`. Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
 | **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService`; the former `JournalOutputService` was deleted |

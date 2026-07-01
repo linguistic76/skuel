@@ -54,9 +54,9 @@ class JournalTier(str, Enum):
 | `core/services/journal/journal_service.py` | `JournalService` — 7 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`, `suggest_activities`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render (bridge tags preserved verbatim) for the "Suggested activities" panel (inert; user copies into their own notes) |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 11 routes — `POST /journals/start` (text entry → runs AI → returns response **inline**, `HX-Retarget` `#journal-workspace`; **zero-persistence**, no UserEntry, ADR-073); upload still creates a UserEntry and redirects to `GET /journals/{entry_uid}` (dedicated chat page; PR 2 pending); `GET /journals/je-out/{filename}` downloads compiled output |
+| `adapters/inbound/journals_routes.py` | `POST /journals/start` (text entry → runs AI → returns response **inline**, `HX-Retarget` `#journal-workspace`; **zero-persistence**, no UserEntry, ADR-073); `POST /journals/upload` + `POST /journals/folder-process` process to the user's own `je_out/` folder via one shared stateless batch engine (no UserEntry); `GET /journals/{entry_uid}` is **periodic-notes-only**; `GET /journals/je-out/{filename}` downloads a flat `je_out/` file |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
-| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (LLM summarisation for ingestion/EXTRACT paths); journal upload no longer creates a UserEntry (ADR-073) |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |
 
 ---
@@ -64,10 +64,9 @@ class JournalTier(str, Enum):
 ## Pipeline
 
 ```python
-# File-upload path: input content persisted as Pipeline.LLM_SUMMARY (not Pipeline.JOURNAL).
-# Compiled AI output IS persisted: update_processed_content() writes processed_content +
-# processed_file_path to the UserEntry; je_out/{user_uid}/{stem}_out.md is also written to disk.
-# The GET /journals/{entry_uid} chat page reads processed_file_path to show the download banner.
+# File-upload path (ADR-073): zero-persistence. The uploaded file is transcribed / LLM-compiled
+# in-memory and the result is written to the user's own je_out/{stem}_out.md (or {stem}.txt for a
+# raw transcript) — flat, never synced, no UserEntry. The user downloads/opens it in Obsidian.
 Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces privacy
                                    # for any legacy entries; new entries use LLM_SUMMARY
 ```
