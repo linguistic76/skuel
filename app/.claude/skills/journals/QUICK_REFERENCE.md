@@ -54,7 +54,7 @@ class JournalTier(str, Enum):
 | `core/services/journal/journal_service.py` | `JournalService` — 7 AI methods: `run_stage1/2/3`, `run_compiled`, `run_standard`, `run_follow_up`, `suggest_activities`. Entry persistence handled by the ingestion path in the calling route. |
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render (bridge tags preserved verbatim) for the "Suggested activities" panel (inert; user copies into their own notes) |
 | `core/services/journal/instruction_loader.py` | Prompt composition functions + STANDARD inline prompts |
-| `adapters/inbound/journals_routes.py` | 11 routes — `POST /journals/start` (text entry → create UserEntry → HX-Redirect to chat page); upload also redirects to `GET /journals/{entry_uid}` (dedicated chat page); `GET /journals/je-out/{filename}` downloads compiled output |
+| `adapters/inbound/journals_routes.py` | 11 routes — `POST /journals/start` (text entry → runs AI → returns response **inline**, `HX-Retarget` `#journal-workspace`; **zero-persistence**, no UserEntry, ADR-073); upload still creates a UserEntry and redirects to `GET /journals/{entry_uid}` (dedicated chat page; PR 2 pending); `GET /journals/je-out/{filename}` downloads compiled output |
 | `core/models/enums/user_enums.py` | `JournalMode`, `JournalTier` |
 | `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (used for file-upload input persistence); `Pipeline.JOURNAL` exists but no new entries are created with it after `save_entry` deletion |
 | `data/instructions/` | FOUNDER instruction files (not in git — proprietary) |

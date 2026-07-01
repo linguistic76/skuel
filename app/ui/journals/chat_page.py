@@ -501,21 +501,31 @@ def _js_str(s: str) -> str:
 
 
 def _landing_center_column(recent_entries: "list[UserEntry]") -> Any:
+    # Mirror JournalChatPage's workspace column: a flex-1 flex-col wrapper whose
+    # direct child carries id="journal-workspace". /journals/start retargets here
+    # (HX-Retarget) and replaces the child in place with the response fragment
+    # (which is itself `flex flex-col h-full`) — no stored entry, no redirect
+    # (ADR-073). Keeping the wrapper means the swapped-in fragment sizes exactly
+    # as it does on the chat page.
     return Div(
         Div(
             Div(
-                P("Journal", cls="text-[22px] font-bold text-foreground"),
-                P(
-                    "Your private thinking space.",
-                    cls="text-[15px] text-muted-foreground mt-1",
+                Div(
+                    P("Journal", cls="text-[22px] font-bold text-foreground"),
+                    P(
+                        "Your private thinking space.",
+                        cls="text-[15px] text-muted-foreground mt-1",
+                    ),
+                    cls="mb-6",
                 ),
-                cls="mb-6",
+                _landing_text_form(),
+                _landing_session_list(recent_entries),
+                cls="max-w-[640px] mx-auto pt-10 px-6",
             ),
-            _landing_text_form(),
-            _landing_session_list(recent_entries),
-            cls="max-w-[640px] mx-auto pt-10 px-6",
+            id="journal-workspace",
+            cls="flex-1 overflow-y-auto",
         ),
-        cls="flex-1 overflow-y-auto",
+        cls="flex-1 flex flex-col overflow-hidden",
     )
 
 
