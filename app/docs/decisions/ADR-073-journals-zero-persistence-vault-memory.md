@@ -142,3 +142,12 @@ The "stores zero / reads zero" contract is enforceable by tests, not policy alon
   trust-boundary default worth revisiting: prefer a **per-user opt-in** over a global default
   before that milestone, since a folder named `personal_notes/` could be assumed private. Raised
   in review (Kody, PR #477) and deferred, not dismissed.
+- **Residual (flat `je_out/`, PR 2):** browser-upload outputs are written *flat* to `je_out/`
+  with the predictable `{stem}{suffix}` name, and `GET /journals/je-out/{filename}` serves that
+  flat folder behind an auth + path-containment guard only. This is deliberate: `je_out/` is the
+  user's own local Obsidian vault folder, and flat is what makes the files openable there — the
+  feature is single-user-local by design (one vault per install). On a hosted / shared-filesystem
+  deployment this same flatness would let one authenticated user overwrite or download another's
+  output by basename; a per-user vault mount (so `je_out/` resolves per-user) or a per-output
+  unguessable token is the fix at that milestone. Raised in review (Codex, PR #478) and
+  **accepted-as-designed** for the single-user-local model, deferred for hosting — not dismissed.

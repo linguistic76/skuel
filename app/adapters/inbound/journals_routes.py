@@ -637,8 +637,14 @@ def create_journals_routes(
         are written there by the recognised rename formula (``.txt`` transcripts,
         ``_out.md`` compiled) and opened directly in Obsidian — the download link
         is a convenience. It is excluded from vault sync; SKUEL never auto-syncs
-        je_out/ into the vault. The flat folder is inherently single-user (one
-        vault per install); the filename guard blocks traversal out of it.
+        je_out/ into the vault. The filename guard blocks traversal out of it.
+
+        Single-user-local by design (one vault per install): the flat folder has
+        no per-user scoping, so on a hypothetical shared-filesystem multi-tenant
+        deployment one authenticated user could overwrite/download another's
+        output by basename. Accepted-as-designed for the local-Obsidian model;
+        hosting would resolve je_out/ per-user (or add a per-output token). See
+        ADR-073 § Consequences (residual, flat je_out) — Codex review, PR #478.
         """
         from starlette.responses import FileResponse
 
