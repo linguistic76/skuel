@@ -320,6 +320,24 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # staging, templates, loose notes) without requiring configuration.
 _DEFAULT_SYNC_SUBDIR = "periodic_notes"
 
+# Pipeline staging folders that are NEVER vault content, in any configuration.
+# je_in/je_out/je_raw/je_pro hold journal transcription artifacts — je_out in
+# particular holds generated transcripts that must never auto-sync. These are
+# excluded UNCONDITIONALLY at the ingestion chokepoint, beneath and independent of
+# the SyncAllowlist privacy wall, so they stay walled even in the single-vault
+# fallback where no allowlist is built (build_sync_allowlist → None).
+STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
+
+
+def is_staging_path(path: Path, excluded: frozenset[str] = STAGING_EXCLUDED_DIRS) -> bool:
+    """True if any path component names a pipeline staging folder (je_*).
+
+    Component-exact match (``je_output`` does not match ``je_out``), mirroring the
+    historical vault-sync exclusion. Keeps staging artifacts out of ingestion on
+    every path, independent of the privacy allowlist.
+    """
+    return any(part in excluded for part in path.parts)
+
 
 @dataclass(frozen=True)
 class SyncAllowlist:
@@ -455,7 +473,8 @@ def collect_files(
         allowlist: Optional fail-closed folder allowlist. When provided, files
             under the allowlist's governed root are kept only if they also sit
             under an allowed dir (see ``SyncAllowlist.permits``); files outside
-            the governed root are unaffected. ``None`` = no wall (keep all).
+            the governed root are unaffected. ``None`` = no privacy wall (but the
+            je_* staging floor below still applies).
 
     Returns:
         List of file paths sorted by modification time (newest first)
@@ -473,6 +492,10 @@ def collect_files(
         all_files.extend(directory.glob(f"**/{pattern}.yaml"))
         all_files.extend(directory.glob(f"**/{pattern}.yml"))
 
+    # Always-on floor: je_* staging folders are never vault content, regardless of
+    # whether a privacy allowlist is active (single-vault fallback → allowlist None).
+    all_files = [f for f in all_files if not is_staging_path(f)]
+
     if allowlist is not None:
         all_files = [f for f in all_files if allowlist.permits(f)]
 
@@ -485,8 +508,10 @@ __all__ = [
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "STAGING_EXCLUDED_DIRS",
     "SyncAllowlist",
     "build_sync_allowlist",
     "collect_files",
     "generate_ingestion_relationship_config",
+    "is_staging_path",
 ]

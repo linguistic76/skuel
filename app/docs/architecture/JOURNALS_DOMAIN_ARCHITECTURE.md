@@ -129,7 +129,10 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 ## 7. Vault Sync Boundary: The `je_*` Folders
 
-The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. Exclusion is enforced by the fail-closed `SyncAllowlist` (`SKUEL_VAULT_SYNC_ALLOWED_DIRS`, built in `core/services/ingestion/config.py`): only allowed folders under the vault root are ingested (`periodic_notes/` by default when the var is unset), so these four — and anything else not on the allowlist — are walled off. The wall is on by default (it does not depend on the env var being set) and is enforced on every ingestion path — directory scans (`collect_files`) and single-file ingest (`ingest_file`) — so the reconciler, `/api/ingest/directory`, and `/api/ingest/file` all honor it.
+The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. Exclusion is enforced in two layers (both in `core/services/ingestion/config.py`, applied at the shared ingestion chokepoint — `collect_files` for directory scans and `ingest_file` for single files — so the reconciler, `/api/ingest/directory`, and `/api/ingest/file` all honor them):
+
+1. **Staging floor (always on):** `is_staging_path()` / `STAGING_EXCLUDED_DIRS` unconditionally excludes the four `je_*` folders by name — they are pipeline artifacts, never vault content, in *any* configuration (including a single-vault fallback where no allowlist is built). This restores the guarantee that `je_out` transcripts never auto-sync.
+2. **Privacy wall (fail-closed `SyncAllowlist`):** on top of the floor, only allowed folders under the vault root are ingested (`periodic_notes/` by default when `SKUEL_VAULT_SYNC_ALLOWED_DIRS` is unset), so anything else — templates, loose notes — is walled off too. On by default; symlink-safe; configured dirs must be strictly under the vault root.
 
 | Folder | Role | Flow direction |
 |--------|------|----------------|
@@ -138,7 +141,7 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 | `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
 | `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
 
-These folders are **pipeline artifacts**, not vault content. Because the allowlist is fail-closed, the vault sync path (`/submissions/sync`) skips all four regardless of what frontmatter their files carry — a folder must be explicitly opted in to sync, and these never are.
+These folders are **pipeline artifacts**, not vault content. The staging floor skips all four unconditionally — regardless of what frontmatter their files carry, and regardless of whether the privacy allowlist is active — so the vault sync path (`/submissions/sync`) never ingests them.
 
 The file-upload path (right panel on the `/journals` landing page, or the upload tab on the chat page) **writes the compiled AI output to `je_out/{user_uid}/{stem}_out.md`** and returns a download fragment — the AI response is a file, not a profile record. The user opens the `_out` file in Obsidian and manually extracts what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
 

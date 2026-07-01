@@ -217,19 +217,47 @@ def test_collect_files_applies_allowlist(tmp_path: Path) -> None:
     assert walled.resolve() not in {p.resolve() for p in collected}
 
 
-def test_collect_files_no_allowlist_keeps_all(tmp_path: Path) -> None:
+def test_collect_files_no_allowlist_keeps_non_staging_but_walls_staging(tmp_path: Path) -> None:
+    # With no privacy allowlist, ordinary files are kept — but the je_* staging
+    # floor still applies unconditionally (Codex R3: je_out must never auto-sync
+    # even in the single-vault fallback where no allowlist is built).
     root = tmp_path / "vault"
-    (root / "je_raw").mkdir(parents=True)
-    walled = root / "je_raw" / "archive.md"
-    walled.write_text("private", encoding="utf-8")
+    (root / "notes").mkdir(parents=True)
+    (root / "je_out").mkdir(parents=True)
+    kept = root / "notes" / "note.md"
+    staging = root / "je_out" / "transcript.md"
+    kept.write_text("x", encoding="utf-8")
+    staging.write_text("x", encoding="utf-8")
 
-    collected = collect_files(root, allowlist=None)
-    assert walled.resolve() in {p.resolve() for p in collected}
+    collected = {p.resolve() for p in collect_files(root, allowlist=None)}
+    assert kept.resolve() in collected
+    assert staging.resolve() not in collected
+
+
+def test_collect_files_staging_floor_matches_component_exactly(tmp_path: Path) -> None:
+    # "je_output" is not a staging folder — only exact je_* components are walled.
+    root = tmp_path / "vault"
+    (root / "je_output").mkdir(parents=True)
+    lookalike = root / "je_output" / "note.md"
+    lookalike.write_text("x", encoding="utf-8")
+
+    collected = {p.resolve() for p in collect_files(root, allowlist=None)}
+    assert lookalike.resolve() in collected
 
 
 # ---------------------------------------------------------------------------
 # ingest_file — single-file ingestion honours the wall (the /api/ingest/file door)
 # ---------------------------------------------------------------------------
+
+
+def _service_with_wall(wall: SyncAllowlist | None) -> "object":
+    from unittest.mock import Mock
+
+    from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
+
+    svc = UnifiedIngestionService(write_backend=Mock(), bulk_backend=Mock())
+    svc.sync_allowlist = wall
+    return svc
 
 
 @pytest.mark.asyncio
@@ -238,21 +266,35 @@ async def test_ingest_file_rejects_walled_file(tmp_path: Path) -> None:
 
     /api/ingest/file calls ingest_file() directly, bypassing the collect_files
     directory scan — so the wall has to be enforced here too, or a walled file
-    (e.g. je_raw/) slips through.
+    slips through. Uses a non-staging folder (templates/) to exercise the
+    allowlist branch specifically.
     """
-    from unittest.mock import Mock
-
-    from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
-
     root = tmp_path / "vault"
-    walled = root / "je_raw" / "secret.md"
+    walled = root / "templates" / "t_daily.md"
     walled.parent.mkdir(parents=True)
     walled.write_text("type: user_entry\n", encoding="utf-8")
 
-    svc = UnifiedIngestionService(write_backend=Mock(), bulk_backend=Mock())
-    svc.sync_allowlist = _wall(root, root / "periodic_notes")
-
-    result = await svc.ingest_file(walled)
+    svc = _service_with_wall(_wall(root, root / "periodic_notes"))
+    result = await svc.ingest_file(walled)  # type: ignore[attr-defined]
 
     assert result.is_error
     assert "allowlist" in str(result.expect_error()).lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_rejects_staging_even_without_allowlist(tmp_path: Path) -> None:
+    """je_* staging files are refused by ingest_file even with no allowlist active.
+
+    This is the Codex R3 single-vault fallback: build_sync_allowlist returns None,
+    but /api/ingest/file must still never ingest a je_out transcript.
+    """
+    root = tmp_path / "vault"
+    staging = root / "je_out" / "transcript.md"
+    staging.parent.mkdir(parents=True)
+    staging.write_text("type: user_entry\n", encoding="utf-8")
+
+    svc = _service_with_wall(None)  # no privacy wall
+    result = await svc.ingest_file(staging)  # type: ignore[attr-defined]
+
+    assert result.is_error
+    assert "staging" in str(result.expect_error()).lower()

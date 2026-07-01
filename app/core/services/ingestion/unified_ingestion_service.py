@@ -57,6 +57,7 @@ from .config import (
     DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     SyncAllowlist,
+    is_staging_path,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
@@ -422,11 +423,21 @@ class UnifiedIngestionService:
         if not file_path.exists():
             return Result.fail(Errors.not_found(f"File not found: {file_path}"))
 
-        # Fail-closed vault privacy wall. ingest_file is the direct entry point
-        # for /api/ingest/file (and a belt-and-suspenders for the per-file
-        # directory path), so the allowlist must be enforced here too — otherwise
-        # a single walled file could bypass the collect_files scan filter. Files
-        # outside the governed vault root (e.g. the content vault) pass through.
+        # ingest_file is the direct entry point for /api/ingest/file (and a
+        # belt-and-suspenders for the per-file directory path), so the vault
+        # exclusions must be enforced here too — otherwise a single file could
+        # bypass the collect_files scan filters.
+        #
+        # Floor: je_* staging folders are never ingested, in any configuration.
+        if is_staging_path(file_path):
+            return Result.fail(
+                Errors.validation(
+                    f"File is in a pipeline staging folder (je_*) and is never ingested: {file_path}",
+                    field="path",
+                )
+            )
+        # Privacy wall: files under the governed vault root are ingested only if
+        # allowlisted. Files outside it (e.g. the content vault) pass through.
         if self.sync_allowlist is not None and not self.sync_allowlist.permits(file_path):
             return Result.fail(
                 Errors.validation(
