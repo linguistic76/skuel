@@ -105,7 +105,9 @@ def icon_name_literals() -> dict[str, str]:
 
 def load_icon_nodes() -> dict[str, list[list[object]]]:
     """Read every icon node from the vendored UMD bundle via node (PascalCase keys)."""
-    script = f"const l=require({json.dumps(str(BUNDLE))});process.stdout.write(JSON.stringify(l.icons));"
+    script = (
+        f"const l=require({json.dumps(str(BUNDLE))});process.stdout.write(JSON.stringify(l.icons));"
+    )
     raw = subprocess.run(  # noqa: S603  (trusted local bundle, no user input)
         ["node", "-e", script], capture_output=True, text=True, check=True
     ).stdout
@@ -136,9 +138,7 @@ def main() -> int:
     # is not a real lucide icon — otherwise scan_used_names drops it and it renders a silent
     # help-circle fallback.
     unknown = {
-        name: src
-        for name, src in icon_name_literals().items()
-        if _pascal(name) not in valid_keys
+        name: src for name, src in icon_name_literals().items() if _pascal(name) not in valid_keys
     }
     if unknown:
         listing = "\n".join(f"  {name!r} — {src}" for name, src in sorted(unknown.items()))

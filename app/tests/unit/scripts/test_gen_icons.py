@@ -28,9 +28,7 @@ from ui.components._icon_data import ICON_PATHS
 
 def test_icon_intent_literals_resolve_to_registry() -> None:
     """No icon-intent literal may silently fall back to help-circle."""
-    unknown = {
-        name: src for name, src in icon_name_literals().items() if name not in ICON_PATHS
-    }
+    unknown = {name: src for name, src in icon_name_literals().items() if name not in ICON_PATHS}
     assert not unknown, (
         "Icon-intent literals name an icon missing from ICON_PATHS (renders a silent "
         "help-circle fallback). Fix the name if it's a typo, or run "
