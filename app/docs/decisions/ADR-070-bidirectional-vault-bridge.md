@@ -182,6 +182,29 @@ Applied at **both** ingestion seams: the per-file `ingest_file` path *and* the `
 
 ---
 
+### Decision 8 — The sync allowlist is code-defined; operator-configurability is deferred to a per-user mechanism, never a global knob (2026-07-01)
+
+PR #482 (Decision 7) removed the `SKUEL_VAULT_SYNC_ALLOWED_DIRS` env read from `build_sync_allowlist`. It was reading a **privacy wall** (which folders of a personal vault may be ingested) from the ambient process environment, **deep in the call stack**. Because `main.py` loads `.env` with `load_dotenv()` (default `override=False`, [verified empirically](#verification)), a stale *exported shell* var silently shadowed `.env` and walled off `knowledge/` while `.env` said otherwise. The fix made the code-level doorway defaults (`_DEFAULT_SYNC_SUBDIRS`: `periodic_notes/`, `personal_notes/`, `activity_notes/`, `knowledge/`) the single source of truth.
+
+Both Codex and Kody flagged that operators who relied on the env var now have it silently ignored. **We deliberately keep it removed (code-defined only), for two reasons that compound:**
+
+1. **Re-wiring via `os.getenv` is unsound at *any* layer** — compose root included. `override=False` means an exported shell var still wins over `.env`, reintroducing the exact shadow bug. (This is *not* unique to the allowlist — `VAULT_ROOT`/`INGESTION_PATH`/`SKUEL_CONTENT_VAULT_OWNER` are equally shadowable. We tolerate it there because those fail **loud**; the allowlist was uniquely dangerous because it is a privacy wall that fails **silent**.)
+2. **There is no current need, and the future need has a different shape.** SKUEL is single-tenant today; the doorway folders are a deliberate ADR-073 design, a one-line `_DEFAULT_SYNC_SUBDIRS` edit if they ever change. Operator-configurability is **downstream of the hosting / multi-tenancy milestone** (ADR-073 §Consequences "multi-tenant allowlist" residual, R2, is hosting-gated). When it is needed it must be **per-user** — the personal vault *is* per-user (ADR-070 north star = per-user local agent). A global env var or a global config file is therefore **dominated: unneeded now, wrong shape later.**
+
+**One Path Forward is preserved:** no second competing config source is introduced. `build_sync_allowlist(governed_root, *, allowed_dirs=..., content_root=...)` still accepts an explicit `allowed_dirs` (colon-separated, strictly-under-root validated, `":"` = wall-everything); compose simply never passes it. That parameter is the single seam — fed by code today, fed by a **per-user source** when hosting arrives.
+
+**When the need is real, the mechanism is a vault-local marker file** (e.g. `.skuel-sync-allowed` at the personal vault root) read once and passed to `build_sync_allowlist(..., allowed_dirs=...)`. It is the only candidate that is per-user *without* moving allowlist resolution from compose-time to resolve-time, cannot be shadowed by shell env (read by path), reuses the existing strictly-under-root guard, and is owned/discoverable by the person whose privacy it governs. Graph-native per-user settings (UI-managed) remain the eventual north star but require resolve-time allowlist construction — a deliberate later step, not this decision.
+
+**Rejected:** (a) `os.getenv` at compose (Kody's suggestion) — reintroduces the shadow; (b) a global app-level config file — shadow-proof but wrong shape (global, not per-user).
+
+Fail-closed posture is unchanged: unset → doorway folders only; a newly-created folder stays silent until explicitly opted in; the `je_*` `STAGING_EXCLUDED_DIRS` floor applies unconditionally, beneath and independent of the allowlist.
+
+<a name="verification"></a>**Verification (2026-07-01):** with a `.env` setting `X=from_dotenv` and an exported shell `X=from_shell`, `load_dotenv()` (override=False, as `main.py`) resolves `X=from_shell` — the shell shadows `.env`. `load_dotenv(override=True)` resolves `from_dotenv`. Confirms both that the original bug is real and that no `os.getenv`-based restore is sound while `main.py` loads with `override=False`.
+
+**See:** `core/services/ingestion/config.py` (`build_sync_allowlist`, `_DEFAULT_SYNC_SUBDIRS`, `STAGING_EXCLUDED_DIRS`), `services_bootstrap/compose.py` (allowlist wiring), ADR-073 §Consequences (R2 multi-tenant allowlist residual).
+
+---
+
 ## Resolved Design Questions (2026-06-16)
 
 **1. Trigger scope:** Support BOTH — sync all changed notes (full vault incremental) AND sync a single note (single-file path). The API supports both from day one; the UX design (button placement, picker, confirmation) is deferred to a dedicated UX pass. Prior art: the existing ingestion system already distinguishes `ingest_file` (single) vs `ingest_directory` (vault-wide incremental) — the VaultBridge inherits the same duality.
@@ -283,3 +306,4 @@ Applied at **both** ingestion seams: the per-file `ingest_file` path *and* the `
 | 2026-06-16 | Claude Code | Initial draft from deep research (112 agents, 29 sources) | 0.1 |
 | 2026-06-16 | Mike | Resolved 4 design questions: trigger scope (both), undone (deferred v1), hash→Neo4j, ID injection→first-run notice | 0.2 |
 | 2026-07-01 | Claude Code | Decision 7 — access rights as the single axis; ingest owner resolved descriptor-by-path at the mechanism (surface-independent); chunk/embed documented out of scope | 0.3 |
+| 2026-07-01 | Claude Code | Decision 8 — sync allowlist stays code-defined; operator-configurability deferred to a per-user vault-local marker (hosting-gated); global env/file rejected (shadow + wrong shape). Closes PR #482 open question. | 0.4 |
