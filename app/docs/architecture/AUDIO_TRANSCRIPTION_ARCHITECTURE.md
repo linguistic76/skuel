@@ -30,6 +30,13 @@ SKUEL's audio transcription converts spoken audio into formatted text via Deepgr
 > was retired with ADR-054. Per-entry enrichment now lives in
 > `UserEntryProcessingService`.
 
+> **Journal uploads are zero-persistence (ADR-073).** The interactive
+> `/journals/upload` path transcribes via `BatchTranscriptionService.transcribe_one`
+> (single file) or `transcribe_batch` (multi-file/folder) and writes the result to
+> the user's own `je_out/` folder — it does **not** create a `UserEntry` or route
+> through `UserEntryProcessingService`. The entry-backed flow diagrammed below is the
+> REST-API transcription path, not the journals UI.
+
 ## Configuration Layer
 
 All Deepgram API options are controlled via `config/deepgram.toml` — a single file that is loaded once at app startup and applied to every transcription request.

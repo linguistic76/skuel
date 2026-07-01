@@ -142,22 +142,25 @@ Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Av
 
 ### `/journals`
 
-Journal domain. Upload landing at `/journals`; dedicated chat session at `/journals/{entry_uid}`. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py` + `ui/journals/chat_page.py`.
+Journal domain — zero-persistence workshop (ADR-073). Landing at `/journals`. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py` + `ui/journals/chat_page.py`.
 
 **FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
 
 **Routes:**
 - `GET  /journals` — tier-aware landing (Tasks+ sidebar); upload form for file/folder
-- `POST /journals/upload` — file/folder upload handler; redirects to `/journals/{uid}` after processing (`HX-Redirect`)
-- `GET  /journals/{entry_uid}` — dedicated chat page; initial workspace selected by `entry.pipeline` + `processed_file_path`. Periodic notes (`entry_kind` ∈ {daily, weekly, monthly}) render `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav); all other entries use `JournalChatPage` (Askesis-inspired session sidebar).
-- `GET  /journals/je-out/{filename}` — download a compiled je_out file (user-scoped, ownership-guarded)
+- `POST /journals/start` — run the workflow on typed text; returns the response **inline** (`HX-Retarget` `#journal-workspace`) — no `UserEntry`, no redirect
+- `POST /journals/upload` — file/multi-file upload; transcribes/compiles to the user's own `je_out/` folder and returns an inline download fragment (no `UserEntry`). FOUNDER audio → transcript review → Scribe
+- `POST /journals/folder-process` — batch-process `je_in/` → `je_out/` (shares the upload batch engine)
+- `POST /journals/suggest-activities` — inert "Suggested activities" panel; takes reflection content in the body (no stored entry)
+- `GET  /journals/{entry_uid}` — **periodic-notes-only** (`entry_kind` ∈ {daily, weekly, monthly}) → `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav). Any non-periodic uid → 404 (sessions are never stored).
+- `GET  /journals/je-out/{filename}` — download a flat `je_out/` file (`.md`/`.txt`; single-user-local, path-containment-guarded)
 - `POST /journals/respond` — STANDARD tier single AI response (`@csrf_protected`)
 - `POST /journals/follow-up` — reply to an AI response (`@csrf_protected`)
 - `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (`@csrf_protected`)
 - `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
 - `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
 
-Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` on the chat page. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`. Compiled je_out files are persisted via `UserEntry.processed_file_path`; the chat page shows the "automatically saved" banner when this field is set.
+Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` inline on `/journals`. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`. Compiled output is written to the user's own flat `je_out/` folder and surfaced as a download — nothing is persisted to Neo4j (ADR-073).
 
 ### `/tasks`, `/goals`
 
