@@ -40,8 +40,8 @@ logger = get_logger("skuel.routes.journals")
 _JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
 _JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
 # je_out is a pipeline staging area — excluded from vault sync by the fail-closed
-# SyncAllowlist (SKUEL_VAULT_SYNC_ALLOWED_DIRS): only explicitly-allowed folders
-# ingest, and je_out is never one of them. Users open je_out files in Obsidian and
+# SyncAllowlist (code-defined _DEFAULT_SYNC_SUBDIRS): only allowed folders ingest,
+# and je_out is never one of them. Users open je_out files in Obsidian and
 # manually decide what enters their personal vault. SKUEL never auto-syncs je_out.
 _JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
 # je_raw/je_pro hold curated example input→output pairs. They are read *off disk at

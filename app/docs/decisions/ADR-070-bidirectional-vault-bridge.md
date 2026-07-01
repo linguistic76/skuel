@@ -168,6 +168,18 @@ The `VaultBridgePort` exposes:
 
 **Stage 2+ (cloud deployment):** swap `filesystem_adapter.py` for `local_agent_adapter.py` with the encrypted outbound-only channel. Zero changes to `core/`. This is the "drop-in, not a rewrite" guarantee.
 
+### Decision 7 — Access rights are the single axis; ingest owner is descriptor-by-path (2026-07-01)
+
+The content vault and a personal vault do **not** differ in sync *nature* — the sync mechanism is uniform (files → `ingest_directory` → Neo4j). The only real difference is **access rights**, which SKUEL already derives from `EntityType` (Content Origin Tiers): curriculum is SHARED (no ownership check), activities/UserEntry are USER_OWNED (404 on non-owner). So both vaults ride **one descriptor-driven `VaultReconciler`** spine.
+
+**Access rights stay `f(EntityType)`, computed at read time — never materialized on the node.** No `visibility`/owner is written onto SHARED curriculum; there is no schema change. The one thing ingest must get right uniformly is the **owner of USER_OWNED entities**, and it is resolved from the **vault descriptor governing the file's path** (`VaultRegistry.resolve_by_path`) at the ingestion **mechanism** — so no ingest surface (dashboard, reconciler, `vault_watch`, script) can substitute its own identity. Every `user_uid=` argument is reinterpreted as an *acting-user hint*, overridden by the descriptor for content-vault paths. `content_owner_uid` shrinks to "the account the content vault *acts as*."
+
+Applied at **both** ingestion seams: the per-file `ingest_file` path *and* the `ingest_directory` bulk-upsert path (activity domains are bulk-ingested and never traverse `ingest_file`).
+
+**Explicitly out of scope (documented invariant):** chunking/embedding. It is triggered by `entity_type == PathStep` *inside* `ingest_file` (a curriculum concern), decoupled via `ChunkEmbeddingRequested` → worker (FULL tier). The ownership refactor does not touch it.
+
+**See:** `docs/patterns/UNIFIED_INGESTION_GUIDE.md` (Ownership section), `core/services/vault/vault_descriptor.py`.
+
 ---
 
 ## Resolved Design Questions (2026-06-16)
@@ -270,3 +282,4 @@ The `VaultBridgePort` exposes:
 |------|--------|--------|---------|
 | 2026-06-16 | Claude Code | Initial draft from deep research (112 agents, 29 sources) | 0.1 |
 | 2026-06-16 | Mike | Resolved 4 design questions: trigger scope (both), undone (deferred v1), hash→Neo4j, ID injection→first-run notice | 0.2 |
+| 2026-07-01 | Claude Code | Decision 7 — access rights as the single axis; ingest owner resolved descriptor-by-path at the mechanism (surface-independent); chunk/embed documented out of scope | 0.3 |

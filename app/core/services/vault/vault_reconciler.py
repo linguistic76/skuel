@@ -60,7 +60,8 @@ logger = get_logger("skuel.services.vault.reconciler")
 _BASE36 = string.ascii_lowercase + string.digits
 
 # Which vault folders may be ingested is now decided by a fail-closed allowlist
-# (``SyncAllowlist`` / ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``) applied inside
+# (``SyncAllowlist``, seeded from the code-defined ``_DEFAULT_SYNC_SUBDIRS``)
+# applied inside
 # ``UnifiedIngestionService.ingest_directory`` — the single chokepoint both this
 # reconciler and the HTTP /api/ingest/* door share. Everything under the vault
 # root that is not explicitly allowed (the je_* journal staging folders,
@@ -136,11 +137,33 @@ class VaultReconciler:
         descriptor = descriptor_result.value
         owner = descriptor.owner_uid
 
+        # Surface-independence invariant: by-kind and by-path resolution must agree
+        # on this root, otherwise the ingestion mechanism (which resolves owner +
+        # wall by path) would attribute a different owner than this by-kind sync.
+        # They disagree only in a combined-root config (VAULT_ROOT == INGESTION_PATH),
+        # where the single vault resolves to PERSONAL by-path: there is no distinct
+        # content vault, so a CONTENT sync would stamp content_owner_uid onto the
+        # user's own files. Refuse it — the combined vault syncs as PERSONAL.
+        by_path = self._registry.resolve_by_path(descriptor.root, UserUID(owner))
+        if by_path.is_ok and by_path.value.kind is not kind:
+            return Result.fail(
+                Errors.validation(
+                    f"{kind.value} vault sync is unavailable in a combined-root "
+                    "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
+                    f"single vault resolves as {by_path.value.kind.value} — sync it "
+                    "under that kind instead.",
+                    field="kind",
+                )
+            )
+
         stats = VaultSyncStats()
 
         # Step 1: ingest (inbound — smart mode skips unchanged files). The
         # descriptor's own fail-closed allowlist scopes which folders are read;
-        # entries are attributed to the descriptor's owner.
+        # entries are attributed to the descriptor's owner. Passing ``user_uid``/
+        # ``allowlist`` explicitly is belt-and-suspenders: the ingestion mechanism
+        # resolves the same owner and wall by path (resolve_by_path), and the guard
+        # above enforces that by-kind and by-path agree on this root.
         ingest_result = await self._ingestion.ingest_directory(
             descriptor.root,
             ingestion_mode="smart",
@@ -151,7 +174,7 @@ class VaultReconciler:
             return Result.fail(ingest_result)
         stats.entries_ingested = _count_ingested(ingest_result.value)
 
-        # Steps 2–3: consent gate + outbound. Only vaults that support the task
+        # Steps 2-3: consent gate + outbound. Only vaults that support the task
         # round-trip have anything to write back, so the consent gate engages
         # there. Curriculum vaults are inbound-only today (structural no-op) — the
         # uniform gate is ready to engage the moment curriculum writeback is built

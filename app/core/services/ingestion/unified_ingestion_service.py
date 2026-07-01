@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     )
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
+    from core.services.vault.vault_descriptor import VaultRegistry
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
@@ -210,6 +211,11 @@ class UnifiedIngestionService:
         # governed vault root is resolved. Applied to every ingest_directory scan
         # so both ingestion doors inherit the same privacy wall.
         self.sync_allowlist = sync_allowlist
+        # Late-bound at the composition root. Resolves which vault governs a target
+        # path so the OWNER of USER_OWNED entities is a function of the vault, not
+        # of the ingest surface (dashboard/reconciler/script all agree). ``None``
+        # (minimal composes / tests) → owner falls back to the acting hint.
+        self.vault_registry: VaultRegistry | None = None
         self.logger = logger
 
         # Log embedding availability
@@ -398,6 +404,57 @@ class UnifiedIngestionService:
             )
 
     # ========================================================================
+    # OWNERSHIP
+    # ========================================================================
+
+    def _resolve_owner(self, path: Path, user_uid: UserUID | None) -> UserUID:
+        """Owner to attribute to what ``path`` yields — a function of the vault.
+
+        ``user_uid`` is the *acting-user hint* (whoever triggered the ingest). The
+        real owner comes from the vault descriptor governing ``path`` (via
+        :meth:`VaultRegistry.resolve_by_path`), so the same file gets the same
+        owner regardless of ingest surface: content-vault paths → the content
+        acts-as owner (hint ignored); personal-vault paths → the acting user.
+        Only ``requires_user_uid`` entity types actually persist this owner;
+        SHARED curriculum drops it (see ``preparer._prepare_core``).
+
+        Falls back to ``user_uid or self.default_user_uid`` when no registry is
+        wired (minimal composes / unit tests) — never a random user.
+        """
+        acting = user_uid or self.default_user_uid
+        if self.vault_registry is None:
+            return acting
+        descriptor = self.vault_registry.resolve_by_path(path, acting)
+        return descriptor.value.owner_uid if descriptor.is_ok else acting
+
+    def _resolve_allowlist(
+        self, path: Path, allowlist: SyncAllowlist | None
+    ) -> SyncAllowlist | None:
+        """Fail-closed wall for a file or directory ``path`` — a function of the vault.
+
+        An explicit ``allowlist`` always wins: the descriptor-driven reconciler
+        passes the target vault's own wall, and it must not be second-guessed.
+        Otherwise, when a registry is wired, derive the wall from the descriptor
+        governing ``path`` (via :meth:`VaultRegistry.resolve_by_path`) so every
+        surface inherits the same per-vault wall the reconciler uses — the by-path
+        counterpart to :meth:`_resolve_owner`. This is what applies the content
+        vault's ``je_*`` staging floor to a content file ingested through the
+        single-file door, matching the directory / reconciler paths.
+
+        Safe because the caller resolves against a path that is unambiguously in
+        one vault: a single file, or a directory guarded to be single-vault (see
+        :meth:`VaultRegistry.nested_vault_roots`). Falls back to
+        ``self.sync_allowlist`` when no registry is wired or no descriptor governs
+        the path. Owner-independent, so the acting hint is ``self.default_user_uid``.
+        """
+        if allowlist is not None:
+            return allowlist
+        if self.vault_registry is None:
+            return self.sync_allowlist
+        descriptor = self.vault_registry.resolve_by_path(path, self.default_user_uid)
+        return descriptor.value.allowlist if descriptor.is_ok else self.sync_allowlist
+
+    # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
 
@@ -427,8 +484,11 @@ class UnifiedIngestionService:
         # belt-and-suspenders for the per-file directory path), so the vault
         # exclusions must be enforced here too — otherwise a single file could
         # bypass the collect_files scan filters. One predicate covers symlinks,
-        # the je_* staging floor, and the fail-closed allowlist.
-        if not is_ingestible_path(file_path, self.sync_allowlist):
+        # the je_* staging floor, and the fail-closed allowlist. The wall is the
+        # one governing THIS file's vault (descriptor-resolved), so a content
+        # file gets the content staging floor rather than the personal wall —
+        # consistent with the directory / reconciler paths.
+        if not is_ingestible_path(file_path, self._resolve_allowlist(file_path, None)):
             return Result.fail(
                 Errors.validation(
                     "File is excluded by the vault sync boundary (symlink, je_* "
@@ -485,7 +545,7 @@ class UnifiedIngestionService:
                         operation="ingest_user_entry",
                     )
                 )
-            effective_user_uid = user_uid or self.default_user_uid
+            effective_user_uid = self._resolve_owner(file_path, user_uid)
             return await ingest_user_entry(
                 data=data,
                 file_path=file_path,
@@ -506,8 +566,10 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result)
 
-        # Prepare entity data (async path generates embeddings if service available)
-        effective_user_uid = user_uid or self.default_user_uid
+        # Prepare entity data (async path generates embeddings if service available).
+        # Owner is descriptor-derived from the file's vault (surface-independent);
+        # only requires_user_uid types persist it, SHARED curriculum drops it.
+        effective_user_uid = self._resolve_owner(file_path, user_uid)
         entity_data = await prepare_entity_data_async(
             entity_type,
             data,
@@ -515,6 +577,9 @@ class UnifiedIngestionService:
             file_path,
             effective_user_uid,
             embeddings_service=self.embeddings,
+            # Descriptor governs → the resolved owner overrides any file-supplied
+            # user_uid, so a file cannot spoof ownership of a USER_OWNED entity.
+            owner_is_authoritative=self.vault_registry is not None,
         )
 
         # Validate entity data after preparation (ensures auto-generated fields present)
@@ -687,8 +752,38 @@ class UnifiedIngestionService:
         retraction of now-walled rows depends on it, so the wall would otherwise
         leak on a full-mode ingest.
         """
-        effective_user_uid = user_uid or self.default_user_uid
-        effective_allowlist = allowlist if allowlist is not None else self.sync_allowlist
+        # A directory scan attributes ONE owner and ONE wall (below) to the whole
+        # batch, so it is sound only if every file it may collect resolves by-path
+        # to the same vault as the directory. Reject a scan that nests a vault
+        # resolving to a DIFFERENT kind — an ancestor scan (roots differ) or a
+        # personal vault nested inside a content scan (its private files would be
+        # stamped with the content owner). A combined vault (content nested inside
+        # personal → same personal descriptor) is uniform and allowed, so the
+        # normal nested-config personal sync is never broken.
+        if self.vault_registry is not None:
+            acting_hint = user_uid or self.default_user_uid
+            conflicting = self.vault_registry.conflicting_nested_roots(directory, acting_hint)
+            if conflicting:
+                return Result.fail(
+                    Errors.validation(
+                        "Directory scan would sweep a nested vault with a different "
+                        f"owner (nested vault root(s): {', '.join(str(r) for r in conflicting)}); "
+                        "scan a single vault root instead.",
+                        field="directory",
+                    )
+                )
+
+        # Resolve the owner from the vault governing ``directory`` — the same
+        # chokepoint ingest_file uses, but applied here because the bulk upsert
+        # engine (which handles every USER_OWNED activity type) stamps this owner
+        # directly and never passes through ingest_file. Without this, a content-
+        # vault Task ingested via the dashboard would be owned by the acting admin
+        # instead of the content acts-as account. The single-vault guard above
+        # makes this per-directory owner equivalent to per-file resolution.
+        # USER_ENTRY files re-resolve per-path in ingest_file (same answer);
+        # curriculum drops the owner.
+        effective_user_uid = self._resolve_owner(directory, user_uid)
+        effective_allowlist = self._resolve_allowlist(directory, allowlist)
 
         effective_mode = ingestion_mode
         if (
@@ -723,6 +818,9 @@ class UnifiedIngestionService:
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
             allowlist=effective_allowlist,
+            # Descriptor governs → resolved owner overrides any file-supplied
+            # user_uid so a file cannot spoof ownership of a USER_OWNED entity.
+            owner_is_authoritative=self.vault_registry is not None,
         )
 
     async def ingest_vault(

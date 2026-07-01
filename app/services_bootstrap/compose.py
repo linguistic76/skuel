@@ -1217,6 +1217,11 @@ async def compose_services(
             if config
             else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
         )
+        # The account the content vault *acts as* — NOT a fictional owner stamped
+        # on curriculum. Curriculum (Ku/PathStep/LP/Exercise) is SHARED-by-type and
+        # drops its owner at persist. This account is the owner of any USER_OWNED
+        # stray that appears in the content vault, and the holder of the content
+        # vault's outbound consent. See VaultRegistry.resolve_by_path.
         _content_owner = UserUID(
             config.vault.content_owner_uid
             if config
@@ -1260,6 +1265,10 @@ async def compose_services(
             supports_task_round_trip=True,
         )
         vault_registry = VaultRegistry(content=_content_descriptor, personal=_personal_descriptor)
+        # Give the ingestion mechanism the registry so the OWNER of USER_OWNED
+        # entities is resolved from the vault a file lives in (by-path), identical
+        # across every ingest surface (dashboard / reconciler / script / watcher).
+        unified_ingestion.vault_registry = vault_registry
         vault_reconciler = VaultReconciler(
             registry=vault_registry,
             unified_ingestion=unified_ingestion,

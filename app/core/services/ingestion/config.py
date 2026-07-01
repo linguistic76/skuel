@@ -314,10 +314,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 
 
-# Default "doorway" folders synced when SKUEL_VAULT_SYNC_ALLOWED_DIRS is unset — the
-# deliberate "what I want SKUEL to know" channel (ADR-073). These are the ONLY folders
-# a personal vault syncs by default; everything else (je_* staging, templates, loose
-# notes) stays walled off without any configuration, fail-closed.
+# Code-defined "doorway" folders — the SINGLE SOURCE OF TRUTH for what a personal
+# vault syncs (no env knob; sourcing this from ambient env let a stale exported var
+# shadow .env). The deliberate "what I want SKUEL to know" channel (ADR-073). These
+# are the ONLY folders a personal vault syncs; everything else (je_* staging,
+# templates, loose notes) stays walled off without any configuration, fail-closed.
 _DEFAULT_SYNC_SUBDIRS: tuple[str, ...] = (
     "periodic_notes",
     "personal_notes",
@@ -456,7 +457,7 @@ def build_sync_allowlist(
         valid = frozenset(d for d in configured if d.is_relative_to(governed) and d != governed)
         for dropped in (d for d in configured if d not in valid):
             logger.warning(
-                "Ignoring SKUEL_VAULT_SYNC_ALLOWED_DIRS entry %s: not strictly under the "
+                "Ignoring allowed-dirs entry %s: not strictly under the "
                 "vault root %s. Allow-dirs must be subfolders of the vault; an ancestor or "
                 "outside path would defeat the fail-closed wall.",
                 dropped,
