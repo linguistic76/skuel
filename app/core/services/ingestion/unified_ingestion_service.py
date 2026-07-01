@@ -57,7 +57,7 @@ from .config import (
     DEFAULT_USER_UID,
     ENTITY_CONFIGS,
     SyncAllowlist,
-    is_staging_path,
+    is_ingestible_path,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
@@ -426,22 +426,13 @@ class UnifiedIngestionService:
         # ingest_file is the direct entry point for /api/ingest/file (and a
         # belt-and-suspenders for the per-file directory path), so the vault
         # exclusions must be enforced here too — otherwise a single file could
-        # bypass the collect_files scan filters.
-        #
-        # Floor: je_* staging folders are never ingested, in any configuration.
-        if is_staging_path(file_path):
+        # bypass the collect_files scan filters. One predicate covers symlinks,
+        # the je_* staging floor, and the fail-closed allowlist.
+        if not is_ingestible_path(file_path, self.sync_allowlist):
             return Result.fail(
                 Errors.validation(
-                    f"File is in a pipeline staging folder (je_*) and is never ingested: {file_path}",
-                    field="path",
-                )
-            )
-        # Privacy wall: files under the governed vault root are ingested only if
-        # allowlisted. Files outside it (e.g. the content vault) pass through.
-        if self.sync_allowlist is not None and not self.sync_allowlist.permits(file_path):
-            return Result.fail(
-                Errors.validation(
-                    f"File is outside the vault sync allowlist and was not ingested: {file_path}",
+                    "File is excluded by the vault sync boundary (symlink, je_* "
+                    f"staging folder, or outside the allowlist): {file_path}",
                     field="path",
                 )
             )
@@ -686,8 +677,27 @@ class UnifiedIngestionService:
         the single chokepoint both ingestion doors traverse — so a fail-closed
         vault wall cannot be bypassed by any caller. Files under the governed
         vault root are ingested only if they sit under an allowed dir.
+
+        When the wall governs ``directory``, a ``full``-mode request is upgraded to
+        ``smart``: full mode skips deletion reconciliation, but fail-closed
+        retraction of now-walled rows depends on it, so the wall would otherwise
+        leak on the full-mode door (``/api/ingest/directory`` defaults to full).
         """
         effective_user_uid = user_uid or self.default_user_uid
+
+        effective_mode = ingestion_mode
+        if (
+            ingestion_mode == "full"
+            and self.ingestion_backend is not None
+            and self.sync_allowlist is not None
+            and self.sync_allowlist.governs(directory)
+        ):
+            self.logger.info(
+                "Vault wall governs %s — upgrading full → smart ingestion so deletion "
+                "reconciliation retracts now-walled entries",
+                directory,
+            )
+            effective_mode = "smart"
 
         async def _ingest_file_for_batch(path: Path) -> Result[Any]:
             return await self.ingest_file(path, user_uid=effective_user_uid)
@@ -702,7 +712,7 @@ class UnifiedIngestionService:
             max_concurrent=max_concurrent,
             default_user_uid=effective_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
-            ingestion_mode=ingestion_mode,
+            ingestion_mode=effective_mode,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
             dry_run=dry_run,

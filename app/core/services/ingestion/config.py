@@ -369,22 +369,42 @@ class SyncAllowlist:
     allowed_dirs: frozenset[Path]
 
     def permits(self, path: Path) -> bool:
-        """Whether ``path`` may be ingested (True = keep).
+        """Whether ``path`` is allowed by this wall (True = keep).
 
-        Outside the governed root → always permitted (ungoverned tree). Inside
-        → permitted only when nested under an allowed dir.
+        Outside the governed root → always permitted (ungoverned tree — e.g. the
+        admin content vault, including any folder there that happens to be *named*
+        ``je_*``). Inside → walled if it is a ``je_*`` staging folder, else
+        permitted only when nested under an allowed dir.
 
         The wall judges a file by *where it sits in the vault*, not where a
-        symlink target points. We canonicalize the directory chain
-        (``parent.resolve()`` — collapses ``..`` and resolves real vault dirs)
-        but keep the leaf name in place, so a symlink inside a walled folder
-        (``je_raw/secret.md -> /tmp/secret.md``) stays governed and walled
-        instead of resolving out of the vault and reading as "ungoverned".
+        symlink target points: we canonicalize the directory chain
+        (``parent.resolve()`` — collapses ``..`` and resolves real vault dirs) but
+        keep the leaf name in place. Leaf symlinks are rejected earlier by
+        ``is_ingestible_path`` (their target may be external); this method only
+        decides allowlist membership.
         """
         located = path.parent.resolve() / path.name
         if not located.is_relative_to(self.governed_root):
             return True
+        # Staging floor, scoped to the vault-relative portion so a governed_root
+        # prefix component can't false-positive and so it never touches unrelated
+        # trees (a content-vault "je_out/" is handled by the branch above).
+        if is_staging_path(located.relative_to(self.governed_root)):
+            return False
         return any(located.is_relative_to(allowed) for allowed in self.allowed_dirs)
+
+    def governs(self, directory: Path) -> bool:
+        """Whether the wall restricts files under ``directory``.
+
+        True when the scanned tree intersects the governed vault (``directory`` is
+        under the vault root, or the vault root is under ``directory``). Used to
+        decide when a full-mode ingestion must still reconcile deletions so
+        now-walled rows are retracted rather than left searchable.
+        """
+        resolved = directory.resolve()
+        return resolved.is_relative_to(self.governed_root) or self.governed_root.is_relative_to(
+            resolved
+        )
 
 
 def build_sync_allowlist(
@@ -452,19 +472,30 @@ def build_sync_allowlist(
 def is_ingestible_path(path: Path, allowlist: SyncAllowlist | None) -> bool:
     """Whether a vault file is eligible for ingestion under the vault exclusions.
 
-    Combines the always-on ``je_*`` staging floor with the optional fail-closed
-    privacy allowlist. Does NOT check on-disk existence — ``collect_files`` globs
-    existing files, and ``reconcile_deletions`` checks existence separately.
+    The single policy predicate every ingestion path shares (``collect_files``,
+    ``ingest_file``, and ``reconcile_deletions``), giving the invariant: a tracked
+    graph row survives deletion reconciliation iff its file would still be
+    collected for ingestion. Does NOT check on-disk existence — ``collect_files``
+    globs existing files; ``reconcile_deletions`` checks existence separately.
 
-    This is the single policy predicate both share, giving the invariant: a
-    tracked graph row survives deletion reconciliation iff its file would still be
-    collected for ingestion. When a folder becomes disallowed (wall narrowed), its
-    already-ingested rows fail this and are purged, so walled content does not
-    linger in the graph.
+    Three rules, in order:
+
+    1. **No symlinks.** A symlink's target may resolve outside the vault, so the
+       link's in-vault name is not a safe proxy for its content. Rejecting them
+       closes both the walled-folder escape (a link out of ``je_raw``) and the
+       allowed-folder external read (a link in ``periodic_notes`` whose target is
+       read by the parser and sent downstream).
+    2. **Allowlist active** → defer to ``permits`` (which applies the ``je_*``
+       staging floor scoped to the governed vault, then allowlist membership), so
+       an unrelated content tree is unaffected.
+    3. **No allowlist** (single-vault fallback — no distinct content tree) → the
+       whole vault is personal, so the ``je_*`` staging floor applies globally.
     """
-    if is_staging_path(path):
+    if path.is_symlink():
         return False
-    return allowlist is None or allowlist.permits(path)
+    if allowlist is not None:
+        return allowlist.permits(path)
+    return not is_staging_path(path)
 
 
 def _file_mtime(path: Path) -> float:

@@ -79,6 +79,8 @@ def test_symlink_in_walled_folder_stays_walled(tmp_path: Path) -> None:
     # A symlink inside a walled folder that points OUTSIDE the vault must not
     # read as "ungoverned" — the wall judges a file by where it sits in the vault,
     # not where its symlink target resolves to.
+    from core.services.ingestion.config import is_ingestible_path
+
     root = tmp_path / "vault"
     (root / "je_raw").mkdir(parents=True)
     outside = tmp_path / "outside" / "secret.md"
@@ -88,7 +90,54 @@ def test_symlink_in_walled_folder_stays_walled(tmp_path: Path) -> None:
     link.symlink_to(outside)
 
     wall = _wall(root, root / "periodic_notes")
-    assert wall.permits(link) is False
+    assert wall.permits(link) is False  # staging-scoped
+    assert is_ingestible_path(link, wall) is False  # and rejected as a symlink
+
+
+def test_symlink_in_allowed_folder_is_rejected(tmp_path: Path) -> None:
+    # Kody: a symlink in an ALLOWED folder passes permits() on its lexical name,
+    # but its target may be external — is_ingestible_path must reject it before the
+    # parser reads the target and ships that content downstream.
+    from core.services.ingestion.config import is_ingestible_path
+
+    root = tmp_path / "vault"
+    (root / "periodic_notes").mkdir(parents=True)
+    external = tmp_path / "external" / "leak.md"
+    external.parent.mkdir(parents=True)
+    external.write_text("external", encoding="utf-8")
+    link = root / "periodic_notes" / "leak.md"
+    link.symlink_to(external)
+
+    wall = _wall(root, root / "periodic_notes")
+    assert wall.permits(link) is True  # lexically inside an allowed folder
+    assert is_ingestible_path(link, wall) is False  # but rejected as a symlink
+
+
+def test_content_vault_je_folder_not_walled_when_allowlist_active(tmp_path: Path) -> None:
+    # Kody: the je_* staging floor is scoped to the governed vault. A folder merely
+    # NAMED je_out in an unrelated content tree must ingest normally.
+    from core.services.ingestion.config import is_ingestible_path
+
+    personal = tmp_path / "skuel"
+    content = tmp_path / "0vault"
+    (content / "je_out").mkdir(parents=True)
+    content_file = content / "je_out" / "lesson.md"
+    content_file.write_text("x", encoding="utf-8")
+
+    wall = _wall(personal, personal / "periodic_notes")  # governs the personal vault only
+    assert wall.permits(content_file) is True
+    assert is_ingestible_path(content_file, wall) is True
+    # ...but je_out UNDER the governed personal vault is still walled.
+    assert wall.permits(personal / "je_out" / "t.md") is False
+
+
+def test_governs(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    wall = _wall(root, root / "periodic_notes")
+    assert wall.governs(root) is True
+    assert wall.governs(root / "sub") is True  # under the vault
+    assert wall.governs(tmp_path) is True  # ancestor (vault under it)
+    assert wall.governs(tmp_path / "other_vault") is False  # disjoint tree
 
 
 # ---------------------------------------------------------------------------
@@ -298,3 +347,53 @@ async def test_ingest_file_rejects_staging_even_without_allowlist(tmp_path: Path
 
     assert result.is_error
     assert "staging" in str(result.expect_error()).lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_file_rejects_symlink(tmp_path: Path) -> None:
+    # Kody: even in an allowed folder, a symlink must be refused (its target may be
+    # external) before the parser reads it.
+    root = tmp_path / "vault"
+    (root / "periodic_notes").mkdir(parents=True)
+    external = tmp_path / "ext.md"
+    external.write_text("x", encoding="utf-8")
+    link = root / "periodic_notes" / "leak.md"
+    link.symlink_to(external)
+
+    svc = _service_with_wall(_wall(root, root / "periodic_notes"))
+    result = await svc.ingest_file(link)  # type: ignore[attr-defined]
+
+    assert result.is_error
+    assert "symlink" in str(result.expect_error()).lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_directory_upgrades_full_to_smart_when_wall_governs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Kody: full mode skips deletion reconciliation, so on a walled vault it would
+    # leave now-private rows. The service upgrades full→smart when the wall governs.
+    from core.services.ingestion import unified_ingestion_service as mod
+    from core.services.ingestion.types import IngestionStats
+    from core.utils.result_simplified import Result
+
+    captured: dict[str, str] = {}
+
+    async def _fake_batch(**kwargs: object) -> Result[IngestionStats]:
+        captured["mode"] = str(kwargs["ingestion_mode"])
+        return Result.ok(IngestionStats(total_files=0, duration_seconds=0))
+
+    monkeypatch.setattr(mod, "ingest_directory", _fake_batch)
+
+    root = tmp_path / "vault"
+    root.mkdir()
+    svc = _service_with_wall(_wall(root, root / "periodic_notes"))
+    svc.ingestion_backend = object()  # type: ignore[attr-defined]  # non-None enables the upgrade
+
+    await svc.ingest_directory(root, ingestion_mode="full")  # type: ignore[attr-defined]
+    assert captured["mode"] == "smart"
+
+    # An ungoverned tree (content vault) keeps full mode.
+    captured.clear()
+    await svc.ingest_directory(tmp_path / "content", ingestion_mode="full")  # type: ignore[attr-defined]
+    assert captured["mode"] == "full"
