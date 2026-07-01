@@ -320,16 +320,19 @@ async def _run_batch_over_dir(
                 "error" if is_err else "completed", msg, is_error=is_err, status_id=status_id
             )
 
-        # transcribe_and_instructions — LLM-structure each fresh transcript
-        # (LLM availability already verified above).
-        succeeded_stems = {
+        # transcribe_and_instructions — LLM-structure every available transcript
+        # (LLM availability already verified above). Include ``skipped`` stems:
+        # transcribe_batch skips files whose ``{stem}.txt`` already exists, so a
+        # user re-running after "Transcribe only" (or a failed LLM step) still gets
+        # their transcript structured. The loop re-checks the txt exists.
+        structurable_stems = {
             Path(res["name"]).stem
             for res in transcribe_result.value.results
-            if res.get("status") == "success"
+            if res.get("status") in ("success", "skipped")
         }
         llm_ok = 0
         llm_fail = 0
-        for stem in succeeded_stems:
+        for stem in structurable_stems:
             txt_path = _JE_OUT / f"{stem}.txt"
             if not txt_path.exists():
                 continue
@@ -613,25 +616,36 @@ def create_journals_routes(
 
             # Multiple files — write to a temp dir and run the shared batch engine
             # (same je_in → je_out cycle as /journals/folder-process). No entries.
+            #
+            # Only files the selected mode actually processes produce je_out output,
+            # so only those can collide — dedup by stem within that filtered set
+            # (an ignored ``meeting.txt`` next to ``meeting.mp3`` under "Transcribe
+            # only" is not a collision). Non-processed files are still written to
+            # temp; the batch engine ignores them.
+            from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
+
+            output_exts = (
+                _TEXT_EXTENSIONS if processing_mode == "instructions_only" else (AUDIO_EXTENSIONS)
+            )
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
                 seen_stems: set[str] = set()
                 for uploaded_file in uploaded_files:
                     name = Path(uploaded_file.filename or "unknown").name
-                    # Reject duplicate output stems: the batch writes je_out outputs
-                    # by stem (``{stem}.txt`` / ``{stem}_out.md``), so `meeting.mp3`
-                    # and `meeting.wav` would collapse to the same output and silently
-                    # drop one. Key the guard on stem, not the full filename.
-                    file_stem = Path(name).stem
-                    if file_stem in seen_stems:
-                        return render_journal_upload_status(
-                            "error",
-                            f"Two files map to the same je_out/ output ('{file_stem}') in "
-                            "this batch. Rename one and retry.",
-                            is_error=True,
-                            status_id=status_id,
-                        )
-                    seen_stems.add(file_stem)
+                    # The batch writes je_out outputs by stem (``{stem}.txt`` /
+                    # ``{stem}_out.md``), so two output-producing files sharing a stem
+                    # (``meeting.mp3`` + ``meeting.wav``) would collapse — reject that.
+                    if Path(name).suffix.lower() in output_exts:
+                        file_stem = Path(name).stem
+                        if file_stem in seen_stems:
+                            return render_journal_upload_status(
+                                "error",
+                                f"Two files map to the same je_out/ output ('{file_stem}') "
+                                "in this batch. Rename one and retry.",
+                                is_error=True,
+                                status_id=status_id,
+                            )
+                        seen_stems.add(file_stem)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
                 return await _run_batch_over_dir(
                     tmp_path,

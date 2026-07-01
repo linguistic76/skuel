@@ -142,6 +142,28 @@ def _text_upload(filename: str, content: bytes) -> Any:
     return UploadFile(file=io.BytesIO(content), filename=filename)
 
 
+def _register(services: Any) -> dict[str, Any]:
+    """Register journals routes against ``services`` → path → handler.
+
+    Used by tests that customise a service the route closure captures at
+    registration time (e.g. ``batch_transcription``), which the module-level
+    ``handlers`` fixture can't do after the fact.
+    """
+    from adapters.inbound.journals_routes import create_journals_routes
+
+    registered: dict[str, Any] = {}
+
+    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
+        def decorator(fn: Any) -> Any:
+            registered[path] = fn
+            return fn
+
+        return decorator
+
+    create_journals_routes(MagicMock(), rt_collector, services)
+    return registered
+
+
 class TestJournalsStartZeroPersistence:
     async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
         request = _make_request(user_uid=None)
@@ -262,19 +284,7 @@ class TestJournalsUploadZeroPersistence:
         empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(empty))
-
-        from adapters.inbound.journals_routes import create_journals_routes
-
-        registered: dict[str, Any] = {}
-
-        def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-            def decorator(fn: Any) -> Any:
-                registered[path] = fn
-                return fn
-
-            return decorator
-
-        create_journals_routes(MagicMock(), rt_collector, mock_services)
+        registered = _register(mock_services)
 
         request = _make_upload_request(
             [
@@ -288,6 +298,40 @@ class TestJournalsUploadZeroPersistence:
         from fasthtml.common import to_xml
 
         assert "No supported audio files" in to_xml(response)
+        _assert_nothing_persisted(mock_services)
+
+    async def test_dedup_guard_is_mode_aware(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Under "Transcribe only", an ignored same-stem text file (meeting.txt)
+        # next to meeting.mp3 must NOT trigger the duplicate-output guard — only
+        # the mp3 produces je_out output (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        done = SimpleNamespace(
+            total_files=1,
+            succeeded=1,
+            failed=0,
+            skipped=0,
+            results=[{"name": "meeting.mp3", "status": "success"}],
+        )
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(done))
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("meeting.mp3", b"audio")),
+                ("file", _text_upload("meeting.txt", b"ignored notes")),
+                ("processing_mode", "transcribe_only"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        # Not rejected: the batch actually ran instead of erroring on a false collision.
+        assert "same je_out/ output" not in to_xml(response)
+        mock_services.batch_transcription.transcribe_batch.assert_awaited_once()
         _assert_nothing_persisted(mock_services)
 
 
