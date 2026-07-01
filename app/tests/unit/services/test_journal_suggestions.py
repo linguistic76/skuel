@@ -287,9 +287,12 @@ class TestActiveGoalTitles:
         goals_service.get_active.assert_awaited_once_with("user_mike", limit=10)
 
     @pytest.mark.asyncio
-    async def test_goals_error_propagates(self):
-        # A goals-query failure surfaces so the route can degrade to text-only
-        # keying, rather than silently keying on empty grounding.
+    async def test_goals_error_degrades_to_empty(self):
+        # Grounding is a soft signal shared by the suggestion preview and the
+        # EXTRACT_ACTIVITIES extractor: a goals-query failure degrades to no
+        # grounding (empty titles), never an error — the bridge enhances, never
+        # gates. The service still honours the Result[T] contract (AGENTS.md):
+        # the soft degrade surfaces as Result.ok([]), not Result.fail.
         goals_service = MagicMock()
         goals_service.get_active = AsyncMock(
             return_value=Result.fail(Errors.database("get_active", "boom"))
@@ -297,7 +300,8 @@ class TestActiveGoalTitles:
         service = _make_service(dsl_bridge=MagicMock(), goals_service=goals_service)
 
         result = await service.active_goal_titles("user_mike")
-        assert result.is_error
+        assert result.is_ok
+        assert result.value == []
 
 
 class TestGroundingDigest:

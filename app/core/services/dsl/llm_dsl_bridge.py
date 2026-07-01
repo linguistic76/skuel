@@ -173,8 +173,12 @@ class LLMDSLBridgeService:
 
     **Pipeline integration (wired — ADR-069):**
 
-    `UserEntryProcessingService._run_extract_activities` runs transform() as
-    the optional pre-pass of `Pipeline.EXTRACT_ACTIVITIES`: on success the
+    `UserEntryProcessingService._run_extract_activities` runs
+    transform_with_context() as the optional pre-pass of
+    `Pipeline.EXTRACT_ACTIVITIES`, grounded in the user's active goals via the
+    shared `core.services.dsl.grounding` builder — the same grounding the inert
+    journal "Suggested activities" panel uses, so the entity-creating path and
+    the preview path recognise prose against identical context. On success the
     returned `activity_lines` are appended to the working text under an
     `## Extracted Activities` heading before the Analog parser runs; on
     failure the run degrades to parser-only over the original text (the
@@ -207,7 +211,7 @@ class LLMDSLBridgeService:
         self,
         text: str,
         user_uid: UserUID | None = None,
-        context: dict[str, Any] | None = None,
+        context_block: str = "",
     ) -> Result[DSLTransformResult]:
         """
         Transform natural journal text into DSL format with @context tags.
@@ -215,9 +219,16 @@ class LLMDSLBridgeService:
         This is the main entry point for the bridge service.
 
         Args:
-            text: Natural language journal text
+            text: Natural language journal text — the ONLY material extracted into
+                activity lines.
             user_uid: Optional user UID for personalization
-            context: Optional context (goals, recent journals, etc.)
+            context_block: Optional pre-rendered "USER CONTEXT" block (built by
+                ``transform_with_context`` from active goals / topics / principles).
+                Rendered into a SEPARATE, explicitly non-extractable prompt slot so
+                grounding can disambiguate and goal-link the text WITHOUT the LLM
+                emitting activity lines from the context itself — which on the
+                entity-creating extraction path would persist phantom entities with
+                ``EXTRACTED_FROM`` provenance. Empty string = ungrounded.
 
         Returns:
             Result containing DSLTransformResult with transformed text
@@ -245,13 +256,15 @@ class LLMDSLBridgeService:
             model_used=self.model,
         )
 
-        # Select and render prompt template
+        # Select and render prompt template. The grounding block lands in its own
+        # {user_context} slot (marked "background only — do not extract"), keeping
+        # {journal_text} as the sole extractable material.
         template_id = (
             "dsl_domain_recognition_compact"
             if self.use_compact_prompt
             else "dsl_domain_recognition"
         )
-        prompt = PROMPT_REGISTRY.render(template_id, journal_text=text)
+        prompt = PROMPT_REGISTRY.render(template_id, journal_text=text, user_context=context_block)
 
         # Call LLM
         response = await self._call_llm(prompt)
@@ -306,19 +319,19 @@ class LLMDSLBridgeService:
         Returns:
             Result containing DSLTransformResult with transformed text
         """
-        # Build context-enhanced prompt
+        # Build the grounding block and pass it through the dedicated, NON-extractable
+        # {user_context} slot — NOT prepended into the journal text. Mixing it into
+        # the extractable text let the LLM emit activity lines from the grounding
+        # itself; harmless for the inert suggestion preview but, on the
+        # entity-creating extraction path, it persisted phantom entities from the
+        # user's own goals (Codex P1 #474).
         context_block = self._build_context_block(
             active_goals=active_goals,
             recent_topics=recent_topics,
             user_principles=user_principles,
         )
 
-        # Prepend context to journal text
-        enhanced_text = text
-        if context_block:
-            enhanced_text = f"{context_block}\n\n---\n\n{text}"
-
-        return await self.transform(enhanced_text, user_uid)
+        return await self.transform(text, user_uid, context_block=context_block)
 
     # ========================================================================
     # PRIVATE METHODS
@@ -434,7 +447,13 @@ class LLMDSLBridgeService:
             parts.append(f"User's principles: {principles_text}")
 
         if parts:
-            return "## USER CONTEXT\n" + "\n".join(parts)
+            # The header reinforces the template's instruction: this block is
+            # background for linking only, never material to extract activities
+            # from. Returns "" (no section at all) when there is nothing to ground.
+            return (
+                "## USER CONTEXT (background only — do NOT create activities from "
+                "these; use only to recognise/classify items in the journal)\n" + "\n".join(parts)
+            )
 
         return ""
 

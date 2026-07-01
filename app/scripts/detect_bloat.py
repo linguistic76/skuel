@@ -265,13 +265,6 @@ _DSL_EXTRACTION_PREVIEW = (
     "consumer yet; wire a 'preview what this entry would create' panel on the entry submit/"
     "detail page calling preview_extraction before the user commits to processing"
 )
-_DSL_BRIDGE_VARIANTS = (
-    "LLM DSL bridge context-enhanced variant staged — transform() is the maintained entry "
-    "(adapters/external/llm factory + PROMPT_REGISTRY dsl_domain_recognition templates); "
-    "transform_with_context needs active goal titles but UserContext.active_goal_uids has "
-    "UIDs only and UserEntryProcessingService lacks GoalsService to resolve them; wire when "
-    "a goal-title summary is available on standard UserContext.build()"
-)
 _LIFEPATH_WORD_ACTION = (
     "words-vs-actions integrity lens staged — the concept-defining LifePath check "
     "('Are you LIVING what you SAID?'): vision themes vs UserContext action themes, "
@@ -574,8 +567,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
     # --- DSL: extraction preview lens (pipeline itself went live in ADR-069 PR-1) ---
     "core/services/dsl/activity_extractor.py::preview_extraction": _DSL_EXTRACTION_PREVIEW,
-    # --- DSL: LLM bridge variants (Analog-to-Digital flagship, phase 1) ---
-    "core/services/dsl/llm_dsl_bridge.py::transform_with_context": _DSL_BRIDGE_VARIANTS,
     # --- LifePath: word-action alignment lens ---
     "core/services/lifepath/lifepath_service.py::check_word_action_alignment": (
         _LIFEPATH_WORD_ACTION
