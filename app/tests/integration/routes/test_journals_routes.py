@@ -252,6 +252,44 @@ class TestJournalsUploadZeroPersistence:
         assert "same je_out/ output" in to_xml(response)
         _assert_nothing_persisted(mock_services)
 
+    async def test_empty_audio_batch_reports_error(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # A "Transcribe only" batch with no supported audio (e.g. a text folder)
+        # must not render a false success (Codex, #478). Register handlers with a
+        # batch service wired, since the closure captures it at registration.
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(empty))
+
+        from adapters.inbound.journals_routes import create_journals_routes
+
+        registered: dict[str, Any] = {}
+
+        def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
+            def decorator(fn: Any) -> Any:
+                registered[path] = fn
+                return fn
+
+            return decorator
+
+        create_journals_routes(MagicMock(), rt_collector, mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("a.mp3", b"x")),
+                ("file", _text_upload("b.mp3", b"y")),
+                ("processing_mode", "transcribe_only"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "No supported audio files" in to_xml(response)
+        _assert_nothing_persisted(mock_services)
+
 
 class TestSuggestActivitiesZeroPersistence:
     """`POST /journals/suggest-activities` takes content in the body, stores nothing."""

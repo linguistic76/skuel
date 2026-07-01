@@ -279,6 +279,19 @@ async def _run_batch_over_dir(
                 "error",
                 "Transcription service not available (requires FULL tier)",
                 is_error=True,
+                status_id=status_id,
+            )
+        # Verify the LLM branch BEFORE transcribing: transcription spends Deepgram
+        # quota and writes .txt to je_out/, so a missing llm_caller must fail the
+        # whole run up front, not after every file is transcribed for nothing.
+        if processing_mode == "transcribe_and_instructions" and (
+            processing_service is None or getattr(processing_service, "llm_caller", None) is None
+        ):
+            return render_journal_upload_status(
+                "error",
+                "LLM service not available (requires INTELLIGENCE_TIER=full)",
+                is_error=True,
+                status_id=status_id,
             )
         transcribe_result = await batch_transcription_service.transcribe_batch(input_dir, _JE_OUT)
         if transcribe_result.is_error:
@@ -286,6 +299,16 @@ async def _run_batch_over_dir(
                 "error", str(transcribe_result.error), is_error=True, status_id=status_id
             )
         r = transcribe_result.value
+
+        # No supported audio files at all (e.g. a text/PDF folder under "Transcribe
+        # only") is a validation error, not a silent success.
+        if r.total_files == 0:
+            return render_journal_upload_status(
+                "error",
+                "No supported audio files found to transcribe",
+                is_error=True,
+                status_id=status_id,
+            )
 
         if processing_mode == "transcribe_only":
             msg = (
@@ -297,14 +320,8 @@ async def _run_batch_over_dir(
                 "error" if is_err else "completed", msg, is_error=is_err, status_id=status_id
             )
 
-        # transcribe_and_instructions — LLM-structure each fresh transcript.
-        if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
-            return render_journal_upload_status(
-                "error",
-                "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                is_error=True,
-                status_id=status_id,
-            )
+        # transcribe_and_instructions — LLM-structure each fresh transcript
+        # (LLM availability already verified above).
         succeeded_stems = {
             Path(res["name"]).stem
             for res in transcribe_result.value.results
