@@ -132,9 +132,12 @@ class UserEntryProcessingService:
             Pipeline.TEACHER_REVIEW,
             Pipeline.JOURNAL,
             Pipeline.REFERENCE,
+            Pipeline.KNOWLEDGE,
         ):
             # JOURNAL: processed interactively in the Journals UI.
             # REFERENCE: archive/training material — stored as-is, no processing.
+            # KNOWLEDGE: developed vault notes — stored as-is; they inform
+            # UserContext via retrieval, not via a processing pass.
             return Result.ok(entry)
 
         if pipeline == Pipeline.EXTRACT_ACTIVITIES:
