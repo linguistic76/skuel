@@ -311,6 +311,7 @@ def Stage3Fragment(
     return Div(
         Div(
             _AiBubble("Stage 3 — What Is Related", related_output),
+            SuggestedActivitiesContainer(raw_entry),
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
@@ -353,6 +354,7 @@ def StandardResponseFragment(
     return Div(
         Div(
             _AiBubble(label, response_output),
+            SuggestedActivitiesContainer(raw_entry),
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
@@ -598,22 +600,24 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
 # ------------------------------------------------------------------
 
 
-def SuggestedActivitiesContainer(entry_uid: str) -> Any:
+def SuggestedActivitiesContainer(content: str) -> Any:
     """Lazy-loading placeholder for the "Suggested activities" panel.
 
-    Posts the entry UID to ``/journals/suggest-activities`` on load; the
-    endpoint fetches the entry content (ownership-checked) and returns the
-    rendered panel, swapped into this container's innerHTML. The CSRF token
-    rides the HTMX request header (attached by ``static/js/skuel.js``).
+    Posts the reflection *content* to ``/journals/suggest-activities`` on load;
+    the endpoint runs the bridge and returns the rendered panel, swapped into
+    this container's innerHTML. Zero-persistence (ADR-073): there is no stored
+    entry — the text travels in the request body. The CSRF token rides the HTMX
+    request header (attached by ``static/js/skuel.js``).
     """
     import json as _json
 
     return Div(
         P("Finding activities…", cls="text-[13px] text-muted-foreground"),
         id="suggested-activities",
+        cls="mt-2 rounded-[12px] border border-border bg-slate-50 px-4 py-3",
         hx_post="/journals/suggest-activities",
         hx_trigger="load",
-        hx_vals=_json.dumps({"entry_uid": entry_uid}),
+        hx_vals=_json.dumps({"content": content}),
         hx_swap="innerHTML",
     )
 

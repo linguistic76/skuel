@@ -1,9 +1,11 @@
-"""Route tests for the Journals text-session path (ADR-073 zero-persistence).
+"""Route tests for the Journals zero-persistence contract (ADR-073).
 
-The contract: `POST /journals/start` runs the AI workflow on typed text and
-returns the response *inline* — it must write **nothing** to the store. These
-tests prove that invariant by asserting the persistence methods on
-`user_entry_service` are never awaited, for both STANDARD and FOUNDER tiers.
+The contract: the journal text path (`POST /journals/start`), the file-upload
+path (`POST /journals/upload`), and the suggestions panel
+(`POST /journals/suggest-activities`) run their AI work and return results
+*inline* / to the user's own `je_out/` folder — they must write **nothing** to
+the store. These tests prove that invariant by asserting the persistence methods
+on `user_entry_service` are never awaited, across STANDARD and FOUNDER tiers.
 
 No Neo4j required: services are mocked and only the handler logic is exercised.
 Mirrors the harness in `test_today_routes.py`.
@@ -25,6 +27,15 @@ from core.utils.result_simplified import Errors, Result
 def _disable_csrf_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
     """Let the ``@csrf_protected`` wrapper fall through to the handler."""
     monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter() -> None:
+    """Clear the module-global rate-limit buckets so per-user counts don't leak
+    across tests (many handlers here share ``@rate_limited`` on ``user_mike``)."""
+    from adapters.inbound.rate_limit import reset_buckets_for_testing
+
+    reset_buckets_for_testing()
 
 
 def _make_request(user_uid: str | None = "user_mike", form: dict[str, str] | None = None) -> Any:
@@ -61,13 +72,21 @@ def mock_services() -> Any:
     services.journal = MagicMock()
     services.journal.run_standard = AsyncMock(return_value=Result.ok("A standard response."))
     services.journal.run_stage1 = AsyncMock(return_value=Result.ok("A scribe record."))
+    services.journal.run_compiled = AsyncMock(return_value=Result.ok("# Compiled output"))
+    services.journal.suggestions_available = True
+    services.journal.active_goal_titles = AsyncMock(return_value=Result.ok([]))
+    services.journal.suggest_activities = AsyncMock(return_value=Result.ok([]))
 
-    # Persistence surface — every one of these must stay un-awaited on /journals/start.
+    # Persistence surface — every one of these must stay un-awaited on the
+    # zero-persistence journal paths (ADR-073).
     services.user_entry = MagicMock()
     services.user_entry.create_entry = AsyncMock(
         return_value=Result.ok((MagicMock(uid="ue_x"), None))
     )
     services.user_entry.update_processed_content = AsyncMock(return_value=Result.ok(True))
+    services.user_entry.submit_file = AsyncMock(
+        return_value=Result.ok((MagicMock(uid="ue_x"), None))
+    )
     services.user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))
 
     services.batch_transcription = None
@@ -96,6 +115,62 @@ def handlers(mock_services: Any) -> dict[str, Any]:
 def _assert_nothing_persisted(services: Any) -> None:
     services.user_entry.create_entry.assert_not_awaited()
     services.user_entry.update_processed_content.assert_not_awaited()
+    services.user_entry.submit_file.assert_not_awaited()
+
+
+def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "user_mike") -> Any:
+    """Build a POST request whose ``form()`` yields a starlette FormData.
+
+    Upload handlers use ``form.getlist("file")`` + ``UploadFile`` filtering, so a
+    plain dict won't do — FormData carries the real multipart shape.
+    """
+    from starlette.datastructures import FormData
+
+    form_data = FormData(form_items)
+
+    async def _form() -> FormData:
+        return form_data
+
+    return SimpleNamespace(
+        method="POST",
+        session={"user_uid": user_uid},
+        url=SimpleNamespace(path="/journals/upload"),
+        query_params={},
+        form=_form,
+        cookies={},
+        headers={},
+    )
+
+
+def _text_upload(filename: str, content: bytes) -> Any:
+    """A starlette UploadFile backed by an in-memory buffer."""
+    import io
+
+    from starlette.datastructures import UploadFile
+
+    return UploadFile(file=io.BytesIO(content), filename=filename)
+
+
+def _register(services: Any) -> dict[str, Any]:
+    """Register journals routes against ``services`` → path → handler.
+
+    Used by tests that customise a service the route closure captures at
+    registration time (e.g. ``batch_transcription``), which the module-level
+    ``handlers`` fixture can't do after the fact.
+    """
+    from adapters.inbound.journals_routes import create_journals_routes
+
+    registered: dict[str, Any] = {}
+
+    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
+        def decorator(fn: Any) -> Any:
+            registered[path] = fn
+            return fn
+
+        return decorator
+
+    create_journals_routes(MagicMock(), rt_collector, services)
+    return registered
 
 
 class TestJournalsStartZeroPersistence:
@@ -151,4 +226,237 @@ class TestJournalsStartZeroPersistence:
         request = _make_request(form={"raw_entry": "Trigger an AI failure."})
         await handlers["/journals/start"](request=request)
 
+        _assert_nothing_persisted(mock_services)
+
+
+class TestJournalsUploadZeroPersistence:
+    """`POST /journals/upload` compiles to je_out/, never to Neo4j."""
+
+    async def test_single_text_file_writes_je_out_and_persists_nothing(
+        self,
+        handlers: dict[str, Any],
+        mock_services: Any,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        # FOUNDER instructions_only → run_compiled → je_out/{stem}_out.md.
+        # workspace_target=1 marks the /journals landing layout (has a workspace).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("reflection.txt", b"Ship the site by Friday.")),
+                ("processing_mode", "instructions_only"),
+                ("workspace_target", "1"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        mock_services.journal.run_compiled.assert_awaited_once()
+        assert (tmp_path / "reflection_out.md").read_text() == "# Compiled output"
+        # Result is retargeted to the centre workspace, not the right-panel status.
+        assert response.headers["HX-Retarget"] == "#journal-workspace"
+        _assert_nothing_persisted(mock_services)
+
+    async def test_single_upload_without_workspace_does_not_retarget(
+        self,
+        handlers: dict[str, Any],
+        mock_services: Any,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        # The /submissions/journal form omits workspace_target → the result must
+        # NOT retarget to a missing #journal-workspace (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("reflection.txt", b"Ship it.")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        # Returned as a bare fragment (FT), not an HX-Retarget HTMLResponse.
+        from starlette.responses import HTMLResponse
+
+        assert not isinstance(response, HTMLResponse)
+        _assert_nothing_persisted(mock_services)
+
+    async def test_no_file_persists_nothing(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        request = _make_upload_request([("processing_mode", "instructions_only")])
+        await handlers["/journals/upload"](request=request)
+        _assert_nothing_persisted(mock_services)
+
+    async def test_duplicate_output_stem_batch_is_rejected(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # Two files with the same STEM (note.txt / note.md) map to the same
+        # je_out/ output, so the batch is rejected loudly rather than silently
+        # dropping one — dedup is by stem, not filename (Kody + Codex, #478).
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("note.txt", b"first")),
+                ("file", _text_upload("note.md", b"second")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        response = await handlers["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "same je_out/ output" in to_xml(response)
+        _assert_nothing_persisted(mock_services)
+
+    async def test_empty_audio_batch_reports_error(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # A "Transcribe only" batch with no supported audio (e.g. a text folder)
+        # must not render a false success (Codex, #478). Register handlers with a
+        # batch service wired, since the closure captures it at registration.
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(empty))
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("a.mp3", b"x")),
+                ("file", _text_upload("b.mp3", b"y")),
+                ("processing_mode", "transcribe_only"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "No supported audio files" in to_xml(response)
+        _assert_nothing_persisted(mock_services)
+
+    async def test_single_transcribe_and_instructions_preflights_llm(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # STANDARD single audio upload with Deepgram but no LLM must fail BEFORE
+        # transcribing, so no Deepgram quota is spent (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_one = AsyncMock(
+            return_value=Result.ok("transcript")
+        )
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=None)  # no LLM
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("memo.mp3", b"audio")),
+                ("processing_mode", "transcribe_and_instructions"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        assert "LLM service not available" in to_xml(response)
+        mock_services.batch_transcription.transcribe_one.assert_not_awaited()
+        _assert_nothing_persisted(mock_services)
+
+    async def test_structuring_forces_fresh_transcription(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # folder-process transcribe_and_instructions must force skip_existing=False
+        # even though folder reruns default to True — structured output must match
+        # the current audio, never a stale same-stem transcript (Kody, #478).
+        je_in = tmp_path / "je_in"
+        je_in.mkdir()
+        (je_in / "memo.mp3").write_bytes(b"audio")
+        je_out = tmp_path / "je_out"
+        je_out.mkdir()
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_IN", je_in)
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", je_out)
+
+        done = SimpleNamespace(
+            total_files=1,
+            succeeded=1,
+            failed=0,
+            skipped=0,
+            results=[{"name": "memo.mp3", "status": "success"}],
+        )
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(done))
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("structured"))
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
+        registered = _register(mock_services)
+
+        request = _make_upload_request([("processing_mode", "transcribe_and_instructions")])
+        await registered["/journals/folder-process"](request=request)
+
+        _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
+        assert kwargs.get("skip_existing") is False
+        _assert_nothing_persisted(mock_services)
+
+    async def test_dedup_guard_is_mode_aware(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Under "Transcribe only", an ignored same-stem text file (meeting.txt)
+        # next to meeting.mp3 must NOT trigger the duplicate-output guard — only
+        # the mp3 produces je_out output (Codex, #478).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        done = SimpleNamespace(
+            total_files=1,
+            succeeded=1,
+            failed=0,
+            skipped=0,
+            results=[{"name": "meeting.mp3", "status": "success"}],
+        )
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(done))
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("meeting.mp3", b"audio")),
+                ("file", _text_upload("meeting.txt", b"ignored notes")),
+                ("processing_mode", "transcribe_only"),
+            ]
+        )
+        response = await registered["/journals/upload"](request=request)
+
+        from fasthtml.common import to_xml
+
+        # Not rejected: the batch actually ran instead of erroring on a false collision.
+        assert "same je_out/ output" not in to_xml(response)
+        mock_services.batch_transcription.transcribe_batch.assert_awaited_once()
+        # Uploads force fresh transcription — never reuse a stale je_out transcript.
+        _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
+        assert kwargs.get("skip_existing") is False
+        _assert_nothing_persisted(mock_services)
+
+
+class TestSuggestActivitiesZeroPersistence:
+    """`POST /journals/suggest-activities` takes content in the body, stores nothing."""
+
+    async def test_content_body_runs_bridge_and_persists_nothing(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        request = _make_request(form={"content": "Ship the site by Friday."})
+        await handlers["/journals/suggest-activities"](request=request)
+
+        mock_services.journal.suggest_activities.assert_awaited_once()
+        # No stored entry is read or written.
+        mock_services.user_entry.get_entry.assert_not_called()
+        _assert_nothing_persisted(mock_services)
+
+    async def test_core_tier_returns_inert_panel_and_persists_nothing(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        mock_services.journal = None
+        request = _make_request(form={"content": "anything"})
+        response = await handlers["/journals/suggest-activities"](request=request)
+
+        assert response is not None
         _assert_nothing_persisted(mock_services)

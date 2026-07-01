@@ -582,6 +582,11 @@ def render_right_panel() -> Any:
             _build_compact_source_section(),
             _build_compact_browse_area(),
             _build_compact_process_btn(),
+            # Signals that this layout has a #journal-workspace (landing centre
+            # column), so a successful single-file upload should retarget its
+            # result there. The /submissions/journal form omits this and keeps
+            # its result in #upload-status (ADR-073; Codex #478).
+            Input(type="hidden", name="workspace_target", value="1"),
             hx_post="/journals/upload",
             hx_target="#upload-status",
             hx_swap="outerHTML",

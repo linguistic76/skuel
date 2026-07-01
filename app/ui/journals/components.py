@@ -16,8 +16,15 @@ def render_upload_status(
     message: str,
     je_input_uid: str | None = None,
     is_error: bool = False,
+    status_id: str = "upload-status",
 ) -> Any:
-    """Render upload status as HTML fragment for HTMX swap."""
+    """Render upload status as HTML fragment for HTMX swap.
+
+    ``status_id`` lets callers target a non-default swap id; ``je_input_uid`` is
+    retained for the rare entry-backed status card but is ``None`` on the
+    zero-persistence journal paths (ADR-073), which report a ``je_out/`` outcome
+    instead.
+    """
     if is_error:
         return Div(
             Alert(
@@ -25,67 +32,15 @@ def render_upload_status(
                 P(message, cls="mb-0"),
                 variant=AlertT.error,
             ),
-            id="upload-status",
+            id=status_id,
         )
 
     return Div(
         Alert(
-            H4("Submitted to AI", cls="mb-0"),
+            H4("Done", cls="mb-0"),
             P(f"Entry: {je_input_uid}", cls="mb-0") if je_input_uid else None,
-            P(f"Status: {status}", cls="mb-0"),
+            P(message or f"Status: {status}", cls="mb-0"),
             variant=AlertT.success,
-        ),
-        id="upload-status",
-    )
-
-
-def render_batch_upload_status(
-    results: list[tuple[str, bool, str | None, str | None]],
-    status_id: str = "upload-status",
-) -> Any:
-    """Render per-file status list for a multi-file journal upload (HTMX swap target).
-
-    Each tuple: (filename, success, entry_uid, error_message).
-    ``status_id`` lets callers use a non-default id (e.g. ``folder-upload-status``)
-    so multiple upload forms on the same page don't share an id.
-    """
-    succeeded = [r for r in results if r[1]]
-    failed = [r for r in results if not r[1]]
-
-    rows: list[Any] = []
-    for filename, ok, _uid, error in results:
-        if ok:
-            rows.append(
-                Div(
-                    Span("✓", cls="text-success font-bold mr-2 shrink-0"),
-                    Span(filename, cls="text-sm font-medium truncate"),
-                    cls="flex items-center py-1 border-b border-border last:border-0",
-                )
-            )
-        else:
-            rows.append(
-                Div(
-                    Span("✗", cls="text-destructive font-bold mr-2 shrink-0"),
-                    Span(filename, cls="text-sm font-medium truncate"),
-                    Span(f" — {error}", cls="text-xs text-muted-foreground ml-1 truncate")
-                    if error
-                    else None,
-                    cls="flex items-center py-1 border-b border-border last:border-0",
-                )
-            )
-
-    if failed:
-        summary = f"{len(succeeded)} submitted, {len(failed)} failed"
-        variant = AlertT.warning
-    else:
-        summary = f"{len(succeeded)} {'file' if len(succeeded) == 1 else 'files'} submitted to AI"
-        variant = AlertT.success
-
-    return Div(
-        Alert(
-            H4(summary, cls="mb-2"),
-            Div(*rows, cls="mb-2") if rows else None,
-            variant=variant,
         ),
         id=status_id,
     )

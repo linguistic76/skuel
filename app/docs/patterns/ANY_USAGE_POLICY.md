@@ -22,7 +22,6 @@ They provide no value and actively undermine type safety.
 - `UserOperations` return types — Were `Result[Any]`, now `Result[User]` / `Result[UserContext]` (no circular import existed)
 - `get_active_learners` — Was `Result[list[Any]]`, now `Result[list[User]]`
 - `bookmark_knowledge` `tags` param — Was `list | None`, now `list[str] | None`
-- `UserEntryOperations.submit_file()` params — Were `entity_type: Any`, `pipeline: Any`, now `EntityType`, `Pipeline`
 - `SubmissionOperations.list_submissions()` params — Were `entity_type: Any`, `status: Any`, now `EntityType`, `EntityStatus`
 - `SubmissionOperations.set_visibility()` — Was `visibility: Any`, now `Visibility`
 - `EntryReportOperations.generate_report()` — Were `entry: Any`, `exercise: Any`, now `Submission`, `Exercise`

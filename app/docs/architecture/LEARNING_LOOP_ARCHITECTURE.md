@@ -397,7 +397,7 @@ content should be processed.
 Without it, the Curriculum Track has no student voice.
 
 **Derivation chain fields (set at creation, no graph query needed):**
-- `parent_entity_uid` — the `fulfills_exercise_uid` passed at submission time (may be an Exercise or RevisedExercise UID). Set automatically by `submit_file()` / `submit_form()`. Useful as a Python-layer lookup; the graph edges are the authoritative source.
+- `parent_entity_uid` — the `fulfills_exercise_uid` passed at submission time (may be an Exercise or RevisedExercise UID). Set from `UserEntryCreateRequest.fulfills_exercise_uid` (via `create_entry`) / `submit_form()`. Useful as a Python-layer lookup; the graph edges are the authoritative source.
 - `revision_number` — which attempt this is (1 = first; auto-computed by `process_exercise_submission()` as `prior_FULFILLS_EXERCISE_count + 1` counted against the **root Exercise** UID). Written to DB alongside the auto-generated canonical title.
 
 Both fields make the Python model self-describing without a round-trip to the graph. Note: `FULFILLS_EXERCISE` always points to the root Exercise (see below); `parent_entity_uid` may point to a RevisedExercise UID for revision submissions.
