@@ -48,6 +48,15 @@ class TestNoOpPipelines:
         assert result.is_ok
         assert result.value is entry
 
+    @pytest.mark.asyncio
+    async def test_pipeline_knowledge_is_noop(self):
+        # Developed vault notes are stored as-is; they inform UserContext via
+        # retrieval, not a processing pass.
+        entry = _make_entry(Pipeline.KNOWLEDGE)
+        result = await _make_dispatcher().process(entry)
+        assert result.is_ok
+        assert result.value is entry
+
 
 class TestEveryPipelineValueIsHandled:
     """Regression guard: every Pipeline value has a routing branch."""

@@ -162,9 +162,10 @@ def test_build_unset_defaults_to_fail_closed_wall(
     assert wall.allowed_dirs == _default_allowed(root)
     assert wall.permits(root / "je_raw" / "x.md") is False  # walled with no config
     assert wall.permits(root / "periodic_notes" / "d.md") is True
-    # All three doorway folders open by default; a non-doorway folder stays walled.
+    # All doorway folders open by default; a non-doorway folder stays walled.
     assert wall.permits(root / "personal_notes" / "p.md") is True
     assert wall.permits(root / "activity_notes" / "a.md") is True
+    assert wall.permits(root / "knowledge" / "k.md") is True
     assert wall.permits(root / "random_folder" / "r.md") is False
 
 

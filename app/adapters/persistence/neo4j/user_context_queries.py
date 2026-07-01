@@ -929,7 +929,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
 WHERE sub.entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']
-  AND NOT (sub.entity_type = 'user_entry' AND sub.pipeline = 'reference')
+  AND NOT (sub.entity_type = 'user_entry' AND sub.pipeline IN ['reference', 'knowledge'])
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
