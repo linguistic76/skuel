@@ -319,7 +319,9 @@ class TestJournalsUploadZeroPersistence:
         monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
         empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
         mock_services.batch_transcription = MagicMock()
-        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(empty))
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(
+            return_value=Result.ok(empty)
+        )
         registered = _register(mock_services)
 
         request = _make_upload_request(
@@ -434,6 +436,168 @@ class TestJournalsUploadZeroPersistence:
         # Uploads force fresh transcription — never reuse a stale je_out transcript.
         _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
         assert kwargs.get("skip_existing") is False
+        _assert_nothing_persisted(mock_services)
+
+
+class TestJournalExemplarLoading:
+    """`je_raw`/`je_pro` are read off disk as few-shot exemplars (ADR-073 §4).
+
+    Read-only, in-memory, bounded — never ingested or persisted.
+    """
+
+    @staticmethod
+    def _wire(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> tuple[Any, Any]:
+        raw = tmp_path / "je_raw"
+        pro = tmp_path / "je_pro"
+        raw.mkdir()
+        pro.mkdir()
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", raw)
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", pro)
+        return raw, pro
+
+    def test_matched_pairs_load_by_stem(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "example.md").write_text("RAW BODY")
+        (pro / "example.md").write_text("PRO BODY")
+
+        pairs = _load_journal_exemplars()
+        assert pairs == [("RAW BODY", "PRO BODY")]
+
+    def test_unmatched_files_are_skipped(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "lonely.md").write_text("no partner")  # only in je_raw
+        (pro / "orphan.md").write_text("no partner")  # only in je_pro
+
+        assert _load_journal_exemplars() == []
+
+    def test_absent_folders_degrade_to_empty(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", tmp_path / "nope_raw")
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", tmp_path / "nope_pro")
+        assert _load_journal_exemplars() == []
+
+    def test_pair_count_is_capped(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        from adapters.inbound.journals_routes import (
+            _EXEMPLAR_MAX_PAIRS,
+            _load_journal_exemplars,
+        )
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        for i in range(_EXEMPLAR_MAX_PAIRS + 2):
+            (raw / f"e{i}.md").write_text(f"raw {i}")
+            (pro / f"e{i}.md").write_text(f"pro {i}")
+
+        assert len(_load_journal_exemplars()) == _EXEMPLAR_MAX_PAIRS
+
+    def test_each_side_is_truncated(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        from adapters.inbound.journals_routes import (
+            _EXEMPLAR_MAX_CHARS,
+            _load_journal_exemplars,
+        )
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "big.md").write_text("R" * (_EXEMPLAR_MAX_CHARS + 500))
+        (pro / "big.md").write_text("P" * (_EXEMPLAR_MAX_CHARS + 500))
+
+        (raw_body, pro_body) = _load_journal_exemplars()[0]
+        assert len(raw_body) == _EXEMPLAR_MAX_CHARS
+        assert len(pro_body) == _EXEMPLAR_MAX_CHARS
+
+    def test_undecodable_exemplar_is_skipped_not_raised(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # A non-UTF-8 exemplar must be skipped, never raise out of the helper
+        # (UnicodeDecodeError is a UnicodeError, not an OSError). Kody #480.
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "bad.md").write_bytes(b"\xff\xfe not valid utf-8")
+        (pro / "bad.md").write_text("valid partner")
+
+        assert _load_journal_exemplars() == []  # skipped cleanly, no exception
+
+    def test_preamble_empty_when_no_pairs(self) -> None:
+        from adapters.inbound.journals_routes import _build_exemplar_preamble
+
+        assert _build_exemplar_preamble([]) == ""
+
+
+class TestJournalExemplarInjection:
+    """Exemplars reach the LLM prompt and still persist nothing."""
+
+    async def test_exemplars_injected_into_prompt_and_persist_nothing(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # STANDARD single upload (instructions_only) routes through
+        # _call_llm_with_instructions, which injects the je_raw/je_pro pair.
+        raw = tmp_path / "je_raw"
+        pro = tmp_path / "je_pro"
+        raw.mkdir()
+        pro.mkdir()
+        (raw / "sample.md").write_text("RAW_EXEMPLAR_MARKER")
+        (pro / "sample.md").write_text("PRO_EXEMPLAR_MARKER")
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", raw)
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", pro)
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path / "je_out")
+
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("processed"))
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
+        registered = _register(mock_services)  # STANDARD user (default fixture)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("today.txt", b"My rough notes.")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        await registered["/journals/upload"](request=request)
+
+        llm.generate.assert_awaited_once()
+        _, kwargs = llm.generate.call_args
+        prompt = kwargs["prompt"]
+        assert "RAW_EXEMPLAR_MARKER" in prompt
+        assert "PRO_EXEMPLAR_MARKER" in prompt
+        assert "My rough notes." in prompt
+        _assert_nothing_persisted(mock_services)
+
+    async def test_no_exemplars_leaves_prompt_clean(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Absent je_raw/je_pro → prompt is just the user's text (today's behavior).
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", tmp_path / "nope_raw")
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", tmp_path / "nope_pro")
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path / "je_out")
+
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("processed"))
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
+        registered = _register(mock_services)
+
+        request = _make_upload_request(
+            [
+                ("file", _text_upload("today.txt", b"My rough notes.")),
+                ("processing_mode", "instructions_only"),
+            ]
+        )
+        await registered["/journals/upload"](request=request)
+
+        _, kwargs = llm.generate.call_args
+        # No exemplar block header injected when the folders are absent.
+        assert "— raw input" not in kwargs["prompt"]
         _assert_nothing_persisted(mock_services)
 
 

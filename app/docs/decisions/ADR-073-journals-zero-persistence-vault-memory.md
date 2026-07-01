@@ -1,6 +1,7 @@
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
 
-**Status:** Accepted — PR 1 (text sessions + allowlist) and PR 2 (upload/transcription, decision A) shipped; PR 3 (exemplars) remains (see *Implementation Status*).
+**Status:** Accepted — PR 1 (text sessions + allowlist), PR 2 (upload/transcription, decision A),
+and PR 3 (disk-only exemplars) shipped (see *Implementation Status*).
 **Date:** 2026-06-30
 **Related:** ADR-054 (UserEntry collapse), ADR-069 (EXTRACT_ACTIVITIES pipeline + EntryReport), ADR-070 (bidirectional VaultBridge), PR #475 (SyncAllowlist fail-closed vault privacy wall)
 
@@ -78,6 +79,28 @@ journals processed* without teaching it anything *about* the user. When used, th
 are sent to the AI provider for that one request, same as any AI feature (they are the user's
 own examples). They are never ingested as personal memory.
 
+**Shipped as disk-only (PR 3).** Matched `je_raw`↔`je_pro` pairs (by filename stem, bounded to a
+few small pairs) are read *off disk at processing time* and injected into the STANDARD
+journal-processing prompt as labeled few-shot examples. Nothing is ingested, stored, or turned
+into an entity — the zero-persistence contract holds literally. Missing/empty folders degrade
+cleanly to the no-exemplar prompt.
+
+**Two conceptual layers (PLANNED, collapsed while single-user).** These exemplars carry two
+purposes that are one and the same today because there is a single user:
+
+- **#1 — global / domain-process exemplars** (user-agnostic): teach the *craft* of processing a
+  journal, the same for everyone. Conceptually a **product asset** (alongside the global journal
+  guidance in `data/instructions/`), not per-user private data.
+- **#2b — per-user personal journal style** (private): how *this* user likes *their* journals
+  processed. The per-user mirror of #1; the future home of `Pipeline.REFERENCE` — stored
+  privately, excluded from context, marked as a journal exemplar.
+
+(**#2a** — what SKUEL learns *about* the user from journaling — is **not** new: it is the vault
+doorway, `pipeline: journal|knowledge` feeding UserContext.) `Pipeline.REFERENCE` is **reserved**
+for the #2b stored layer and has **no producer today**; disk-only exemplars satisfy the
+functional need without it. Splitting #1 (product-default) from #2b (per-user stored) is deferred
+until there is more than one user.
+
 ## Implementation Status
 
 Progress against target (PR 1 + PR 2 shipped; PR 3 remains):
@@ -87,7 +110,7 @@ Progress against target (PR 1 + PR 2 shipped; PR 3 remains):
 | Journal session persistence | Writes `UserEntry` | ✅ **Zero** — process → return inline / `je_out/` file |
 | File upload + transcription | Writes `UserEntry` (+ manual processing) | ✅ **Zero** — process → `je_out/` file (decision A) |
 | Sync allowlist default | `periodic_notes/` only | ✅ `periodic_notes/`, `personal_notes/`, `activity_notes/` |
-| `je_raw/`/`je_pro/` | Unconditionally excluded, inert | ⏳ PR 3 — read as processing exemplars |
+| `je_raw/`/`je_pro/` | Unconditionally excluded, inert | ✅ **Disk-only** — read at processing time as few-shot exemplars; never ingested |
 | Periodic notes | Stored + in-app editable | **Unchanged (kept)** |
 | Model-feeding read (`get_vault_notes_for_context`) | Filters `pipeline='journal'` + `vault_file_path` | Unchanged; already excludes journal sessions |
 
@@ -98,8 +121,8 @@ metadata helpers, and `UserEntryService.submit_file`/`_store_file` (the bytes-to
 entry-creation helper journals was the sole consumer of). Periodic-note machinery is retained.
 
 **Sequenced code pass:** `plans/journals-zero-persistence-code-pass.md` — PR 1 ✅ (stateless text
-sessions + expanded allowlist, the privacy win), PR 2 ✅ (upload/transcription), PR 3 ⏳ (exemplar
-processing).
+sessions + expanded allowlist, the privacy win), PR 2 ✅ (upload/transcription), PR 3 ✅ (disk-only
+exemplar processing; the #1 global / #2b per-user stored split remains PLANNED).
 
 **Async-transcription decision — resolved to (A).** "Sessions store zero" is trivial for text
 (process → return → download) but was harder for **audio**, which previously attached its

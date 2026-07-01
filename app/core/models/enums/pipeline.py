@@ -36,10 +36,17 @@ class Pipeline(StrEnum):
         JOURNAL                   — Journals domain entry; processing driven by
                                     JournalTier (FOUNDER: three-stage DNWF,
                                     STANDARD: single-response). Always private.
-        REFERENCE                 — Archive/training material (je_raw/, je_pro/).
-                                    Stored as-is, no processing. Excluded from
-                                    UserContext counts and Askesis context.
-                                    Always private.
+        REFERENCE                 — RESERVED for the planned per-user stored
+                                    journal-exemplar layer (private, no
+                                    processing, excluded from UserContext /
+                                    Askesis). Has no producer today: je_raw/ +
+                                    je_pro/ are read *off disk* as few-shot
+                                    processing-style exemplars and persist ZERO
+                                    (ADR-073 §4). This value stores the future
+                                    #2b split — per-user styled exemplars stored
+                                    privately — distinct from the #1 global
+                                    (product-default) exemplar set. Registered
+                                    PLANNED until that layer is built.
         KNOWLEDGE                 — "Developed files": the user's own notes in
                                     the vault ``knowledge/`` doorway, shared to
                                     teach SKUEL about them. Stored as-is, no
