@@ -43,6 +43,7 @@ from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
     DEFAULT_USER_UID,
     ENTITY_CONFIGS,
+    SyncAllowlist,
     collect_files,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
@@ -454,7 +455,7 @@ async def ingest_directory(
     progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
-    excluded_dirs: frozenset[str] | None = None,
+    allowlist: SyncAllowlist | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -488,6 +489,10 @@ async def ingest_directory(
             routed through this callback instead — ensuring the OWNS edge,
             audience resolution, and post-persist pipeline (EXTRACT_ACTIVITIES)
             all run. Callback signature: ``async (path) -> Result[Any]``.
+        allowlist: Optional fail-closed folder allowlist (SyncAllowlist). When
+            set, files under its governed vault root are ingested only if they
+            also sit under an allowed dir; files outside the root are unaffected.
+            Applied in ``collect_files`` so every caller inherits the same wall.
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -515,7 +520,7 @@ async def ingest_directory(
         )
 
     # Collect all supported files using simplified pattern matching
-    all_files = collect_files(directory, pattern, excluded_dirs=excluded_dirs)
+    all_files = collect_files(directory, pattern, allowlist=allowlist)
 
     if not all_files:
         if ingestion_mode == "full":

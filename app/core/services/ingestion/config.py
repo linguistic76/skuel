@@ -311,6 +311,65 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 
 
+@dataclass(frozen=True)
+class SyncAllowlist:
+    """Fail-closed folder allowlist for vault ingestion.
+
+    Scopes a privacy wall to a single governed vault root (the user's personal
+    vault). A file under ``governed_root`` is ingested only when it also sits
+    under one of ``allowed_dirs``; every other folder under the root is walled
+    off. Files outside ``governed_root`` (e.g. the admin content vault) are
+    unaffected, so the same service can ingest a fully-open curriculum vault and
+    a fail-closed personal vault.
+
+    Fail-closed: an empty ``allowed_dirs`` walls the *entire* governed root — the
+    default posture is "not synced", so a folder created later is silent until it
+    is explicitly opted in.
+
+    ``permits`` is the single predicate both ingestion doors (HTTP
+    ``/api/ingest/*`` and ``VaultReconciler.sync``) inherit via
+    ``UnifiedIngestionService.ingest_directory`` — no code path can bypass it.
+    ``governed_root`` and ``allowed_dirs`` are stored already-resolved (see
+    ``build_sync_allowlist``) so the ``permits`` check is purely lexical after a
+    single ``resolve()`` of the candidate.
+    """
+
+    governed_root: Path
+    allowed_dirs: frozenset[Path]
+
+    def permits(self, path: Path) -> bool:
+        """Whether ``path`` may be ingested (True = keep).
+
+        Outside the governed root → always permitted (ungoverned tree). Inside
+        → permitted only when nested under an allowed dir. The candidate is
+        resolved first so ``..`` segments and symlinks cannot smuggle a walled
+        file past the check.
+        """
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.governed_root):
+            return True
+        return any(resolved.is_relative_to(allowed) for allowed in self.allowed_dirs)
+
+
+def build_sync_allowlist(governed_root: Path) -> SyncAllowlist | None:
+    """Build the vault-sync allowlist from ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``.
+
+    The env var is a colon-separated list of absolute directories under
+    ``governed_root`` (the personal vault) that are the ONLY folders whose files
+    may be ingested. Unset/blank → returns ``None`` (feature inactive; every file
+    passes, preserving behaviour for deployments that never configured a wall).
+
+    Fail-closed within the root: once the var is set, any folder under
+    ``governed_root`` that is not listed is excluded from ingestion. A value of
+    just ``":"`` (no real entries) is a deliberate "wall everything" config.
+    """
+    raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
+    if not raw or not raw.strip():
+        return None
+    allowed_dirs = frozenset(Path(p.strip()).resolve() for p in raw.split(":") if p.strip())
+    return SyncAllowlist(governed_root=governed_root.resolve(), allowed_dirs=allowed_dirs)
+
+
 def _file_mtime(path: Path) -> float:
     """Get file modification time for sorting."""
     return path.stat().st_mtime
@@ -319,7 +378,7 @@ def _file_mtime(path: Path) -> float:
 def collect_files(
     directory: Path,
     pattern: str = "*",
-    excluded_dirs: frozenset[str] | None = None,
+    allowlist: SyncAllowlist | None = None,
 ) -> list[Path]:
     """
     Collect all supported files (MD, YAML, YML) from a directory.
@@ -332,8 +391,10 @@ def collect_files(
     Args:
         directory: Directory to search
         pattern: Glob pattern (default "*" for all files)
-        excluded_dirs: Directory names to exclude at any depth (e.g. frozenset({"je_in"})).
-            Any file whose path contains one of these names as a component is skipped.
+        allowlist: Optional fail-closed folder allowlist. When provided, files
+            under the allowlist's governed root are kept only if they also sit
+            under an allowed dir (see ``SyncAllowlist.permits``); files outside
+            the governed root are unaffected. ``None`` = no wall (keep all).
 
     Returns:
         List of file paths sorted by modification time (newest first)
@@ -351,8 +412,8 @@ def collect_files(
         all_files.extend(directory.glob(f"**/{pattern}.yaml"))
         all_files.extend(directory.glob(f"**/{pattern}.yml"))
 
-    if excluded_dirs:
-        all_files = [f for f in all_files if not any(part in excluded_dirs for part in f.parts)]
+    if allowlist is not None:
+        all_files = [f for f in all_files if allowlist.permits(f)]
 
     return sorted(all_files, key=_file_mtime, reverse=True)
 
@@ -363,6 +424,8 @@ __all__ = [
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "SyncAllowlist",
+    "build_sync_allowlist",
     "collect_files",
     "generate_ingestion_relationship_config",
 ]

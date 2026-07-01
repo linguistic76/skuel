@@ -52,7 +52,12 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .batch import ProgressCallback, find_entity_file, ingest_bundle, ingest_directory, ingest_vault
-from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIGS
+from .config import (
+    DEFAULT_MAX_FILE_SIZE_BYTES,
+    DEFAULT_USER_UID,
+    ENTITY_CONFIGS,
+    SyncAllowlist,
+)
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import (
@@ -128,6 +133,7 @@ class UnifiedIngestionService:
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
         user_entry_processor: UserEntryProcessingService | None = None,
+        sync_allowlist: SyncAllowlist | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -165,6 +171,13 @@ class UnifiedIngestionService:
                           ``- [ ]`` lines extracted into Tasks on ingest (ADR-069).
                           Extraction failures are isolated — the journal node
                           persists regardless. Late-bound at the composition root.
+            sync_allowlist: Optional fail-closed folder allowlist (SyncAllowlist)
+                          applied to every ``ingest_directory`` scan — the single
+                          chokepoint both ingestion doors (HTTP /api/ingest/* and
+                          VaultReconciler.sync) inherit. When set, files under the
+                          governed vault root are ingested only if they sit under
+                          an allowed dir; ``None`` = no wall. Late-bound at the
+                          composition root once the vault root is known.
         """
         if write_backend is None or bulk_backend is None:
             raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
@@ -190,6 +203,10 @@ class UnifiedIngestionService:
         # Late-bound at the composition root (UserEntryProcessingService is built
         # after this service); runs entry.pipeline after persistence.
         self.user_entry_processor = user_entry_processor
+        # Fail-closed folder allowlist, late-bound at the composition root once the
+        # governed vault root is resolved. Applied to every ingest_directory scan
+        # so both ingestion doors inherit the same privacy wall.
+        self.sync_allowlist = sync_allowlist
         self.logger = logger
 
         # Log embedding availability
@@ -613,7 +630,6 @@ class UnifiedIngestionService:
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
-        excluded_dirs: frozenset[str] | None = None,
     ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
@@ -639,6 +655,11 @@ class UnifiedIngestionService:
         USER_ENTRY files are routed through ``self.ingest_file`` (per-file
         pipeline) instead of the bulk upsert engine so the OWNS edge, audience
         resolution, and post-persist extraction (EXTRACT_ACTIVITIES) all run.
+
+        ``self.sync_allowlist`` (when configured) is applied to every scan here —
+        the single chokepoint both ingestion doors traverse — so a fail-closed
+        vault wall cannot be bypassed by any caller. Files under the governed
+        vault root are ingested only if they sit under an allowed dir.
         """
         effective_user_uid = user_uid or self.default_user_uid
 
@@ -660,7 +681,7 @@ class UnifiedIngestionService:
             progress_callback=progress_callback,
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
-            excluded_dirs=excluded_dirs,
+            allowlist=self.sync_allowlist,
         )
 
     async def ingest_vault(
