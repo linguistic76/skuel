@@ -279,3 +279,115 @@ class TestReconcileDeletions:
         assert result.is_ok
         assert result.value.entities_deleted == 0
         backend.delete_entities_with_metadata.assert_not_called()
+
+
+class TestReconcileDeletionsWall:
+    """Wall symmetry (Codex R4): a tracked row is retracted when its file becomes
+    disallowed by the vault wall, not only when deleted from disk — otherwise
+    previously-synced content lingers in the graph after the wall is narrowed."""
+
+    def _wall(self, root, *allowed):
+        from core.services.ingestion.config import SyncAllowlist
+
+        return SyncAllowlist(
+            governed_root=root.resolve(),
+            allowed_dirs=frozenset(a.resolve() for a in allowed),
+        )
+
+    @pytest.mark.asyncio
+    async def test_walled_file_purged_even_though_present(self, tmp_path) -> None:
+        # A non-staging folder that is not on the allowlist: the file exists on
+        # disk but is now private, so its already-ingested entity is purged.
+        (tmp_path / "periodic_notes").mkdir()
+        (tmp_path / "oldnotes").mkdir()
+        allowed = tmp_path / "periodic_notes" / "note.md"
+        allowed.write_text("x")
+        walled = tmp_path / "oldnotes" / "private.md"
+        walled.write_text("x")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(allowed), "entity_uid": "ku.allowed"},
+                {"file_path": str(walled), "entity_uid": "ku.walled"},
+            ]
+        )
+        result = await tracker.reconcile_deletions(
+            tmp_path, allowlist=self._wall(tmp_path, tmp_path / "periodic_notes")
+        )
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 1
+        items = backend.delete_entities_with_metadata.await_args.args[0]
+        assert items == [{"file_path": str(walled), "entity_uid": "ku.walled"}]
+
+    @pytest.mark.asyncio
+    async def test_staging_file_purged_without_allowlist(self, tmp_path) -> None:
+        # The staging floor retracts too, even when no privacy wall is active.
+        (tmp_path / "notes").mkdir()
+        (tmp_path / "je_out").mkdir()
+        alive = tmp_path / "notes" / "n.md"
+        alive.write_text("x")
+        staging = tmp_path / "je_out" / "transcript.md"
+        staging.write_text("x")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(staging), "entity_uid": "ku.staging"},
+            ]
+        )
+        result = await tracker.reconcile_deletions(tmp_path)  # allowlist=None
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+        items = backend.delete_entities_with_metadata.await_args.args[0]
+        assert items == [{"file_path": str(staging), "entity_uid": "ku.staging"}]
+
+    @pytest.mark.asyncio
+    async def test_walled_but_reingested_at_allowed_path_survives(self, tmp_path) -> None:
+        # Same entity claimed by a walled old path AND an allowed new path (a move
+        # into the synced folder). Entity survives; only the stale walled row goes.
+        (tmp_path / "periodic_notes").mkdir()
+        (tmp_path / "oldnotes").mkdir()
+        walled_old = tmp_path / "oldnotes" / "thing.md"
+        walled_old.write_text("x")
+        allowed_new = tmp_path / "periodic_notes" / "thing.md"
+        allowed_new.write_text("x")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(walled_old), "entity_uid": "ku.thing"},
+                {"file_path": str(allowed_new), "entity_uid": "ku.thing"},
+            ]
+        )
+        result = await tracker.reconcile_deletions(
+            tmp_path, allowlist=self._wall(tmp_path, tmp_path / "periodic_notes")
+        )
+        assert result.is_ok
+        assert result.value.entities_deleted == 0
+        assert result.value.stale_metadata_removed == 1
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_all_walled_but_present_purges_not_refused(self, tmp_path) -> None:
+        # Everything walled but physically on disk: the vault is mounted, so the
+        # unmount valve does NOT fire — the rows are purged (recoverable by
+        # re-allowing the folder and re-syncing, since the vault is source of truth).
+        (tmp_path / "oldnotes").mkdir()
+        a = tmp_path / "oldnotes" / "a.md"
+        a.write_text("x")
+        b = tmp_path / "oldnotes" / "b.md"
+        b.write_text("y")
+
+        tracker, _backend = _tracker_with_tracked(
+            [
+                {"file_path": str(a), "entity_uid": "ku.a"},
+                {"file_path": str(b), "entity_uid": "ku.b"},
+            ]
+        )
+        # Allowlist points at a folder with no tracked files → everything walled.
+        result = await tracker.reconcile_deletions(
+            tmp_path, allowlist=self._wall(tmp_path, tmp_path / "periodic_notes")
+        )
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 2
