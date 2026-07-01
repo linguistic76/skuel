@@ -44,10 +44,20 @@ _JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
 # ingest, and je_out is never one of them. Users open je_out files in Obsidian and
 # manually decide what enters their personal vault. SKUEL never auto-syncs je_out.
 _JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
+# je_raw/je_pro hold curated example input→output pairs. They are read *off disk at
+# processing time* as few-shot exemplars that shape journal-processing STYLE — never
+# ingested, never written to Neo4j, never treated as facts about the user (ADR-073 §4).
+# The vault's fail-closed SyncAllowlist + STAGING_EXCLUDED_DIRS wall them off from
+# ingestion unconditionally; this is a read-only, in-memory use.
+_JE_RAW = Path("/home/mike/0bsidian/skuel/je_raw")
+_JE_PRO = Path("/home/mike/0bsidian/skuel/je_pro")
 _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
 _LLM_MODEL_GPT = "gpt-4o-mini"
 _LLM_MAX_TOKENS = 4000
+# Bound token cost of injected exemplars: at most N pairs, each side truncated.
+_EXEMPLAR_MAX_PAIRS = 3
+_EXEMPLAR_MAX_CHARS = 2000
 
 
 # ---------------------------------------------------------------------------
@@ -109,12 +119,81 @@ async def _compile_text(
     return await _call_llm_with_instructions(text, instructions, processing_service)
 
 
+def _load_journal_exemplars() -> list[tuple[str, str]]:
+    """Read matched ``je_raw``↔``je_pro`` example pairs from disk (ADR-073 §4).
+
+    Pairs are matched by filename **stem**: a ``je_raw`` text file pairs with the
+    ``je_pro`` text file sharing its stem. Unmatched files are skipped. The result is
+    bounded to ``_EXEMPLAR_MAX_PAIRS`` pairs, each side truncated to
+    ``_EXEMPLAR_MAX_CHARS``, to keep token cost predictable.
+
+    Read-only and in-memory: nothing is ingested, persisted, or turned into an entity.
+    These teach the pipeline *how the user likes journals processed* (style), never
+    facts about the user. Missing/empty folders yield ``[]`` — the caller degrades to
+    today's no-exemplar behavior.
+    """
+
+    def _text_files(directory: Path) -> dict[str, Path]:
+        try:
+            entries = sorted(directory.iterdir()) if directory.is_dir() else []
+        except OSError as e:  # unscannable folder — degrade to no exemplars
+            logger.warning(f"Skipping journal exemplar folder {directory}: {e}")
+            return {}
+        return {p.stem: p for p in entries if p.is_file() and p.suffix.lower() in _TEXT_EXTENSIONS}
+
+    def _read_prefix(path: Path) -> str | None:
+        # Read only the bounded prefix — never load an oversized exemplar fully.
+        # UnicodeDecodeError (a UnicodeError, NOT an OSError) must be caught here
+        # too, or an undecodable file would abort the whole request instead of
+        # being skipped.
+        try:
+            with path.open(encoding="utf-8") as fh:
+                return fh.read(_EXEMPLAR_MAX_CHARS)
+        except (OSError, UnicodeError) as e:  # unreadable/undecodable — skip it
+            logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
+            return None
+
+    raw_by_stem = _text_files(_JE_RAW)
+    pro_by_stem = _text_files(_JE_PRO)
+    pairs: list[tuple[str, str]] = []
+    for stem in sorted(raw_by_stem.keys() & pro_by_stem.keys()):
+        if len(pairs) >= _EXEMPLAR_MAX_PAIRS:
+            break
+        raw = _read_prefix(raw_by_stem[stem])
+        pro = _read_prefix(pro_by_stem[stem])
+        if raw is None or pro is None:
+            continue
+        if raw.strip() and pro.strip():
+            pairs.append((raw, pro))
+    return pairs
+
+
+def _build_exemplar_preamble(pairs: list[tuple[str, str]]) -> str:
+    """Render exemplar pairs as a labeled few-shot block, or ``""`` if none."""
+    if not pairs:
+        return ""
+    blocks = [
+        f"### Example {i} — raw input\n{raw}\n\n### Example {i} — processed output\n{pro}"
+        for i, (raw, pro) in enumerate(pairs, start=1)
+    ]
+    body = "\n\n".join(blocks)
+    return (
+        "The following are examples of how this user likes a journal processed. "
+        "Match their STYLE and structure. Do NOT treat their content as facts about "
+        f"the user or carry it into your output.\n\n{body}"
+    )
+
+
 async def _call_llm_with_instructions(
     text: str,
     instructions: str | None,
     processing_service: Any,
 ) -> Any:
-    """Call LLM directly on raw text for folder processing (no database records)."""
+    """Call LLM directly on raw text for folder processing (no database records).
+
+    When curated ``je_raw``/``je_pro`` example pairs are present, they are injected as
+    few-shot style exemplars (ADR-073 §4) — read-only, zero-persistence.
+    """
     from core.utils.result_simplified import Errors, Result
 
     llm_caller = getattr(processing_service, "llm_caller", None)
@@ -128,7 +207,9 @@ async def _call_llm_with_instructions(
     model = (
         _LLM_MODEL_CLAUDE if llm_caller.is_model_supported(_LLM_MODEL_CLAUDE) else _LLM_MODEL_GPT
     )
-    prompt = f"{instructions}\n\n---\n\n{text}" if instructions else text
+    preamble = _build_exemplar_preamble(_load_journal_exemplars())
+    header = "\n\n".join(part for part in (instructions, preamble) if part)
+    prompt = f"{header}\n\n---\n\n{text}" if header else text
     try:
         return await llm_caller.generate(prompt=prompt, model=model, max_tokens=_LLM_MAX_TOKENS)
     except Exception as e:  # safety-net: LLM call errors in folder-batch context

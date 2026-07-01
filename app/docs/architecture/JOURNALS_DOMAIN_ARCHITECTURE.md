@@ -138,10 +138,12 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 |--------|------|----------------|
 | `je_in/` | Batch-transcription audio input | `POST /journals/folder-process` (backend-only; not surfaced in capture UI since the "Watch folder" tab was removed) |
 | `je_out/` | Batch-transcription transcript output | `.txt`/`.md` written by `BatchTranscriptionService` |
-| `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
-| `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
+| `je_raw/` | Journal-processing **exemplar** input (example raw journal) | Read off disk at processing time as few-shot; **never stored** (ADR-073 §4) |
+| `je_pro/` | Journal-processing **exemplar** output (matching processed result) | Paired with `je_raw/` by filename stem; **never stored** |
 
 These folders are **pipeline artifacts**, not vault content. The staging floor skips all four unconditionally — regardless of what frontmatter their files carry, and regardless of whether the privacy allowlist is active — so the vault sync path (`/submissions/sync`) never ingests them.
+
+**Exemplar-guided processing (`je_raw`/`je_pro`, ADR-073 §4).** Matched `je_raw`↔`je_pro` pairs (by filename stem) are read *off disk at processing time* by `_load_journal_exemplars()` and injected into the STANDARD journal prompt (`_call_llm_with_instructions`) as bounded few-shot examples (≤3 pairs, each truncated) — teaching the pipeline *how the user likes journals processed* (style), never facts about the user. Read-only and in-memory: nothing is ingested, stored, or turned into an entity; absent/unmatched folders degrade cleanly to the no-exemplar prompt. `Pipeline.REFERENCE` is **reserved** for a future per-user *stored* exemplar layer and has no producer today.
 
 The file-upload path (right panel on the `/journals` landing page) **writes the compiled AI output flat to `je_out/{stem}_out.md`** (or `{stem}.txt` for a raw transcript) and returns a download fragment — the AI response is a file, not a profile record (zero-persistence, ADR-073: no `UserEntry`). `je_out/` is the user's own local Obsidian folder; they open the `_out` file and extract what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
 

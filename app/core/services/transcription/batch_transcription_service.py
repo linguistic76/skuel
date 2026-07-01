@@ -127,9 +127,7 @@ class BatchTranscriptionService:
         the lowercase ``*.mp3`` glob.
         """
         files = [
-            f
-            for f in input_dir.iterdir()
-            if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
+            f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
         ]
         return sorted(files, key=_path_name)
 
