@@ -120,10 +120,17 @@ class BatchTranscriptionService:
         return Result.ok(result.value.transcript_text)
 
     def _find_audio_files(self, input_dir: Path) -> list[Path]:
-        """Find all audio files in directory (non-recursive)."""
-        files: list[Path] = []
-        for ext in AUDIO_EXTENSIONS:
-            files.extend(input_dir.glob(f"*{ext}"))
+        """Find all audio files in directory (non-recursive, case-insensitive).
+
+        Matches on the lowercased suffix so uppercase extensions (``VOICE.MP3``,
+        ``Interview.WAV`` — common from phone recorders) are picked up, not just
+        the lowercase ``*.mp3`` glob.
+        """
+        files = [
+            f
+            for f in input_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in AUDIO_EXTENSIONS
+        ]
         return sorted(files, key=_path_name)
 
     async def preview(

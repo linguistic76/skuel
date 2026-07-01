@@ -263,6 +263,7 @@ async def _run_batch_over_dir(
     status_id: str,
     batch_transcription_service: Any,
     processing_service: Any,
+    skip_existing: bool = True,
 ) -> Any:
     """Run a batch pipeline over every file in ``input_dir`` → ``je_out/``.
 
@@ -270,6 +271,11 @@ async def _run_batch_over_dir(
     (scans ``je_in/``) and multi-file upload (scans a temp dir of uploads). Pure
     filesystem: outputs land in ``je_out/`` via the rename formula, nothing is
     written to Neo4j. Returns a rendered status fragment.
+
+    ``skip_existing`` controls transcription reuse: ``True`` (folder-process) keeps
+    idempotent rerun semantics — a file whose ``je_out/{stem}.txt`` already exists
+    is not re-transcribed. ``False`` (uploads) forces fresh transcription, since an
+    upload is new content that must not be shadowed by a stale same-stem transcript.
     """
     _JE_OUT.mkdir(parents=True, exist_ok=True)
 
@@ -293,7 +299,9 @@ async def _run_batch_over_dir(
                 is_error=True,
                 status_id=status_id,
             )
-        transcribe_result = await batch_transcription_service.transcribe_batch(input_dir, _JE_OUT)
+        transcribe_result = await batch_transcription_service.transcribe_batch(
+            input_dir, _JE_OUT, skip_existing=skip_existing
+        )
         if transcribe_result.is_error:
             return render_journal_upload_status(
                 "error", str(transcribe_result.error), is_error=True, status_id=status_id
@@ -654,6 +662,9 @@ def create_journals_routes(
                     status_id=status_id,
                     batch_transcription_service=batch_transcription_service,
                     processing_service=processing_service,
+                    # Uploads are fresh content — never reuse a stale same-stem
+                    # transcript already sitting in the flat je_out/ folder.
+                    skip_existing=False,
                 )
 
         except Exception as e:  # safety-net: HTMX fragment error boundary

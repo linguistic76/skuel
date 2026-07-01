@@ -332,6 +332,9 @@ class TestJournalsUploadZeroPersistence:
         # Not rejected: the batch actually ran instead of erroring on a false collision.
         assert "same je_out/ output" not in to_xml(response)
         mock_services.batch_transcription.transcribe_batch.assert_awaited_once()
+        # Uploads force fresh transcription — never reuse a stale je_out transcript.
+        _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
+        assert kwargs.get("skip_existing") is False
         _assert_nothing_persisted(mock_services)
 
 
