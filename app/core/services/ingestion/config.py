@@ -314,11 +314,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 
 
-# Default allowed subdir when SKUEL_VAULT_SYNC_ALLOWED_DIRS is unset — SKUEL's
-# canonical periodic-notes folder is the one folder meant to sync from a personal
-# vault, so a fail-closed default of "only this" protects everything else (je_*
-# staging, templates, loose notes) without requiring configuration.
-_DEFAULT_SYNC_SUBDIR = "periodic_notes"
+# Default "doorway" folders synced when SKUEL_VAULT_SYNC_ALLOWED_DIRS is unset — the
+# deliberate "what I want SKUEL to know" channel (ADR-073). These are the ONLY folders
+# a personal vault syncs by default; everything else (je_* staging, templates, loose
+# notes) stays walled off without any configuration, fail-closed.
+_DEFAULT_SYNC_SUBDIRS: tuple[str, ...] = ("periodic_notes", "personal_notes", "activity_notes")
 
 # Pipeline staging folders that are NEVER vault content, in any configuration.
 # je_in/je_out/je_raw/je_pro hold journal transcription artifacts — je_out in
@@ -429,9 +429,10 @@ def build_sync_allowlist(
       the governed root; the root itself, an ancestor, or an unrelated path would
       make every file ``is_relative_to`` it and silently open the vault, so such
       entries are dropped (with a warning) — fail-closed on misconfiguration.
-    - **Var unset, distinct personal vault** → a minimal wall allowing only
-      ``governed_root/{_DEFAULT_SYNC_SUBDIR}`` (SKUEL's periodic-notes folder), so
-      an un-opted-in folder stays private without configuration.
+    - **Var unset, distinct personal vault** → a minimal wall allowing only the
+      default doorway folders (``_DEFAULT_SYNC_SUBDIRS`` under ``governed_root`` —
+      periodic/personal/activity notes), so an un-opted-in folder stays private
+      without configuration.
     - **Var unset, single-vault** (``content_root`` is / is under the governed
       root) → allow the *whole vault* (``allowed_dirs = {governed_root}``) so
       curriculum still ingests; only the ``je_*`` staging floor (scoped inside
@@ -460,10 +461,10 @@ def build_sync_allowlist(
         content = content_root.resolve()
         if content == governed or content.is_relative_to(governed):
             return SyncAllowlist(governed_root=governed, allowed_dirs=frozenset({governed}))
-    # Distinct personal vault: fail-closed default to periodic-notes only.
+    # Distinct personal vault: fail-closed default to the doorway folders only.
     return SyncAllowlist(
         governed_root=governed,
-        allowed_dirs=frozenset({governed / _DEFAULT_SYNC_SUBDIR}),
+        allowed_dirs=frozenset(governed / subdir for subdir in _DEFAULT_SYNC_SUBDIRS),
     )
 
 

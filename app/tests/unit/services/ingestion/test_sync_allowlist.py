@@ -14,12 +14,18 @@ from pathlib import Path
 import pytest
 
 from core.services.ingestion.config import (
+    _DEFAULT_SYNC_SUBDIRS,
     SyncAllowlist,
     build_sync_allowlist,
     collect_files,
 )
 
 _ENV_VAR = "SKUEL_VAULT_SYNC_ALLOWED_DIRS"
+
+
+def _default_allowed(root: Path) -> frozenset[Path]:
+    """The default doorway folders synced when the env var is unset (ADR-073)."""
+    return frozenset((root / subdir).resolve() for subdir in _DEFAULT_SYNC_SUBDIRS)
 
 
 # ---------------------------------------------------------------------------
@@ -153,9 +159,13 @@ def test_build_unset_defaults_to_fail_closed_wall(
     root = tmp_path / "vault"
     wall = build_sync_allowlist(root)
     assert wall is not None
-    assert wall.allowed_dirs == frozenset({(root / "periodic_notes").resolve()})
+    assert wall.allowed_dirs == _default_allowed(root)
     assert wall.permits(root / "je_raw" / "x.md") is False  # walled with no config
     assert wall.permits(root / "periodic_notes" / "d.md") is True
+    # All three doorway folders open by default; a non-doorway folder stays walled.
+    assert wall.permits(root / "personal_notes" / "p.md") is True
+    assert wall.permits(root / "activity_notes" / "a.md") is True
+    assert wall.permits(root / "random_folder" / "r.md") is False
 
 
 def test_build_blank_defaults_to_fail_closed_wall(
@@ -165,7 +175,7 @@ def test_build_blank_defaults_to_fail_closed_wall(
     root = tmp_path / "vault"
     wall = build_sync_allowlist(root)
     assert wall is not None
-    assert wall.allowed_dirs == frozenset({(root / "periodic_notes").resolve()})
+    assert wall.allowed_dirs == _default_allowed(root)
 
 
 def test_build_single_vault_allows_whole_vault_minus_staging(
@@ -195,7 +205,7 @@ def test_build_distinct_vaults_get_default_wall(
     content = tmp_path / "0vault"
     wall = build_sync_allowlist(personal, content_root=content)
     assert wall is not None
-    assert wall.allowed_dirs == frozenset({(personal / "periodic_notes").resolve()})
+    assert wall.allowed_dirs == _default_allowed(personal)
 
 
 def test_build_explicit_var_overrides_single_vault_guard(
