@@ -52,7 +52,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .batch import ProgressCallback, find_entity_file, ingest_bundle, ingest_directory, ingest_vault
-from .config import DEFAULT_MAX_FILE_SIZE_BYTES, DEFAULT_USER_UID, ENTITY_CONFIGS
+from .config import (
+    DEFAULT_MAX_FILE_SIZE_BYTES,
+    DEFAULT_USER_UID,
+    ENTITY_CONFIGS,
+    SyncAllowlist,
+    is_ingestible_path,
+)
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import (
@@ -128,6 +134,7 @@ class UnifiedIngestionService:
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
         user_entry_processor: UserEntryProcessingService | None = None,
+        sync_allowlist: SyncAllowlist | None = None,
     ) -> None:
         """
         Initialize unified ingestion service.
@@ -165,6 +172,15 @@ class UnifiedIngestionService:
                           ``- [ ]`` lines extracted into Tasks on ingest (ADR-069).
                           Extraction failures are isolated — the journal node
                           persists regardless. Late-bound at the composition root.
+            sync_allowlist: Optional fail-closed folder allowlist (SyncAllowlist)
+                          enforced on every ingestion path — directory scans
+                          (``ingest_directory`` → collect_files, covering the
+                          reconciler and /api/ingest/directory) AND single-file
+                          ingestion (``ingest_file`` → /api/ingest/file). When
+                          set, files under the governed vault root are ingested
+                          only if they sit under an allowed dir; ``None`` = no
+                          wall. Late-bound at the composition root once the vault
+                          root is known.
         """
         if write_backend is None or bulk_backend is None:
             raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
@@ -190,6 +206,10 @@ class UnifiedIngestionService:
         # Late-bound at the composition root (UserEntryProcessingService is built
         # after this service); runs entry.pipeline after persistence.
         self.user_entry_processor = user_entry_processor
+        # Fail-closed folder allowlist, late-bound at the composition root once the
+        # governed vault root is resolved. Applied to every ingest_directory scan
+        # so both ingestion doors inherit the same privacy wall.
+        self.sync_allowlist = sync_allowlist
         self.logger = logger
 
         # Log embedding availability
@@ -403,6 +423,20 @@ class UnifiedIngestionService:
         if not file_path.exists():
             return Result.fail(Errors.not_found(f"File not found: {file_path}"))
 
+        # ingest_file is the direct entry point for /api/ingest/file (and a
+        # belt-and-suspenders for the per-file directory path), so the vault
+        # exclusions must be enforced here too — otherwise a single file could
+        # bypass the collect_files scan filters. One predicate covers symlinks,
+        # the je_* staging floor, and the fail-closed allowlist.
+        if not is_ingestible_path(file_path, self.sync_allowlist):
+            return Result.fail(
+                Errors.validation(
+                    "File is excluded by the vault sync boundary (symlink, je_* "
+                    f"staging folder, or outside the allowlist): {file_path}",
+                    field="path",
+                )
+            )
+
         # Detect format
         file_format = detect_format(file_path)
 
@@ -613,7 +647,6 @@ class UnifiedIngestionService:
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
-        excluded_dirs: frozenset[str] | None = None,
     ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """
         Ingest all supported files in a directory.
@@ -639,8 +672,32 @@ class UnifiedIngestionService:
         USER_ENTRY files are routed through ``self.ingest_file`` (per-file
         pipeline) instead of the bulk upsert engine so the OWNS edge, audience
         resolution, and post-persist extraction (EXTRACT_ACTIVITIES) all run.
+
+        ``self.sync_allowlist`` (when configured) is applied to every scan here —
+        the single chokepoint both ingestion doors traverse — so a fail-closed
+        vault wall cannot be bypassed by any caller. Files under the governed
+        vault root are ingested only if they sit under an allowed dir.
+
+        When the wall governs ``directory``, a ``full``-mode request is upgraded to
+        ``smart``: full mode skips deletion reconciliation, but fail-closed
+        retraction of now-walled rows depends on it, so the wall would otherwise
+        leak on the full-mode door (``/api/ingest/directory`` defaults to full).
         """
         effective_user_uid = user_uid or self.default_user_uid
+
+        effective_mode = ingestion_mode
+        if (
+            ingestion_mode == "full"
+            and self.ingestion_backend is not None
+            and self.sync_allowlist is not None
+            and self.sync_allowlist.governs(directory)
+        ):
+            self.logger.info(
+                "Vault wall governs %s — upgrading full → smart ingestion so deletion "
+                "reconciliation retracts now-walled entries",
+                directory,
+            )
+            effective_mode = "smart"
 
         async def _ingest_file_for_batch(path: Path) -> Result[Any]:
             return await self.ingest_file(path, user_uid=effective_user_uid)
@@ -655,12 +712,12 @@ class UnifiedIngestionService:
             max_concurrent=max_concurrent,
             default_user_uid=effective_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
-            ingestion_mode=ingestion_mode,
+            ingestion_mode=effective_mode,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
-            excluded_dirs=excluded_dirs,
+            allowlist=self.sync_allowlist,
         )
 
     async def ingest_vault(

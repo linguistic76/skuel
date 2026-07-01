@@ -29,6 +29,9 @@ from core.models.relationship_registry import (
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
 from core.models.type_hints import UserUID
+from core.utils.logging import get_logger
+
+logger = get_logger("skuel.services.ingestion.config")
 
 # ============================================================================
 # FILE SIZE LIMITS
@@ -311,6 +314,188 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 
 
+# Default allowed subdir when SKUEL_VAULT_SYNC_ALLOWED_DIRS is unset — SKUEL's
+# canonical periodic-notes folder is the one folder meant to sync from a personal
+# vault, so a fail-closed default of "only this" protects everything else (je_*
+# staging, templates, loose notes) without requiring configuration.
+_DEFAULT_SYNC_SUBDIR = "periodic_notes"
+
+# Pipeline staging folders that are NEVER vault content, in any configuration.
+# je_in/je_out/je_raw/je_pro hold journal transcription artifacts — je_out in
+# particular holds generated transcripts that must never auto-sync. These are
+# excluded UNCONDITIONALLY at the ingestion chokepoint, beneath and independent of
+# the SyncAllowlist privacy wall, so they stay walled even in the single-vault
+# fallback where no allowlist is built (build_sync_allowlist → None).
+STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
+
+
+def is_staging_path(path: Path, excluded: frozenset[str] = STAGING_EXCLUDED_DIRS) -> bool:
+    """True if any path component names a pipeline staging folder (je_*).
+
+    Component-exact match (``je_output`` does not match ``je_out``), mirroring the
+    historical vault-sync exclusion. Keeps staging artifacts out of ingestion on
+    every path, independent of the privacy allowlist.
+    """
+    return any(part in excluded for part in path.parts)
+
+
+@dataclass(frozen=True)
+class SyncAllowlist:
+    """Fail-closed folder allowlist for vault ingestion.
+
+    Scopes a privacy wall to a single governed vault root (the user's personal
+    vault). A file under ``governed_root`` is ingested only when it also sits
+    under one of ``allowed_dirs``; every other folder under the root is walled
+    off. Files outside ``governed_root`` (e.g. the admin content vault) are
+    unaffected, so the same service can ingest a fully-open curriculum vault and
+    a fail-closed personal vault.
+
+    Fail-closed: an empty ``allowed_dirs`` walls the *entire* governed root — the
+    default posture is "not synced", so a folder created later is silent until it
+    is explicitly opted in. ``build_sync_allowlist`` also defaults to a wall (not
+    to "open") when the env var is unset, so the fail-closed posture does not
+    depend on configuration being present.
+
+    ``permits`` is the single predicate every ingestion path inherits — both the
+    directory scan (``collect_files`` → ``VaultReconciler.sync`` and
+    ``/api/ingest/directory``) and single-file ingestion (``ingest_file`` →
+    ``/api/ingest/file``) — so no code path can bypass it. ``governed_root`` and
+    ``allowed_dirs`` are stored already-resolved (see ``build_sync_allowlist``) so
+    the ``permits`` check is purely lexical after a single ``resolve()`` of the
+    candidate.
+    """
+
+    governed_root: Path
+    allowed_dirs: frozenset[Path]
+
+    def permits(self, path: Path) -> bool:
+        """Whether ``path`` is allowed by this wall (True = keep).
+
+        Outside the governed root → always permitted (ungoverned tree — e.g. the
+        admin content vault, including any folder there that happens to be *named*
+        ``je_*``). Inside → walled if it is a ``je_*`` staging folder, else
+        permitted only when nested under an allowed dir.
+
+        The wall judges a file by *where it sits in the vault*, not where a
+        symlink target points: we canonicalize the directory chain
+        (``parent.resolve()`` — collapses ``..`` and resolves real vault dirs) but
+        keep the leaf name in place. Leaf symlinks are rejected earlier by
+        ``is_ingestible_path`` (their target may be external); this method only
+        decides allowlist membership.
+        """
+        located = path.parent.resolve() / path.name
+        if not located.is_relative_to(self.governed_root):
+            return True
+        # Staging floor, scoped to the vault-relative portion so a governed_root
+        # prefix component can't false-positive and so it never touches unrelated
+        # trees (a content-vault "je_out/" is handled by the branch above).
+        if is_staging_path(located.relative_to(self.governed_root)):
+            return False
+        return any(located.is_relative_to(allowed) for allowed in self.allowed_dirs)
+
+    def governs(self, directory: Path) -> bool:
+        """Whether the wall restricts files under ``directory``.
+
+        True when the scanned tree intersects the governed vault (``directory`` is
+        under the vault root, or the vault root is under ``directory``). Used to
+        decide when a full-mode ingestion must still reconcile deletions so
+        now-walled rows are retracted rather than left searchable.
+        """
+        resolved = directory.resolve()
+        return resolved.is_relative_to(self.governed_root) or self.governed_root.is_relative_to(
+            resolved
+        )
+
+
+def build_sync_allowlist(
+    governed_root: Path,
+    *,
+    content_root: Path | None = None,
+) -> SyncAllowlist:
+    """Build the fail-closed vault-sync allowlist for ``governed_root``.
+
+    Always returns a ``SyncAllowlist`` (never ``None``): the ``je_*`` staging
+    floor and — when configured — a fail-closed allowlist always apply, and the
+    wall must carry the governed root so callers (e.g. the full→smart upgrade) can
+    ask ``governs()`` in every configuration.
+
+    ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` is a colon-separated list of absolute
+    directories under ``governed_root`` (the personal vault) that are the ONLY
+    folders whose files may be ingested. Everything else under the root is walled
+    off (never read into the graph, searched, or sent to an LLM):
+
+    - **Var set** → allowlist is exactly the listed dirs (``":"`` with no real
+      entries is a deliberate "wall everything"). Dirs must be *strictly under*
+      the governed root; the root itself, an ancestor, or an unrelated path would
+      make every file ``is_relative_to`` it and silently open the vault, so such
+      entries are dropped (with a warning) — fail-closed on misconfiguration.
+    - **Var unset, distinct personal vault** → a minimal wall allowing only
+      ``governed_root/{_DEFAULT_SYNC_SUBDIR}`` (SKUEL's periodic-notes folder), so
+      an un-opted-in folder stays private without configuration.
+    - **Var unset, single-vault** (``content_root`` is / is under the governed
+      root) → allow the *whole vault* (``allowed_dirs = {governed_root}``) so
+      curriculum still ingests; only the ``je_*`` staging floor (scoped inside
+      ``permits``) applies. ``governs()`` is still true here, so full-mode
+      reprocesses retract stale staging rows like the routine incremental paths.
+    """
+    governed = governed_root.resolve()
+    raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
+    if raw and raw.strip():
+        configured = [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
+        valid = frozenset(d for d in configured if d.is_relative_to(governed) and d != governed)
+        for dropped in (d for d in configured if d not in valid):
+            logger.warning(
+                "Ignoring SKUEL_VAULT_SYNC_ALLOWED_DIRS entry %s: not strictly under the "
+                "vault root %s. Allow-dirs must be subfolders of the vault; an ancestor or "
+                "outside path would defeat the fail-closed wall.",
+                dropped,
+                governed,
+            )
+        return SyncAllowlist(governed_root=governed, allowed_dirs=valid)
+
+    # Var unset. Single-vault (content vault is / is under the governed root):
+    # allow the whole vault so curriculum isn't starved — the staging floor still
+    # excludes je_* and governs() still holds, so retraction works there too.
+    if content_root is not None:
+        content = content_root.resolve()
+        if content == governed or content.is_relative_to(governed):
+            return SyncAllowlist(governed_root=governed, allowed_dirs=frozenset({governed}))
+    # Distinct personal vault: fail-closed default to periodic-notes only.
+    return SyncAllowlist(
+        governed_root=governed,
+        allowed_dirs=frozenset({governed / _DEFAULT_SYNC_SUBDIR}),
+    )
+
+
+def is_ingestible_path(path: Path, allowlist: SyncAllowlist | None) -> bool:
+    """Whether a vault file is eligible for ingestion under the vault exclusions.
+
+    The single policy predicate every ingestion path shares (``collect_files``,
+    ``ingest_file``, and ``reconcile_deletions``), giving the invariant: a tracked
+    graph row survives deletion reconciliation iff its file would still be
+    collected for ingestion. Does NOT check on-disk existence — ``collect_files``
+    globs existing files; ``reconcile_deletions`` checks existence separately.
+
+    Three rules, in order:
+
+    1. **No symlinks.** A symlink's target may resolve outside the vault, so the
+       link's in-vault name is not a safe proxy for its content. Rejecting them
+       closes both the walled-folder escape (a link out of ``je_raw``) and the
+       allowed-folder external read (a link in ``periodic_notes`` whose target is
+       read by the parser and sent downstream).
+    2. **Allowlist active** → defer to ``permits`` (which applies the ``je_*``
+       staging floor scoped to the governed vault, then allowlist membership), so
+       an unrelated content tree is unaffected.
+    3. **No allowlist** (single-vault fallback — no distinct content tree) → the
+       whole vault is personal, so the ``je_*`` staging floor applies globally.
+    """
+    if path.is_symlink():
+        return False
+    if allowlist is not None:
+        return allowlist.permits(path)
+    return not is_staging_path(path)
+
+
 def _file_mtime(path: Path) -> float:
     """Get file modification time for sorting."""
     return path.stat().st_mtime
@@ -319,7 +504,7 @@ def _file_mtime(path: Path) -> float:
 def collect_files(
     directory: Path,
     pattern: str = "*",
-    excluded_dirs: frozenset[str] | None = None,
+    allowlist: SyncAllowlist | None = None,
 ) -> list[Path]:
     """
     Collect all supported files (MD, YAML, YML) from a directory.
@@ -332,8 +517,11 @@ def collect_files(
     Args:
         directory: Directory to search
         pattern: Glob pattern (default "*" for all files)
-        excluded_dirs: Directory names to exclude at any depth (e.g. frozenset({"je_in"})).
-            Any file whose path contains one of these names as a component is skipped.
+        allowlist: Optional fail-closed folder allowlist. When provided, files
+            under the allowlist's governed root are kept only if they also sit
+            under an allowed dir (see ``SyncAllowlist.permits``); files outside
+            the governed root are unaffected. ``None`` = no privacy wall (but the
+            je_* staging floor below still applies).
 
     Returns:
         List of file paths sorted by modification time (newest first)
@@ -351,8 +539,10 @@ def collect_files(
         all_files.extend(directory.glob(f"**/{pattern}.yaml"))
         all_files.extend(directory.glob(f"**/{pattern}.yml"))
 
-    if excluded_dirs:
-        all_files = [f for f in all_files if not any(part in excluded_dirs for part in f.parts)]
+    # Vault exclusions: the always-on je_* staging floor plus the optional
+    # fail-closed privacy allowlist. reconcile_deletions applies the SAME predicate
+    # so a tracked row survives iff its file would still be collected here.
+    all_files = [f for f in all_files if is_ingestible_path(f, allowlist)]
 
     return sorted(all_files, key=_file_mtime, reverse=True)
 
@@ -363,6 +553,11 @@ __all__ = [
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "STAGING_EXCLUDED_DIRS",
+    "SyncAllowlist",
+    "build_sync_allowlist",
     "collect_files",
     "generate_ingestion_relationship_config",
+    "is_ingestible_path",
+    "is_staging_path",
 ]

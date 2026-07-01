@@ -32,12 +32,14 @@ from typing import TYPE_CHECKING
 
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
+from core.services.ingestion.config import is_ingestible_path
 from core.services.ingestion.types import DeletionReconciliation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.ingestion_protocols import IngestionBackendOperations
+    from core.services.ingestion.config import SyncAllowlist
 
 logger = get_logger("skuel.services.ingestion.ingestion_tracker")
 
@@ -333,29 +335,35 @@ class IngestionTracker:
         return Result.ok(deleted_count)
 
     async def reconcile_deletions(
-        self, directory: Path, pattern: str = "*"
+        self, directory: Path, pattern: str = "*", *, allowlist: "SyncAllowlist | None" = None
     ) -> Result[DeletionReconciliation]:
         """
         Propagate vault deletions to the graph for one directory.
 
-        A tracked file under `directory` matching `pattern` that no longer
-        exists on disk means the author deleted it from the vault — the
-        corresponding entity (and its content subtree + tracking row) is
-        deleted from Neo4j.
+        A tracked file under `directory` matching `pattern` that would no longer
+        be collected for ingestion — either it no longer exists on disk (author
+        deleted it) OR it is now excluded by the vault wall (staging floor /
+        fail-closed allowlist) — has its corresponding entity (and content subtree
+        + tracking row) deleted from Neo4j. Purging walled-but-present files
+        retracts previously-synced content that has since become private, so the
+        fail-closed guarantee holds retroactively, not just for new ingestion.
 
-        Three guards:
+        Four guards:
         - **Pattern scope**: only tracked files matching the run's pattern are
           DELETED — a *.md-scoped run never deletes tracked YAML entities.
         - **Moved/renamed files**: if the same entity_uid is still claimed by
-          ANY tracked file that DOES exist (the rename was just re-ingested),
+          ANY tracked file that would still be collected (existing AND allowed),
           only the stale tracking row is removed — the entity survives.
         - **Mass-deletion safety valve (GLOBAL)**: an unmounted vault or sync
-          wipe makes EVERY tracked file vanish, not just one type — so the
-          valve checks all tracked files under the directory, regardless of
-          pattern. If none exist, deletion is refused and a warning logged;
-          if any exist, the vault is mounted and in-scope deletions are
-          genuine authoring. A real full-vault teardown is an explicit admin
+          wipe makes EVERY tracked file physically vanish — so the valve checks
+          PHYSICAL existence of all tracked files (independent of the wall: a
+          mounted vault whose files are merely walled is still mounted and we DO
+          want to purge those rows). If none physically exist, deletion is refused
+          and a warning logged. A real full-vault teardown is an explicit admin
           operation, not a watcher side effect.
+        - **Wall symmetry**: "would be collected" uses ``is_ingestible_path`` —
+          the exact predicate ``collect_files`` applies — so ingestion and
+          retraction never disagree.
 
         Backend: IngestionBackend.get_tracked_files_under / delete_entities_with_metadata.
         """
@@ -370,12 +378,21 @@ class IngestionTracker:
         if not tracked:
             return Result.ok(DeletionReconciliation())
 
-        missing = [row for row in tracked if not Path(str(row["file_path"])).exists()]
-        if not missing:
+        def _collectible(row: dict[str, EntityUID]) -> bool:
+            # Survives iff collect_files would still collect it: on disk AND not
+            # excluded by the vault wall (staging floor / allowlist).
+            path = Path(str(row["file_path"]))
+            return path.exists() and is_ingestible_path(path, allowlist)
+
+        # "gone" = deleted from disk OR now walled — both are retracted.
+        gone = [row for row in tracked if not _collectible(row)]
+        if not gone:
             return Result.ok(DeletionReconciliation())
 
-        existing_rows = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
-        if not existing_rows:
+        # Mass-deletion valve is PHYSICAL-existence only (mount detection), so a
+        # wall change that leaves files on disk still purges them.
+        physically_present = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
+        if not physically_present:
             self.logger.warning(
                 "Deletion reconciliation refused: all %d tracked files under %s "
                 "are missing — looks like an unmounted vault or sync wipe, not "
@@ -385,13 +402,13 @@ class IngestionTracker:
             )
             return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
 
-        # Identities still claimed by a file that exists = moves/renames
-        # (covers duplicate edge files declaring the same relationship too).
-        # Claims are checked against ALL tracked rows, not just the pattern
-        # scope — an identity owned by an out-of-scope file must survive.
-        live_uids = {row["entity_uid"] for row in existing_rows}
-        stale_rows = [row for row in missing if row["entity_uid"] in live_uids]
-        delete_rows = [row for row in missing if row["entity_uid"] not in live_uids]
+        # Identities still claimed by a file that would still be collected =
+        # moves/renames to an allowed location (covers duplicate edge files too).
+        # Claims are checked against ALL tracked rows, not just the pattern scope —
+        # an identity owned by an out-of-scope allowed file must survive.
+        live_uids = {row["entity_uid"] for row in all_tracked if _collectible(row)}
+        stale_rows = [row for row in gone if row["entity_uid"] in live_uids]
+        delete_rows = [row for row in gone if row["entity_uid"] not in live_uids]
 
         stale_removed = 0
         if stale_rows:

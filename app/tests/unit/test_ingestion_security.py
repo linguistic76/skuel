@@ -190,3 +190,19 @@ def test_resolved_path_returned(monkeypatch, tmp_path):
     result = _validate_ingestion_path(path_with_dots)
     assert result.is_ok
     assert ".." not in str(result.value)
+
+
+def test_symlink_file_rejected_before_resolution(tmp_path):
+    """A symlinked file path is rejected on the original path, so /api/ingest/file
+    can't slip an external target past the vault symlink boundary (which
+    _validate_ingestion_path would otherwise resolve away)."""
+    from adapters.inbound.ingestion_api import _reject_symlink_file
+
+    target = tmp_path / "real.md"
+    target.write_text("x")
+    link = tmp_path / "link.md"
+    link.symlink_to(target)
+
+    assert _reject_symlink_file(str(link)).is_error
+    assert _reject_symlink_file(str(target)).is_ok
+    assert _reject_symlink_file(None).is_ok

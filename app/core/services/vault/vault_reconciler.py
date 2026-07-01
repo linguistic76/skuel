@@ -59,15 +59,13 @@ logger = get_logger("skuel.services.vault.reconciler")
 
 _BASE36 = string.ascii_lowercase + string.digits
 
-# Folders inside the vault root that are never ingested into SKUEL.
-# All four je_* folders are pipeline staging areas for the journals
-# batch-transcription workflow, not vault content — they must not be
-# ingested via vault sync regardless of what files land in them.
-#   je_in  — raw audio input (ephemeral; processed via journals UI)
-#   je_out — transcript output (.txt/.md written by batch transcription)
-#   je_raw — reference archive input (Pipeline.REFERENCE, stored as-is)
-#   je_pro — reference archive processed output
-_VAULT_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
+# Which vault folders may be ingested is now decided by a fail-closed allowlist
+# (``SyncAllowlist`` / ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``) applied inside
+# ``UnifiedIngestionService.ingest_directory`` — the single chokepoint both this
+# reconciler and the HTTP /api/ingest/* door share. Everything under the vault
+# root that is not explicitly allowed (the je_* journal staging folders,
+# templates, loose notes, …) is walled off by default, so this reconciler no
+# longer maintains its own je_* denylist.
 _UNCHECKED_RE = re.compile(r"^[-*]\s*\[\s*\]")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
 
@@ -128,11 +126,12 @@ class VaultReconciler:
         uid = UserUID(user_uid)
 
         # Step 1: ingest (inbound — smart mode skips unchanged files)
+        # Folder exclusion is enforced inside ingest_directory via the shared
+        # fail-closed SyncAllowlist — no per-caller denylist needed here.
         ingest_result = await self._ingestion.ingest_directory(
             Path(vault_path),
             ingestion_mode="smart",
             user_uid=uid,
-            excluded_dirs=_VAULT_EXCLUDED_DIRS,
         )
         if ingest_result.is_error:
             return Result.fail(ingest_result)

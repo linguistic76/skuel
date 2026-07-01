@@ -90,6 +90,28 @@ def _resolve_allowed_ingestion_roots() -> list[Path]:
     return []
 
 
+def _reject_symlink_file(path_str: str | None) -> Result[None]:
+    """Reject a symlinked file path before it is resolved.
+
+    ``_validate_ingestion_path`` resolves symlinks (for traversal protection),
+    which erases the symlink-ness the vault boundary relies on — so the service's
+    ``is_ingestible_path`` no-symlink rule can't see it on the ``/api/ingest/file``
+    door. The single-file door reads the target's content, so a symlink there
+    could ship an external file into the graph; reject it on the ORIGINAL path.
+    (Directory scans are unaffected: ``collect_files`` globs leaf symlinks without
+    resolving them, so the service check still fires per-file there.)
+    """
+    if path_str and Path(path_str).is_symlink():
+        return Result.fail(
+            Errors.validation(
+                "Symlinked files are not ingestible — the link target may be outside the vault.",
+                "file_path",
+                path_str,
+            )
+        )
+    return Result.ok(None)
+
+
 def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
     """
     Validate a path for ingestion, checking for traversal attacks.
@@ -199,6 +221,12 @@ def create_ingestion_api_routes(
         try:
             data = await request.json()
             file_path = data.get("file_path")
+
+            # Reject symlinks on the ORIGINAL path — validation below resolves them
+            # away, bypassing the service's vault symlink boundary.
+            symlink_check = _reject_symlink_file(file_path)
+            if symlink_check.is_error:
+                return Result.fail(symlink_check)
 
             # Validate path (traversal protection)
             path_result = _validate_ingestion_path(file_path)

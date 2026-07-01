@@ -38,14 +38,18 @@ When a report is generated, your recent activity data (task counts, habit comple
 
 ### Vault files (Obsidian sync)
 
-If you use the vault sync feature (`/settings/vault`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Only files with valid SKUEL frontmatter are ingested. The following folders are **never ingested**, regardless of what files they contain:
+If you use the vault sync feature (`/submissions/sync`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Ingestion is **fail-closed**: only files inside allowed folders are ever read into your account — by default just `periodic_notes/`, extendable via `SKUEL_VAULT_SYNC_ALLOWED_DIRS`. Every other folder in your vault is walled off — SKUEL never reads it into the graph, never searches it, and never sends it to an AI service. The wall is on by default (it does not depend on any setting being present), and a new folder you create stays private until you deliberately add it to the allowlist.
 
-| Folder | Why it is skipped |
+In addition, the journal staging folders below are **always** excluded — unconditionally, regardless of your allowlist or their contents — because they hold pipeline artifacts (e.g. `je_out/` holds generated transcripts that must never sync back):
+
+| Folder | Why it is never ingested |
 |--------|------------------|
 | `je_in/` | Audio staging — processed via the journals upload tool, not vault sync |
 | `je_out/` | Transcript staging — text files written by batch transcription |
 | `je_raw/` | Reference archive input |
 | `je_pro/` | Reference archive output |
+
+The wall works retroactively: if you narrow it — remove a folder from the allowlist, or a folder becomes disallowed — the entries that were previously synced from that folder are **removed from SKUEL on the next sync**, not just excluded going forward. Your vault file stays put (it is the source of truth), so re-allowing the folder re-ingests it.
 
 Vault sync is inbound only: it reads your vault and creates SKUEL entries. It writes back only the task completion markers (`🆔 sk_<id>` and `[x] ✅ date`) for tasks you created from vault files.
 

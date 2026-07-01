@@ -43,9 +43,10 @@ logger = get_logger("skuel.routes.journals")
 
 _JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
 _JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
-# je_out is a pipeline staging area — excluded from vault sync (_VAULT_EXCLUDED_DIRS in
-# vault_reconciler.py). Users open je_out files in Obsidian and manually decide what
-# enters their personal vault. SKUEL never auto-syncs je_out content into the vault.
+# je_out is a pipeline staging area — excluded from vault sync by the fail-closed
+# SyncAllowlist (SKUEL_VAULT_SYNC_ALLOWED_DIRS): only explicitly-allowed folders
+# ingest, and je_out is never one of them. Users open je_out files in Obsidian and
+# manually decide what enters their personal vault. SKUEL never auto-syncs je_out.
 _JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
 _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
