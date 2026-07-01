@@ -217,10 +217,12 @@ class TestJournalsUploadZeroPersistence:
                 ("processing_mode", "instructions_only"),
             ]
         )
-        await handlers["/journals/upload"](request=request)
+        response = await handlers["/journals/upload"](request=request)
 
         mock_services.journal.run_compiled.assert_awaited_once()
         assert (tmp_path / "reflection_out.md").read_text() == "# Compiled output"
+        # Result is retargeted to the centre workspace, not the right-panel status.
+        assert response.headers["HX-Retarget"] == "#journal-workspace"
         _assert_nothing_persisted(mock_services)
 
     async def test_no_file_persists_nothing(
@@ -230,15 +232,16 @@ class TestJournalsUploadZeroPersistence:
         await handlers["/journals/upload"](request=request)
         _assert_nothing_persisted(mock_services)
 
-    async def test_duplicate_basename_batch_is_rejected(
+    async def test_duplicate_output_stem_batch_is_rejected(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        # Two files share a basename → je_out/{stem}_out.md would collide, so the
-        # batch is rejected loudly rather than silently dropping one (Kody, #478).
+        # Two files with the same STEM (note.txt / note.md) map to the same
+        # je_out/ output, so the batch is rejected loudly rather than silently
+        # dropping one — dedup is by stem, not filename (Kody + Codex, #478).
         request = _make_upload_request(
             [
                 ("file", _text_upload("note.txt", b"first")),
-                ("file", _text_upload("note.txt", b"second")),
+                ("file", _text_upload("note.md", b"second")),
                 ("processing_mode", "instructions_only"),
             ]
         )
@@ -246,7 +249,7 @@ class TestJournalsUploadZeroPersistence:
 
         from fasthtml.common import to_xml
 
-        assert "Duplicate filename" in to_xml(response)
+        assert "same je_out/ output" in to_xml(response)
         _assert_nothing_persisted(mock_services)
 
 

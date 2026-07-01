@@ -158,7 +158,20 @@ async def _process_single_upload(
     import contextlib
     import tempfile
 
+    from fasthtml.common import to_xml
+
     from ui.journals import FileOutputFragment, TranscriptReviewFragment
+
+    def _workspace(fragment: Any) -> Any:
+        # Success fragments are rooted at ``#journal-workspace`` (the landing
+        # centre column), but the upload form posts with ``hx_target="#upload-status"``
+        # (right panel). Retarget so the result replaces the centre workspace in
+        # place — mirrors ``/journals/start``. Error fragments keep the form's
+        # default target and are returned unwrapped.
+        return HTMLResponse(
+            to_xml(fragment),
+            headers={"HX-Retarget": "#journal-workspace", "HX-Reswap": "outerHTML"},
+        )
 
     stem = Path(filename).stem
 
@@ -182,8 +195,10 @@ async def _process_single_upload(
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
         out_name = _write_je_out(stem, "_out.md", compiled.value)
-        return FileOutputFragment(
-            title=title, output_filename=out_name, response_output=compiled.value
+        return _workspace(
+            FileOutputFragment(
+                title=title, output_filename=out_name, response_output=compiled.value
+            )
         )
 
     # Transcription modes (audio) — require Deepgram (FULL tier).
@@ -213,7 +228,7 @@ async def _process_single_upload(
         # FOUNDER: save the raw transcript to je_out and hand it to the DNWF
         # review→Scribe flow (stateless stage routes take over from here).
         _write_je_out(stem, ".txt", transcript)
-        return TranscriptReviewFragment(transcript=transcript, title=title)
+        return _workspace(TranscriptReviewFragment(transcript=transcript, title=title))
 
     if processing_mode == "transcribe_and_instructions":
         compiled = await _compile_text(
@@ -227,13 +242,17 @@ async def _process_single_upload(
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
         out_name = _write_je_out(stem, "_out.md", compiled.value)
-        return FileOutputFragment(
-            title=title, output_filename=out_name, response_output=compiled.value
+        return _workspace(
+            FileOutputFragment(
+                title=title, output_filename=out_name, response_output=compiled.value
+            )
         )
 
     # transcribe_only (STANDARD) — raw transcript download.
     out_name = _write_je_out(stem, ".txt", transcript)
-    return FileOutputFragment(title=title, output_filename=out_name, response_output=transcript)
+    return _workspace(
+        FileOutputFragment(title=title, output_filename=out_name, response_output=transcript)
+    )
 
 
 async def _run_batch_over_dir(
@@ -579,21 +598,23 @@ def create_journals_routes(
             # (same je_in → je_out cycle as /journals/folder-process). No entries.
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
-                seen_names: set[str] = set()
+                seen_stems: set[str] = set()
                 for uploaded_file in uploaded_files:
                     name = Path(uploaded_file.filename or "unknown").name
-                    # Reject duplicate basenames: the batch keys both the temp input
-                    # and the je_out/{stem}_out.md output by basename, so a collision
-                    # would silently drop a file. Fail loudly instead.
-                    if name in seen_names:
+                    # Reject duplicate output stems: the batch writes je_out outputs
+                    # by stem (``{stem}.txt`` / ``{stem}_out.md``), so `meeting.mp3`
+                    # and `meeting.wav` would collapse to the same output and silently
+                    # drop one. Key the guard on stem, not the full filename.
+                    file_stem = Path(name).stem
+                    if file_stem in seen_stems:
                         return render_journal_upload_status(
                             "error",
-                            f"Duplicate filename in this batch: {name}. Rename one and "
-                            "retry — je_out/ outputs are keyed by filename.",
+                            f"Two files map to the same je_out/ output ('{file_stem}') in "
+                            "this batch. Rename one and retry.",
                             is_error=True,
                             status_id=status_id,
                         )
-                    seen_names.add(name)
+                    seen_stems.add(file_stem)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
                 return await _run_batch_over_dir(
                     tmp_path,
