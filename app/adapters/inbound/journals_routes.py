@@ -5,8 +5,8 @@ Routes:
     POST /journals/start                — run workflow on typed text; returns response inline (zero-persistence, ADR-073)
     POST /journals/upload               — file upload handler
     POST /journals/folder-process       — batch folder processing
-    GET  /journals/je-out/{filename}    — download a compiled journal output from je_out/
-    GET  /journals/{entry_uid}          — dedicated journal session chat page
+    GET  /journals/je-out/{filename}    — download a journal output from je_out/
+    GET  /journals/{entry_uid}          — periodic-note page (daily/weekly/monthly)
     POST /journals/respond              — STANDARD tier single-response workflow (FULL tier)
     POST /journals/follow-up            — conversation continuation (all tiers)
     POST /journals/stage1               — Stage 1 Scribe (FOUNDER only, FULL tier)
@@ -16,7 +16,6 @@ Routes:
 
 from __future__ import annotations
 
-import mimetypes
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -27,11 +26,8 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
-from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
-from core.models.user_entry.user_entry import UserEntry
 from core.utils.logging import get_logger
-from ui.journals.components import render_batch_upload_status
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
 if TYPE_CHECKING:
@@ -52,13 +48,6 @@ _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
 _LLM_MODEL_GPT = "gpt-4o-mini"
 _LLM_MAX_TOKENS = 4000
-
-# Pipelines that constitute a journal *session* (vs. periodic notes, teacher
-# review, or extraction entries). Used to filter session lists and to gate the
-# suggestions panel to journal content only.
-_JOURNAL_PIPELINES = frozenset(
-    {Pipeline.LLM_SUMMARY, Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
-)
 
 
 # ---------------------------------------------------------------------------
@@ -82,40 +71,42 @@ def _load_journal_instruction_file(filename: str, processing_mode: str) -> str |
     return candidate.read_text(encoding="utf-8")
 
 
-async def _submit_text_file_for_llm(
-    *,
-    file_content: bytes,
-    filename: str,
-    title: str,
-    user_uid: str,
+def _write_je_out(stem: str, suffix: str, content: str) -> str:
+    """Write processed content *flat* to ``je_out/`` and return the filename.
+
+    Zero-persistence (ADR-073): journal processing outputs land in the user's
+    own ``je_out/`` folder — local, user-owned, never synced to SKUEL and never
+    written to Neo4j. The user opens these in Obsidian and decides what (if
+    anything) enters the vault via the doorway folders. The rename formula is
+    ``{stem}{suffix}`` (``.txt`` for raw transcripts, ``_out.md`` for compiled
+    output), matching the batch/folder-process path so a single scheme applies
+    across every entry point. ``Path(stem).name`` strips any path components
+    from an untrusted upload filename.
+    """
+    _JE_OUT.mkdir(parents=True, exist_ok=True)
+    filename = f"{Path(stem).name}{suffix}"
+    (_JE_OUT / filename).write_text(content, encoding="utf-8")
+    return filename
+
+
+async def _compile_text(
+    text: str,
     instructions: str | None,
-    user_entry_service: Any,
+    *,
+    user_uid: str,
+    is_founder: bool,
+    journal_service: Any,
+    processing_service: Any,
 ) -> Any:
-    """Submit a text file for LLM_SUMMARY by decoding content and using create_entry."""
-    from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-    from core.utils.result_simplified import Errors, Result
+    """Compile raw text to processed output — statelessly. Returns ``Result[str]``.
 
-    try:
-        text_content = file_content.decode("utf-8")
-    except UnicodeDecodeError:
-        return Result.fail(
-            Errors.validation(
-                "File must be valid UTF-8 text for Instructions only mode",
-                field="file",
-            )
-        )
-
-    file_type = mimetypes.guess_type(filename)[0] or "text/plain"
-    req = UserEntryCreateRequest(
-        title=title,
-        pipeline=Pipeline.LLM_SUMMARY,
-        instructions=instructions,
-        content=text_content,
-        original_filename=filename,
-        file_size=len(file_content),
-        file_type=file_type,
-    )
-    return await user_entry_service.create_entry(request=req, user_uid=user_uid)
+    FOUNDER runs the full DNWF compile (``run_compiled``); everyone else runs a
+    single LLM pass over the text with the supplied instructions. Neither path
+    touches Neo4j.
+    """
+    if is_founder and journal_service is not None:
+        return await journal_service.run_compiled(text, user_uid)
+    return await _call_llm_with_instructions(text, instructions, processing_service)
 
 
 async def _call_llm_with_instructions(
@@ -144,11 +135,226 @@ async def _call_llm_with_instructions(
         return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
 
 
-def _status_value(entry: UserEntry) -> str:
-    status = entry.status
-    if isinstance(status, EntityStatus):
-        return status.value
-    return str(status) if status else "submitted"
+async def _process_single_upload(
+    *,
+    file_content: bytes,
+    filename: str,
+    title: str,
+    processing_mode: str,
+    instructions: str | None,
+    user_uid: str,
+    is_founder: bool,
+    journal_service: Any,
+    batch_transcription_service: Any,
+    processing_service: Any,
+) -> Any:
+    """Process one uploaded file to ``je_out/`` and return an inline fragment.
+
+    Zero-persistence (ADR-073): no ``UserEntry`` is created. Text files compile
+    via the LLM; audio transcribes via Deepgram. FOUNDER audio hands the
+    transcript to the interactive DNWF review→Scribe flow; everyone else gets a
+    ``je_out/`` file plus a download fragment.
+    """
+    import contextlib
+    import tempfile
+
+    from ui.journals import FileOutputFragment, TranscriptReviewFragment
+
+    stem = Path(filename).stem
+
+    if processing_mode == "instructions_only":
+        try:
+            text_content = file_content.decode("utf-8")
+        except UnicodeDecodeError:
+            return render_journal_upload_status(
+                "error",
+                "File must be valid UTF-8 text for Instructions only mode",
+                is_error=True,
+            )
+        compiled = await _compile_text(
+            text_content,
+            instructions,
+            user_uid=user_uid,
+            is_founder=is_founder,
+            journal_service=journal_service,
+            processing_service=processing_service,
+        )
+        if compiled.is_error:
+            return render_journal_upload_status("error", str(compiled.error), is_error=True)
+        out_name = _write_je_out(stem, "_out.md", compiled.value)
+        return FileOutputFragment(
+            title=title, output_filename=out_name, response_output=compiled.value
+        )
+
+    # Transcription modes (audio) — require Deepgram (FULL tier).
+    if batch_transcription_service is None:
+        return render_journal_upload_status(
+            "error", "Transcription service not available (requires FULL tier)", is_error=True
+        )
+
+    suffix = Path(filename).suffix or ".audio"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(file_content)
+        tmp_path = tmp.name
+    try:
+        transcript_result = await batch_transcription_service.transcribe_one(tmp_path)
+    finally:
+        with contextlib.suppress(OSError):
+            Path(tmp_path).unlink()
+
+    if transcript_result.is_error:
+        logger.error("Single-file transcription failed: %s", transcript_result.expect_error())
+        return render_journal_upload_status(
+            "error", "Transcription failed — please try again.", is_error=True
+        )
+    transcript = transcript_result.value
+
+    if is_founder:
+        # FOUNDER: save the raw transcript to je_out and hand it to the DNWF
+        # review→Scribe flow (stateless stage routes take over from here).
+        _write_je_out(stem, ".txt", transcript)
+        return TranscriptReviewFragment(transcript=transcript, title=title)
+
+    if processing_mode == "transcribe_and_instructions":
+        compiled = await _compile_text(
+            transcript,
+            instructions,
+            user_uid=user_uid,
+            is_founder=False,
+            journal_service=journal_service,
+            processing_service=processing_service,
+        )
+        if compiled.is_error:
+            return render_journal_upload_status("error", str(compiled.error), is_error=True)
+        out_name = _write_je_out(stem, "_out.md", compiled.value)
+        return FileOutputFragment(
+            title=title, output_filename=out_name, response_output=compiled.value
+        )
+
+    # transcribe_only (STANDARD) — raw transcript download.
+    out_name = _write_je_out(stem, ".txt", transcript)
+    return FileOutputFragment(title=title, output_filename=out_name, response_output=transcript)
+
+
+async def _run_batch_over_dir(
+    input_dir: Path,
+    processing_mode: str,
+    instructions: str | None,
+    *,
+    status_id: str,
+    batch_transcription_service: Any,
+    processing_service: Any,
+) -> Any:
+    """Run a batch pipeline over every file in ``input_dir`` → ``je_out/``.
+
+    The shared, zero-persistence engine behind both ``/journals/folder-process``
+    (scans ``je_in/``) and multi-file upload (scans a temp dir of uploads). Pure
+    filesystem: outputs land in ``je_out/`` via the rename formula, nothing is
+    written to Neo4j. Returns a rendered status fragment.
+    """
+    _JE_OUT.mkdir(parents=True, exist_ok=True)
+
+    if processing_mode in ("transcribe_only", "transcribe_and_instructions"):
+        if batch_transcription_service is None:
+            return render_journal_upload_status(
+                "error",
+                "Transcription service not available (requires FULL tier)",
+                is_error=True,
+            )
+        transcribe_result = await batch_transcription_service.transcribe_batch(input_dir, _JE_OUT)
+        if transcribe_result.is_error:
+            return render_journal_upload_status(
+                "error", str(transcribe_result.error), is_error=True, status_id=status_id
+            )
+        r = transcribe_result.value
+
+        if processing_mode == "transcribe_only":
+            msg = (
+                f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
+                " — results in je_out/"
+            )
+            is_err = r.failed > 0 and r.succeeded == 0
+            return render_journal_upload_status(
+                "error" if is_err else "completed", msg, is_error=is_err, status_id=status_id
+            )
+
+        # transcribe_and_instructions — LLM-structure each fresh transcript.
+        if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
+            return render_journal_upload_status(
+                "error",
+                "LLM service not available (requires INTELLIGENCE_TIER=full)",
+                is_error=True,
+                status_id=status_id,
+            )
+        succeeded_stems = {
+            Path(res["name"]).stem
+            for res in transcribe_result.value.results
+            if res.get("status") == "success"
+        }
+        llm_ok = 0
+        llm_fail = 0
+        for stem in succeeded_stems:
+            txt_path = _JE_OUT / f"{stem}.txt"
+            if not txt_path.exists():
+                continue
+            text = txt_path.read_text(encoding="utf-8")
+            llm_result = await _call_llm_with_instructions(text, instructions, processing_service)
+            if llm_result.is_error:
+                logger.error(f"LLM failed for {stem}: {llm_result.error}")
+                llm_fail += 1
+            else:
+                (_JE_OUT / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
+                llm_ok += 1
+        msg = (
+            f"{r.succeeded} transcribed, {llm_ok} structured, "
+            f"{r.failed + llm_fail} failed — results in je_out/"
+        )
+        return render_journal_upload_status("completed", msg, status_id=status_id)
+
+    if processing_mode == "instructions_only":
+        if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
+            return render_journal_upload_status(
+                "error",
+                "LLM service not available (requires INTELLIGENCE_TIER=full)",
+                is_error=True,
+                status_id=status_id,
+            )
+        if not input_dir.is_dir():
+            return render_journal_upload_status(
+                "error", f"Input folder not found: {input_dir}", is_error=True, status_id=status_id
+            )
+        text_files = sorted(
+            f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() in _TEXT_EXTENSIONS
+        )
+        if not text_files:
+            return render_journal_upload_status(
+                "error", "No text files found to process", is_error=True, status_id=status_id
+            )
+        ok = 0
+        fail = 0
+        for text_file in text_files:
+            try:
+                text = text_file.read_text(encoding="utf-8")
+            except Exception:  # safety-net: per-file read error
+                fail += 1
+                continue
+            llm_result = await _call_llm_with_instructions(text, instructions, processing_service)
+            if llm_result.is_error:
+                logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
+                fail += 1
+            else:
+                (_JE_OUT / f"{text_file.stem}_out.md").write_text(
+                    llm_result.value, encoding="utf-8"
+                )
+                ok += 1
+        msg = f"{ok} processed, {fail} failed — results in je_out/"
+        return render_journal_upload_status(
+            "completed" if ok > 0 else "error", msg, is_error=(ok == 0), status_id=status_id
+        )
+
+    return render_journal_upload_status(
+        "error", f"Unknown processing mode: {processing_mode!r}", is_error=True, status_id=status_id
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -185,16 +391,9 @@ def create_journals_routes(
             return Response("Could not load user", status_code=500)
         user = user_result.value
 
-        recent_entries: list[Any] = []
-        if user_entry_service is not None:
-            recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
-            recent_entries = [
-                e
-                for e in (recent_result.value if recent_result.is_ok else [])
-                if e.pipeline in _JOURNAL_PIPELINES
-            ][:30]
-
-        page_content = JournalsLandingPage(user=user, recent_entries=recent_entries)
+        # Journal sessions are zero-persistence (ADR-073) — there are no stored
+        # sessions to list. The landing page is the workshop entry point only.
+        page_content = JournalsLandingPage(user=user)
 
         if request.headers.get("HX-Request"):
             return page_content
@@ -211,7 +410,7 @@ def create_journals_routes(
         )
 
     # ------------------------------------------------------------------
-    # POST /journals/start — create persistent session from text
+    # POST /journals/start — run the workflow on typed text, return inline
     # ------------------------------------------------------------------
 
     @rt("/journals/start", methods=["POST"])
@@ -295,22 +494,21 @@ def create_journals_routes(
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
     async def journals_upload(request: Request) -> Any:
-        """HTMX endpoint for journal file upload.
+        """HTMX endpoint for journal file upload — zero-persistence (ADR-073).
 
-        Supports three processing modes driven by the ``processing_mode`` form field:
-        - ``transcribe_only``           — audio → text (Pipeline.TRANSCRIBE)
-        - ``transcribe_and_instructions`` — audio → transcribe + LLM (Pipeline.TRANSCRIBE_AND_STRUCTURE)
-        - ``instructions_only``         — text file → LLM (Pipeline.LLM_SUMMARY)
+        Three processing modes driven by the ``processing_mode`` form field:
+        - ``transcribe_only``            — audio → transcript (Deepgram)
+        - ``transcribe_and_instructions``— audio → transcript → LLM structuring
+        - ``instructions_only``          — text file → LLM compile
 
-        For FOUNDER tier with transcribe modes, runs transcription synchronously and
-        returns ``TranscriptReviewFragment`` so the user can review before Stage 1.
+        Every path writes its output to the user's own ``je_out/`` folder and
+        returns an inline fragment — nothing is written to Neo4j. A single file
+        gets a rich inline result (FOUNDER audio → transcript review → Scribe);
+        multiple files run the shared batch engine to ``je_out/``.
         """
-        from starlette.datastructures import UploadFile
+        import tempfile
 
-        if user_entry_service is None:
-            return render_journal_upload_status(
-                "error", "Upload service not available", is_error=True
-            )
+        from starlette.datastructures import UploadFile
 
         try:
             user_uid = require_authenticated_user(request)
@@ -325,7 +523,9 @@ def create_journals_routes(
             uploaded_files = [f for f in raw_files if isinstance(f, UploadFile)]
 
             if not uploaded_files:
-                return render_journal_upload_status("error", "No file provided", is_error=True)
+                return render_journal_upload_status(
+                    "error", "No file provided", is_error=True, status_id=status_id
+                )
 
             max_journal_files = 20
             if len(uploaded_files) > max_journal_files:
@@ -333,6 +533,7 @@ def create_journals_routes(
                     "error",
                     f"Too many files: {len(uploaded_files)} (max {max_journal_files})",
                     is_error=True,
+                    status_id=status_id,
                 )
 
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
@@ -342,192 +543,46 @@ def create_journals_routes(
                 instruction_filename, processing_mode
             )
 
-            pipeline_map: dict[str, Pipeline] = {
-                "transcribe_only": Pipeline.TRANSCRIBE,
-                "transcribe_and_instructions": Pipeline.TRANSCRIBE_AND_STRUCTURE,
-                "instructions_only": Pipeline.LLM_SUMMARY,
-            }
-            pipeline = pipeline_map.get(processing_mode, Pipeline.TRANSCRIBE)
+            user_result = await user_service.get_user(user_uid)
+            is_founder = (
+                user_result.is_ok
+                and user_result.value is not None
+                and user_result.value.journal_tier.is_founder()
+            )
 
             if len(uploaded_files) == 1:
                 uploaded_file = uploaded_files[0]
                 file_content = await uploaded_file.read()
                 filename = uploaded_file.filename or "unknown"
                 title = custom_title or filename
-
-                if processing_mode == "instructions_only":
-                    result = await _submit_text_file_for_llm(
-                        file_content=file_content,
-                        filename=filename,
-                        title=title,
-                        user_uid=user_uid,
-                        instructions=instructions,
-                        user_entry_service=user_entry_service,
-                    )
-                    if result.is_error:
-                        return render_journal_upload_status(
-                            "error", str(result.error), is_error=True
-                        )
-                    entry, _outcome = result.value
-
-                    # Run all three DNWF stages in sequence (FOUNDER only) and display
-                    # compiled output. STANDARD users fall through to the status card.
-                    if journal_service is not None:
-                        user_result = await user_service.get_user(user_uid)
-                        is_founder = (
-                            user_result.is_ok
-                            and user_result.value is not None
-                            and user_result.value.journal_tier.is_founder()
-                        )
-                        if not is_founder:
-                            return render_journal_upload_status(
-                                _status_value(entry),
-                                f"Journal entry created: {entry.title}",
-                                je_input_uid=entry.uid,
-                            )
-
-                        try:
-                            text_content = file_content.decode("utf-8")
-                        except UnicodeDecodeError:
-                            text_content = ""
-
-                        if text_content:
-                            compiled_result = await journal_service.run_compiled(
-                                text_content, user_uid
-                            )
-                            if not compiled_result.is_error:
-                                # Save compiled output to je_out/{user_uid}/{stem}_out.md.
-                                # User-scoped subdirectory prevents filename collisions across
-                                # users and enforces ownership at the download endpoint.
-                                stem = Path(filename).stem
-                                # Entry UID suffix prevents collisions when the same
-                                # basename is uploaded more than once.
-                                output_filename = f"{stem}_{entry.uid}_out.md"
-                                user_out_dir = _JE_OUT / user_uid
-                                user_out_dir.mkdir(parents=True, exist_ok=True)
-                                output_path = user_out_dir / output_filename
-                                output_path.write_text(compiled_result.value, encoding="utf-8")
-                                persist_result = await user_entry_service.update_processed_content(
-                                    entry.uid,
-                                    compiled_result.value,
-                                    processed_file_path=str(output_path),
-                                )
-                                if persist_result.is_error:
-                                    logger.error(
-                                        "Failed to persist processed content for %s: %s",
-                                        entry.uid,
-                                        persist_result.expect_error(),
-                                    )
-                                    return render_journal_upload_status(
-                                        "error",
-                                        "Journal processed but could not save output — please try again.",
-                                        is_error=True,
-                                    )
-                                return HTMLResponse(
-                                    status_code=200,
-                                    headers={"HX-Redirect": f"/journals/{entry.uid}"},
-                                )
-                            logger.error(
-                                "Compiled DNWF failed for %s: %s",
-                                entry.uid,
-                                compiled_result.expect_error(),
-                            )
-
-                    # Fallthrough: CORE tier (no journal_service), empty file, or LLM error.
-                    # Entry exists but has no processed content — show a status card so the
-                    # user isn't stranded on a permanent spinner at /journals/{uid}.
-                    return render_journal_upload_status(
-                        _status_value(entry),
-                        f"Journal entry created: {entry.title}",
-                        je_input_uid=entry.uid,
-                    )
-
-                # Transcription modes — submit file
-                result = await user_entry_service.submit_file(
+                return await _process_single_upload(
                     file_content=file_content,
-                    original_filename=filename,
-                    user_uid=user_uid,
-                    pipeline=pipeline,
+                    filename=filename,
                     title=title,
+                    processing_mode=processing_mode,
                     instructions=instructions,
-                    metadata={"custom_title": custom_title} if custom_title else {},
+                    user_uid=user_uid,
+                    is_founder=is_founder,
+                    journal_service=journal_service,
+                    batch_transcription_service=batch_transcription_service,
+                    processing_service=processing_service,
                 )
 
-                if result.is_error:
-                    return render_journal_upload_status("error", str(result.error), is_error=True)
-
-                entry, _outcome = result.value
-
-                # FOUNDER tier: run transcription synchronously → TranscriptReviewFragment
-                is_transcription_mode = processing_mode in (
-                    "transcribe_only",
-                    "transcribe_and_instructions",
+            # Multiple files — write to a temp dir and run the shared batch engine
+            # (same je_in → je_out cycle as /journals/folder-process). No entries.
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_path = Path(tmp_dir)
+                for uploaded_file in uploaded_files:
+                    name = Path(uploaded_file.filename or "unknown").name
+                    (tmp_path / name).write_bytes(await uploaded_file.read())
+                return await _run_batch_over_dir(
+                    tmp_path,
+                    processing_mode,
+                    instructions,
+                    status_id=status_id,
+                    batch_transcription_service=batch_transcription_service,
+                    processing_service=processing_service,
                 )
-                if is_transcription_mode and processing_service is not None:
-                    user_result = await user_service.get_user(user_uid)
-                    is_founder = (
-                        user_result.is_ok
-                        and user_result.value is not None
-                        and user_result.value.journal_tier.is_founder()
-                    )
-                    if is_founder:
-                        process_result = await processing_service.process(entry)
-                        if process_result.is_error:
-                            logger.error(
-                                "Transcription failed for %s: %s",
-                                entry.uid,
-                                process_result.expect_error(),
-                            )
-                            return render_journal_upload_status(
-                                "error",
-                                "Transcription failed — please try again.",
-                                is_error=True,
-                            )
-                        return HTMLResponse(
-                            status_code=200,
-                            headers={"HX-Redirect": f"/journals/{entry.uid}"},
-                        )
-
-                # STANDARD tier: transcription is async — no content on the entry yet.
-                # Return a status card so the user isn't stranded on a permanent spinner.
-                return render_journal_upload_status(
-                    _status_value(entry),
-                    f"Journal entry created: {entry.title}",
-                    je_input_uid=entry.uid,
-                )
-
-            # Multiple files — batch processing
-            if processing_mode == "instructions_only":
-                return render_journal_upload_status(
-                    "error",
-                    "Instructions only mode supports a single file at a time",
-                    is_error=True,
-                )
-
-            batch_results: list[tuple[str, bool, str | None, str | None]] = []
-            for uploaded_file in uploaded_files:
-                filename = uploaded_file.filename or "unknown"
-                try:
-                    file_content = await uploaded_file.read()
-                    result = await user_entry_service.submit_file(
-                        file_content=file_content,
-                        original_filename=filename,
-                        user_uid=user_uid,
-                        pipeline=pipeline,
-                        title=filename,
-                        instructions=instructions,
-                        metadata={},
-                    )
-                    if result.is_error:
-                        batch_results.append((filename, False, None, str(result.error)))
-                    else:
-                        entry, _outcome = result.value
-                        batch_results.append((filename, True, entry.uid, None))
-                except Exception as e:  # safety-net: per-file error boundary
-                    logger.error(f"Error processing journal file {filename!r}: {e}", exc_info=True)
-                    batch_results.append((filename, False, None, str(e)))
-
-            return render_batch_upload_status(batch_results, status_id=status_id)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)
@@ -541,7 +596,12 @@ def create_journals_routes(
     @csrf_protected
     @rate_limited(per_user=5, window_s=60)
     async def journals_folder_process(request: Request) -> Any:
-        """HTMX endpoint: process all files in je_in/ with the selected pipeline."""
+        """HTMX endpoint: process every file in je_in/ with the selected pipeline.
+
+        Zero-persistence (ADR-073): scans the user's own je_in/ folder, writes
+        outputs to je_out/ via the shared batch engine, and touches Neo4j zero
+        times — the same file-based cycle as multi-file upload.
+        """
         try:
             require_authenticated_user(request)
             form = await request.form()
@@ -552,128 +612,13 @@ def create_journals_routes(
                 instruction_filename, processing_mode
             )
 
-            _JE_OUT.mkdir(parents=True, exist_ok=True)
-
-            if processing_mode == "transcribe_only":
-                if batch_transcription_service is None:
-                    return render_journal_upload_status(
-                        "error",
-                        "Transcription service not available (requires FULL tier)",
-                        is_error=True,
-                    )
-                result = await batch_transcription_service.transcribe_batch(_JE_IN, _JE_OUT)
-                if result.is_error:
-                    return render_journal_upload_status("error", str(result.error), is_error=True)
-                r = result.value
-                msg = (
-                    f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
-                    f" — results in je_out/"
-                )
-                is_err = r.failed > 0 and r.succeeded == 0
-                return render_journal_upload_status(
-                    "error" if is_err else "completed", msg, is_error=is_err
-                )
-
-            if processing_mode == "transcribe_and_instructions":
-                if batch_transcription_service is None:
-                    return render_journal_upload_status(
-                        "error",
-                        "Transcription service not available (requires FULL tier)",
-                        is_error=True,
-                    )
-                if (
-                    processing_service is None
-                    or getattr(processing_service, "llm_caller", None) is None
-                ):
-                    return render_journal_upload_status(
-                        "error",
-                        "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                        is_error=True,
-                    )
-                transcribe_result = await batch_transcription_service.transcribe_batch(
-                    _JE_IN, _JE_OUT
-                )
-                if transcribe_result.is_error:
-                    return render_journal_upload_status(
-                        "error", str(transcribe_result.error), is_error=True
-                    )
-                succeeded_stems = {
-                    Path(r["name"]).stem
-                    for r in transcribe_result.value.results
-                    if r.get("status") == "success"
-                }
-                llm_ok = 0
-                llm_fail = 0
-                for stem in succeeded_stems:
-                    txt_path = _JE_OUT / f"{stem}.txt"
-                    if not txt_path.exists():
-                        continue
-                    text = txt_path.read_text(encoding="utf-8")
-                    llm_result = await _call_llm_with_instructions(
-                        text, instructions, processing_service
-                    )
-                    if llm_result.is_error:
-                        logger.error(f"LLM failed for {stem}: {llm_result.error}")
-                        llm_fail += 1
-                    else:
-                        (_JE_OUT / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
-                        llm_ok += 1
-                r = transcribe_result.value
-                msg = (
-                    f"{r.succeeded} transcribed, {llm_ok} structured, "
-                    f"{r.failed + llm_fail} failed — results in je_out/"
-                )
-                return render_journal_upload_status("completed", msg)
-
-            if processing_mode == "instructions_only":
-                if (
-                    processing_service is None
-                    or getattr(processing_service, "llm_caller", None) is None
-                ):
-                    return render_journal_upload_status(
-                        "error",
-                        "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                        is_error=True,
-                    )
-                if not _JE_IN.is_dir():
-                    return render_journal_upload_status(
-                        "error", f"Input folder not found: {_JE_IN}", is_error=True
-                    )
-                text_files = sorted(
-                    f
-                    for f in _JE_IN.iterdir()
-                    if f.is_file() and f.suffix.lower() in _TEXT_EXTENSIONS
-                )
-                if not text_files:
-                    return render_journal_upload_status(
-                        "error", "No text files found in je_in/", is_error=True
-                    )
-                ok = 0
-                fail = 0
-                for text_file in text_files:
-                    try:
-                        text = text_file.read_text(encoding="utf-8")
-                    except Exception:  # safety-net: per-file read error
-                        fail += 1
-                        continue
-                    llm_result = await _call_llm_with_instructions(
-                        text, instructions, processing_service
-                    )
-                    if llm_result.is_error:
-                        logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
-                        fail += 1
-                    else:
-                        (_JE_OUT / f"{text_file.stem}_out.md").write_text(
-                            llm_result.value, encoding="utf-8"
-                        )
-                        ok += 1
-                msg = f"{ok} processed, {fail} failed — results in je_out/"
-                return render_journal_upload_status(
-                    "completed" if ok > 0 else "error", msg, is_error=(ok == 0)
-                )
-
-            return render_journal_upload_status(
-                "error", f"Unknown processing mode: {processing_mode!r}", is_error=True
+            return await _run_batch_over_dir(
+                _JE_IN,
+                processing_mode,
+                instructions,
+                status_id="upload-status",
+                batch_transcription_service=batch_transcription_service,
+                processing_service=processing_service,
             )
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
@@ -686,39 +631,42 @@ def create_journals_routes(
 
     @rt("/journals/je-out/{filename}", methods=["GET"])
     async def journals_download_output(request: Request, filename: str) -> Any:
-        """Serve a compiled journal output from je_out/ as a file download.
+        """Serve a journal output from je_out/ as a file download.
 
-        Files are written to je_out/{user_uid}/{filename} so ownership is
-        enforced implicitly: each user can only reach their own subdirectory.
-        No cross-user access is possible even if filenames collide.
-
-        je_out/ is a pipeline staging area excluded from vault sync. Users open
-        these files in Obsidian and decide what to carry into their personal vault.
-        SKUEL never auto-syncs je_out/ into the vault.
+        je_out/ is the user's own, flat, local staging folder (ADR-073): outputs
+        are written there by the recognised rename formula (``.txt`` transcripts,
+        ``_out.md`` compiled) and opened directly in Obsidian — the download link
+        is a convenience. It is excluded from vault sync; SKUEL never auto-syncs
+        je_out/ into the vault. The flat folder is inherently single-user (one
+        vault per install); the filename guard blocks traversal out of it.
         """
         from starlette.responses import FileResponse
 
-        user_uid = require_authenticated_user(request)
+        require_authenticated_user(request)
 
-        # Guard: no path traversal, only .md files
+        # Guard: no path traversal; only the two recognised output extensions.
         if "/" in filename or "\\" in filename or ".." in filename:
             return Response("Not found", status_code=404)
-        if not filename.endswith(".md"):
+        if not (filename.endswith(".md") or filename.endswith(".txt")):
             return Response("Not found", status_code=404)
 
-        user_out_dir = _JE_OUT / user_uid
-        candidate = (user_out_dir / filename).resolve()
+        candidate = (_JE_OUT / filename).resolve()
         try:
-            candidate.relative_to(user_out_dir.resolve())
+            candidate.relative_to(_JE_OUT.resolve())
         except ValueError:
             return Response("Not found", status_code=404)
 
         if not candidate.is_file():
             return Response("File not found", status_code=404)
 
+        media_type = (
+            "text/markdown; charset=utf-8"
+            if filename.endswith(".md")
+            else "text/plain; charset=utf-8"
+        )
         return FileResponse(
             path=str(candidate),
-            media_type="text/markdown; charset=utf-8",
+            media_type=media_type,
             filename=filename,
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
@@ -856,110 +804,41 @@ def create_journals_routes(
     # POST /journals/suggest-activities — lazy-loaded "Suggested activities" panel
     #
     # Declared before the {entry_uid} catch-all (FastHTML resolves in order).
-    # Reads the persisted entry, runs the bridge, returns inert copyable DSL
-    # lines. Creates and persists nothing (the prose + suggestions boundary).
+    # Takes the reflection *content* in the POST body (zero-persistence, ADR-073),
+    # runs the bridge, and returns inert copyable DSL lines. There is no stored
+    # entry to read, own, or cache into — nothing is created or persisted (the
+    # prose + suggestions boundary).
     # ------------------------------------------------------------------
 
     @rt("/journals/suggest-activities", methods=["POST"])
     @csrf_protected
     @rate_limited(per_user=20, window_s=60)
     async def journals_suggest_activities(request: Request) -> Any:
-        from adapters.inbound.result_helpers import require_found
-        from core.utils.result_simplified import ErrorCategory
         from ui.journals import SuggestedActivitiesPanel
 
         user_uid = require_authenticated_user(request)
 
-        # CORE tier (no journal_service) → inert cheat-sheet pointer. The
-        # FULL-tier-without-OpenAI-key case is handled below, AFTER the ownership
-        # and allowlist guards, so it can't shortcut the 404 invariant.
-        if journal_service is None:
+        # CORE tier (no journal_service) or FULL-tier-without-OpenAI-key → inert
+        # cheat-sheet pointer. No stored entry exists, so there is no ownership /
+        # allowlist invariant to protect: the content is supplied by the caller.
+        if journal_service is None or not journal_service.suggestions_available:
             return SuggestedActivitiesPanel(unavailable=True)
-        if user_entry_service is None:
-            return Response("Service unavailable", status_code=503)
 
         form = await request.form()
-        entry_uid = str(form.get("entry_uid", "")).strip()
-        if not entry_uid:
-            return Response("Not found", status_code=404)
+        content = str(form.get("content", "")).strip()
+        if not content:
+            return SuggestedActivitiesPanel(items=[])
 
-        # Ownership invariant: missing / not-owned → 404 (never a 200 empty panel
-        # for someone else's UID). require_found applies the not-found guard.
-        entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
-        found = require_found(entry_result, "Journal entry", entry_uid)
-        if found.is_error:
-            status = 404 if found.expect_error().category == ErrorCategory.NOT_FOUND else 500
-            return Response("Not found" if status == 404 else "Service error", status_code=status)
-        entry = found.value
-
-        # Allowlist: only journal-session entries get LLM suggestions. Periodic
-        # notes (user types @context directly), teacher-review, and extraction
-        # entries are out of scope for this panel — treat as not found here.
-        if entry.pipeline not in _JOURNAL_PIPELINES:
-            return Response("Not found", status_code=404)
-
-        # Bridge unavailable (FULL tier without an OpenAI key): inert panel, but
-        # only after the ownership + allowlist guards above so missing / foreign /
-        # non-journal uids still 404. No LLM call and no cache write — caching a
-        # bridge-less empty result would survive a later key change.
-        if not journal_service.suggestions_available:
-            return SuggestedActivitiesPanel(unavailable=True)
-
-        content = entry.content or entry.processed_content or ""
-
-        # Memoised: serve the cached panel when the source text is unchanged,
-        # skipping the LLM bridge call on every revisit of the session.
-        from core.services.journal.suggestion import (
-            grounding_digest,
-            metadata_with_cached_suggestions,
-            read_cached_suggestions,
-        )
-
-        # The cache key folds in the active-goal grounding (not just the entry
-        # text): a journal entry's text is effectively immutable, so a goal
-        # change would otherwise keep serving stale suggestions forever. One goal
-        # snapshot feeds BOTH the cache key and the bridge call below, so the
-        # cached panel is always keyed by the grounding that produced it (no
-        # fetch-twice skew). A goals-query error degrades to text-only keying.
+        # Ground the bridge in the user's active goals (soft — a goals-query
+        # failure degrades to ungrounded). Recomputed per request; the reflection
+        # is inert and short-lived, so there is nothing to memoise.
         titles_result = await journal_service.active_goal_titles(user_uid)
         titles = titles_result.value if titles_result.is_ok else []
-        grounding = grounding_digest(titles)
-
-        cached = read_cached_suggestions(entry.metadata, content, grounding)
-        if cached is not None:
-            return SuggestedActivitiesPanel(items=cached)
 
         result = await journal_service.suggest_activities(content, user_uid, titles)
         if result.is_error:
-            logger.warning("suggest_activities failed for %s: %s", entry_uid, result.expect_error())
+            logger.warning("suggest_activities failed for %s: %s", user_uid, result.expect_error())
             return SuggestedActivitiesPanel(error=True)
-
-        # Persist for next visit, failure-isolated: a cache-write miss must not
-        # break the panel the user is looking at. updated_at bumps on write, but
-        # the session list orders by created_at, so ordering is unaffected.
-        #
-        # update_entry replaces metadata wholesale, so merge the cache subfield
-        # into the LATEST metadata (re-read here, not the stale page-load
-        # snapshot) to avoid clobbering a concurrent metadata write. The cache
-        # values are still keyed by the page-load content/grounding fingerprint;
-        # a future read validates that against the then-current values.
-        from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
-
-        latest = await user_entry_service.get_entry(entry_uid, user_uid)
-        base_metadata = latest.value.metadata if latest.is_ok and latest.value else entry.metadata
-        persist = await user_entry_service.update_entry(
-            entry_uid,
-            user_uid,
-            UserEntryUpdateRequest(
-                metadata=metadata_with_cached_suggestions(
-                    base_metadata, result.value, content, grounding
-                )
-            ),
-        )
-        if persist.is_error:
-            logger.warning(
-                "Could not cache suggestions for %s: %s", entry_uid, persist.expect_error()
-            )
 
         return SuggestedActivitiesPanel(items=result.value)
 
@@ -969,7 +848,13 @@ def create_journals_routes(
 
     @rt("/journals/{entry_uid}", methods=["GET"])
     async def journal_chat(request: Request, entry_uid: str) -> Any:
-        """Dedicated chat page for a journal entry."""
+        """Periodic-note page (daily / weekly / monthly).
+
+        Journal *sessions* are zero-persistence (ADR-073) — they render inline on
+        ``/journals`` and are never stored, so there is nothing to reopen here.
+        This route serves only the deliberate stored feature: periodic notes.
+        Any non-periodic entry_uid → 404.
+        """
         from adapters.inbound.result_helpers import require_found
         from core.utils.result_simplified import ErrorCategory
 
@@ -986,103 +871,32 @@ def create_journals_routes(
             return Response("Not found" if status == 404 else "Service error", status_code=status)
         entry = found.value
 
+        # Only periodic notes have a stored page. Sessions (never stored) and any
+        # other entry kind → 404.
+        if entry.metadata.get("entry_kind") not in {"daily", "weekly", "monthly"}:
+            return Response("Not found", status_code=404)
+
+        from ui.journals import PeriodicNoteFragment
+        from ui.journals.chat_page import PeriodicNotePage
         from ui.layouts.base_page import BasePage
         from ui.layouts.page_types import PageType
 
-        # Periodic notes use a calendar navigation sidebar, not the journal session sidebar.
-        if entry.metadata.get("entry_kind") in {"daily", "weekly", "monthly"}:
-            from ui.journals import PeriodicNoteFragment
-            from ui.journals.chat_page import PeriodicNotePage
-
-            initial_workspace = PeriodicNoteFragment(
-                entry_uid=entry.uid,
-                title=entry.title or "",
-                content=entry.content or "",
-            )
-            page_content = PeriodicNotePage(entry=entry, initial_workspace=initial_workspace)
-
-            if request.headers.get("HX-Request"):
-                return page_content
-
-            return await BasePage(
-                content=page_content,
-                title=entry.title or "Periodic Note",
-                page_type=PageType.CUSTOM,
-                request=request,
-                active_page="calendar",
-            )
-
-        # Regular journal session entries
-        from ui.journals import FileOutputFragment, TranscriptReviewFragment
-        from ui.journals.chat_page import JournalChatPage
-
-        user_result = await user_service.get_user(user_uid)
-        if user_result.is_error or user_result.value is None:
-            return Response("Could not load user", status_code=500)
-        user = user_result.value
-
-        recent_result = await user_entry_service.list_for_user(user_uid, limit=60)
-        recent_entries = [
-            e
-            for e in (recent_result.value if recent_result.is_ok else [])
-            if e.pipeline in _JOURNAL_PIPELINES
-        ][:30]
-
-        if entry.processed_file_path:
-            initial_workspace = FileOutputFragment(
-                title=entry.title or "",
-                output_filename=Path(entry.processed_file_path).name,
-                response_output=entry.processed_content or "",
-            )
-        elif entry.processed_content:
-            from ui.journals import Stage1Fragment, StandardResponseFragment
-
-            _transcript_pipelines = {Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
-            if entry.pipeline in _transcript_pipelines:
-                initial_workspace = TranscriptReviewFragment(
-                    transcript=entry.processed_content,
-                    title=entry.title or "",
-                )
-            elif entry.metadata.get("entry_type") == "journal_stage1_start":
-                # FOUNDER text-start: processed_content is the scribe output from run_stage1.
-                # Render Stage1Fragment so the user can review and continue to Stage 2/3.
-                initial_workspace = Stage1Fragment(
-                    raw_entry=entry.content or "",
-                    title=entry.title or "",
-                    scribe_output=entry.processed_content,
-                )
-            else:
-                initial_workspace = StandardResponseFragment(
-                    raw_entry=entry.content or "",
-                    title=entry.title or "",
-                    response_output=entry.processed_content,
-                )
-        else:
-            from fasthtml.common import Div as _Div
-            from fasthtml.common import P as _P
-
-            initial_workspace = _Div(
-                _P("Processing…", cls="text-sm text-muted-foreground"),
-                id="journal-workspace",
-                cls="p-6",
-            )
-
-        page_content = JournalChatPage(
-            entry=entry,
-            recent_entries=recent_entries,
-            initial_workspace=initial_workspace,
-            user=user,
+        initial_workspace = PeriodicNoteFragment(
+            entry_uid=entry.uid,
+            title=entry.title or "",
+            content=entry.content or "",
         )
+        page_content = PeriodicNotePage(entry=entry, initial_workspace=initial_workspace)
 
         if request.headers.get("HX-Request"):
             return page_content
 
         return await BasePage(
             content=page_content,
-            title=entry.title or "Journal",
+            title=entry.title or "Periodic Note",
             page_type=PageType.CUSTOM,
             request=request,
-            active_page="journals",
+            active_page="calendar",
         )
 
     # ------------------------------------------------------------------

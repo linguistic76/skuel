@@ -1,6 +1,6 @@
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
 
-**Status:** Accepted — design agreed; code changes deliberately staged (see *Implementation Status*).
+**Status:** Accepted — PR 1 (text sessions + allowlist) and PR 2 (upload/transcription, decision A) shipped; PR 3 (exemplars) remains (see *Implementation Status*).
 **Date:** 2026-06-30
 **Related:** ADR-054 (UserEntry collapse), ADR-069 (EXTRACT_ACTIVITIES pipeline + EntryReport), ADR-070 (bidirectional VaultBridge), PR #475 (SyncAllowlist fail-closed vault privacy wall)
 
@@ -80,34 +80,36 @@ own examples). They are never ingested as personal memory.
 
 ## Implementation Status
 
-Code is deliberately **not** changed in this ADR (staged for a dedicated pass). Current vs.
-target:
+Progress against target (PR 1 + PR 2 shipped; PR 3 remains):
 
-| Aspect | Today | Target |
+| Aspect | Was | Now |
 |---|---|---|
-| Journal session persistence | Writes `UserEntry` | **Zero** — process → return → download |
-| Sync allowlist default | `periodic_notes/` only | `periodic_notes/`, `personal_notes/`, `activity_notes/` |
-| `je_raw/`/`je_pro/` | Unconditionally excluded, inert | Read as processing exemplars |
+| Journal session persistence | Writes `UserEntry` | ✅ **Zero** — process → return inline / `je_out/` file |
+| File upload + transcription | Writes `UserEntry` (+ manual processing) | ✅ **Zero** — process → `je_out/` file (decision A) |
+| Sync allowlist default | `periodic_notes/` only | ✅ `periodic_notes/`, `personal_notes/`, `activity_notes/` |
+| `je_raw/`/`je_pro/` | Unconditionally excluded, inert | ⏳ PR 3 — read as processing exemplars |
 | Periodic notes | Stored + in-app editable | **Unchanged (kept)** |
 | Model-feeding read (`get_vault_notes_for_context`) | Filters `pipeline='journal'` + `vault_file_path` | Unchanged; already excludes journal sessions |
 
-**One Path Forward deletions** the code pass will make (machinery that exists only to serve
-storage the design removes): journal-session read-back on the chat page, the recent-sessions
-sidebar list, the suggestions-cache-in-metadata write, and `update_processed_content` for
-sessions. Periodic-note machinery is retained.
+**One Path Forward deletions** made by the code pass (machinery that existed only to serve
+storage the design removes): the journal-session chat page (`/journals/{uid}` is now
+periodic-notes-only), the recent-sessions landing + sidebar lists, the suggestions-cache-in-
+metadata helpers, and `UserEntryService.submit_file`/`_store_file` (the bytes-to-disk +
+entry-creation helper journals was the sole consumer of). Periodic-note machinery is retained.
 
-**Sequenced code pass:** `plans/journals-zero-persistence-code-pass.md` — PR 1 (stateless text
-sessions + expanded allowlist, the privacy win), PR 2 (upload/transcription), PR 3 (exemplar
-processing). Text sessions become stateless by mirroring the already-stateless
-`journals_respond`/`journals_follow_up` path.
+**Sequenced code pass:** `plans/journals-zero-persistence-code-pass.md` — PR 1 ✅ (stateless text
+sessions + expanded allowlist, the privacy win), PR 2 ✅ (upload/transcription), PR 3 ⏳ (exemplar
+processing).
 
-**Async-transcription wrinkle.** "Sessions store zero" is trivial for text (process → return →
-download) but not for **audio**: STANDARD-tier transcription is asynchronous and today attaches
-its result to a `UserEntry`. Two ways to honour zero-persistence, deferred to PR 2 as an explicit
-decision: **(A)** make transcription synchronous + file-based (audio → `je_out/` transcript →
-download) — cleanest, changes the async UX; **(B)** keep a transient pending-job entry and delete
-it once the transcript file is written — preserves async UX but is "eventually zero," not "never
-written." (A) is preferred for contract purity. Text/instructions paths have no such wrinkle.
+**Async-transcription decision — resolved to (A).** "Sessions store zero" is trivial for text
+(process → return → download) but was harder for **audio**, which previously attached its
+transcript to a `UserEntry`. **Decision (A)** was chosen: transcription is synchronous and
+file-based (audio → `je_out/` transcript → download; FOUNDER continues to the DNWF review→Scribe
+flow), fully stateless. This is strictly better than the rejected **(B)** (transient pending-job
+entry, delete-after): there is no background worker, so STANDARD audio uploads previously created
+an entry that was *never* auto-processed — (B) would have preserved a UX that did not function.
+Single-file upload, multi-file upload, and `folder-process` now share one stateless batch engine
+(`je_in`/temp dir → `je_out/`).
 
 ## Testability (the contract must be provable, not promised)
 

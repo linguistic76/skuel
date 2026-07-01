@@ -142,7 +142,7 @@ entries in ingestion code.
 | `core/services/journal/journal_service.py` | `JournalService` — orchestrator for both tiers; `suggest_activities()` powers the panel |
 | `core/services/journal/instruction_loader.py` | Prompt composition — FOUNDER file-driven, STANDARD inline |
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render, preserving the bridge's tags verbatim (deadlines/priorities not normalised, so nothing is lost). Inert; user copies into a Periodic Note / extraction folder, never auto-created |
-| `adapters/inbound/journals_routes.py` | 11 routes; FOUNDER tier enforcement lives here; `GET /journals/{entry_uid}` is the dedicated chat page; `POST /journals/suggest-activities` returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves compiled outputs |
+| `adapters/inbound/journals_routes.py` | FOUNDER tier enforcement lives here; text + file-upload paths are zero-persistence (ADR-073) — text renders inline, uploads process to the user's own flat `je_out/` folder via one shared batch engine; `GET /journals/{entry_uid}` is **periodic-notes-only**; `POST /journals/suggest-activities` takes reflection content in the body and returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves flat `je_out/` outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
-| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (file-upload input); `Pipeline.JOURNAL` (privacy contract; no new entries created after save_entry deletion) |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (LLM summarisation for ingestion/EXTRACT; journal upload no longer persists); `Pipeline.JOURNAL` (privacy contract; no new entries created after save_entry deletion) |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |

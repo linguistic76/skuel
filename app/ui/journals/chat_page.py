@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, Input, P, Span
+from fasthtml.common import A, Button, Div, P, Span
 
 from ui.components import Icon
 
@@ -19,21 +19,20 @@ if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
 
 
-def JournalsLandingPage(
-    user: "User",
-    recent_entries: "list[UserEntry]",
-) -> Any:
+def JournalsLandingPage(user: "User") -> Any:
     """3-column journal landing page — Claude.ai project-view style.
 
-    Left: collapsible session sidebar. Center: chat input + recent sessions list.
-    Right: compact Processing / Sources / Browse upload panel.
-    No Tasks+ sidebar — uses BasePage(CUSTOM) like JournalChatPage.
+    Left: collapsible sidebar (New Journal + identity). Center: chat input.
+    Right: compact Processing / Sources / Browse upload panel. No Tasks+ sidebar
+    — uses BasePage(CUSTOM). Journal sessions are zero-persistence (ADR-073), so
+    there is no stored-session history to browse; the workshop opens fresh each
+    time.
     """
     from ui.journals.forms import render_right_panel, upload_form_script
 
     return Div(
-        journal_sidebar(recent_entries, active_uid="", user=user),
-        _landing_center_column(recent_entries),
+        journal_sidebar(user),
+        _landing_center_column(),
         Div(
             render_right_panel(),
             upload_form_script(),
@@ -43,47 +42,7 @@ def JournalsLandingPage(
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
-        **{
-            "x-data": (
-                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false', search: '' }"
-            )
-        },
-    )
-
-
-def JournalChatPage(
-    entry: "UserEntry",
-    recent_entries: "list[UserEntry]",
-    initial_workspace: Any,
-    user: "User",
-) -> Any:
-    """Full-height three-column journal session shell.
-
-    Left: session sidebar. Center: workspace (reflection). Right: lazy-loaded
-    "Suggested activities" panel (FULL tier) — copyable @context() lines the
-    user moves into their own notes. The panel is inert; it creates nothing.
-    """
-    from ui.journals import SuggestedActivitiesContainer
-
-    return Div(
-        journal_sidebar(recent_entries, entry.uid, user),
-        Div(
-            initial_workspace,
-            cls="flex-1 flex flex-col overflow-hidden",
-        ),
-        Div(
-            SuggestedActivitiesContainer(entry.uid),
-            cls=(
-                "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"
-            ),
-        ),
-        cls="flex overflow-hidden bg-background",
-        style="height: calc(100vh - 3.5rem);",
-        **{
-            "x-data": (
-                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false', search: '' }"
-            )
-        },
+        **{"x-data": "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false' }"},
     )
 
 
@@ -268,18 +227,15 @@ def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def journal_sidebar(
-    recent_entries: "list[UserEntry]",
-    active_uid: str,
-    user: "User",
-) -> Any:
+def journal_sidebar(user: "User") -> Any:
     return Div(
-        # Full sidebar (shown when open)
+        # Full sidebar (shown when open). Journal sessions are zero-persistence
+        # (ADR-073), so there is no session history or search — just the entry
+        # point and identity.
         Div(
             _sb_header(),
             _sb_new_journal_btn(),
-            _sb_search_field(),
-            _sb_session_list(recent_entries, active_uid),
+            Div(cls="flex-1"),
             _sb_identity_footer(user),
             cls="flex flex-col h-full",
             **{"x-show": "sidebarOpen"},
@@ -365,93 +321,6 @@ def _sb_new_journal_btn() -> Any:
     )
 
 
-def _sb_search_field() -> Any:
-    return Div(
-        Div(
-            Icon("search", size=15, cls="text-muted-foreground shrink-0"),
-            Input(
-                type="search",
-                placeholder="Search sessions",
-                cls=(
-                    "flex-1 bg-transparent border-none outline-none"
-                    " text-[13.5px] text-foreground placeholder:text-muted-foreground"
-                ),
-                **{"x-model": "search"},
-            ),
-            cls="flex items-center gap-2 h-[38px] rounded-[9px] px-3 bg-slate-100",
-        ),
-        cls="px-3 pb-4",
-    )
-
-
-def _sb_session_list(entries: "list[UserEntry]", active_uid: str) -> Any:
-    today = datetime.date.today()
-    yesterday = today - datetime.timedelta(days=1)
-
-    groups: dict[str, list[UserEntry]] = {"TODAY": [], "YESTERDAY": [], "EARLIER": []}
-    for e in entries:
-        created = getattr(e, "created_at", None)
-        if created is not None:
-            entry_date = created.date() if isinstance(created, datetime.datetime) else today
-        else:
-            entry_date = today
-
-        if entry_date == today:
-            groups["TODAY"].append(e)
-        elif entry_date == yesterday:
-            groups["YESTERDAY"].append(e)
-        else:
-            groups["EARLIER"].append(e)
-
-    sections: list[Any] = []
-    for label, group_entries in groups.items():
-        if not group_entries:
-            continue
-        sections.append(
-            Div(
-                label,
-                cls=(
-                    "px-3 py-1 text-[11px] font-semibold text-muted-foreground"
-                    " uppercase tracking-wider"
-                ),
-            )
-        )
-        sections.append(Div(cls="border-t border-border mx-3 mb-1"))
-        for e in group_entries:
-            sections.append(_session_item(e, active=e.uid == active_uid))
-
-    if not sections:
-        sections.append(
-            P(
-                "No sessions yet.",
-                cls="px-4 py-3 text-[12.5px] text-muted-foreground italic",
-            )
-        )
-
-    return Div(
-        *sections,
-        cls="flex-1 overflow-y-auto",
-    )
-
-
-def _session_item(entry: "UserEntry", active: bool) -> Any:
-    title = (entry.title or "Untitled")[:40]
-    active_cls = "bg-slate-200/70" if active else "hover:bg-slate-100"
-    return A(
-        Span(title, cls="text-[13.5px] text-foreground truncate flex-1"),
-        href=f"/journals/{entry.uid}",
-        cls=(
-            f"flex items-center gap-2 px-3 py-[9px] mx-1 rounded-[8px]"
-            f" transition-colors cursor-pointer no-underline {active_cls}"
-        ),
-        **{
-            "x-show": (
-                f"search === '' || {_js_str(title)}.toLowerCase().includes(search.toLowerCase())"
-            )
-        },
-    )
-
-
 def _sb_identity_footer(user: "User") -> Any:
     initials = (user.display_name or user.title or "U")[0].upper()
     name = user.display_name or user.title or "User"
@@ -480,33 +349,16 @@ def _sb_identity_footer(user: "User") -> Any:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def _js_str(s: str) -> str:
-    """Produce a JS string literal safe to embed in an Alpine x-show expression.
-
-    json.dumps() produces a quoted JS string that handles newlines, tabs, and
-    other line terminators that single-quote manual escaping misses.
-    """
-    import json
-
-    return json.dumps(s)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Landing page center column
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _landing_center_column(recent_entries: "list[UserEntry]") -> Any:
-    # Mirror JournalChatPage's workspace column: a flex-1 flex-col wrapper whose
-    # direct child carries id="journal-workspace". /journals/start retargets here
-    # (HX-Retarget) and replaces the child in place with the response fragment
-    # (which is itself `flex flex-col h-full`) — no stored entry, no redirect
-    # (ADR-073). Keeping the wrapper means the swapped-in fragment sizes exactly
-    # as it does on the chat page.
+def _landing_center_column() -> Any:
+    # A flex-1 flex-col wrapper whose direct child carries id="journal-workspace".
+    # /journals/start retargets here (HX-Retarget) and replaces the child in place
+    # with the response fragment (itself `flex flex-col h-full`) — no stored entry,
+    # no redirect (ADR-073). Journal sessions are zero-persistence, so there is no
+    # recent-sessions list; the workshop opens fresh.
     return Div(
         Div(
             Div(
@@ -519,7 +371,6 @@ def _landing_center_column(recent_entries: "list[UserEntry]") -> Any:
                     cls="mb-6",
                 ),
                 _landing_text_form(),
-                _landing_session_list(recent_entries),
                 cls="max-w-[640px] mx-auto pt-10 px-6",
             ),
             id="journal-workspace",
@@ -576,60 +427,3 @@ def _landing_text_form() -> Any:
         ),
         cls="mb-8",
     )
-
-
-def _landing_session_list(recent_entries: "list[UserEntry]") -> Any:
-    import datetime as _dt
-
-    today = _dt.date.today()
-    yesterday = today - _dt.timedelta(days=1)
-
-    groups: dict[str, list] = {"TODAY": [], "YESTERDAY": [], "EARLIER": []}
-    for e in recent_entries:
-        created = getattr(e, "created_at", None)
-        entry_date = created.date() if isinstance(created, _dt.datetime) else today
-        if entry_date == today:
-            groups["TODAY"].append(e)
-        elif entry_date == yesterday:
-            groups["YESTERDAY"].append(e)
-        else:
-            groups["EARLIER"].append(e)
-
-    sections: list[Any] = []
-    for label, group in groups.items():
-        if not group:
-            continue
-        sections.append(
-            P(
-                label,
-                cls=(
-                    "text-[11px] font-semibold uppercase tracking-wider"
-                    " text-muted-foreground pt-4 pb-1"
-                ),
-            )
-        )
-        sections.append(Div(cls="border-t border-border mb-2"))
-        for e in group:
-            date_str = ""
-            created = getattr(e, "created_at", None)
-            if isinstance(created, _dt.datetime):
-                date_str = created.strftime("%b %d")
-            sections.append(
-                A(
-                    Span(
-                        (e.title or "Untitled")[:60],
-                        cls="text-[14px] text-foreground truncate flex-1",
-                    ),
-                    Span(date_str, cls="text-[12px] text-muted-foreground flex-shrink-0"),
-                    href=f"/journals/{e.uid}",
-                    cls=(
-                        "flex items-center justify-between gap-2 py-[9px] px-2 rounded-[8px]"
-                        " hover:bg-slate-100 transition-colors no-underline"
-                    ),
-                )
-            )
-
-    if not sections:
-        sections.append(P("No journal entries yet.", cls="text-sm text-muted-foreground py-4"))
-
-    return Div(*sections)

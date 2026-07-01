@@ -100,6 +100,25 @@ class BatchTranscriptionService:
         self.max_concurrent = max_concurrent
         self.logger = logger
 
+    async def transcribe_one(self, audio_path: str) -> Result[str]:
+        """Transcribe a single audio file and return the transcript text.
+
+        Stateless: calls the Deepgram port directly and returns the transcript
+        in memory — no ``.txt`` write, no Neo4j. Used by the FOUNDER interactive
+        upload path, which needs the transcript string to render the review
+        card before the DNWF stages. The batch/file-write variant lives in
+        :meth:`transcribe_batch`.
+        """
+        try:
+            result = await self.deepgram.transcribe(audio_path=audio_path)
+        except FILE_IO_EXCEPTIONS as e:
+            return Result.fail(
+                Errors.system(f"Audio file read failed: {e}", operation="transcribe_one")
+            )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value.transcript_text)
+
     def _find_audio_files(self, input_dir: Path) -> list[Path]:
         """Find all audio files in directory (non-recursive)."""
         files: list[Path] = []
