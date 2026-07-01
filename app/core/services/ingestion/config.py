@@ -449,6 +449,24 @@ def build_sync_allowlist(
     )
 
 
+def is_ingestible_path(path: Path, allowlist: SyncAllowlist | None) -> bool:
+    """Whether a vault file is eligible for ingestion under the vault exclusions.
+
+    Combines the always-on ``je_*`` staging floor with the optional fail-closed
+    privacy allowlist. Does NOT check on-disk existence — ``collect_files`` globs
+    existing files, and ``reconcile_deletions`` checks existence separately.
+
+    This is the single policy predicate both share, giving the invariant: a
+    tracked graph row survives deletion reconciliation iff its file would still be
+    collected for ingestion. When a folder becomes disallowed (wall narrowed), its
+    already-ingested rows fail this and are purged, so walled content does not
+    linger in the graph.
+    """
+    if is_staging_path(path):
+        return False
+    return allowlist is None or allowlist.permits(path)
+
+
 def _file_mtime(path: Path) -> float:
     """Get file modification time for sorting."""
     return path.stat().st_mtime
@@ -492,12 +510,10 @@ def collect_files(
         all_files.extend(directory.glob(f"**/{pattern}.yaml"))
         all_files.extend(directory.glob(f"**/{pattern}.yml"))
 
-    # Always-on floor: je_* staging folders are never vault content, regardless of
-    # whether a privacy allowlist is active (single-vault fallback → allowlist None).
-    all_files = [f for f in all_files if not is_staging_path(f)]
-
-    if allowlist is not None:
-        all_files = [f for f in all_files if allowlist.permits(f)]
+    # Vault exclusions: the always-on je_* staging floor plus the optional
+    # fail-closed privacy allowlist. reconcile_deletions applies the SAME predicate
+    # so a tracked row survives iff its file would still be collected here.
+    all_files = [f for f in all_files if is_ingestible_path(f, allowlist)]
 
     return sorted(all_files, key=_file_mtime, reverse=True)
 
@@ -513,5 +529,6 @@ __all__ = [
     "build_sync_allowlist",
     "collect_files",
     "generate_ingestion_relationship_config",
+    "is_ingestible_path",
     "is_staging_path",
 ]

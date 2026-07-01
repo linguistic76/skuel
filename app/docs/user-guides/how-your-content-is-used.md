@@ -49,6 +49,8 @@ In addition, the journal staging folders below are **always** excluded — uncon
 | `je_raw/` | Reference archive input |
 | `je_pro/` | Reference archive output |
 
+The wall works retroactively: if you narrow it — remove a folder from the allowlist, or a folder becomes disallowed — the entries that were previously synced from that folder are **removed from SKUEL on the next sync**, not just excluded going forward. Your vault file stays put (it is the source of truth), so re-allowing the folder re-ingests it.
+
 Vault sync is inbound only: it reads your vault and creates SKUEL entries. It writes back only the task completion markers (`🆔 sk_<id>` and `[x] ✅ date`) for tasks you created from vault files.
 
 ### Audio recordings

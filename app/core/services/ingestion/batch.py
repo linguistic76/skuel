@@ -541,7 +541,9 @@ async def ingest_directory(
         stale_metadata_removed = 0
         if ingestion_backend is not None and not dry_run:
             empty_tracker = IngestionTracker(ingestion_backend)
-            reconcile_result = await empty_tracker.reconcile_deletions(directory, pattern)
+            reconcile_result = await empty_tracker.reconcile_deletions(
+                directory, pattern, allowlist=allowlist
+            )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
@@ -612,7 +614,9 @@ async def ingest_directory(
         stale_metadata_removed = 0
         reconcile_errors: list[dict[str, Any]] = []
         if tracker is not None and not dry_run:
-            reconcile_result = await tracker.reconcile_deletions(directory, pattern)
+            reconcile_result = await tracker.reconcile_deletions(
+                directory, pattern, allowlist=allowlist
+            )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
@@ -939,7 +943,9 @@ async def ingest_directory(
     edges_deleted = 0
     stale_metadata_removed = 0
     if tracker is not None and ingestion_mode != "full" and not dry_run:
-        reconcile_result = await tracker.reconcile_deletions(directory, pattern)
+        reconcile_result = await tracker.reconcile_deletions(
+            directory, pattern, allowlist=allowlist
+        )
         if reconcile_result.is_ok:
             entities_deleted = reconcile_result.value.entities_deleted
             edges_deleted = reconcile_result.value.edges_deleted
