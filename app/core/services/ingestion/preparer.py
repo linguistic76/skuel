@@ -80,6 +80,8 @@ def _prepare_core(
     body: str | None,
     file_path: Path,
     default_user_uid: UserUID = DEFAULT_USER_UID,
+    *,
+    owner_is_authoritative: bool = False,
 ) -> dict[str, Any]:
     """
     Core entity data preparation logic shared by sync and async paths.
@@ -164,12 +166,21 @@ def _prepare_core(
             if key not in entity_data:
                 entity_data[key] = value
 
-    # Stamp the owner for multi-tenant entity types: explicit user_uid if present,
-    # else the (canonical) default. Route through to_user_uid so a non-canonical owner
-    # can never be persisted — the validator already rejects bad explicit values with a
-    # clear per-file error; this is the storage-side last line of defense.
+    # Stamp the owner for multi-tenant entity types. When ``owner_is_authoritative``
+    # (descriptor-governed ingestion), the vault-resolved owner WINS over any
+    # file-supplied ``user_uid`` — otherwise a personal-vault file could claim
+    # ``user_uid: someone_else`` and spoof ownership, bypassing the
+    # surface-independent model. When not governed (tests / minimal composes), the
+    # legacy default-only behavior stands (explicit ``user_uid`` preserved). Route
+    # through to_user_uid so a non-canonical owner can never be persisted — the
+    # validator rejects bad explicit values earlier; this is the storage-side
+    # last line of defense.
     if config.requires_user_uid:
-        raw_user_uid = entity_data.get("user_uid", default_user_uid)
+        raw_user_uid = (
+            default_user_uid
+            if owner_is_authoritative
+            else entity_data.get("user_uid", default_user_uid)
+        )
         entity_data["user_uid"] = TypeConverter.to_user_uid(str(raw_user_uid))
 
     if config.owner_uid_from_user_uid:
@@ -218,6 +229,7 @@ async def prepare_entity_data_async(
     file_path: Path,
     default_user_uid: UserUID = DEFAULT_USER_UID,
     embeddings_service: Any | None = None,
+    owner_is_authoritative: bool = False,
 ) -> dict[str, Any]:
     """
     Async version of prepare_entity_data with embedding generation.
@@ -232,6 +244,8 @@ async def prepare_entity_data_async(
         file_path: Source file path
         default_user_uid: Default user UID for multi-tenant entities
         embeddings_service: Optional EmbeddingsService for embedding generation
+        owner_is_authoritative: When True (descriptor-governed ingestion), the
+            vault-resolved owner overrides any file-supplied ``user_uid``.
 
     Returns:
         Prepared entity data dict
@@ -239,7 +253,14 @@ async def prepare_entity_data_async(
     Raises:
         ValueError: If entity type is unknown
     """
-    entity_data = _prepare_core(entity_type, data, body, file_path, default_user_uid)
+    entity_data = _prepare_core(
+        entity_type,
+        data,
+        body,
+        file_path,
+        default_user_uid,
+        owner_is_authoritative=owner_is_authoritative,
+    )
 
     # Generate embeddings for content-bearing entity types
     if embeddings_service and _should_generate_embedding(entity_type):
@@ -282,16 +303,27 @@ def prepare_entity_data(
     body: str | None,
     file_path: Path,
     default_user_uid: UserUID = DEFAULT_USER_UID,
+    *,
+    owner_is_authoritative: bool = False,
 ) -> dict[str, Any]:
     """
     Synchronous entity data preparation (no embedding generation).
 
     Delegates to _prepare_core(). For embedding generation, use
-    prepare_entity_data_async() instead.
+    prepare_entity_data_async() instead. ``owner_is_authoritative`` makes the
+    vault-resolved owner override any file-supplied ``user_uid`` (descriptor-
+    governed ingestion).
 
     See _prepare_core() for full documentation.
     """
-    return _prepare_core(entity_type, data, body, file_path, default_user_uid)
+    return _prepare_core(
+        entity_type,
+        data,
+        body,
+        file_path,
+        default_user_uid,
+        owner_is_authoritative=owner_is_authoritative,
+    )
 
 
 def prepare_edge_data(

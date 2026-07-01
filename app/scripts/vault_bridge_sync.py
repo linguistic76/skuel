@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-"""Run a full VaultBridge sync for a user, in-process (no HTTP/login needed).
+"""Run a full VaultBridge sync for a vault, in-process (no HTTP/login needed).
 
 Composes the app's services and invokes the exact reconciler that
 ``POST /api/vault/sync`` runs — but as any ``--user`` you name, without needing
-that user's password. Useful for admin-triggered / scripted personal-vault syncs
-and for backfilling after a vault reorganization.
+that user's password, and against either vault. Useful for admin-triggered /
+scripted syncs and for backfilling after a vault reorganization.
+
+Two vaults (``--vault``):
+  - ``personal`` (default): a user's Obsidian vault (VAULT_ROOT). Bidirectional —
+    requires ``--user``; the entries are OWNED by that user.
+  - ``content``: the admin curriculum vault (INGESTION_PATH). Owned by the fixed
+    content-vault admin account; ``--user`` is ignored. Inbound-only today
+    (curriculum has no checkbox round-trip).
 
 What it does (VaultReconciler.sync, ADR-070):
-  1. Inbound: ingest the personal vault (VAULT_ROOT) in ``smart`` mode, scoped by
-     the fail-closed SyncAllowlist (``SKUEL_VAULT_SYNC_ALLOWED_DIRS``). New/changed
-     allowlisted notes become UserEntry nodes OWNED by ``--user``.
-  2. Consent gate: if the user has not granted ``vault_write_consent``, stops after
-     inbound and reports ``first_run_notice`` (no outbound writes).
-  3. Outbound (consented only): inject ``🆔 sk_`` IDs into periodic-note tasks that
-     lack them and write ``[x]``/``✅`` for SKUEL-completed ones. Idempotent.
-
-⚠️  Allowlist gotcha: the SyncAllowlist reads ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` from
-the process environment, and python-dotenv does NOT override an already-exported
-var. If a stale export shadows your ``.env`` value, a folder you expect to sync will
-be silently walled off. Pass the intended value inline to be sure, e.g.:
-
-    SKUEL_VAULT_SYNC_ALLOWED_DIRS="$VAULT/periodic_notes:$VAULT/knowledge" \
-        uv run scripts/vault_bridge_sync.py --user user_linguistic76
+  1. Inbound: ingest the vault in ``smart`` mode, scoped by that vault's own
+     fail-closed allowlist.
+  2. Consent gate: if the vault owner has not granted ``vault_write_consent``,
+     stops after inbound and reports ``first_run_notice`` (no outbound writes).
+  3. Outbound (personal + consented only): inject ``🆔 sk_`` IDs into periodic-note
+     tasks that lack them and write ``[x]``/``✅`` for SKUEL-completed ones.
 
 Usage:
-    uv run scripts/vault_bridge_sync.py --user <user_uid>
+    uv run scripts/vault_bridge_sync.py --user <user_uid>          # personal
+    uv run scripts/vault_bridge_sync.py --vault content            # content
 """
 
 from __future__ import annotations
@@ -35,10 +34,13 @@ import sys
 from dataclasses import asdict
 
 
-async def run_sync(user_uid: str) -> int:
+async def run_sync(vault: str, user_uid: str) -> int:
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.services.vault.vault_descriptor import VaultKind
     from services_bootstrap import compose_services
+
+    kind = VaultKind.CONTENT if vault == "content" else VaultKind.PERSONAL
 
     print("Connecting to Neo4j...")
     adapter = Neo4jAdapter()
@@ -54,9 +56,8 @@ async def run_sync(user_uid: str) -> int:
             print("ERROR: vault_reconciler is not wired (check ADR-070 config)", file=sys.stderr)
             return 1
 
-        vault_path = str(reconciler.vault_root)
-        print(f"Full VaultBridge sync for {user_uid} on {vault_path} ...")
-        result = await reconciler.sync(user_uid=user_uid, vault_path=vault_path)
+        print(f"Full VaultBridge sync ({kind.value}) as {user_uid} ...")
+        result = await reconciler.sync(kind, user_uid)
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1
@@ -66,18 +67,34 @@ async def run_sync(user_uid: str) -> int:
         for key, value in asdict(stats).items():
             print(f"  {key}: {value}")
         if stats.first_run_notice:
-            print("\nNOTE: first_run_notice — user has not granted vault_write_consent;")
-            print("      inbound ingest ran, outbound writeback was skipped.")
+            print("\nNOTE: first_run_notice — the vault owner has not granted")
+            print("      vault_write_consent; inbound ingest ran, outbound was skipped.")
         return 0
     finally:
         await adapter.close()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run a full VaultBridge sync for a user.")
-    parser.add_argument("--user", required=True, help="user_uid to sync as (owns the entries)")
+    parser = argparse.ArgumentParser(description="Run a full VaultBridge sync for a vault.")
+    parser.add_argument(
+        "--vault",
+        choices=("personal", "content"),
+        default="personal",
+        help="Which vault to sync (default: personal)",
+    )
+    parser.add_argument(
+        "--user",
+        help="user_uid to sync as (required for --vault personal; ignored for content)",
+    )
     args = parser.parse_args()
-    sys.exit(asyncio.run(run_sync(args.user)))
+
+    if args.vault == "personal" and not args.user:
+        parser.error("--user is required for --vault personal")
+
+    # For content, the reconciler uses the fixed content-vault owner; the passed
+    # user is ignored, so any placeholder is fine.
+    user = args.user or "user_system"
+    sys.exit(asyncio.run(run_sync(args.vault, user)))
 
 
 if __name__ == "__main__":

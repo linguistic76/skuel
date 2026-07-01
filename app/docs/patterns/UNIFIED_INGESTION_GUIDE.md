@@ -53,7 +53,7 @@ stats = await service.ingest_directory(
     validate_targets=True,        # Validate relationship UIDs exist
 )
 
-# Per-user ingestion (user_uid override)
+# Acting-user hint (owner is resolved from the vault descriptor for the path)
 result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_mike"))
 
 # Ingest an Obsidian vault
@@ -456,6 +456,47 @@ stats = await service.ingest_directory(
 
 ---
 
+## Ownership: descriptor-by-path, not caller identity (ADR-070)
+
+**Access rights are `f(EntityType)`, computed at read time — never materialized on
+the node.** Curriculum (Ku/PathStep/LP/Exercise) is SHARED-by-type and receives *no*
+owner; USER_OWNED types (the 6 activity domains, UserEntry) carry a `user_uid`.
+
+The one thing ingest must get right uniformly is **who owns a USER_OWNED entity**, and
+that is resolved from the **vault descriptor governing the file's path** — not from the
+caller. Every `user_uid=` argument on `ingest_file` / `ingest_directory` / `ingest_vault`
+is only an **acting-user hint**:
+
+| File lives in… | Owner attributed | Hint |
+|----------------|------------------|------|
+| Content vault (`INGESTION_PATH`) | `content_owner_uid` ("acts-as" account) | ignored |
+| A personal vault (`VAULT_ROOT`)  | the acting user (per-tenant)            | used |
+| Neither root                     | content acts-as (safe default)          | ignored |
+
+`VaultRegistry.resolve_by_path()` performs the resolution; `UnifiedIngestionService`
+applies it at the ingestion **mechanism** — both the per-file `ingest_file` seams *and*
+the `ingest_directory` bulk-upsert seam (activity domains are bulk-ingested and never
+pass through `ingest_file`). The single-file door also resolves its fail-closed **wall**
+from the file's descriptor, so a content `je_*` staging file is rejected consistently
+with the directory/reconciler paths. Consequence: **the same file ingested via any
+surface — the `/ingest` dashboard, the `VaultReconciler`, `vault_watch`, or a bare
+script — yields the same owner.** The reconciler still passes `user_uid=`/`allowlist=`
+explicitly; that is belt-and-suspenders — a by-path caller reproduces the same result.
+
+A directory scan attributes one owner + one wall to the whole batch, so it must belong
+to a single vault: a scan of an ancestor directory that **nests** another vault's root is
+rejected fail-closed (`VaultRegistry.nested_vault_roots`) rather than sweeping and
+mis-attributing the nested vault. Sibling / coincident roots do not trip this.
+
+A file **cannot spoof ownership**: under descriptor-governed ingestion the resolved owner
+is *authoritative* and overrides any `user_uid:` written into the frontmatter/YAML (so a
+personal-vault task claiming `user_uid: someone_else` is still owned by the vault's owner).
+
+> Stage-1 boundary (accepted): pointing the dashboard at *another* user's personal vault
+> stamps the acting admin as owner — the shared personal descriptor is a template and the
+> path alone cannot name the real user. The per-user local-agent topology (ADR-070 north
+> star) is the future fix.
+
 ## Service Methods
 
 ### ingest_file(path)
@@ -495,9 +536,11 @@ if stats.is_ok:
 ### ingest_vault(path, subdirs=None, *, user_uid=None)
 
 Ingest an Obsidian vault. Optionally limit to specific subdirectories.
-`user_uid` overrides the service's `default_user_uid` for all entities in
-this run — the API routes pass `current_user.uid` so vault content lands
-under the authenticated user, not `user_system`.
+`user_uid` is an **acting-user hint**, not an owner override: the real owner of
+each USER_OWNED entity is resolved from the vault descriptor governing its path
+(see [Ownership](#ownership-descriptor-by-path-not-caller-identity-adr-070)). The
+API routes pass `current_user.uid`, but for content-vault paths that hint is
+ignored in favour of the content acts-as account.
 
 ```python
 stats = await service.ingest_vault(
