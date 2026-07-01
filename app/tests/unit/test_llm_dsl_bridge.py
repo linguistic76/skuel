@@ -40,6 +40,51 @@ async def test_transform_delegates_to_chat_port_and_parses_dsl():
 
 
 @pytest.mark.asyncio
+async def test_transform_with_context_grounds_in_separate_nonextractable_slot():
+    # Codex P1 #474: goal grounding must NOT sit inside the extractable journal
+    # text, or the LLM can emit activity lines from the user's own goals (phantom
+    # entities on the extraction path). It belongs in the {user_context} slot the
+    # prompt marks "background only — do not extract".
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port)
+
+    result = await bridge.transform_with_context(
+        "Need to email the landlord.",
+        user_uid="user_mike",
+        active_goals=[{"title": "Run a marathon"}],
+    )
+
+    assert result.is_ok
+    prompt = port.complete.call_args.args[0][0]["content"]
+    # Grounding reached the model, framed as non-extractable USER CONTEXT...
+    assert "USER CONTEXT" in prompt
+    assert "Run a marathon" in prompt
+    assert "do NOT create activities" in prompt
+    # ...and the journal text the model is told to extract from sits AFTER the
+    # "JOURNAL TEXT TO ANALYZE" marker, with the goal NOT inside that section.
+    journal_section = prompt.split("JOURNAL TEXT TO ANALYZE")[1]
+    assert "Run a marathon" not in journal_section
+    assert "email the landlord" in journal_section
+
+
+@pytest.mark.asyncio
+async def test_transform_with_context_ungrounded_omits_context_section():
+    port = _port("")
+    bridge = LLMDSLBridgeService(chat_port=port)
+
+    result = await bridge.transform_with_context(
+        "Need to email the landlord.", user_uid="user_mike", active_goals=None
+    )
+
+    assert result.is_ok
+    prompt = port.complete.call_args.args[0][0]["content"]
+    # The template instructions always mention a USER CONTEXT section; what must
+    # be absent when ungrounded is the injected context BLOCK (its header + data).
+    assert "do NOT create activities" not in prompt
+    assert "Run a marathon" not in prompt
+
+
+@pytest.mark.asyncio
 async def test_transform_without_chat_port_fails():
     bridge = LLMDSLBridgeService(chat_port=None)
     result = await bridge.transform("anything")

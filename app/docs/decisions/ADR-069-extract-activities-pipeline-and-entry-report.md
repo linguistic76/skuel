@@ -90,11 +90,16 @@ journal privacy norm does not extend to it (Ruling 2 scope).
 1. **Source text:** `entry.processed_content or entry.content`; validation error
    if empty (same shape as `LLM_SUMMARY`).
 2. **Optional LLM pre-pass (Digital layer):** if an injected
-   `LLMDSLBridgeService` is available (FULL tier), call `transform(source_text)`
-   and append the returned Activity Lines under an `## Extracted Activities`
-   section of the working text (the integration sketch already in
-   `llm_dsl_bridge.py:174-196`). If the bridge is **absent** (CORE tier /
-   not wired), this is **not an error** — skip the pre-pass.
+   `LLMDSLBridgeService` is available (FULL tier), call
+   `transform_with_context(source_text, active_goals=…)` grounded in the user's
+   active goals via the shared `core/services/dsl/grounding.py` builder — the
+   same grounding the inert journal "Suggested activities" preview uses, so the
+   entity-creating path and the preview recognise prose against identical
+   context. Append the returned Activity Lines under an `## Extracted Activities`
+   section of the working text. Grounding is a soft signal: a missing goals
+   service or a goals-query failure degrades to ungrounded recognition, never an
+   error. If the bridge is **absent** (CORE tier / not wired), this is **not an
+   error** — skip the pre-pass.
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
    parser matches explicit `@context(...)` lines plus, via a second pass,
@@ -324,7 +329,11 @@ Each PR is independently shippable and verified on live Neo4j (CI runs no pytest
    writes for Ku references; extractor docstring rewritten to the real
    idempotency mechanism. De-register the completed DSL PLANNED entries
    (`extract_and_create`, `preview_extraction`, `has_errors`, `transform`);
-   `transform_with_context` stays PLANNED (`transform_sync` deleted — rule-based path abandoned).
+   `transform_with_context` stayed PLANNED at the time (`transform_sync` deleted
+   — rule-based path abandoned). *Update:* `transform_with_context` is now wired
+   on both bridge callers — the journal "Suggested activities" preview (#473) and
+   the EXTRACT_ACTIVITIES pre-pass (active-goal grounding) — and is no longer
+   PLANNED.
    *Verify:* tagged-prose extraction at CORE tier (no keys), bridge pre-pass at
    FULL tier, re-process no-op, edges in the graph.
 2. **PR-2 — intelligence consumers.**

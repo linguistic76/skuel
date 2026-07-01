@@ -428,6 +428,11 @@ def _extraction_result(
     )
 
 
+def _dsl_result_empty() -> DSLTransformResult:
+    """A bridge result that recognised nothing (no activity lines appended)."""
+    return DSLTransformResult(original_text="", transformed_text="", activity_lines=[])
+
+
 def _teacher_user_service(can_create: bool = True) -> MagicMock:
     user = MagicMock()
     user.can_create_curriculum = MagicMock(return_value=can_create)
@@ -472,11 +477,14 @@ class TestExtractActivities:
 
     @pytest.mark.asyncio
     async def test_bridge_failure_degrades_to_parser_only(self):
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Tagged @context(task)")
+        # Non-checkbox prose so the bridge actually runs (a checkbox-only entry
+        # would be stripped to empty and skip the bridge — see
+        # test_checkbox_only_entry_skips_bridge).
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="some prose to tag")
         svc = _extract_entry_service(entry)
 
         bridge = MagicMock()
-        bridge.transform = AsyncMock(
+        bridge.transform_with_context = AsyncMock(
             return_value=Result.fail(Errors.integration(service="llm", message="rate limited"))
         )
         extractor = MagicMock()
@@ -505,7 +513,7 @@ class TestExtractActivities:
         svc = _extract_entry_service(entry)
 
         bridge = MagicMock()
-        bridge.transform = AsyncMock(
+        bridge.transform_with_context = AsyncMock(
             return_value=Result.ok(
                 DSLTransformResult(
                     original_text="untagged prose",
@@ -529,6 +537,98 @@ class TestExtractActivities:
         assert working.startswith("untagged prose")
         assert "## Extracted Activities" in working
         assert "- @context(task) Call mom" in working
+
+    @pytest.mark.asyncio
+    async def test_checkbox_only_entry_skips_bridge(self):
+        # Regression (Codex P1): a checkbox-only note leaves bridge_text empty
+        # after the ADR-070 strip. The grounded transform_with_context prepends
+        # the goal context BEFORE transform()'s blank check, so without this
+        # guard an empty entry + active goals would call the LLM on just the goal
+        # titles and could append @context lines extracted from the GOALS. The
+        # bridge must be skipped entirely; the parser still runs over the
+        # original checkbox text.
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Call mom 🆔 sk_abc123")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock()
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        g1 = MagicMock()
+        g1.title = "Run a marathon"
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([g1]))
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        dispatcher.goals_service = goals_service
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        bridge.transform_with_context.assert_not_called()
+        # Parser still runs over the ORIGINAL checkbox text.
+        assert extractor.extract_and_create.await_args.kwargs["content_override"] == entry.content
+
+    @pytest.mark.asyncio
+    async def test_bridge_pre_pass_is_grounded_in_active_goals(self):
+        # Regression guard for the grounding asymmetry fix: the entity-creating
+        # EXTRACT_ACTIVITIES pre-pass must call the CONTEXT-aware bridge entry
+        # grounded in the user's active goals — the same grounding the inert
+        # journal "Suggested activities" preview uses — not bare transform().
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="finish the marathon plan")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(return_value=Result.ok(_dsl_result_empty()))
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        g1 = MagicMock()
+        g1.title = "Run a marathon"
+        goals_service = MagicMock()
+        goals_service.get_active = AsyncMock(return_value=Result.ok([g1]))
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        dispatcher.goals_service = goals_service
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        goals_service.get_active.assert_awaited_once_with("user_1", limit=10)
+        _, kwargs = bridge.transform_with_context.call_args
+        assert kwargs["active_goals"] == [{"title": "Run a marathon"}]
+
+    @pytest.mark.asyncio
+    async def test_bridge_pre_pass_ungrounded_without_goals_service(self):
+        # No goals service wired (e.g. a slimmer compose): grounding degrades to
+        # None, the bridge still runs context-aware (just ungrounded), the run
+        # never fails on the missing soft signal.
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="finish the marathon plan")
+        svc = _extract_entry_service(entry)
+
+        bridge = MagicMock()
+        bridge.transform_with_context = AsyncMock(return_value=Result.ok(_dsl_result_empty()))
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.dsl_bridge = bridge
+        dispatcher.goals_service = None
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        _, kwargs = bridge.transform_with_context.call_args
+        assert kwargs["active_goals"] is None
 
     @pytest.mark.asyncio
     async def test_curriculum_gate_threads_fail_closed(self):

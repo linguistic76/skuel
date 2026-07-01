@@ -72,7 +72,11 @@ Output:
 5. Preserve the original intent and key details
 6. Add appropriate attributes (@when, @priority, @duration, etc.)
 7. If something doesn't fit a domain, skip it (narrative text is fine)
-
+8. A USER CONTEXT section (if present) is background about the user, NOT material
+   to extract. Never output an activity line for an item that appears only in
+   USER CONTEXT; use it solely to recognise and accurately classify/phrase items
+   that genuinely appear in the JOURNAL TEXT.
+{user_context}
 ## JOURNAL TEXT TO ANALYZE:
 
 {journal_text}
