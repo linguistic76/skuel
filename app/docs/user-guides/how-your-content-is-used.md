@@ -38,9 +38,11 @@ When a report is generated, your recent activity data (task counts, habit comple
 
 ### Vault files (Obsidian sync)
 
-If you use the vault sync feature (`/settings/vault`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Only files with valid SKUEL frontmatter are ingested. The following folders are **never ingested**, regardless of what files they contain:
+If you use the vault sync feature (`/submissions/sync`), SKUEL reads your personal vault folder and ingests selected files as entries in your account. Ingestion is **fail-closed**: only files inside folders you have explicitly allowed (via `SKUEL_VAULT_SYNC_ALLOWED_DIRS`) are ever read into your account. Every other folder in your vault is walled off by default — SKUEL never reads it into the graph, never searches it, and never sends it to an AI service. A new folder you create stays private until you deliberately add it to the allowlist.
 
-| Folder | Why it is skipped |
+For example, in the reference setup only `periodic_notes/` is allowed to sync, so these staging folders are walled off automatically:
+
+| Folder | Why it is never ingested |
 |--------|------------------|
 | `je_in/` | Audio staging — processed via the journals upload tool, not vault sync |
 | `je_out/` | Transcript staging — text files written by batch transcription |

@@ -129,7 +129,7 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 ## 7. Vault Sync Boundary: The `je_*` Folders
 
-The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. They are excluded from `_VAULT_EXCLUDED_DIRS` in `vault_reconciler.py`.
+The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. Exclusion is enforced by the fail-closed `SyncAllowlist` (`SKUEL_VAULT_SYNC_ALLOWED_DIRS`, built in `core/services/ingestion/config.py`): only explicitly-allowed folders under the vault root are ingested, so these four — and anything else not on the allowlist — are walled off by default. The wall is applied at the single ingestion chokepoint (`UnifiedIngestionService.ingest_directory`), so both the reconciler and the `/api/ingest/*` door honor it.
 
 | Folder | Role | Flow direction |
 |--------|------|----------------|
@@ -138,7 +138,7 @@ The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pi
 | `je_raw/` | Reference archive input (`Pipeline.REFERENCE`) | Stored as-is, no processing |
 | `je_pro/` | Reference archive processed output | Counterpart to `je_raw/` |
 
-These folders are **pipeline artifacts**, not vault content. The vault sync path (`/settings/vault`) skips all four unconditionally.
+These folders are **pipeline artifacts**, not vault content. Because the allowlist is fail-closed, the vault sync path (`/submissions/sync`) skips all four regardless of what frontmatter their files carry — a folder must be explicitly opted in to sync, and these never are.
 
 The file-upload path (right panel on the `/journals` landing page, or the upload tab on the chat page) **writes the compiled AI output to `je_out/{user_uid}/{stem}_out.md`** and returns a download fragment — the AI response is a file, not a profile record. The user opens the `_out` file in Obsidian and manually extracts what matters into their personal vault. SKUEL never auto-syncs `je_out/` content into the vault.
 
