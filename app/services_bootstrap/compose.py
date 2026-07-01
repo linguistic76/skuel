@@ -1203,12 +1203,20 @@ async def compose_services(
 
         # Fail-closed vault privacy wall (SKUEL_VAULT_SYNC_ALLOWED_DIRS). Bound to
         # the same root the reconciler syncs, and late-set on the shared ingestion
-        # service so BOTH ingestion doors (reconciler + HTTP /api/ingest/*) inherit
-        # it. None when unconfigured — no behaviour change for deployments without
-        # a wall. See core.services.ingestion.config.build_sync_allowlist.
+        # service so EVERY ingestion path (reconciler, /api/ingest/directory,
+        # /api/ingest/file) inherits it. Defaults to a fail-closed wall even when
+        # unconfigured; the content vault (INGESTION_PATH) is passed so a
+        # single-vault deployment isn't starved. See build_sync_allowlist.
         from core.services.ingestion.config import build_sync_allowlist
 
-        unified_ingestion.sync_allowlist = build_sync_allowlist(_vault_allowed_root)
+        _content_root = (
+            config.vault.ingestion_path
+            if config
+            else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
+        )
+        unified_ingestion.sync_allowlist = build_sync_allowlist(
+            _vault_allowed_root, content_root=_content_root
+        )
         if unified_ingestion.sync_allowlist is not None:
             logger.info(
                 "✅ Vault sync allowlist active (fail-closed): "

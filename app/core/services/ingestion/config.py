@@ -311,6 +311,13 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
 # ============================================================================
 
 
+# Default allowed subdir when SKUEL_VAULT_SYNC_ALLOWED_DIRS is unset — SKUEL's
+# canonical periodic-notes folder is the one folder meant to sync from a personal
+# vault, so a fail-closed default of "only this" protects everything else (je_*
+# staging, templates, loose notes) without requiring configuration.
+_DEFAULT_SYNC_SUBDIR = "periodic_notes"
+
+
 @dataclass(frozen=True)
 class SyncAllowlist:
     """Fail-closed folder allowlist for vault ingestion.
@@ -324,14 +331,17 @@ class SyncAllowlist:
 
     Fail-closed: an empty ``allowed_dirs`` walls the *entire* governed root — the
     default posture is "not synced", so a folder created later is silent until it
-    is explicitly opted in.
+    is explicitly opted in. ``build_sync_allowlist`` also defaults to a wall (not
+    to "open") when the env var is unset, so the fail-closed posture does not
+    depend on configuration being present.
 
-    ``permits`` is the single predicate both ingestion doors (HTTP
-    ``/api/ingest/*`` and ``VaultReconciler.sync``) inherit via
-    ``UnifiedIngestionService.ingest_directory`` — no code path can bypass it.
-    ``governed_root`` and ``allowed_dirs`` are stored already-resolved (see
-    ``build_sync_allowlist``) so the ``permits`` check is purely lexical after a
-    single ``resolve()`` of the candidate.
+    ``permits`` is the single predicate every ingestion path inherits — both the
+    directory scan (``collect_files`` → ``VaultReconciler.sync`` and
+    ``/api/ingest/directory``) and single-file ingestion (``ingest_file`` →
+    ``/api/ingest/file``) — so no code path can bypass it. ``governed_root`` and
+    ``allowed_dirs`` are stored already-resolved (see ``build_sync_allowlist``) so
+    the ``permits`` check is purely lexical after a single ``resolve()`` of the
+    candidate.
     """
 
     governed_root: Path
@@ -351,23 +361,51 @@ class SyncAllowlist:
         return any(resolved.is_relative_to(allowed) for allowed in self.allowed_dirs)
 
 
-def build_sync_allowlist(governed_root: Path) -> SyncAllowlist | None:
-    """Build the vault-sync allowlist from ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``.
+def build_sync_allowlist(
+    governed_root: Path,
+    *,
+    content_root: Path | None = None,
+) -> SyncAllowlist | None:
+    """Build the fail-closed vault-sync allowlist for ``governed_root``.
 
-    The env var is a colon-separated list of absolute directories under
-    ``governed_root`` (the personal vault) that are the ONLY folders whose files
-    may be ingested. Unset/blank → returns ``None`` (feature inactive; every file
-    passes, preserving behaviour for deployments that never configured a wall).
+    ``SKUEL_VAULT_SYNC_ALLOWED_DIRS`` is a colon-separated list of absolute
+    directories under ``governed_root`` (the personal vault) that are the ONLY
+    folders whose files may be ingested. Everything else under the root is walled
+    off (never read into the graph, searched, or sent to an LLM).
 
-    Fail-closed within the root: once the var is set, any folder under
-    ``governed_root`` that is not listed is excluded from ingestion. A value of
-    just ``":"`` (no real entries) is a deliberate "wall everything" config.
+    Fail-closed by default — the wall does NOT depend on the env var being set:
+
+    - **Var set** → allowlist is exactly the listed dirs (``":"`` with no real
+      entries is a deliberate "wall everything").
+    - **Var unset** → default to a minimal wall allowing only
+      ``governed_root/{_DEFAULT_SYNC_SUBDIR}`` (SKUEL's canonical periodic-notes
+      folder). A folder that is not opted in stays private, matching the
+      advertised boundary rather than silently ingesting the whole vault.
+
+    ``content_root`` (the admin curriculum vault / ``INGESTION_PATH``) guards the
+    degenerate single-vault case: when it is unset AND the content vault is the
+    governed root (or nested under it), a default wall would break curriculum
+    ingestion, so we return ``None`` (no wall) instead — there is no distinct
+    personal vault to protect there. An explicit ``SKUEL_VAULT_SYNC_ALLOWED_DIRS``
+    always wins over this guard.
     """
+    governed = governed_root.resolve()
     raw = os.getenv("SKUEL_VAULT_SYNC_ALLOWED_DIRS")
-    if not raw or not raw.strip():
-        return None
-    allowed_dirs = frozenset(Path(p.strip()).resolve() for p in raw.split(":") if p.strip())
-    return SyncAllowlist(governed_root=governed_root.resolve(), allowed_dirs=allowed_dirs)
+    if raw and raw.strip():
+        allowed_dirs = frozenset(Path(p.strip()).resolve() for p in raw.split(":") if p.strip())
+        return SyncAllowlist(governed_root=governed, allowed_dirs=allowed_dirs)
+
+    # Unset: default to fail-closed, unless the governed root IS the content vault
+    # (or an ancestor of it), where a default wall would wrongly starve curriculum
+    # ingestion. Only a genuinely distinct personal vault gets the default wall.
+    if content_root is not None:
+        content = content_root.resolve()
+        if content == governed or content.is_relative_to(governed):
+            return None
+    return SyncAllowlist(
+        governed_root=governed,
+        allowed_dirs=frozenset({governed / _DEFAULT_SYNC_SUBDIR}),
+    )
 
 
 def _file_mtime(path: Path) -> float:

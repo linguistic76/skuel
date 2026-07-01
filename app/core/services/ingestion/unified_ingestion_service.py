@@ -172,12 +172,14 @@ class UnifiedIngestionService:
                           Extraction failures are isolated — the journal node
                           persists regardless. Late-bound at the composition root.
             sync_allowlist: Optional fail-closed folder allowlist (SyncAllowlist)
-                          applied to every ``ingest_directory`` scan — the single
-                          chokepoint both ingestion doors (HTTP /api/ingest/* and
-                          VaultReconciler.sync) inherit. When set, files under the
-                          governed vault root are ingested only if they sit under
-                          an allowed dir; ``None`` = no wall. Late-bound at the
-                          composition root once the vault root is known.
+                          enforced on every ingestion path — directory scans
+                          (``ingest_directory`` → collect_files, covering the
+                          reconciler and /api/ingest/directory) AND single-file
+                          ingestion (``ingest_file`` → /api/ingest/file). When
+                          set, files under the governed vault root are ingested
+                          only if they sit under an allowed dir; ``None`` = no
+                          wall. Late-bound at the composition root once the vault
+                          root is known.
         """
         if write_backend is None or bulk_backend is None:
             raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
@@ -419,6 +421,19 @@ class UnifiedIngestionService:
         """
         if not file_path.exists():
             return Result.fail(Errors.not_found(f"File not found: {file_path}"))
+
+        # Fail-closed vault privacy wall. ingest_file is the direct entry point
+        # for /api/ingest/file (and a belt-and-suspenders for the per-file
+        # directory path), so the allowlist must be enforced here too — otherwise
+        # a single walled file could bypass the collect_files scan filter. Files
+        # outside the governed vault root (e.g. the content vault) pass through.
+        if self.sync_allowlist is not None and not self.sync_allowlist.permits(file_path):
+            return Result.fail(
+                Errors.validation(
+                    f"File is outside the vault sync allowlist and was not ingested: {file_path}",
+                    field="path",
+                )
+            )
 
         # Detect format
         file_format = detect_format(file_path)
