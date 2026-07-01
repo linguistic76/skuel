@@ -129,7 +129,7 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 ## 7. Vault Sync Boundary: The `je_*` Folders
 
-The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. Exclusion is enforced by the fail-closed `SyncAllowlist` (`SKUEL_VAULT_SYNC_ALLOWED_DIRS`, built in `core/services/ingestion/config.py`): only explicitly-allowed folders under the vault root are ingested, so these four — and anything else not on the allowlist — are walled off by default. The wall is applied at the single ingestion chokepoint (`UnifiedIngestionService.ingest_directory`), so both the reconciler and the `/api/ingest/*` door honor it.
+The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four pipeline staging folders that are **never ingested by vault sync**. Exclusion is enforced by the fail-closed `SyncAllowlist` (`SKUEL_VAULT_SYNC_ALLOWED_DIRS`, built in `core/services/ingestion/config.py`): only allowed folders under the vault root are ingested (`periodic_notes/` by default when the var is unset), so these four — and anything else not on the allowlist — are walled off. The wall is on by default (it does not depend on the env var being set) and is enforced on every ingestion path — directory scans (`collect_files`) and single-file ingest (`ingest_file`) — so the reconciler, `/api/ingest/directory`, and `/api/ingest/file` all honor it.
 
 | Folder | Role | Flow direction |
 |--------|------|----------------|
