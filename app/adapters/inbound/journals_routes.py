@@ -2,7 +2,7 @@
 
 Routes:
     GET  /journals                      — 3-column landing page (no Tasks+ sidebar)
-    POST /journals/start                — create persistent session from text; redirects to chat
+    POST /journals/start                — run workflow on typed text; returns response inline (zero-persistence, ADR-073)
     POST /journals/upload               — file upload handler
     POST /journals/folder-process       — batch folder processing
     GET  /journals/je-out/{filename}    — download a compiled journal output from je_out/
@@ -218,27 +218,27 @@ def create_journals_routes(
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
     async def journals_start(request: Request) -> Any:
-        """Create a persistent journal session from direct text input.
+        """Run the journal workflow on typed text and return the response inline.
 
-        Both STANDARD and FOUNDER tiers use this route. STANDARD runs
-        run_standard() and saves the response; FOUNDER runs run_stage1()
-        and saves the scribe output (marked via metadata so the chat page
-        can render Stage1Fragment with its review gate).
+        Zero-persistence (ADR-073): the journal is a private workshop — nothing is
+        written to the database. STANDARD tier returns ``StandardResponseFragment``;
+        FOUNDER tier returns ``Stage1Fragment`` whose review gate drives the equally
+        stateless Stage 2/3 routes. Follow-ups run through ``/journals/follow-up``.
+        The user keeps whatever they choose to copy; SKUEL stores nothing.
 
-        On success returns HX-Redirect to /journals/{entry_uid}.
-        On error returns an inline error div swapped into #start-status.
+        On success returns the workspace fragment, retargeted from the form's default
+        ``#start-status`` to ``#journal-workspace`` so it replaces the landing centre
+        in place. On error returns an inline message swapped into ``#start-status``.
         """
         from fasthtml.common import Div as _Div
         from fasthtml.common import P as _P
+        from fasthtml.common import to_xml
 
         from core.models.enums.user_enums import JournalMode
-        from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+        from ui.journals import Stage1Fragment, StandardResponseFragment
 
         def _err(msg: str) -> Any:
-            return _Div(
-                _P(msg, cls="text-sm text-destructive"),
-                id="start-status",
-            )
+            return _Div(_P(msg, cls="text-sm text-destructive"), id="start-status")
 
         user_uid = require_authenticated_user(request)
 
@@ -251,32 +251,12 @@ def create_journals_routes(
         if journal_service is None:
             return _err("Journal AI features are not available.")
 
-        if user_entry_service is None:
-            return _err("Journal service not available.")
-
         user_result = await user_service.get_user(user_uid)
         if user_result.is_error or user_result.value is None:
             return _err("Could not load your profile.")
 
         is_founder = user_result.value.journal_tier.is_founder()
         title = raw_entry.split("\n")[0][:80].strip() or "Journal Entry"
-
-        req = UserEntryCreateRequest(
-            title=title,
-            pipeline=Pipeline.LLM_SUMMARY,
-            content=raw_entry,
-            metadata={"entry_type": "journal_stage1_start"} if is_founder else {},
-        )
-        create_result = await user_entry_service.create_entry(req, user_uid)
-        if create_result.is_error:
-            logger.error(
-                "journals_start create_entry failed for %s: %s",
-                user_uid,
-                create_result.expect_error(),
-            )
-            return _err("Could not save your entry. Please try again.")
-
-        entry, _ = create_result.value
 
         if is_founder:
             ai_result = await journal_service.run_stage1(raw_entry, user_uid)
@@ -291,23 +271,21 @@ def create_journals_routes(
                 user_uid,
                 ai_result.expect_error(),
             )
-            return _err(
-                "Could not generate a response. "
-                "Your entry was saved — try again from the session list."
+            return _err("Could not generate a response. Please try again.")
+
+        if is_founder:
+            workspace: Any = Stage1Fragment(
+                raw_entry=raw_entry, title=title, scribe_output=ai_result.value
+            )
+        else:
+            workspace = StandardResponseFragment(
+                raw_entry=raw_entry, title=title, response_output=ai_result.value
             )
 
-        persist_result = await user_entry_service.update_processed_content(
-            entry.uid, ai_result.value
+        return HTMLResponse(
+            to_xml(workspace),
+            headers={"HX-Retarget": "#journal-workspace", "HX-Reswap": "outerHTML"},
         )
-        if persist_result.is_error:
-            logger.error(
-                "journals_start persist failed for %s: %s",
-                entry.uid,
-                persist_result.expect_error(),
-            )
-            # Entry exists but has no processed content — chat page shows "Processing…"
-
-        return HTMLResponse(status_code=200, headers={"HX-Redirect": f"/journals/{entry.uid}"})
 
     # ------------------------------------------------------------------
     # POST /journals/upload — file upload handler
