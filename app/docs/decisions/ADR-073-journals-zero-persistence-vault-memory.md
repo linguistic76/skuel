@@ -151,3 +151,17 @@ The "stores zero / reads zero" contract is enforceable by tests, not policy alon
   output by basename; a per-user vault mount (so `je_out/` resolves per-user) or a per-output
   unguessable token is the fix at that milestone. Raised in review (Codex, PR #478) and
   **accepted-as-designed** for the single-user-local model, deferred for hosting — not dismissed.
+  The same flatness means a folder rerun keyed by `{stem}` overwrites a prior same-stem output
+  ("newest wins" in the user's own folder) — intended for one vault; the per-user-mount fix
+  above covers it for hosting (Kody, PR #478).
+- **Residual (fresh-vs-reuse transcription, PR 2):** `transcribe_and_instructions` forces
+  fresh transcription (`skip_existing=False`) so the structured `_out.md` always reflects the
+  *current* audio — a folder rerun after the audio was replaced under the same basename must not
+  structure a stale `je_out/{stem}.txt`. The deliberate cost: a rerun cannot reuse an existing
+  on-disk transcript, so a *transient* Deepgram failure means re-running rather than falling back
+  to the stored transcript. Fully satisfying both (correct-content **and** reuse-on-failure) needs
+  freshness validation (reuse a transcript only when it is newer than its source audio), which is
+  filesystem-mtime fragile and disproportionate here. Both horns were raised across review rounds
+  (Kody, PR #478); force-fresh is the **correctness-preferring default**, revisit with freshness
+  validation if transcription cost/robustness becomes a driver. `transcribe_only` keeps per-caller
+  reuse (folder-process idempotent, uploads fresh).
