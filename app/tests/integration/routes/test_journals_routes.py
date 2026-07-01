@@ -363,6 +363,42 @@ class TestJournalsUploadZeroPersistence:
         mock_services.batch_transcription.transcribe_one.assert_not_awaited()
         _assert_nothing_persisted(mock_services)
 
+    async def test_structuring_forces_fresh_transcription(
+        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # folder-process transcribe_and_instructions must force skip_existing=False
+        # even though folder reruns default to True — structured output must match
+        # the current audio, never a stale same-stem transcript (Kody, #478).
+        je_in = tmp_path / "je_in"
+        je_in.mkdir()
+        (je_in / "memo.mp3").write_bytes(b"audio")
+        je_out = tmp_path / "je_out"
+        je_out.mkdir()
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_IN", je_in)
+        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", je_out)
+
+        done = SimpleNamespace(
+            total_files=1,
+            succeeded=1,
+            failed=0,
+            skipped=0,
+            results=[{"name": "memo.mp3", "status": "success"}],
+        )
+        mock_services.batch_transcription = MagicMock()
+        mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(done))
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("structured"))
+        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
+        registered = _register(mock_services)
+
+        request = _make_upload_request([("processing_mode", "transcribe_and_instructions")])
+        await registered["/journals/folder-process"](request=request)
+
+        _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
+        assert kwargs.get("skip_existing") is False
+        _assert_nothing_persisted(mock_services)
+
     async def test_dedup_guard_is_mode_aware(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:

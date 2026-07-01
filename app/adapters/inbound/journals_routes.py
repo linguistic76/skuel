@@ -317,8 +317,15 @@ async def _run_batch_over_dir(
                 is_error=True,
                 status_id=status_id,
             )
+        # transcribe_and_instructions structures the transcript into ``_out.md``,
+        # so the transcript must reflect the CURRENT audio — never reuse a stale
+        # ``je_out/{stem}.txt`` from a prior run whose audio was since replaced
+        # under the same basename. Force fresh transcription for that mode;
+        # transcribe_only may reuse per the caller's ``skip_existing``
+        # (folder-process reruns idempotently, uploads are always fresh).
+        effective_skip = skip_existing if processing_mode == "transcribe_only" else False
         transcribe_result = await batch_transcription_service.transcribe_batch(
-            input_dir, _JE_OUT, skip_existing=skip_existing
+            input_dir, _JE_OUT, skip_existing=effective_skip
         )
         if transcribe_result.is_error:
             return render_journal_upload_status(
@@ -346,15 +353,14 @@ async def _run_batch_over_dir(
                 "error" if is_err else "completed", msg, is_error=is_err, status_id=status_id
             )
 
-        # transcribe_and_instructions — LLM-structure every available transcript
-        # (LLM availability already verified above). Include ``skipped`` stems:
-        # transcribe_batch skips files whose ``{stem}.txt`` already exists, so a
-        # user re-running after "Transcribe only" (or a failed LLM step) still gets
-        # their transcript structured. The loop re-checks the txt exists.
+        # transcribe_and_instructions — LLM-structure each freshly-transcribed
+        # transcript (LLM availability already verified above). This mode forces
+        # skip_existing=False (see above), so every audio file yields a ``success``
+        # with a current transcript — no ``skipped`` stems to worry about staleness.
         structurable_stems = {
             Path(res["name"]).stem
             for res in transcribe_result.value.results
-            if res.get("status") in ("success", "skipped")
+            if res.get("status") == "success"
         }
         llm_ok = 0
         llm_fail = 0
