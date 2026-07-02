@@ -19,7 +19,9 @@ class PathStepChunkSource:
     Content lives on the :Content node, never the :Entity node, so the batch
     engine pops it before the bulk upsert and threads it here — keyed by
     entity uid — to the post-persist chunk step
-    (``UnifiedIngestionService._chunk_path_step_content``).
+    (``UnifiedIngestionService._chunk_path_step_content``). Empty ``content``
+    is threaded too: the chunk step's empty-body branch clears any stale
+    :Content subtree from a prior non-empty ingest (ADR-074).
     """
 
     content: str

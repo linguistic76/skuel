@@ -23,7 +23,7 @@ Embeddings add a similarity dimension on top of this structure. They don't repla
 
 ### 2. Development phases are real
 
-When building curriculum content — writing YAML front matter, adjusting ingestion pipelines, testing file uploads — embedding generation is noise. Every ingested file triggers API calls that cost money, add latency to logs, and produce vectors for content that will change five more times. The Analog layer lets you iterate on fundamentals without that overhead.
+When building curriculum content — writing YAML front matter, adjusting ingestion pipelines, testing file uploads — embedding generation is noise. In FULL tier, every ingested file enqueues background embedding work (ADR-074) that costs API money and produces vectors for content that will change five more times. The Analog layer lets you iterate on fundamentals without that overhead.
 
 When the content is stable and you want semantic search, recommendation, and AI feedback — switch to Digital.
 
@@ -33,7 +33,7 @@ Running 16 entity types through `text-embedding-3-small` (ADR-068; BGE staged as
 
 ### 4. Testability
 
-The test suite runs 1966 tests without any API mocking for AI services. Services accept `None` for their AI dependencies and behave correctly. This is not accidental — it's the architectural guarantee that the Analog layer is self-sufficient.
+The test suite runs without any API mocking for AI services. Services accept `None` for their AI dependencies and behave correctly. This is not accidental — it's the architectural guarantee that the Analog layer is self-sufficient.
 
 ## What Each Layer Provides
 
@@ -91,7 +91,7 @@ The Digital layer is **additive, never replacing**:
 - Keyword search works in both modes. Vector search adds similarity results on top.
 - Manual teacher feedback works in both modes. AI feedback adds automated assessment on top.
 - Graph-based analytics work in both modes. AI services add LLM-powered insights on top.
-- Content chunks are created during ingestion in both modes. Embeddings add vectors to those chunks on top.
+- Content chunks are created during ingestion in both modes and through both ingest doors — single-file and batch/directory share one PathStep chunk step (ADR-074). Embeddings add vectors to those chunks on top: in FULL, ingestion publishes `ChunkEmbeddingRequested` post-persist; in CORE, chunks persist unembedded.
 
 When switching from Digital back to Analog, nothing is lost. Existing embeddings remain on nodes — they just aren't queried. Switching back to Digital reactivates them instantly.
 
@@ -102,7 +102,7 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 2. Ensure `OPENAI_API_KEY` is configured (covers embeddings + LLM — ADR-068)
 3. Ensure `DEEPGRAM_API_KEY` is configured (audio transcription)
 4. Restart the app
-5. Run `scripts/generate_embeddings_batch.py` to backfill embeddings on existing entities
+5. Run `scripts/generate_embeddings_batch.py` to backfill missing embeddings on existing entities, and `--stale` to re-embed entities that were edited or re-synced while Digital was off (ADR-074)
 
 **Digital -> Analog:**
 1. Set `INTELLIGENCE_TIER=core` in `.env`

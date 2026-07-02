@@ -182,31 +182,44 @@ class Neo4jContentAdapter:
         logger.warning(f"Content not found for {unit_uid}, creating new content")
         return await self.create_content(unit_uid, body)
 
-    async def delete_content(self, unit_uid: str) -> bool:
+    async def delete_content_subtree(self, unit_uid: str) -> bool:
         """
-        DETACH DELETE content for a knowledge unit.
+        Delete an entity's full content subtree.
+
+        (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk) plus
+        (Content)-[:HAS_METADATA]->(ContentMetadata) — deleted leaf-first,
+        mirroring IngestionBackend.delete_entities_with_metadata (deleting the
+        Content node alone would orphan chunks in the vector index and chunk
+        regeneration scans). The explicit clear path for a PathStep re-ingested
+        with an emptied body (ADR-074).
 
         Args:
             unit_uid: The knowledge unit's UID
 
         Returns:
-            True if deleted, False if not found
+            True if a subtree was deleted, False if none existed or on error
         """
         query = """
         MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
+        OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
+        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
+        DETACH DELETE chunk, meta
+        WITH DISTINCT content
         DETACH DELETE content
         RETURN count(content) as deleted
         """
 
-        result = await self.neo4j.execute_query(query, {"uid": unit_uid})
+        try:
+            result = await self.neo4j.execute_query(query, {"uid": unit_uid})
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to delete content subtree for {unit_uid}: {e}")
+            return False
 
-        if result and len(result) > 0:
-            deleted_count = result[0]["deleted"]
-            if deleted_count > 0:
-                logger.info(f"Deleted content for knowledge unit: {unit_uid}")
-                return True
+        if result and len(result) > 0 and result[0]["deleted"] > 0:
+            logger.info(f"Deleted content subtree for knowledge unit: {unit_uid}")
+            return True
 
-        logger.warning(f"No content found to delete for: {unit_uid}")
+        logger.debug(f"No content subtree to delete for: {unit_uid}")
         return False
 
     async def store_content_with_chunks(

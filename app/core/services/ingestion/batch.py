@@ -945,14 +945,19 @@ async def ingest_directory(
         for entity in entities:
             source_path = entity.pop("_file_path", None)
             if entity_type == EntityType.PATH_STEP:
-                content_body = entity.pop("content", "")
-                if content_body:
-                    entity["word_count"] = len(content_body.split())
-                    chunk_sources[entity["uid"]] = PathStepChunkSource(
-                        content=content_body,
-                        file_format=detect_format(Path(source_path)) if source_path else "markdown",
-                        source_path=source_path or "",
-                    )
+                # `or ""` — frontmatter `content:` with no value parses to None
+                content_body = entity.pop("content", "") or ""
+                # Unconditional on purpose: an emptied body must overwrite the
+                # previous ingest's word_count (`n += props` never removes
+                # omitted keys) and still reach the shared chunk step, whose
+                # empty-body branch clears the stale :Content subtree
+                # (ADR-074 clear path — same behavior as the single-file door).
+                entity["word_count"] = len(content_body.split())
+                chunk_sources[entity["uid"]] = PathStepChunkSource(
+                    content=content_body,
+                    file_format=detect_format(Path(source_path)) if source_path else "markdown",
+                    source_path=source_path or "",
+                )
 
         rel_config = config.relationship_config or {}
         result = await bulk_backend.upsert_with_relationships(
