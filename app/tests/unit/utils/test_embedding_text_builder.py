@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import pytest
 
 from core.models.enums.entity_enums import EntityType
-from core.utils.embedding_text_builder import build_embedding_text
+from core.utils.embedding_text_builder import build_embedding_text, hash_embedding_text
 
 
 # Test models (mimicking domain models)
@@ -301,6 +301,25 @@ class TestSeparatorLogic:
         result = build_embedding_text(EntityType.HABIT, data)
         assert "\n\n" not in result
         assert result == "A\nB\nC"
+
+
+class TestHashEmbeddingText:
+    """THE hash recipe for embedding-text identity (freshness skip signal)."""
+
+    def test_deterministic(self):
+        assert hash_embedding_text("same text") == hash_embedding_text("same text")
+
+    def test_content_sensitive(self):
+        assert hash_embedding_text("text a") != hash_embedding_text("text b")
+
+    def test_sha256_hex_shape(self):
+        digest = hash_embedding_text("anything")
+        assert len(digest) == 64
+        assert all(c in "0123456789abcdef" for c in digest)
+
+    def test_unicode_stable(self):
+        # utf-8 encoding is part of the recipe — non-ASCII must not raise
+        assert len(hash_embedding_text("Übung: Grüße aus Köln 🎓")) == 64
 
 
 if __name__ == "__main__":

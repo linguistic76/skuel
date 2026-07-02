@@ -53,7 +53,16 @@ def _service() -> MagicMock:
     service = MagicMock()
     service.create_embedding = AsyncMock(return_value=Result.ok(VECTOR))
     service.store_embedding_with_metadata = AsyncMock(return_value=Result.ok(None))
+    # Freshness pre-check: nothing fresh by default (everything embeds)
+    service.verify_fresh_embeddings = AsyncMock(return_value=Result.ok(set()))
     return service
+
+
+def _chunk_adapter() -> MagicMock:
+    adapter = MagicMock()
+    adapter.store_chunk_embeddings = AsyncMock(return_value=True)
+    adapter.get_chunk_embedding_freshness = AsyncMock(return_value=[])
+    return adapter
 
 
 @pytest.mark.asyncio
@@ -172,7 +181,7 @@ async def test_chunk_request_drops_after_attempt_cap():
         return_value=Result.fail(Errors.integration(service="OpenAI", message="always fails"))
     )
     worker = _worker(service)
-    worker.content_adapter = MagicMock()
+    worker.content_adapter = _chunk_adapter()
 
     chunk_event = ChunkEmbeddingRequested(
         parent_uid="ps:test:one",
@@ -204,8 +213,7 @@ async def test_chunk_batchmates_survive_one_bad_parent():
     service.model = "test-embedder"
     service.create_batch_embeddings = AsyncMock(side_effect=batch_embed)
     worker = _worker(service)
-    worker.content_adapter = MagicMock()
-    worker.content_adapter.store_chunk_embeddings = AsyncMock(return_value=True)
+    worker.content_adapter = _chunk_adapter()
 
     good = ChunkEmbeddingRequested(
         parent_uid="ps:test:good",

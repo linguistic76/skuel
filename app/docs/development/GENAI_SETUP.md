@@ -146,8 +146,12 @@ n.embedding = [0.123, ...]          # 1024-dim vector
 n.embedding_version = "v3"          # Tracks model/parameter version
 n.embedding_model = "text-embedding-3-small"
 n.embedding_updated_at = datetime() # When generated
-n.embedding_source_text = "..."     # Source text
+n.embedding_text_hash = "..."       # sha256 of the embedded text (ADR-074 §8 —
+                                    # unchanged text is skipped before generation)
 ```
+
+(Chunks differ: `ContentChunk` nodes keep `embedding_source_text` — the raw
+text is their freshness-equality check; entities use the hash.)
 
 Version history: v1 = OpenAI @1536 via the GenAI plugin; v2 = BGE @1024 via HF (never
 backfilled); v3 = OpenAI @1024 (ADR-068). The `get_or_create_embedding()` method checks version

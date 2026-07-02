@@ -24,6 +24,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.neo_labels import NeoLabel
+from core.utils.embedding_text_builder import hash_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -213,16 +214,21 @@ class EmbeddingsService:
         uid: str,
         label: str,
         embedding: list[float],
-        text: str | None = None,
+        text: str,
     ) -> Result[None]:
         """
         Store embedding with version metadata on a node.
+
+        Every store carries ``embedding_text_hash`` (sha256 of ``text`` via
+        the one hash recipe) so ``verify_fresh_embeddings`` can skip
+        re-embedding unchanged text — which is why ``text`` is required: a
+        stored embedding without its hash would read as permanently stale.
 
         Args:
             uid: Node UID
             label: Node label (e.g., "Entity", "Task")
             embedding: Embedding vector to store
-            text: Optional source text that was embedded
+            text: The exact text the embedding was generated from
 
         Returns:
             Result indicating success or error
@@ -235,7 +241,7 @@ class EmbeddingsService:
             embedding=embedding,
             version=EMBEDDING_VERSION,
             model=self.model,
-            text=text,
+            text_hash=hash_embedding_text(text),
         )
 
         if result.is_error:
@@ -251,6 +257,101 @@ class EmbeddingsService:
 
         self.logger.debug(f"Stored embedding for {label}:{uid} (version={EMBEDDING_VERSION})")
         return Result.ok(None)
+
+    async def verify_fresh_embeddings(self, candidates: dict[str, str]) -> Result[set[str]]:
+        """
+        THE skip decision: which candidates' stored embeddings are already fresh?
+
+        Fresh = the node has an embedding, its version matches
+        ``EMBEDDING_VERSION``, and its stored ``embedding_text_hash`` equals
+        the hash of the candidate text. Version outranks hash: a version
+        mismatch is never fresh, so a deliberate model migration re-embeds
+        regardless of text equality. Fresh nodes get ``embedding_updated_at``
+        touched (metadata-only, no API call) so the coarse timestamp filter
+        converges instead of re-flagging them on every ``--stale`` run.
+
+        Both pre-generation consumers — the background worker's batch
+        pre-check and the ``--stale`` backfill's fine filter — call this, so
+        the freshness semantics live in exactly one place.
+
+        Args:
+            candidates: uid → the embedding text that WOULD be embedded now
+
+        Returns:
+            Result with the set of uids that need no re-embedding
+        """
+        if not candidates:
+            return Result.ok(set())
+
+        read = await self.backend.get_embedding_freshness(list(candidates))
+        if read.is_error:
+            self.logger.error(f"Failed to read embedding freshness: {read.error}")
+            return Result.fail(
+                Errors.database(
+                    operation="verify_fresh_embeddings",
+                    message=f"Freshness read failed: {read.error}",
+                )
+            )
+
+        fresh: set[str] = set()
+        for row in read.value:
+            uid = row["uid"]
+            text = candidates.get(uid)
+            if (
+                text is not None
+                and row.get("has_embedding")
+                and row.get("version") == EMBEDDING_VERSION
+                and row.get("text_hash") == hash_embedding_text(text)
+            ):
+                fresh.add(uid)
+
+        if fresh:
+            touch = await self.backend.touch_embedding_updated_at(sorted(fresh))
+            if touch.is_error:
+                # The freshness verdict stands — the touch only accelerates
+                # timestamp convergence; a failed touch just means the node
+                # re-enters the coarse filter and hash-skips again next run.
+                self.logger.warning(f"Failed to touch embedding_updated_at: {touch.error}")
+
+        return Result.ok(fresh)
+
+    async def stamp_embedding_hashes(self, label: str, texts: dict[str, str]) -> Result[int]:
+        """
+        One-shot hash rollout: stamp ``embedding_text_hash`` without re-embedding.
+
+        For nodes embedded before the hash existed: hashes each node's CURRENT
+        embedding text and writes it next to the existing vector — sound only
+        for vectors that provably match that text, which the backend enforces
+        (version current, no hash yet, no timestamp drift). Nodes failing the
+        guards keep a null hash and self-heal through the normal re-embed
+        paths. Zero API calls.
+
+        Args:
+            label: Node label (one embeddable label per call)
+            texts: uid → current build_embedding_text output
+
+        Returns:
+            Result with the count of nodes stamped
+        """
+        if not NeoLabel.is_valid(label):
+            return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
+        if not texts:
+            return Result.ok(0)
+
+        rows = [{"uid": uid, "text_hash": hash_embedding_text(text)} for uid, text in texts.items()]
+        result = await self.backend.stamp_embedding_text_hashes(
+            label=NeoLabel(label), rows=rows, version=EMBEDDING_VERSION
+        )
+        if result.is_error:
+            self.logger.error(f"Failed to stamp embedding hashes: {result.error}")
+            return Result.fail(
+                Errors.database(
+                    operation="stamp_embedding_hashes", message=f"Stamp failed: {result.error}"
+                )
+            )
+
+        stamped = int(result.value[0]["stamped"]) if result.value else 0
+        return Result.ok(stamped)
 
     async def get_embedding_metadata(self, uid: str, label: str) -> Result[dict[str, Any]]:
         """
