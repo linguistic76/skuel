@@ -450,12 +450,15 @@ class Neo4jContentAdapter:
         """
         Store pre-generated embeddings on existing ContentChunk nodes.
 
-        Used by background worker after batch generation.
+        Used by the background worker after batch generation and by the
+        backfill script's chunk mode (both pass the current EMBEDDING_VERSION).
 
         Args:
             chunk_uids: List of chunk UIDs to update
             embeddings: List of embedding vectors (same length as chunk_uids)
-            version: Embedding version (e.g., "v1")
+            version: Embedding version (callers pass EMBEDDING_VERSION from
+                core.services.embeddings_service so chunk staleness detection
+                tracks the same constant as entity embeddings)
             model: Model name (e.g., "text-embedding-3-small")
 
         Returns:

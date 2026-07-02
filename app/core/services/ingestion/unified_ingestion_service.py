@@ -2,8 +2,6 @@
 Unified Ingestion Service - Orchestration Layer
 ================================================
 
-**REFACTORED (January 2026):** Decomposed from 1,916 lines to ~250 lines.
-
 This module orchestrates content ingestion by composing:
 - config.py - Entity configurations and constants
 - types.py - Data classes (IngestionStats, ValidationResult, etc.)
@@ -14,7 +12,10 @@ This module orchestrates content ingestion by composing:
 - batch.py - Concurrent batch operations
 
 Architecture:
-- Orchestrator stays small (~250 lines), delegates everything
+- The orchestrator delegates parsing/validation/persistence to the modules
+  above and owns the cross-cutting seams: vault-descriptor ownership + walls
+  (ADR-070), the post-persist embedding step (ADR-074), and the shared
+  PathStep chunk step
 - Each module has ONE job (separation of concerns)
 - Clear data flow: Parse → Detect → Validate → Prepare → Ingest
 
@@ -94,7 +95,7 @@ class UnifiedIngestionService:
 
     Orchestrates capabilities from decomposed modules:
     - Auto-detects file format (MD vs YAML)
-    - Routes to appropriate entity type (20 entity types)
+    - Routes to the appropriate entity type (every ENTITY_CONFIGS entry)
     - Normalizes UIDs to dot notation
     - Uses BulkUpsertBackend for batch performance
     - Creates graph-native relationships
