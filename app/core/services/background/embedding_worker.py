@@ -28,6 +28,12 @@ Implementation:
 - Process batches on timer (asyncio.sleep loop)
 - Update Neo4j nodes with embeddings
 - Log success/failures for debugging
+
+Two run modes:
+- App process: start() — subscribe + timer loop (dev bootstrap background task)
+- Script process: subscribe() before the sync, then drain() once after — so a
+  one-shot sync's embedding events are processed in-process instead of
+  evaporating with the script (ADR-074 script-mode freshness)
 """
 
 import asyncio
@@ -139,11 +145,14 @@ class EmbeddingBackgroundWorker:
         self._batches_processed = 0
         self._started_at: datetime | None = None
 
-    async def start(self) -> Result[None]:
+    def subscribe(self) -> None:
         """
-        Start listening for embedding events.
+        Register this worker's queue callbacks on the event bus.
 
-        Subscribes to all domain embedding request events and starts batch processing loop.
+        Split from ``start()`` so one-shot script callers (``vault_bridge_sync``)
+        can subscribe BEFORE their sync publishes embedding events, then
+        ``drain()`` the queues once — without the timer loop. In the app process,
+        ``start()`` calls this and then loops.
         """
         # Subscribe to all embedding request events — Activity domains
         self.event_bus.subscribe(TaskEmbeddingRequested, self._queue_request)
@@ -164,6 +173,14 @@ class EmbeddingBackgroundWorker:
         # Subscribe to chunk embedding requests (separate queue)
         self.event_bus.subscribe(ChunkEmbeddingRequested, self._queue_chunk_request)
 
+    async def start(self) -> Result[None]:
+        """
+        Start listening for embedding events.
+
+        Subscribes to all domain embedding request events and starts batch processing loop.
+        """
+        self.subscribe()
+
         # Track start time for metrics
         from datetime import datetime
 
@@ -177,6 +194,35 @@ class EmbeddingBackgroundWorker:
         # Start batch processing loop
         await self._process_batches_loop()
         return Result.ok(None)
+
+    async def drain(self) -> dict[str, int]:
+        """
+        Process both queues until empty, once — no timer loop.
+
+        The script-mode counterpart to ``start()`` (ADR-074 script-mode
+        freshness): a one-shot sync (``vault_bridge_sync``) calls
+        ``subscribe()`` before ingesting, then drains after, so the embedding
+        events its ingest published are processed in the same process instead
+        of evaporating when the script exits. Terminates: per-request retries
+        are bounded by MAX_GENERATION_ATTEMPTS, so re-queued failures cannot
+        loop forever.
+
+        Returns:
+            Counts of dequeued work: ``entity_requests`` and ``chunk_parents``
+            (bounded retries re-dequeue, so counts include retry passes).
+        """
+        entity_requests = 0
+        chunk_parents = 0
+        while self._pending_requests or self._pending_chunk_requests:
+            if self._pending_requests:
+                batch = await self._dequeue_entity_batch()
+                entity_requests += len(batch)
+                await self._process_batch(batch)
+            if self._pending_chunk_requests:
+                chunk_batch = await self._dequeue_chunk_batch()
+                chunk_parents += len(chunk_batch)
+                await self._process_chunk_batch(chunk_batch)
+        return {"entity_requests": entity_requests, "chunk_parents": chunk_parents}
 
     async def _queue_request(self, event: EmbeddingRequested) -> None:
         """
@@ -206,6 +252,20 @@ class EmbeddingBackgroundWorker:
             f"({len(event.chunk_uids)} chunks, queue size: {len(self._pending_chunk_requests)})"
         )
 
+    async def _dequeue_entity_batch(self) -> list[_PendingRequest]:
+        """Slice up to batch_size entity requests off the queue, under the lock."""
+        async with self._queue_lock:
+            batch = self._pending_requests[: self.batch_size]
+            self._pending_requests = self._pending_requests[self.batch_size :]
+        return batch
+
+    async def _dequeue_chunk_batch(self) -> list[_PendingChunkRequest]:
+        """Slice up to batch_size chunk requests off the queue, under the lock."""
+        async with self._queue_lock:
+            batch = self._pending_chunk_requests[: self.batch_size]
+            self._pending_chunk_requests = self._pending_chunk_requests[self.batch_size :]
+        return batch
+
     async def _process_batches_loop(self) -> None:
         """
         Process pending embedding requests in batches every N seconds.
@@ -230,9 +290,7 @@ class EmbeddingBackgroundWorker:
 
             # Process entity embeddings
             if self._pending_requests:
-                async with self._queue_lock:
-                    batch = self._pending_requests[: self.batch_size]
-                    self._pending_requests = self._pending_requests[self.batch_size :]
+                batch = await self._dequeue_entity_batch()
 
                 self.logger.info(
                     f"Processing batch of {len(batch)} embedding requests "
@@ -243,9 +301,7 @@ class EmbeddingBackgroundWorker:
 
             # Process chunk embeddings
             if self._pending_chunk_requests:
-                async with self._queue_lock:
-                    chunk_batch = self._pending_chunk_requests[: self.batch_size]
-                    self._pending_chunk_requests = self._pending_chunk_requests[self.batch_size :]
+                chunk_batch = await self._dequeue_chunk_batch()
 
                 self.logger.info(
                     f"Processing batch of {len(chunk_batch)} chunk embedding requests "

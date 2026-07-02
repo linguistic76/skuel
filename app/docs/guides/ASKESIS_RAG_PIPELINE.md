@@ -52,8 +52,8 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 | Path | When | Service |
 |------|------|---------|
-| **Event pipeline** | Every write path — in-app create, in-app update (`changed_fields` gate), and both ingest doors post-persist — publishes `*EmbeddingRequested` | `EmbeddingBackgroundWorker` in `core/services/background/embedding_worker.py` — batches of 25 every 30s |
-| **Backfill script** | Missing embeddings (default) or stale ones (`--stale`: edited/re-synced after last embed, or version drift) — the freshness path for one-shot script syncs like `./dev vault-sync`, whose events die with the script process | `scripts/generate_embeddings_batch.py` (service-mediated, same version metadata as the worker) |
+| **Event pipeline** | Every write path — in-app create, in-app update (`changed_fields` gate), and both ingest doors post-persist — publishes `*EmbeddingRequested`. One-shot script syncs (`./dev vault-sync`) ride the same path: they subscribe the worker pre-sync and `drain()` post-sync, in-process | `EmbeddingBackgroundWorker` in `core/services/background/embedding_worker.py` — app process: batches of 25 every 30s; script process: one-shot drain |
+| **Backfill script** | Backstop for pre-existing gaps: missing embeddings (default) or stale ones (`--stale`: edited/re-synced after last embed — e.g. while in CORE tier — or version drift) | `scripts/generate_embeddings_batch.py` (service-mediated, same version metadata as the worker) |
 
 ### Text Extraction
 
