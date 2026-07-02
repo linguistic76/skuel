@@ -5,7 +5,7 @@ Vault Sync Request Models (Pydantic)
 Pydantic models for vault-sync API boundaries (ADR-070).
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class ContentVaultSyncRequest(BaseModel):
@@ -17,7 +17,9 @@ class ContentVaultSyncRequest(BaseModel):
     The sanctioned re-chunk/migration path — force ≠ full.
     """
 
-    force: bool = Field(
+    # StrictBool: a force run is a whole-vault re-ingest campaign — reject
+    # truthy strings ("yes", "true") rather than coerce them (Kody #490).
+    force: StrictBool = Field(
         default=False,
         description="Re-process unchanged files too (re-chunk/migration campaigns). "
         "Deletion reconciliation and the vault wall stay active.",

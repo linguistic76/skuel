@@ -120,13 +120,15 @@ class TestVaultSyncContentRoute:
 
     @pytest.mark.asyncio
     async def test_invalid_force_value_is_rejected_before_reconciler(self) -> None:
+        """StrictBool: a truthy STRING must be rejected, not coerced — lax bool
+        would accept '"true"'/'"yes"' and silently trigger a force campaign."""
         registry, reconciler = _routes(is_admin=True)
         reconciler.sync = AsyncMock()
 
         handler = registry.get("/api/vault/sync/content", "POST")
-        response = await handler(_request(body=b'{"force": "yes please"}'))
-
-        assert response.status_code == 400
+        for body in (b'{"force": "true"}', b'{"force": "yes"}', b'{"force": 1}'):
+            response = await handler(_request(body=body))
+            assert response.status_code == 400, f"body {body!r} must be rejected"
         reconciler.sync.assert_not_called()
 
     @pytest.mark.asyncio
