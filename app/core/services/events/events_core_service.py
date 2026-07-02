@@ -340,7 +340,6 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
                     entity_uid=event.uid,
                     entity_type="event",
                     embedding_text=embedding_text,
-                    user_uid=event.user_uid,
                     requested_at=now,
                 )
                 await publish_event(self.event_bus, embedding_event, self.logger)

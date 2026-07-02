@@ -123,7 +123,6 @@ class TestEmbeddingBackgroundWorker:
                 entity_uid=f"task.test{i}",
                 entity_type="task",
                 embedding_text=f"Test task {i}",
-                user_uid="user_test",
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -175,7 +174,6 @@ class TestEmbeddingBackgroundWorker:
             entity_uid="task.test",
             entity_type="task",
             embedding_text="Test",
-            user_uid="user_test",
             requested_at=datetime.now(),
             occurred_at=datetime.now(),
         )

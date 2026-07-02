@@ -9,7 +9,7 @@ SKUEL is built on a deliberate separation between two architectural layers:
 
 - **Analog** — the structural layer. Graph relationships, CRUD operations, content ingestion, keyword search, analytics, user context. This layer is complete on its own. It represents the curriculum, the student's work, and the relationships between them using Neo4j's native graph capabilities. No API keys, no external services, no per-query costs.
 
-- **Digital** — the intelligence layer. Embeddings, vector search, LLM-powered feedback, semantic similarity, AI companions. This layer enhances the Analog layer with machine understanding. It requires external APIs (HuggingFace for embeddings, OpenAI for LLM) and costs money per call.
+- **Digital** — the intelligence layer. Embeddings, vector search, LLM-powered feedback, semantic similarity, AI companions. This layer enhances the Analog layer with machine understanding. It requires an external API (OpenAI for both embeddings and LLM — ADR-068) and costs money per call.
 
 The critical design decision: **the Analog layer is not a degraded version of the Digital layer.** It is the foundation. The app is fully functional — content can be authored, ingested, searched, organized, submitted, and reviewed — without any AI service running.
 
@@ -29,7 +29,7 @@ When the content is stable and you want semantic search, recommendation, and AI 
 
 ### 3. Cost is a design constraint, not a bug
 
-Running 13 entity types through `BAAI/bge-large-en-v1.5` via HuggingFace Inference API at scale is cheap but not free. More importantly, LLM calls for feedback generation, Askesis conversations, and content enrichment add up. The Analog layer gives you a $0 operating cost floor. You choose when to spend.
+Running 16 entity types through `text-embedding-3-small` (ADR-068; BGE staged as the long-term swap) at scale is cheap but not free. More importantly, LLM calls for feedback generation, Askesis conversations, and content enrichment add up. The Analog layer gives you a $0 operating cost floor. You choose when to spend.
 
 ### 4. Testability
 
@@ -56,7 +56,7 @@ The test suite runs 1966 tests without any API mocking for AI services. Services
 
 | Domain | Capability | What It Adds |
 |--------|-----------|-------------|
-| **Embeddings** | 1024-dim vectors on 13 entity types (BAAI/bge-large-en-v1.5 via HF Inference API) | Semantic representation of content |
+| **Embeddings** | 1024-dim vectors on content-bearing entity types (OpenAI `text-embedding-3-small` @1024 — ADR-068; BGE adapter staged) | Semantic representation of content |
 | **Vector Search** | Hybrid search (keyword + vector + RRF) | "Find similar" across domains |
 | **Askesis** | Socratic AI companion, ZPD-aware | Personalized learning dialogue |
 | **Reports** | AI-generated EntryReport | Automated assessment |
@@ -120,5 +120,5 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 | `adapters/inbound/ai_guard.py` | Route-level guards for AI endpoints |
 | `core/services/base_analytics_service.py` | Analog intelligence base (no AI deps) |
 | `core/services/base_ai_service.py` | Digital intelligence base (requires LLM + embeddings) |
-| `core/utils/embedding_text_builder.py` | Field mappings for 13 entity types |
+| `core/utils/embedding_text_builder.py` | Field mappings for 16 content-bearing entity types |
 | `core/services/background/embedding_worker.py` | Event-driven embedding (only starts in Digital mode) |

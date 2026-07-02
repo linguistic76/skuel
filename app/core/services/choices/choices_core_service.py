@@ -287,7 +287,6 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
                 entity_uid=choice.uid,
                 entity_type="choice",
                 embedding_text=embedding_text,
-                user_uid=choice.user_uid,
                 requested_at=now,
             )
             await publish_event(self.event_bus, embedding_event, self.logger)

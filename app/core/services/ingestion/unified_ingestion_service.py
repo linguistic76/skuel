@@ -625,10 +625,6 @@ class UnifiedIngestionService:
                                     chunk_uids=tuple(c.chunk_id for c in content.chunks),
                                     chunk_texts=tuple(c.context_window for c in content.chunks),
                                     requested_at=datetime.now(),
-                                    # Resolved owner, not the raw acting hint —
-                                    # embedding attribution matches persisted
-                                    # ownership (ADR-070 by-path resolution).
-                                    user_uid=effective_user_uid,
                                 ),
                                 self.logger,
                             )

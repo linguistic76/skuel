@@ -473,7 +473,6 @@ class TeacherReviewService:
                     entity_uid=re_uid,
                     entity_type="revised_exercise",
                     embedding_text=embedding_text,
-                    user_uid=UserUID(teacher_uid),
                     requested_at=datetime.now(),
                 ),
                 logger,

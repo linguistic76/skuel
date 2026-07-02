@@ -337,7 +337,6 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
                 entity_uid=task.uid,
                 entity_type="task",
                 embedding_text=embedding_text,
-                user_uid=task.user_uid,
                 requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from core.events.base import BaseEvent
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID
 
 
 @dataclass(frozen=True)
@@ -26,12 +26,14 @@ class EmbeddingRequested(BaseEvent):
     Base event for embedding generation requests.
 
     Published after entity creation, consumed by background worker.
+    Carries no ownership attribution: embeddings are stored as properties on
+    nodes that already carry ``user_uid``, so the worker needs only the UID,
+    type, and text.
     """
 
     entity_uid: EntityUID
     entity_type: str  # "task", "goal", etc.
     embedding_text: str
-    user_uid: UserUID
     requested_at: datetime
 
     @property

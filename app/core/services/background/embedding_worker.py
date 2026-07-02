@@ -44,7 +44,6 @@ if TYPE_CHECKING:
 from core.events import (
     ChoiceEmbeddingRequested,
     ChunkEmbeddingRequested,
-    ChunkEmbeddingsCompleted,
     EventEmbeddingRequested,
     ExerciseEmbeddingRequested,
     GoalEmbeddingRequested,
@@ -56,7 +55,6 @@ from core.events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
-    publish_event,
 )
 from core.events.embedding_events import EmbeddingRequested
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -450,7 +448,6 @@ class EmbeddingBackgroundWorker:
             batch: Pending chunk requests sliced off the queue by the timer loop
         """
         import time
-        from datetime import datetime
 
         if not self.content_adapter:
             self.logger.warning("Content adapter not configured - chunk embeddings not stored")
@@ -491,17 +488,6 @@ class EmbeddingBackgroundWorker:
                     continue
 
                 success_chunks += len(event.chunk_uids)
-                await publish_event(
-                    self.event_bus,
-                    ChunkEmbeddingsCompleted(
-                        parent_uid=event.parent_uid,
-                        chunk_uids=event.chunk_uids,
-                        success_count=len(event.chunk_uids),
-                        failed_count=0,
-                        completed_at=datetime.now(),
-                    ),
-                    self.logger,
-                )
 
             except Exception as e:  # safety-net: one parent's bug must not kill the loop
                 self.logger.error(f"Chunk processing exception for parent {event.parent_uid}: {e}")
