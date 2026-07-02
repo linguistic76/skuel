@@ -660,6 +660,12 @@ PLANNED_METHODS: dict[str, str] = {
         "embedding with idempotent caching; test-covered but not wired in "
         "production — wire into bulk-embed or on-demand embed routes"
     ),
+    "core/services/embeddings_service.py::stamp_embedding_hashes": (
+        "NOT staged — LIVE, but its only caller is scripts/generate_embeddings_batch.py "
+        "--stamp-hashes (ADR-074 §8 one-shot hash rollout), and scripts/ sits outside the "
+        "scanner's production roots by design; registry entry keeps the gate honest instead "
+        "of widening the roots for one method"
+    ),
     "core/services/entity_inference_service.py::_infer_from_content": (
         "private helper for the inference pipeline — becomes live when "
         "get_inference_statistics / analyze_inference_confidence are wired"

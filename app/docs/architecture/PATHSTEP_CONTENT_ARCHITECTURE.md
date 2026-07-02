@@ -227,7 +227,7 @@ EmbeddingBackgroundWorker embeds entity + chunks, stores vectors + v3 metadata
 
 **ContentChunks enable semantic search without loading full bodies.** A vector index on `ContentChunk.embedding` lets Askesis find relevant content by meaning, not keyword. The chunk-level granularity also means a specific paragraph can be retrieved without loading the entire 2,000-word PathStep.
 
-**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is idempotent — `store_content_with_chunks` deletes existing chunks for the uid before creating new ones, so a re-ingest never accumulates duplicates.
+**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is idempotent — chunk uids are deterministic (`{parent_uid}:chunk:{index}`), so `store_content_with_chunks` deletes only chunks absent from the new set and MERGEs the survivors, preserving their embeddings when the chunk text is unchanged and wiping the embedding fields when it changed (ADR-074 §8). A re-ingest never accumulates duplicates and a force re-ingest of an unchanged body never destroys good chunk vectors.
 
 ---
 

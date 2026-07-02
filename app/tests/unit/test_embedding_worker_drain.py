@@ -55,12 +55,15 @@ def _service() -> MagicMock:
     service.create_embedding = AsyncMock(return_value=Result.ok(VECTOR))
     service.create_batch_embeddings = AsyncMock(return_value=Result.ok([VECTOR, VECTOR]))
     service.store_embedding_with_metadata = AsyncMock(return_value=Result.ok(None))
+    # Freshness pre-check: nothing fresh by default (everything embeds)
+    service.verify_fresh_embeddings = AsyncMock(return_value=Result.ok(set()))
     return service
 
 
 def _chunk_adapter() -> MagicMock:
     adapter = MagicMock()
     adapter.store_chunk_embeddings = AsyncMock(return_value=True)
+    adapter.get_chunk_embedding_freshness = AsyncMock(return_value=[])
     return adapter
 
 
@@ -153,6 +156,6 @@ async def test_subscribe_publish_drain_round_trip():
 
     assert drained == {"entity_requests": 1, "chunk_parents": 1}
     service.store_embedding_with_metadata.assert_awaited_once_with(
-        uid="task.test0", label="Task", embedding=VECTOR
+        uid="task.test0", label="Task", embedding=VECTOR, text="text 0"
     )
     adapter.store_chunk_embeddings.assert_awaited_once()

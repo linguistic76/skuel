@@ -13,6 +13,7 @@ Usage:
 See: /docs/decisions/ADR-074-post-persist-embedding-events.md
 """
 
+import hashlib
 from typing import Any, overload
 
 from core.models.enums.entity_enums import EntityType
@@ -124,6 +125,29 @@ def build_embedding_text(
     }
     separator = "\n\n" if entity_type in _curriculum_types else "\n"
     return separator.join(parts)
+
+
+def hash_embedding_text(text: str) -> str:
+    """
+    THE hash recipe for embedding-text identity (sha256 hex digest).
+
+    Stored as ``embedding_text_hash`` next to every entity embedding (one
+    writer: ``EmbeddingsService.store_embedding_with_metadata``) and compared
+    BEFORE generation so unchanged text is never re-embedded — force
+    re-ingests bump ``updated_at`` without changing content, and the hash is
+    the content-truth signal the timestamp can't provide. Consumers of the
+    comparison: the background worker's batch pre-check and the ``--stale``
+    backfill's fine filter, both via
+    ``EmbeddingsService.verify_fresh_embeddings`` — no third recipe.
+
+    Hashes the FULL ``build_embedding_text`` output, deliberately independent
+    of any provider's truncation budget: an edit past the truncation point
+    re-embeds to an identical vector (rare, cheap) but the hash stays
+    provider-agnostic. Version outranks hash — an ``EMBEDDING_VERSION`` bump
+    re-embeds regardless of text equality (model migrations are never
+    skipped).
+    """
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _get_field_value(source: dict[str, Any] | object, field: str) -> Any:

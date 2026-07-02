@@ -39,7 +39,7 @@ class EmbeddingsBackendOperations(Protocol):
         embedding: list[float],
         version: str,
         model: str,
-        text: str | None,
+        text_hash: str,
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_embedding_metadata(
@@ -48,6 +48,14 @@ class EmbeddingsBackendOperations(Protocol):
 
     async def get_cached_embedding(
         self, label: NeoLabel, uid: str
+    ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_embedding_freshness(self, uids: list[str]) -> Result[list[dict[str, Any]]]: ...
+
+    async def touch_embedding_updated_at(self, uids: list[str]) -> Result[list[dict[str, Any]]]: ...
+
+    async def stamp_embedding_text_hashes(
+        self, label: NeoLabel, rows: list[dict[str, str]], version: str
     ) -> Result[list[dict[str, Any]]]: ...
 
 
