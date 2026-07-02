@@ -368,12 +368,16 @@ class ExerciseService(BaseService):
             self.logger.error(f"Failed to update exercise {uid}: {result.error}")
             return result
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
         if result.value is not None:
             from core.events.embedding_publisher import publish_embedding_requested
 
             await publish_embedding_requested(
-                self.event_bus, EntityType.EXERCISE, result.value, self.logger
+                self.event_bus,
+                EntityType.EXERCISE,
+                result.value,
+                self.logger,
+                changed_fields=updates.keys(),
             )
 
         self.logger.info(f"Exercise updated: {uid}")

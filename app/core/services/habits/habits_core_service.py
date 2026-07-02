@@ -412,8 +412,10 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent])
             self.logger,
         )
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
-        await publish_embedding_requested(self.event_bus, EntityType.HABIT, habit, self.logger)
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus, EntityType.HABIT, habit, self.logger, changed_fields=updated_fields
+        )
 
         return result
 

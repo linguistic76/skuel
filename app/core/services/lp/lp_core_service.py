@@ -456,12 +456,16 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
 
         updated_path = self._build_lp_from_record(path_data, steps)
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
         from core.events.embedding_publisher import publish_embedding_requested
         from core.models.enums.entity_enums import EntityType
 
         await publish_embedding_requested(
-            self.event_bus, EntityType.LEARNING_PATH, updated_path, self.logger
+            self.event_bus,
+            EntityType.LEARNING_PATH,
+            updated_path,
+            self.logger,
+            changed_fields=updates.keys(),
         )
 
         logger.info(f"✅ Updated learning path {path_uid}")

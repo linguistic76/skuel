@@ -95,6 +95,35 @@ async def test_helper_unmapped_type_no_event():
     assert bus.published == []
 
 
+@pytest.mark.asyncio
+async def test_helper_changed_fields_gate_skips_irrelevant_updates():
+    """A status/progress-only update must not enqueue a redundant re-embed."""
+    bus = _CapturingBus()
+    published = await publish_embedding_requested(
+        bus,
+        EntityType.GOAL,
+        {"uid": "goal.g1", "title": "Run a marathon", "description": "26.2"},
+        logger,
+        changed_fields=["status", "progress"],
+    )
+    assert published is False
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_helper_changed_fields_gate_publishes_on_text_change():
+    bus = _CapturingBus()
+    published = await publish_embedding_requested(
+        bus,
+        EntityType.GOAL,
+        {"uid": "goal.g1", "title": "Run an ultramarathon", "description": "50k"},
+        logger,
+        changed_fields=["title", "status"],
+    )
+    assert published is True
+    assert len(bus.published) == 1
+
+
 def test_event_map_mirrors_worker_subscriptions():
     """EMBEDDING_EVENT_TYPES must cover exactly the 12 worker-subscribed types."""
     assert set(EMBEDDING_EVENT_TYPES) == {

@@ -20,6 +20,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from collections.abc import Collection
+
 from core.events.embedding_events import (
     ChoiceEmbeddingRequested,
     EmbeddingRequested,
@@ -36,7 +39,7 @@ from core.events.embedding_events import (
     TaskEmbeddingRequested,
 )
 from core.models.enums.entity_enums import EntityType
-from core.utils.embedding_text_builder import build_embedding_text
+from core.utils.embedding_text_builder import EMBEDDING_FIELD_MAPS, build_embedding_text
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -69,6 +72,8 @@ async def publish_embedding_requested(
     entity_type: EntityType,
     source: dict[str, Any] | object,
     logger: Any = None,
+    *,
+    changed_fields: Collection[str] | None = None,
 ) -> bool:
     """
     Build embedding text for a persisted entity and publish its refresh event.
@@ -85,14 +90,25 @@ async def publish_embedding_requested(
         source: Domain model or Neo4j property dict — anything
             ``build_embedding_text`` accepts. Must carry ``uid``.
         logger: Optional logger for the publish warning path.
+        changed_fields: For update paths — the fields the update wrote. When
+            provided, the publish is skipped unless at least one changed field
+            feeds this type's embedding text (``EMBEDDING_FIELD_MAPS``), so a
+            status flip or progress bump never enqueues a redundant re-embed.
+            Create paths omit it (everything is new).
 
     Returns:
         True if an event was published; False when the type has no event
-        class, the source yields no embeddable text, or the bus is missing.
+        class, no changed field is embedding-relevant, the source yields no
+        embeddable text, or the bus is missing.
     """
     event_cls = EMBEDDING_EVENT_TYPES.get(entity_type)
     if event_cls is None:
         return False
+
+    if changed_fields is not None:
+        embedding_fields = EMBEDDING_FIELD_MAPS.get(entity_type, ())
+        if not set(changed_fields) & set(embedding_fields):
+            return False
 
     embedding_text = build_embedding_text(entity_type, source)
     if not embedding_text:

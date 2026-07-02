@@ -598,12 +598,11 @@ class UnifiedIngestionService:
 
         # Post-persist embedding step (ADR-074): publish the entity's
         # *EmbeddingRequested event for the background worker. For PathStep the
-        # content body was popped above — re-attach it for text building so the
-        # entity-level embedding covers the content, not just the frontmatter.
-        embedding_source = (
-            {**entity_data, "content": ku_content_body} if ku_content_body else entity_data
-        )
-        await self._publish_embedding_requests(entity_type, [embedding_source])
+        # content body was popped above and is deliberately NOT re-attached:
+        # the entity vector covers frontmatter fields; body-content semantics
+        # live in CHUNK embeddings (below) — one consistent recipe across
+        # ingest, in-app update, and backfill triggers.
+        await self._publish_embedding_requests(entity_type, [entity_data])
 
         # Automatic chunking for PathStep entities
         # Generate chunks immediately after successful PathStep ingestion for RAG-readiness

@@ -413,8 +413,10 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
             )
         await publish_event(self.event_bus, domain_event, self.logger)
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
-        await publish_embedding_requested(self.event_bus, EntityType.EVENT, event, self.logger)
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus, EntityType.EVENT, event, self.logger, changed_fields=updated_fields
+        )
 
         return result
 

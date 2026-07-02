@@ -474,8 +474,10 @@ class TasksCoreService(BaseService["TasksOperations", Task, TaskUpdateIntent]):
             )
             await publish_event(self.event_bus, priority_event, self.logger)
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
-        await publish_embedding_requested(self.event_bus, EntityType.TASK, task, self.logger)
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus, EntityType.TASK, task, self.logger, changed_fields=updated_fields
+        )
 
         return Result.ok(task)
 

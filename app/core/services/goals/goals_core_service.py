@@ -413,8 +413,10 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
                     self.logger,
                 )
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
-        await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus, EntityType.GOAL, goal, self.logger, changed_fields=updated_fields
+        )
 
         return result
 

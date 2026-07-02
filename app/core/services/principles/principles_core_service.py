@@ -376,9 +376,13 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
             )
             await publish_event(self.event_bus, strength_event, logger)
 
-        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
         await publish_embedding_requested(
-            self.event_bus, EntityType.PRINCIPLE, updated_principle, logger
+            self.event_bus,
+            EntityType.PRINCIPLE,
+            updated_principle,
+            logger,
+            changed_fields=updated_fields,
         )
 
         logger.info(f"Updated principle: {principle_uid}")
