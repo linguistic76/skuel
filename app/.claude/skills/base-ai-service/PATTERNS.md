@@ -252,6 +252,17 @@ class KuAIService(BaseAIService[KuOperations, Ku]):
 
 Efficiently process multiple items.
 
+> **Don't build a persistence path this way (ADR-074).** Entity embeddings are
+> written by exactly two triggers: the event pipeline (`*EmbeddingRequested`
+> via `core/events/embedding_publisher.py` → `EmbeddingBackgroundWorker`) and
+> the backfill script (`scripts/generate_embeddings_batch.py`, `--stale` for
+> re-embeds). Both store through
+> `EmbeddingsService.store_embedding_with_metadata()` so nodes carry version
+> metadata. Ingestion never embeds inline. The pattern below is for
+> *transient* vectors a service computes and consumes itself (similarity
+> scoring, clustering) — if you find yourself writing `n.embedding`, use the
+> chokepoint instead.
+
 ```python
 from typing import ClassVar
 

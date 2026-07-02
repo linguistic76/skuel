@@ -102,7 +102,12 @@ uv run python scripts/create_vector_indexes.py --recreate
 ```bash
 uv run python scripts/generate_embeddings_batch.py            # all embeddable labels
 uv run python scripts/generate_embeddings_batch.py --label Ku # one label
+uv run python scripts/generate_embeddings_batch.py --stale    # re-embed drifted/version-mismatched nodes (ADR-074)
 ```
+
+After a one-shot script sync (`./dev vault-sync`), run **both** the default mode (embeds
+brand-new nodes) and `--stale` (re-embeds drifted ones) — script-mode events die with the
+script process, so the backfill script is that path's freshness mechanism (ADR-074).
 
 ### 5. Test Semantic Search
 

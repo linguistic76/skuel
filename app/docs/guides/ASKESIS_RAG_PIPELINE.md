@@ -1,6 +1,6 @@
 # Askesis RAG Pipeline — Developer Guide
 
-**Last Updated:** March 2026
+**Last Updated:** July 2026 (ADR-074 post-persist embedding events)
 
 **Audience:** Developers building, debugging, or extending Askesis's question-answering capabilities.
 
@@ -28,17 +28,17 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 1. **Format detection** — Markdown or YAML
 2. **Parsing** — Extract frontmatter/metadata + content body
-3. **Entity type detection** — Lesson, KU, Exercise, etc.
+3. **Entity type detection** — PathStep, KU, Exercise, etc.
 4. **Field validation** — Required fields checked per entity type
-5. **Data preparation** — `prepare_entity_data_async()` in `core/services/ingestion/preparer.py`:
+5. **Data preparation** — `prepare_entity_data()` in `core/services/ingestion/preparer.py` (sync, one path for both ingest doors):
    - Generate/normalize UIDs
    - Extract content body
    - Handle relationships
    - Add timestamps
-   - **Generate embedding** (if `OPENAI_API_KEY` is set — see Stage 2)
-6. **Neo4j write** — Entity node created with all properties including the embedding vector
+6. **Neo4j write** — Entity node created (PathStep `content` is popped pre-write; it lives on the `:Content` node, never the entity)
+7. **Post-persist embedding publish** — the entity's `*EmbeddingRequested` event goes through the one chokepoint (`core/events/embedding_publisher.py`); the background worker embeds asynchronously (see Stage 2)
 
-**Key detail:** Ingestion and embedding happen in the same transaction. The entity arrives in Neo4j already searchable by vector similarity.
+**Key detail (ADR-074):** Ingestion never embeds inline. The entity arrives in Neo4j immediately; its embedding lands within ~30s when the background worker processes the event (FULL tier only — in CORE, ingestion's `event_bus` is `None` and nothing publishes).
 
 ---
 
@@ -46,14 +46,14 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 **Service:** `EmbeddingsService` (`core/services/embeddings_service.py`)
 
-**Model:** `BAAI/bge-large-en-v1.5` — produces 1024-dimensional vectors
+**Model:** OpenAI `text-embedding-3-small` at 1024 dimensions via the API `dimensions` parameter (ADR-068; BGE/HuggingFace adapter staged as the long-term swap). The client lives behind `EmbeddingClientOperations` (`adapters/external/embeddings/`, factory `create_embedding_client()`).
 
-**Two paths to embedding:**
+**Two paths to embedding (ADR-074):**
 
 | Path | When | Service |
 |------|------|---------|
-| **During ingestion** | `ingest_file()` calls `prepare_entity_data_async()` | `EmbeddingsService.create_embedding()` |
-| **Background worker** | Entities created via API (not ingestion) | `EmbeddingBackgroundWorker` in `core/services/background/embedding_worker.py` — batches of 25 every 30s |
+| **Event pipeline** | Every write path — in-app create, in-app update (`changed_fields` gate), and both ingest doors post-persist — publishes `*EmbeddingRequested` | `EmbeddingBackgroundWorker` in `core/services/background/embedding_worker.py` — batches of 25 every 30s |
+| **Backfill script** | Missing embeddings (default) or stale ones (`--stale`: edited/re-synced after last embed, or version drift) — the freshness path for one-shot script syncs like `./dev vault-sync`, whose events die with the script process | `scripts/generate_embeddings_batch.py` (service-mediated, same version metadata as the worker) |
 
 ### Text Extraction
 
@@ -64,9 +64,9 @@ Before embedding, the system extracts the right text fields per entity type. Thi
 
 ```python
 # Field mappings (subset — full list in EMBEDDING_FIELD_MAPS)
-EntityType.LESSON:    ("title", "content", "summary")      # separator: "\n\n"
-EntityType.KU:         ("title", "summary", "description")  # separator: "\n\n"
-EntityType.TASK:       ("title", "description")              # separator: "\n"
+EntityType.PATH_STEP:  ("title", "intent", "description", "summary")  # NO "content" — body = CHUNK vectors
+EntityType.KU:         ("title", "summary", "description")
+EntityType.TASK:       ("title", "description")
 EntityType.GOAL:       ("title", "description", "vision_statement")
 EntityType.HABIT:      ("name", "title", "description", "cue", "reward")
 EntityType.EXERCISE:   ("title", "instructions", "description")
@@ -74,24 +74,27 @@ EntityType.EXERCISE:   ("title", "instructions", "description")
 
 Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 16 content-bearing entity types in `EMBEDDING_FIELD_MAPS` are supported.
 
+**PathStep is deliberate (ADR-074):** the entity vector covers frontmatter fields only, on every trigger path. Body-content semantics live in the CHUNK embeddings (Stage 3).
+
 ### Embedding Storage
 
-Each embedded entity gets four properties on its Neo4j node:
+Each embedded entity gets five properties on its Neo4j node (written through `EmbeddingsService.store_embedding_with_metadata` — one write path for worker and backfill):
 
 ```
-n.embedding            → list[float]  (1024 dimensions)
-n.embedding_model      → "BAAI/bge-large-en-v1.5"
-n.embedding_version    → "v2"
-n.embedding_updated_at → datetime
+n.embedding             → list[float]  (1024 dimensions)
+n.embedding_model       → "text-embedding-3-small"
+n.embedding_version     → "v3"
+n.embedding_updated_at  → datetime
+n.embedding_source_text → the text that was embedded
 ```
 
 ### Retry Strategy
 
-HuggingFace API calls use exponential backoff: up to 3 attempts with 2s → 4s → 8s delays. Text is truncated to 2000 chars (~512 tokens) before sending.
+Embedding API calls use exponential backoff: up to 3 attempts with 2s → 4s → 8s delays (tenacity, in the adapter). Text is truncated to the client's `max_input_chars` (OpenAI adapter: 24000 chars ≈ 6k tokens) before sending.
 
 ### Version Tracking
 
-Current version is `v2` (migrated from OpenAI `text-embedding-3-small` at 1536 dims). The `embedding_version` property allows re-embedding outdated vectors. `get_or_create_embedding()` checks the version before deciding whether to regenerate.
+Current version is `EMBEDDING_VERSION = "v3"` (`core/services/embeddings_service.py` — OpenAI @1024, ADR-068). The `embedding_version` property allows re-embedding outdated vectors: `scripts/generate_embeddings_batch.py --stale` re-embeds any node whose version mismatches or whose `updated_at` outran `embedding_updated_at` (ADR-074).
 
 ---
 
@@ -99,12 +102,15 @@ Current version is `v2` (migrated from OpenAI `text-embedding-3-small` at 1536 d
 
 **Service:** `EntityChunkingService` (`core/services/entity_chunking_service.py`)
 
-**When:** Immediately after ingestion, for Lesson entities.
+**When:** Post-persist, for PathStep entities — one shared step (`UnifiedIngestionService._chunk_path_step_content`) for both ingest doors (ADR-074).
 
 **What happens:**
-1. Content is split into semantic chunks
+1. The popped content body is split into semantic chunks
 2. Chunk metadata generated (word count, complexity)
-3. Chunks stored as `:Content` nodes in Neo4j with parent relationships
+3. Persisted as `(PathStep)-[:HAS_CONTENT]->(:Content)-[:HAS_CHUNK]->(:ContentChunk)` nodes
+4. One `ChunkEmbeddingRequested` publishes with every persisted chunk id — the worker embeds the chunks (FULL tier; in CORE, chunks persist unembedded)
+
+A re-ingest with an emptied body takes the explicit clear path instead: the stale `:Content` subtree is deleted and `word_count` reset to 0.
 
 **Why it matters for RAG:** Chunking enables fine-grained retrieval — the system can match against specific sections of a long article rather than the whole document.
 
@@ -407,7 +413,7 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
 | Variable | Required For | Consequence If Missing |
 |----------|-------------|----------------------|
-| `OPENAI_API_KEY` | Embedding generation | Ingestion works but without embeddings; vector search unavailable |
+| `OPENAI_API_KEY` | Embedding generation | FULL-tier bootstrap fails fast (`create_embedding_client()` raises); in CORE the key is never read |
 | `OPENAI_API_KEY` | LLM answer generation | `generate_context_aware_answer()` fails |
 | `INTELLIGENCE_TIER=full` | Askesis creation | Askesis not instantiated; routes return 404 |
 | Neo4j vector indexes | Vector search | `db.index.vector.queryNodes()` fails |
@@ -423,9 +429,9 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
    MATCH (n:Entity) WHERE n.embedding IS NOT NULL RETURN count(n)
    MATCH (n:Entity) RETURN count(n)
    ```
-2. **Check embedding version:** Old v1 embeddings (1536-dim) won't match v2 queries (1024-dim).
+2. **Check embedding version:** Only `v3` (OpenAI @1024 — ADR-068) matches current queries; older versions used different models/dimensions. Re-embed with `scripts/generate_embeddings_batch.py --stale`.
    ```cypher
-   MATCH (n:Entity) WHERE n.embedding_version = 'v1' RETURN count(n)
+   MATCH (n:Entity) WHERE n.embedding_version <> 'v3' RETURN count(n)
    ```
 3. **Check UserContext depth:** Confirm routes call `get_rich_unified_context()`, not `get_user_context()`. The latter leaves `entities_rich` empty.
 
@@ -474,12 +480,12 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 | `core/services/askesis/state_scoring.py` | Pure functions for state scoring |
 | `core/utils/text_truncation.py` | Sentence-boundary-aware token truncation |
 | `core/constants.py` (`AskesisTokenBudget`) | Token budget constants for LLM context |
-| `core/services/embeddings_service.py` | HuggingFace embedding generation |
+| `core/services/embeddings_service.py` | Embedding generation + version metadata (provider-agnostic behind `EmbeddingClientOperations` — ADR-068) |
 | `core/services/neo4j_vector_search_service.py` | Vector search (4 modes) |
 | `core/utils/embedding_text_builder.py` | Text extraction per entity type |
-| `core/services/entity_chunking_service.py` | Lesson chunking |
-| `core/services/background/embedding_worker.py` | Background embedding for API-created entities |
-| `core/services/ingestion/preparer.py` | Embedding generation during ingestion |
+| `core/services/entity_chunking_service.py` | PathStep content chunking |
+| `core/services/background/embedding_worker.py` | Background embedding — the one consumer of `*EmbeddingRequested`/`ChunkEmbeddingRequested` |
+| `core/events/embedding_publisher.py` | The one publish chokepoint for all write paths (ADR-074) |
 
 ---
 
@@ -491,6 +497,6 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 - **Askesis Pedagogy:** `/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — Socratic companion design, GuidanceMode detection
 - **Search Architecture:** `/docs/architecture/SEARCH_ARCHITECTURE.md` — SearchRouter, domain search
 - **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and ~250 fields
-- **Embeddings ADR:** `/docs/decisions/ADR-049-huggingface-embeddings-migration.md` — why HuggingFace, why 1024 dims
+- **Embeddings ADRs:** `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md` — provider + 1024 dims; `/docs/decisions/ADR-074-post-persist-embedding-events.md` — how embeddings get and stay fresh
 - **Prompt Templates:** `/docs/patterns/PROMPT_TEMPLATES.md` — centralized LLM prompt registry
 - **Analog/Digital Architecture:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md` — how intelligence tier toggle works

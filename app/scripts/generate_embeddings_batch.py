@@ -2,7 +2,8 @@
 Batch Embedding Generation Script
 ==================================
 
-Generates embeddings for existing entities that don't have them.
+Generates embeddings for existing entities that don't have them, or
+re-embeds entities whose embedding has gone stale (--stale).
 
 Usage:
     # Generate embeddings for all entity types
@@ -13,6 +14,18 @@ Usage:
 
     # Limit batches (for testing)
     uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
+
+    # Re-embed stale nodes (edited after last embed, or older model version)
+    uv run python scripts/generate_embeddings_batch.py --stale
+
+STALENESS (ADR-074): one-shot syncs (`./dev vault-sync`, script-mode
+reconciler) publish embedding events to an in-process bus whose worker only
+runs in the app process, so entities they touch drift stale until the next
+app-process sync or a --stale run. The full freshness recipe after script
+syncs is BOTH modes: a default run (embeds brand-new nodes the sync created —
+they have no embedding yet, so --stale deliberately skips them) plus a
+--stale run (re-embeds drifted ones). Kept as two modes so re-embedding —
+which re-spends API money on existing vectors — is always an explicit choice.
 
 ARCHITECTURE:
 - Uses EmbeddingsService for embedding generation AND storage, so backfilled
@@ -32,7 +45,7 @@ import asyncio
 from typing import Any
 
 from core.models.enums.entity_enums import EntityType
-from core.services.embeddings_service import EmbeddingsService
+from core.services.embeddings_service import EMBEDDING_VERSION, EmbeddingsService
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 
@@ -56,12 +69,40 @@ EMBEDDABLE_LABELS: dict[str, EntityType] = {
 }
 
 
+def build_candidate_query(label: str, stale: bool) -> str:
+    """
+    Cypher selecting one label's embedding candidates.
+
+    Default: nodes with no embedding (coverage backfill). --stale: embedded
+    nodes whose vector no longer matches the node — content edited after the
+    last embed, or a model-version mismatch (NULL version counts as a
+    mismatch). ``updated_at`` passes through ``datetime()`` because its
+    storage type is writer-decided (some writers persist ISO strings, some
+    native datetimes — both exist in the live graph): a bare ``<`` between
+    DATETIME and STRING is null in Cypher and would silently skip those nodes.
+    """
+    if stale:
+        predicate = """n.embedding IS NOT NULL AND (
+        n.embedding_version IS NULL
+        OR n.embedding_version <> $current_version
+        OR (n.updated_at IS NOT NULL AND n.embedding_updated_at < datetime(n.updated_at))
+    )"""
+    else:
+        predicate = "n.embedding IS NULL"
+    return f"""
+    MATCH (n:{label})
+    WHERE {predicate}
+    RETURN n.uid as uid, properties(n) as props
+    """
+
+
 async def generate_embeddings_batch(
     driver: Any,
     embeddings_service: EmbeddingsService,
     label: str,
     batch_size: int = 25,
     max_batches: int | None = None,
+    stale: bool = False,
 ) -> dict[str, Any]:
     """
     Generate embeddings for all nodes of a given label.
@@ -72,25 +113,24 @@ async def generate_embeddings_batch(
         label: Node label (e.g., "Ku", "PathStep", "Task")
         batch_size: Number of nodes per batch (default: 25)
         max_batches: Limit number of batches for testing (default: None = all)
+        stale: Re-embed stale nodes instead of filling missing ones
 
     Returns:
         Stats dict with counts of processed, successful, and failed nodes
     """
-    logger.info(f"Starting batch embedding generation for {label}")
+    mode = "stale re-embedding" if stale else "embedding generation"
+    logger.info(f"Starting batch {mode} for {label}")
 
     entity_type = EMBEDDABLE_LABELS.get(label)
     if entity_type is None:
         logger.error(f"Unsupported label: {label} (supported: {', '.join(EMBEDDABLE_LABELS)})")
         return {"label": label, "total": 0, "processed": 0, "successful": 0, "failed": 0}
 
-    # Find nodes without embeddings; full properties feed build_embedding_text
-    query = f"""
-    MATCH (n:{label})
-    WHERE n.embedding IS NULL
-    RETURN n.uid as uid, properties(n) as props
-    """
+    # Full properties feed build_embedding_text
+    query = build_candidate_query(label, stale)
+    params = {"current_version": EMBEDDING_VERSION} if stale else {}
 
-    result = await driver.execute_query(query)
+    result = await driver.execute_query(query, params)
     records = result.records
 
     if not records:
@@ -103,8 +143,9 @@ async def generate_embeddings_batch(
     candidates = [(uid, text) for uid, text in candidates if text]
 
     total = len(candidates)
+    noun = "stale embeddings" if stale else "nodes without embeddings"
     logger.info(
-        f"Found {total} {label} nodes without embeddings"
+        f"Found {total} {label} {noun}"
         + (f" ({len(skipped)} skipped: no embeddable text)" if skipped else "")
     )
 
@@ -180,6 +221,17 @@ async def main():
         default=None,
         help="Maximum number of batches to process (for testing)",
     )
+    parser.add_argument(
+        "--stale",
+        action="store_true",
+        help=(
+            "Re-embed stale nodes (embedding_updated_at < updated_at, or "
+            f"embedding_version != current {EMBEDDING_VERSION!r}) instead of "
+            "filling missing embeddings. Complements the default mode — run "
+            "both after a script-mode sync (default = new nodes, --stale = "
+            "drifted ones)"
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -211,7 +263,7 @@ async def main():
     entity_labels = [args.label] if args.label else list(EMBEDDABLE_LABELS)
 
     logger.info(f"\n{'=' * 60}")
-    logger.info("Batch Embedding Generation")
+    logger.info("Batch Embedding Generation" + (" (stale re-embed)" if args.stale else ""))
     logger.info(f"{'=' * 60}\n")
     logger.info(f"Entity types: {', '.join(entity_labels)}")
     logger.info(f"Batch size: {args.batch_size}")
@@ -232,6 +284,7 @@ async def main():
             label=label,
             batch_size=args.batch_size,
             max_batches=args.max_batches,
+            stale=args.stale,
         )
 
         all_stats.append(stats)

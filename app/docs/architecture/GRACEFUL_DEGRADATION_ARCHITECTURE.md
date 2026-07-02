@@ -12,7 +12,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 ## Why This Matters
 
-1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require a HuggingFace API token. You iterate on fundamentals without paying API costs or waiting for embedding generation.
+1. **Development velocity.** Working on ingestion YAML, file uploads, curriculum structure, or any "analog" workflow should never require an OpenAI API key. You iterate on fundamentals without paying API costs or waiting for embedding generation.
 
 2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No AI API calls are made. No AI background workers spin up. This is the right mode for content authoring, schema changes, and structural work.
 
@@ -28,7 +28,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 | Capability | What It Does | Dependencies |
 |-----------|-------------|--------------|
-| CRUD | Create, read, update, delete all 20 entity types | Neo4j only |
+| CRUD | Create, read, update, delete all 25 entity types | Neo4j only |
 | Ingestion | Markdown/YAML → Neo4j pipeline | Neo4j only |
 | Keyword Search | Full-text search across 15 domains | Neo4j fulltext indexes (auto-created at bootstrap via `sync_fulltext_indexes()`) |
 | UserContext | ~250-field user state (standard + rich) | Neo4j MEGA-QUERY |
@@ -43,7 +43,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 | Capability | What It Does | Dependencies |
 |-----------|-------------|--------------|
-| Embeddings | 1024-dim vectors on 13 entity types | HuggingFace Inference API (Python-side) |
+| Embeddings | 1024-dim vectors on 16 content-bearing entity types | OpenAI `text-embedding-3-small` @1024 (ADR-068; BGE adapter staged) |
 | Vector Search | Semantic similarity, hybrid search, RRF | Embeddings + Neo4j vector indexes |
 | Askesis | Socratic AI companion, ZPD-aware | LLM (OpenAI) |
 | Feedback Generation | AI assessment of submissions | LLM |
@@ -110,18 +110,17 @@ class PsService:
     def __init__(self, embeddings_service=None, ...):
         self.embeddings = embeddings_service  # Can be None
 
-# Ingestion works with or without
-class UnifiedIngestionService:
-    def __init__(self, embeddings_service=None, ...):
-        if self.embeddings:
-            logger.info("Embeddings available during ingestion")
-        else:
-            logger.warning("Ingestion works without embeddings")
+# Ingestion never embeds inline (ADR-074) — it publishes post-persist
+# embedding events instead, and its event_bus is tier-gated at compose:
+ingestion_service = UnifiedIngestionService(
+    event_bus=event_bus if tier.ai_enabled else None,  # CORE → no publishes
+    ...
+)
 ```
 
 ### Pattern: Event-Driven Embedding (Zero Latency)
 
-When AI is enabled, entity creation publishes embedding events but never blocks on them:
+When AI is enabled, every write path — in-app create, in-app update (gated on `changed_fields` touching embeddable text), and both ingest doors post-persist — publishes `*EmbeddingRequested` through the one chokepoint (`core/events/embedding_publisher.py`, ADR-074) and never blocks on it:
 
 ```
 User creates Task → returns immediately (0ms embedding latency)
@@ -131,7 +130,7 @@ EmbeddingBackgroundWorker picks up event 30s later
 Embedding stored on Neo4j node
 ```
 
-When AI is disabled, no events are published and no worker exists. The entity is created identically — it just doesn't have an embedding property.
+When AI is disabled, no worker exists and ingestion publishes nothing (its `event_bus` is `None` — compose-gated); in-app service publishes go to a subscriber-less bus and are dropped. The entity is created identically — it just doesn't have an embedding property.
 
 ### Pattern: Search Fallback
 
@@ -146,7 +145,7 @@ When AI is disabled, no events are published and no worker exists. The entity is
 #   keyword results only (Neo4j fulltext indexes)
 ```
 
-## Four Gating Points
+## Five Gating Points
 
 All in `services_bootstrap/compose.py`:
 
@@ -156,8 +155,9 @@ All in `services_bootstrap/compose.py`:
 | Embeddings block | `EmbeddingsService`, `Neo4jVectorSearchService` (embedding client adapter not built) | Skipped |
 | LLM block | `LLMService` (built with an injected `OpenAIChatAdapter` chat port at FULL) | Skipped |
 | Chat-adapter block | `OpenAIChatAdapter` (`ChatCompletionPort`, `adapters/external/llm/`) → `ContentEnrichmentService`, `UnifiedLLMCaller`, `ProgressReportGenerator` | Adapter not built; consumers receive `chat_port=None` and degrade |
+| Ingestion event-bus gate | `UnifiedIngestionService` + `BatchChunkingService` get `event_bus=event_bus if tier.ai_enabled else None` (ADR-074) | Ingestion publishes no embedding events — no queue-with-no-listener; chunks still persist |
 
-Everything downstream of these four blocks naturally degrades via None-propagation.
+Everything downstream of these five blocks naturally degrades via None-propagation.
 
 ## Error Handling in Bootstrap
 
@@ -174,7 +174,7 @@ Switching from CORE → FULL:
 2. Ensure `OPENAI_API_KEY` is set (covers embeddings + LLM — ADR-068)
 3. Ensure `DEEPGRAM_API_KEY` is set (audio transcription)
 4. Restart the app
-5. Existing entities without embeddings will get them as they're updated, or run `scripts/generate_embeddings_batch.py` for bulk backfill
+5. Existing entities without embeddings will get them as they're updated (update paths publish through the ADR-074 chokepoint), or run `scripts/generate_embeddings_batch.py` for bulk backfill — add `--stale` to re-embed entities edited or re-synced while in CORE
 
 Switching from FULL → CORE:
 1. Set `INTELLIGENCE_TIER=core` in `.env`
@@ -187,9 +187,9 @@ Switching from FULL → CORE:
 | File | Purpose |
 |------|---------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum, `from_env()` |
-| `services_bootstrap/compose.py` | Bootstrap: index sync (tier-gated) + 3 AI gating points |
+| `services_bootstrap/compose.py` | Bootstrap: index sync (tier-gated) + the 5 AI gating points |
 | `adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL only) |
 | `adapters/inbound/ai_guard.py` | Route-level guard (`is_ai_available()`) |
 | `.env` | `INTELLIGENCE_TIER=core\|full` |
 | `core/services/background/embedding_worker.py` | Only starts when embeddings service exists |
-| `core/services/ingestion/preparer.py` | Generates embeddings only if service injected |
+| `core/events/embedding_publisher.py` | The one `*EmbeddingRequested` publish chokepoint (ADR-074) — ingestion never embeds inline |

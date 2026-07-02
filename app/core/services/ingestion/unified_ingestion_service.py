@@ -443,10 +443,19 @@ class UnifiedIngestionService:
         Chunking and persistence run in CORE too (Analog behavior); only the
         embedding publish is tier-gated (``event_bus`` None → no publish).
 
+        An empty body takes the explicit clear path instead (ADR-074): a
+        PathStep re-ingested with its body emptied must not keep the previous
+        body's :Content/:ContentChunk subtree serving stale chunk vectors.
+        Clearing needs only the content adapter, so it runs chunker or not.
+
         Returns whether chunks were generated (persisted when the content
         adapter is wired; in-memory only otherwise).
         """
-        if not self.chunking or not content_body:
+        if not content_body:
+            if self.content_adapter:
+                await self.content_adapter.delete_content_subtree(uid)
+            return False
+        if not self.chunking:
             return False
 
         chunk_result = await self.chunking.process_content_for_ingestion(
@@ -653,12 +662,15 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result)
 
-        # For PathStep: pop content before Neo4j storage — content lives on :Content node, not :Entity node
+        # For PathStep: pop content before Neo4j storage — content lives on :Content node, not :Entity node.
+        # word_count is written unconditionally: the bulk upsert (`n += props`)
+        # never removes omitted keys, so an emptied body must overwrite the
+        # previous ingest's count with 0 (ADR-074 clear path).
         ku_content_body = ""
         if entity_type == EntityType.PATH_STEP:
-            ku_content_body = entity_data.pop("content", "")
-            if ku_content_body:
-                entity_data["word_count"] = len(ku_content_body.split())
+            # `or ""` — frontmatter `content:` with no value parses to None
+            ku_content_body = entity_data.pop("content", "") or ""
+            entity_data["word_count"] = len(ku_content_body.split())
 
         # Ensure constraints once per entity type, not per file.
         await self._ensure_constraints(entity_type)
