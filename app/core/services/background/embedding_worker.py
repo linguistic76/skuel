@@ -9,6 +9,9 @@ Architecture:
 - Batch processing: Processes entities in groups every 30-60s
 - Zero latency impact: User creation returns immediately
 - Graceful degradation: Errors don't block entity creation
+- Content-hash idempotency (ADR-074 §8): stored embedding_text_hash (entities)
+  / embedding_source_text (chunks) is checked BEFORE generation — unchanged
+  text is skipped, so force re-ingests don't re-embed the corpus. Fails OPEN.
 
 Performance:
 - Batch size: 25 entities per batch
@@ -143,6 +146,7 @@ class EmbeddingBackgroundWorker:
         self._total_success = 0
         self._total_failed = 0
         self._total_dropped = 0
+        self._total_skipped = 0
         self._batches_processed = 0
         self._started_at: datetime | None = None
 
@@ -327,6 +331,13 @@ class EmbeddingBackgroundWorker:
 
         batch_start = time.time()
 
+        # Content-hash idempotency: drop requests whose stored embedding
+        # already matches the event text BEFORE any generation spend — force
+        # re-ingests publish for every re-processed file, changed or not.
+        batch = await self._drop_fresh_requests(batch)
+        if not batch:
+            return
+
         try:
             # Concurrent per-item generation; exceptions are captured per item
             # so a raising call degrades exactly like a Result failure.
@@ -361,7 +372,7 @@ class EmbeddingBackgroundWorker:
                     continue
 
                 stored = await self._store_embedding(
-                    event.entity_uid, event.entity_type, result.value
+                    event.entity_uid, event.entity_type, result.value, event.embedding_text
                 )
                 if stored:
                     success_count += 1
@@ -403,6 +414,51 @@ class EmbeddingBackgroundWorker:
             for pending in batch:
                 self._retry_or_drop(pending, {"failed": 0, "dropped": 0})
 
+    async def _drop_fresh_requests(self, batch: list[_PendingRequest]) -> list[_PendingRequest]:
+        """
+        Drop requests whose stored embedding already matches the event text.
+
+        One batched freshness read (EmbeddingsService.verify_fresh_embeddings
+        owns the skip semantics — version-current + text-hash match, with the
+        timestamp touch); the skip sits BEFORE generation because a skip at
+        store time saves nothing. Fails OPEN: a freshness-read error embeds
+        the full batch — correctness over savings.
+        """
+        candidates: dict[str, str] = {p.event.entity_uid: p.event.embedding_text for p in batch}
+        fresh_result = await self.embeddings_service.verify_fresh_embeddings(candidates)
+        if fresh_result.is_error:
+            self.logger.warning(
+                f"Embedding freshness pre-check failed — embedding full batch: "
+                f"{fresh_result.expect_error().message}"
+            )
+            return batch
+
+        fresh = fresh_result.value
+        if not fresh:
+            return batch
+
+        kept = [p for p in batch if p.event.entity_uid not in fresh]
+        skipped = len(batch) - len(kept)
+        self._total_skipped += skipped
+
+        if self.prometheus_metrics:
+            skipped_by_type: dict[str, int] = {}
+            for p in batch:
+                if p.event.entity_uid in fresh:
+                    skipped_by_type[p.event.entity_type] = (
+                        skipped_by_type.get(p.event.entity_type, 0) + 1
+                    )
+            for entity_type, count in skipped_by_type.items():
+                self.prometheus_metrics.ai.embeddings_processed_total.labels(
+                    entity_type=entity_type, status="skipped"
+                ).inc(count)
+
+        self.logger.info(
+            f"⏭️ Skipped {skipped}/{len(batch)} embedding requests (text unchanged — "
+            f"hash match, total skipped: {self._total_skipped})"
+        )
+        return kept
+
     def _retry_or_drop(self, pending: _PendingRequest, stats: dict[str, int]) -> None:
         """Spend one retry attempt: re-queue the request, or drop it at the caps.
 
@@ -436,7 +492,7 @@ class EmbeddingBackgroundWorker:
             )
 
     async def _store_embedding(
-        self, entity_uid: EntityUID, entity_type: str, embedding: list[float]
+        self, entity_uid: EntityUID, entity_type: str, embedding: list[float], text: str
     ) -> bool:
         """
         Store embedding in Neo4j node with version tracking.
@@ -445,6 +501,7 @@ class EmbeddingBackgroundWorker:
             entity_uid: UID of entity
             entity_type: Type of entity (task, goal, etc.)
             embedding: Embedding vector
+            text: The embedded text (the service hashes it for freshness checks)
 
         Returns:
             True if stored successfully, False otherwise
@@ -469,6 +526,7 @@ class EmbeddingBackgroundWorker:
                 uid=entity_uid,
                 label=label,
                 embedding=embedding,
+                text=text,
             )
 
             if result.is_error:
@@ -511,11 +569,29 @@ class EmbeddingBackgroundWorker:
         self.logger.info(f"Processing {total_chunks} chunks from {len(batch)} parents")
 
         success_chunks = 0
+        skipped_chunks = 0
         for pending in batch:
             event = pending.event
             try:
+                # Content idempotency: a force re-chunk of an unchanged body
+                # recreates identical chunks with their embeddings preserved
+                # (store_content_with_chunks) but still publishes an event —
+                # skip the chunks whose stored source text matches BEFORE
+                # generation.
+                pairs = list(zip(event.chunk_uids, event.chunk_texts, strict=True))
+                fresh = await self._fresh_chunk_uids(pairs)
+                todo = [(uid, text) for uid, text in pairs if uid not in fresh]
+                if fresh:
+                    skipped_chunks += len(fresh)
+                    self._total_skipped += len(fresh)
+                if not todo:
+                    self.logger.debug(
+                        f"All {len(pairs)} chunks fresh for parent {event.parent_uid} — skipped"
+                    )
+                    continue
+
                 embeddings_result = await self.embeddings_service.create_batch_embeddings(
-                    list(event.chunk_texts)
+                    [text for _, text in todo]
                 )
 
                 if embeddings_result.is_error:
@@ -527,7 +603,7 @@ class EmbeddingBackgroundWorker:
                     continue
 
                 stored = await self.content_adapter.store_chunk_embeddings(
-                    chunk_uids=list(event.chunk_uids),
+                    chunk_uids=[uid for uid, _ in todo],
                     embeddings=embeddings_result.value,
                     version=EMBEDDING_VERSION,
                     model=self.embeddings_service.model,
@@ -540,7 +616,7 @@ class EmbeddingBackgroundWorker:
                     self._retry_or_drop_chunks(pending)
                     continue
 
-                success_chunks += len(event.chunk_uids)
+                success_chunks += len(todo)
 
             except Exception as e:  # safety-net: one parent's bug must not kill the loop
                 self.logger.error(f"Chunk processing exception for parent {event.parent_uid}: {e}")
@@ -549,8 +625,36 @@ class EmbeddingBackgroundWorker:
         batch_duration = time.time() - batch_start
         self.logger.info(
             f"✅ Generated {success_chunks}/{total_chunks} chunk embeddings "
-            f"(took {batch_duration:.2f}s)"
+            f"({skipped_chunks} skipped: text unchanged; took {batch_duration:.2f}s)"
         )
+
+    async def _fresh_chunk_uids(self, pairs: list[tuple[str, str]]) -> set[str]:
+        """
+        Chunk uids whose stored embedding already covers the event's text.
+
+        Fresh = embedding present, version current, and the stored
+        ``embedding_source_text`` (written by store_chunk_embeddings at embed
+        time) equals the event's context window — chunks compare raw text, no
+        hash field needed. Version outranks the text match, so a model
+        migration re-embeds every chunk. Fails OPEN: the adapter returns no
+        rows on a read failure, so nothing is skipped.
+        """
+        adapter = self.content_adapter
+        if adapter is None:  # _process_chunk_batch already bailed; belt for direct callers
+            return set()
+        rows = await adapter.get_chunk_embedding_freshness([uid for uid, _ in pairs])
+        by_uid = {row["uid"]: row for row in rows}
+        fresh: set[str] = set()
+        for uid, text in pairs:
+            row = by_uid.get(uid)
+            if (
+                row
+                and row.get("has_embedding")
+                and row.get("version") == EMBEDDING_VERSION
+                and row.get("source_text") == text
+            ):
+                fresh.add(uid)
+        return fresh
 
     def _retry_or_drop_chunks(self, pending: _PendingChunkRequest) -> None:
         """Spend one retry attempt on a chunk request; drop at the caps.
@@ -588,6 +692,8 @@ class EmbeddingBackgroundWorker:
             - total_success: Successfully embedded entities
             - total_failed: Failed embedding attempts (retried ones count per attempt)
             - total_dropped: Requests abandoned after exhausting retries (or queue overflow)
+            - total_skipped: Requests/chunks skipped pre-generation (stored embedding
+              already matches the text — content-hash idempotency)
             - batches_processed: Number of batches processed
             - queue_size: Current pending requests count
             - chunk_queue_size: Current pending chunk requests count
@@ -616,6 +722,7 @@ class EmbeddingBackgroundWorker:
             "total_success": self._total_success,
             "total_failed": self._total_failed,
             "total_dropped": self._total_dropped,
+            "total_skipped": self._total_skipped,
             "batches_processed": self._batches_processed,
             "queue_size": len(self._pending_requests),
             "chunk_queue_size": len(self._pending_chunk_requests),

@@ -310,35 +310,56 @@ class Neo4jContentAdapter:
                     logger.info(f"First chunk attributes: {dir(content.chunks[0])}")
 
             if chunks:
-                # Idempotency: delete any existing chunks for this content before creating
-                # new ones. Without this, re-ingestion (file edited + re-uploaded) or batch
-                # regeneration would accumulate duplicate ContentChunk nodes.
+                # Idempotency: drop only the chunks that no longer exist in the
+                # new chunk set (uids are deterministic — parent_uid + index).
+                # Surviving uids are MERGEd below with their embeddings
+                # preserved when the text is unchanged, so a force re-ingest of
+                # an identical body never wipes good chunk vectors.
+                new_uids = [
+                    getattr(chunk, "chunk_id", f"{uid}_chunk_{i}")
+                    for i, chunk in enumerate(content.chunks)
+                ]
                 await self.neo4j.execute_query(
                     """
                     MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                    WHERE NOT chunk.uid IN $keep_uids
                     DETACH DELETE chunk
                     """,
-                    {"uid": uid},
+                    {"uid": uid, "keep_uids": new_uids},
                 )
 
+                # MERGE keeps an existing chunk node; embedding fields are wiped
+                # only when the stored embedding_source_text (what the vector was
+                # generated from) no longer matches the incoming context_window —
+                # a re-chunk of identical content keeps its embedding, and the
+                # worker's freshness pre-check then skips re-generating it.
                 chunk_query = """
                 MATCH (c:Content {uid: $uid})
-                CREATE (chunk:ContentChunk {
-                    uid: $chunk_uid,
-                    chunk_type: $chunk_type,
-                    text: $text,
-                    start_index: $start_index,
-                    end_index: $end_index,
-                    context_window: $context_window,
-                    chunking_version: $chunking_version,
-                    created_at: datetime(),
-                    embedding: null,
-                    embedding_version: null,
-                    embedding_model: null,
-                    embedding_updated_at: null,
-                    embedding_source_text: null
-                })
-                CREATE (c)-[:HAS_CHUNK {sequence: $sequence}]->(chunk)
+                MERGE (chunk:ContentChunk {uid: $chunk_uid})
+                ON CREATE SET
+                    chunk.created_at = datetime(),
+                    chunk.embedding = null,
+                    chunk.embedding_version = null,
+                    chunk.embedding_model = null,
+                    chunk.embedding_updated_at = null,
+                    chunk.embedding_source_text = null
+                SET chunk.chunk_type = $chunk_type,
+                    chunk.text = $text,
+                    chunk.start_index = $start_index,
+                    chunk.end_index = $end_index,
+                    chunk.context_window = $context_window,
+                    chunk.chunking_version = $chunking_version
+                FOREACH (_ IN CASE
+                    WHEN chunk.embedding_source_text IS NULL
+                      OR chunk.embedding_source_text <> $context_window
+                    THEN [1] ELSE [] END |
+                    SET chunk.embedding = null,
+                        chunk.embedding_version = null,
+                        chunk.embedding_model = null,
+                        chunk.embedding_updated_at = null,
+                        chunk.embedding_source_text = null)
+                MERGE (c)-[r:HAS_CHUNK]->(chunk)
+                SET r.sequence = $sequence
                 RETURN chunk.uid
                 """
 
@@ -438,6 +459,37 @@ class Neo4jContentAdapter:
 
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to retrieve chunks for {uid}: {e}")
+            return []
+
+    async def get_chunk_embedding_freshness(self, chunk_uids: list[str]) -> list[dict[str, Any]]:
+        """
+        Read the freshness triple (has_embedding, version, source_text) per chunk.
+
+        Consumed by the background worker's pre-generation skip: a chunk whose
+        stored ``embedding_source_text`` still equals the incoming context
+        window (and whose version is current) keeps its embedding — chunks
+        compare raw text, no hash field. Returns an empty list on read failure
+        so the caller fails OPEN (skips nothing).
+
+        Args:
+            chunk_uids: Chunk UIDs to check
+
+        Returns:
+            One dict per existing chunk: uid, has_embedding, version, source_text
+        """
+        query = """
+        MATCH (c:ContentChunk)
+        WHERE c.uid IN $uids
+        RETURN c.uid as uid,
+               c.embedding IS NOT NULL as has_embedding,
+               c.embedding_version as version,
+               c.embedding_source_text as source_text
+        """
+        try:
+            result = await self.neo4j.execute_query(query, {"uids": chunk_uids})
+            return [dict(record) for record in result] if result else []
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to read chunk embedding freshness: {e}")
             return []
 
     async def store_chunk_embeddings(

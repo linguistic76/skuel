@@ -118,6 +118,47 @@ predicate coerces `updated_at` through `datetime()` because its storage type is
 writer-decided — ISO strings and native datetimes coexist in the live graph, and a bare `<`
 across types is null in Cypher (silently skips nodes).
 
+### 8. Content-hash idempotency — the freshness signal is content, not timestamps
+
+The timestamp predicate (`embedding_updated_at < updated_at`) is only a **coarse** proxy for
+the signal freshness actually wants: *did the embedding text change?* Force re-ingests
+(`./dev vault-sync --force`) bump `updated_at` on every re-processed file and publish an
+event per file, so without a content check every force campaign re-embeds the entire corpus
+for identical vectors — immediately, via the drain (Decision 7).
+
+The fix stores content identity next to the vector and skips **before generation** (a skip
+at store time saves nothing — the API call already happened):
+
+- **One hash recipe:** `hash_embedding_text()` (sha256, next to `build_embedding_text` in
+  `core/utils/embedding_text_builder.py`). One writer:
+  `EmbeddingsService.store_embedding_with_metadata` now requires the embedded text and
+  stores `embedding_text_hash` alongside version/model (superseding the never-read entity
+  `embedding_source_text`, which it clears). One skip decision:
+  `EmbeddingsService.verify_fresh_embeddings` — consumed by the worker's batched
+  pre-generation check (one `:Entity` read per batch, any type mix) and the `--stale`
+  backfill's fine filter (the Cypher predicate stays the coarse filter; it cannot compute
+  the current text's hash, which is built in Python).
+- **Version outranks hash:** a version mismatch is never fresh — an `EMBEDDING_VERSION`
+  bump (model migration) re-embeds regardless of text equality.
+- **Skips touch `embedding_updated_at`** (metadata-only write): a hash-verified vector IS
+  current, so the coarse timestamp filter converges instead of re-flagging the node forever.
+- **Failure mode is open:** any freshness-read error embeds the full batch — correctness
+  over savings.
+- **Chunks need no hash field:** their uids are deterministic (`{parent_uid}:chunk:{index}`)
+  and `store_chunk_embeddings` already writes `embedding_source_text` (= the context window
+  at embed time), so raw text equality is the check. What chunks needed instead was
+  persistence that stops destroying good vectors: `store_content_with_chunks` now deletes
+  only vanished uids and MERGEs survivors, wiping embedding fields only when the stored
+  source text no longer matches the incoming context window. The worker then skips fresh
+  chunks per parent before generation. Chunk staleness in the backfill stays
+  version-mismatch-only — a changed chunk re-enters the *coverage* predicate
+  (`embedding IS NULL`), not the stale one.
+- **Rollout:** pre-hash nodes can't recover what text produced their vector, so
+  `generate_embeddings_batch.py --stamp-hashes` (one-shot, zero API calls) hashes the
+  CURRENT text onto nodes whose vector provably matches it — embedded, version-current, no
+  hash yet, no timestamp drift (guards re-checked in the backend write). Nodes failing the
+  guards keep a null hash and self-heal through the normal re-embed paths.
+
 ## Rejected Alternatives
 
 - **Inline embedding at ingest** (wire `embeddings_service` into ingestion as the dead
@@ -129,6 +170,11 @@ across types is null in Cypher (silently skips nodes).
   concern. The sweep is the *backstop* (Decision 7), not the mechanism.
 - **Per-PathStep chunk fan-out in the batch door**: rejected as premature at 19-PathStep
   scale; the shared step runs serially.
+- **Diff-aware force ingestion** (don't bump `updated_at` on unchanged files, so the
+  timestamp signal stays clean): the bulk upsert (`n += props`) is deliberately not
+  diff-aware, `updated_at` = "last processed" is defensible metadata, and content-hashing at
+  the embedding seam (Decision 8) fixes the actual signal without forking ingestion
+  semantics.
 
 ## Consequences
 
@@ -167,6 +213,10 @@ across types is null in Cypher (silently skips nodes).
   wired into `vault_bridge_sync.py` (subscribe before sync, drain after). Prompted by live
   evidence: the #490 verify left 110 entities drift-stale because the two-command backfill
   recipe wasn't run.
+- **Follow-up (Decision 8, 2026-07-02):** content-hash idempotency — `embedding_text_hash`
+  stored by the one writer, pre-generation skips in worker (+chunk parents) and `--stale`
+  fine filter, chunk persistence preserves unchanged chunks' vectors,
+  `--stamp-hashes` one-shot rollout. A repeated force sync now re-embeds ~nothing.
 - **Follow-up (arc residue 4):** the re-sync above required manually invalidating
   `IngestionMetadata` rows (`SET s.content_hash='force', s.file_mtime=0.0`) because the vault
   wall upgrades full → smart and unchanged files never re-process through any admin door.

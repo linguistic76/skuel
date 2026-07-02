@@ -20,8 +20,13 @@ Usage:
     # Limit batches (for testing)
     uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
 
-    # Re-embed stale nodes (edited after last embed, or older embedding version)
+    # Re-embed stale nodes (edited after last embed, or older embedding version);
+    # a content-hash fine filter skips entities whose text is actually unchanged
     uv run python scripts/generate_embeddings_batch.py --stale
+
+    # One-shot hash rollout (zero API calls): stamp embedding_text_hash onto
+    # already-embedded, version-current, non-drifted entity nodes
+    uv run python scripts/generate_embeddings_batch.py --stamp-hashes
 
 The two modes stay separate so re-embedding — which re-spends API money on
 existing vectors — is always an explicit choice: the default run embeds nodes
@@ -34,8 +39,10 @@ ARCHITECTURE:
   build_embedding_text (same field maps as the event-driven path)
 - Chunks: embeds ContentChunk.context_window and stores through
   Neo4jContentAdapter.store_chunk_embeddings — the same recipe + storage path
-  as the worker's chunk batches. Chunks are immutable (a re-chunk deletes and
-  recreates them), so chunk staleness is version-mismatch only
+  as the worker's chunk batches. Chunk staleness is version-mismatch only: a
+  re-chunk preserves unchanged chunks (embedding kept) and resets changed ones
+  to embedding NULL, which the default coverage mode picks up — there is no
+  drift state for chunks
 - Processes in batches of 25
 - Graceful error handling - logs failures but continues processing
 
@@ -139,6 +146,27 @@ async def generate_embeddings_batch(
     skipped = [uid for uid, text in candidates if not text]
     candidates = [(uid, text) for uid, text in candidates if text]
 
+    # Content-hash fine filter (--stale only): the Cypher predicate can't
+    # compute the current text hash (text is built in Python), so it stays the
+    # coarse filter — here the hash drops candidates whose vector already
+    # matches the current text (force re-ingests bump updated_at without
+    # changing content). verify_fresh_embeddings owns the semantics (version
+    # outranks hash) and touches the fresh nodes' embedding_updated_at so
+    # they leave the coarse filter. Fails OPEN on a read error.
+    if stale and candidates:
+        fresh_result = await embeddings_service.verify_fresh_embeddings(dict(candidates))
+        if fresh_result.is_error:
+            logger.warning(
+                f"Freshness fine-filter failed — re-embedding all candidates: "
+                f"{fresh_result.expect_error().message}"
+            )
+        elif fresh_result.value:
+            fresh = fresh_result.value
+            candidates = [(uid, text) for uid, text in candidates if uid not in fresh]
+            logger.info(
+                f"{len(fresh)} {label} embeddings verified fresh by text hash (touched, skipped)"
+            )
+
     total = len(candidates)
     noun = "stale embeddings" if stale else "nodes without embeddings"
     logger.info(
@@ -173,10 +201,10 @@ async def generate_embeddings_batch(
 
         embeddings = embeddings_result.value
 
-        # Store through the service so version/model metadata matches the worker path
-        for (uid, _), embedding in zip(batch, embeddings, strict=True):
+        # Store through the service so version/model/hash metadata matches the worker path
+        for (uid, text), embedding in zip(batch, embeddings, strict=True):
             store_result = await embeddings_service.store_embedding_with_metadata(
-                uid=uid, label=label, embedding=embedding
+                uid=uid, label=label, embedding=embedding, text=text
             )
             if store_result.is_error:
                 logger.error(f"Failed to store embedding for {uid}: {store_result.error}")
@@ -200,6 +228,67 @@ async def generate_embeddings_batch(
     }
 
 
+async def stamp_entity_hashes(
+    driver: Any,
+    embeddings_service: EmbeddingsService,
+    label: str,
+) -> dict[str, Any]:
+    """
+    One-shot hash rollout: stamp embedding_text_hash onto pre-hash nodes.
+
+    Nodes embedded before the hash existed can't recover what text produced
+    their vector — but a vector that is version-current and has no timestamp
+    drift provably matches the node's CURRENT text, so hashing that text is
+    sound (the drift guard lives in the backend write, re-checked there).
+    Zero API calls; nodes failing the guards keep a null hash and self-heal
+    through the normal re-embed paths.
+
+    Chunks need no stamping: store_chunk_embeddings has always written
+    embedding_source_text, which IS their freshness signal.
+    """
+    logger.info(f"Stamping embedding text hashes for {label}")
+
+    entity_type = EMBEDDABLE_LABELS.get(label)
+    if entity_type is None:
+        logger.error(f"Unsupported label: {label} (supported: {', '.join(EMBEDDABLE_LABELS)})")
+        return {"label": label, "total": 0, "stamped": 0}
+
+    # Candidate pre-selection mirrors the backend write's guards (which
+    # re-check them); same datetime() coercion as the --stale predicate —
+    # updated_at's storage type is writer-decided.
+    query = f"""
+    MATCH (n:{label})
+    WHERE n.embedding IS NOT NULL
+      AND n.embedding_version = $current_version
+      AND n.embedding_text_hash IS NULL
+      AND NOT (n.updated_at IS NOT NULL AND n.embedding_updated_at < datetime(n.updated_at))
+    RETURN n.uid as uid, properties(n) as props
+    """
+    result = await driver.execute_query(query, {"current_version": EMBEDDING_VERSION})
+    records = result.records
+
+    if not records:
+        logger.info(f"No {label} nodes need hash stamping")
+        return {"label": label, "total": 0, "stamped": 0}
+
+    # Same text recipe as every embed path; textless nodes can't be stamped
+    texts = {
+        r["uid"]: text for r in records if (text := build_embedding_text(entity_type, r["props"]))
+    }
+    skipped = len(records) - len(texts)
+    if skipped:
+        logger.info(f"{skipped} {label} nodes skipped: no embeddable text")
+
+    stamp_result = await embeddings_service.stamp_embedding_hashes(label, texts)
+    if stamp_result.is_error:
+        logger.error(f"Hash stamping failed for {label}: {stamp_result.expect_error()}")
+        return {"label": label, "total": len(texts), "stamped": 0}
+
+    stamped = stamp_result.value
+    logger.info(f"Stamped {stamped}/{len(texts)} {label} hashes")
+    return {"label": label, "total": len(texts), "stamped": stamped}
+
+
 async def generate_chunk_embeddings(
     driver: Any,
     embeddings_service: EmbeddingsService,
@@ -212,10 +301,11 @@ async def generate_chunk_embeddings(
     Generate embeddings for ContentChunk nodes — the chunk backstop (ADR-074).
 
     Default: chunks with no embedding (e.g. created by a sync whose queued
-    events were lost). --stale: chunks whose embedding_version mismatches the
-    current EMBEDDING_VERSION (NULL counts as a mismatch). Chunks are immutable
-    — a re-chunk deletes and recreates them — so there is no updated_at drift
-    predicate, unlike entities.
+    events were lost, or reset by a re-chunk whose text changed). --stale:
+    chunks whose embedding_version mismatches the current EMBEDDING_VERSION
+    (NULL counts as a mismatch). There is no updated_at drift predicate,
+    unlike entities: a re-chunk wipes a changed chunk's embedding back to
+    NULL (store_content_with_chunks), which the default mode covers.
 
     Embeds context_window and stores through the content adapter — the exact
     recipe + storage path of the worker's chunk batches (one recipe, two
@@ -331,13 +421,27 @@ async def main():
         help=(
             "Re-embed stale nodes (entities: embedding_updated_at < updated_at "
             f"or embedding_version != current {EMBEDDING_VERSION!r}; chunks: "
-            "version mismatch only — chunks are immutable) instead of filling "
-            "missing embeddings. Complements the default mode (default = nodes "
-            "with no embedding, --stale = drifted ones)"
+            "version mismatch only — changed chunks reset to embedding NULL and "
+            "the default mode covers them) instead of filling missing embeddings. "
+            "A content-hash fine filter skips entities whose text is actually "
+            "unchanged. Complements the default mode (default = nodes with no "
+            "embedding, --stale = drifted ones)"
+        ),
+    )
+    parser.add_argument(
+        "--stamp-hashes",
+        action="store_true",
+        help=(
+            "One-shot hash rollout: write embedding_text_hash (sha256 of the "
+            "current embedding text) onto already-embedded, version-current, "
+            "non-drifted entity nodes WITHOUT re-embedding. Zero API calls. "
+            "Chunks never need this (embedding_source_text is their signal)."
         ),
     )
 
     args = parser.parse_args()
+    if args.stale and args.stamp_hashes:
+        parser.error("--stale and --stamp-hashes are mutually exclusive")
 
     # Bootstrap services
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
@@ -373,6 +477,26 @@ async def main():
     else:
         entity_labels = [args.label]
         include_chunks = False
+
+    if args.stamp_hashes:
+        # Hash rollout is entity-only and API-free — separate flow, own summary
+        logger.info(f"\n{'=' * 60}")
+        logger.info("Embedding Text Hash Stamping (no API calls)")
+        logger.info(f"{'=' * 60}\n")
+
+        stamp_stats = []
+        for label in entity_labels:
+            stamp_stats.append(await stamp_entity_hashes(driver, embeddings_service, label))
+
+        logger.info(f"\n{'=' * 60}")
+        logger.info("Summary")
+        logger.info(f"{'=' * 60}\n")
+        for stats in stamp_stats:
+            logger.info(f"{stats['label']}: {stats['stamped']}/{stats['total']} stamped")
+        logger.info(f"\n✅ Hash stamping complete: {sum(s['stamped'] for s in stamp_stats)} nodes")
+
+        await driver.close()
+        return
 
     logger.info(f"\n{'=' * 60}")
     logger.info("Batch Embedding Generation" + (" (stale re-embed)" if args.stale else ""))

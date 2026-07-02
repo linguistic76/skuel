@@ -628,7 +628,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 **Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`. PathStep ENTITY vector = frontmatter fields only; body semantics = CHUNK embeddings.
 
-**Write paths (ADR-074):** ingestion never embeds inline — all create/update paths + both ingest doors publish `*EmbeddingRequested` post-persist through `core/events/embedding_publisher.py` → background worker (FULL tier; ingestion `event_bus` is None in CORE). One-shot script syncs (`./dev vault-sync`) subscribe the worker pre-sync and `drain()` post-sync — same event path, in-process. Backfill/staleness backstop: `scripts/generate_embeddings_batch.py [--stale]`. **See:** `/docs/decisions/ADR-074-post-persist-embedding-events.md`
+**Write paths (ADR-074):** ingestion never embeds inline — all create/update paths + both ingest doors publish `*EmbeddingRequested` post-persist through `core/events/embedding_publisher.py` → background worker (FULL tier; ingestion `event_bus` is None in CORE). One-shot script syncs (`./dev vault-sync`) subscribe the worker pre-sync and `drain()` post-sync — same event path, in-process. Backfill/staleness backstop: `scripts/generate_embeddings_batch.py [--stale]`. Content-hash idempotency (ADR-074 §8): unchanged text never re-embeds — `embedding_text_hash` + `EmbeddingsService.verify_fresh_embeddings` skip BEFORE generation (worker + `--stale`); version outranks hash (a version bump always re-embeds). **See:** `/docs/decisions/ADR-074-post-persist-embedding-events.md`
 
 ## Quick Reference: Key Files
 
