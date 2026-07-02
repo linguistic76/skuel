@@ -15,7 +15,7 @@ Responsibilities:
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +28,7 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
     CalendarEventUpdated,
 )
+from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.event.event import Event
@@ -39,7 +40,6 @@ from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -329,20 +329,8 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
             )
             await publish_event(self.event_bus, domain_event, self.logger)
 
-            # Publish embedding request event for async background generation
-            # Background worker will process embeddings in batches (zero latency impact on user)
-            embedding_text = build_embedding_text(EntityType.EVENT, event)
-            if embedding_text:
-                from core.events import EventEmbeddingRequested
-
-                now = datetime.now()
-                embedding_event = EventEmbeddingRequested(
-                    entity_uid=event.uid,
-                    entity_type="event",
-                    embedding_text=embedding_text,
-                    requested_at=now,
-                )
-                await publish_event(self.event_bus, embedding_event, self.logger)
+            # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+            await publish_embedding_requested(self.event_bus, EntityType.EVENT, event, self.logger)
 
         return result
 
@@ -424,6 +412,11 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
                 updated_fields=updated_fields,
             )
         await publish_event(self.event_bus, domain_event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus, EntityType.EVENT, event, self.logger, changed_fields=updated_fields
+        )
 
         return result
 

@@ -43,7 +43,6 @@ async def main() -> None:
 
         ingestion = make_unified_ingestion_service(
             driver=driver,
-            embeddings_service=None,
             chunking_service=None,
         )
 

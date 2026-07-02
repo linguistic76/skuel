@@ -69,17 +69,13 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # completion to-do list), never counted as dead, never fails --check. The
 # reason must name what completes it. Entries whose subject becomes live are
 # reported as stale and must be removed.
-_EMBEDDING_WIRING = (
-    "curriculum/resource publish-side wiring of the embedding pipeline is "
-    "future work — subscribers in embedding_worker.py are intentional staging "
-    "(activity-domain siblings are already wired; OpenAI now, BGE long-term)"
-)
 PLANNED_EVENTS: dict[str, str] = {
-    "ExerciseEmbeddingRequested": _EMBEDDING_WIRING,
-    "KuEmbeddingRequested": _EMBEDDING_WIRING,
-    "LearningPathEmbeddingRequested": _EMBEDDING_WIRING,
-    "PathStepEmbeddingRequested": _EMBEDDING_WIRING,
-    "ResourceEmbeddingRequested": _EMBEDDING_WIRING,
+    # ADR-074 wired the curriculum embedding events through the
+    # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
+    # ingestion post-persist step + in-app creates; Exercise via
+    # ExerciseService). ResourceEmbeddingRequested is structurally live via
+    # the same chokepoint but has no producer that passes RESOURCE yet —
+    # see the note on EMBEDDING_EVENT_TYPES in embedding_publisher.py.
     "HabitMissed": (
         "publish-side missed-habit detection never built; subscriber wiring in "
         "services_bootstrap/_event_wiring.py is intentional staging — wire a "
@@ -1072,6 +1068,11 @@ class EventUsageCollector:
     - Variables: ``x = EventClass(...)`` anywhere in a file lets a later
       ``publish_*(x)`` in the same file resolve — over-approximation in the
       safe direction (it can only suppress a dead-event accusation).
+    - Class registries: ``REG = {...: EventClass, ...}`` (dict literal whose
+      values are event classes) followed by ``cls = REG.get(...)`` /
+      ``cls = REG[...]`` and a published ``cls(...)`` resolves to EVERY class
+      in the registry — the embedding_publisher chokepoint pattern; same safe
+      over-approximation direction as the variable rule.
     - Publish wrappers: see PublishWrapperInference.
     Cross-FILE event flow is never traced — it surfaces as an unresolved
     publish site plus the UNVERIFIED construction tier.
@@ -1153,8 +1154,17 @@ class EventUsageCollector:
     def _file_event_var_index(
         self, tree: ast.Module, aliases: dict[str, str]
     ) -> dict[str, set[str]]:
-        """var name -> event classes assigned to it: ``x = EventClass(...)``."""
+        """var name -> event classes assigned to it.
+
+        Covers ``x = EventClass(...)`` and the class-registry pattern:
+        ``REG = {...: EventClass, ...}`` then ``cls = REG.get(...)`` /
+        ``cls = REG[...]`` maps ``cls`` to every class in the registry
+        (embedding_publisher chokepoint — safe over-approximation, it can
+        only suppress a dead-event accusation).
+        """
         index: dict[str, set[str]] = defaultdict(set)
+        registries: dict[str, set[str]] = defaultdict(set)
+
         for node in ast.walk(tree):
             value = None
             targets: list[ast.expr] = []
@@ -1164,13 +1174,59 @@ class EventUsageCollector:
                 value, targets = node.value, [node.target]
             if value is None:
                 continue
+
+            if isinstance(value, ast.Dict):
+                classes = {
+                    resolved
+                    for v in value.values
+                    if isinstance(v, ast.Name)
+                    and (resolved := self._resolve(v.id, aliases)) is not None
+                }
+                if classes:
+                    for target in targets:
+                        if isinstance(target, ast.Name):
+                            registries[target.id].update(classes)
+                continue
+
             cls = self._ctor_class(value, aliases)
             if cls is None:
                 continue
             for target in targets:
                 if isinstance(target, ast.Name):
                     index[target.id].add(cls)
+
+        # Second pass so lookups resolve regardless of statement order.
+        for node in ast.walk(tree):
+            value = None
+            targets = []
+            if isinstance(node, ast.Assign):
+                value, targets = node.value, node.targets
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                value, targets = node.value, [node.target]
+            if value is None:
+                continue
+            reg_classes = self._registry_lookup_classes(value, registries)
+            if not reg_classes:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    index[target.id].update(reg_classes)
+
         return index
+
+    @staticmethod
+    def _registry_lookup_classes(value: ast.expr, registries: dict[str, set[str]]) -> set[str]:
+        """Classes for ``REG.get(...)`` / ``REG[...]`` lookups on a known registry."""
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Attribute)
+            and value.func.attr == "get"
+            and isinstance(value.func.value, ast.Name)
+        ):
+            return registries.get(value.func.value.id, set())
+        if isinstance(value, ast.Subscript) and isinstance(value.value, ast.Name):
+            return registries.get(value.value.id, set())
+        return set()
 
     def _file_event_list_index(
         self, tree: ast.Module, aliases: dict[str, str]
@@ -1232,6 +1288,14 @@ class EventUsageCollector:
             if ctor is not None:
                 published[ctor].append(site)
                 return
+            # Registry-variable construction: ``cls = REG.get(...)`` then a
+            # published ``cls(...)`` — resolves to every class in the registry.
+            if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
+                registry_classes = var_events.get(arg.func.id, set())
+                if registry_classes:
+                    for cls in registry_classes:
+                        published[cls].append(site)
+                    return
             if isinstance(arg, ast.Name):
                 classes = set(var_events.get(arg.id, set()))
                 direct = self._resolve(arg.id, aliases)

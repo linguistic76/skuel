@@ -17,6 +17,7 @@ from core.events.choice_events import (
     ChoiceOutcomeRecorded,
     ChoiceUpdated,
 )
+from core.events.embedding_publisher import publish_embedding_requested
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
 from core.models.choice.choice_option import ChoiceOption
@@ -29,7 +30,6 @@ from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
@@ -276,20 +276,8 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
                 )
             await publish_event(self.event_bus, knowledge_event, self.logger)
 
-        # Publish embedding request event for async background generation
-        # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.CHOICE, choice)
-        if embedding_text:
-            from core.events import ChoiceEmbeddingRequested
-
-            now = datetime.now()
-            embedding_event = ChoiceEmbeddingRequested(
-                entity_uid=choice.uid,
-                entity_type="choice",
-                embedding_text=embedding_text,
-                requested_at=now,
-            )
-            await publish_event(self.event_bus, embedding_event, self.logger)
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
 
         return Result.ok(choice)
 
@@ -407,6 +395,15 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
                 updated_fields=updated_fields,
             )
             await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed
+        await publish_embedding_requested(
+            self.event_bus,
+            EntityType.CHOICE,
+            choice,
+            self.logger,
+            changed_fields=updated_fields,
+        )
 
         return Result.ok(choice)
 
