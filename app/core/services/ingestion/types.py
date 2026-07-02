@@ -12,6 +12,21 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+@dataclass(frozen=True)
+class PathStepChunkSource:
+    """Content popped off a PATH_STEP entity pre-upsert (batch door).
+
+    Content lives on the :Content node, never the :Entity node, so the batch
+    engine pops it before the bulk upsert and threads it here — keyed by
+    entity uid — to the post-persist chunk step
+    (``UnifiedIngestionService._chunk_path_step_content``).
+    """
+
+    content: str
+    file_format: str  # "markdown" | "yaml"
+    source_path: str
+
+
 @dataclass
 class EdgeIngestionResult:
     """Result from ingesting standalone edge files."""
