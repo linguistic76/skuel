@@ -83,6 +83,22 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         forced = " [FORCE — re-processing unchanged files]" if force else ""
         print(f"Full VaultBridge sync ({kind.value}) as {user_uid}{forced} ...")
         result = await reconciler.sync(kind, UserUID(user_uid), force=force)
+
+        # Drain BEFORE the error check: sync() can fail after ingest persisted
+        # entities (e.g. the consent-gate user lookup), and their already-queued
+        # embedding events must not evaporate with the script — the exact drift
+        # this drain step exists to prevent. No-op when nothing was queued.
+        if worker is not None:
+            print("\nDraining embedding events in-process ...")
+            drained = await worker.drain()
+            print(
+                f"  entity embedding requests dequeued: {drained['entity_requests']}"
+                " (includes retry passes)"
+            )
+            print(f"  chunk parents dequeued: {drained['chunk_parents']} (includes retry passes)")
+        else:
+            print("\n(no embedding worker — CORE tier or embeddings unavailable; skipped drain)")
+
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1
@@ -94,14 +110,6 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         if stats.first_run_notice:
             print("\nNOTE: first_run_notice — the vault owner has not granted")
             print("      vault_write_consent; inbound ingest ran, outbound was skipped.")
-
-        if worker is not None:
-            print("\nDraining embedding events in-process ...")
-            drained = await worker.drain()
-            print(f"  entity embedding requests processed: {drained['entity_requests']}")
-            print(f"  chunk parents processed: {drained['chunk_parents']}")
-        else:
-            print("\n(no embedding worker — CORE tier or embeddings unavailable; skipped drain)")
         return 0
     finally:
         await adapter.close()
