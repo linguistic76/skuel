@@ -232,7 +232,6 @@ class RevisedExerciseService(BaseService):
                     entity_uid=uid,
                     entity_type="revised_exercise",
                     embedding_text=embedding_text,
-                    user_uid=teacher_uid,
                     requested_at=datetime.now(),
                 ),
                 self.logger,

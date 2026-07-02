@@ -351,7 +351,6 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent])
                 entity_uid=habit.uid,
                 entity_type="habit",
                 embedding_text=embedding_text,
-                user_uid=habit.user_uid,
                 requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)

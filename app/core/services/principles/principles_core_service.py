@@ -296,7 +296,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
                 entity_uid=principle.uid,
                 entity_type="principle",
                 embedding_text=embedding_text,
-                user_uid=user_uid,
                 requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, logger)

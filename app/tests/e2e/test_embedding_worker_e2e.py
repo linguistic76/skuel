@@ -101,7 +101,6 @@ class TestEmbeddingWorkerEventProcessing:
                 entity_uid=task_uid,
                 entity_type="task",
                 embedding_text="Test async embedding generation\nEnd-to-end test for background worker",
-                user_uid=user_uid,
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -206,7 +205,6 @@ class TestEmbeddingWorkerEventProcessing:
                 entity_uid=task_uid,
                 entity_type="task",
                 embedding_text="Multi-domain task\nTest batch processing",
-                user_uid=user_uid,
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -215,7 +213,6 @@ class TestEmbeddingWorkerEventProcessing:
                 entity_uid=goal_uid,
                 entity_type="goal",
                 embedding_text="Multi-domain goal\nTest concurrent processing\nVerify batch efficiency",
-                user_uid=user_uid,
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -307,7 +304,6 @@ class TestEmbeddingWorkerBatchProcessing:
                     entity_uid=uid,
                     entity_type="task",
                     embedding_text=f"Batch test {uid}",
-                    user_uid=user_uid,
                     requested_at=datetime.now(),
                     occurred_at=datetime.now(),
                 )
@@ -391,7 +387,6 @@ class TestEmbeddingWorkerErrorRecovery:
                 entity_uid=valid_uid,
                 entity_type="task",
                 embedding_text="Valid task",
-                user_uid=user_uid,
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )
@@ -400,7 +395,6 @@ class TestEmbeddingWorkerErrorRecovery:
                 entity_uid=invalid_uid,
                 entity_type="task",
                 embedding_text="Invalid task",
-                user_uid=user_uid,
                 requested_at=datetime.now(),
                 occurred_at=datetime.now(),
             )

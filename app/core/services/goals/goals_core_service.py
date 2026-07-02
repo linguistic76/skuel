@@ -349,7 +349,6 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
                 entity_uid=goal.uid,
                 entity_type="goal",
                 embedding_text=embedding_text,
-                user_uid=goal.user_uid,
                 requested_at=datetime.now(),
             )
             await publish_event(self.event_bus, embedding_event, self.logger)
