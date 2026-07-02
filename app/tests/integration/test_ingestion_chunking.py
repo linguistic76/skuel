@@ -216,6 +216,64 @@ One shared chunk step, two doors.
 
 
 @pytest.mark.asyncio
+async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path: Path):
+    """A PathStep re-ingested with its body emptied must not keep the previous
+    body's :Content/:ContentChunk/:ContentMetadata subtree or word_count — the
+    explicit clear path (ADR-074). The bulk upsert alone can't do it: `n +=
+    props` never removes omitted keys, and orphaned chunks would keep serving
+    stale vectors from the chunk index."""
+    ps_uid = "ps:test:empty-body-clear"
+    ps_file = tmp_path / "empty-body-clear.md"
+    ps_file.write_text(
+        f"---\ntype: path_step\nuid: {ps_uid}\ntitle: Empty Body Clear\n---\n\n"
+        "# Original\n\nThis body exists on first ingest and is removed on the second.\n"
+    )
+
+    chunking_service = EntityChunkingService()
+    content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
+    ingestion_service = make_unified_ingestion_service(
+        driver=neo4j_driver,
+        chunking_service=chunking_service,
+        content_adapter=content_adapter,
+    )
+
+    result = await ingestion_service.ingest_directory(tmp_path)
+    assert result.is_ok
+
+    normalized_uid = ps_uid.replace(":", ".")
+    subtree_query = """
+        MATCH (ps:PathStep {uid: $uid})
+        OPTIONAL MATCH (ps)-[:HAS_CONTENT]->(c:Content)
+        OPTIONAL MATCH (c)-[:HAS_CHUNK]->(chunk:ContentChunk)
+        OPTIONAL MATCH (c)-[:HAS_METADATA]->(meta:ContentMetadata)
+        RETURN ps.word_count AS word_count,
+               count(DISTINCT c) AS content_nodes,
+               count(DISTINCT chunk) AS chunk_nodes,
+               count(DISTINCT meta) AS meta_nodes
+    """
+
+    async with neo4j_driver.session() as session:
+        record = await (await session.run(subtree_query, {"uid": normalized_uid})).single()
+    assert record is not None
+    assert record["word_count"] > 0, "First ingest should set a non-zero word_count"
+    assert record["content_nodes"] == 1, "First ingest should persist the :Content node"
+    assert record["chunk_nodes"] > 0, "First ingest should persist :ContentChunk nodes"
+
+    # Re-ingest the same uid with the body emptied
+    ps_file.write_text(f"---\ntype: path_step\nuid: {ps_uid}\ntitle: Empty Body Clear\n---\n")
+    result = await ingestion_service.ingest_directory(tmp_path)
+    assert result.is_ok
+
+    async with neo4j_driver.session() as session:
+        record = await (await session.run(subtree_query, {"uid": normalized_uid})).single()
+    assert record is not None
+    assert record["word_count"] == 0, "Emptied body must overwrite word_count with 0"
+    assert record["content_nodes"] == 0, "Stale :Content must be deleted"
+    assert record["chunk_nodes"] == 0, "Stale :ContentChunk nodes must be deleted"
+    assert record["meta_nodes"] == 0, "Stale :ContentMetadata must be deleted"
+
+
+@pytest.mark.asyncio
 async def test_chunking_failure_does_not_fail_ingestion(neo4j_driver):
     """Test that chunking failure doesn't prevent successful ingestion"""
     # Given: A KU file

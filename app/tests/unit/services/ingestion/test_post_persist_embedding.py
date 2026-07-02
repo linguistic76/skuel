@@ -15,6 +15,9 @@ persisted embeddable entity through the shared chokepoint
   (``_chunk_path_step_content``) which persists :Content/:ContentChunk and
   publishes ``ChunkEmbeddingRequested`` — chunks persist in CORE too, only
   the publish is tier-gated
+- the empty-body clear path (ADR-074): an emptied body reaches the shared
+  step in both doors, deletes the stale :Content subtree, and writes
+  word_count=0 through the upsert
 """
 
 from __future__ import annotations
@@ -335,13 +338,18 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
 
 
 class _FakeContentAdapter:
-    """Records store_content_with_chunks calls, succeeding always."""
+    """Records store and clear calls, succeeding always."""
 
     def __init__(self) -> None:
         self.stored: list[tuple[str, Any]] = []
+        self.cleared: list[str] = []
 
     async def store_content_with_chunks(self, uid: str, content: Any) -> bool:
         self.stored.append((uid, content))
+        return True
+
+    async def delete_content_subtree(self, uid: str) -> bool:
+        self.cleared.append(uid)
         return True
 
 
@@ -427,3 +435,104 @@ async def test_chunk_step_no_chunking_service_is_noop():
     generated = await service._chunk_path_step_content("ps.x", _PS_BODY, "markdown", "x.md")
     assert generated is False
     assert bus.published == []
+
+
+# ---------------------------------------------------------------------------
+# empty-body clear path (ADR-074) — both doors route through the shared step
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_chunk_step_empty_body_clears_content_subtree():
+    """An emptied body must delete the previous body's :Content subtree —
+    stale chunk vectors must not survive the re-ingest — and publish nothing."""
+    bus = _CapturingBus()
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(bus, adapter)
+
+    generated = await service._chunk_path_step_content("ps.cleared", "", "markdown", "x.md")
+
+    assert generated is False
+    assert adapter.cleared == ["ps.cleared"]
+    assert adapter.stored == []
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_chunk_step_empty_body_clears_even_without_chunker():
+    """The clear needs only the content adapter — a missing chunking service
+    must not leave the stale subtree behind."""
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(None, adapter)
+    service.chunking = None
+
+    generated = await service._chunk_path_step_content("ps.cleared2", "", "markdown", "x.md")
+
+    assert generated is False
+    assert adapter.cleared == ["ps.cleared2"]
+
+
+@pytest.mark.asyncio
+async def test_chunk_step_empty_body_without_adapter_is_noop():
+    service = _chunking_service(None, None)
+
+    generated = await service._chunk_path_step_content("ps.x", "", "markdown", "x.md")
+    assert generated is False
+
+
+@pytest.mark.asyncio
+async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tmp_path: Path):
+    """Batch door, emptied body: word_count=0 must reach the upsert (`n +=
+    props` never removes omitted keys — a skipped write keeps the stale count)
+    and the empty source must still thread through so the shared step clears."""
+    from core.services.ingestion.batch import ingest_directory
+
+    ps_file = tmp_path / "ps-emptied.md"
+    ps_file.write_text("---\ntype: path_step\nuid: ps:test:emptied\ntitle: Emptied\n---\n")
+
+    backend = _FakeBulkBackend()
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
+
+    async def post_persist(
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
+    ) -> None:
+        calls.append((entity_type, entities, chunk_sources))
+
+    result = await ingest_directory(
+        directory=tmp_path,
+        bulk_backend=backend,
+        post_persist_fn=post_persist,
+    )
+
+    assert result.is_ok, f"batch ingest failed: {result}"
+
+    (persisted,) = backend.upserted["PathStep"]
+    assert "content" not in persisted
+    assert persisted["word_count"] == 0
+
+    assert len(calls) == 1
+    _, _, chunk_sources = calls[0]
+    assert set(chunk_sources) == {"ps.test.emptied"}
+    assert chunk_sources["ps.test.emptied"].content == ""
+
+
+@pytest.mark.asyncio
+async def test_ingest_post_persist_empty_source_clears_without_chunk_events():
+    """The batch callback with an empty-body source: entity event still
+    publishes (frontmatter vector), subtree cleared, no chunk events."""
+    from core.services.ingestion.types import PathStepChunkSource
+
+    bus = _CapturingBus()
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(bus, adapter)
+
+    uid = "ps.test.emptied-callback"
+    await service._ingest_post_persist(
+        EntityType.PATH_STEP,
+        [{"uid": uid, "title": "Emptied", "word_count": 0}],
+        {uid: PathStepChunkSource(content="", file_format="markdown", source_path="x.md")},
+    )
+
+    assert adapter.cleared == [uid]
+    assert adapter.stored == []
+    assert [type(e) for e in bus.published] == [PathStepEmbeddingRequested]

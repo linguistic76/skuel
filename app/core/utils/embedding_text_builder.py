@@ -10,7 +10,7 @@ Usage:
     # From model (background worker):
     text = build_embedding_text(EntityType.TASK, task_model)
 
-See: /docs/patterns/EMBEDDING_ARCHITECTURE.md
+See: /docs/decisions/ADR-074-post-persist-embedding-events.md
 """
 
 from typing import Any, overload
@@ -18,8 +18,13 @@ from typing import Any, overload
 from core.models.enums.entity_enums import EntityType
 
 # Single source of truth for embedding field mappings
+# PATH_STEP deliberately excludes "content": the entity vector covers
+# frontmatter fields only — body-content semantics live in CHUNK embeddings
+# (ADR-074). Keeping it out makes that hold on every trigger path (ingest,
+# in-app update, --stale backfill), even against a legacy node that still
+# carries a content property.
 EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
-    EntityType.PATH_STEP: ("title", "intent", "description", "content", "summary"),
+    EntityType.PATH_STEP: ("title", "intent", "description", "summary"),
     EntityType.KU: ("title", "summary", "description"),
     EntityType.RESOURCE: ("title", "author", "content", "summary"),
     EntityType.TASK: ("title", "description"),

@@ -43,6 +43,8 @@ SKUEL separates intelligence into two layers:
 
 **Where the vendor SDKs live (W1 / ADR-063):** A `BaseAIService` depends on `LLMService` and `EmbeddingsService` (the `llm` / `embeddings` instance attributes below). Those two services no longer construct any SDK client — each takes an **injected** port: `LLMService(chat_port=ChatCompletionPort)` and `EmbeddingsService(embedding_client=EmbeddingClientOperations)`. The concrete `openai` / `anthropic` / `huggingface_hub` clients live below the hexagonal boundary in `adapters/external/llm/` and `adapters/external/embeddings/`; the composition root reads the credential and injects the adapter. So `core/` — including every AI service — is free of vendor-SDK clients (guarded by `tests/test_llm_sdk_boundary.py`). See `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 
+**Where persisted embeddings come from (ADR-074):** AI services *consume* node embeddings; they never write them. Entity + chunk vectors are written by the `EmbeddingBackgroundWorker` (fed by the `*EmbeddingRequested` chokepoint `core/events/embedding_publisher.py` — all create/update paths and both ingest doors publish post-persist) and by the backfill script (`scripts/generate_embeddings_batch.py`, `--stale` for re-embeds). Ingestion never embeds inline. See `/docs/decisions/ADR-074-post-persist-embedding-events.md`.
+
 ### Class Hierarchy
 
 ```

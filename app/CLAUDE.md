@@ -626,7 +626,9 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 **Location:** `/core/utils/embedding_text_builder.py` — `build_embedding_text(EntityType, dict) -> str`
 
-**Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`.
+**Supported:** 16 content-bearing entity types (all 6 Activity Domains + Curriculum + Resource + RevisedExercise + UserEntry + EntryReport + FormTemplate + FormSubmission). Field mappings in `EMBEDDING_FIELD_MAPS`. PathStep ENTITY vector = frontmatter fields only; body semantics = CHUNK embeddings.
+
+**Write paths (ADR-074):** ingestion never embeds inline — all create/update paths + both ingest doors publish `*EmbeddingRequested` post-persist through `core/events/embedding_publisher.py` → background worker (FULL tier; ingestion `event_bus` is None in CORE). Backfill/staleness: `scripts/generate_embeddings_batch.py [--stale]` (the freshness path for one-shot script syncs). **See:** `/docs/decisions/ADR-074-post-persist-embedding-events.md`
 
 ## Quick Reference: Key Files
 

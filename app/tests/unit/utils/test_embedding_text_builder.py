@@ -126,13 +126,16 @@ class TestBuildEmbeddingTextFromDict:
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
     def test_ku_with_all_fields_uses_double_newlines(self):
+        # "content" is deliberately absent from the PATH_STEP map (ADR-074):
+        # the entity vector covers frontmatter fields only — body semantics
+        # live in CHUNK embeddings. A legacy content property must not leak in.
         data = {
             "title": "Python",
             "content": "Programming language",
             "summary": "High-level",
         }
         result = build_embedding_text(EntityType.PATH_STEP, data)
-        assert result == "Python\n\nProgramming language\n\nHigh-level"
+        assert result == "Python\n\nHigh-level"
 
     def test_empty_dict_returns_empty_string(self):
         result = build_embedding_text(EntityType.TASK, {})
@@ -215,9 +218,10 @@ class TestBuildEmbeddingTextFromModel:
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
     def test_ku_model_with_all_fields_uses_double_newlines(self):
+        # PATH_STEP entity vector = frontmatter only; model content is skipped (ADR-074)
         ku = MockKU(title="Python", content="Programming language", summary="High-level")
         result = build_embedding_text(EntityType.PATH_STEP, ku)
-        assert result == "Python\n\nProgramming language\n\nHigh-level"
+        assert result == "Python\n\nHigh-level"
 
     def test_model_with_none_fields(self):
         task = MockTask(title="Fix bug", description=None)
@@ -275,7 +279,7 @@ class TestSeparatorLogic:
     """Test separator logic for different entity types."""
 
     def test_ku_uses_double_newline(self):
-        data = {"title": "A", "content": "B", "summary": "C"}
+        data = {"title": "A", "description": "B", "summary": "C"}
         result = build_embedding_text(EntityType.PATH_STEP, data)
         assert "\n\n" in result
         assert result == "A\n\nB\n\nC"
