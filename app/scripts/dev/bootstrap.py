@@ -812,10 +812,13 @@ async def startup_skuel(container: AppContainer) -> None:
         # Store task reference on app state for shutdown cleanup
         container.app.state.embedding_worker_task = background_task
         logger.info(
-            "✅ Embedding background worker started (processes Tasks, Goals, Habits, Events, Choices, Principles)"
+            "✅ Embedding background worker started (12 embeddable entity types + content chunks)"
         )
     else:
-        logger.info("⏭️  Embedding background worker not available (embeddings only via ingestion)")
+        logger.info(
+            "⏭️  Embedding background worker not available — no embeddings this process "
+            "(ingestion never embeds inline, ADR-074)"
+        )
 
     # Start progress report background worker (February 2026)
     # Worker checks hourly for due schedules and generates AI_FEEDBACK Entity nodes

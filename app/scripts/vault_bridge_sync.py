@@ -141,7 +141,7 @@ def main() -> None:
 
     # For content, the reconciler uses the fixed content-vault owner; the passed
     # user is ignored, so any placeholder is fine.
-    user = args.user or "user_system"
+    user = args.user or "user:system"
     sys.exit(asyncio.run(run_sync(args.vault, user, force=args.force)))
 
 

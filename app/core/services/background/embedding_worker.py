@@ -64,6 +64,7 @@ from core.events import (
 )
 from core.events.embedding_events import EmbeddingRequested
 from core.ports.infrastructure_protocols import EventBusOperations
+from core.services.embeddings_service import EMBEDDING_VERSION
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -449,22 +450,18 @@ class EmbeddingBackgroundWorker:
             True if stored successfully, False otherwise
         """
         try:
-            # Map entity type to Neo4j label
-            label_map = {
-                "task": "Task",
-                "goal": "Goal",
-                "habit": "Habit",
-                "event": "Event",
-                "choice": "Choice",
-                "principle": "Principle",
-                "ku": "Ku",
-                "resource": "Resource",
-                "exercise": "Exercise",
-                "path_step": "PathStep",
-                "learning_path": "LearningPath",
-                "revised_exercise": "RevisedExercise",
-            }
-            label = label_map.get(entity_type, entity_type.capitalize())
+            # Resolve the Neo4j label through the one shared map (the events
+            # carry EntityType.value strings). Fallback mirrors the old local
+            # map's behavior for any string that isn't a known EntityType.
+            from core.events.embedding_publisher import EMBEDDING_NODE_LABELS
+            from core.models.enums.entity_enums import EntityType
+
+            entity_type_enum = EntityType.from_string(entity_type)
+            label = (
+                EMBEDDING_NODE_LABELS.get(entity_type_enum, entity_type.capitalize())
+                if entity_type_enum
+                else entity_type.capitalize()
+            )
 
             # Storage goes through the service — it owns label validation and
             # the version/model metadata (single source of truth).
@@ -532,7 +529,7 @@ class EmbeddingBackgroundWorker:
                 stored = await self.content_adapter.store_chunk_embeddings(
                     chunk_uids=list(event.chunk_uids),
                     embeddings=embeddings_result.value,
-                    version="v1",
+                    version=EMBEDDING_VERSION,
                     model=self.embeddings_service.model,
                 )
 

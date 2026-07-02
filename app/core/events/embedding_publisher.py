@@ -66,6 +66,26 @@ EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
     EntityType.REVISED_EXERCISE: RevisedExerciseEmbeddingRequested,
 }
 
+# EntityType → Neo4j node label for every embeddable type — THE one label map.
+# Consumed by the background worker (embedding storage label) and the backfill
+# script (candidate queries + storage). Mirrors EMBEDDING_EVENT_TYPES 1:1
+# (guarded by tests/unit/services/ingestion/test_post_persist_embedding.py) —
+# extend all three together when a new entity type becomes embeddable.
+EMBEDDING_NODE_LABELS: dict[EntityType, str] = {
+    EntityType.TASK: "Task",
+    EntityType.GOAL: "Goal",
+    EntityType.HABIT: "Habit",
+    EntityType.EVENT: "Event",
+    EntityType.CHOICE: "Choice",
+    EntityType.PRINCIPLE: "Principle",
+    EntityType.KU: "Ku",
+    EntityType.RESOURCE: "Resource",
+    EntityType.EXERCISE: "Exercise",
+    EntityType.PATH_STEP: "PathStep",
+    EntityType.LEARNING_PATH: "LearningPath",
+    EntityType.REVISED_EXERCISE: "RevisedExercise",
+}
+
 
 async def publish_embedding_requested(
     event_bus: EventBusOperations | None,
