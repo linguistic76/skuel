@@ -139,6 +139,45 @@ async def test_precheck_passes_event_texts_as_candidates():
     service.verify_fresh_embeddings.assert_awaited_once_with({"task.test0": "current text"})
 
 
+@pytest.mark.asyncio
+async def test_conflicting_duplicate_uid_never_skips():
+    """Two requests for one uid with DIFFERENT texts (bus dispatch may not
+    match persistence order) → ambiguity fails open: the uid is excluded from
+    the hash-check candidates and both requests embed."""
+    service = _service()
+    service.verify_fresh_embeddings = AsyncMock(return_value=Result.ok(set()))
+    worker = _worker(service)
+
+    batch = [
+        _PendingRequest(_event(0, "old text")),
+        _PendingRequest(_event(0, "new text")),
+    ]
+    await worker._process_batch(batch)
+
+    service.verify_fresh_embeddings.assert_awaited_once_with({})
+    assert service.create_embedding.await_count == 2
+    assert worker._total_skipped == 0
+
+
+@pytest.mark.asyncio
+async def test_same_text_duplicate_uid_skips_both():
+    """Two requests for one uid with the SAME text are unambiguous — a hash
+    match drops both."""
+    service = _service()
+    service.verify_fresh_embeddings = AsyncMock(return_value=Result.ok({"task.test0"}))
+    worker = _worker(service)
+
+    batch = [
+        _PendingRequest(_event(0, "same text")),
+        _PendingRequest(_event(0, "same text")),
+    ]
+    await worker._process_batch(batch)
+
+    service.verify_fresh_embeddings.assert_awaited_once_with({"task.test0": "same text"})
+    service.create_embedding.assert_not_awaited()
+    assert worker._total_skipped == 2
+
+
 def _chunk_event(parent: str, uids: tuple, texts: tuple) -> ChunkEmbeddingRequested:
     return ChunkEmbeddingRequested(
         parent_uid=parent,

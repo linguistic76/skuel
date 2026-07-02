@@ -422,9 +422,19 @@ class EmbeddingBackgroundWorker:
         owns the skip semantics — version-current + text-hash match, with the
         timestamp touch); the skip sits BEFORE generation because a skip at
         store time saves nothing. Fails OPEN: a freshness-read error embeds
-        the full batch — correctness over savings.
+        the full batch — correctness over savings. Same fail-open rule for a
+        uid queued with CONFLICTING texts in one batch (two updates whose bus
+        dispatch may not match persistence order): ambiguity never skips —
+        only uids with exactly one distinct text are hash-check candidates.
         """
-        candidates: dict[str, str] = {p.event.entity_uid: p.event.embedding_text for p in batch}
+        texts_by_uid: dict[str, set[str]] = {}
+        for pending in batch:
+            texts_by_uid.setdefault(pending.event.entity_uid, set()).add(
+                pending.event.embedding_text
+            )
+        candidates: dict[str, str] = {
+            uid: next(iter(texts)) for uid, texts in texts_by_uid.items() if len(texts) == 1
+        }
         fresh_result = await self.embeddings_service.verify_fresh_embeddings(candidates)
         if fresh_result.is_error:
             self.logger.warning(
