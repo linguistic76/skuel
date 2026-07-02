@@ -145,12 +145,11 @@ def parse_file_sync(
     Handles format detection, parsing, validation, and data preparation.
     Returns rich error context via IngestionError on failure.
 
-    Intentional seam vs. ``UnifiedIngestionService.ingest_file``: both enforce
-    the same validation contract (UID prefix, required fields, post-preparation),
-    but this path stays synchronous for thread-pool batching (sync preparation,
-    no inline embedding generation) and reports per-file ``IngestionError``
-    dicts the batch aggregates, where ``ingest_file`` returns ``Result`` and
-    prepares async with embeddings.
+    Intentional seam vs. ``UnifiedIngestionService.ingest_file``: both run the
+    same parse → validate → prepare pipeline (identical contract, one preparer);
+    the remaining divergence is the error channel only — this path reports
+    per-file ``IngestionError`` dicts the batch aggregates (and runs inside a
+    thread pool), where ``ingest_file`` returns ``Result``.
 
     Args:
         file_path: Path to file to parse
@@ -492,6 +491,8 @@ async def ingest_directory(
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
     allowlist: SyncAllowlist | None = None,
     owner_is_authoritative: bool = False,
+    post_persist_fn: Callable[[EntityType | NonKuDomain, list[dict[str, Any]]], Awaitable[None]]
+    | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -529,6 +530,11 @@ async def ingest_directory(
             set, files under its governed vault root are ingested only if they
             also sit under an allowed dir; files outside the root are unaffected.
             Applied in ``collect_files`` so every caller inherits the same wall.
+        post_persist_fn: Optional per-type-batch callback invoked AFTER a
+            successful bulk upsert with the persisted entity dicts — the batch
+            door's half of the shared post-persist embedding step (ADR-074:
+            ``UnifiedIngestionService._publish_embedding_requests``). Never
+            called for failed batches or in dry-run mode.
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -915,6 +921,12 @@ async def ingest_directory(
 
         await bulk_backend.ensure_constraints(config.entity_label)
 
+        # Strip the engine's private bookkeeping key before persistence — the
+        # bulk backend stores every remaining key as a node property, so leaving
+        # _file_path on would (and historically did) leak it into the graph.
+        for entity in entities:
+            entity.pop("_file_path", None)
+
         rel_config = config.relationship_config or {}
         result = await bulk_backend.upsert_with_relationships(
             entity_label=config.entity_label,
@@ -930,6 +942,8 @@ async def ingest_directory(
             total_nodes_updated += stats.nodes_updated
             total_relationships_created += stats.relationships_created
             logger.info(f"Ingested {len(entities)} {entity_type.value} entities")
+            if post_persist_fn is not None:
+                await post_persist_fn(entity_type, entities)
         else:
             batch_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",

@@ -556,6 +556,11 @@ async def compose_services(
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
         # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
         # ChunkEmbeddingRequested event → background worker.
+        # event_bus is wired only in FULL tier (same gate + rationale as
+        # BatchChunkingService below): ingestion uses it exclusively for the
+        # post-persist embedding step (*EmbeddingRequested per persisted entity +
+        # ChunkEmbeddingRequested for chunks — ADR-074), and in CORE the embedding
+        # worker isn't running, so publishing would be a queue-with-no-listener.
         from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
         from adapters.persistence.neo4j.ingestion_service_factory import (
             make_unified_ingestion_service,
@@ -566,10 +571,9 @@ async def compose_services(
         unified_ingestion = make_unified_ingestion_service(
             driver=driver,
             ingestion_backend=ingestion_backend,
-            embeddings_service=None,  # Optional - will be created later in learning_services
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
             content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
-            event_bus=event_bus,  # Publish ChunkEmbeddingRequested for async embedding
+            event_bus=event_bus if tier.ai_enabled else None,
             user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
@@ -882,7 +886,7 @@ async def compose_services(
             base_label=NeoLabel.ENTITY,
         )
 
-        exercise_service = ExerciseService(backend=exercise_backend)
+        exercise_service = ExerciseService(backend=exercise_backend, event_bus=event_bus)
 
         # ResourceService: curated content (books, talks, films, podcasts)
         from adapters.persistence.neo4j.backends.misc_backends import ResourceBackend

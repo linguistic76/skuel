@@ -122,7 +122,7 @@ class ExerciseService(BaseService):
         ),
     )
 
-    def __init__(self, backend: Any, sharing_service: Any = None) -> None:
+    def __init__(self, backend: Any, sharing_service: Any = None, event_bus: Any = None) -> None:
         """
         Initialize with backend.
 
@@ -132,10 +132,13 @@ class ExerciseService(BaseService):
                 to avoid a circular construction order between Exercise and
                 sharing services. Required before any ASSIGNED exercise is
                 created.
+            event_bus: Event bus for ExerciseEmbeddingRequested publishes on
+                create/update (ADR-074 post-persist embedding step).
         """
         super().__init__(backend, "exercises")
         self.backend = backend
         self.sharing_service = sharing_service
+        self.event_bus = event_bus
         self.logger = logger  # type: ignore[assignment]  # structlog BoundLogger
         logger.info("ExerciseService initialized")
 
@@ -207,6 +210,11 @@ class ExerciseService(BaseService):
                     )
                 else:
                     self.logger.info(f"SHARED_WITH_GROUP created: {uid} -> {entity.group_uid}")
+
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        from core.events.embedding_publisher import publish_embedding_requested
+
+        await publish_embedding_requested(self.event_bus, EntityType.EXERCISE, entity, self.logger)
 
         self.logger.info(f"Exercise created: {uid} - {entity.title} (scope={entity.scope.value})")
         return Result.ok(entity)
@@ -359,6 +367,14 @@ class ExerciseService(BaseService):
         if result.is_error:
             self.logger.error(f"Failed to update exercise {uid}: {result.error}")
             return result
+
+        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        if result.value is not None:
+            from core.events.embedding_publisher import publish_embedding_requested
+
+            await publish_embedding_requested(
+                self.event_bus, EntityType.EXERCISE, result.value, self.logger
+            )
 
         self.logger.info(f"Exercise updated: {uid}")
         return result

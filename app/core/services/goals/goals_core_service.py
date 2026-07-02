@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
 
 from core.events import publish_event
+from core.events.embedding_publisher import publish_embedding_requested
 from core.events.goal_events import (
     GoalAbandoned,
     GoalAchieved,
@@ -44,7 +45,6 @@ from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
@@ -339,19 +339,8 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
-        # Publish embedding request event for async background generation
-        # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.GOAL, goal)
-        if embedding_text:
-            from core.events import GoalEmbeddingRequested
-
-            embedding_event = GoalEmbeddingRequested(
-                entity_uid=goal.uid,
-                entity_type="goal",
-                embedding_text=embedding_text,
-                requested_at=datetime.now(),
-            )
-            await publish_event(self.event_bus, embedding_event, self.logger)
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
 
         return Result.ok(goal)
 
@@ -423,6 +412,9 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
                     ),
                     self.logger,
                 )
+
+        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
 
         return result
 

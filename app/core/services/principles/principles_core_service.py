@@ -17,6 +17,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.events import publish_event
+from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleStrength
 from core.models.principle.principle import Principle, merge_why_important
@@ -30,7 +31,6 @@ from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_principle_priority
@@ -287,18 +287,8 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
         )
         await publish_event(self.event_bus, event, logger)
 
-        # Background worker will process embeddings in batches (zero latency impact on user)
-        embedding_text = build_embedding_text(EntityType.PRINCIPLE, principle)
-        if embedding_text:
-            from core.events import PrincipleEmbeddingRequested
-
-            embedding_event = PrincipleEmbeddingRequested(
-                entity_uid=principle.uid,
-                entity_type="principle",
-                embedding_text=embedding_text,
-                requested_at=datetime.now(),
-            )
-            await publish_event(self.event_bus, embedding_event, logger)
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(self.event_bus, EntityType.PRINCIPLE, principle, logger)
 
         logger.info(f"Created principle: {request.title}")
         return result
@@ -385,6 +375,11 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
                 else "unknown",
             )
             await publish_event(self.event_bus, strength_event, logger)
+
+        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        await publish_embedding_requested(
+            self.event_bus, EntityType.PRINCIPLE, updated_principle, logger
+        )
 
         logger.info(f"Updated principle: {principle_uid}")
         return Result.ok(updated_principle)

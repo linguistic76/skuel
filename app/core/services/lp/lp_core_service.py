@@ -233,6 +233,14 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        from core.events.embedding_publisher import publish_embedding_requested
+        from core.models.enums.entity_enums import EntityType
+
+        await publish_embedding_requested(
+            self.event_bus, EntityType.LEARNING_PATH, path, self.logger
+        )
+
         logger.info(f"✅ Created path {path_uid}: {title}")
         return Result.ok(path)
 
@@ -447,6 +455,14 @@ class LpCoreService(BaseService["BackendOperations[LearningPath]", LearningPath]
                 steps.append(from_neo4j_node(step_dict, PathStep))
 
         updated_path = self._build_lp_from_record(path_data, steps)
+
+        # Post-persist embedding refresh (ADR-074) — updates re-embed like creates
+        from core.events.embedding_publisher import publish_embedding_requested
+        from core.models.enums.entity_enums import EntityType
+
+        await publish_embedding_requested(
+            self.event_bus, EntityType.LEARNING_PATH, updated_path, self.logger
+        )
 
         logger.info(f"✅ Updated learning path {path_uid}")
         return Result.ok(updated_path)

@@ -18,7 +18,7 @@ from core.constants import SYSTEM_USER_UID
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import TypeConverter
 from core.services.ingestion.config import DEFAULT_USER_UID
-from core.services.ingestion.preparer import _prepare_core
+from core.services.ingestion.preparer import prepare_entity_data
 
 
 class TestCanonicalConstants:
@@ -59,16 +59,16 @@ class TestNormalizeUserUid:
 
 
 class TestIngestionBoundaryFailFast:
-    """`_prepare_core` is the storage choke point for owner assignment."""
+    """`prepare_entity_data` is the storage choke point for owner assignment."""
 
     def test_absent_user_uid_gets_canonical_default(self):
-        prepared = _prepare_core(EntityType.TASK, {"title": "Buy milk"}, None, Path("t.md"))
+        prepared = prepare_entity_data(EntityType.TASK, {"title": "Buy milk"}, None, Path("t.md"))
         assert prepared["user_uid"] == DEFAULT_USER_UID
         assert prepared["user_uid"].startswith("user_")
 
     def test_noncanonical_explicit_user_uid_is_rejected(self):
         with pytest.raises(ValueError):
-            _prepare_core(
+            prepare_entity_data(
                 EntityType.TASK,
                 {"title": "Buy milk", "user_uid": "user" + ":foo"},
                 None,
