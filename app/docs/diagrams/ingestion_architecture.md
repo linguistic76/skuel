@@ -104,6 +104,12 @@ flowchart TD
 
 ## 3. WebSocket Real-Time Progress Architecture
 
+> **⚠️ STALE — pending redraw.** This sequence is anchored on `POST /api/ingest/directory`,
+> which was **removed** in ADR-070 Decision 9 (content-vault ingestion now goes through
+> `POST /api/vault/sync/content` → `VaultReconciler`, a synchronous call with no WS progress).
+> It also references MonsterUI (removed in the FrankenUI→Tailwind migration). Retained for the
+> generic batch-progress mechanism only; the trigger/endpoint and UI details are out of date.
+
 Sequence diagram showing how real-time ingestion progress flows from backend to UI.
 
 ```mermaid

@@ -82,19 +82,7 @@ function showResult(result, isError) {
         const nodes = (result.nodes_created || 0) + (result.nodes_updated || 0);
         const rels = result.relationships_created || 0;
         const chunks = result.chunks_generated ? ' &middot; Chunks generated' : '';
-        // Directory ingestion returns different fields
-        const totalFiles = result.total_files || 0;
-        const successful = result.successful || 0;
-        const failed = result.failed || 0;
-        const isDirectory = totalFiles > 0;
-
-        let summary;
-        if (isDirectory) {
-            summary = `${successful}/${totalFiles} files &middot; ${nodes} node(s), ${rels} relationship(s)`;
-            if (failed > 0) summary += ` &middot; ${failed} failed`;
-        } else {
-            summary = `${entityType}${title ? ' &middot; ' + title : ''} &middot; ${nodes} node(s), ${rels} relationship(s)${chunks}`;
-        }
+        const summary = `${entityType}${title ? ' &middot; ' + title : ''} &middot; ${nodes} node(s), ${rels} relationship(s)${chunks}`;
 
         statusEl.innerHTML = `
             <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
@@ -162,31 +150,68 @@ async function ingestFile() {
     }
 }
 
-async function ingestDirectory() {
+// Content-vault sync (ADR-070 Decision 9) — the single directory-ingest path.
+// Replaces the retired arbitrary-path /api/ingest/directory door; the reconciler
+// ingests the fixed content vault (INGESTION_PATH), inbound-only.
+async function syncContentVault() {
     if (_ingesting) return;
     const btn = event.currentTarget;
-    const directory = document.getElementById('directory').value;
-    const pattern = document.getElementById('pattern').value || '*';
-    if (!directory) { showResult({error: 'Directory path is required'}, true); return; }
     showLoading(btn);
     try {
-        const resp = await fetch('/api/ingest/directory', {
+        const headers = {'Content-Type': 'application/json'};
+        const csrfMatch = document.cookie.match(/(?:^|; )csrf_token=([^;]+)/);
+        if (csrfMatch) headers['X-CSRF-Token'] = decodeURIComponent(csrfMatch[1]);
+        const resp = await fetch('/api/vault/sync/content', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({directory: directory, pattern: pattern})
+            headers: headers,
+            body: JSON.stringify({})
         });
         const text = await resp.text();
         try {
             const data = JSON.parse(text);
-            showResult(data, !resp.ok);
+            showSyncResult(data, !resp.ok);
         } catch (_) {
-            showResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
+            showSyncResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
         }
     } catch (e) {
-        showResult({error: e.message}, true);
+        showSyncResult({error: e.message}, true);
     } finally {
         doneLoading(btn);
     }
+}
+
+function showSyncResult(result, isError) {
+    const statusEl = document.getElementById('ingest-status');
+    const detailsCard = document.getElementById('ingest-details-card');
+    const detailsEl = document.getElementById('ingest-results');
+
+    if (isError) {
+        const msg = (result && result.error && result.error.message)
+            || result.message || result.error || 'Content vault sync failed';
+        statusEl.innerHTML = `
+            <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
+                __ICON_X__
+                <span class="font-semibold">${msg}</span>
+            </div>`;
+    } else {
+        const ingested = result.entries_ingested ?? 0;
+        const errors = (result.errors || []).length;
+        let summary = `${ingested} note(s) ingested`;
+        if (errors > 0) summary += ` &middot; ${errors} error(s)`;
+        statusEl.innerHTML = `
+            <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
+                __ICON_CHECK__
+                <div>
+                    <span class="font-semibold">Content vault synced</span>
+                    <span class="text-sm opacity-80 ml-2">${summary}</span>
+                </div>
+            </div>`;
+    }
+    detailsEl.textContent = JSON.stringify(result, null, 2);
+    detailsEl.classList.remove('text-muted-foreground', 'text-success', 'text-error');
+    detailsEl.classList.add(isError ? 'text-error' : 'text-success');
+    detailsCard.classList.remove('hidden');
+    statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function showRegenResult(result, isError) {
@@ -304,19 +329,15 @@ def build_ingestion_dashboard() -> Any:
                 onclick="ingestFile()",
             ),
             _ingestion_card(
-                title="Ingest Directory",
-                description="Ingest all matching files in a directory.",
-                form_groups=[
-                    _form_group(
-                        "Directory Path",
-                        "directory",
-                        "Directory to ingest",
-                        value=vault_path,
-                    ),
-                    _form_group("Pattern (optional)", "pattern", "* for all files", value="*"),
-                ],
-                button_text="Ingest Directory",
-                onclick="ingestDirectory()",
+                title="Sync content vault",
+                description=(
+                    f"Ingest the content vault ({vault_path}) through the reconciler — "
+                    "the single directory-ingest path (ADR-070 Decision 9). "
+                    "Inbound-only, incremental (unchanged files are skipped)."
+                ),
+                form_groups=[],
+                button_text="Sync content vault",
+                onclick="syncContentVault()",
             ),
             _ingestion_card(
                 title="Regenerate Chunks",

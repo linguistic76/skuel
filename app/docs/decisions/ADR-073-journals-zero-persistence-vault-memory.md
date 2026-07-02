@@ -164,7 +164,10 @@ The "stores zero / reads zero" contract is enforceable by tests, not policy alon
   so the doorways aren't dark. For a future hosted / multi-tenant deployment this is a
   trust-boundary default worth revisiting: prefer a **per-user opt-in** over a global default
   before that milestone, since a folder named `personal_notes/` could be assumed private. Raised
-  in review (Kody, PR #477) and deferred, not dismissed.
+  in review (Kody, PR #477) and deferred, not dismissed. **The configuration mechanism for that
+  per-user opt-in is settled in ADR-070 Decision 8: a vault-local marker file — never a global env
+  var or config file (both dominated: unneeded now, wrong shape later; env is also silently
+  shadow-prone).**
 - **Residual (flat `je_out/`, PR 2):** browser-upload outputs are written *flat* to `je_out/`
   with the predictable `{stem}{suffix}` name, and `GET /journals/je-out/{filename}` serves that
   flat folder behind an auth + path-containment guard only. This is deliberate: `je_out/` is the

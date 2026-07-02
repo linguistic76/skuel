@@ -137,12 +137,13 @@ async def test_content_task_owner_uniform_across_surfaces(owner_env) -> None:
     content_root: Path = owner_env["content_root"]
     driver = owner_env["driver"]
 
-    # Surface 1 — dashboard/directory door acting as user_alpha.
+    # Surface 1 — ingest_directory service method acting as user_alpha (the
+    # chokepoint the dashboard/reconciler share).
     _task_file(content_root / "alpha-task.md", "Alpha Task")
     r1 = await service.ingest_directory(content_root, user_uid="user_alpha")
     assert r1.is_ok, r1
 
-    # Surface 2 — directory door acting as user_beta (new file; alpha skipped).
+    # Surface 2 — same method acting as user_beta (new file; alpha skipped).
     _task_file(content_root / "beta-task.md", "Beta Task")
     r2 = await service.ingest_directory(content_root, user_uid="user_beta")
     assert r2.is_ok, r2
