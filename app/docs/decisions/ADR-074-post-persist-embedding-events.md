@@ -94,20 +94,29 @@ the `:Content` node alone would orphan chunks in the vector index), and both doo
 `EMBEDDING_EVENT_TYPES` with a staged note so the first Resource creation path embeds with
 zero extra wiring. This is deliberate staging (PLANNED-tier thinking), not dead code.
 
-### 7. Script-mode freshness gap → `--stale` backfill
+### 7. Script-mode freshness gap → in-process drain, `--stale` backfill as backstop
 
 One-shot syncs (`./dev vault-sync`, the script-mode reconciler) publish to an **in-process**
-bus whose embedding worker only runs in the app process — their events evaporate with the
-script. Entities they touch drift stale until the next app-process sync or a backfill run.
-`scripts/generate_embeddings_batch.py` is their freshness path — both modes: the default
-run embeds brand-new nodes the sync created (no embedding yet, so `--stale` deliberately
-skips them), and `--stale` re-embeds drifted ones (`embedding_updated_at < updated_at` or
-`embedding_version` mismatching the current `EMBEDDING_VERSION`; NULL counts as a
-mismatch). The two stay separate modes so re-embedding — which re-spends API money on
-existing vectors — is always an explicit choice. The predicate coerces `updated_at` through
-`datetime()` because its storage type is writer-decided — ISO strings and native datetimes
-coexist in the live graph, and a bare `<` across types is null in Cypher (silently skips
-nodes).
+bus whose embedding worker timer loop only runs in the app process. Originally their events
+evaporated with the script and the backfill script was the documented freshness path — a
+two-command recipe that was forgotten the same day it shipped (the #490 force-verify left
+110 entities drift-stale). Closed at the root: the worker's subscription step is split out
+(`subscribe()`) and a `drain()` mode processes both queues once, without the timer loop.
+`vault_bridge_sync.py` subscribes the worker before the sync and drains after persistence,
+so a script-mode sync's entity **and chunk** events flow through the same event path as the
+app process. Termination is guaranteed by the worker's bounded retries
+(MAX_GENERATION_ATTEMPTS).
+
+`scripts/generate_embeddings_batch.py` remains the **backstop**, not a required follow-up —
+for pre-existing coverage gaps or drift (e.g. events lost from the in-memory queue on an app
+restart). Both modes: the default run embeds nodes with no embedding yet (so `--stale`
+deliberately skips them), and `--stale` re-embeds drifted ones
+(`embedding_updated_at < updated_at` or `embedding_version` mismatching the current
+`EMBEDDING_VERSION`; NULL counts as a mismatch). The two stay separate modes so re-embedding
+— which re-spends API money on existing vectors — is always an explicit choice. The
+predicate coerces `updated_at` through `datetime()` because its storage type is
+writer-decided — ISO strings and native datetimes coexist in the live graph, and a bare `<`
+across types is null in Cypher (silently skips nodes).
 
 ## Rejected Alternatives
 
@@ -125,8 +134,8 @@ nodes).
 
 - Both ingest doors and all in-app create/update paths converge on one publish chokepoint —
   new embeddable types need exactly one map entry and one `publish_embedding_requested` call.
-- Embedding freshness = event pipeline (app process) + `--stale` backstop (scripts). There is
-  no third path.
+- Embedding freshness = event pipeline (app process **and** script process, via
+  subscribe-then-drain) + `--stale` backstop. There is no third path.
 - CORE tier: zero embedding publishes, zero workers, chunks still persist (Analog).
 - The batch door no longer leaks `content` (or `_file_path`) as entity-node properties.
   Pre-existing nodes carry them until the one-shot cleanups run (see below).
@@ -145,6 +154,11 @@ nodes).
   explicit `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL REMOVE ps.content` sweep — the
   re-sync alone cannot clear it (`n += props` never removes omitted keys); then one
   `--stale` run to re-embed the drifted corpus.
+- **Follow-up (post-arc review, 2026-07-02):** script-mode freshness gap closed at the root —
+  `EmbeddingBackgroundWorker.subscribe()` split from `start()`, new `drain()` one-shot mode,
+  wired into `vault_bridge_sync.py` (subscribe before sync, drain after). Prompted by live
+  evidence: the #490 verify left 110 entities drift-stale because the two-command backfill
+  recipe wasn't run.
 - **Follow-up (arc residue 4):** the re-sync above required manually invalidating
   `IngestionMetadata` rows (`SET s.content_hash='force', s.file_mtime=0.0`) because the vault
   wall upgrades full → smart and unchanged files never re-process through any admin door.

@@ -25,14 +25,14 @@ What it does (VaultReconciler.sync, ADR-070):
 keeping smart-mode semantics — the wall, metadata re-stamping, and deletion
 reconciliation all stay active (force ≠ full).
 
-Embedding freshness (ADR-074): this script publishes embedding events to an
-in-process bus that dies with the process, so entities a script-mode sync touches
-drift stale until the next app-process sync. After a script-mode run — force or
-not — refresh with the backfill script (default mode embeds brand-new nodes,
-``--stale`` re-embeds drifted ones):
-
-    uv run scripts/generate_embeddings_batch.py
-    uv run scripts/generate_embeddings_batch.py --stale
+Embedding freshness (ADR-074): the embedding worker is subscribed BEFORE the
+sync and its queues are drained in-process afterwards, so the sync's embedding
+events (entity + chunk) are processed right here instead of evaporating with
+the script — same event path as the app process, no follow-up commands. In
+CORE tier (or with no API key) there is no worker and ingestion publishes no
+events, so the drain step is skipped. ``scripts/generate_embeddings_batch.py
+[--stale]`` remains the backstop for pre-existing coverage gaps or drift, not
+a required follow-up to this script.
 
 Usage:
     uv run scripts/vault_bridge_sync.py --user <user_uid>          # personal
@@ -71,6 +71,15 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             print("ERROR: vault_reconciler is not wired (check ADR-070 config)", file=sys.stderr)
             return 1
 
+        # Subscribe the embedding worker BEFORE the sync so the ingest's
+        # *EmbeddingRequested / ChunkEmbeddingRequested publishes land in its
+        # queues; drain() after persistence processes them in-process
+        # (ADR-074 script-mode freshness). None = CORE tier / no API key —
+        # ingestion publishes no events, nothing to drain.
+        worker = composed.value.embedding_worker
+        if worker is not None:
+            worker.subscribe()
+
         forced = " [FORCE — re-processing unchanged files]" if force else ""
         print(f"Full VaultBridge sync ({kind.value}) as {user_uid}{forced} ...")
         result = await reconciler.sync(kind, UserUID(user_uid), force=force)
@@ -85,6 +94,14 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         if stats.first_run_notice:
             print("\nNOTE: first_run_notice — the vault owner has not granted")
             print("      vault_write_consent; inbound ingest ran, outbound was skipped.")
+
+        if worker is not None:
+            print("\nDraining embedding events in-process ...")
+            drained = await worker.drain()
+            print(f"  entity embedding requests processed: {drained['entity_requests']}")
+            print(f"  chunk parents processed: {drained['chunk_parents']}")
+        else:
+            print("\n(no embedding worker — CORE tier or embeddings unavailable; skipped drain)")
         return 0
     finally:
         await adapter.close()
@@ -106,8 +123,8 @@ def main() -> None:
         "--force",
         action="store_true",
         help="re-process unchanged files too (re-chunk/migration campaigns); "
-        "deletion reconciliation and the vault wall stay active. Follow with "
-        "scripts/generate_embeddings_batch.py [--stale] for embedding freshness.",
+        "deletion reconciliation and the vault wall stay active. Embeddings "
+        "refresh in-process via the post-sync drain (FULL tier).",
     )
     args = parser.parse_args()
 
