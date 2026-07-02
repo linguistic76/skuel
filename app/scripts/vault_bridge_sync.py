@@ -21,9 +21,23 @@ What it does (VaultReconciler.sync, ADR-070):
   3. Outbound (personal + consented only): inject ``🆔 sk_`` IDs into periodic-note
      tasks that lack them and write ``[x]``/``✅`` for SKUEL-completed ones.
 
+``--force`` re-processes unchanged files too (re-chunk/migration campaigns) while
+keeping smart-mode semantics — the wall, metadata re-stamping, and deletion
+reconciliation all stay active (force ≠ full).
+
+Embedding freshness (ADR-074): this script publishes embedding events to an
+in-process bus that dies with the process, so entities a script-mode sync touches
+drift stale until the next app-process sync. After a script-mode run — force or
+not — refresh with the backfill script (default mode embeds brand-new nodes,
+``--stale`` re-embeds drifted ones):
+
+    uv run scripts/generate_embeddings_batch.py
+    uv run scripts/generate_embeddings_batch.py --stale
+
 Usage:
     uv run scripts/vault_bridge_sync.py --user <user_uid>          # personal
     uv run scripts/vault_bridge_sync.py --vault content            # content
+    uv run scripts/vault_bridge_sync.py --vault content --force    # re-ingest all
 """
 
 from __future__ import annotations
@@ -34,7 +48,7 @@ import sys
 from dataclasses import asdict
 
 
-async def run_sync(vault: str, user_uid: str) -> int:
+async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.models.type_hints import UserUID
@@ -57,8 +71,9 @@ async def run_sync(vault: str, user_uid: str) -> int:
             print("ERROR: vault_reconciler is not wired (check ADR-070 config)", file=sys.stderr)
             return 1
 
-        print(f"Full VaultBridge sync ({kind.value}) as {user_uid} ...")
-        result = await reconciler.sync(kind, UserUID(user_uid))
+        forced = " [FORCE — re-processing unchanged files]" if force else ""
+        print(f"Full VaultBridge sync ({kind.value}) as {user_uid}{forced} ...")
+        result = await reconciler.sync(kind, UserUID(user_uid), force=force)
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1
@@ -87,6 +102,13 @@ def main() -> None:
         "--user",
         help="user_uid to sync as (required for --vault personal; ignored for content)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="re-process unchanged files too (re-chunk/migration campaigns); "
+        "deletion reconciliation and the vault wall stay active. Follow with "
+        "scripts/generate_embeddings_batch.py [--stale] for embedding freshness.",
+    )
     args = parser.parse_args()
 
     if args.vault == "personal" and not args.user:
@@ -95,7 +117,7 @@ def main() -> None:
     # For content, the reconciler uses the fixed content-vault owner; the passed
     # user is ignored, so any placeholder is fine.
     user = args.user or "user_system"
-    sys.exit(asyncio.run(run_sync(args.vault, user)))
+    sys.exit(asyncio.run(run_sync(args.vault, user, force=args.force)))
 
 
 if __name__ == "__main__":

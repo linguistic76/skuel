@@ -744,6 +744,7 @@ class UnifiedIngestionService:
         batch_size: int = 500,
         max_concurrent: int = 20,
         ingestion_mode: Literal["full", "incremental", "smart"] = "full",
+        force: bool = False,
         validate_targets: bool = False,
         progress_callback: ProgressCallback | None = None,
         dry_run: bool = False,
@@ -763,6 +764,14 @@ class UnifiedIngestionService:
                 - "full": Process all files (default, backward compatible)
                 - "incremental": Skip files with unchanged content hash
                 - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
+            force: Re-process every surviving file regardless of the
+                IngestionMetadata hash/mtime match. Force ≠ full: a force run
+                keeps tracked-mode semantics — the fail-closed allowlist,
+                metadata re-stamping, and deletion reconciliation all stay
+                active — so it is the sanctioned re-chunk/migration path
+                (the ADR-074 PathStep migration previously required manual
+                tracker-row invalidation). A "full"-mode request with force is
+                coerced to "smart".
             validate_targets: If True, validate relationship targets exist before ingestion
             progress_callback: Optional callback for progress reporting (current, total, current_file)
             dry_run: If True, validates and previews changes without writing to Neo4j
@@ -823,8 +832,13 @@ class UnifiedIngestionService:
         effective_allowlist = self._resolve_allowlist(directory, allowlist)
 
         effective_mode = ingestion_mode
+        if force and ingestion_mode == "full":
+            # Force means "re-process unchanged files", which only has meaning
+            # under tracked ingestion — coerce to smart so the tracker, the
+            # wall, and deletion reconciliation all stay active (force ≠ full).
+            effective_mode = "smart"
         if (
-            ingestion_mode == "full"
+            effective_mode == "full"
             and self.ingestion_backend is not None
             and effective_allowlist is not None
             and effective_allowlist.governs(directory)
@@ -850,6 +864,7 @@ class UnifiedIngestionService:
             default_user_uid=effective_user_uid,
             max_file_size_bytes=self.max_file_size_bytes,
             ingestion_mode=effective_mode,
+            force=force,
             validate_targets=validate_targets,
             progress_callback=progress_callback,
             dry_run=dry_run,

@@ -100,6 +100,12 @@ flowchart TD
 | **Smart** | Fastest | Frequent ingestion, optimization | `IncrementalStats` | Yes (changed only) |
 | **Dry-Run** | Fast | Preview before execution | `DryRunPreview` | No |
 
+**`force=True` (orthogonal flag on incremental/smart, force ≠ full):** skips the
+hash/mtime check above — every surviving file takes the "Process File" path — while
+metadata updates and deletion reconciliation still run. The sanctioned
+re-chunk/migration path; a `full`+`force` request is coerced to `smart`.
+See `docs/patterns/UNIFIED_INGESTION_GUIDE.md § Ingestion Modes`.
+
 ---
 
 ## 3. WebSocket Real-Time Progress Architecture

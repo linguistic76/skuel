@@ -58,12 +58,12 @@ def _user_service(is_admin: bool) -> MagicMock:
     return svc
 
 
-def _request():
+def _request(body: bytes = b""):
     request = SimpleNamespace()
     request.session = {"user_uid": "user_admin"}
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/vault/sync/content")
-    request.json = AsyncMock(return_value={})
+    request.body = AsyncMock(return_value=body)
     return request
 
 
@@ -90,10 +90,44 @@ class TestVaultSyncContentRoute:
 
         assert response.status_code == 200
         # Scoped to CONTENT; sync ignores the acting user for the content vault,
-        # but the handler forwards current_user.uid all the same.
-        reconciler.sync.assert_awaited_once_with(VaultKind.CONTENT, "user_admin")
+        # but the handler forwards current_user.uid all the same. An empty body
+        # defaults to a normal (non-force) sync.
+        reconciler.sync.assert_awaited_once_with(VaultKind.CONTENT, "user_admin", force=False)
         body = json.loads(response.body)
         assert body["entries_ingested"] == 3
+
+    @pytest.mark.asyncio
+    async def test_force_body_flag_threads_to_reconciler(self) -> None:
+        registry, reconciler = _routes(is_admin=True)
+        reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(entries_ingested=5)))
+
+        handler = registry.get("/api/vault/sync/content", "POST")
+        response = await handler(_request(body=b'{"force": true}'))
+
+        assert response.status_code == 200
+        reconciler.sync.assert_awaited_once_with(VaultKind.CONTENT, "user_admin", force=True)
+
+    @pytest.mark.asyncio
+    async def test_malformed_body_is_rejected_before_reconciler(self) -> None:
+        registry, reconciler = _routes(is_admin=True)
+        reconciler.sync = AsyncMock()
+
+        handler = registry.get("/api/vault/sync/content", "POST")
+        response = await handler(_request(body=b"{not json"))
+
+        assert response.status_code == 400
+        reconciler.sync.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_invalid_force_value_is_rejected_before_reconciler(self) -> None:
+        registry, reconciler = _routes(is_admin=True)
+        reconciler.sync = AsyncMock()
+
+        handler = registry.get("/api/vault/sync/content", "POST")
+        response = await handler(_request(body=b'{"force": "yes please"}'))
+
+        assert response.status_code == 400
+        reconciler.sync.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_non_admin_is_denied_before_reconciler(self) -> None:
