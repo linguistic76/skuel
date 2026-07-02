@@ -233,45 +233,49 @@ async def generate_chunk_embeddings(
         predicate = "c.embedding IS NULL"
         params = {}
 
+    # Paged LIMIT-only loop, never SKIP: a successfully embedded chunk leaves
+    # the predicate (embedding set / version current), so re-querying page one
+    # always yields the next unprocessed rows — SKIP against a shrinking match
+    # set would leap over candidates. Only one page of context windows is in
+    # memory at a time. Textless chunks are excluded in Cypher, not Python:
+    # they can never leave the predicate and would loop forever.
     query = f"""
     MATCH (c:{CHUNK_LABEL})
     WHERE {predicate}
+      AND c.context_window IS NOT NULL AND c.context_window <> ''
     RETURN c.uid as uid, c.context_window as text
+    LIMIT $limit
     """
-    result = await driver.execute_query(query, params)
-    records = result.records
-
-    candidates = [(r["uid"], r["text"]) for r in records if r["text"]]
-    skipped = len(records) - len(candidates)
-    total = len(candidates)
-
-    if not total:
-        logger.info("No chunks need embeddings")
-        return {"label": CHUNK_LABEL, "total": 0, "processed": 0, "successful": 0, "failed": 0}
-
-    noun = "stale chunk embeddings" if stale else "chunks without embeddings"
-    logger.info(f"Found {total} {noun}" + (f" ({skipped} skipped: no text)" if skipped else ""))
 
     batches_processed = 0
     successful = 0
     failed = 0
+    total = 0
 
-    for i in range(0, total, batch_size):
+    while True:
         if max_batches and batches_processed >= max_batches:
             logger.info(f"Reached max_batches limit ({max_batches}), stopping")
             break
 
-        batch = candidates[i : i + batch_size]
-        logger.info(f"Processing chunk batch {batches_processed + 1}: {len(batch)} chunks")
+        result = await driver.execute_query(query, {**params, "limit": batch_size})
+        records = result.records
+        if not records:
+            break
+
+        batch = [(r["uid"], r["text"]) for r in records]
+        total += len(batch)
+        batches_processed += 1
+        logger.info(f"Processing chunk batch {batches_processed}: {len(batch)} chunks")
 
         embeddings_result = await embeddings_service.create_batch_embeddings(
             [text for _, text in batch]
         )
         if embeddings_result.is_error:
-            logger.error(f"Chunk batch failed: {embeddings_result.expect_error()}")
+            # Failed rows stay in the predicate — bail out instead of
+            # re-fetching the same page forever.
+            logger.error(f"Chunk batch failed, stopping: {embeddings_result.expect_error()}")
             failed += len(batch)
-            batches_processed += 1
-            continue
+            break
 
         stored = await content_adapter.store_chunk_embeddings(
             chunk_uids=[uid for uid, _ in batch],
@@ -282,9 +286,13 @@ async def generate_chunk_embeddings(
         if stored:
             successful += len(batch)
         else:
-            logger.error(f"Failed to store chunk batch {batches_processed + 1}")
+            # Same self-shrink guard: unstored rows would re-match immediately.
+            logger.error(f"Failed to store chunk batch {batches_processed}, stopping")
             failed += len(batch)
-        batches_processed += 1
+            break
+
+    if not total:
+        logger.info("No chunks need embeddings")
 
     logger.info(
         f"Batch chunk embedding complete: {batches_processed} batches, "
