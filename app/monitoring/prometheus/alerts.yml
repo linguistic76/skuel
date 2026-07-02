@@ -153,7 +153,7 @@ groups:
         annotations:
           summary: "Embedding queue has {{ $value }} pending items"
           description: "Background worker may be falling behind or stalled"
-          runbook: "Check embedding worker logs, verify HuggingFace API availability, consider increasing batch size"
+          runbook: "Check embedding worker logs, verify OpenAI API availability, consider increasing batch size"
 
       - alert: HighEmbeddingFailureRate
         expr: |
@@ -168,7 +168,7 @@ groups:
         annotations:
           summary: "Embedding failure rate >20%"
           description: "{{ $value | humanizePercentage }} of embeddings failing to generate"
-          runbook: "Check HuggingFace API status, review error logs, verify text preprocessing"
+          runbook: "Check OpenAI API status, review error logs, verify text preprocessing"
 
       - alert: SlowAICalls
         expr: |

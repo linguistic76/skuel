@@ -244,9 +244,6 @@ class Neo4jContentAdapter:
             True if successful
         """
         try:
-            logger.info(f"store_content_with_chunks called with content type: {type(content)}")
-            logger.info(f"Content attributes: {dir(content) if content else 'None'}")
-
             # Start transaction for atomic storage
             query = """
             // Match the knowledge unit
@@ -299,16 +296,7 @@ class Neo4jContentAdapter:
                 return False
 
             # Store chunks if available
-            # Check for chunks using getattr
             chunks = getattr(content, "chunks", None)
-            logger.info(f"Checking for chunks: has chunks = {chunks is not None}")
-            if chunks:
-                logger.info(f"Number of chunks: {len(content.chunks) if content.chunks else 0}")
-                logger.info(f"Chunks type: {type(content.chunks)}")
-                if content.chunks and len(content.chunks) > 0:
-                    logger.info(f"First chunk type: {type(content.chunks[0])}")
-                    logger.info(f"First chunk attributes: {dir(content.chunks[0])}")
-
             if chunks:
                 # Idempotency: drop only the chunks that no longer exist in the
                 # new chunk set (uids are deterministic — parent_uid + index).
@@ -394,7 +382,7 @@ class Neo4jContentAdapter:
                         logger.error(f"Failed to create chunk {i} - query returned None")
                         logger.error(f"Chunk params: {chunk_params}")
                     else:
-                        logger.info(
+                        logger.debug(
                             f"Created chunk {i} ({chunk_params['chunk_type']}): {chunk_params['chunk_uid']}"
                         )
 
@@ -408,7 +396,7 @@ class Neo4jContentAdapter:
 
                 logger.info(f"Stored {len(content.chunks)} chunks for {uid}")
 
-            logger.info(f"Successfully stored content with chunks for {uid}")
+            logger.debug(f"Successfully stored content with chunks for {uid}")
             return True
 
         except NEO4J_EXCEPTIONS as e:
