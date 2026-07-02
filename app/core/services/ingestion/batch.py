@@ -50,7 +50,14 @@ from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
-from .types import BundleStats, DryRunPreview, IncrementalStats, IngestionError, IngestionStats
+from .types import (
+    BundleStats,
+    DryRunPreview,
+    IncrementalStats,
+    IngestionError,
+    IngestionStats,
+    PathStepChunkSource,
+)
 from .validator import (
     validate_edge_data,
     validate_entity_data,
@@ -491,7 +498,10 @@ async def ingest_directory(
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
     allowlist: SyncAllowlist | None = None,
     owner_is_authoritative: bool = False,
-    post_persist_fn: Callable[[EntityType | NonKuDomain, list[dict[str, Any]]], Awaitable[None]]
+    post_persist_fn: Callable[
+        [EntityType | NonKuDomain, list[dict[str, Any]], dict[str, PathStepChunkSource]],
+        Awaitable[None],
+    ]
     | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
@@ -531,10 +541,13 @@ async def ingest_directory(
             also sit under an allowed dir; files outside the root are unaffected.
             Applied in ``collect_files`` so every caller inherits the same wall.
         post_persist_fn: Optional per-type-batch callback invoked AFTER a
-            successful bulk upsert with the persisted entity dicts — the batch
-            door's half of the shared post-persist embedding step (ADR-074:
-            ``UnifiedIngestionService._publish_embedding_requests``). Never
-            called for failed batches or in dry-run mode.
+            successful bulk upsert with the persisted entity dicts plus the
+            PATH_STEP content the engine popped pre-upsert (keyed by uid;
+            empty for every other type) — the batch door's half of the shared
+            post-persist step (ADR-074:
+            ``UnifiedIngestionService._ingest_post_persist``, embedding
+            publishes + PathStep chunking). Never called for failed batches
+            or in dry-run mode.
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -924,8 +937,22 @@ async def ingest_directory(
         # Strip the engine's private bookkeeping key before persistence — the
         # bulk backend stores every remaining key as a node property, so leaving
         # _file_path on would (and historically did) leak it into the graph.
+        # PATH_STEP content is popped for the same reason: it lives on the
+        # :Content node (chunked, post-upsert), never the :Entity node — the
+        # same shape ingest_file produces. The popped body is threaded to
+        # post_persist_fn keyed by uid so the shared chunk step can run.
+        chunk_sources: dict[str, PathStepChunkSource] = {}
         for entity in entities:
-            entity.pop("_file_path", None)
+            source_path = entity.pop("_file_path", None)
+            if entity_type == EntityType.PATH_STEP:
+                content_body = entity.pop("content", "")
+                if content_body:
+                    entity["word_count"] = len(content_body.split())
+                    chunk_sources[entity["uid"]] = PathStepChunkSource(
+                        content=content_body,
+                        file_format=detect_format(Path(source_path)) if source_path else "markdown",
+                        source_path=source_path or "",
+                    )
 
         rel_config = config.relationship_config or {}
         result = await bulk_backend.upsert_with_relationships(
@@ -943,7 +970,7 @@ async def ingest_directory(
             total_relationships_created += stats.relationships_created
             logger.info(f"Ingested {len(entities)} {entity_type.value} entities")
             if post_persist_fn is not None:
-                await post_persist_fn(entity_type, entities)
+                await post_persist_fn(entity_type, entities, chunk_sources)
         else:
             batch_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",

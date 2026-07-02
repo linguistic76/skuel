@@ -72,6 +72,7 @@ from .types import (
     DryRunPreview,
     IncrementalStats,
     IngestionStats,
+    PathStepChunkSource,
     ValidationResult,
 )
 from .user_entry_ingestion import ingest_user_entry
@@ -423,6 +424,99 @@ class UnifiedIngestionService:
         for entity_data in entities:
             await publish_embedding_requested(self.event_bus, entity_type, entity_data, self.logger)
 
+    async def _chunk_path_step_content(
+        self,
+        uid: str,
+        content_body: str,
+        file_format: str,
+        source_path: str,
+    ) -> bool:
+        """
+        The shared PathStep chunk step — both ingest doors.
+
+        Chunk the popped content body, persist it as :Content + :ContentChunk
+        nodes, and publish ``ChunkEmbeddingRequested`` for the background
+        worker. Body-content semantics live in CHUNK embeddings; the entity
+        vector covers frontmatter fields only (ADR-074).
+
+        Failures never fail ingestion — chunks can be regenerated later.
+        Chunking and persistence run in CORE too (Analog behavior); only the
+        embedding publish is tier-gated (``event_bus`` None → no publish).
+
+        Returns whether chunks were generated (persisted when the content
+        adapter is wired; in-memory only otherwise).
+        """
+        if not self.chunking or not content_body:
+            return False
+
+        chunk_result = await self.chunking.process_content_for_ingestion(
+            parent_uid=uid,
+            content_body=content_body,
+            format=file_format,
+            source_path=source_path,
+        )
+
+        if chunk_result.is_error:
+            # Log warning but don't fail ingestion - chunks can be regenerated later
+            self.logger.warning(
+                f"Failed to generate chunks for {uid}: {chunk_result.expect_error().message}"
+            )
+            return False
+
+        content, _metadata = chunk_result.value
+        self.logger.info(
+            f"Generated {content.chunk_count} chunks for {uid} ({content.word_count} words)"
+        )
+
+        if not self.content_adapter:
+            # Chunks generated in-memory but not persisted — flag for the caller.
+            return True
+
+        # Persist chunks to Neo4j so retrieval can target them
+        stored = await self.content_adapter.store_content_with_chunks(uid, content)
+        if not stored:
+            self.logger.warning(f"Chunk persistence failed for {uid}")
+            return False
+
+        # Request async embedding generation for the persisted chunks
+        if self.event_bus and content.chunks:
+            from datetime import datetime
+
+            from core.events import ChunkEmbeddingRequested, publish_event
+
+            await publish_event(
+                self.event_bus,
+                ChunkEmbeddingRequested(
+                    parent_uid=uid,
+                    chunk_uids=tuple(c.chunk_id for c in content.chunks),
+                    chunk_texts=tuple(c.context_window for c in content.chunks),
+                    requested_at=datetime.now(),
+                ),
+                self.logger,
+            )
+        return True
+
+    async def _ingest_post_persist(
+        self,
+        entity_type: EntityType | NonKuDomain,
+        entities: list[dict[str, Any]],
+        chunk_sources: dict[str, PathStepChunkSource],
+    ) -> None:
+        """
+        Batch-door post-persist step: embedding publishes + PathStep chunking.
+
+        Passed to ``batch.ingest_directory`` as ``post_persist_fn``, invoked
+        per successful per-type upsert. Mirrors ``ingest_file``'s post-persist
+        sequence: entity ``*EmbeddingRequested`` publishes first, then the
+        shared chunk step for each PathStep whose content the engine popped
+        pre-upsert (``chunk_sources`` is empty for every other type).
+        """
+        await self._publish_embedding_requests(entity_type, entities)
+        for uid, source in chunk_sources.items():
+            await self._chunk_path_step_content(
+                uid, source.content, source.file_format, source.source_path
+            )
+
     # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
@@ -604,62 +698,14 @@ class UnifiedIngestionService:
         # ingest, in-app update, and backfill triggers.
         await self._publish_embedding_requests(entity_type, [entity_data])
 
-        # Automatic chunking for PathStep entities
-        # Generate chunks immediately after successful PathStep ingestion for RAG-readiness
+        # Chunk the popped PathStep content — the same shared step the batch
+        # door runs (chunk → :Content/:ContentChunk persist → chunk-embedding
+        # publish), so both doors produce the same content shape.
         chunks_generated = False
-        if entity_type == EntityType.PATH_STEP and self.chunking:
-            content_body = ku_content_body  # Already popped above
-            if content_body:
-                chunk_result = await self.chunking.process_content_for_ingestion(
-                    parent_uid=entity_data["uid"],
-                    content_body=content_body,
-                    format=file_format,
-                    source_path=str(file_path),
-                )
-
-                if chunk_result.is_error:
-                    # Log warning but don't fail ingestion - chunks can be regenerated later
-                    self.logger.warning(
-                        f"Failed to generate chunks for {entity_data['uid']}: "
-                        f"{chunk_result.expect_error().message}"
-                    )
-                else:
-                    content, _metadata = chunk_result.value
-                    self.logger.info(
-                        f"Generated {content.chunk_count} chunks for {entity_data['uid']} "
-                        f"({content.word_count} words)"
-                    )
-
-                    # Persist chunks to Neo4j so retrieval can target them
-                    if self.content_adapter:
-                        stored = await self.content_adapter.store_content_with_chunks(
-                            entity_data["uid"], content
-                        )
-                        if not stored:
-                            self.logger.warning(
-                                f"Chunk persistence failed for {entity_data['uid']}"
-                            )
-                        chunks_generated = stored
-
-                        # Request async embedding generation for the persisted chunks
-                        if stored and self.event_bus and content.chunks:
-                            from datetime import datetime
-
-                            from core.events import ChunkEmbeddingRequested, publish_event
-
-                            await publish_event(
-                                self.event_bus,
-                                ChunkEmbeddingRequested(
-                                    parent_uid=entity_data["uid"],
-                                    chunk_uids=tuple(c.chunk_id for c in content.chunks),
-                                    chunk_texts=tuple(c.context_window for c in content.chunks),
-                                    requested_at=datetime.now(),
-                                ),
-                                self.logger,
-                            )
-                    else:
-                        # Chunks generated in-memory but not persisted — flag for the caller.
-                        chunks_generated = True
+        if entity_type == EntityType.PATH_STEP:
+            chunks_generated = await self._chunk_path_step_content(
+                entity_data["uid"], ku_content_body, file_format, str(file_path)
+            )
 
         return Result.ok(
             {
@@ -798,7 +844,7 @@ class UnifiedIngestionService:
             ingest_file_fn=_ingest_file_for_batch,
             allowlist=effective_allowlist,
             owner_is_authoritative=self._owner_is_authoritative,
-            post_persist_fn=self._publish_embedding_requests,
+            post_persist_fn=self._ingest_post_persist,
         )
 
     async def ingest_vault(

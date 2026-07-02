@@ -137,6 +137,85 @@ Python is easy to learn and powerful.
 
 
 @pytest.mark.asyncio
+async def test_batch_door_ingest_directory_creates_chunks(neo4j_driver, tmp_path: Path):
+    """The batch door (ingest_directory) must produce the same PathStep content
+    shape as the single-file door: content popped off the :Entity node (word_count
+    in its place), :Content + :ContentChunk persisted, and a single
+    ChunkEmbeddingRequested carrying every persisted chunk id (ADR-074 PR 2)."""
+    from core.events.chunk_events import ChunkEmbeddingRequested
+
+    ps_uid = "ps:test:batch-chunk-unification"
+    body = """# Batch Chunk Unification
+
+PathSteps ingested through the directory door get the same chunk treatment
+as the single-file door.
+
+## Why
+
+Body-content semantics live in CHUNK embeddings; the entity vector covers
+frontmatter fields only.
+
+## Summary
+
+One shared chunk step, two doors.
+"""
+    ps_file = tmp_path / "batch-chunk-unification.md"
+    ps_file.write_text(
+        f"---\ntype: path_step\nuid: {ps_uid}\ntitle: Batch Chunk Unification\n---\n\n{body}"
+    )
+
+    class _CapturingBus:
+        def __init__(self) -> None:
+            self.published: list[Any] = []
+
+        async def publish_async(self, event: Any) -> None:
+            self.published.append(event)
+
+    bus = _CapturingBus()
+    chunking_service = EntityChunkingService()
+    content_adapter = Neo4jContentAdapter(_DriverConnection(neo4j_driver))
+    ingestion_service = make_unified_ingestion_service(
+        driver=neo4j_driver,
+        chunking_service=chunking_service,
+        content_adapter=content_adapter,
+        event_bus=bus,
+    )
+
+    result = await ingestion_service.ingest_directory(tmp_path)
+    assert result.is_ok, (
+        f"Batch ingestion failed: {result.expect_error() if result.is_error else 'unknown'}"
+    )
+
+    normalized_uid = ps_uid.replace(":", ".")
+
+    async with neo4j_driver.session() as session:
+        cypher_result = await session.run(
+            """
+            MATCH (ps:PathStep {uid: $uid})
+            OPTIONAL MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+            RETURN ps.content AS entity_content,
+                   ps.word_count AS word_count,
+                   count(chunk) AS chunk_count,
+                   collect(chunk.uid) AS chunk_uids
+            """,
+            {"uid": normalized_uid},
+        )
+        record = await cypher_result.single()
+
+    assert record is not None, "Batch-ingested PathStep should exist"
+    # content never lands on the :Entity node — same shape as the single-file door
+    assert record["entity_content"] is None, "content must not be a node property"
+    assert record["word_count"] == len(body.split()), "word_count set from popped content"
+    assert record["chunk_count"] > 0, "Expected persisted :ContentChunk nodes"
+
+    # one ChunkEmbeddingRequested carrying every persisted chunk id
+    chunk_events = [e for e in bus.published if isinstance(e, ChunkEmbeddingRequested)]
+    assert len(chunk_events) == 1, f"Expected 1 chunk event, got {len(chunk_events)}"
+    assert chunk_events[0].parent_uid == normalized_uid
+    assert set(chunk_events[0].chunk_uids) == set(record["chunk_uids"])
+
+
+@pytest.mark.asyncio
 async def test_chunking_failure_does_not_fail_ingestion(neo4j_driver):
     """Test that chunking failure doesn't prevent successful ingestion"""
     # Given: A KU file
