@@ -396,6 +396,8 @@ class IngestionOperations(Protocol):
         """Ingest an Obsidian vault or specific subdirectories."""
         ...
 
-    async def ingest_bundle(self, bundle_path: Path) -> "Result[BundleStats]":
+    async def ingest_bundle(
+        self, bundle_path: Path, *, user_uid: "UserUID | None" = None
+    ) -> "Result[BundleStats]":
         """Ingest a domain bundle using manifest file."""
         ...

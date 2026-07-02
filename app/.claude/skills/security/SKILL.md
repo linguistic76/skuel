@@ -17,7 +17,7 @@ SKUEL has a strong security foundation built into the architecture:
 | **Error stripping** | `@boundary_handler` strips internal details from HTTP responses | Active |
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
 | **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
-| **Path traversal** | `VaultConfig.validate_paths`, `restrict_access`, allowed subdirs/extensions | Active |
+| **Path traversal** | `_validate_ingestion_path` (traversal guard on every ingest route) + `is_relative_to()` containment checks in the vault descriptor/reconciler; see the two rows below for the ingestion allowlist and sync wall | Active |
 | **Ingestion path allowlist** | Default-deny: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed (admin role gates ownership, not filesystem reach) | Active |
 | **Vault sync privacy wall** | One predicate (`is_ingestible_path`) at every ingestion door (`collect_files`, `ingest_file`, `reconcile_deletions`; reconciler + `/api/ingest/*` inherit): rejects **symlinks** (target may be external); applies a **`je_*` staging floor** scoped to the personal vault; enforces a **fail-closed allowlist** (`SyncAllowlist`, code-defined `_DEFAULT_SYNC_SUBDIRS` — `periodic_notes/`/`personal_notes/`/`activity_notes/`/`knowledge/`; **not** env-configurable — `SKUEL_VAULT_SYNC_ALLOWED_DIRS` was removed as it let a stale exported var shadow `.env`; dirs must be strictly under the root). Retroactive: narrowing the wall purges now-walled rows via reconciliation (full→smart auto-upgrade when governed). Content vault (outside the root) unaffected | Active (default-on) |
 | **Login rate limiting** | **Two-axis:** per-account (5 fails/15min, by email) + per-IP (20 fails/15min, by `AuthEvent.ip_address`); IP check ordered **before** email lookup to block enumeration | Active |
@@ -152,11 +152,15 @@ Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
 
 ### Path Traversal Protection
 
-`VaultConfig` restricts file access to:
-- Explicitly allowed subdirectories (`allowed_subdirs`)
-- Explicitly allowed file extensions (`.md`, `.yaml`, `.yml`, `.json`, `.csv`)
-- Path validation enabled by default (`validate_paths=True`, `restrict_access=True`)
-- Ingestion data directory configured via `INGESTION_PATH` env var (default: `data/vault` relative to CWD)
+File access is constrained by two live mechanisms (the old advisory
+`VaultConfig.validate_paths`/`restrict_access`/`allowed_subdirs`/`allowed_extensions`
+fields were removed — they had no readers):
+- **Ingestion routes** — `_validate_ingestion_path` resolves the request path and
+  rejects anything not contained under a configured root (see the allowlist section
+  below). The vault root itself is `INGESTION_PATH` (default: `data/vault`).
+- **Vault descriptor / reconciler** — `is_relative_to()` containment checks resolve
+  both sides so `..` segments cannot escape a vault root, backing the fail-closed
+  `SyncAllowlist` (see the sync privacy wall section below).
 
 ### Ingestion Endpoint Allowlist (default-deny)
 

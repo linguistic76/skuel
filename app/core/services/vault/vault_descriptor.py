@@ -15,6 +15,18 @@ registry stamps the acting user onto the personal descriptor at resolve time so
 the model is per-user from day one (ADR-070 Decision 5) even though Stage 1 only
 serves one local user.
 
+**The "acts-as" ownership model (canonical explanation — ADR-070).**
+The content vault account (``content_owner_uid``) is the account the content vault
+*acts as* — it is **not** a fictional owner stamped on curriculum. Curriculum
+(Ku/PathStep/LP/Exercise) is SHARED-by-type and drops its owner at persist, so
+access rights are ``f(EntityType)`` computed at read time, never materialized on
+the node. The acts-as account only matters for a USER_OWNED *stray* that appears
+in the content vault, and it holds the content vault's outbound consent flag.
+:meth:`VaultRegistry.resolve_by_path` is the mechanism: it attributes one owner
+per vault by *path*, so the same file yields the same owner via any ingest
+surface (dashboard, reconciler, watcher, bare script). Anything else that needs
+to explain this ownership model should point here rather than restate it.
+
 See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 """
 

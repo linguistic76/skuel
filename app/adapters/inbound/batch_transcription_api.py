@@ -21,6 +21,7 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from core.config import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -30,9 +31,18 @@ logger = get_logger("skuel.routes.batch_transcription.api")
 DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
-# User-facing folder-transcribe defaults (Mike's Obsidian vault transcription dirs)
-USER_DEFAULT_INPUT_DIR = "/home/mike/0bsidian/skuel/je_in"
-USER_DEFAULT_OUTPUT_DIR = "/home/mike/0bsidian/skuel/je_out"
+
+# User-facing folder-transcribe dirs. These are the je_in/je_out staging folders
+# under the *personal* vault (VaultConfig.vault_root — the single source of truth
+# for the vault root), matching the journals routes' _je_in()/_je_out() so the
+# transcribe surface writes where the download/folder-process surface reads.
+# Resolved lazily (get_settings() is cached) to avoid an import-time config dep.
+def _user_je_in() -> Path:
+    return get_settings().vault.vault_path / "je_in"
+
+
+def _user_je_out() -> Path:
+    return get_settings().vault.vault_path / "je_out"
 
 
 def create_batch_transcription_api_routes(
@@ -129,9 +139,9 @@ def create_batch_transcription_api_routes(
         """
         User: batch transcribe audio files to text from the vault transcription dirs.
 
-        Paths are fixed server-side (USER_DEFAULT_INPUT_DIR / USER_DEFAULT_OUTPUT_DIR).
-        Client-supplied paths are ignored — accepting them would let any authenticated
-        user read from and write to arbitrary server directories.
+        Paths are fixed server-side (the vault je_in/je_out dirs via _user_je_in() /
+        _user_je_out()). Client-supplied paths are ignored — accepting them would let any
+        authenticated user read from and write to arbitrary server directories.
 
         POST body (JSON):
             skip_existing: bool — skip already-transcribed files (default: true)
@@ -146,8 +156,8 @@ def create_batch_transcription_api_routes(
         # Paths are fixed server-side — never sourced from the request body.
         # Accepting client-supplied paths would let any authenticated user
         # read from and write to arbitrary server directories (Codex P1).
-        input_dir = Path(USER_DEFAULT_INPUT_DIR)
-        output_dir = Path(USER_DEFAULT_OUTPUT_DIR)
+        input_dir = _user_je_in()
+        output_dir = _user_je_out()
         skip_existing = body.get("skip_existing", True)
         preview_only = body.get("preview_only", False)
 

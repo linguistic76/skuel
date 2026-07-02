@@ -61,12 +61,9 @@ from .config import (
     is_ingestible_path,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
-from .parser import check_file_size, parse_markdown, parse_yaml
+from .parser import parse_markdown, parse_yaml
 from .preparer import (
-    generate_uid,
-    normalize_uid,
     prepare_edge_data,
-    prepare_entity_data,
     prepare_entity_data_async,
 )
 from .types import (
@@ -264,66 +261,6 @@ class UnifiedIngestionService:
             raise ValueError(f"Unknown entity type: {entity_type}")
         await self._bulk_backend.ensure_constraints(config.entity_label)
         self._constraints_ensured.add(entity_type)
-
-    # ========================================================================
-    # DELEGATED METHODS (for backward compatibility)
-    # ========================================================================
-
-    def normalize_uid(self, uid: str) -> str:
-        """Normalize UID to dot notation. Delegates to preparer module."""
-        return normalize_uid(uid)
-
-    def generate_uid(self, entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
-        """Generate UID from entity type and file path. Delegates to preparer module."""
-        return generate_uid(entity_type, file_path)
-
-    def detect_format(self, file_path: Path) -> str:
-        """Detect file format from extension. Delegates to detector module."""
-        return detect_format(file_path)
-
-    def detect_entity_type(self, data: dict[str, Any], file_path: Path) -> EntityType | NonKuDomain:
-        """Detect entity type from file content. Delegates to detector module."""
-        return detect_entity_type(data, file_path)
-
-    def parse_markdown(self, file_path: Path) -> Result[tuple[dict[str, Any], str]]:
-        """Parse markdown file. Delegates to parser module."""
-        return parse_markdown(file_path, self.max_file_size_bytes)
-
-    def validate_required_fields(
-        self,
-        entity_type: EntityType | NonKuDomain,
-        data: dict[str, Any],
-        file_path: Path,
-    ) -> Result[None]:
-        """Validate required fields before preparation. Delegates to validator module."""
-        return validate_required_fields(entity_type, data, file_path)
-
-    def validate_entity_data(
-        self,
-        entity_type: EntityType | NonKuDomain,
-        entity_data: dict[str, Any],
-        file_path: Path,
-    ) -> Result[None]:
-        """Validate entity data after preparation. Delegates to validator module."""
-        return validate_entity_data(entity_type, entity_data, file_path)
-
-    def prepare_entity_data(
-        self,
-        entity_type: EntityType | NonKuDomain,
-        data: dict[str, Any],
-        body: str | None,
-        file_path: Path,
-    ) -> dict[str, Any]:
-        """Prepare entity data for ingestion. Delegates to preparer module."""
-        return prepare_entity_data(entity_type, data, body, file_path, self.default_user_uid)
-
-    def parse_yaml(self, file_path: Path) -> Result[dict[str, Any]]:
-        """Parse YAML file. Delegates to parser module."""
-        return parse_yaml(file_path, self.max_file_size_bytes)
-
-    def check_file_size(self, file_path: Path) -> Result[None]:
-        """Check if file size is within limits. Delegates to parser module."""
-        return check_file_size(file_path, self.max_file_size_bytes)
 
     # ========================================================================
     # EDGE INGESTION
@@ -842,20 +779,33 @@ class UnifiedIngestionService:
             user_uid=user_uid or self.default_user_uid,
         )
 
-    async def ingest_bundle(self, bundle_path: Path) -> Result[BundleStats]:
+    async def ingest_bundle(
+        self, bundle_path: Path, *, user_uid: UserUID | None = None
+    ) -> Result[BundleStats]:
         """
         Ingest a domain bundle using manifest file.
 
         Delegates to batch.ingest_bundle.
+
+        ``user_uid`` is an acting-user hint threaded to each file's ``ingest_file``
+        (symmetry with the other ingest doors — ADR-070). The real owner of any
+        USER_OWNED entity is still resolved from the vault descriptor for its path;
+        the hint only governs the fallback when no vault registry is wired.
         """
 
         def _find_entity_file_with_size(bp: Path, uid: str) -> Path | None:
             return find_entity_file(bp, uid, self.max_file_size_bytes)
 
+        def _parse_yaml(file_path: Path) -> Result[dict[str, Any]]:
+            return parse_yaml(file_path, self.max_file_size_bytes)
+
+        async def _ingest_file(file_path: Path) -> Result[dict[str, Any]]:
+            return await self.ingest_file(file_path, user_uid=user_uid)
+
         return await ingest_bundle(
             bundle_path=bundle_path,
-            parse_yaml_fn=self.parse_yaml,
-            ingest_file_fn=self.ingest_file,
+            parse_yaml_fn=_parse_yaml,
+            ingest_file_fn=_ingest_file,
             find_entity_file_fn=_find_entity_file_with_size,
         )
 
