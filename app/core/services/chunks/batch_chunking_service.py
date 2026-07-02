@@ -214,7 +214,6 @@ class BatchChunkingService:
                 chunk_uids=tuple(c.chunk_id for c in chunks),
                 chunk_texts=tuple(c.context_window for c in chunks),
                 requested_at=datetime.now(),
-                user_uid=None,  # Admin-initiated batch — no user attribution
             ),
             logger,
         )

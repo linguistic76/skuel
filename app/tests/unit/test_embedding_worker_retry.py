@@ -34,7 +34,6 @@ def _event(i: int, text: str | None = None) -> TaskEmbeddingRequested:
         entity_uid=f"task.test{i}",
         entity_type="task",
         embedding_text=text if text is not None else f"text {i}",
-        user_uid="user_test",
         requested_at=datetime.now(),
     )
 
