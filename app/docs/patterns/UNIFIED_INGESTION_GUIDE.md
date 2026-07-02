@@ -368,8 +368,9 @@ active. This is the sanctioned re-chunk/migration path (the ADR-074 PathStep
 migration previously required manual `IngestionMetadata` tracker-row invalidation).
 A `"full"`-mode request with `force` is coerced to `"smart"`; full mode itself skips
 reconciliation and would leak the vault wall. Surfaces: `POST /api/vault/sync/content`
-body `{"force": true}` and `./dev vault-sync --force`. After a script-mode force run,
-refresh embeddings with `scripts/generate_embeddings_batch.py [--stale]` (ADR-074 §7).
+body `{"force": true}` and `./dev vault-sync --force`. Script-mode runs refresh
+embeddings in-process (worker subscribe-then-drain, ADR-074 §7);
+`scripts/generate_embeddings_batch.py [--stale]` is the backstop for pre-existing drift.
 
 ### Incremental Ingestion
 
@@ -858,8 +859,8 @@ Decision 9). Sync when you decide to:
 ./dev vault-sync --user <user_uid>
 
 # Force re-ingest: re-process unchanged files too (re-chunk/migration campaigns);
-# the wall and deletion reconciliation stay active. Follow with
-# scripts/generate_embeddings_batch.py [--stale] for embedding freshness.
+# the wall and deletion reconciliation stay active. Embeddings refresh in-process
+# via the post-sync worker drain (ADR-074 §7).
 ./dev vault-sync --vault content --force
 ```
 
