@@ -21,7 +21,11 @@ Usage:
 STALENESS (ADR-074): one-shot syncs (`./dev vault-sync`, script-mode
 reconciler) publish embedding events to an in-process bus whose worker only
 runs in the app process, so entities they touch drift stale until the next
-app-process sync or a --stale run. --stale is THE backfill path for that gap.
+app-process sync or a --stale run. The full freshness recipe after script
+syncs is BOTH modes: a default run (embeds brand-new nodes the sync created —
+they have no embedding yet, so --stale deliberately skips them) plus a
+--stale run (re-embeds drifted ones). Kept as two modes so re-embedding —
+which re-spends API money on existing vectors — is always an explicit choice.
 
 ARCHITECTURE:
 - Uses EmbeddingsService for embedding generation AND storage, so backfilled
@@ -223,7 +227,9 @@ async def main():
         help=(
             "Re-embed stale nodes (embedding_updated_at < updated_at, or "
             f"embedding_version != current {EMBEDDING_VERSION!r}) instead of "
-            "filling missing embeddings"
+            "filling missing embeddings. Complements the default mode — run "
+            "both after a script-mode sync (default = new nodes, --stale = "
+            "drifted ones)"
         ),
     )
 

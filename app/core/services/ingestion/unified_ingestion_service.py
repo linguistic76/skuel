@@ -668,7 +668,8 @@ class UnifiedIngestionService:
         # previous ingest's count with 0 (ADR-074 clear path).
         ku_content_body = ""
         if entity_type == EntityType.PATH_STEP:
-            ku_content_body = entity_data.pop("content", "")
+            # `or ""` — frontmatter `content:` with no value parses to None
+            ku_content_body = entity_data.pop("content", "") or ""
             entity_data["word_count"] = len(ku_content_body.split())
 
         # Ensure constraints once per entity type, not per file.

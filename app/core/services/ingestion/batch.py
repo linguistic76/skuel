@@ -945,7 +945,8 @@ async def ingest_directory(
         for entity in entities:
             source_path = entity.pop("_file_path", None)
             if entity_type == EntityType.PATH_STEP:
-                content_body = entity.pop("content", "")
+                # `or ""` — frontmatter `content:` with no value parses to None
+                content_body = entity.pop("content", "") or ""
                 # Unconditional on purpose: an emptied body must overwrite the
                 # previous ingest's word_count (`n += props` never removes
                 # omitted keys) and still reach the shared chunk step, whose

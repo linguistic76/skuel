@@ -99,9 +99,12 @@ zero extra wiring. This is deliberate staging (PLANNED-tier thinking), not dead 
 One-shot syncs (`./dev vault-sync`, the script-mode reconciler) publish to an **in-process**
 bus whose embedding worker only runs in the app process — their events evaporate with the
 script. Entities they touch drift stale until the next app-process sync or a backfill run.
-`scripts/generate_embeddings_batch.py --stale` is their freshness path: it re-embeds nodes
-where `embedding_updated_at < updated_at` or `embedding_version` mismatches the current
-`EMBEDDING_VERSION` (NULL counts as a mismatch). The predicate coerces `updated_at` through
+`scripts/generate_embeddings_batch.py` is their freshness path — both modes: the default
+run embeds brand-new nodes the sync created (no embedding yet, so `--stale` deliberately
+skips them), and `--stale` re-embeds drifted ones (`embedding_updated_at < updated_at` or
+`embedding_version` mismatching the current `EMBEDDING_VERSION`; NULL counts as a
+mismatch). The two stay separate modes so re-embedding — which re-spends API money on
+existing vectors — is always an explicit choice. The predicate coerces `updated_at` through
 `datetime()` because its storage type is writer-decided — ISO strings and native datetimes
 coexist in the live graph, and a bare `<` across types is null in Cypher (silently skips
 nodes).

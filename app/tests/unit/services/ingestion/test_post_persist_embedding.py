@@ -517,6 +517,37 @@ async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tm
 
 
 @pytest.mark.asyncio
+async def test_batch_door_null_content_frontmatter_is_treated_as_empty(tmp_path: Path):
+    """YAML `content:` with no value parses to None — must normalize to the
+    empty-body clear path, not crash on None.split() (Kody #489 finding)."""
+    from core.services.ingestion.batch import ingest_directory
+
+    ps_file = tmp_path / "ps-null-content.yaml"
+    ps_file.write_text(
+        "type: path_step\nuid: ps:test:null-content\ntitle: Null Content\ncontent:\n"
+    )
+
+    backend = _FakeBulkBackend()
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
+
+    async def post_persist(
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
+    ) -> None:
+        calls.append((entity_type, entities, chunk_sources))
+
+    result = await ingest_directory(
+        directory=tmp_path,
+        bulk_backend=backend,
+        post_persist_fn=post_persist,
+    )
+
+    assert result.is_ok, f"batch ingest failed: {result}"
+    (persisted,) = backend.upserted["PathStep"]
+    assert persisted["word_count"] == 0
+    assert calls[0][2]["ps.test.null-content"].content == ""
+
+
+@pytest.mark.asyncio
 async def test_ingest_post_persist_empty_source_clears_without_chunk_events():
     """The batch callback with an empty-body source: entity event still
     publishes (frontmatter vector), subtree cleared, no chunk events."""
