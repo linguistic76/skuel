@@ -64,7 +64,7 @@ from .detector import detect_entity_type, detect_format, is_edge_type
 from .parser import parse_markdown, parse_yaml
 from .preparer import (
     prepare_edge_data,
-    prepare_entity_data_async,
+    prepare_entity_data,
 )
 from .types import (
     BundleStats,
@@ -124,7 +124,6 @@ class UnifiedIngestionService:
         bulk_backend: BulkUpsertOperations,
         default_user_uid: UserUID | None = None,
         max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-        embeddings_service: Any | None = None,
         chunking_service: Any | None = None,
         content_adapter: Any | None = None,
         event_bus: Any | None = None,
@@ -147,15 +146,17 @@ class UnifiedIngestionService:
                               If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
                                  Files larger than this will be rejected to prevent OOM.
-            embeddings_service: Optional EmbeddingsService for embedding generation.
-                                If not provided, ingestion works without embeddings (graceful degradation).
             chunking_service: Optional EntityChunkingService for automatic chunk generation.
                               If not provided, ingestion works without chunking (graceful degradation).
             content_adapter: Neo4jContentAdapter for persisting :Content and :ContentChunk nodes
                              after chunk generation. Required in production for RAG retrieval;
                              when omitted, chunks remain in-memory only.
-            event_bus: EventBusOperations for publishing ChunkEmbeddingRequested events to the
-                       background embedding worker. Required in production for chunk embeddings.
+            event_bus: EventBusOperations for the post-persist embedding step — publishes
+                       ``*EmbeddingRequested`` (per persisted embeddable entity, both ingest
+                       doors) and ``ChunkEmbeddingRequested`` to the background embedding
+                       worker. Tier-gated at the composition root: wired only at FULL, ``None``
+                       in CORE where the worker isn't running (a publish would be a
+                       queue-with-no-listener). Ingestion never embeds inline (ADR-074).
             ingestion_backend: IngestionBackend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
@@ -195,10 +196,9 @@ class UnifiedIngestionService:
             default_user_uid if default_user_uid is not None else DEFAULT_USER_UID
         )
         self.max_file_size_bytes = max_file_size_bytes
-        self.embeddings = embeddings_service  # Can be None - graceful degradation
         self.chunking = chunking_service  # Can be None - graceful degradation
         self.content_adapter = content_adapter  # Can be None - graceful degradation
-        self.event_bus = event_bus  # Can be None - graceful degradation
+        self.event_bus = event_bus  # None in CORE tier — no embedding publishes
         self.user_entry_service = user_entry_service
         self.user_service = user_service
         # Late-bound at the composition root (UserEntryProcessingService is built
@@ -214,16 +214,6 @@ class UnifiedIngestionService:
         # (minimal composes / tests) → owner falls back to the acting hint.
         self.vault_registry: VaultRegistry | None = None
         self.logger = logger
-
-        # Log embedding availability
-        if self.embeddings:
-            self.logger.info(
-                "✅ Embeddings service available - will generate embeddings during ingestion"
-            )
-        else:
-            self.logger.warning(
-                "⚠️ Embeddings service not available - ingestion will work without embeddings"
-            )
 
         # Log chunking availability
         if self.chunking:
@@ -243,8 +233,9 @@ class UnifiedIngestionService:
                 "⚠️ Chunking enabled but content_adapter missing — chunks will not be persisted to Neo4j"
             )
         if self.content_adapter and not self.event_bus:
-            self.logger.warning(
-                "⚠️ Content adapter wired but event_bus missing — chunk embeddings will not be generated"
+            self.logger.info(
+                "Content adapter wired without event_bus — chunks persist but no embedding "
+                "events publish (expected in CORE tier, miswired in FULL)"
             )
 
         # Track which entity types have had constraints ensured (avoid per-file
@@ -363,7 +354,7 @@ class UnifiedIngestionService:
         owner regardless of ingest surface: content-vault paths → the content
         acts-as owner (hint ignored); personal-vault paths → the acting user.
         Only ``requires_user_uid`` entity types actually persist this owner;
-        SHARED curriculum drops it (see ``preparer._prepare_core``).
+        SHARED curriculum drops it (see ``preparer.prepare_entity_data``).
 
         Falls back to ``user_uid or self.default_user_uid`` when no registry is
         wired (minimal composes / unit tests) — never a random user.
@@ -402,6 +393,37 @@ class UnifiedIngestionService:
         return descriptor.value.allowlist if descriptor.is_ok else self.sync_allowlist
 
     # ========================================================================
+    # POST-PERSIST EMBEDDING STEP (ADR-074)
+    # ========================================================================
+
+    async def _publish_embedding_requests(
+        self, entity_type: EntityType | NonKuDomain, entities: list[dict[str, Any]]
+    ) -> None:
+        """
+        Publish ``*EmbeddingRequested`` for persisted entities — both ingest doors.
+
+        The one place ingestion touches embeddings: after persistence, for
+        entity types whose ``ENTITY_CONFIGS.embeddable`` flag is set, publish
+        the type's event through the shared chokepoint
+        (``core.events.embedding_publisher``); the background worker embeds
+        asynchronously. Ingestion never embeds inline (ADR-074).
+
+        No-op when ``event_bus`` is None (CORE tier — gated at the composition
+        root, so no queue-with-no-listener publishes and no dropped-event
+        warnings), for NonKuDomain types, and for non-embeddable configs.
+        """
+        if self.event_bus is None or not isinstance(entity_type, EntityType):
+            return
+        config = ENTITY_CONFIGS.get(entity_type)
+        if config is None or not config.embeddable:
+            return
+
+        from core.events.embedding_publisher import publish_embedding_requested
+
+        for entity_data in entities:
+            await publish_embedding_requested(self.event_bus, entity_type, entity_data, self.logger)
+
+    # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
 
@@ -416,11 +438,11 @@ class UnifiedIngestionService:
         and persists using BulkUpsertBackend. If the file declares
         type: Edge, it is ingested as a relationship instead of a node.
 
-        Intentional seam vs. ``batch.parse_file_sync``: both enforce the same
-        validation contract (UID prefix, required fields, post-preparation), but
-        this path prepares async with embeddings and returns ``Result``, while
-        the batch path stays synchronous for thread-pool parsing and reports
-        per-file ``IngestionError`` dicts.
+        Intentional seam vs. ``batch.parse_file_sync``: both run the same
+        parse → validate → prepare pipeline (identical contract, one preparer);
+        the remaining divergence is the error channel only — this path returns
+        ``Result``, while the batch path reports per-file ``IngestionError``
+        dicts the batch aggregates.
 
         Args:
             file_path: Path to file to ingest
@@ -519,17 +541,16 @@ class UnifiedIngestionService:
         if validation_result.is_error:
             return Result.fail(validation_result)
 
-        # Prepare entity data (async path generates embeddings if service available).
+        # Prepare entity data (one sync path for both ingest doors — ADR-074).
         # Owner is descriptor-derived from the file's vault (surface-independent);
         # only requires_user_uid types persist it, SHARED curriculum drops it.
         effective_user_uid = self._resolve_owner(file_path, user_uid)
-        entity_data = await prepare_entity_data_async(
+        entity_data = prepare_entity_data(
             entity_type,
             data,
             body,
             file_path,
             effective_user_uid,
-            embeddings_service=self.embeddings,
             owner_is_authoritative=self._owner_is_authoritative,
         )
 
@@ -574,6 +595,14 @@ class UnifiedIngestionService:
                     self.logger.warning(
                         f"Failed to create OWNS edge for group {entity_data['uid']}: {e}"
                     )
+
+        # Post-persist embedding step (ADR-074): publish the entity's
+        # *EmbeddingRequested event for the background worker. For PathStep the
+        # content body was popped above and is deliberately NOT re-attached:
+        # the entity vector covers frontmatter fields; body-content semantics
+        # live in CHUNK embeddings (below) — one consistent recipe across
+        # ingest, in-app update, and backfill triggers.
+        await self._publish_embedding_requests(entity_type, [entity_data])
 
         # Automatic chunking for PathStep entities
         # Generate chunks immediately after successful PathStep ingestion for RAG-readiness
@@ -769,6 +798,7 @@ class UnifiedIngestionService:
             ingest_file_fn=_ingest_file_for_batch,
             allowlist=effective_allowlist,
             owner_is_authoritative=self._owner_is_authoritative,
+            post_persist_fn=self._publish_embedding_requests,
         )
 
     async def ingest_vault(

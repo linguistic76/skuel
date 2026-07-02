@@ -185,6 +185,12 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        from core.events.embedding_publisher import publish_embedding_requested
+        from core.models.enums.entity_enums import EntityType
+
+        await publish_embedding_requested(self.event_bus, EntityType.PATH_STEP, step, self.logger)
+
         return Result.ok(step)
 
     @with_error_handling(operation="get_step", error_type="database", uid_param="step_uid")
@@ -300,6 +306,21 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
             linked_lp_uid=updated_step.learning_path_uid,
         )
         await publish_event(self.event_bus, event, self.logger)
+
+        # Post-persist embedding refresh (ADR-074) — only when a text field changed.
+        # updated_step is rebuilt from node properties, so the embedding text
+        # covers frontmatter fields; PathStep body-content semantics live in
+        # CHUNK embeddings (the RAG substrate), not the entity vector.
+        from core.events.embedding_publisher import publish_embedding_requested
+        from core.models.enums.entity_enums import EntityType
+
+        await publish_embedding_requested(
+            self.event_bus,
+            EntityType.PATH_STEP,
+            updated_step,
+            self.logger,
+            changed_fields=updates.keys(),
+        )
 
         return Result.ok(updated_step)
 

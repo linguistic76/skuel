@@ -357,7 +357,6 @@ class TeacherReviewService:
 
         from core.models.enums.learning_enums import FeedbackCategory
         from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
-        from core.utils.embedding_text_builder import build_embedding_text
         from core.utils.neo4j_mapper import to_neo4j_node
 
         report_entity_uid = UIDGenerator.generate_uid("er")
@@ -449,7 +448,7 @@ class TeacherReviewService:
             logger,
         )
 
-        from core.events import RevisedExerciseEmbeddingRequested
+        from core.events.embedding_publisher import publish_embedding_requested
         from core.events.learning_loop_events import RevisedExerciseCreated
 
         await publish_event(
@@ -465,18 +464,10 @@ class TeacherReviewService:
             logger,
         )
 
-        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, re_entity)
-        if embedding_text:
-            await publish_event(
-                self.event_bus,
-                RevisedExerciseEmbeddingRequested(
-                    entity_uid=re_uid,
-                    entity_type="revised_exercise",
-                    embedding_text=embedding_text,
-                    requested_at=datetime.now(),
-                ),
-                logger,
-            )
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(
+            self.event_bus, EntityType.REVISED_EXERCISE, re_entity, logger
+        )
 
         return Result.ok(
             {

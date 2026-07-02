@@ -22,7 +22,8 @@ import dataclasses
 from datetime import datetime
 from typing import TYPE_CHECKING, ClassVar
 
-from core.events import RevisedExerciseEmbeddingRequested, publish_event
+from core.events import publish_event
+from core.events.embedding_publisher import publish_embedding_requested
 from core.events.learning_loop_events import RevisedExerciseCreated
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -35,7 +36,6 @@ from core.ports.query_types import RevisionChainResult
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
-from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -223,19 +223,10 @@ class RevisedExerciseService(BaseService):
             self.logger,
         )
 
-        # Publish embedding request (background worker generates async)
-        embedding_text = build_embedding_text(EntityType.REVISED_EXERCISE, enriched)
-        if embedding_text:
-            await publish_event(
-                self.event_bus,
-                RevisedExerciseEmbeddingRequested(
-                    entity_uid=uid,
-                    entity_type="revised_exercise",
-                    embedding_text=embedding_text,
-                    requested_at=datetime.now(),
-                ),
-                self.logger,
-            )
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        await publish_embedding_requested(
+            self.event_bus, EntityType.REVISED_EXERCISE, enriched, self.logger
+        )
 
         return Result.ok(enriched)
 

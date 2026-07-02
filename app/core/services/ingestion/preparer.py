@@ -2,37 +2,30 @@
 Ingestion Preparer - Entity Data Preparation
 =============================================
 
-Handles UID generation, content extraction, default injection,
-relationship data flattening, and embedding generation.
+Handles UID generation, content extraction, default injection, and
+relationship data flattening. One synchronous path serves both ingest doors
+(single-file and batch).
+
+Ingestion never embeds inline (ADR-074): embedding generation is event-driven
+— the post-persist step in UnifiedIngestionService publishes
+``*EmbeddingRequested`` events for the entity types whose
+``ENTITY_CONFIGS.embeddable`` flag is set, and the background worker embeds
+asynchronously.
 
 Extracted from unified_ingestion_service.py for separation of concerns.
-
-NEO4J GENAI INTEGRATION (January 2026):
-- Automatically generates embeddings for entity types with embeddable=True in ENTITY_CONFIGS
-- Uses EmbeddingsService if available
-- Graceful degradation - ingestion works without embeddings
 """
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TypeGuard
+from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import TypeConverter, UserUID
-from core.utils.embedding_text_builder import build_embedding_text
-from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 
 from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
 
 logger = get_logger("skuel.ingestion.preparer")
-
-_EMBEDDING_EXCEPTIONS: tuple[type[BaseException], ...] = (
-    *LLM_EXCEPTIONS,
-    ValueError,
-    TypeError,
-    OSError,
-)
 
 
 def normalize_uid(uid: str) -> str:
@@ -74,7 +67,7 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     return f"{prefix}.{file_path.stem}"
 
 
-def _prepare_core(
+def prepare_entity_data(
     entity_type: EntityType | NonKuDomain,
     data: dict[str, Any],
     body: str | None,
@@ -84,7 +77,7 @@ def _prepare_core(
     owner_is_authoritative: bool = False,
 ) -> dict[str, Any]:
     """
-    Core entity data preparation logic shared by sync and async paths.
+    Prepare parsed file data for persistence — the one path for both ingest doors.
 
     Handles:
     - UID generation/normalization
@@ -99,6 +92,8 @@ def _prepare_core(
         body: Body content (for markdown) or None
         file_path: Source file path
         default_user_uid: Default user UID for multi-tenant entities
+        owner_is_authoritative: When True (descriptor-governed ingestion), the
+            vault-resolved owner overrides any file-supplied ``user_uid``.
 
     Returns:
         Prepared entity data dict
@@ -222,110 +217,6 @@ def _prepare_core(
     return entity_data
 
 
-async def prepare_entity_data_async(
-    entity_type: EntityType | NonKuDomain,
-    data: dict[str, Any],
-    body: str | None,
-    file_path: Path,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
-    embeddings_service: Any | None = None,
-    owner_is_authoritative: bool = False,
-) -> dict[str, Any]:
-    """
-    Async version of prepare_entity_data with embedding generation.
-
-    Delegates core preparation to _prepare_core(), then optionally generates
-    embeddings for content-bearing entity types.
-
-    Args:
-        entity_type: EntityType | NonKuDomain enum value
-        data: Parsed frontmatter/YAML data
-        body: Body content (for markdown) or None
-        file_path: Source file path
-        default_user_uid: Default user UID for multi-tenant entities
-        embeddings_service: Optional EmbeddingsService for embedding generation
-        owner_is_authoritative: When True (descriptor-governed ingestion), the
-            vault-resolved owner overrides any file-supplied ``user_uid``.
-
-    Returns:
-        Prepared entity data dict
-
-    Raises:
-        ValueError: If entity type is unknown
-    """
-    entity_data = _prepare_core(
-        entity_type,
-        data,
-        body,
-        file_path,
-        default_user_uid,
-        owner_is_authoritative=owner_is_authoritative,
-    )
-
-    # Generate embeddings for content-bearing entity types
-    if embeddings_service and _should_generate_embedding(entity_type):
-        embedding_text = build_embedding_text(entity_type, entity_data)
-
-        if embedding_text:
-            now = entity_data["updated_at"]
-            try:
-                embedding_result = await embeddings_service.create_embedding(
-                    text=embedding_text,
-                    metadata={"entity_type": entity_type.value, "uid": entity_data["uid"]},
-                )
-
-                if embedding_result.is_ok:
-                    entity_data["embedding"] = embedding_result.value
-                    entity_data["embedding_model"] = embeddings_service.model
-                    entity_data["embedding_updated_at"] = now
-                    logger.info(f"Generated embedding for {entity_data['uid']}")
-                else:
-                    logger.warning(
-                        f"Failed to generate embedding for {entity_data['uid']}: "
-                        f"{embedding_result.expect_error()}"
-                    )
-
-            except _EMBEDDING_EXCEPTIONS as e:
-                logger.warning(f"Exception generating embedding for {entity_data['uid']}: {e}")
-
-    return entity_data
-
-
-def _should_generate_embedding(entity_type: EntityType | NonKuDomain) -> TypeGuard[EntityType]:
-    """TypeGuard narrows the union to EntityType — only EntityType values are embeddable."""
-    config = ENTITY_CONFIGS.get(entity_type)
-    return isinstance(entity_type, EntityType) and config is not None and config.embeddable
-
-
-def prepare_entity_data(
-    entity_type: EntityType | NonKuDomain,
-    data: dict[str, Any],
-    body: str | None,
-    file_path: Path,
-    default_user_uid: UserUID = DEFAULT_USER_UID,
-    *,
-    owner_is_authoritative: bool = False,
-) -> dict[str, Any]:
-    """
-    Synchronous entity data preparation (no embedding generation).
-
-    Delegates to _prepare_core(). For embedding generation, use
-    prepare_entity_data_async() instead. ``owner_is_authoritative`` makes the
-    vault-resolved owner override any file-supplied ``user_uid`` (descriptor-
-    governed ingestion).
-
-    See _prepare_core() for full documentation.
-    """
-    return _prepare_core(
-        entity_type,
-        data,
-        body,
-        file_path,
-        default_user_uid,
-        owner_is_authoritative=owner_is_authoritative,
-    )
-
-
 def prepare_edge_data(
     data: dict[str, Any],
     file_path: Path | None = None,
@@ -376,5 +267,4 @@ __all__ = [
     "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",
-    "prepare_entity_data_async",
 ]

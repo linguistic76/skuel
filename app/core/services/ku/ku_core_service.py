@@ -92,6 +92,11 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         if result.is_error:
             return result
 
+        # Post-persist embedding refresh (ADR-074) — the background worker embeds async
+        from core.events.embedding_publisher import publish_embedding_requested
+
+        await publish_embedding_requested(self.event_bus, EntityType.KU, ku, self.logger)
+
         return await self.backend.get(uid)
 
     async def get_ku(self, uid: str) -> Result[Ku | None]:
