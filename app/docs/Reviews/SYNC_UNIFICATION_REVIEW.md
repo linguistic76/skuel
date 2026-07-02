@@ -179,6 +179,13 @@ bloat-detector's staged-but-unwired backlog tier in `scripts/detect_bloat.py`), 
 
 ## Scope note
 
+> **✅ RESOLVED — PR #485 (2026-07-02).** All five hygiene items closed: reconciler
+> `sync`/`grant_consent` retyped to `UserUID` (wraps deleted, boundaries wrap once);
+> compose dead `else` branches collapsed; `_owned_by()` + `_owner_is_authoritative`
+> extracted; `parse_file_sync` now enforces `validate_uid_format` (remaining
+> divergence documented as an intentional seam); `ChunkEmbeddingRequested` carries
+> the resolved `effective_user_uid`.
+
 This review was deliberately scoped to the *One Path Forward* judgment calls.
 A separate, lower-risk hygiene pass was identified but left out of this pass and
 can be a follow-up:

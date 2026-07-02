@@ -37,6 +37,7 @@ from dataclasses import asdict
 async def run_sync(vault: str, user_uid: str) -> int:
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.models.type_hints import UserUID
     from core.services.vault.vault_descriptor import VaultKind
     from services_bootstrap import compose_services
 
@@ -57,7 +58,7 @@ async def run_sync(vault: str, user_uid: str) -> int:
             return 1
 
         print(f"Full VaultBridge sync ({kind.value}) as {user_uid} ...")
-        result = await reconciler.sync(kind, user_uid)
+        result = await reconciler.sync(kind, UserUID(user_uid))
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1

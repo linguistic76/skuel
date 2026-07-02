@@ -56,6 +56,7 @@ from .validator import (
     validate_entity_data,
     validate_relationship_targets,
     validate_required_fields,
+    validate_uid_format,
 )
 
 if TYPE_CHECKING:
@@ -143,6 +144,13 @@ def parse_file_sync(
 
     Handles format detection, parsing, validation, and data preparation.
     Returns rich error context via IngestionError on failure.
+
+    Intentional seam vs. ``UnifiedIngestionService.ingest_file``: both enforce
+    the same validation contract (UID prefix, required fields, post-preparation),
+    but this path stays synchronous for thread-pool batching (sync preparation,
+    no inline embedding generation) and reports per-file ``IngestionError``
+    dicts the batch aggregates, where ``ingest_file`` returns ``Result`` and
+    prepares async with embeddings.
 
     Args:
         file_path: Path to file to parse
@@ -238,7 +246,22 @@ def parse_file_sync(
             )
             return (None, None, error.to_dict())
 
-        # Stage 4: Pre-preparation validation
+        # Stage 4: Pre-preparation validation (same contract as the single-file
+        # door — ingest_file validates UID prefix then required fields)
+        uid_result = validate_uid_format(entity_type, data, file_path)
+        if uid_result.is_error:
+            err = uid_result.expect_error()
+            error = create_error(
+                file_path=file_path,
+                error=err.display_message,
+                stage="validation",
+                error_type="validation",
+                entity_type=entity_type_str,
+                field="uid",
+                suggestion=f"Use the UID prefix for {entity_type_str} entities (see error).",
+            )
+            return (None, None, error.to_dict())
+
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:
             err = validation_result.expect_error()

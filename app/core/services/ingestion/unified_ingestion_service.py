@@ -344,6 +344,16 @@ class UnifiedIngestionService:
     # OWNERSHIP
     # ========================================================================
 
+    @property
+    def _owner_is_authoritative(self) -> bool:
+        """Whether the descriptor-resolved owner overrides a file-supplied ``user_uid``.
+
+        True when a vault registry governs ownership (descriptor wins — a file
+        cannot spoof ownership of a USER_OWNED entity); False in minimal composes
+        where the file's own ``user_uid`` is still honored.
+        """
+        return self.vault_registry is not None
+
     def _resolve_owner(self, path: Path, user_uid: UserUID | None) -> UserUID:
         """Owner to attribute to what ``path`` yields — a function of the vault.
 
@@ -405,6 +415,12 @@ class UnifiedIngestionService:
         Auto-detects format and entity type, normalizes UID,
         and persists using BulkUpsertBackend. If the file declares
         type: Edge, it is ingested as a relationship instead of a node.
+
+        Intentional seam vs. ``batch.parse_file_sync``: both enforce the same
+        validation contract (UID prefix, required fields, post-preparation), but
+        this path prepares async with embeddings and returns ``Result``, while
+        the batch path stays synchronous for thread-pool parsing and reports
+        per-file ``IngestionError`` dicts.
 
         Args:
             file_path: Path to file to ingest
@@ -514,9 +530,7 @@ class UnifiedIngestionService:
             file_path,
             effective_user_uid,
             embeddings_service=self.embeddings,
-            # Descriptor governs → the resolved owner overrides any file-supplied
-            # user_uid, so a file cannot spoof ownership of a USER_OWNED entity.
-            owner_is_authoritative=self.vault_registry is not None,
+            owner_is_authoritative=self._owner_is_authoritative,
         )
 
         # Validate entity data after preparation (ensures auto-generated fields present)
@@ -611,7 +625,10 @@ class UnifiedIngestionService:
                                     chunk_uids=tuple(c.chunk_id for c in content.chunks),
                                     chunk_texts=tuple(c.context_window for c in content.chunks),
                                     requested_at=datetime.now(),
-                                    user_uid=user_uid if user_uid else None,
+                                    # Resolved owner, not the raw acting hint —
+                                    # embedding attribution matches persisted
+                                    # ownership (ADR-070 by-path resolution).
+                                    user_uid=effective_user_uid,
                                 ),
                                 self.logger,
                             )
@@ -755,9 +772,7 @@ class UnifiedIngestionService:
             dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
             allowlist=effective_allowlist,
-            # Descriptor governs → resolved owner overrides any file-supplied
-            # user_uid so a file cannot spoof ownership of a USER_OWNED entity.
-            owner_is_authoritative=self.vault_registry is not None,
+            owner_is_authoritative=self._owner_is_authoritative,
         )
 
     async def ingest_vault(

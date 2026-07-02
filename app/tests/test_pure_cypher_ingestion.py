@@ -719,6 +719,22 @@ name: Test Principle
         assert error["entity_type"] == "principle"
         assert "suggestion" in error
 
+        # Create file with a wrong-prefix explicit UID — the batch path must
+        # enforce the same UID-prefix contract as the single-file door
+        wrong_uid = tmppath / "wrong_uid.yaml"
+        wrong_uid.write_text("""
+type: principle
+uid: task:not-a-principle
+name: Test Principle
+statement: A principle with a task-prefixed UID
+""")
+
+        entity_type, entity_data, error = parse_file_sync(wrong_uid)
+        assert error is not None
+        assert error["stage"] == "validation"
+        assert error["field"] == "uid"
+        assert error["entity_type"] == "principle"
+
         # Create file with unsupported format
         unsupported = tmppath / "test.txt"
         unsupported.write_text("Some content")

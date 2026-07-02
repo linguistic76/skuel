@@ -44,6 +44,7 @@ from adapters.inbound.auth import (
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from core.models.type_hints import UserUID
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -298,7 +299,7 @@ def create_vault_routes(
         Returns:
             200 + VaultSyncStats dict on success.
         """
-        result = await vault_reconciler.sync(VaultKind.CONTENT, current_user.uid)
+        result = await vault_reconciler.sync(VaultKind.CONTENT, UserUID(current_user.uid))
         if result.is_error:
             return Result.fail(result)
         return Result.ok(asdict(result.value))
