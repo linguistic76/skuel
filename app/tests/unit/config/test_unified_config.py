@@ -233,12 +233,6 @@ class TestVaultConfig:
         assert isinstance(config.vault_path, Path)
         assert str(config.vault_path) == "/test/vault"
 
-    def test_import_export_paths(self):
-        """Test import_path and export_path are computed correctly."""
-        config = VaultConfig(vault_root="/test/vault")
-        assert config.import_path == Path("/test/vault/neo4j/import")
-        assert config.export_path == Path("/test/vault/neo4j/export")
-
     def test_ingestion_path_absolute(self):
         """Test ingestion_path returns absolute path from absolute ingestion_root."""
         config = VaultConfig(ingestion_root="/opt/ingestion/data")
@@ -257,18 +251,12 @@ class TestVaultConfig:
             {
                 "VAULT_ROOT": "/custom/vault",
                 "VAULT_ENABLED": "false",
-                "AUTO_SYNC_VAULT": "false",
-                "WATCH_VAULT": "true",
-                "SYNC_INTERVAL_MINUTES": "60",
                 "INGESTION_PATH": "/custom/ingestion",
             },
         ):
             config = VaultConfig.from_env()
             assert config.vault_root == "/custom/vault"
             assert config.vault_enabled is False
-            assert config.auto_sync is False
-            assert config.watch_vault is True
-            assert config.sync_interval_minutes == 60
             assert config.ingestion_root == "/custom/ingestion"
 
 
