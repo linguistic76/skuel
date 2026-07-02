@@ -113,7 +113,7 @@ class VaultReconciler:
     # PUBLIC API
     # =========================================================================
 
-    async def sync(self, kind: VaultKind, user_uid: str) -> Result[VaultSyncStats]:
+    async def sync(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultSyncStats]:
         """Run a full vault sync for ``kind``.
 
         ``user_uid`` is the acting user; for ``VaultKind.CONTENT`` it is ignored
@@ -131,7 +131,7 @@ class VaultReconciler:
            a. inject 🆔 IDs into ID-less task lines;
            b. write ``[x]`` + ``✅ date`` for SKUEL-completed tasks.
         """
-        descriptor_result = self._registry.resolve(kind, UserUID(user_uid))
+        descriptor_result = self._registry.resolve(kind, user_uid)
         if descriptor_result.is_error:
             return Result.fail(descriptor_result)
         descriptor = descriptor_result.value
@@ -144,7 +144,7 @@ class VaultReconciler:
         # where the single vault resolves to PERSONAL by-path: there is no distinct
         # content vault, so a CONTENT sync would stamp content_owner_uid onto the
         # user's own files. Refuse it — the combined vault syncs as PERSONAL.
-        by_path = self._registry.resolve_by_path(descriptor.root, UserUID(owner))
+        by_path = self._registry.resolve_by_path(descriptor.root, owner)
         if by_path.is_ok and by_path.value.kind is not kind:
             return Result.fail(
                 Errors.validation(
@@ -195,10 +195,10 @@ class VaultReconciler:
         await self._run_outbound(descriptor, stats)
         return Result.ok(stats)
 
-    async def grant_consent(self, user_uid: str) -> Result[None]:
+    async def grant_consent(self, user_uid: UserUID) -> Result[None]:
         """Record vault-write consent for the user (ADR-070 Decision 6 first-run gate)."""
         result = await self._user_service.update_preferences(
-            UserUID(user_uid), {"vault_write_consent": True}
+            user_uid, {"vault_write_consent": True}
         )
         if result.is_error:
             return Result.fail(result)

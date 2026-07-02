@@ -85,6 +85,11 @@ class VaultDescriptor:
     supports_task_round_trip: bool
 
 
+def _owned_by(template: VaultDescriptor, acting_user_uid: UserUID) -> VaultDescriptor:
+    """The personal template with the acting user stamped as owner (ADR-070 Decision 5)."""
+    return replace(template, owner_uid=acting_user_uid)
+
+
 class VaultRegistry:
     """Resolves a :class:`VaultDescriptor` for a ``(kind, acting_user)`` pair.
 
@@ -123,7 +128,7 @@ class VaultRegistry:
             return Result.fail(
                 Errors.not_found(resource="personal vault", identifier=str(acting_user_uid))
             )
-        return Result.ok(replace(self._personal, owner_uid=acting_user_uid))
+        return Result.ok(_owned_by(self._personal, acting_user_uid))
 
     def resolve_by_path(self, path: Path, acting_user_uid: UserUID) -> Result[VaultDescriptor]:
         """Return the descriptor that governs a target file/dir ``path``.
@@ -162,7 +167,7 @@ class VaultRegistry:
         if self._personal is not None:
             personal_root = self._personal.root.resolve()
             if resolved == personal_root or resolved.is_relative_to(personal_root):
-                return Result.ok(replace(self._personal, owner_uid=acting_user_uid))
+                return Result.ok(_owned_by(self._personal, acting_user_uid))
 
         if self._content is not None:
             # In-content path, or a path under neither root: content/SHARED acts-as
