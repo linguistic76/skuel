@@ -559,8 +559,11 @@ class FeatureFlags:
 class VaultConfig:
     """Configuration for Obsidian vault and file sync"""
 
-    # Vault location
-    vault_root: str = os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault")
+    # Vault location. VAULT_ROOT is the *personal* vault (ADR-070) — distinct from
+    # INGESTION_PATH (the content vault below). Its default must therefore be the
+    # personal-vault path, not the content vault, or an unset VAULT_ROOT would
+    # collapse the two and stage personal journal files under shared curriculum.
+    vault_root: str = os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel")
     vault_enabled: bool = os.getenv("VAULT_ENABLED", "true").lower() == "true"
 
     # Ingestion data directory (where files are staged for ingestion)
@@ -595,7 +598,7 @@ class VaultConfig:
     def from_env(cls) -> "VaultConfig":
         """Create config from environment variables"""
         return cls(
-            vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"),
+            vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel"),
             vault_enabled=os.getenv("VAULT_ENABLED", "true").lower() == "true",
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),

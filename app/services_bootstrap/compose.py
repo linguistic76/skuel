@@ -1210,7 +1210,7 @@ async def compose_services(
         _personal_root = (
             config.vault.vault_path
             if config
-            else pathlib.Path(os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"))
+            else pathlib.Path(os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel"))
         )
         _content_root = (
             config.vault.ingestion_path

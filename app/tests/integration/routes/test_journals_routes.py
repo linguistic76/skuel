@@ -483,8 +483,12 @@ class TestJournalExemplarLoading:
     ) -> None:
         from adapters.inbound.journals_routes import _load_journal_exemplars
 
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw")
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro")
+        monkeypatch.setattr(
+            "adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw"
+        )
+        monkeypatch.setattr(
+            "adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro"
+        )
         assert _load_journal_exemplars() == []
 
     def test_pair_count_is_capped(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
@@ -577,8 +581,12 @@ class TestJournalExemplarInjection:
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
         # Absent je_raw/je_pro → prompt is just the user's text (today's behavior).
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw")
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro")
+        monkeypatch.setattr(
+            "adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw"
+        )
+        monkeypatch.setattr(
+            "adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro"
+        )
         monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path / "je_out")
 
         llm = MagicMock()
