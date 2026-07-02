@@ -1194,8 +1194,6 @@ async def compose_services(
         # vault (INGESTION_PATH, curriculum) and a user's personal vault
         # (VAULT_ROOT). Each vault is its own governed root with its own
         # fail-closed allowlist, owner account, and filesystem bridge.
-        import pathlib
-
         from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
         from core.constants import SYSTEM_USER_UID
         from core.models.type_hints import UserUID
@@ -1207,24 +1205,12 @@ async def compose_services(
         )
         from core.services.vault.vault_reconciler import VaultReconciler
 
-        _personal_root = (
-            config.vault.vault_path
-            if config
-            else pathlib.Path(os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel"))
-        )
-        _content_root = (
-            config.vault.ingestion_path
-            if config
-            else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
-        )
+        _personal_root = config.vault.vault_path
+        _content_root = config.vault.ingestion_path
         # The account the content vault *acts as* (ADR-070). Canonical acts-as
         # ownership model: core/services/vault/vault_descriptor.py module docstring
         # (VaultRegistry.resolve_by_path).
-        _content_owner = UserUID(
-            config.vault.content_owner_uid
-            if config
-            else os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
-        )
+        _content_owner = UserUID(config.vault.content_owner_uid)
 
         # Personal vault: fail-closed doorway wall (knowledge/ + notes folders).
         # The wall is code-sourced (doorway defaults) — NOT read from the ambient
