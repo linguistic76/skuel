@@ -363,9 +363,9 @@ class SyncAllowlist:
     depend on configuration being present.
 
     ``permits`` is the single predicate every ingestion path inherits — both the
-    directory scan (``collect_files`` → ``VaultReconciler.sync`` and
-    ``/api/ingest/directory``) and single-file ingestion (``ingest_file`` →
-    ``/api/ingest/file``) — so no code path can bypass it. ``governed_root`` and
+    directory scan (``collect_files`` → ``VaultReconciler.sync``) and single-file
+    ingestion (``ingest_file`` → ``/api/ingest/file``) — so no code path can
+    bypass it. ``governed_root`` and
     ``allowed_dirs`` are stored already-resolved (see ``build_sync_allowlist``) so
     the ``permits`` check is purely lexical after a single ``resolve()`` of the
     candidate.

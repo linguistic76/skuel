@@ -728,7 +728,7 @@ result = await service.ingest_directory(Path("yaml_templates/mindfulness_101"))
 result = await service.ingest_directory(path, dry_run=True)
 ```
 
-**API:** `POST /api/ingest/file`, `POST /api/ingest/directory`
+**API:** `POST /api/ingest/file`; whole-vault ingestion via `POST /api/vault/sync/content` (admin, reconciler — ADR-070 Decision 9)
 
 ---
 

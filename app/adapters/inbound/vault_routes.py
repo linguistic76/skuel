@@ -9,8 +9,13 @@ Routes:
     GET  /settings/vault         — 301 redirect → /submissions/sync (legacy URL preserved).
     POST /settings/vault/sync    — HTMX endpoint: run sync, return HTML results fragment.
     POST /settings/vault/consent — HTMX endpoint: grant write consent then run sync.
-    POST /api/vault/sync         — JSON API: run sync (returns VaultSyncStats dict).
-    POST /api/vault/sync/consent — JSON API: grant consent + run sync.
+    POST /api/vault/sync         — JSON API: run PERSONAL sync (returns VaultSyncStats dict).
+    POST /api/vault/sync/consent — JSON API: grant consent + run PERSONAL sync.
+    POST /api/vault/sync/content — JSON API (admin): run CONTENT vault sync (inbound-only).
+
+The reconciler is the single directory-ingest engine (ADR-070 Decision 9). CONTENT
+sync is the admin door onto it — the same ``VaultReconciler.sync`` the personal
+routes use, scoped to ``VaultKind.CONTENT`` (fixed content-vault owner, no outbound).
 
 See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 """
@@ -31,7 +36,11 @@ from fasthtml.common import (
 )
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import (
+    make_service_getter,
+    require_admin,
+    require_authenticated_user,
+)
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
@@ -145,9 +154,13 @@ def _sync_error_fragment(message: str) -> Div:
 
 
 def create_vault_routes(
-    app: FastHTMLApp, rt: RouteDecorator, vault_reconciler: VaultReconciler
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    vault_reconciler: VaultReconciler,
+    user_service: Any,
 ) -> None:
     """Register vault bridge routes (UI + API)."""
+    get_user_service = make_service_getter(user_service)
 
     # ------------------------------------------------------------------
     # UI routes
@@ -268,3 +281,24 @@ def create_vault_routes(
         payload = asdict(stats)
         payload["consented"] = True
         return Result.ok(payload)
+
+    @rt("/api/vault/sync/content", methods=["POST"])
+    @csrf_protected
+    @require_admin(get_user_service)
+    @boundary_handler(success_status=200)
+    async def vault_sync_content(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+        """Sync the shared content (curriculum) vault through the reconciler.
+
+        Admin-only. Inbound-only: ``sync`` ignores the acting user for
+        ``VaultKind.CONTENT`` (the fixed content-vault owner from the descriptor
+        wins) and returns after ingest, since the content vault has no task
+        round-trip. This is the one directory-ingest path (ADR-070 Decision 9) —
+        it replaces the retired ``POST /api/ingest/directory`` admin door.
+
+        Returns:
+            200 + VaultSyncStats dict on success.
+        """
+        result = await vault_reconciler.sync(VaultKind.CONTENT, current_user.uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(asdict(result.value))

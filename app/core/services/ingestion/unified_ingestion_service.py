@@ -175,9 +175,9 @@ class UnifiedIngestionService:
                           persists regardless. Late-bound at the composition root.
             sync_allowlist: Optional fail-closed folder allowlist (SyncAllowlist)
                           enforced on every ingestion path — directory scans
-                          (``ingest_directory`` → collect_files, covering the
-                          reconciler and /api/ingest/directory) AND single-file
-                          ingestion (``ingest_file`` → /api/ingest/file). When
+                          (``ingest_directory`` → collect_files, driving the
+                          reconciler) AND single-file ingestion
+                          (``ingest_file`` → /api/ingest/file). When
                           set, files under the governed vault root are ingested
                           only if they sit under an allowed dir; ``None`` = no
                           wall. Late-bound at the composition root once the vault

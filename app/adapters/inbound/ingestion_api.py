@@ -38,7 +38,6 @@ from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from core.services.ingestion.types import IncrementalStats, IngestionStats
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -261,97 +260,11 @@ def create_ingestion_api_routes(
                 Errors.system("File ingestion failed", exception=e, operation="ingest_file")
             )
 
-    @rt("/api/ingest/directory", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def ingest_directory_route(request: Request, current_user):
-        """
-        Ingest all supported files in a directory.
-
-        Request body:
-            directory: str - Path to directory
-            pattern: str - Glob pattern (default: "*")
-            batch_size: int - Batch size for bulk ops (default: 500)
-            ingestion_mode: str - "full" (default), "incremental" (skip files with
-                unchanged content hash), or "smart" (skip on unchanged mtime,
-                verify with hash if changed)
-
-        Returns:
-            Result with IngestionStats (full) or IncrementalStats (incremental/smart)
-
-        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
-        owner is resolved from the vault descriptor for its path (ADR-070).
-
-        Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
-        """
-        try:
-            data = await request.json()
-            directory = data.get("directory")
-            pattern = data.get("pattern", "*")
-            batch_size = data.get("batch_size", 500)
-            ingestion_mode = data.get("ingestion_mode", "full")
-
-            if ingestion_mode not in ("full", "incremental", "smart"):
-                return Result.fail(
-                    Errors.validation(
-                        "ingestion_mode must be one of: full, incremental, smart",
-                        "ingestion_mode",
-                        ingestion_mode,
-                    )
-                )
-
-            # Validate path (traversal protection)
-            path_result = _validate_ingestion_path(directory)
-            if path_result.is_error:
-                return path_result
-
-            dir_path = path_result.value
-            if not dir_path.exists() or not dir_path.is_dir():
-                return Result.fail(Errors.not_found("Directory", str(dir_path)))
-
-            result = await unified_ingestion.ingest_directory(
-                dir_path,
-                pattern=pattern,
-                batch_size=batch_size,
-                ingestion_mode=ingestion_mode,
-                user_uid=current_user.uid,
-            )
-
-            if result.is_ok:
-                stats = result.value
-                if not isinstance(stats, (IngestionStats, IncrementalStats)):
-                    return Result.ok({"success": True, "preview": True})
-                payload = {
-                    "success": True,
-                    "total_files": stats.total_files,
-                    "successful": stats.successful,
-                    "failed": stats.failed,
-                    "nodes_created": stats.nodes_created,
-                    "nodes_updated": stats.nodes_updated,
-                    "relationships_created": stats.relationships_created,
-                    "duration_seconds": stats.duration_seconds,
-                    "files_per_second": stats.files_per_second,
-                    "errors": stats.errors or [],
-                }
-                if isinstance(stats, IncrementalStats):
-                    payload["files_skipped"] = stats.files_skipped
-                    payload["files_ingested"] = stats.files_ingested
-                    payload["skip_efficiency"] = stats.skip_efficiency
-                    payload["entities_deleted"] = stats.entities_deleted
-                    payload["edges_deleted"] = stats.edges_deleted
-                    payload["stale_metadata_removed"] = stats.stale_metadata_removed
-                return Result.ok(payload)
-            else:
-                return Result.fail(result)
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Directory ingestion failed: {e}")
-            return Result.fail(
-                Errors.system(
-                    "Directory ingestion failed", exception=e, operation="ingest_directory"
-                )
-            )
+    # NOTE: the raw ``POST /api/ingest/directory`` admin door was removed
+    # (ADR-070 Decision 9). Arbitrary-path directory ingestion is unified onto the
+    # reconciler: content-vault sync now goes through ``POST /api/vault/sync/content``
+    # (see ``adapters/inbound/vault_routes.py``) or the in-process
+    # ``scripts/vault_bridge_sync.py --vault content``.
 
     @rt("/api/ingest/vault", methods=["POST"])
     @csrf_protected
@@ -670,7 +583,6 @@ def create_ingestion_api_routes(
     routes.extend(
         [
             ingest_file_route,
-            ingest_directory_route,
             ingest_vault_route,
             ingest_bundle_route,
             domain_ingest,
