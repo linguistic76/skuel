@@ -241,7 +241,7 @@ class TestJournalsUploadZeroPersistence:
     ) -> None:
         # FOUNDER instructions_only → run_compiled → je_out/{stem}_out.md.
         # workspace_target=1 marks the /journals landing layout (has a workspace).
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_upload_request(
             [
@@ -267,7 +267,7 @@ class TestJournalsUploadZeroPersistence:
     ) -> None:
         # The /submissions/journal form omits workspace_target → the result must
         # NOT retarget to a missing #journal-workspace (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_upload_request(
             [
@@ -316,7 +316,7 @@ class TestJournalsUploadZeroPersistence:
         # A "Transcribe only" batch with no supported audio (e.g. a text folder)
         # must not render a false success (Codex, #478). Register handlers with a
         # batch service wired, since the closure captures it at registration.
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_batch = AsyncMock(
@@ -343,7 +343,7 @@ class TestJournalsUploadZeroPersistence:
     ) -> None:
         # STANDARD single audio upload with Deepgram but no LLM must fail BEFORE
         # transcribing, so no Deepgram quota is spent (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_one = AsyncMock(
             return_value=Result.ok("transcript")
@@ -376,8 +376,8 @@ class TestJournalsUploadZeroPersistence:
         (je_in / "memo.mp3").write_bytes(b"audio")
         je_out = tmp_path / "je_out"
         je_out.mkdir()
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_IN", je_in)
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", je_out)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_in", lambda: je_in)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: je_out)
 
         done = SimpleNamespace(
             total_files=1,
@@ -407,7 +407,7 @@ class TestJournalsUploadZeroPersistence:
         # Under "Transcribe only", an ignored same-stem text file (meeting.txt)
         # next to meeting.mp3 must NOT trigger the duplicate-output guard — only
         # the mp3 produces je_out output (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         done = SimpleNamespace(
             total_files=1,
             succeeded=1,
@@ -451,8 +451,8 @@ class TestJournalExemplarLoading:
         pro = tmp_path / "je_pro"
         raw.mkdir()
         pro.mkdir()
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", raw)
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", pro)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: raw)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: pro)
         return raw, pro
 
     def test_matched_pairs_load_by_stem(
@@ -483,8 +483,8 @@ class TestJournalExemplarLoading:
     ) -> None:
         from adapters.inbound.journals_routes import _load_journal_exemplars
 
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", tmp_path / "nope_raw")
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", tmp_path / "nope_pro")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro")
         assert _load_journal_exemplars() == []
 
     def test_pair_count_is_capped(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
@@ -547,9 +547,9 @@ class TestJournalExemplarInjection:
         pro.mkdir()
         (raw / "sample.md").write_text("RAW_EXEMPLAR_MARKER")
         (pro / "sample.md").write_text("PRO_EXEMPLAR_MARKER")
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", raw)
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", pro)
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path / "je_out")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: raw)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: pro)
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path / "je_out")
 
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)
@@ -577,9 +577,9 @@ class TestJournalExemplarInjection:
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
         # Absent je_raw/je_pro → prompt is just the user's text (today's behavior).
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_RAW", tmp_path / "nope_raw")
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_PRO", tmp_path / "nope_pro")
-        monkeypatch.setattr("adapters.inbound.journals_routes._JE_OUT", tmp_path / "je_out")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro")
+        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path / "je_out")
 
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)

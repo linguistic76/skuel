@@ -1217,11 +1217,9 @@ async def compose_services(
             if config
             else pathlib.Path(os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"))
         )
-        # The account the content vault *acts as* — NOT a fictional owner stamped
-        # on curriculum. Curriculum (Ku/PathStep/LP/Exercise) is SHARED-by-type and
-        # drops its owner at persist. This account is the owner of any USER_OWNED
-        # stray that appears in the content vault, and the holder of the content
-        # vault's outbound consent. See VaultRegistry.resolve_by_path.
+        # The account the content vault *acts as* (ADR-070). Canonical acts-as
+        # ownership model: core/services/vault/vault_descriptor.py module docstring
+        # (VaultRegistry.resolve_by_path).
         _content_owner = UserUID(
             config.vault.content_owner_uid
             if config

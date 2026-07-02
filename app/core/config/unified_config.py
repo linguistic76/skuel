@@ -495,14 +495,6 @@ def _default_features() -> Any:
     }
 
 
-def _default_allowed_subdirs() -> Any:
-    return ["knowledge", "tasks", "habits", "goals", "journals", "neo4j/import", "neo4j/export"]
-
-
-def _default_allowed_extensions() -> Any:
-    return [".md", ".yaml", ".yml", ".json", ".csv"]
-
-
 @dataclass
 class ApplicationConfig:
     """General application configuration"""
@@ -574,35 +566,13 @@ class VaultConfig:
     # Ingestion data directory (where files are staged for ingestion)
     ingestion_root: str = os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault")
 
-    # The account the content vault (INGESTION_PATH) *acts as* — the owner of any
-    # USER_OWNED entity that appears in the content vault, and the holder of its
-    # vault_write_consent flag (ADR-070). NOT a fictional owner on curriculum:
-    # Ku/PathStep/LP/Exercise are SHARED-by-type and receive no owner. Access
-    # rights are f(EntityType), computed at read time — never materialized on the
-    # node. See core/services/vault/vault_descriptor.py (resolve_by_path).
+    # The account the content vault (INGESTION_PATH) *acts as* (ADR-070). For the
+    # canonical acts-as ownership model see the module docstring of
+    # core/services/vault/vault_descriptor.py (resolve_by_path).
     content_owner_uid: str = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
 
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
-
-    # Sync settings
-    auto_sync: bool = os.getenv("AUTO_SYNC_VAULT", "true").lower() == "true"
-    watch_vault: bool = os.getenv("WATCH_VAULT", "false").lower() == "true"
-    sync_interval_minutes: int = int(os.getenv("SYNC_INTERVAL_MINUTES", "30"))
-
-    # Neo4j import/export paths (subdirectories of vault_root)
-    neo4j_import_dir: str = "neo4j/import"
-    neo4j_export_dir: str = "neo4j/export"
-
-    # Permission settings
-    allowed_subdirs: list[str] = field(default_factory=_default_allowed_subdirs)
-
-    # File filters
-    allowed_extensions: list[str] = field(default_factory=_default_allowed_extensions)
-
-    # Security
-    restrict_access: bool = True  # Only access explicitly allowed paths
-    validate_paths: bool = True  # Validate all path access
 
     @property
     def vault_path(self) -> Path:
@@ -621,25 +591,12 @@ class VaultConfig:
         p = Path(self.user_vaults_root)
         return p if p.is_absolute() else Path.cwd() / p
 
-    @property
-    def import_path(self) -> Path:
-        """Get Neo4j import path"""
-        return self.vault_path / self.neo4j_import_dir
-
-    @property
-    def export_path(self) -> Path:
-        """Get Neo4j export path"""
-        return self.vault_path / self.neo4j_export_dir
-
     @classmethod
     def from_env(cls) -> "VaultConfig":
         """Create config from environment variables"""
         return cls(
             vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/0vault"),
             vault_enabled=os.getenv("VAULT_ENABLED", "true").lower() == "true",
-            auto_sync=os.getenv("AUTO_SYNC_VAULT", "true").lower() == "true",
-            watch_vault=os.getenv("WATCH_VAULT", "false").lower() == "true",
-            sync_interval_minutes=int(os.getenv("SYNC_INTERVAL_MINUTES", "30")),
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
             content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),

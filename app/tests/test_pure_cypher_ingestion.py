@@ -13,6 +13,16 @@ import pytest
 
 from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 
+# These pure functions used to be exposed as thin service-method delegates on
+# UnifiedIngestionService ("backward compatibility" block, removed post-ADR-070).
+# The tests exercise the real ingestion logic by calling the module functions
+# directly, sourcing the per-instance knobs (max_file_size_bytes / default_user_uid)
+# from the constructed service.
+from core.services.ingestion.detector import detect_entity_type
+from core.services.ingestion.parser import check_file_size, parse_markdown, parse_yaml
+from core.services.ingestion.preparer import prepare_entity_data
+from core.services.ingestion.validator import validate_entity_data, validate_required_fields
+
 
 def test_factory_rejects_none_driver():
     """make_unified_ingestion_service fails fast on a missing driver (mirrors the
@@ -138,57 +148,49 @@ def test_cypher_template_generation():
 
 
 def test_required_field_validation():
-    """Test that UnifiedIngestionService validates required fields."""
+    """Test that the ingestion validators enforce required fields."""
     from pathlib import Path
-    from unittest.mock import MagicMock
 
     from core.models.enums.entity_enums import EntityType, NonKuDomain
-
-    # Create mock driver
-    mock_driver = MagicMock()
-
-    service = make_unified_ingestion_service(driver=mock_driver)
 
     # Create a mock file path
     mock_path = Path("/tmp/test-file.yaml")
 
     # Test 1: Valid KU data (has title and content is skipped for early validation)
     valid_ku_data = {"title": "Test KU", "content": "Some content"}
-    result = service.validate_required_fields(EntityType.PATH_STEP, valid_ku_data, mock_path)
+    result = validate_required_fields(EntityType.PATH_STEP, valid_ku_data, mock_path)
     assert result.is_ok, f"Expected OK for valid KU data, got: {result}"
 
     # Test 2: Missing required field for principle (needs 'statement')
     invalid_principle_data = {"name": "Test Principle"}  # Missing 'statement'
-    result = service.validate_required_fields(
-        EntityType.PRINCIPLE, invalid_principle_data, mock_path
-    )
+    result = validate_required_fields(EntityType.PRINCIPLE, invalid_principle_data, mock_path)
     assert result.is_error, "Expected error for principle missing 'statement'"
     error = result.expect_error()
     assert "statement" in error.message, f"Expected 'statement' in error: {error.message}"
 
     # Test 3: Missing required field for finance (needs 'amount')
     invalid_finance_data = {"description": "Test expense"}  # Missing 'amount'
-    result = service.validate_required_fields(NonKuDomain.FINANCE, invalid_finance_data, mock_path)
+    result = validate_required_fields(NonKuDomain.FINANCE, invalid_finance_data, mock_path)
     assert result.is_error, "Expected error for finance missing 'amount'"
     error = result.expect_error()
     assert "amount" in error.message, f"Expected 'amount' in error: {error.message}"
 
     # Test 4: Valid finance data
     valid_finance_data = {"description": "Coffee", "amount": 5.00}
-    result = service.validate_required_fields(NonKuDomain.FINANCE, valid_finance_data, mock_path)
+    result = validate_required_fields(NonKuDomain.FINANCE, valid_finance_data, mock_path)
     assert result.is_ok, f"Expected OK for valid finance data, got: {result}"
 
     # Test 5: validate_entity_data - check post-preparation validation
     # Simulate prepared entity data missing title
     incomplete_ps_data = {"uid": "ps:test"}  # Missing 'title'
-    result = service.validate_entity_data(EntityType.PATH_STEP, incomplete_ps_data, mock_path)
+    result = validate_entity_data(EntityType.PATH_STEP, incomplete_ps_data, mock_path)
     assert result.is_error, "Expected error for PathStep missing 'title' after preparation"
     error = result.expect_error()
     assert "title" in error.message, f"Expected 'title' in error: {error.message}"
 
     # Test 6: Complete PathStep data passes validation
     complete_ps_data = {"uid": "ps:test", "title": "Test"}
-    result = service.validate_entity_data(EntityType.PATH_STEP, complete_ps_data, mock_path)
+    result = validate_entity_data(EntityType.PATH_STEP, complete_ps_data, mock_path)
     assert result.is_ok, f"Expected OK for complete PathStep data, got: {result}"
 
     print("✅ Required field validation works correctly!")
@@ -219,7 +221,9 @@ def test_user_uid_injection():
 
     # Test 1: Activity domain (task) should get user_uid injected
     task_data = {"title": "Test Task"}
-    prepared = service.prepare_entity_data(EntityType.TASK, task_data, None, mock_path)
+    prepared = prepare_entity_data(
+        EntityType.TASK, task_data, None, mock_path, service.default_user_uid
+    )
     assert "user_uid" in prepared, "Task should have user_uid injected"
     assert prepared["user_uid"] == custom_user_uid, (
         f"Expected {custom_user_uid}, got {prepared['user_uid']}"
@@ -227,22 +231,32 @@ def test_user_uid_injection():
 
     # Test 2: Explicit user_uid in data should NOT be overwritten
     task_with_user = {"title": "Test Task", "user_uid": "user_explicit_user"}
-    prepared = service.prepare_entity_data(EntityType.TASK, task_with_user, None, mock_path)
+    prepared = prepare_entity_data(
+        EntityType.TASK, task_with_user, None, mock_path, service.default_user_uid
+    )
     assert prepared["user_uid"] == "user_explicit_user", (
         "Explicit user_uid should not be overwritten"
     )
 
     # Test 3: Curriculum domain (ku) should NOT get user_uid (shared knowledge)
     ku_data = {"title": "Test KU", "content": "Body content"}
-    prepared = service.prepare_entity_data(
-        EntityType.PATH_STEP, ku_data, "Body content", Path("/tmp/test-ku.md")
+    prepared = prepare_entity_data(
+        EntityType.PATH_STEP,
+        ku_data,
+        "Body content",
+        Path("/tmp/test-ku.md"),
+        service.default_user_uid,
     )
     assert "user_uid" not in prepared, "KU should not have user_uid (shared knowledge)"
 
     # Test 4: Finance domain should get user_uid
     finance_data = {"description": "Coffee", "amount": 5.00}
-    prepared = service.prepare_entity_data(
-        NonKuDomain.FINANCE, finance_data, None, Path("/tmp/expense.yaml")
+    prepared = prepare_entity_data(
+        NonKuDomain.FINANCE,
+        finance_data,
+        None,
+        Path("/tmp/expense.yaml"),
+        service.default_user_uid,
     )
     assert "user_uid" in prepared, "Finance should have user_uid injected"
     assert prepared["user_uid"] == custom_user_uid
@@ -277,17 +291,12 @@ def test_user_uid_injection():
 def test_entity_type_detection():
     """Test that detect_entity_type returns EntityType/NonKuDomain enum (type-safe!)."""
     from pathlib import Path
-    from unittest.mock import MagicMock
 
     from core.models.enums.entity_enums import EntityType, NonKuDomain
 
-    # Create mock driver
-    mock_driver = MagicMock()
-    service = make_unified_ingestion_service(driver=mock_driver)
-
     # Test 1: Explicit type field returns EntityType
     data_with_type = {"type": "task", "title": "Test"}
-    result = service.detect_entity_type(data_with_type, Path("/tmp/test.yaml"))
+    result = detect_entity_type(data_with_type, Path("/tmp/test.yaml"))
     assert result == EntityType.TASK, f"Expected EntityType.TASK, got {result}"
     assert isinstance(result, EntityType | NonKuDomain), (
         "Result should be EntityType or NonKuDomain enum"
@@ -295,41 +304,41 @@ def test_entity_type_detection():
 
     # Test 2: Canonical type names work
     data_with_lesson = {"type": "lesson", "title": "Test Lesson"}
-    result = service.detect_entity_type(data_with_lesson, Path("/tmp/test.yaml"))
+    result = detect_entity_type(data_with_lesson, Path("/tmp/test.yaml"))
     assert result == EntityType.PATH_STEP, f"Expected EntityType.PATH_STEP, got {result}"
 
     # Test 3: KU type detection
     data_with_ku = {"type": "ku", "title": "Atomic Knowledge"}
-    result = service.detect_entity_type(data_with_ku, Path("/tmp/test.md"))
+    result = detect_entity_type(data_with_ku, Path("/tmp/test.md"))
     assert result == EntityType.KU, f"Expected EntityType.KU, got {result}"
 
     # Test 4: Markdown without type raises ValueError (no silent defaults)
     data_no_type = {"title": "Some Knowledge"}
     try:
-        service.detect_entity_type(data_no_type, Path("/tmp/test.md"))
+        detect_entity_type(data_no_type, Path("/tmp/test.md"))
         raise AssertionError("Expected ValueError for .md without type")
     except ValueError as e:
         assert "no 'type' field" in str(e), f"Unexpected error message: {e}"
 
     # Test 5: Case insensitivity
     data_uppercase = {"type": "HABIT", "title": "Exercise"}
-    result = service.detect_entity_type(data_uppercase, Path("/tmp/test.yaml"))
+    result = detect_entity_type(data_uppercase, Path("/tmp/test.yaml"))
     assert result == EntityType.HABIT, f"Expected EntityType.HABIT, got {result}"
 
     # Test 6: Finance alias (expense -> FINANCE)
     data_expense = {"type": "expense", "description": "Coffee", "amount": 5.00}
-    result = service.detect_entity_type(data_expense, Path("/tmp/test.yaml"))
+    result = detect_entity_type(data_expense, Path("/tmp/test.yaml"))
     assert result == NonKuDomain.FINANCE, f"Expected NonKuDomain.FINANCE, got {result}"
 
     # Test 7: Verify type detection (January 2026 - Unified domains)
-    result = service.detect_entity_type({"type": "task"}, Path("/tmp/test.yaml"))
+    result = detect_entity_type({"type": "task"}, Path("/tmp/test.yaml"))
     assert result == EntityType.TASK, "TASK detection should return EntityType.TASK"
 
-    result = service.detect_entity_type({"type": "ku"}, Path("/tmp/test.yaml"))
+    result = detect_entity_type({"type": "ku"}, Path("/tmp/test.yaml"))
     assert result == EntityType.KU, "KU detection should return EntityType.KU"
 
     # Canonical lesson type
-    result = service.detect_entity_type({"type": "lesson"}, Path("/tmp/test.yaml"))
+    result = detect_entity_type({"type": "lesson"}, Path("/tmp/test.yaml"))
     assert result == EntityType.PATH_STEP, "lesson should return EntityType.PATH_STEP"
 
     print("✅ Entity type detection works correctly!")
@@ -548,7 +557,7 @@ def test_file_size_limits():
 
         small_file = tmppath / "small.md"
         small_file.write_text("Small content")  # Well under 1 KB
-        result = service.check_file_size(small_file)
+        result = check_file_size(small_file, service.max_file_size_bytes)
         assert result.is_ok, f"Small file should pass, got: {result}"
 
         # Test 4: File exceeding limit fails with clear error
@@ -556,14 +565,14 @@ def test_file_size_limits():
         large_file = tmppath / "large.md"
         large_file.write_text(large_content)
 
-        result = service.check_file_size(large_file)
+        result = check_file_size(large_file, service.max_file_size_bytes)
         assert result.is_error, "Large file should fail"
         error = result.expect_error()
         assert "too large" in error.message.lower(), f"Expected 'too large' in: {error.message}"
         assert "KB" in error.user_message, f"Expected human-readable size in: {error.user_message}"
 
         # Test 5: parse_markdown checks file size
-        result = service.parse_markdown(large_file)
+        result = parse_markdown(large_file, service.max_file_size_bytes)
         assert result.is_error, "parse_markdown should fail for large file"
         error = result.expect_error()
         assert "too large" in error.message.lower()
@@ -572,7 +581,7 @@ def test_file_size_limits():
         large_yaml = tmppath / "large.yaml"
         large_yaml.write_text(f"content: '{large_content}'")
 
-        result = service.parse_yaml(large_yaml)
+        result = parse_yaml(large_yaml, service.max_file_size_bytes)
         assert result.is_error, "parse_yaml should fail for large file"
         error = result.expect_error()
         assert "too large" in error.message.lower()
@@ -586,12 +595,12 @@ title: Test
 ---
 Content here.
 """)
-        result = service_default.parse_markdown(small_md)
+        result = parse_markdown(small_md, service_default.max_file_size_bytes)
         assert result.is_ok, f"Small markdown should parse, got: {result}"
 
         small_yaml = tmppath / "valid.yaml"
         small_yaml.write_text("title: Test\ncontent: Hello")
-        result = service_default.parse_yaml(small_yaml)
+        result = parse_yaml(small_yaml, service_default.max_file_size_bytes)
         assert result.is_ok, f"Small YAML should parse, got: {result}"
 
     # Test 8: format_file_size produces readable output (from parser module)
@@ -764,13 +773,13 @@ def test_name_only_files_survive_post_prepare_validation():
         ),
     ]
     for entity_type, data, path in cases:
-        pre = service.validate_required_fields(entity_type, data, path)
+        pre = validate_required_fields(entity_type, data, path)
         assert pre.is_ok, f"pre-prepare validation failed for {entity_type.value}: {pre}"
 
-        prepared = service.prepare_entity_data(entity_type, data, None, path)
+        prepared = prepare_entity_data(entity_type, data, None, path, service.default_user_uid)
         assert prepared["title"] == data["name"], "name should be renamed to title"
 
-        post = service.validate_entity_data(entity_type, prepared, path)
+        post = validate_entity_data(entity_type, prepared, path)
         assert post.is_ok, (
             f"post-prepare validation failed for a name-only {entity_type.value}: {post}"
         )

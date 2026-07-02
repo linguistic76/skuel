@@ -6,12 +6,11 @@ API routes for the UnifiedIngestionService (ADR-014).
 Handles both MD and YAML formats for all entity types.
 
 Ownership (ADR-070):
-- These routes pass ``user_uid=current_user.uid``, but that value is only an
-  *acting-user hint*. The real owner of any USER_OWNED entity is resolved from
-  the vault descriptor governing the *target path* (VaultRegistry.resolve_by_path),
-  not from the caller's identity — so the same file yields the same owner via any
-  surface (this dashboard, the reconciler, the watcher, a bare script). Curriculum
-  (Ku/PathStep/LP/Exercise) is SHARED-by-type and receives no owner at all.
+- Every route here passes ``user_uid=current_user.uid`` as an *acting-user hint*
+  only. The real owner of any USER_OWNED entity is resolved from the vault
+  descriptor governing the *target path*, not from the caller's identity. See the
+  canonical acts-as ownership model in core/services/vault/vault_descriptor.py
+  (VaultRegistry.resolve_by_path).
 
 Security:
 - All routes require admin role + CSRF
@@ -22,9 +21,13 @@ Security:
 
 Routes:
 - POST /api/ingest/file - Ingest single file (MD or YAML)
-- POST /api/ingest/directory - Ingest directory with pattern
 - POST /api/ingest/vault - Ingest Obsidian vault
 - POST /api/ingest/bundle - Ingest domain bundle with manifest
+- POST /api/ingest/domain/{domain_name} - Ingest a domain directory
+
+The raw arbitrary-path ``POST /api/ingest/directory`` door was retired (ADR-070
+Decision 9); directory ingestion of the content vault runs through the reconciler
+(``POST /api/vault/sync/content``).
 """
 
 import asyncio
@@ -371,7 +374,7 @@ def create_ingestion_api_routes(
                     )
                 )
 
-            result = await unified_ingestion.ingest_bundle(path)
+            result = await unified_ingestion.ingest_bundle(path, user_uid=current_user.uid)
 
             if result.is_ok:
                 stats = result.value
@@ -431,30 +434,28 @@ def create_ingestion_api_routes(
             if not source_path.exists() or not source_path.is_dir():
                 return Result.fail(Errors.not_found("Directory", str(source_path)))
 
-            # Map domain to EntityType
-            from core.models.enums.entity_enums import EntityType
-
-            domain_to_entity = {
-                "lesson": EntityType.PATH_STEP,
-                "article": EntityType.PATH_STEP,
-                "ku": EntityType.KU,
-                "ps": EntityType.PATH_STEP,
-                "lp": EntityType.LEARNING_PATH,
-                "tasks": EntityType.TASK,
-                "goals": EntityType.GOAL,
-                "habits": EntityType.HABIT,
-                "events": EntityType.EVENT,
-                "choices": EntityType.CHOICE,
-                "principles": EntityType.PRINCIPLE,
-            }
-
-            if domain_name not in domain_to_entity:
+            # Validate the domain string. This door does NOT filter files by
+            # EntityType — it ingests every file in the directory and lets each
+            # file's declared `type:` drive its persistence. The domain name is a
+            # human-facing label for the target directory, not a filter.
+            valid_domains = frozenset(
+                {
+                    "lesson",
+                    "article",
+                    "ku",
+                    "ps",
+                    "lp",
+                    "tasks",
+                    "goals",
+                    "habits",
+                    "events",
+                    "choices",
+                    "principles",
+                }
+            )
+            if domain_name not in valid_domains:
                 return Result.fail(Errors.validation(f"Unknown domain: {domain_name}"))
 
-            _ = domain_to_entity[domain_name]  # Validates domain exists in mapping
-
-            # Perform ingestion (entity type filter would be added to batch.py in future)
-            # For now, ingest all files in the directory
             result = await unified_ingestion.ingest_directory(
                 source_path,
                 pattern=pattern,

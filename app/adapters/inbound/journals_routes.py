@@ -26,6 +26,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
+from core.config import get_settings
 from core.models.enums.pipeline import Pipeline
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
@@ -38,19 +39,37 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.journals")
 
 _JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
-_JE_IN = Path("/home/mike/0bsidian/skuel/je_in")
+
+
+# The je_* journal-exchange staging folders live under the *personal* vault
+# (VaultConfig.vault_root — the single source of truth for the vault root), so they
+# follow VAULT_ROOT rather than drifting from a hardcoded literal. Resolved lazily
+# (get_settings() is cached) to avoid an import-time config dependency.
+def _je_in() -> Path:
+    return get_settings().vault.vault_path / "je_in"
+
+
 # je_out is a pipeline staging area — excluded from vault sync by the fail-closed
 # SyncAllowlist (code-defined _DEFAULT_SYNC_SUBDIRS): only allowed folders ingest,
 # and je_out is never one of them. Users open je_out files in Obsidian and
 # manually decide what enters their personal vault. SKUEL never auto-syncs je_out.
-_JE_OUT = Path("/home/mike/0bsidian/skuel/je_out")
+def _je_out() -> Path:
+    return get_settings().vault.vault_path / "je_out"
+
+
 # je_raw/je_pro hold curated example input→output pairs. They are read *off disk at
 # processing time* as few-shot exemplars that shape journal-processing STYLE — never
 # ingested, never written to Neo4j, never treated as facts about the user (ADR-073 §4).
 # The vault's fail-closed SyncAllowlist + STAGING_EXCLUDED_DIRS wall them off from
 # ingestion unconditionally; this is a read-only, in-memory use.
-_JE_RAW = Path("/home/mike/0bsidian/skuel/je_raw")
-_JE_PRO = Path("/home/mike/0bsidian/skuel/je_pro")
+def _je_raw() -> Path:
+    return get_settings().vault.vault_path / "je_raw"
+
+
+def _je_pro() -> Path:
+    return get_settings().vault.vault_path / "je_pro"
+
+
 _TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
 _LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
 _LLM_MODEL_GPT = "gpt-4o-mini"
@@ -93,9 +112,9 @@ def _write_je_out(stem: str, suffix: str, content: str) -> str:
     across every entry point. ``Path(stem).name`` strips any path components
     from an untrusted upload filename.
     """
-    _JE_OUT.mkdir(parents=True, exist_ok=True)
+    _je_out().mkdir(parents=True, exist_ok=True)
     filename = f"{Path(stem).name}{suffix}"
-    (_JE_OUT / filename).write_text(content, encoding="utf-8")
+    (_je_out() / filename).write_text(content, encoding="utf-8")
     return filename
 
 
@@ -153,8 +172,8 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
             logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
             return None
 
-    raw_by_stem = _text_files(_JE_RAW)
-    pro_by_stem = _text_files(_JE_PRO)
+    raw_by_stem = _text_files(_je_raw())
+    pro_by_stem = _text_files(_je_pro())
     pairs: list[tuple[str, str]] = []
     for stem in sorted(raw_by_stem.keys() & pro_by_stem.keys()):
         if len(pairs) >= _EXEMPLAR_MAX_PAIRS:
@@ -376,7 +395,7 @@ async def _run_batch_over_dir(
     is not re-transcribed. ``False`` (uploads) forces fresh transcription, since an
     upload is new content that must not be shadowed by a stale same-stem transcript.
     """
-    _JE_OUT.mkdir(parents=True, exist_ok=True)
+    _je_out().mkdir(parents=True, exist_ok=True)
 
     if processing_mode in ("transcribe_only", "transcribe_and_instructions"):
         if batch_transcription_service is None:
@@ -406,7 +425,7 @@ async def _run_batch_over_dir(
         # (folder-process reruns idempotently, uploads are always fresh).
         effective_skip = skip_existing if processing_mode == "transcribe_only" else False
         transcribe_result = await batch_transcription_service.transcribe_batch(
-            input_dir, _JE_OUT, skip_existing=effective_skip
+            input_dir, _je_out(), skip_existing=effective_skip
         )
         if transcribe_result.is_error:
             return render_journal_upload_status(
@@ -446,7 +465,7 @@ async def _run_batch_over_dir(
         llm_ok = 0
         llm_fail = 0
         for stem in structurable_stems:
-            txt_path = _JE_OUT / f"{stem}.txt"
+            txt_path = _je_out() / f"{stem}.txt"
             if not txt_path.exists():
                 continue
             text = txt_path.read_text(encoding="utf-8")
@@ -455,7 +474,7 @@ async def _run_batch_over_dir(
                 logger.error(f"LLM failed for {stem}: {llm_result.error}")
                 llm_fail += 1
             else:
-                (_JE_OUT / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
+                (_je_out() / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
                 llm_ok += 1
         msg = (
             f"{r.succeeded} transcribed, {llm_ok} structured, "
@@ -502,7 +521,7 @@ async def _run_batch_over_dir(
                 logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
                 fail += 1
             else:
-                (_JE_OUT / f"{text_file.stem}_out.md").write_text(
+                (_je_out() / f"{text_file.stem}_out.md").write_text(
                     llm_result.value, encoding="utf-8"
                 )
                 ok += 1
@@ -807,7 +826,7 @@ def create_journals_routes(
             )
 
             return await _run_batch_over_dir(
-                _JE_IN,
+                _je_in(),
                 processing_mode,
                 instructions,
                 status_id="upload-status",
@@ -850,9 +869,9 @@ def create_journals_routes(
         if not (filename.endswith(".md") or filename.endswith(".txt")):
             return Response("Not found", status_code=404)
 
-        candidate = (_JE_OUT / filename).resolve()
+        candidate = (_je_out() / filename).resolve()
         try:
-            candidate.relative_to(_JE_OUT.resolve())
+            candidate.relative_to(_je_out().resolve())
         except ValueError:
             return Response("Not found", status_code=404)
 
@@ -903,6 +922,15 @@ def create_journals_routes(
                     uid=uid,
                     title=f"Daily Note: {target_date.strftime('%A, %B %d, %Y')}",
                     content="",
+                    # SEAM (intended): an in-app periodic note is a SKUEL-only stub.
+                    # It is NOT task-round-trip-eligible — outbound sync
+                    # (vault_reconciler._run_outbound) processes only entries with
+                    # pipeline=EXTRACT_ACTIVITIES that also carry a vault_file_path.
+                    # This stub has neither; the *vault file* (created/edited in
+                    # Obsidian with `pipeline: extract_activities` frontmatter, then
+                    # ingested) is the source of truth for round-trip eligibility.
+                    # Setting the pipeline here would NOT make it eligible (no
+                    # vault_file_path), so it would only mislead — hence NONE.
                     pipeline=Pipeline.NONE,
                     metadata={"entry_kind": "daily", "period_key": target_date.isoformat()},
                 ),
@@ -929,6 +957,8 @@ def create_journals_routes(
                     uid=uid,
                     title=f"Weekly Note: W{week}, {year}",
                     content="",
+                    # SEAM (intended): SKUEL-only stub, not round-trip-eligible.
+                    # See the daily-note handler above for the full rationale.
                     pipeline=Pipeline.NONE,
                     metadata={"entry_kind": "weekly", "period_key": f"{year}-W{week:02d}"},
                 ),
@@ -956,6 +986,8 @@ def create_journals_routes(
                     uid=uid,
                     title=f"Monthly Note: {month_name} {year}",
                     content="",
+                    # SEAM (intended): SKUEL-only stub, not round-trip-eligible.
+                    # See the daily-note handler above for the full rationale.
                     pipeline=Pipeline.NONE,
                     metadata={"entry_kind": "monthly", "period_key": f"{year}-{month:02d}"},
                 ),
