@@ -492,6 +492,7 @@ async def ingest_directory(
     default_user_uid: UserUID = DEFAULT_USER_UID,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
     ingestion_mode: Literal["full", "incremental", "smart"] = "full",
+    force: bool = False,
     validate_targets: bool = False,
     progress_callback: ProgressCallback | None = None,
     dry_run: bool = False,
@@ -527,6 +528,13 @@ async def ingest_directory(
             - "full": Process all files (default, backward compatible)
             - "incremental": Skip files with unchanged content hash
             - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
+        force: Re-process every surviving file regardless of hash/mtime while
+            KEEPING tracked-mode semantics — metadata rows are re-stamped and
+            deletion reconciliation still runs. This is force ≠ full: full mode
+            skips reconciliation (and would leak the vault wall), force does
+            not. Requires a tracked mode (incremental/smart); a full-mode force
+            is rejected because "re-process unchanged" only has meaning under
+            tracking.
         validate_targets: If True, validate relationship targets exist before ingestion
         progress_callback: Optional callback for progress reporting (current, total, current_file)
         dry_run: If True, validates and previews changes without writing to Neo4j
@@ -563,6 +571,19 @@ async def ingest_directory(
             Errors.validation(
                 "IngestionBackend required for incremental/smart ingestion mode",
                 field="ingestion_backend",
+            )
+        )
+
+    # Force is defined on top of tracked ingestion (see docstring) — the facade
+    # coerces full → smart before delegating here, so this only fires on a
+    # direct mis-call.
+    if force and ingestion_mode == "full":
+        return Result.fail(
+            Errors.validation(
+                "force re-ingestion requires a tracked mode (incremental/smart); "
+                "full mode already processes every file but skips deletion "
+                "reconciliation",
+                field="force",
             )
         )
 
@@ -632,33 +653,42 @@ async def ingest_directory(
         tracker = IngestionTracker(ingestion_backend)
         await tracker.ensure_constraints()
 
-        # Get existing ingestion metadata
-        metadata_result = await tracker.get_ingestion_metadata(all_files)
-        metadata_map = metadata_result.value if metadata_result.is_ok else {}
+        if force:
+            # Force: bypass the hash/mtime skip filter — every surviving file
+            # re-processes. The tracker stays live so metadata rows are
+            # re-stamped below and deletion reconciliation still runs.
+            logger.info(
+                f"Force re-ingestion: processing all {len(all_files)} files "
+                "regardless of hash/mtime"
+            )
+        else:
+            # Get existing ingestion metadata
+            metadata_result = await tracker.get_ingestion_metadata(all_files)
+            metadata_map = metadata_result.value if metadata_result.is_ok else {}
 
-        # Filter to only files needing ingestion
-        files_to_process, decisions = tracker.filter_files_needing_ingestion(
-            all_files, metadata_map
-        )
+            # Filter to only files needing ingestion
+            files_to_process, decisions = tracker.filter_files_needing_ingestion(
+                all_files, metadata_map
+            )
 
-        # Count skip reasons
-        for decision in decisions:
-            if not decision.needs_ingestion:
-                files_skipped += 1
-                if decision.reason == "unchanged":
-                    if (
-                        decision.existing_metadata
-                        and decision.existing_metadata.file_mtime
-                        == decision.file_path.stat().st_mtime
-                    ):
-                        skipped_unchanged += 1
-                    else:
-                        skipped_hash_match += 1
+            # Count skip reasons
+            for decision in decisions:
+                if not decision.needs_ingestion:
+                    files_skipped += 1
+                    if decision.reason == "unchanged":
+                        if (
+                            decision.existing_metadata
+                            and decision.existing_metadata.file_mtime
+                            == decision.file_path.stat().st_mtime
+                        ):
+                            skipped_unchanged += 1
+                        else:
+                            skipped_hash_match += 1
 
-        logger.info(
-            f"Incremental ingestion: {len(files_to_process)}/{len(all_files)} files need processing "
-            f"({files_skipped} skipped: {skipped_unchanged} unchanged, {skipped_hash_match} hash match)"
-        )
+            logger.info(
+                f"Incremental ingestion: {len(files_to_process)}/{len(all_files)} files need processing "
+                f"({files_skipped} skipped: {skipped_unchanged} unchanged, {skipped_hash_match} hash match)"
+            )
 
     if not files_to_process:
         # All surviving files are up to date — but a deletion-only vault change

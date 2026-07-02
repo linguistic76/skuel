@@ -113,7 +113,9 @@ class VaultReconciler:
     # PUBLIC API
     # =========================================================================
 
-    async def sync(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultSyncStats]:
+    async def sync(
+        self, kind: VaultKind, user_uid: UserUID, *, force: bool = False
+    ) -> Result[VaultSyncStats]:
         """Run a full vault sync for ``kind``.
 
         ``user_uid`` is the acting user; for ``VaultKind.CONTENT`` it is ignored
@@ -121,9 +123,13 @@ class VaultReconciler:
         root, ingest-owner, allowlist, outbound bridge, and whether the task
         round-trip runs — come from the resolved :class:`VaultDescriptor`.
 
-        1. Ingest the vault directory (smart mode — only changed files),
-           attributed to the descriptor's owner, walled by the descriptor's
-           allowlist.
+        ``force=True`` re-processes unchanged files too (re-chunk/migration
+        campaigns) while keeping smart-mode semantics — the wall, metadata
+        re-stamping, and deletion reconciliation all stay active.
+
+        1. Ingest the vault directory (smart mode — only changed files, unless
+           ``force``), attributed to the descriptor's owner, walled by the
+           descriptor's allowlist.
         2. Check vault-write consent on the owner (ADR-070 Decision 6 first-run
            gate).
         3. If the vault supports the task round-trip, for each ingested
@@ -167,6 +173,7 @@ class VaultReconciler:
         ingest_result = await self._ingestion.ingest_directory(
             descriptor.root,
             ingestion_mode="smart",
+            force=force,
             user_uid=owner,
             allowlist=descriptor.allowlist,
         )

@@ -145,3 +145,10 @@ nodes).
   explicit `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL REMOVE ps.content` sweep — the
   re-sync alone cannot clear it (`n += props` never removes omitted keys); then one
   `--stale` run to re-embed the drifted corpus.
+- **Follow-up (arc residue 4):** the re-sync above required manually invalidating
+  `IngestionMetadata` rows (`SET s.content_hash='force', s.file_mtime=0.0`) because the vault
+  wall upgrades full → smart and unchanged files never re-process through any admin door.
+  Productized as `force` re-ingestion — `ingest_directory(force=True)`,
+  `POST /api/vault/sync/content` body `{"force": true}`, `./dev vault-sync --force` — which
+  bypasses only the hash/mtime skip while keeping the wall, metadata re-stamping, and deletion
+  reconciliation (force ≠ full). See `UNIFIED_INGESTION_GUIDE.md § Ingestion Modes`.
