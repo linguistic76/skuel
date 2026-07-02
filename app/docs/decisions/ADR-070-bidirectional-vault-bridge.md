@@ -205,6 +205,31 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 ---
 
+### Decision 9 — Ingestion is human-initiated per event; one reconciler engine; the continuous watcher is deleted (2026-07-01)
+
+`docs/Reviews/SYNC_UNIFICATION_REVIEW.md` (a *One Path Forward* pass over #482) surfaced two consolidation debts. PR 1's commit message promised PR 2 would *retire* `/api/ingest/directory` and `scripts/vault_watch.py`; PR 2 kept both working and removed only the admin button. The result: a parallel directory-ingest door (**A1**) and three sync triggers spanning two engines — the raw `/api/ingest/*` door vs. the `VaultReconciler` (**A2**). This decision resolves both. It also **enforces Alternative E** below, which rejected the continuous watcher in prose on 2026-06-16 while the code kept `vault_watch.py` alive as a live trigger — the exact intent-vs-reality drift the review caught.
+
+**Ruling 1 — one engine (resolves A1).** The raw arbitrary-path `POST /api/ingest/directory` door is **deleted**. The single directory-ingest path is the `VaultReconciler`, reachable over HTTP as `POST /api/vault/sync` (PERSONAL, session user) and `POST /api/vault/sync/content` (CONTENT, admin, inbound-only); the admin dashboard's former "Ingest Directory" card becomes a **"Sync content vault"** button onto the latter. Arbitrary-path / glob admin ingest is retired with it — a pre-vault-era capability Mike confirmed (2026-07-01) is not needed, since the vault is the ingestion source of truth. PR 1's "to be retired" language is honoured, not deferred.
+
+**Ruling 2 — human-initiated *per event* (resolves A2).** Ingestion happens exactly when a person asks for it. Sanctioned entry points, all explicit and all onto the one reconciler engine:
+1. the "Update from my vault" button → `POST /api/vault/sync`;
+2. single-file sync (the same route, single-path variant);
+3. a one-shot, human-run `scripts/vault_bridge_sync.py` (in-process reconciler).
+
+**No unattended scheduler of any kind.** The continuous poll-loop is deleted, and cron / systemd-timer ingestion is out of scope. Mike's rationale: *a continuous watcher adds no value when the machinery is human-started anyway; per-event initiation is the cleaner, more honest system — you sync because you decided to.*
+
+**Why per-event, not merely "machinery human-started."** The looser reading (launching a daemon is itself the explicit act, so a background watcher is fine) was considered and rejected: it re-imports the property we are removing — a scheduled `--once` is a continuous watcher wearing a cron hat, "not human per event" via a timer instead of a poll-loop. Sanctioning it would reopen the same drift this decision closes.
+
+**Enforcement (done in this PR):** deleted `scripts/vault_watch.py` (the continuous poll-loop) and `scripts/provision_vault_watcher.py` (the watcher's HTTP service-account provisioner — obsolete once sync is in-process); deleted `POST /api/ingest/directory` and its route-level test; added `POST /api/vault/sync/content` (admin) onto the reconciler; rewired the ingestion dashboard's directory card to a "Sync content vault" button; replaced `./dev vault-watch` with one-shot `./dev vault-sync` (→ `vault_bridge_sync.py`); updated the CLAUDE.md ingestion note.
+
+**Rejected:** (a) cron / systemd `--once` as sanctioned automation — violates per-event-human initiation; it is Alternative E by another name. (b) keeping `/api/ingest/directory` as a parallel raw ingest door — One Path Forward forbids two live paths to one outcome.
+
+**Unchanged:** this decision governs *triggers and engine count only*. Descriptor-by-path ingest ownership (Decision 7) and the code-defined default-deny sync allowlist (Decision 8) are untouched; the fail-closed privacy wall still applies beneath every entry point above.
+
+**See:** `docs/Reviews/SYNC_UNIFICATION_REVIEW.md` (A1, A2), Alternative E (below), Decision 7, `scripts/vault_bridge_sync.py`, `adapters/inbound/vault_routes.py` (`POST /api/vault/sync`, `POST /api/vault/sync/content`), `core/services/vault/vault_reconciler.py` (`sync`).
+
+---
+
 ## Resolved Design Questions (2026-06-16)
 
 **1. Trigger scope:** Support BOTH — sync all changed notes (full vault incremental) AND sync a single note (single-file path). The API supports both from day one; the UX design (button placement, picker, confirmation) is deferred to a dedicated UX pass. Prior art: the existing ingestion system already distinguishes `ingest_file` (single) vs `ingest_directory` (vault-wide incremental) — the VaultBridge inherits the same duality.
@@ -234,8 +259,8 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 ### Alternative D — Full CRDT (Automerge/Yjs)
 **Rejected for now.** Ink & Switch's Peritext (CSCW 2022) explicitly defers block-level structured-record CRDTs — no production library solves the "task line as structured record" problem at the character level. Automerge handles same-property conflicts via actor-ID LWW, which is identical to the chosen field-merge + LWW policy without the library dependency. May be revisited if SKUEL expands to collaborative editing across multiple users on the same vault.
 
-### Alternative E — Continuous background watcher (existing `vault_watch.py`)
-**Explicitly rejected by Mike.** User-triggered button is the correct UX. The watcher also uses `POST /api/ingest/directory` → `batch.ingest_directory`, which bypasses `UserEntryService` entirely (no OWNS edge, no extraction, no processor) — it is architecturally the wrong path for periodic notes regardless of the UX choice.
+### Alternative E — Continuous background watcher (the former `vault_watch.py`)
+**Explicitly rejected by Mike** (2026-06-16), **deleted in code by Decision 9** (2026-07-01; `vault_watch.py` is gone). User-triggered sync is the correct UX. The watcher also used `POST /api/ingest/directory` → `batch.ingest_directory`, which bypassed `UserEntryService` entirely (no OWNS edge, no extraction, no processor) — architecturally the wrong path for periodic notes regardless of the UX choice. Decision 9 extends this rejection to *all* unattended scheduling (cron / systemd `--once`) and removed the watcher rather than leaving it live.
 
 ---
 
@@ -307,3 +332,4 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 | 2026-06-16 | Mike | Resolved 4 design questions: trigger scope (both), undone (deferred v1), hash→Neo4j, ID injection→first-run notice | 0.2 |
 | 2026-07-01 | Claude Code | Decision 7 — access rights as the single axis; ingest owner resolved descriptor-by-path at the mechanism (surface-independent); chunk/embed documented out of scope | 0.3 |
 | 2026-07-01 | Claude Code | Decision 8 — sync allowlist stays code-defined; operator-configurability deferred to a per-user vault-local marker (hosting-gated); global env/file rejected (shadow + wrong shape). Closes PR #482 open question. | 0.4 |
+| 2026-07-01 | Mike + Claude Code | Decision 9 — ingestion is human-initiated per event (1a); raw `/api/ingest/directory` deleted, content-vault sync unified onto the reconciler via new admin `POST /api/vault/sync/content` (resolves review A1); continuous watcher + provisioner deleted, all unattended scheduling out of scope, enforcing Alternative E (resolves review A2). | 0.5 |

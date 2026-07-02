@@ -447,7 +447,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Core Principle:** "The hips of SKUEL — one of three foundational systems"
 
-One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards); `./dev vault-watch` keeps the vault synced continuously.
+One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. `/submit` (exercise) uses `UserEntryService.create_entry()` via `core/services/ingestion/user_entry_ingestion.py` (ADR-054). The vault is the source of truth for user data: `/settings/vault` (Obsidian bidirectional sync) is the primary personal-data ingestion path. Incremental/smart runs propagate deletions (entity file deleted → entity deleted; Edge YAML deleted → relationship deleted; move/rename + mass-deletion guards). Ingestion is **human-initiated per event** (ADR-070 Decision 9 — no background watcher): the personal-vault "Sync from Obsidian" button, the admin "Sync content vault" button (`POST /api/vault/sync/content`), or one-shot `./dev vault-sync` (`scripts/vault_bridge_sync.py`, in-process reconciler).
 
 **Default Vault:** `/home/mike/0bsidian/0vault/` — configurable via `INGESTION_PATH` env var.
 

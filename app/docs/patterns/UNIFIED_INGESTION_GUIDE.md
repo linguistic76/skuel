@@ -479,7 +479,7 @@ the `ingest_directory` bulk-upsert seam (activity domains are bulk-ingested and 
 pass through `ingest_file`). The single-file door also resolves its fail-closed **wall**
 from the file's descriptor, so a content `je_*` staging file is rejected consistently
 with the directory/reconciler paths. Consequence: **the same file ingested via any
-surface — the `/ingest` dashboard, the `VaultReconciler`, `vault_watch`, or a bare
+surface — the `/ingest` dashboard, the `VaultReconciler`, or a bare
 script — yields the same owner.** The reconciler still passes `user_uid=`/`allowlist=`
 explicitly; that is belt-and-suspenders — a by-path caller reproduces the same result.
 
@@ -809,15 +809,18 @@ tags: [health, nervous-system]
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
 | `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/directory` | POST | `{"directory": "/dir", "pattern": "*.md", "ingestion_mode": "incremental"}` | IngestionStats/IncrementalStats |
 | `/api/ingest/vault` | POST | `{"vault_path": "/vault", "subdirs": ["docs"]}` | IngestionStats (full mode) |
 | `/api/ingest/bundle` | POST | `{"bundle_path": "/bundle"}` | BundleStats |
 | `/ingest` | GET | - | Dashboard UI |
 
 All endpoints are admin-only and CSRF-protected — a scripted caller needs an authenticated
-session plus the `X-CSRF-Token` header (see `scripts/vault_watch.py` for the canonical client).
-`ingestion_mode` is accepted by `/api/ingest/directory` only; since directory scanning recurses,
-point it at the vault root for an incremental whole-vault sync.
+session plus the `X-CSRF-Token` header.
+
+**Whole-vault incremental sync goes through the reconciler, not a raw ingest door** (ADR-070
+Decision 9). The arbitrary-path `/api/ingest/directory` door was removed; ingest the content
+vault via `POST /api/vault/sync/content` (admin) or the in-process
+`scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
+mode). Personal vaults sync via `POST /api/vault/sync`.
 
 **Deletion propagation (incremental/smart only):** vault file deleted → graph entity deleted.
 After processing, tracked files under the directory that no longer exist on disk have their
@@ -832,15 +835,21 @@ wipe); if any tracked file survives — in or out of scope — the vault is demo
 and in-scope deletions propagate. Response fields: `entities_deleted`, `edges_deleted`,
 `stale_metadata_removed`.
 
-### Example: Automated incremental vault sync
+### Example: Human-initiated incremental vault sync
+
+Ingestion is human-initiated per event — there is no background watcher (ADR-070
+Decision 9). Sync when you decide to:
 
 ```bash
-# Continuous watcher (poll + debounce → incremental ingest on change)
-./dev vault-watch
+# One-shot content-vault sync (in-process reconciler, smart mode)
+./dev vault-sync --vault content
 
-# One-shot incremental ingest (cron / systemd timer)
-./dev vault-watch --once
+# One-shot personal-vault sync as a given user
+./dev vault-sync --user <user_uid>
 ```
+
+Or from the UI: the personal-vault "Sync from Obsidian" button, or the admin
+ingestion dashboard's "Sync content vault" button (`POST /api/vault/sync/content`).
 
 ---
 

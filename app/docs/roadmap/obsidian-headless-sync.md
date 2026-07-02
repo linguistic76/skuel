@@ -1,9 +1,18 @@
 # Obsidian Headless Sync Integration
 
 **Created:** 2026-03-10
-**Updated:** 2026-06-12 — Phase 2 trigger implemented (`scripts/vault_watch.py`)
-**Status:** Phase 2 shipped (local watcher); Phase 1 cloud leg + Phase 3/4 planned
+**Updated:** 2026-07-01 — Phase 2 watcher **removed** (ADR-070 Decision 9); ingestion is
+human-initiated per event, no background trigger. Earlier: 2026-06-12 Phase 2 trigger shipped.
+**Status:** Phase 2 watcher retired (superseded by human-initiated reconciler sync);
+Phase 1 cloud leg + Phase 3/4 planned
 **Principle:** Leverage Maintained Software (see below)
+
+> **⚠️ SUPERSEDED (2026-07-01, ADR-070 Decision 9):** the automated watcher
+> (`scripts/vault_watch.py`) and its provisioner (`scripts/provision_vault_watcher.py`) have
+> been **deleted**. Ingestion is now human-initiated per event — no continuous or scheduled
+> trigger. Sync the content vault via the admin "Sync content vault" button
+> (`POST /api/vault/sync/content`) or `./dev vault-sync --vault content`; personal vaults via
+> the "Sync from Obsidian" button. The Phase 2 section below is retained as history.
 
 ---
 
@@ -130,9 +139,12 @@ credentials (user action), and becomes load-bearing at Phase 3 (Droplet).
 
 **Validates:** End-to-end flow works, incremental ingestion handles Sync's file delivery.
 
-### Phase 2: Automated Trigger — ✅ IMPLEMENTED (2026-06-12)
+### Phase 2: Automated Trigger — ⛔ SUPERSEDED / REMOVED (2026-07-01, ADR-070 Decision 9)
 
-**Implementation:** `scripts/vault_watch.py` (run via `./dev vault-watch`).
+> Retained as history. The watcher was deleted; ingestion is human-initiated per event
+> (see the supersession note at the top of this file). Original description follows.
+
+**Implementation (removed):** `scripts/vault_watch.py` (was run via `./dev vault-watch`).
 
 1. Polling watcher (no inotify dependency — stat-signature scan over `.md`/`.yaml`/`.yml`,
    catches creates, edits, and deletes)
