@@ -377,13 +377,19 @@ class IngestionOperations(Protocol):
         batch_size: int = 500,
         max_concurrent: int = 20,
         ingestion_mode: Literal["full", "incremental", "smart"] = "full",
+        force: bool = False,
         validate_targets: bool = False,
         progress_callback: Any | None = None,
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
     ) -> "Result[IngestionStats | IncrementalStats | DryRunPreview]":
-        """Ingest all supported files in a directory."""
+        """Ingest all supported files in a directory.
+
+        ``force=True`` re-processes unchanged files while keeping tracked-mode
+        semantics (wall, metadata re-stamping, deletion reconciliation) —
+        force ≠ full.
+        """
         ...
 
     async def ingest_vault(

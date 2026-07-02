@@ -361,6 +361,16 @@ The service supports three ingestion strategies for directory and vault operatio
 | `"incremental"` | Skip files with unchanged content hash | Regular ingestion after initial import |
 | `"smart"` | Use mtime for fast filtering, verify with hash | Large vaults, frequent ingestion |
 
+**`force=True` (orthogonal flag, force ≠ full):** re-process every surviving file
+regardless of the hash/mtime match while KEEPING tracked-mode semantics — the
+fail-closed allowlist, metadata re-stamping, and deletion reconciliation all stay
+active. This is the sanctioned re-chunk/migration path (the ADR-074 PathStep
+migration previously required manual `IngestionMetadata` tracker-row invalidation).
+A `"full"`-mode request with `force` is coerced to `"smart"`; full mode itself skips
+reconciliation and would leak the vault wall. Surfaces: `POST /api/vault/sync/content`
+body `{"force": true}` and `./dev vault-sync --force`. After a script-mode force run,
+refresh embeddings with `scripts/generate_embeddings_batch.py [--stale]` (ADR-074 §7).
+
 ### Incremental Ingestion
 
 Tracks file state in Neo4j to skip unchanged files:
@@ -846,6 +856,11 @@ Decision 9). Sync when you decide to:
 
 # One-shot personal-vault sync as a given user
 ./dev vault-sync --user <user_uid>
+
+# Force re-ingest: re-process unchanged files too (re-chunk/migration campaigns);
+# the wall and deletion reconciliation stay active. Follow with
+# scripts/generate_embeddings_batch.py [--stale] for embedding freshness.
+./dev vault-sync --vault content --force
 ```
 
 Or from the UI: the personal-vault "Sync from Obsidian" button, or the admin
