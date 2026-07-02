@@ -61,15 +61,17 @@ Anything with a version older than the current constant needs re-embedding;
 ## Step 3: Re-embed
 
 ```bash
-# Stale-version sweep (regenerates where version != current)
-uv run python scripts/migrate_embeddings_version.py
+# Stale sweep — entities (version mismatch or edited-after-embed) AND content
+# chunks (version mismatch; chunks are immutable) in one run
+uv run python scripts/generate_embeddings_batch.py --stale
 
-# Or: backfill nodes with no embedding at all
-uv run python scripts/generate_embeddings_batch.py [--label Ku]
-
-# Content chunks (RAG)
-uv run python scripts/migrations/migrate_chunk_embeddings.py
+# Or: backfill nodes with no embedding at all (also covers chunks)
+uv run python scripts/generate_embeddings_batch.py [--label Ku|ContentChunk]
 ```
+
+One script, both modes (ADR-074 §7 — the backfill is THE backstop; the former
+`migrate_embeddings_version.py` / `migrate_chunk_embeddings.py` scripts are
+deleted, superseded by `--stale` and `--label ContentChunk`).
 
 Cost at SKUEL scale is negligible with `text-embedding-3-small` (a few hundred entities ≈
 well under $0.01).

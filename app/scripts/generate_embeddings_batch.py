@@ -2,36 +2,40 @@
 Batch Embedding Generation Script
 ==================================
 
-Generates embeddings for existing entities that don't have them, or
-re-embeds entities whose embedding has gone stale (--stale).
+The BACKSTOP of the embedding pipeline (ADR-074 §7): generates embeddings for
+existing entities and content chunks that don't have them, or re-embeds ones
+whose embedding has gone stale (--stale). Routine freshness is the event
+pipeline — app-process worker loop, or the script-mode subscribe-then-drain in
+vault_bridge_sync.py; this script recovers pre-existing gaps (CORE-tier
+periods, events lost from the in-memory queue on an app restart).
 
 Usage:
-    # Generate embeddings for all entity types
+    # Backfill all entity types + content chunks
     uv run python scripts/generate_embeddings_batch.py
 
-    # Generate for specific entity type
+    # Specific entity label, or chunks only
     uv run python scripts/generate_embeddings_batch.py --label PathStep
+    uv run python scripts/generate_embeddings_batch.py --label ContentChunk
 
     # Limit batches (for testing)
     uv run python scripts/generate_embeddings_batch.py --label Ku --max-batches 2
 
-    # Re-embed stale nodes (edited after last embed, or older model version)
+    # Re-embed stale nodes (edited after last embed, or older embedding version)
     uv run python scripts/generate_embeddings_batch.py --stale
 
-STALENESS (ADR-074): one-shot syncs (`./dev vault-sync`, script-mode
-reconciler) publish embedding events to an in-process bus whose worker only
-runs in the app process, so entities they touch drift stale until the next
-app-process sync or a --stale run. The full freshness recipe after script
-syncs is BOTH modes: a default run (embeds brand-new nodes the sync created —
-they have no embedding yet, so --stale deliberately skips them) plus a
---stale run (re-embeds drifted ones). Kept as two modes so re-embedding —
-which re-spends API money on existing vectors — is always an explicit choice.
+The two modes stay separate so re-embedding — which re-spends API money on
+existing vectors — is always an explicit choice: the default run embeds nodes
+with no embedding yet (--stale deliberately skips them); --stale re-embeds
+drifted ones.
 
 ARCHITECTURE:
-- Uses EmbeddingsService for embedding generation AND storage, so backfilled
-  nodes carry the same version/model metadata the background worker writes
-- Embedding text built via build_embedding_text (same field maps as the
-  event-driven path — one text recipe, two triggers)
+- Entities: EmbeddingsService for generation AND storage, so backfilled nodes
+  carry the same version/model metadata the background worker writes; text via
+  build_embedding_text (same field maps as the event-driven path)
+- Chunks: embeds ContentChunk.context_window and stores through
+  Neo4jContentAdapter.store_chunk_embeddings — the same recipe + storage path
+  as the worker's chunk batches. Chunks are immutable (a re-chunk deletes and
+  recreates them), so chunk staleness is version-mismatch only
 - Processes in batches of 25
 - Graceful error handling - logs failures but continues processing
 
@@ -44,6 +48,7 @@ import argparse
 import asyncio
 from typing import Any
 
+from core.events.embedding_publisher import EMBEDDING_NODE_LABELS
 from core.models.enums.entity_enums import EntityType
 from core.services.embeddings_service import EMBEDDING_VERSION, EmbeddingsService
 from core.utils.embedding_text_builder import build_embedding_text
@@ -51,22 +56,14 @@ from core.utils.logging import get_logger
 
 logger = get_logger("skuel.batch_embeddings")
 
-# Neo4j label → EntityType for embedding-text field maps (mirrors the
-# background worker's label_map, inverted).
+# Neo4j label → EntityType, inverted from the chokepoint's one label map —
+# no hand-maintained mirror (the map itself is guarded against
+# EMBEDDING_EVENT_TYPES drift by test_post_persist_embedding.py).
 EMBEDDABLE_LABELS: dict[str, EntityType] = {
-    "Task": EntityType.TASK,
-    "Goal": EntityType.GOAL,
-    "Habit": EntityType.HABIT,
-    "Event": EntityType.EVENT,
-    "Choice": EntityType.CHOICE,
-    "Principle": EntityType.PRINCIPLE,
-    "Ku": EntityType.KU,
-    "Resource": EntityType.RESOURCE,
-    "Exercise": EntityType.EXERCISE,
-    "PathStep": EntityType.PATH_STEP,
-    "LearningPath": EntityType.LEARNING_PATH,
-    "RevisedExercise": EntityType.REVISED_EXERCISE,
+    label: entity_type for entity_type, label in EMBEDDING_NODE_LABELS.items()
 }
+
+CHUNK_LABEL = "ContentChunk"
 
 
 def build_candidate_query(label: str, stale: bool) -> str:
@@ -203,13 +200,120 @@ async def generate_embeddings_batch(
     }
 
 
+async def generate_chunk_embeddings(
+    driver: Any,
+    embeddings_service: EmbeddingsService,
+    content_adapter: Any,
+    batch_size: int = 25,
+    max_batches: int | None = None,
+    stale: bool = False,
+) -> dict[str, Any]:
+    """
+    Generate embeddings for ContentChunk nodes — the chunk backstop (ADR-074).
+
+    Default: chunks with no embedding (e.g. created by a sync whose queued
+    events were lost). --stale: chunks whose embedding_version mismatches the
+    current EMBEDDING_VERSION (NULL counts as a mismatch). Chunks are immutable
+    — a re-chunk deletes and recreates them — so there is no updated_at drift
+    predicate, unlike entities.
+
+    Embeds context_window and stores through the content adapter — the exact
+    recipe + storage path of the worker's chunk batches (one recipe, two
+    triggers).
+    """
+    mode = "stale re-embedding" if stale else "embedding generation"
+    logger.info(f"Starting batch chunk {mode}")
+
+    if stale:
+        predicate = """c.embedding IS NOT NULL AND (
+        c.embedding_version IS NULL OR c.embedding_version <> $current_version
+    )"""
+        params: dict[str, Any] = {"current_version": EMBEDDING_VERSION}
+    else:
+        predicate = "c.embedding IS NULL"
+        params = {}
+
+    # Paged LIMIT-only loop, never SKIP: a successfully embedded chunk leaves
+    # the predicate (embedding set / version current), so re-querying page one
+    # always yields the next unprocessed rows — SKIP against a shrinking match
+    # set would leap over candidates. Only one page of context windows is in
+    # memory at a time. Textless chunks are excluded in Cypher, not Python:
+    # they can never leave the predicate and would loop forever.
+    query = f"""
+    MATCH (c:{CHUNK_LABEL})
+    WHERE {predicate}
+      AND c.context_window IS NOT NULL AND c.context_window <> ''
+    RETURN c.uid as uid, c.context_window as text
+    LIMIT $limit
+    """
+
+    batches_processed = 0
+    successful = 0
+    failed = 0
+    total = 0
+
+    while True:
+        if max_batches and batches_processed >= max_batches:
+            logger.info(f"Reached max_batches limit ({max_batches}), stopping")
+            break
+
+        result = await driver.execute_query(query, {**params, "limit": batch_size})
+        records = result.records
+        if not records:
+            break
+
+        batch = [(r["uid"], r["text"]) for r in records]
+        total += len(batch)
+        batches_processed += 1
+        logger.info(f"Processing chunk batch {batches_processed}: {len(batch)} chunks")
+
+        embeddings_result = await embeddings_service.create_batch_embeddings(
+            [text for _, text in batch]
+        )
+        if embeddings_result.is_error:
+            # Failed rows stay in the predicate — bail out instead of
+            # re-fetching the same page forever.
+            logger.error(f"Chunk batch failed, stopping: {embeddings_result.expect_error()}")
+            failed += len(batch)
+            break
+
+        stored = await content_adapter.store_chunk_embeddings(
+            chunk_uids=[uid for uid, _ in batch],
+            embeddings=embeddings_result.value,
+            version=EMBEDDING_VERSION,
+            model=embeddings_service.model,
+        )
+        if stored:
+            successful += len(batch)
+        else:
+            # Same self-shrink guard: unstored rows would re-match immediately.
+            logger.error(f"Failed to store chunk batch {batches_processed}, stopping")
+            failed += len(batch)
+            break
+
+    if not total:
+        logger.info("No chunks need embeddings")
+
+    logger.info(
+        f"Batch chunk embedding complete: {batches_processed} batches, "
+        f"{successful} successful, {failed} failed"
+    )
+    return {
+        "label": CHUNK_LABEL,
+        "total": total,
+        "processed": successful + failed,
+        "successful": successful,
+        "failed": failed,
+    }
+
+
 async def main():
     """Run batch embedding generation for all entity types or a specific one."""
     parser = argparse.ArgumentParser(description="Generate embeddings for existing entities")
     parser.add_argument(
         "--label",
         type=str,
-        help="Specific entity label to process (e.g., Ku, PathStep, Task)",
+        help="Specific label to process (e.g., Ku, PathStep, Task, ContentChunk)",
         default=None,
     )
     parser.add_argument(
@@ -225,11 +329,11 @@ async def main():
         "--stale",
         action="store_true",
         help=(
-            "Re-embed stale nodes (embedding_updated_at < updated_at, or "
-            f"embedding_version != current {EMBEDDING_VERSION!r}) instead of "
-            "filling missing embeddings. Complements the default mode — run "
-            "both after a script-mode sync (default = new nodes, --stale = "
-            "drifted ones)"
+            "Re-embed stale nodes (entities: embedding_updated_at < updated_at "
+            f"or embedding_version != current {EMBEDDING_VERSION!r}; chunks: "
+            "version mismatch only — chunks are immutable) instead of filling "
+            "missing embeddings. Complements the default mode (default = nodes "
+            "with no embedding, --stale = drifted ones)"
         ),
     )
 
@@ -259,13 +363,21 @@ async def main():
         embedding_client=embedding_client,
     )
 
-    # All embeddable labels, or a specific one
-    entity_labels = [args.label] if args.label else list(EMBEDDABLE_LABELS)
+    # All embeddable labels + chunks, a specific entity label, or chunks only
+    if args.label is None:
+        entity_labels = list(EMBEDDABLE_LABELS)
+        include_chunks = True
+    elif args.label == CHUNK_LABEL:
+        entity_labels = []
+        include_chunks = True
+    else:
+        entity_labels = [args.label]
+        include_chunks = False
 
     logger.info(f"\n{'=' * 60}")
     logger.info("Batch Embedding Generation" + (" (stale re-embed)" if args.stale else ""))
     logger.info(f"{'=' * 60}\n")
-    logger.info(f"Entity types: {', '.join(entity_labels)}")
+    logger.info(f"Labels: {', '.join(entity_labels + ([CHUNK_LABEL] if include_chunks else []))}")
     logger.info(f"Batch size: {args.batch_size}")
     if args.max_batches:
         logger.info(f"Max batches: {args.max_batches}")
@@ -291,6 +403,23 @@ async def main():
 
         # Small delay between entity types
         await asyncio.sleep(2)
+
+    if include_chunks:
+        from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
+
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Processing {CHUNK_LABEL}")
+        logger.info(f"{'=' * 60}\n")
+
+        chunk_stats = await generate_chunk_embeddings(
+            driver=driver,
+            embeddings_service=embeddings_service,
+            content_adapter=Neo4jContentAdapter(conn),
+            batch_size=args.batch_size,
+            max_batches=args.max_batches,
+            stale=args.stale,
+        )
+        all_stats.append(chunk_stats)
 
     # Print summary
     logger.info(f"\n{'=' * 60}")

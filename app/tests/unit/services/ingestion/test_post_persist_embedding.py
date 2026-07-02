@@ -35,6 +35,7 @@ from core.events.embedding_events import (
 )
 from core.events.embedding_publisher import (
     EMBEDDING_EVENT_TYPES,
+    EMBEDDING_NODE_LABELS,
     publish_embedding_requested,
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
@@ -150,6 +151,16 @@ def test_event_map_mirrors_worker_subscriptions():
         EntityType.LEARNING_PATH,
         EntityType.REVISED_EXERCISE,
     }
+
+
+def test_node_label_map_mirrors_event_map():
+    """EMBEDDING_NODE_LABELS (worker storage + backfill queries) must cover
+    exactly the EMBEDDING_EVENT_TYPES types — the two maps extend together."""
+    assert set(EMBEDDING_NODE_LABELS) == set(EMBEDDING_EVENT_TYPES)
+    # Labels are the Neo4j node labels — non-empty, unique, PascalCase-shaped.
+    labels = list(EMBEDDING_NODE_LABELS.values())
+    assert len(set(labels)) == len(labels)
+    assert all(label and label[0].isupper() for label in labels)
 
 
 def test_every_ingestible_embeddable_type_has_an_event_class():

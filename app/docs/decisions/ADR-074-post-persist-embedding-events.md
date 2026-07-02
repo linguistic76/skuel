@@ -154,6 +154,14 @@ across types is null in Cypher (silently skips nodes).
   explicit `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL REMOVE ps.content` sweep — the
   re-sync alone cannot clear it (`n += props` never removes omitted keys); then one
   `--stale` run to re-embed the drifted corpus.
+- **Follow-up (post-arc review PR 2, 2026-07-02):** the backstop now covers chunks —
+  `generate_embeddings_batch.py --label ContentChunk` (coverage) and `--stale` (version
+  mismatch; chunks are immutable so there is no `updated_at` predicate). The chunk version
+  stamp is unified: the worker passes `EMBEDDING_VERSION` instead of a hardcoded `"v1"`, and
+  `EMBEDDING_NODE_LABELS` (chokepoint) replaces the worker's and the script's private label
+  maps. The superseded `migrate_embeddings_version.py` / `migrate_chunk_embeddings.py`
+  scripts are deleted (One Path Forward — the backfill is THE backstop). Live: 305/305
+  chunks re-embedded v1→v3.
 - **Follow-up (post-arc review, 2026-07-02):** script-mode freshness gap closed at the root —
   `EmbeddingBackgroundWorker.subscribe()` split from `start()`, new `drain()` one-shot mode,
   wired into `vault_bridge_sync.py` (subscribe before sync, drain after). Prompted by live

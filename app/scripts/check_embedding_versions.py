@@ -180,8 +180,8 @@ def print_report(analysis: dict, verbose: bool = False):
                     print(f"  ... and {len(nodes) - 10} more")
 
         print()
-        print(f"⚠️  Run migration script to update {len(needs_update)} stale embeddings")
-        print("    uv run python scripts/migrate_embeddings_version.py")
+        print(f"⚠️  Run the stale backfill to update {len(needs_update)} stale embeddings")
+        print("    uv run python scripts/generate_embeddings_batch.py --stale")
 
     else:
         print("-" * 80)
