@@ -85,7 +85,9 @@ n.embedding             → list[float]  (1024 dimensions)
 n.embedding_model       → "text-embedding-3-small"
 n.embedding_version     → "v3"
 n.embedding_updated_at  → datetime
-n.embedding_source_text → the text that was embedded
+n.embedding_text_hash   → sha256 of the embedded text (ADR-074 §8 — the
+                          pre-generation skip signal; chunks keep raw
+                          embedding_source_text instead)
 ```
 
 ### Retry Strategy
