@@ -105,7 +105,7 @@ SKUEL has two AI companion systems that are architecturally parallel but serve d
 
 | | Askesis | Journals |
 |---|---|---|
-| Access gate | LP enrollment required | Any authenticated user |
+| Access gate | Active PathStep or LP enrollment (PS-first) | Any authenticated user |
 | Guidance model | PsBundle (PathStep + KUs) + ZPD → GuidanceMode | UserContext digest (goals/tasks/habits) + entry → JournalMode |
 | Pedagogical role | Socratic curriculum companion | Personal reflection and thinking partner |
 | Curriculum awareness | Central — anchored to PS/KU graph | None in current implementation |

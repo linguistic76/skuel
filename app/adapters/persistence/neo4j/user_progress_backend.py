@@ -100,7 +100,7 @@ class UserProgressBackend:
         """Get user's active (enrolled) learning paths."""
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[e:ENROLLED]->(p:Lp)
+            MATCH (u:User {uid: $user_uid})-[e:ENROLLED]->(p:LearningPath)
             WHERE e.enrollment_status = 'active'
             RETURN collect(p.uid) as active_paths
             """,
@@ -111,7 +111,7 @@ class UserProgressBackend:
         """Get user's completed learning paths."""
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[c:COMPLETED]->(p:Lp)
+            MATCH (u:User {uid: $user_uid})-[c:COMPLETED]->(p:LearningPath)
             RETURN collect(p.uid) as completed_paths
             """,
             {"user_uid": user_uid},

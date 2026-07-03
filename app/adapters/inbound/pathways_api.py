@@ -188,13 +188,18 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/enroll/{uid}", methods=["POST"])
     @csrf_protected
+    @boundary_handler()
     async def enroll_in_path_route(request: Request, uid: str) -> Any:
-        """Enroll the authenticated user in a learning path."""
+        """Enroll the authenticated user in a learning path.
+
+        Errors convert to proper HTTP error responses via boundary_handler;
+        success returns an HX-Redirect Response (passed through untouched).
+        """
         user_uid = require_authenticated_user(request)
 
         result = await user_service.enroll_in_learning_path(user_uid, uid)
         if result.is_error:
-            return Result.fail(result.error)
+            return Result.fail(result)
 
         return Response(headers={"HX-Redirect": f"/pathways/path/{uid}"})
 

@@ -183,7 +183,7 @@ class _AdaptiveMixin:
     async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
         """Query user's active/in-progress learning paths."""
         query = """
-        MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
+        MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:LearningPath)
         WHERE lp.status = 'active' OR lp.status = 'in_progress'
         RETURN lp
         """
@@ -194,7 +194,7 @@ class _AdaptiveMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Query UIDs of completed learning paths for a user."""
         query = """
-        MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
+        MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:LearningPath)
         RETURN lp.uid as lp_uid
         """
         return await self.execute_query(query, {"user_uid": user_uid})

@@ -449,6 +449,7 @@ principles_rich = entities_rich.get("principles", [])
 | **March 2026** | Socratic pipeline added (LSContextLoader, SocraticEngine) then absorbed into existing services: LSContextLoader → ContextRetriever.load_ps_bundle(), SocraticEngine → ResponseGenerator.build_guided_system_prompt(), GuidanceDetermination added to IntentClassifier. LP enrollment gate. GuidanceMode enum: DIRECT/SOCRATIC/EXPLORATORY/ENCOURAGING. ConversationStyle deleted. One pipeline. |
 | **March 2026** | EntityExtractor DRY fix: 5 copy-pasted `_extract_*_entities()` methods → single generic `_extract_matching_entities()` with `_EntityLookup` protocol. -155 lines. |
 | **March 2026** | Guided system prompts migrated to PROMPT_REGISTRY: 7 `askesis_guided_*` templates replace hardcoded strings in ResponseGenerator. Prompt text editable without touching Python. |
+| **July 2026** | Enrollment gate made PS-first (systems-review Arc B): an active PathStep (`current_ps_uids`, IN_PROGRESS edge) OR an enrolled Learning Path unlocks Askesis. MEGA-QUERY `active_path_steps_rich` traversal fixed to the real IN_PROGRESS edge (WORKING_ON had no production writer, so the guided pipeline could never activate). Phantom `:Lp` label fixed to `:LearningPath` across the persistence layer. |
 
 ---
 

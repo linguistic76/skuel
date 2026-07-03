@@ -827,9 +827,10 @@ async def enrolled_user_with_lp(skuel_app):
     Populate Neo4j with the minimum graph for Askesis's guided pipeline to activate.
 
     The guided pipeline requires (all three must be true):
-    1. user_context.enrolled_path_uids is non-empty  → (User)-[:ENROLLED_IN]->(LearningPath)
+    1. The enrollment gate passes (PS-first): user_context.current_ps_uids or
+       user_context.enrolled_path_uids is non-empty
     2. user_context.active_path_steps_rich has a non-mastered candidate
-       → (User)-[:WORKING_ON]->(PathStep) where ps.status in ['draft','active']
+       → (User)-[:IN_PROGRESS]->(PathStep) where ps.status in ['draft','active']
           and ps.current_mastery < ps.mastery_threshold
     3. The PathStep references at least one Ku
 
@@ -937,12 +938,13 @@ async def enrolled_user_with_lp(skuel_app):
             lp_uid=lp_uid,
         )
 
-        # Working on: (User)-[:WORKING_ON]->(PathStep) → populates active_path_steps_rich
+        # Actively studying: (User)-[:IN_PROGRESS]->(PathStep) → populates
+        # active_path_steps_rich + current_ps_uids (the edge PsMasteryService writes)
         await session.run(
             """
             MATCH (u:User {uid: $user_uid})
             MATCH (ps:PathStep {uid: $ps_uid})
-            MERGE (u)-[:WORKING_ON]->(ps)
+            MERGE (u)-[:IN_PROGRESS]->(ps)
             """,
             user_uid=user_uid,
             ps_uid=ps_uid,

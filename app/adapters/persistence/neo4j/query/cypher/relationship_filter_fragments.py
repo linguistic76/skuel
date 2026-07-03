@@ -45,7 +45,7 @@ _BUILDS_ON_MASTERED = """EXISTS {
 
 # Pattern 3: In active learning path
 _IN_ACTIVE_PATH = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
+    MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:LearningPath)
           -[:CONTAINS_STEP]->(ps:PathStep)
           -[:REQUIRES_KNOWLEDGE]->(entity)
     WHERE lp.status = 'active'
