@@ -402,6 +402,14 @@ class UserEntryContentOperations(Protocol):
         """Entries for a path step via ``Interaction`` edges."""
         ...
 
+    async def get_exercise_entries_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """A user's exercise submissions (FULFILLS_EXERCISE edge, pipeline-agnostic)."""
+        ...
+
 
 # ============================================================================
 # Composed backend protocol — THE contract ``UserEntryBackend`` satisfies

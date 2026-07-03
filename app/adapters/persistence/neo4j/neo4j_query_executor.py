@@ -230,7 +230,12 @@ class Neo4jQueryExecutor:
             )
 
         try:
-            queries = BatchCypherBuilder.build_relationship_create_queries(relationships)
+            # Mixed-label batches (User→Goal PURSUING_GOAL, User→User FOLLOWS,
+            # User→Group MEMBER_OF) — endpoints stay unlabeled; the builder
+            # excludes :Content shadows so entity endpoints can't double-bind.
+            queries = BatchCypherBuilder.build_relationship_create_queries(
+                relationships, endpoint_label=None
+            )
 
             total_created = 0
             async with self.driver.session() as session:
