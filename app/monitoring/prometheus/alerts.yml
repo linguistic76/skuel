@@ -153,14 +153,17 @@ groups:
         annotations:
           summary: "Embedding queue has {{ $value }} pending items"
           description: "Background worker may be falling behind or stalled"
-          runbook: "Check embedding worker logs, verify HuggingFace API availability, consider increasing batch size"
+          runbook: "Check embedding worker logs, verify OpenAI API availability, consider increasing batch size"
 
+      # status="skipped" (content-hash idempotency, ADR-074 §8) is excluded from
+      # the denominator: force syncs/backfills produce large benign skip volumes
+      # that would dilute the real failure ratio exactly when it matters most.
       - alert: HighEmbeddingFailureRate
         expr: |
           (
             sum(rate(skuel_embeddings_processed_total{status="failed"}[5m]))
             /
-            sum(rate(skuel_embeddings_processed_total[5m]))
+            sum(rate(skuel_embeddings_processed_total{status=~"success|failed|dropped"}[5m]))
           ) > 0.20
         for: 5m
         labels:
@@ -168,7 +171,7 @@ groups:
         annotations:
           summary: "Embedding failure rate >20%"
           description: "{{ $value | humanizePercentage }} of embeddings failing to generate"
-          runbook: "Check HuggingFace API status, review error logs, verify text preprocessing"
+          runbook: "Check OpenAI API status, review error logs, verify text preprocessing"
 
       - alert: SlowAICalls
         expr: |

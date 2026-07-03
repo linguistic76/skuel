@@ -656,9 +656,17 @@ PLANNED_METHODS: dict[str, str] = {
         "cosine similarity utility with test coverage; no production caller yet — "
         "wire into a similarity-comparison route or search re-ranking when needed"
     ),
+    "core/services/embeddings_service.py::check_version_compatibility": (
+        "per-node embedding-version diagnostic; lost its one production caller when "
+        "get_or_create_embedding folded onto verify_fresh_embeddings (ADR-074 §8) — "
+        "test-covered; wire into an admin embedding-health surface, or delete if "
+        "check_embedding_versions.py-style batch queries stay the only diagnostic path"
+    ),
     "core/services/embeddings_service.py::get_or_create_embedding": (
-        "embedding with idempotent caching; test-covered but not wired in "
-        "production — wire into bulk-embed or on-demand embed routes"
+        "embedding with idempotent caching on THE hash-based skip decision "
+        "(verify_fresh_embeddings — version current + text-hash match, ADR-074 §8); "
+        "test-covered but not wired in production — wire into bulk-embed or "
+        "on-demand embed routes"
     ),
     "core/services/embeddings_service.py::stamp_embedding_hashes": (
         "NOT staged — LIVE, but its only caller is scripts/generate_embeddings_batch.py "

@@ -135,9 +135,11 @@ at store time saves nothing — the API call already happened):
   stores `embedding_text_hash` alongside version/model (superseding the never-read entity
   `embedding_source_text`, which it clears). One skip decision:
   `EmbeddingsService.verify_fresh_embeddings` — consumed by the worker's batched
-  pre-generation check (one `:Entity` read per batch, any type mix) and the `--stale`
+  pre-generation check (one `:Entity` read per batch, any type mix), the `--stale`
   backfill's fine filter (the Cypher predicate stays the coarse filter; it cannot compute
-  the current text's hash, which is built in Python).
+  the current text's hash, which is built in Python), and
+  `get_or_create_embedding`'s cache decision (folded on post-arc review — its former
+  version-only check returned stale vectors for version-current nodes whose text changed).
 - **Version outranks hash:** a version mismatch is never fresh — an `EMBEDDING_VERSION`
   bump (model migration) re-embeds regardless of text equality.
 - **Skips touch `embedding_updated_at`** (metadata-only write): a hash-verified vector IS
