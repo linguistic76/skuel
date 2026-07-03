@@ -28,6 +28,10 @@ Usage:
     # already-embedded, version-current, non-drifted entity nodes
     uv run python scripts/generate_embeddings_batch.py --stamp-hashes
 
+    # Full-corpus freshness audit (timestamp-free): hash-check every embedded
+    # node against its current text, re-embed only real mismatches
+    uv run python scripts/generate_embeddings_batch.py --audit
+
 The two modes stay separate so re-embedding — which re-spends API money on
 existing vectors — is always an explicit choice: the default run embeds nodes
 with no embedding yet (--stale deliberately skips them); --stale re-embeds
@@ -73,7 +77,7 @@ EMBEDDABLE_LABELS: dict[str, EntityType] = {
 CHUNK_LABEL = "ContentChunk"
 
 
-def build_candidate_query(label: str, stale: bool) -> str:
+def build_candidate_query(label: str, stale: bool, audit: bool = False) -> str:
     """
     Cypher selecting one label's embedding candidates.
 
@@ -84,8 +88,16 @@ def build_candidate_query(label: str, stale: bool) -> str:
     storage type is writer-decided (some writers persist ISO strings, some
     native datetimes — both exist in the live graph): a bare ``<`` between
     DATETIME and STRING is null in Cypher and would silently skip those nodes.
+
+    --audit: EVERY embedded node, no timestamp/version pre-filter — the
+    content-hash fine filter downstream does all the work. Catches silent-pin
+    states the --stale predicate is blind to (a raced store leaves
+    embedding_updated_at AHEAD of updated_at) plus missed publishes and
+    field-map drift.
     """
-    if stale:
+    if audit:
+        predicate = "n.embedding IS NOT NULL"
+    elif stale:
         predicate = """n.embedding IS NOT NULL AND (
         n.embedding_version IS NULL
         OR n.embedding_version <> $current_version
@@ -107,6 +119,7 @@ async def generate_embeddings_batch(
     batch_size: int = 25,
     max_batches: int | None = None,
     stale: bool = False,
+    audit: bool = False,
 ) -> dict[str, Any]:
     """
     Generate embeddings for all nodes of a given label.
@@ -118,11 +131,13 @@ async def generate_embeddings_batch(
         batch_size: Number of nodes per batch (default: 25)
         max_batches: Limit number of batches for testing (default: None = all)
         stale: Re-embed stale nodes instead of filling missing ones
+        audit: Hash-audit every embedded node (timestamp-free) and re-embed
+            mismatches — supersedes ``stale`` when both are set
 
     Returns:
         Stats dict with counts of processed, successful, and failed nodes
     """
-    mode = "stale re-embedding" if stale else "embedding generation"
+    mode = "hash audit" if audit else ("stale re-embedding" if stale else "embedding generation")
     logger.info(f"Starting batch {mode} for {label}")
 
     entity_type = EMBEDDABLE_LABELS.get(label)
@@ -131,8 +146,8 @@ async def generate_embeddings_batch(
         return {"label": label, "total": 0, "processed": 0, "successful": 0, "failed": 0}
 
     # Full properties feed build_embedding_text
-    query = build_candidate_query(label, stale)
-    params = {"current_version": EMBEDDING_VERSION} if stale else {}
+    query = build_candidate_query(label, stale, audit)
+    params = {"current_version": EMBEDDING_VERSION} if stale and not audit else {}
 
     result = await driver.execute_query(query, params)
     records = result.records
@@ -146,16 +161,34 @@ async def generate_embeddings_batch(
     skipped = [uid for uid, text in candidates if not text]
     candidates = [(uid, text) for uid, text in candidates if text]
 
-    # Content-hash fine filter (--stale only): the Cypher predicate can't
-    # compute the current text hash (text is built in Python), so it stays the
-    # coarse filter — here the hash drops candidates whose vector already
-    # matches the current text (force re-ingests bump updated_at without
-    # changing content). verify_fresh_embeddings owns the semantics (version
-    # outranks hash) and touches the fresh nodes' embedding_updated_at so
-    # they leave the coarse filter. Fails OPEN on a read error.
-    if stale and candidates:
+    # Content-hash fine filter (--stale and --audit): the Cypher predicate
+    # can't compute the current text hash (text is built in Python), so it
+    # stays the coarse filter — here the hash drops candidates whose vector
+    # already matches the current text (force re-ingests bump updated_at
+    # without changing content). verify_fresh_embeddings owns the semantics
+    # (version outranks hash) and touches the fresh nodes' embedding_updated_at
+    # so they leave the coarse filter. Fails OPEN on a read error.
+    if (stale or audit) and candidates:
         fresh_result = await embeddings_service.verify_fresh_embeddings(dict(candidates))
         if fresh_result.is_error:
+            if audit:
+                # Audit selects EVERY embedded node — the fine filter IS the
+                # audit. Failing open here would re-embed the whole corpus, so
+                # audit fails CLOSED instead (bail, re-run when reads work).
+                # The aborted flag keeps the bail-out visible in main()'s
+                # summary/exit code — zeroed stats alone would read as success.
+                logger.error(
+                    f"Freshness read failed — aborting {label} audit: "
+                    f"{fresh_result.expect_error().message}"
+                )
+                return {
+                    "label": label,
+                    "total": 0,
+                    "processed": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "aborted": True,
+                }
             logger.warning(
                 f"Freshness fine-filter failed — re-embedding all candidates: "
                 f"{fresh_result.expect_error().message}"
@@ -168,7 +201,11 @@ async def generate_embeddings_batch(
             )
 
     total = len(candidates)
-    noun = "stale embeddings" if stale else "nodes without embeddings"
+    noun = (
+        "hash-mismatched embeddings"
+        if audit
+        else ("stale embeddings" if stale else "nodes without embeddings")
+    )
     logger.info(
         f"Found {total} {label} {noun}"
         + (f" ({len(skipped)} skipped: no embeddable text)" if skipped else "")
@@ -296,6 +333,7 @@ async def generate_chunk_embeddings(
     batch_size: int = 25,
     max_batches: int | None = None,
     stale: bool = False,
+    audit: bool = False,
 ) -> dict[str, Any]:
     """
     Generate embeddings for ContentChunk nodes — the chunk backstop (ADR-074).
@@ -306,19 +344,33 @@ async def generate_chunk_embeddings(
     (NULL counts as a mismatch). There is no updated_at drift predicate,
     unlike entities: a re-chunk wipes a changed chunk's embedding back to
     NULL (store_content_with_chunks), which the default mode covers.
+    --audit: chunks whose stored embedding_source_text (the text the vector
+    was generated from) no longer equals the node's context_window, OR whose
+    embedding_version mismatches (version outranks text, ADR-074 §8) — the
+    chunk equivalent of the entity hash audit, pure Cypher (both texts live
+    on the node).
 
     Embeds context_window and stores through the content adapter — the exact
     recipe + storage path of the worker's chunk batches (one recipe, two
     triggers).
     """
-    mode = "stale re-embedding" if stale else "embedding generation"
+    mode = "hash audit" if audit else ("stale re-embedding" if stale else "embedding generation")
     logger.info(f"Starting batch chunk {mode}")
 
-    if stale:
+    if audit:
+        # Version outranks text (ADR-074 §8): a version-mismatched chunk is
+        # stale even when its source text still matches — same semantics the
+        # entity audit inherits from verify_fresh_embeddings.
+        predicate = """c.embedding IS NOT NULL AND (
+        c.embedding_source_text IS NULL OR c.embedding_source_text <> c.context_window
+        OR c.embedding_version IS NULL OR c.embedding_version <> $current_version
+    )"""
+        params: dict[str, Any] = {"current_version": EMBEDDING_VERSION}
+    elif stale:
         predicate = """c.embedding IS NOT NULL AND (
         c.embedding_version IS NULL OR c.embedding_version <> $current_version
     )"""
-        params: dict[str, Any] = {"current_version": EMBEDDING_VERSION}
+        params = {"current_version": EMBEDDING_VERSION}
     else:
         predicate = "c.embedding IS NULL"
         params = {}
@@ -372,6 +424,7 @@ async def generate_chunk_embeddings(
             embeddings=embeddings_result.value,
             version=EMBEDDING_VERSION,
             model=embeddings_service.model,
+            texts=[text for _, text in batch],
         )
         if stored:
             successful += len(batch)
@@ -438,10 +491,23 @@ async def main():
             "Chunks never need this (embedding_source_text is their signal)."
         ),
     )
+    parser.add_argument(
+        "--audit",
+        action="store_true",
+        help=(
+            "Full-corpus freshness audit, timestamp-free: check EVERY embedded "
+            "node's stored hash (entities) / source text (chunks) against its "
+            "current text and re-embed mismatches. Catches silent-pin states "
+            "--stale is blind to (raced stores leave embedding_updated_at ahead "
+            "of updated_at), missed publishes, and field-map drift. Costs one "
+            "freshness read per corpus; API spend only on real mismatches."
+        ),
+    )
 
     args = parser.parse_args()
-    if args.stale and args.stamp_hashes:
-        parser.error("--stale and --stamp-hashes are mutually exclusive")
+    exclusive_modes = [args.stale, args.stamp_hashes, args.audit]
+    if sum(exclusive_modes) > 1:
+        parser.error("--stale, --stamp-hashes, and --audit are mutually exclusive")
 
     # Bootstrap services
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
@@ -498,8 +564,9 @@ async def main():
         await driver.close()
         return
 
+    mode_suffix = " (hash audit)" if args.audit else (" (stale re-embed)" if args.stale else "")
     logger.info(f"\n{'=' * 60}")
-    logger.info("Batch Embedding Generation" + (" (stale re-embed)" if args.stale else ""))
+    logger.info("Batch Embedding Generation" + mode_suffix)
     logger.info(f"{'=' * 60}\n")
     logger.info(f"Labels: {', '.join(entity_labels + ([CHUNK_LABEL] if include_chunks else []))}")
     logger.info(f"Batch size: {args.batch_size}")
@@ -521,6 +588,7 @@ async def main():
             batch_size=args.batch_size,
             max_batches=args.max_batches,
             stale=args.stale,
+            audit=args.audit,
         )
 
         all_stats.append(stats)
@@ -542,6 +610,7 @@ async def main():
             batch_size=args.batch_size,
             max_batches=args.max_batches,
             stale=args.stale,
+            audit=args.audit,
         )
         all_stats.append(chunk_stats)
 
@@ -552,17 +621,28 @@ async def main():
 
     total_processed = sum(s["successful"] for s in all_stats)
     total_failed = sum(s["failed"] for s in all_stats)
+    aborted_labels = [s["label"] for s in all_stats if s.get("aborted")]
 
     for stats in all_stats:
+        suffix = (
+            " — ABORTED (freshness read failed, nothing verified)" if stats.get("aborted") else ""
+        )
         logger.info(
             f"{stats['label']}: {stats['successful']}/{stats['total']} successful "
-            f"({stats['failed']} failed)"
+            f"({stats['failed']} failed){suffix}"
         )
+
+    await driver.close()
+
+    if aborted_labels:
+        logger.error(
+            f"\n❌ Audit incomplete — aborted labels: {', '.join(aborted_labels)}. "
+            "Re-run when Neo4j freshness reads work."
+        )
+        raise SystemExit(1)
 
     logger.info("\n✅ All batch embedding generation complete")
     logger.info(f"Total: {total_processed} successful, {total_failed} failed")
-
-    await driver.close()
 
 
 if __name__ == "__main__":

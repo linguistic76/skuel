@@ -17,7 +17,6 @@ def _create_learning_services(
     progress_backend: Any,
     knowledge_backend: Any,
     atomic_ku_backend: Any,  # KuBackend for atomic Ku entities
-    content_adapter: Any,  # ContentOperations protocol (Neo4jContentAdapter),
     chunking_service: Any,
     user_service: Any,
     graph_intelligence: Any,
@@ -129,7 +128,6 @@ def _create_learning_services(
         graph_intel=graph_intelligence,
         event_bus=event_bus,
         # Content and search dependencies
-        content_repo=content_adapter,  # Neo4jContentAdapter implements ContentOperations protocol
         ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
         query_builder=query_builder,  # QueryBuilder is now REQUIRED

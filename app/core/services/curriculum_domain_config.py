@@ -208,7 +208,6 @@ def create_curriculum_sub_services(
 
 def create_ps_sub_services(
     backend: Any,
-    _content_repo: Any | None,
     _chunking_service: Any | None,
     graph_intel: Any,
     _query_builder: "QueryBuilderOperations | None",
@@ -225,7 +224,7 @@ def create_ps_sub_services(
     1. UnifiedRelationshipService (backend, config, graph_intel)
     2. PsIntelligenceService (backend, graph_intel, relationships, user_service)
     3. PsCoreService (backend, event_bus)
-    4. PsSearchService (backend, content_repo, intelligence, query_builder, vector_search, embeddings)
+    4. PsSearchService (backend, intelligence, query_builder, vector_search, embeddings)
     5. PsGraphService (repo, graph_intel)
     6. PsSemanticService (repo, intelligence)
     7. PsPracticeService (backend, event_bus)

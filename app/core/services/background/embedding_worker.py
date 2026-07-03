@@ -619,6 +619,7 @@ class EmbeddingBackgroundWorker:
                     embeddings=embeddings_result.value,
                     version=EMBEDDING_VERSION,
                     model=self.embeddings_service.model,
+                    texts=[text for _, text in todo],
                 )
 
                 if not stored:
