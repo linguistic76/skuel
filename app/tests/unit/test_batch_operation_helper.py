@@ -329,6 +329,19 @@ class TestBuildRelationshipCreateQuery:
         assert "MATCH (a:Entity {uid: rel.from_uid})" in query
         assert "MATCH (b:Entity {uid: rel.to_uid})" in query
 
+    def test_unlabeled_endpoints_exclude_content_shadows(self):
+        """endpoint_label=None (mixed User/Group batches) keeps endpoints
+        unlabeled but excludes :Content shadow nodes explicitly."""
+        query = BatchCypherBuilder.build_relationship_create_query(
+            "PURSUING_GOAL", endpoint_label=None
+        )
+
+        assert "MATCH (a {uid: rel.from_uid})" in query
+        assert "MATCH (b {uid: rel.to_uid})" in query
+        assert "NOT a:Content" in query
+        assert "NOT b:Content" in query
+        assert "MERGE (a)-[r:PURSUING_GOAL]->(b)" in query
+
     def test_uses_literal_relationship_type(self):
         """Test that relationship type is literal in query (not parameterized)."""
         query = BatchCypherBuilder.build_relationship_create_query("SUPPORTS_GOAL")

@@ -153,8 +153,25 @@ def create_exercises_api_routes(
         # Owner-or-teacher: a non-teacher may only summon the reviewer for
         # their OWN entry. Not-found (not 403) so entry UIDs don't leak
         # (OWNERSHIP_VERIFICATION pattern).
-        if entry.user_uid != user_uid and not caller.role.has_permission(UserRole.TEACHER):
+        is_teacher = caller.role.has_permission(UserRole.TEACHER)
+        if entry.user_uid != user_uid and not is_teacher:
             return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
+
+        # Non-teachers are further pinned to the exercise their entry FULFILLS —
+        # the claim that was already access-validated at submission time
+        # (AudienceResolver.validate_references). Without this, any student
+        # could run an arbitrary (e.g. another user's PERSONAL) exercise's
+        # instructions against their own entry and read them back out of the
+        # generated report (Kody security finding, PR #497).
+        if not is_teacher:
+            fulfilled = await exercises_service.get_exercise_for_submission(
+                report_request.submission_uid
+            )
+            if fulfilled.is_error:
+                return Result.fail(fulfilled)
+            fulfilled_uid = (fulfilled.value or {}).get("exercise_uid")
+            if fulfilled_uid != report_request.exercise_uid:
+                return Result.fail(Errors.not_found("Exercise", report_request.exercise_uid))
 
         # Generate report — creates EntryReport entity + REPORT_FOR relationship
         report_result = await entry_report_service.generate_report(

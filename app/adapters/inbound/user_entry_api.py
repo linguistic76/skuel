@@ -270,6 +270,9 @@ def create_user_entry_api_routes(
             title=req.title or "Form Submission",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid=EntityUID(req.exercise_uid),
+            # PathStep context rides onto the Interaction record
+            # (INTERACTION_DURING) — same contract as the upload path.
+            about_path_step_uid=(EntityUID(req.from_ps) if req.from_ps else None),
             content=_json.dumps(req.form_data),
             metadata=metadata,
         )

@@ -605,17 +605,26 @@ class BatchCypherBuilder:
         return by_type
 
     @staticmethod
-    def build_relationship_create_query(rel_type: str) -> str:
+    def build_relationship_create_query(
+        rel_type: str, endpoint_label: str | None = "Entity"
+    ) -> str:
         """
         Build UNWIND query for creating relationships of a specific type.
 
         Pure Cypher approach - relationship type is literal in the query.
 
-        Both endpoints are bound to ``:Entity``: the chunk store keeps
-        ``:Content`` shadow nodes under the SAME uid as their entity, so an
-        unlabeled ``MATCH {uid}`` binds both and duplicates every edge
-        (found live: doubled INTERACTION_DURING, systems review 2026-07-03).
-        Every caller of this builder connects :Entity domain nodes.
+        ``endpoint_label`` guards against the chunk store's ``:Content`` shadow
+        nodes, which keep the SAME uid as their entity — an unguarded
+        ``MATCH {uid}`` binds both and duplicates every edge (found live:
+        doubled INTERACTION_DURING, systems review 2026-07-03):
+
+        - ``"Entity"`` (default) — both endpoints bound to ``:Entity``. Right
+          for registry-validated entity↔entity edges
+          (``create_relationships_batch`` on the universal backend).
+        - ``None`` — unlabeled endpoints for mixed-label batches
+          (User→Goal PURSUING_GOAL, User→User FOLLOWS, User→Group MEMBER_OF via
+          ``Neo4jQueryExecutor``), with an explicit ``NOT :Content`` exclusion
+          so entity endpoints in those batches still can't double-bind.
 
         Args:
             rel_type: The relationship type (e.g., "APPLIES_KNOWLEDGE")
@@ -629,10 +638,21 @@ class BatchCypherBuilder:
             rels_data = [{"from_uid": "task:1", "to_uid": "ku:a", "properties": {}}]
             result = await session.run(query, {"rels": rels_data})
         """
+        if endpoint_label is not None:
+            return f"""
+        UNWIND $rels AS rel
+        MATCH (a:{endpoint_label} {{uid: rel.from_uid}})
+        MATCH (b:{endpoint_label} {{uid: rel.to_uid}})
+        MERGE (a)-[r:{rel_type}]->(b)
+        SET r += rel.properties
+        RETURN count(r) as created_count
+        """.strip()
         return f"""
         UNWIND $rels AS rel
-        MATCH (a:Entity {{uid: rel.from_uid}})
-        MATCH (b:Entity {{uid: rel.to_uid}})
+        MATCH (a {{uid: rel.from_uid}})
+        WHERE NOT a:Content
+        MATCH (b {{uid: rel.to_uid}})
+        WHERE NOT b:Content
         MERGE (a)-[r:{rel_type}]->(b)
         SET r += rel.properties
         RETURN count(r) as created_count
@@ -641,6 +661,7 @@ class BatchCypherBuilder:
     @staticmethod
     def build_relationship_create_queries(
         relationships: list[tuple[str, str, str, dict[str, Any] | None]],
+        endpoint_label: str | None = "Entity",
     ) -> list[tuple[str, list[dict[str, Any]]]]:
         """
         Build all queries needed to create a batch of relationships.
@@ -650,6 +671,10 @@ class BatchCypherBuilder:
 
         Args:
             relationships: List of (from_uid, to_uid, rel_type, properties) tuples
+            endpoint_label: Endpoint binding forwarded to
+                ``build_relationship_create_query`` — ``"Entity"`` for
+                entity↔entity batches, ``None`` for mixed User/Group batches
+                (see that method's docstring for the :Content-shadow rationale)
 
         Returns:
             List of (query, rels_data) tuples ready for execution.
@@ -676,7 +701,9 @@ class BatchCypherBuilder:
 
         queries: list[tuple[str, list[dict[str, Any]]]] = []
         for rel_type, rels in by_type.items():
-            query = BatchCypherBuilder.build_relationship_create_query(rel_type)
+            query = BatchCypherBuilder.build_relationship_create_query(
+                rel_type, endpoint_label=endpoint_label
+            )
             rels_data = [{"from_uid": f, "to_uid": t, "properties": p} for f, t, p in rels]
             queries.append((query, rels_data))
 
