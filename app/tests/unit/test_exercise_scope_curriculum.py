@@ -27,6 +27,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_request import ExerciseCreateRequest
+from core.services.exercises.exercise_service import ExerciseService
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.validator import validate_entity_data
 
@@ -145,7 +146,56 @@ def test_ingestion_rejects_owner_bound_scopes(scope: str) -> None:
 
 
 # ============================================================================
-# 4. BATCH ITEM PREPARATION (edge-source survival)
+# 4. UPDATE PATHS PUBLISH EMBEDDING REFRESH (ADR-074)
+# ============================================================================
+
+
+def _service_with_mocked_super() -> "ExerciseService":
+    from unittest.mock import MagicMock
+
+    service = ExerciseService.__new__(ExerciseService)
+    service.event_bus = MagicMock()
+    service.logger = MagicMock()
+    return service
+
+
+@pytest.mark.parametrize("method", ["update", "update_for_user"])
+@pytest.mark.asyncio
+async def test_both_update_paths_publish_embedding_refresh(method: str) -> None:
+    """The CRUD route factory calls update_for_user() for exercises
+    (ContentScope.USER_OWNED), and update() elsewhere — BOTH must publish the
+    ADR-074 embedding event (Kody #496: only update() did)."""
+    from unittest.mock import AsyncMock, patch
+
+    from core.models.update_contracts import RawChanges
+    from core.services.mixins.crud_operations_mixin import CrudOperationsMixin
+
+    service = _service_with_mocked_super()
+    exercise = _exercise(scope=ExerciseScope.PERSONAL)
+    updates = RawChanges({"instructions": "New text."})
+
+    from core.utils.result_simplified import Result
+
+    with (
+        patch.object(CrudOperationsMixin, method, AsyncMock(return_value=Result.ok(exercise))),
+        patch(
+            "core.events.embedding_publisher.publish_embedding_requested", new_callable=AsyncMock
+        ) as publish,
+    ):
+        if method == "update":
+            result = await service.update("ex.test.sample", updates)
+        else:
+            result = await service.update_for_user("ex.test.sample", updates, "user_test")
+
+    assert result.is_ok
+    publish.assert_awaited_once()
+    assert publish.await_args is not None
+    assert publish.await_args.args[1] is EntityType.EXERCISE
+    assert set(publish.await_args.kwargs["changed_fields"]) == {"instructions"}
+
+
+# ============================================================================
+# 5. BATCH ITEM PREPARATION (edge-source survival)
 # ============================================================================
 
 

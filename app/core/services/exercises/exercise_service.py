@@ -51,6 +51,7 @@ from core.utils.uid_generator import UIDGenerator
 logger = get_logger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from datetime import date
 
     from core.models.context_types import ContextualExercise
@@ -319,29 +320,52 @@ class ExerciseService(BaseService):
     # UPDATE
     # ========================================================================
 
+    async def _publish_update_embedding(
+        self, exercise: Exercise, changed_fields: Collection[str]
+    ) -> None:
+        """Post-persist embedding refresh (ADR-074) shared by both update paths."""
+        from core.events.embedding_publisher import publish_embedding_requested
+
+        await publish_embedding_requested(
+            self.event_bus,
+            EntityType.EXERCISE,
+            exercise,
+            self.logger,
+            changed_fields=changed_fields,
+        )
+
     async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
         """Update an Exercise, then publish the post-persist embedding refresh (ADR-074).
 
-        Overrides the generic CRUD update (the path the CRUD route factory calls)
-        to add the embedding event — text-field changes (title/instructions) must
-        re-embed via the background worker.
+        Overrides the generic CRUD update to add the embedding event — text-field
+        changes (title/instructions) must re-embed via the background worker.
         """
         changes = updates.to_changes()
         result = await super().update(uid, updates)
         if result.is_error or result.value is None:
             return result
 
-        from core.events.embedding_publisher import publish_embedding_requested
-
-        await publish_embedding_requested(
-            self.event_bus,
-            EntityType.EXERCISE,
-            result.value,
-            self.logger,
-            changed_fields=changes.keys(),
-        )
-
+        await self._publish_update_embedding(result.value, changes.keys())
         self.logger.info(f"Exercise updated: {uid}")
+        return result
+
+    async def update_for_user(
+        self, uid: str, updates: RawChanges, user_uid: UserUID
+    ) -> Result[Exercise]:
+        """Ownership-verified update + embedding refresh (ADR-074).
+
+        This is the path the CRUD route factory takes for exercises
+        (ContentScope.USER_OWNED ⇒ verify_ownership=True) — the base mixin
+        writes straight to the backend without going through update(), so the
+        embedding publish must be mirrored here.
+        """
+        changes = updates.to_changes()
+        result = await super().update_for_user(uid, updates, user_uid)
+        if result.is_error or result.value is None:
+            return result
+
+        await self._publish_update_embedding(result.value, changes.keys())
+        self.logger.info(f"Exercise updated: {uid} (owner {user_uid})")
         return result
 
     # ========================================================================
