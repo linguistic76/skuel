@@ -56,7 +56,7 @@ There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with 
 
 **Deleted EntityTypes / aliases:** `EXERCISE_SUBMISSION`, `JE_INPUT`, and `JE_OUTPUT` are gone from `EntityType`; their legacy string values still *parse* via `from_string()` but redirect to `USER_ENTRY` (not to any standalone type). The old `SUBMISSION_REPORT` / `JOURNAL_SUBMISSION` strings are not in the alias map, so `from_string()` returns `None` for them — assessment now produces an `ENTRY_REPORT`.
 
-> **Canonical discriminator — match the `:UserEntry` label, not `entity_type`.** The write path forces `entity_type = 'user_entry'` (`UserEntry.__post_init__`) and the migration relabelled every historical node `:UserEntry` with `entity_type = 'user_entry'`. A curriculum turn-in is identified by the `:UserEntry` label plus either its `pipeline` (`teacher_review`) or a `FULFILLS_EXERCISE` edge — **never** by a distinct entity_type. Read queries for turn-ins (teacher review, assessment, ZPD submission scores, cross-domain, group counts, learning-loop chains) now match `(:Entity:UserEntry)` accordingly; `user_context_queries.py` is migration-aware (counts `entity_type = 'user_entry'` by `pipeline`). The two remaining `entity_type = 'exercise_submission'` / `'je_input'` filters — journal-processing context (`_user_entry_content_mixin.py`) and ZPD journal-engagement (`zpd_backend.py`) — are journal-semantics sites pending a separate decision on journal-entry identity (ADR-054 dropped journal→KU extraction). This doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
+> **Canonical discriminator — match the `:UserEntry` label, not `entity_type`.** The write path guarantees `entity_type = 'user_entry'` (leaf default on `UserEntryDTO`/`UserEntry`; a mismatch raises — G6) and the migration relabelled every historical node `:UserEntry` with `entity_type = 'user_entry'`. A curriculum turn-in is identified by the `:UserEntry` label plus either its `pipeline` (`teacher_review`) or a `FULFILLS_EXERCISE` edge — **never** by a distinct entity_type. Read queries for turn-ins (teacher review, assessment, ZPD submission scores, cross-domain, group counts, learning-loop chains) now match `(:Entity:UserEntry)` accordingly; `user_context_queries.py` is migration-aware (counts `entity_type = 'user_entry'` by `pipeline`). The two remaining `entity_type = 'exercise_submission'` / `'je_input'` filters — journal-processing context (`_user_entry_content_mixin.py`) and ZPD journal-engagement (`zpd_backend.py`) — are journal-semantics sites pending a separate decision on journal-entry identity (ADR-054 dropped journal→KU extraction). This doc never depicts a `:UserEntry {entity_type: 'exercise_submission'}` node.
 
 ---
 
@@ -142,7 +142,7 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 (exercise)-[:FOR_GROUP]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group)
 
-// The submission (a UserEntry — entity_type is always 'user_entry', forced in
+// The submission (a UserEntry — entity_type is always 'user_entry', guaranteed by
 // UserEntry.__post_init__; the `pipeline` field distinguishes a curriculum turn-in)
 (student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "user_entry", pipeline: "teacher_review"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)

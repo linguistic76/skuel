@@ -14,7 +14,7 @@ cross-template references.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from core.models.entity import Entity
@@ -31,9 +31,16 @@ if TYPE_CHECKING:
 class HabitTemplate(Entity):
     """Immutable domain model for habit templates (EntityType.HABIT_TEMPLATE)."""
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.HABIT_TEMPLATE, kw_only=True)
+
     def __post_init__(self) -> None:
         if self.entity_type != EntityType.HABIT_TEMPLATE:
-            object.__setattr__(self, "entity_type", EntityType.HABIT_TEMPLATE)
+            raise ValueError(
+                f"HabitTemplate constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

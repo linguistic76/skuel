@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from datetime import time
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.templates import RelativeOffset
@@ -20,9 +22,10 @@ class TestEventTemplateConstruction:
         assert et.is_online is False
         assert et.is_milestone_event is False
 
-    def test_entity_type_forced(self):
-        et = EventTemplate(uid="etpl_force", title="x", entity_type=EntityType.EVENT)
-        assert et.entity_type == EntityType.EVENT_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            EventTemplate(uid="etpl_force", title="x", entity_type=EntityType.EVENT)
 
     def test_default_status_for_event_template(self):
         # _TEMPLATE_STATUSES allows DRAFT; default is DRAFT (not SCHEDULED like Event)

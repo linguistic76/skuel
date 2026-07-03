@@ -13,7 +13,7 @@ Hierarchy:
 See: /docs/user-guides/form-submissions.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
@@ -35,6 +35,10 @@ class FormSubmission(UserOwnedEntity):
     User-owned: requires user_uid.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.FORM_SUBMISSION, kw_only=True)
+
     # =========================================================================
     # FORM SUBMISSION FIELDS
     # =========================================================================
@@ -48,8 +52,12 @@ class FormSubmission(UserOwnedEntity):
     # =========================================================================
 
     def __post_init__(self) -> None:
-        """Force entity_type to FORM_SUBMISSION."""
-        object.__setattr__(self, "entity_type", EntityType.FORM_SUBMISSION)
+        """Validate entity_type=FORM_SUBMISSION."""
+        if self.entity_type != EntityType.FORM_SUBMISSION:
+            raise ValueError(
+                f"FormSubmission constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

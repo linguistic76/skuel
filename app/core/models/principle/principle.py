@@ -22,7 +22,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any, Self
 
@@ -111,10 +111,17 @@ class Principle(UserOwnedEntity):
     expressions, alignment tracking, conflicts, and personal reflection.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.PRINCIPLE, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=PRINCIPLE, then delegate to Entity for timestamps/status defaults."""
+        """Validate entity_type=PRINCIPLE, then delegate to Entity for timestamps/status defaults."""
         if self.entity_type != EntityType.PRINCIPLE:
-            object.__setattr__(self, "entity_type", EntityType.PRINCIPLE)
+            raise ValueError(
+                f"Principle constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

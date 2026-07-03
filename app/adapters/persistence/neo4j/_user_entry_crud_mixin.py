@@ -307,12 +307,20 @@ class _UserEntryCrudMixin:
     ) -> Result[list[dict[str, Any]]]:
         """Return extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
 
-        Returns a list of dicts with keys: entity_uid, source_line_hash, vault_id.
-        Used by VaultReconciler for outbound ID injection and status round-trip (ADR-070).
+        Returns a list of dicts with keys: entity_uid, title, labels,
+        source_line_hash, vault_id. Used by VaultReconciler for outbound ID
+        injection / status round-trip (ADR-070) and by
+        UserEntryProcessingService as the input to both extraction dedup
+        guards (Guard 2 hashes + Guard 3 semantic keys, R3).
+
+        Source is :Entity-bound: :Content chunk shadows share their entity's
+        uid (G13) and must never match here.
         """
         query = """
-        MATCH (e)-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
+        MATCH (e:Entity)-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
         RETURN e.uid AS entity_uid,
+               e.title AS title,
+               labels(e) AS labels,
                r.source_line_hash AS source_line_hash,
                r.vault_id AS vault_id
         """
@@ -323,6 +331,8 @@ class _UserEntryCrudMixin:
             [
                 {
                     "entity_uid": rec.get("entity_uid", ""),
+                    "title": rec.get("title") or "",
+                    "labels": rec.get("labels") or [],
                     "source_line_hash": rec.get("source_line_hash") or "",
                     "vault_id": rec.get("vault_id"),
                 }

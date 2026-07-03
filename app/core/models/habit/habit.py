@@ -26,7 +26,7 @@ See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -53,10 +53,17 @@ class Habit(UserOwnedEntity):
     behavioral science, identity, scheduling, reminders, and cross-domain links.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.HABIT, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=HABIT, then delegate to Entity for timestamps/status defaults."""
+        """Validate entity_type=HABIT, then delegate to Entity for timestamps/status defaults."""
         if self.entity_type != EntityType.HABIT:
-            object.__setattr__(self, "entity_type", EntityType.HABIT)
+            raise ValueError(
+                f"Habit constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

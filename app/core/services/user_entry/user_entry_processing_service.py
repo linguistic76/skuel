@@ -46,6 +46,7 @@ from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.services.dsl.activity_extractor import normalized_line_hash, semantic_dedup_key
 from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
 from core.services.dsl.grounding import goals_as_context
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
@@ -378,7 +379,7 @@ class UserEntryProcessingService:
 
     @staticmethod
     def _extraction_already_completed(entry: UserEntry) -> bool:
-        """Guard 1 of the two-guard idempotency: completed-run metadata."""
+        """Guard 1 of the three-guard idempotency: completed-run metadata."""
         summary = (entry.metadata or {}).get("activity_extraction")
         if isinstance(summary, str):
             # backend.update JSON-serializes nested dicts into string props.
@@ -395,8 +396,12 @@ class UserEntryProcessingService:
         1. Optional bridge pre-pass (FULL tier) tags untagged prose; a bridge
            *failure* degrades to parser-only over the original text
            (ProgressReportGenerator precedent), a bridge *absence* is silent.
-        2. Guard 2 of the two-guard idempotency: lines whose hash already has
-           an EXTRACTED_FROM edge to this entry are skipped by the extractor.
+        2. Guards 2+3 of the three-guard idempotency: lines whose hash already
+           has an EXTRACTED_FROM edge to this entry are skipped by the
+           extractor (exact); bridge-generated lines whose (node label,
+           normalized title) matches an entity already extracted from this
+           entry MERGE instead of duplicating (semantic, R3 — the bridge
+           rewords lines every run, so their hashes never repeat).
         3. Provenance: ``(created)-[:EXTRACTED_FROM {extracted_at,
            source_line_hash}]->(entry)`` batch write.
         4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
@@ -430,6 +435,7 @@ class UserEntryProcessingService:
         # --- Bridge pre-pass (optional Digital enhancement) ------------------
         working_text = source_text
         bridge_error: str | None = None
+        bridge_line_hashes: frozenset[str] = frozenset()
         if self.dsl_bridge is not None:
             # Strip checkbox lines before the LLM bridge: the obsidian-tasks
             # adapter owns them (ADR-070). Sending them to the bridge causes
@@ -474,20 +480,36 @@ class UserEntryProcessingService:
                         + "\n\n## Extracted Activities\n"
                         + "\n".join(bridge_result.value.activity_lines)
                     )
+                    # Guard 3 eligibility (R3): only lines the bridge GENERATED
+                    # this run are semantically deduped — user-typed lines keep
+                    # exact Guard-2 semantics.
+                    bridge_line_hashes = frozenset(
+                        normalized_line_hash(line) for line in bridge_result.value.activity_lines
+                    )
 
-        # --- Existing-hash read (guard 2 input) -------------------------------
+        # --- Existing-extraction read (guard 2 + guard 3 inputs) --------------
         # Read on every run, not only under force: if a prior run wrote edges
         # but died before the metadata write, the next run must still dedup.
-        hashes_result = await self.entry_service.backend.get_relationships(
-            entry.uid, rel_type=RelationshipName.EXTRACTED_FROM, direction="incoming"
+        # One query feeds both guards: exact line hashes (Guard 2) and the
+        # semantic (node label, normalized title) → uid map (Guard 3, R3).
+        extracted_result = await self.entry_service.backend.get_extracted_entities_for_entry(
+            entry.uid
         )
-        if hashes_result.is_error:
-            return await self._fail(entry, hashes_result.expect_error(), phase="read_provenance")
+        if extracted_result.is_error:
+            return await self._fail(entry, extracted_result.expect_error(), phase="read_provenance")
+        extracted_rows = extracted_result.value or []
         existing_line_hashes = frozenset(
-            line_hash
-            for rel in hashes_result.value or []
-            if (line_hash := (rel.get("properties") or {}).get("source_line_hash"))
+            line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
+        existing_extracted: dict[tuple[str, str], str] = {}
+        for row in extracted_rows:
+            # Node label is the never-sniff-compliant type source; :Entity is
+            # the shared base label, :Content the chunk-shadow label (G13).
+            label = next(
+                (lb for lb in row.get("labels", []) if lb not in ("Entity", "Content")), None
+            )
+            if label and row.get("title") and row.get("entity_uid"):
+                existing_extracted[semantic_dedup_key(label, row["title"])] = row["entity_uid"]
 
         # --- Existing APPLIES_KNOWLEDGE targets (substance idempotency) --------
         # The edge write below is MERGE-idempotent, but the substance event is
@@ -520,6 +542,8 @@ class UserEntryProcessingService:
             content_override=working_text,
             allow_curriculum_creation=allow_curriculum_creation,
             existing_line_hashes=existing_line_hashes,
+            bridge_line_hashes=bridge_line_hashes,
+            existing_extracted=existing_extracted,
         )
         if extract_result.is_error:
             return await self._fail(entry, extract_result.expect_error(), phase="extract")

@@ -18,7 +18,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
@@ -36,6 +36,9 @@ class ResourceDTO(EntityDTO):
     - Publication (2): publication_year, isbn
     - Media (2): media_type, resource_duration_minutes
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.RESOURCE, kw_only=True)
 
     # =========================================================================
     # SOURCE

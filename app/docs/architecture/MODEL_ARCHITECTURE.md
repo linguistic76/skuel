@@ -41,7 +41,7 @@ class TaskCreateRequest(BaseModel):
 # Tier 3 — Core domain (core/models/task/task.py)
 @dataclass(frozen=True)
 class Task(UserOwnedEntity):
-    entity_type: EntityType = EntityType.TASK  # Forced in __post_init__
+    entity_type: EntityType = EntityType.TASK  # Honest leaf default; __post_init__ rejects a mismatch (G6)
 
 # Tier 2 — Transfer (core/models/task/task_dto.py)
 class TaskDTO(UserOwnedDTO):
@@ -61,21 +61,21 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │
 ├── UserOwnedEntity (+user_uid, +priority, overrides visibility → PRIVATE)
 │   │
-│   ├── Task ─────────── forces entity_type=TASK
+│   ├── Task ─────────── entity_type=TASK (leaf default, mismatch rejected)
 │   ├── Goal ─────────── + goal_type, timeframe, measurement_type, target_date, milestones
 │   ├── Habit ────────── + polarity, habit_category, habit_difficulty, frequency, streak
 │   ├── Event ────────── + event_type, location, start_time, end_time, duration
 │   ├── Choice ───────── + choice_type, options, decision_context, outcome
 │   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
 │   │
-│   ├── UserEntry ────── + pipeline, modality, file_path, file_size, file_type, processed_content (forces entity_type=USER_ENTRY)
-│   ├── EntryReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (forces entity_type=ENTRY_REPORT)
-│   ├── ActivityReport ─── (forces entity_type=ACTIVITY_REPORT, NO file fields)
+│   ├── UserEntry ────── + pipeline, modality, file_path, file_size, file_type, processed_content (entity_type=USER_ENTRY — leaf default, mismatch rejected)
+│   ├── EntryReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (entity_type=ENTRY_REPORT — leaf default, mismatch rejected)
+│   ├── ActivityReport ─── (entity_type=ACTIVITY_REPORT — leaf default, mismatch rejected; NO file fields)
 │   │
 │   └── LifePath ─────── + alignment_level, vision_statement, alignment_score
 │
 ├── Curriculum (+complexity, learning_level, sel_category, quality_score, +21 fields)
-│   ├── Ku ───────────── forces entity_type=KU (atomic knowledge unit)
+│   ├── Ku ───────────── entity_type=KU (leaf default, mismatch rejected; atomic knowledge unit)
 │   ├── PathStep ─── + step_difficulty, order, lp_uid
 │   ├── LearningPath ─── + path_type, step_count, total_duration
 │   └── Exercise ─────── + scope, expected_modality (FILE_UPLOAD or STRUCTURED_FORM)
@@ -83,7 +83,7 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 └── Resource ──────────── + source_url, author, resource_type, year, medium
 ```
 
-Every model forces its `entity_type` in `__post_init__()`. This drives:
+Every leaf model declares its `entity_type` as an honest field default and `__post_init__()` **raises `ValueError` on a mismatch** — a wrong persisted type fails loudly instead of being silently corrected (G6, Arc C 2026-07-03). The write-path guard is on Tier 2: `EntityDTO.entity_type` is REQUIRED (kw_only, no default); only leaf DTOs default. The entity_type drives:
 - **Status validation:** `EntityType.TASK.valid_statuses()` → which statuses a Task can have
 - **Default status:** `EntityType.HABIT.default_status()` → `ACTIVE` (not DRAFT)
 - **Neo4j labels:** `NeoLabel.from_entity_type(EntityType.TASK)` → `:Entity:Task`

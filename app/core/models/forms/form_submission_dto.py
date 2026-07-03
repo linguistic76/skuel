@@ -21,6 +21,9 @@ from core.models.user_owned_dto import UserOwnedDTO
 class FormSubmissionDTO(UserOwnedDTO):
     """Mutable DTO for FormSubmission entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.FORM_SUBMISSION, kw_only=True)
+
     # =========================================================================
     # FORM SUBMISSION FIELDS
     # =========================================================================

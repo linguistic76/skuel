@@ -50,6 +50,9 @@ class HabitDTO(UserOwnedDTO):
     - Flags (1): curriculum_practice_type
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.HABIT, kw_only=True)
+
     # =========================================================================
     # CLASSIFICATION
     # =========================================================================

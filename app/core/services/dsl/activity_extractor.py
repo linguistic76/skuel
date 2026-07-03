@@ -21,11 +21,15 @@ SKUEL entities:
 **Design Principles:**
 
 1. **Non-destructive**: Extraction doesn't modify the entry content
-2. **Two-guard idempotency** (ADR-069): the completed-run metadata guard lives
-   in `UserEntryProcessingService._run_extract_activities` (re-process is a
-   no-op without `force`); per-line SHA-256 hash dedup against existing
-   `EXTRACTED_FROM` edges makes re-extraction skip already-extracted lines —
-   it never mutates or duplicates entities.
+2. **Three-guard idempotency** (ADR-069 + R3): Guard 1, the completed-run
+   metadata guard, lives in `UserEntryProcessingService._run_extract_activities`
+   (re-process is a no-op without `force`). Guard 2, per-line SHA-256 hash
+   dedup against existing `EXTRACTED_FROM` edges, makes re-extraction skip
+   already-extracted literal lines. Guard 3 (R3, 2026-07-03), semantic dedup
+   by `(source entry, node label, normalized title)`, catches LLM-bridge lines
+   that hash differently on every sync — a match resolves to the existing
+   entity instead of duplicating it (its original provenance edge stays
+   untouched).
 3. **Graph-aware**: Creates entities connected to the user's ownership graph;
    the caller writes `(created)-[:EXTRACTED_FROM]->(entry)` provenance from
    `ActivityExtractionResult.created_links`.
@@ -86,6 +90,76 @@ def normalized_line_hash(raw_line: str) -> str:
     after injection and create duplicate tasks on re-ingestion.
     """
     return normalize_vault_line_hash(raw_line)
+
+
+# ============================================================================
+# SEMANTIC DEDUP (Guard 3, R3 ruling 2026-07-03)
+# ============================================================================
+# The LLM bridge *generates* activity lines non-deterministically: the same
+# journal prose yields a differently-worded line (different @when, priority,
+# phrasing) on every sync, so Guard 2's literal-line hash never matches and
+# every re-sync duplicated the entity (systems-review G8 — "meditate" x3 from
+# one entry). Guard 3 dedups bridge-generated lines SEMANTICALLY:
+#
+#     key = (source entry, entity node label, normalized title)
+#
+# On a match the extractor MERGEs — the line resolves to the EXISTING entity
+# and nothing is created. The entity's original EXTRACTED_FROM edge is left
+# untouched: there is ONE edge per (entity, entry) and rewriting its
+# source_line_hash/vault_id with bridge values would break the ADR-070
+# checkbox round-trip. Idempotency comes from the semantic map itself, which
+# is rebuilt from graph titles on every run. The guard applies
+# only to bridge-generated lines (the caller passes their hashes); user-typed
+# DSL/checkbox lines keep exact Guard-2 semantics.
+
+# Extractor domain-loop label → Neo4j node label for entity types the DSL can
+# create as :Entity nodes. Finance/Calendar produce no Entity nodes (no
+# create-capable service) and are deliberately absent.
+_NODE_LABEL_BY_EXTRACTOR_LABEL: dict[str, str] = {
+    "Task": "Task",
+    "Habit": "Habit",
+    "Goal": "Goal",
+    "Event": "Event",
+    "Principle": "Principle",
+    "Choice": "Choice",
+    "KU": "Ku",
+    "PS": "PathStep",
+    "LP": "LearningPath",
+    "LifePath": "LifePath",
+}
+
+
+def normalized_activity_title(title: str) -> str:
+    """Whitespace-collapsed, casefolded title — the R3 semantic-key normalizer.
+
+    Shared with ``scripts/audit_graph_hygiene.py`` (retroactive dedup) so the
+    live guard and the cleanup audit group by the identical key.
+    """
+    return " ".join(title.split()).casefold()
+
+
+def semantic_dedup_key(node_label: str, title: str) -> tuple[str, str]:
+    """(node label, normalized title) — the per-entry R3 dedup key."""
+    return (node_label, normalized_activity_title(title))
+
+
+def _candidate_title(label: str, description: str) -> str:
+    """The title the domain converter WILL persist for this line.
+
+    Task/Habit/Goal/Event/KU/PS/LP/LifePath use the description verbatim;
+    Principle/Choice derive (shared helpers keep this in lockstep with the
+    converters).
+    """
+    from core.services.dsl.activity_domain_converters import (
+        derive_choice_title,
+        derive_principle_title,
+    )
+
+    if label == "Principle":
+        return derive_principle_title(description)
+    if label == "Choice":
+        return derive_choice_title(description)
+    return description
 
 
 # ============================================================================
@@ -198,6 +272,9 @@ class ActivityExtractionResult:
     referenced_ku_uids: list[str] = field(default_factory=list)
     # Lines skipped because their hash already has an EXTRACTED_FROM edge.
     lines_skipped_existing: int = 0
+    # Bridge-generated lines merged into an existing entity via the semantic
+    # key (Guard 3, R3) — provenance refreshed, no new node.
+    lines_merged_existing: int = 0
 
     # ========================================================================
     # ERRORS & TIMING
@@ -300,6 +377,7 @@ class ActivityExtractionResult:
             ],
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
+            "lines_merged_existing": self.lines_merged_existing,
             # ================================================================
             # Aggregates
             # ================================================================
@@ -346,7 +424,9 @@ class ActivityExtractorService:
     **Entity Creation Flow:**
 
     1. Parse the working text for Activity Lines (@context)
-    2. Skip lines whose hash already carries an EXTRACTED_FROM edge
+    2. Skip lines whose hash already carries an EXTRACTED_FROM edge (Guard 2);
+       merge bridge-generated lines whose (label, normalized title) matches an
+       already-extracted entity of this entry (Guard 3, R3)
     3. Convert each remaining activity to the domain's typed create request
     4. Call the domain facade to create the entity
     5. Return counts, UIDs, (uid, line_hash) provenance pairs, and resolved
@@ -414,6 +494,8 @@ class ActivityExtractorService:
         content_override: str | None = None,
         allow_curriculum_creation: bool = True,
         existing_line_hashes: frozenset[str] = frozenset(),
+        bridge_line_hashes: frozenset[str] = frozenset(),
+        existing_extracted: dict[tuple[str, str], str] | None = None,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from a UserEntry and create corresponding entities.
@@ -430,7 +512,13 @@ class ActivityExtractorService:
                 *creation* lines may create entities — teacher/admin only.
                 `@ku()` references are unaffected.
             existing_line_hashes: `source_line_hash` values already carrying an
-                EXTRACTED_FROM edge to this entry; matching lines are skipped.
+                EXTRACTED_FROM edge to this entry; matching lines are skipped
+                (Guard 2, exact).
+            bridge_line_hashes: hashes of lines the LLM bridge generated this
+                run — ONLY these are eligible for semantic dedup (Guard 3, R3).
+            existing_extracted: ``semantic_dedup_key`` → uid for entities
+                already EXTRACTED_FROM this entry. Mutated during the run so
+                same-run duplicates also merge.
 
         Returns:
             Result containing ActivityExtractionResult with counts, UIDs,
@@ -440,6 +528,8 @@ class ActivityExtractorService:
             entry_uid=entry.uid,
             user_uid=user_uid,
         )
+        if existing_extracted is None:
+            existing_extracted = {}
 
         content = (
             content_override
@@ -532,6 +622,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.tasks_created += created
             extraction.created_task_uids.extend(uids)
@@ -544,6 +636,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.habits_created += created
             extraction.created_habit_uids.extend(uids)
@@ -556,6 +650,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.goals_created += created
             extraction.created_goal_uids.extend(uids)
@@ -568,6 +664,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.events_created += created
             extraction.created_event_uids.extend(uids)
@@ -580,6 +678,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.principles_created += created
             extraction.created_principle_uids.extend(uids)
@@ -592,6 +692,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.choices_created += created
             extraction.created_choice_uids.extend(uids)
@@ -604,6 +706,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.finances_created += created
             extraction.created_finance_uids.extend(uids)
@@ -626,6 +730,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.kus_created += created
                 extraction.created_ku_uids.extend(uids)
@@ -641,6 +747,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.path_steps_created += created
                 extraction.created_ps_uids.extend(uids)
@@ -656,6 +764,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.learning_paths_created += created
                 extraction.created_lp_uids.extend(uids)
@@ -672,6 +782,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.calendar_items_created += created
             extraction.created_calendar_uids.extend(uids)
@@ -688,6 +800,8 @@ class ActivityExtractorService:
                 user_uid,
                 extraction,
                 existing_line_hashes,
+                bridge_line_hashes,
+                existing_extracted,
             )
             extraction.lifepath_items_created += created
             extraction.created_lifepath_uids.extend(uids)
@@ -697,7 +811,8 @@ class ActivityExtractorService:
         self.logger.info(
             f"Extraction complete for {entry.uid}: "
             f"created {extraction.total_created} entities, "
-            f"skipped {extraction.lines_skipped_existing} already-extracted lines "
+            f"skipped {extraction.lines_skipped_existing} already-extracted lines, "
+            f"merged {extraction.lines_merged_existing} semantic duplicates "
             f"({len(extraction.creation_errors)} errors)"
         )
 
@@ -715,13 +830,25 @@ class ActivityExtractorService:
         user_uid: UserUID,
         extraction: ActivityExtractionResult,
         existing_line_hashes: frozenset[str],
+        bridge_line_hashes: frozenset[str] = frozenset(),
+        existing_extracted: dict[tuple[str, str], str] | None = None,
     ) -> tuple[int, list[str]]:
-        """Run one domain's create loop with hash dedup and provenance capture.
+        """Run one domain's create loop with dedup guards and provenance capture.
+
+        Guard 2 (exact): lines whose normalized hash already carries an
+        EXTRACTED_FROM edge are skipped. Guard 3 (semantic, R3): bridge-
+        generated lines whose (node label, normalized title) matches an entity
+        already extracted from this entry MERGE — the line resolves to the
+        existing uid, no new node is created and the existing provenance edge
+        is left untouched.
 
         Returns (created_count, created_uids); appends (uid, line_hash) pairs
         to `extraction.created_links` and failures to
         `extraction.creation_errors`.
         """
+        if existing_extracted is None:
+            existing_extracted = {}
+        node_label = _NODE_LABEL_BY_EXTRACTOR_LABEL.get(label)
         created = 0
         uids: list[str] = []
         for activity in activities:
@@ -729,11 +856,35 @@ class ActivityExtractorService:
             if line_hash in existing_line_hashes:
                 extraction.lines_skipped_existing += 1
                 continue
+
+            key: tuple[str, str] | None = None
+            if node_label is not None:
+                key = semantic_dedup_key(node_label, _candidate_title(label, activity.description))
+                if line_hash in bridge_line_hashes and (uid := existing_extracted.get(key)):
+                    # Guard 3 merge: the entity already exists with its own
+                    # EXTRACTED_FROM edge — leave that edge UNTOUCHED. Writing
+                    # this line's provenance would MERGE onto the single
+                    # (entity, entry) edge and overwrite a real checkbox
+                    # source_line_hash/vault_id with the bridge hash and None,
+                    # breaking the ADR-070 ID-injection round-trip (Kody #501
+                    # high). Idempotency doesn't need the write: the semantic
+                    # map is rebuilt from graph titles on every run.
+                    extraction.lines_merged_existing += 1
+                    self.logger.debug(
+                        f"Semantic dedup: {label} '{activity.description[:40]}' "
+                        f"merged into existing {uid}"
+                    )
+                    continue
+
             result = await creator(activity, user_uid)
             if result.is_ok and result.value:
                 created += 1
                 uids.append(result.value)
                 extraction.created_links.append((result.value, line_hash, activity.vault_id))
+                if key is not None:
+                    # Same-run duplicates (bridge rewording an already-created
+                    # line later in this run) merge against this entity too.
+                    existing_extracted.setdefault(key, result.value)
             elif result.is_error:
                 extraction.creation_errors.append(
                     f"{label} '{activity.description[:30]}...': {result.error}"

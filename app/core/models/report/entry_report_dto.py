@@ -14,7 +14,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -43,6 +43,9 @@ class EntryReportDTO(UserOwnedDTO):
     - assessment_outcome: AssessmentOutcome | None — APPROVED/NEEDS_REVISION/AI_EVALUATED
     - report_file_path: str | None — generated output file path
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.ENTRY_REPORT, kw_only=True)
 
     # =========================================================================
     # REPORT-SPECIFIC FIELDS

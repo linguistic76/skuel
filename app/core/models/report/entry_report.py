@@ -34,7 +34,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -69,10 +69,17 @@ class EntryReport(UserOwnedEntity):
         author_uid            — the teacher who AUTHORED it (None for AI reports)
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.ENTRY_REPORT, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=ENTRY_REPORT, then delegate to UserOwnedEntity."""
+        """Validate entity_type=ENTRY_REPORT, then delegate to UserOwnedEntity."""
         if self.entity_type != EntityType.ENTRY_REPORT:
-            object.__setattr__(self, "entity_type", EntityType.ENTRY_REPORT)
+            raise ValueError(
+                f"EntryReport constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

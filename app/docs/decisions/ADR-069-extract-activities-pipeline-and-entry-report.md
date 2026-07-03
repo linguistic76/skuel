@@ -165,6 +165,16 @@ No fuzzy matching, no "update existing entity" — re-extraction *skips*, it nev
 mutates (AST-lint philosophy: structural rules over unsound heuristics). The
 extractor docstring's idempotency claim is rewritten to describe this mechanism.
 
+> **Addendum (2026-07-03, systems-review R3 ruling — Arc C, PR #501):** the
+> anticipated weakness above materialized — the LLM pre-pass rewords its lines
+> every run, so guard 2 missed and every re-sync duplicated bridge-extracted
+> entities (G8). A third guard was added: **semantic dedup for bridge-generated
+> lines only**, keyed by `(source entry, node label, normalized title)`
+> (whitespace-collapse + casefold — a structural key, not a fuzzy heuristic).
+> On match the line resolves to the existing entity; nothing is created and the
+> entity's original `EXTRACTED_FROM` edge is left untouched. User-typed lines
+> keep the exact guard-2 semantics decided here.
+
 ### 1.4 Un-reserving the substance channel + the ZPD 4th signal
 
 The contract is **one edge**: when extraction resolves a Ku reference (a

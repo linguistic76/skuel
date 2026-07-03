@@ -127,7 +127,7 @@ class EntityDTO:
     """~18 common fields (identity, content, status, meta)."""
     uid: str
     title: str
-    entity_type: str  # EntityType value (stored as "entity_type" in Neo4j)
+    entity_type: EntityType = field(kw_only=True)  # REQUIRED — no default (see below)
     ...
 
 @dataclass
@@ -166,6 +166,26 @@ class Task(UserOwnedEntity):
         """Business logic lives here"""
         return self.due_date and self.due_date < date.today()
 ```
+
+### entity_type is required at the base, honest at the leaves (G6)
+
+`EntityDTO.entity_type` has **no default**. It used to default to `EntityType.KU`,
+so any service that constructed a DTO without passing it persisted the entity as
+`entity_type='ku'` — live Habits/Goals carried the wrong type for months while
+the frozen models silently force-corrected on read (systems-review G6, Arc C).
+The contract since 2026-07-03:
+
+- **Base + intermediate DTOs** (`EntityDTO`, `UserOwnedDTO`, `CurriculumDTO`)
+  require `entity_type` as a keyword argument — MyPy flags any construction
+  site that omits it.
+- **Leaf DTOs** re-declare an honest default
+  (`HabitDTO → EntityType.HABIT`, ...): a leaf default states what the class
+  IS; only a base default lies.
+- **Tier 3 mirrors this**: every leaf frozen model defaults to its own type and
+  `__post_init__` **raises `ValueError` on a mismatch** instead of silently
+  correcting it — a wrong persisted type fails loudly at the read boundary.
+  (`Entity`/`Curriculum` keep a Ku-flavored default for direct generic
+  construction; they are not leaves.)
 
 ### Domain Model Hierarchy
 

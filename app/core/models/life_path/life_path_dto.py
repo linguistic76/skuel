@@ -41,6 +41,9 @@ class LifePathDTO(UserOwnedDTO):
     - Vision (3): vision_statement, vision_themes, vision_captured_at
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.LIFE_PATH, kw_only=True)
+
     # =========================================================================
     # DESIGNATION
     # =========================================================================

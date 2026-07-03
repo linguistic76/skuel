@@ -406,6 +406,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     """Entry-service mock with the backend surfaces the extraction branch uses."""
     svc = _entry_service_with_updated(updated_entry)
     svc.backend.get_relationships = AsyncMock(return_value=Result.ok([]))
+    svc.backend.get_extracted_entities_for_entry = AsyncMock(return_value=Result.ok([]))
     svc.backend.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
     svc.backend.add_relationship = AsyncMock(return_value=Result.ok(True))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
@@ -652,11 +653,23 @@ class TestExtractActivities:
     async def test_existing_hashes_are_read_and_threaded(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.backend.get_relationships = AsyncMock(
+        svc.backend.get_extracted_entities_for_entry = AsyncMock(
             return_value=Result.ok(
                 [
-                    {"type": "EXTRACTED_FROM", "properties": {"source_line_hash": "abc"}},
-                    {"type": "EXTRACTED_FROM", "properties": {}},
+                    {
+                        "entity_uid": "task_prior",
+                        "title": " Prior  Task ",
+                        "labels": ["Entity", "Task"],
+                        "source_line_hash": "abc",
+                        "vault_id": None,
+                    },
+                    {
+                        "entity_uid": "task_no_hash",
+                        "title": "",
+                        "labels": ["Entity", "Task"],
+                        "source_line_hash": "",
+                        "vault_id": None,
+                    },
                 ]
             )
         )
@@ -672,6 +685,9 @@ class TestExtractActivities:
         assert result.is_ok
         kwargs = extractor.extract_and_create.await_args.kwargs
         assert kwargs["existing_line_hashes"] == frozenset({"abc"})
+        # Guard 3 (R3): the semantic map is built from the same read —
+        # normalized title keyed by node label; the title-less row is skipped.
+        assert kwargs["existing_extracted"] == {("Task", "prior task"): "task_prior"}
 
     @pytest.mark.asyncio
     async def test_provenance_write_failure_fails_run(self):
