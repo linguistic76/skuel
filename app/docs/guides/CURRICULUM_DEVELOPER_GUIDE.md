@@ -271,7 +271,7 @@ type: Exercise
 uid: ex:sel:know-yourself-check-in
 title: Know Yourself Check-In
 description: A structured self-awareness reflection exercise
-scope: personal
+scope: curriculum
 model: claude-sonnet-4-6
 mastery_impact: moderate
 sel_category: SELF_AWARENESS
@@ -301,7 +301,7 @@ form_schema:
 |-------|---------|-----------|
 | `uid` | Unique identifier (`ex:{namespace}:{slug}`) | Yes |
 | `title` | Display name | Yes |
-| `scope` | `personal` (user's own template) or `assigned` (teacher → group) | No (default: `personal`) |
+| `scope` | Must be `curriculum` (shared vault-authored content, no user owner). `personal`/`assigned`/`assessment` are app-created only — ingestion rejects them (they describe an owner or group the file boundary cannot provide) | No (ingestion default: `curriculum`) |
 | `instructions` | The LLM prompt that processes the learner's submission | Yes |
 | `model` | Which LLM to use (default: `claude-sonnet-4-6`) | No |
 | `form_schema` | Structured form fields — if present, submission is a form; if absent, submission is a file upload | No |
@@ -326,7 +326,7 @@ The learner sees all four phases on the PathStep detail page at `/explore/ps/{ui
 
 - **Instructions should be prompts, not rubrics.** The `instructions` field is sent to the LLM as context when generating an EntryReport. Write it as a persona + task, not a checklist. "You are a coach. Do X." works better than "Check for: criterion A, criterion B, criterion C."
 - **Use `form_schema` for beginner content.** A structured form lowers the barrier to entry for new learners. File upload (the default when `form_schema` is absent) works well for intermediate and advanced exercises where the learner needs to produce prose.
-- **One Exercise per PathStep for PERSONAL scope.** A personal Exercise belongs to exactly one PathStep; the `path_step_uid` field anchors it. Teachers creating `assigned` scope Exercises for groups may omit this.
+- **Anchor Exercises from the PathStep side.** List each vault Exercise under `exercise_uids:` in the owning PathStep's frontmatter — ingestion creates the `(PathStep)-[:HAS_EXERCISE]->(Exercise)` edge. An unanchored curriculum Exercise is invisible to learners (no discovery surface reaches it).
 - **`mastery_impact: moderate` is the right default.** Use `minor` for low-stakes reflections, `major` for capstone submissions, `certification` only for formal assessments.
 
 ---

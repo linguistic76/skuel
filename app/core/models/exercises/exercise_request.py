@@ -49,13 +49,16 @@ class ExerciseCreateRequest(BaseModel):
 
     path_step_uid: str | None = Field(
         default=None,
-        description="PathStep this exercise belongs to (required for scope=personal)",
+        description="Optional PathStep anchor (mirrors HAS_EXERCISE edge when set)",
     )
 
     # Exercise fields (ADR-040)
     scope: ExerciseScope = Field(
         default=ExerciseScope.PERSONAL,
-        description="Exercise scope: 'personal' (default) or 'assigned' (teacher exercise)",
+        description=(
+            "Exercise scope: 'personal' (default), 'assigned' (teacher exercise), or "
+            "'assessment'. 'curriculum' is vault-ingested only — rejected here."
+        ),
     )
 
     due_date: date | None = Field(
@@ -150,8 +153,11 @@ class ExerciseCreateRequest(BaseModel):
     @model_validator(mode="after")
     def validate_exercise_fields(self) -> "ExerciseCreateRequest":
         """Validate scope-specific requirements."""
-        if self.scope == ExerciseScope.PERSONAL and not self.path_step_uid:
-            msg = "path_step_uid is required when scope is 'personal'"
+        if self.scope == ExerciseScope.CURRICULUM:
+            msg = (
+                "scope 'curriculum' exercises are authored in the content vault "
+                "and ingested, not created via the API"
+            )
             raise ValueError(msg)
         if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
             msg = "group_uid is required when scope is 'assigned'"

@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 from core.constants import SYSTEM_USER_UID
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -185,6 +186,25 @@ def validate_entity_data(
     Returns:
         Result[None] - Ok if valid, Fail with validation error if missing
     """
+    # File-ingested exercises carry no user OWNS edge, so every non-curriculum
+    # scope describes an owner or group the ingestion path cannot provide —
+    # the node would be invisible to all discovery surfaces (2026-07-03 audit:
+    # 9 vault exercises stamped scope=personal were unreachable dead content).
+    if entity_type is EntityType.EXERCISE:
+        scope = entity_data.get("scope")
+        if scope != ExerciseScope.CURRICULUM.value:
+            return Result.fail(
+                Errors.validation(
+                    f"Ingested exercises must have scope 'curriculum', got '{scope}'",
+                    field="scope",
+                    user_message=(
+                        f"File {file_path.name}: exercise scope '{scope}' is app-created only. "
+                        "Vault-authored exercises are shared curriculum content — use "
+                        "'scope: curriculum' (or omit the field)."
+                    ),
+                )
+            )
+
     config = ENTITY_CONFIGS.get(entity_type)
     if not config or not config.required_fields:
         return Result.ok(None)

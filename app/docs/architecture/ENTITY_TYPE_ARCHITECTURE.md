@@ -332,15 +332,16 @@ LpService (facade) — 5 sub-services via create_lp_sub_services()
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 
-### Exercise Scope — Three Modes of Assessment
+### Exercise Scope — Four Modes of Ownership and Assessment
 
-Exercise is a single entity type serving three distinct pedagogical roles via `ExerciseScope`:
+Exercise is a single entity type serving four distinct pedagogical roles via `ExerciseScope`:
 
 | Scope | Purpose | Key Fields | Mastery Signal |
 |-------|---------|------------|----------------|
-| `PERSONAL` | User's own AI feedback template (default) | `instructions`, `model` | Soft — AI-evaluated |
+| `PERSONAL` | User's own AI feedback template (default) | `instructions`, `model`; `path_step_uid` optional anchor | Soft — AI-evaluated |
 | `ASSIGNED` | Teacher assigns to a group | `group_uid` (required), `due_date` | Medium — teacher-approved |
 | `ASSESSMENT` | Formal test/exam with scoring rubric | `scoring_rubric` (required), `pass_threshold` | Hard — objective score |
+| `CURRICULUM` | Content-vault-authored shared exercise — owned by the curriculum, no user OWNS edge | Anchored via `exercise_uids:` in PathStep YAML; not creatable via API | Soft — AI-evaluated |
 
 **ASSESSMENT scope** adds two fields to Exercise:
 - `scoring_rubric`: List of criteria, each with `name`, `weight` (must sum to 1.0), and optional `description`
@@ -348,7 +349,7 @@ Exercise is a single entity type serving three distinct pedagogical roles via `E
 
 **EntryReport** carries `assessment_score` (0.0-1.0) for ASSESSMENT-scope exercises — the numeric result evaluated against the rubric. This is the **objective measurement layer** that substance tracking and EntryReports don't otherwise provide.
 
-**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → UserEntry → EntryReport → RevisedExercise`) applies identically to all three scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
+**Design rationale:** A Test is an Exercise with `scope=ASSESSMENT` and a scoring rubric — not a separate entity type. The learning loop (`Exercise → UserEntry → EntryReport → RevisedExercise`) applies identically to all scopes. What differs is the evaluation mechanism (AI feedback vs teacher review vs rubric scoring) and the strength of the mastery signal.
 
 ### FormTemplate + FormSubmission — General-Purpose Forms
 

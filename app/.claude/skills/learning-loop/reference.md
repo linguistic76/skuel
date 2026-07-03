@@ -43,13 +43,14 @@ else → `FILE_UPLOAD`. The corresponding `Submission.modality` field records wh
 Both modes create `UserEntry` and trigger the same event pipeline (`FULFILLS_EXERCISE` /
 `FULFILLS_REVISED_EXERCISE`, auto-share with teacher).
 
-**Three scopes and their constraints (`is_valid()` enforces these):**
+**Four scopes and their constraints (`is_valid()` enforces these):**
 
 | Scope | Created by | Requires | Purpose |
 |-------|-----------|---------|---------|
-| `PERSONAL` | User/Admin | `path_step_uid` | Self-directed AI feedback, anchored to a PathStep |
+| `PERSONAL` | User/Admin | — (PathStep anchor optional) | Self-directed AI feedback; anchored to a PathStep or a free-standing library template |
 | `ASSIGNED` | Teacher | `group_uid` | Teacher assigns to a class — no PathStep required |
 | `ASSESSMENT` | Teacher | `scoring_rubric` | Formal graded test — no PathStep required |
+| `CURRICULUM` | Content vault (ingestion only) | — | Shared vault-authored exercise, no user owner; anchored via `exercise_uids:` in PathStep YAML |
 
 **Services:**
 ```python
@@ -123,8 +124,8 @@ Unauthenticated visitors see simple exercise links (no status, no submissions/fe
 (exercise)-[:SHARED_WITH_GROUP]->(group:Group)
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku:Entity:Ku)
 
-// Personal exercise linked to PathStep (self-directed)
-(ps:Entity)-[:HAS_EXERCISE]->(exercise:Entity:Exercise {scope: 'personal'})
+// PathStep-anchored exercise (self-directed personal or vault-authored curriculum)
+(ps:Entity)-[:HAS_EXERCISE]->(exercise:Entity:Exercise)  // scope: 'personal' | 'curriculum'
 (user:User)-[:IN_PROGRESS]->(ps)
 ```
 
