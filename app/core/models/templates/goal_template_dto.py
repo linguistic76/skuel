@@ -45,6 +45,9 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
 class GoalTemplateDTO(EntityDTO):
     """Mutable DTO for GoalTemplate entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.GOAL_TEMPLATE, kw_only=True)
+
     # Classification
     goal_type: GoalType | None = None
     timeframe: GoalTimeframe | None = None

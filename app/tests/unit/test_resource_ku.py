@@ -6,6 +6,8 @@ Tests for Resource creation, field defaults, DTO round-trip,
 and dispatch from Entity.from_dto().
 """
 
+import pytest
+
 from core.models.curriculum import Curriculum
 from core.models.entity import Entity
 from core.models.enums import Domain
@@ -25,10 +27,10 @@ class TestResourceKuCreation:
         assert r.title == "Yoga for Beginners"
         assert r.entity_type == EntityType.RESOURCE
 
-    def test_forces_entity_type_resource(self):
-        """__post_init__ forces entity_type=RESOURCE regardless of input."""
-        r = Resource(uid="ku_test", title="Test", entity_type=EntityType.PATH_STEP)
-        assert r.entity_type == EntityType.RESOURCE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            Resource(uid="ku_test", title="Test", entity_type=EntityType.PATH_STEP)
 
     def test_resource_specific_fields_default_none(self):
         """All 7 resource-specific fields default to None."""

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import (
     time,
 )
@@ -46,6 +46,9 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
 @dataclass
 class EventTemplateDTO(EntityDTO):
     """Mutable DTO for EventTemplate entities."""
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.EVENT_TEMPLATE, kw_only=True)
 
     # Scheduling
     event_offset: RelativeOffset | None = None

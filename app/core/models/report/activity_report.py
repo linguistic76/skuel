@@ -59,10 +59,17 @@ class ActivityReport(UserOwnedEntity):
         annotation_updated_at: When the annotation was last saved
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.ACTIVITY_REPORT, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=ACTIVITY_REPORT, then delegate to UserOwnedEntity."""
+        """Validate entity_type=ACTIVITY_REPORT, then delegate to UserOwnedEntity."""
         if self.entity_type != EntityType.ACTIVITY_REPORT:
-            object.__setattr__(self, "entity_type", EntityType.ACTIVITY_REPORT)
+            raise ValueError(
+                f"ActivityReport constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         if self.status is None:
             object.__setattr__(self, "status", EntityStatus.COMPLETED)
         super().__post_init__()

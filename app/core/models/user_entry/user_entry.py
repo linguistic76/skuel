@@ -38,7 +38,7 @@ carrying `revision=2`.
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -66,10 +66,17 @@ class UserEntry(UserOwnedEntity):
     `entity_type` is forced to `EntityType.USER_ENTRY` in `__post_init__`.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.USER_ENTRY, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=USER_ENTRY, then delegate to UserOwnedEntity."""
+        """Validate entity_type=USER_ENTRY, then delegate to UserOwnedEntity."""
         if self.entity_type != EntityType.USER_ENTRY:
-            object.__setattr__(self, "entity_type", EntityType.USER_ENTRY)
+            raise ValueError(
+                f"UserEntry constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

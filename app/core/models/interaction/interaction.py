@@ -38,7 +38,7 @@ See: /home/mike/0bsidian/0design/layers - architecture 0.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityType
@@ -69,10 +69,17 @@ class Interaction(UserOwnedEntity):
     - result_status:              What happened as a result (PENDING, REPORT_GENERATED, ...)
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.INTERACTION, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=INTERACTION, then delegate to UserOwnedEntity."""
+        """Validate entity_type=INTERACTION, then delegate to UserOwnedEntity."""
         if self.entity_type != EntityType.INTERACTION:
-            object.__setattr__(self, "entity_type", EntityType.INTERACTION)
+            raise ValueError(
+                f"Interaction constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

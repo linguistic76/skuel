@@ -21,6 +21,9 @@ from core.ports import get_enum_value
 class FormTemplateDTO(EntityDTO):
     """Mutable DTO for FormTemplate entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.FORM_TEMPLATE, kw_only=True)
+
     # =========================================================================
     # FORM-SPECIFIC FIELDS
     # =========================================================================

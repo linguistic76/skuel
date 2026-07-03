@@ -62,6 +62,10 @@ class Entity:
     # =========================================================================
     uid: EntityUID
     title: str
+    # Base default is Ku-flavored for DIRECT Entity/Curriculum construction only
+    # (tests, seed scripts, the from_dto fallback). Every leaf model re-declares
+    # its own honest default and __post_init__-rejects a mismatch (G6). The
+    # write-path guard lives on the DTO tier: EntityDTO.entity_type is REQUIRED.
     entity_type: EntityType = EntityType.KU
     parent_entity_uid: EntityUID | None = None  # Derivation chain — what Entity this was based on
     domain: Domain = Domain.KNOWLEDGE

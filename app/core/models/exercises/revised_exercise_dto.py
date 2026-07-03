@@ -43,6 +43,9 @@ class RevisedExerciseDTO(UserOwnedDTO):
     - expected_modality: What submission format to expect
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.REVISED_EXERCISE, kw_only=True)
+
     # =========================================================================
     # REVISED EXERCISE-SPECIFIC FIELDS
     # =========================================================================

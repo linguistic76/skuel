@@ -19,7 +19,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -47,6 +47,9 @@ class TaskDTO(UserOwnedDTO):
     - Progress impact (5): goal contribution, knowledge mastery, habit streak
     - Knowledge intelligence (3): confidence scores, inference metadata, opportunities
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.TASK, kw_only=True)
 
     # =========================================================================
     # SCHEDULING

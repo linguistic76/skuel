@@ -49,7 +49,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
@@ -98,10 +98,18 @@ class Exercise(Curriculum):
     - pass_threshold: Minimum score (0.0-1.0) to pass an assessment
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.EXERCISE, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=EXERCISE, parse JSON form_schema, derive expected_modality."""
+        """Validate entity_type=EXERCISE, parse JSON form_schema, derive expected_modality."""
         super().__post_init__()
-        object.__setattr__(self, "entity_type", EntityType.EXERCISE)
+        if self.entity_type != EntityType.EXERCISE:
+            raise ValueError(
+                f"Exercise constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         # Neo4j stores form_schema as JSON string — parse on construction
         if isinstance(self.form_schema, str):
             try:

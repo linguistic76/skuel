@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.forms.form_submission import FormSubmission
@@ -26,15 +28,12 @@ class TestFormSubmissionConstruction:
         assert fs.form_template_uid == "ft_test_456"
         assert fs.form_data == {"q1": "answer 1", "q2": "answer 2"}
 
-    def test_entity_type_forced(self):
-        """entity_type is always FORM_SUBMISSION regardless of input."""
-        fs = FormSubmission(
-            uid="fs_force",
-            title="Test",
-            user_uid="user_1",
-            entity_type=EntityType.TASK,
-        )
-        assert fs.entity_type == EntityType.FORM_SUBMISSION
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            FormSubmission(
+                uid="fs_force", title="Test", user_uid="user_1", entity_type=EntityType.TASK
+            )
 
     def test_default_status_completed(self):
         """FormSubmissions default to COMPLETED status."""

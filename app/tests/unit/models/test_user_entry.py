@@ -27,15 +27,10 @@ class TestUserEntryConstruction:
         assert entry.user_uid == "user_1"
         assert entry.entity_type == EntityType.USER_ENTRY
 
-    def test_entity_type_forced(self):
-        """entity_type is always USER_ENTRY regardless of constructor input."""
-        entry = UserEntry(
-            uid="ue_force",
-            title="Test",
-            user_uid="user_1",
-            entity_type=EntityType.TASK,
-        )
-        assert entry.entity_type == EntityType.USER_ENTRY
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            UserEntry(uid="ue_force", title="Test", user_uid="user_1", entity_type=EntityType.TASK)
 
     def test_default_pipeline_none(self):
         entry = UserEntry(uid="ue_p", title="Test", user_uid="user_1")

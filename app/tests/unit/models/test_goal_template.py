@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType
 from core.models.enums.metadata_enums import Visibility
@@ -20,9 +22,10 @@ class TestGoalTemplateConstruction:
         assert gt.target_value is None
         assert gt.start_offset is None
 
-    def test_entity_type_forced(self):
-        gt = GoalTemplate(uid="gtpl_force", title="x", entity_type=EntityType.GOAL)
-        assert gt.entity_type == EntityType.GOAL_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            GoalTemplate(uid="gtpl_force", title="x", entity_type=EntityType.GOAL)
 
     def test_default_status_is_draft(self):
         assert GoalTemplate(uid="gtpl_s", title="t").status == EntityStatus.DRAFT

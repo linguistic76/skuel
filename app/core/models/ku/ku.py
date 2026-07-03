@@ -50,6 +50,10 @@ class Ku(Entity):
     Learning Steps TRAINS_KU to declare learning objectives.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.KU, kw_only=True)
+
     # =========================================================================
     # KU-SPECIFIC FIELDS
     # =========================================================================
@@ -60,9 +64,12 @@ class Ku(Entity):
     sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
 
     def __post_init__(self) -> None:
-        """Force entity_type=KU, then delegate to Entity."""
+        """Validate entity_type=KU, then delegate to Entity."""
         if self.entity_type != EntityType.KU:
-            object.__setattr__(self, "entity_type", EntityType.KU)
+            raise ValueError(
+                f"Ku constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         # Normalize aliases from list to tuple (frozen dataclass)
         if isinstance(self.aliases, list):
             object.__setattr__(self, "aliases", tuple(self.aliases))

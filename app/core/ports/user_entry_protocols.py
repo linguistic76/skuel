@@ -108,8 +108,9 @@ class UserEntryCrudOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]:
         """Extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
 
-        Returns dicts with keys: entity_uid, source_line_hash, vault_id.
-        Used by VaultReconciler for outbound ID injection (ADR-070).
+        Returns dicts with keys: entity_uid, title, labels, source_line_hash,
+        vault_id. Used by VaultReconciler for outbound ID injection (ADR-070)
+        and by UserEntryProcessingService for extraction dedup guards (R3).
         """
         ...
 

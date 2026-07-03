@@ -11,7 +11,7 @@ round-trips through a single JSON column per offset.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
@@ -60,6 +60,9 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
 @dataclass
 class TaskTemplateDTO(EntityDTO):
     """Mutable DTO for TaskTemplate entities."""
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.TASK_TEMPLATE, kw_only=True)
 
     # Scheduling
     due_offset: RelativeOffset | None = None

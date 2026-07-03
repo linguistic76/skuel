@@ -25,7 +25,7 @@ See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
@@ -80,9 +80,17 @@ class RevisedExercise(UserOwnedEntity):
     - expected_modality: What submission format to expect (inherited from original Exercise)
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.REVISED_EXERCISE, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=REVISED_EXERCISE, parse JSON feedback_points."""
-        object.__setattr__(self, "entity_type", EntityType.REVISED_EXERCISE)
+        """Validate entity_type=REVISED_EXERCISE, parse JSON feedback_points."""
+        if self.entity_type != EntityType.REVISED_EXERCISE:
+            raise ValueError(
+                f"RevisedExercise constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         # Neo4j stores feedback_points as JSON string — parse on construction
         if isinstance(self.feedback_points, str):
             object.__setattr__(

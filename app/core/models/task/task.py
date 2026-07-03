@@ -18,7 +18,7 @@ See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -47,10 +47,17 @@ class Task(UserOwnedEntity):
     links, progress impact, and knowledge intelligence.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.TASK, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=TASK, then delegate to UserOwnedEntity for defaults."""
+        """Validate entity_type=TASK, then delegate to UserOwnedEntity for defaults."""
         if self.entity_type != EntityType.TASK:
-            object.__setattr__(self, "entity_type", EntityType.TASK)
+            raise ValueError(
+                f"Task constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
         # Enforce deep immutability: wrap mutable dicts in read-only proxies
         if isinstance(self.knowledge_confidence_scores, dict):

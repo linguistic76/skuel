@@ -29,7 +29,7 @@ from operator import attrgetter
 from typing import Any
 
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain, EntityStatus, Priority
+from core.models.enums import Domain, EntityStatus, EntityType, Priority
 from core.models.task.task import Task as Task
 from core.models.type_hints import UserUID
 from core.ports import HasMetadata, HasSummary
@@ -1070,6 +1070,7 @@ class InsightGenerationService:
             # Create knowledge DTO
             return CurriculumDTO(
                 uid=UIDGenerator.generate_knowledge_uid(title=insight.title),
+                entity_type=EntityType.KU,
                 title=insight.title,
                 content=content,
                 domain=Domain.KNOWLEDGE,

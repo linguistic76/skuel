@@ -33,6 +33,9 @@ class LearningPathDTO(CurriculumDTO):
     - Path configuration (4): path_type, outcomes, checkpoint_week_intervals, estimated_hours
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.LEARNING_PATH, kw_only=True)
+
     # =========================================================================
     # PATH CONFIGURATION
     # =========================================================================
