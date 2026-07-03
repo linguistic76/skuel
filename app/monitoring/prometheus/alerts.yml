@@ -155,12 +155,15 @@ groups:
           description: "Background worker may be falling behind or stalled"
           runbook: "Check embedding worker logs, verify OpenAI API availability, consider increasing batch size"
 
+      # status="skipped" (content-hash idempotency, ADR-074 §8) is excluded from
+      # the denominator: force syncs/backfills produce large benign skip volumes
+      # that would dilute the real failure ratio exactly when it matters most.
       - alert: HighEmbeddingFailureRate
         expr: |
           (
             sum(rate(skuel_embeddings_processed_total{status="failed"}[5m]))
             /
-            sum(rate(skuel_embeddings_processed_total[5m]))
+            sum(rate(skuel_embeddings_processed_total{status=~"success|failed|dropped"}[5m]))
           ) > 0.20
         for: 5m
         labels:
