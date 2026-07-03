@@ -10,6 +10,8 @@ nothing. These tests assert the ENROLLED_IN edge actually LANDS in the graph
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 import pytest_asyncio
 
@@ -115,3 +117,57 @@ async def test_complete_learning_path_updates_enrollment(neo4j_driver, enrollmen
 
     assert complete.is_ok, f"Completion failed: {complete.error}"
     assert await _count_enrollments(neo4j_driver, status="completed") == 1
+
+
+async def test_enrollment_lifecycle_visible_to_readers(neo4j_driver, enrollment_graph):
+    """Readers stay aligned with the writer across the enrollment lifecycle.
+
+    Kody #498: query_active_learning_paths filtered on LP NODE status and
+    query_completed_learning_paths / get_completed_learning_paths read a
+    :COMPLETED edge no writer creates — so a completed LP stayed "active"
+    forever and the completed readers were permanently empty. All four
+    readers now read r.status on the ENROLLED_IN edge the writer maintains.
+    """
+    from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
+    from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from adapters.persistence.neo4j.user_progress_backend import UserProgressBackend
+    from core.models.entity import Entity
+    from core.models.enums import NeoLabel
+
+    user_backend = UserBackend(neo4j_driver)
+    adaptive = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, Entity, base_label=NeoLabel.ENTITY)
+    progress = UserProgressBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    async def active_uids() -> tuple[list[str], list[str]]:
+        adaptive_res = await adaptive.query_active_learning_paths(_USER_UID)
+        progress_res = await progress.get_active_learning_paths(_USER_UID)
+        assert adaptive_res.is_ok and progress_res.is_ok
+        # RETURN lp yields the node's property dict — Neo4jProperties can't model nesting
+        adaptive_nodes = cast("list[dict[str, Any]]", adaptive_res.value)
+        return (
+            [str(r["lp"]["uid"]) for r in adaptive_nodes],
+            list(progress_res.value[0]["active_paths"]) if progress_res.value else [],
+        )
+
+    async def completed_uids() -> tuple[list[str], list[str]]:
+        adaptive_res = await adaptive.query_completed_learning_paths(_USER_UID)
+        progress_res = await progress.get_completed_learning_paths(_USER_UID)
+        assert adaptive_res.is_ok and progress_res.is_ok
+        return (
+            [str(r["lp_uid"]) for r in adaptive_res.value],
+            list(progress_res.value[0]["completed_paths"]) if progress_res.value else [],
+        )
+
+    # Enrolled → visible as active, absent from completed
+    assert (await user_backend.enroll_in_learning_path(_USER_UID, _LP_UID)).is_ok
+    adaptive_active, progress_active = await active_uids()
+    assert _LP_UID in adaptive_active and _LP_UID in progress_active
+    adaptive_done, progress_done = await completed_uids()
+    assert _LP_UID not in adaptive_done and _LP_UID not in progress_done
+
+    # Completed → leaves active, appears in completed
+    assert (await user_backend.complete_learning_path(_USER_UID, _LP_UID)).is_ok
+    adaptive_active, progress_active = await active_uids()
+    assert _LP_UID not in adaptive_active and _LP_UID not in progress_active
+    adaptive_done, progress_done = await completed_uids()
+    assert _LP_UID in adaptive_done and _LP_UID in progress_done
