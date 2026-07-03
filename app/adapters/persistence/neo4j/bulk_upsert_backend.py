@@ -92,19 +92,57 @@ RETURN count(n) as processed
     )
 
 
+def build_node_upsert_template(
+    entity_label: str,
+    base_label: str | None,
+) -> CypherTemplate:
+    """
+    Build the node-only upsert template (phase 1 of the two-phase ingest).
+
+    Uses pre-filtered ``item._node_props`` for node storage — connection keys
+    are excluded in Python (``batch_preparer``) so relationship sources never
+    leak onto the node as properties.
+    """
+    label_clause = _label_clause(entity_label, base_label)
+    template_str = f"""
+// Bulk node upsert (Pure Cypher - No APOC) — phase 1, edges come later
+UNWIND $items AS item
+WITH item, item._node_props AS props
+MERGE (n:{label_clause} {{uid: item.uid}})
+  ON CREATE SET
+    n = props,
+    n.created_at = datetime()
+  ON MATCH SET
+    n += props,
+    n.updated_at = datetime()
+RETURN count(n) as processed
+"""
+    return CypherTemplate(
+        name=f"{entity_label.lower()}_node_upsert",
+        template=template_str,
+        description=f"Node-only bulk upsert for {entity_label}",
+    )
+
+
 def build_relationship_template(
     entity_label: str,
     base_label: str | None,
     config: dict[str, RelationshipConfig],
 ) -> CypherTemplate:
     """
-    Build a Cypher template that creates graph edges from connection data.
+    Build the relationships-only template (phase 2 of the two-phase ingest).
 
-    Uses pre-filtered ``item._node_props`` for node storage (connection keys
-    excluded in Python) and a unit ``CALL`` subquery per relationship field that
-    ``MATCH``es existing targets and ``MERGE``s the edge. ``MATCH`` (not ``MERGE``)
-    on targets avoids stub nodes with incomplete labels; missing targets are
-    skipped and linked on a later re-ingest. Zero APOC dependency.
+    ``MATCH``es the already-upserted source node, then one unit ``CALL``
+    subquery per relationship field ``MATCH``es existing targets and ``MERGE``s
+    the edge. ``MATCH`` (not ``MERGE``) on targets avoids stub nodes with
+    incomplete labels. Running relationships strictly AFTER every node batch
+    (all entity types) means same-sync forward references resolve — under
+    incremental sync there is no "later re-ingest" for an unchanged file, so
+    edges dropped on first contact would otherwise be dropped forever.
+
+    Fields with ``order_property`` persist the YAML list index onto the edge
+    (0-based, refreshed on every ingest so vault reorderings propagate).
+    Zero APOC dependency.
     """
     rel_clauses = []
 
@@ -112,18 +150,32 @@ def build_relationship_template(
         rel_type = rel_info["rel_type"]
         target_label = rel_info["target_label"]
         direction = rel_info.get("direction", "outgoing")  # Default to outgoing
+        order_property = rel_info.get("order_property")
 
         # Edge direction determines the semantic meaning of the relationship.
         # OUTGOING (n)-[:TYPE]->(target) is the default (prerequisites, enables);
         # INCOMING (n)<-[:TYPE]-(target) points back to n.
         if direction == "incoming":
-            rel_pattern = f"(n)<-[:{rel_type}]-(target)"
+            rel_pattern = f"(n)<-[_r:{rel_type}]-(target)"
         else:  # outgoing or bidirectional
-            rel_pattern = f"(n)-[:{rel_type}]->(target)"
+            rel_pattern = f"(n)-[_r:{rel_type}]->(target)"
 
         # Unit subquery (no RETURN) preserves outer rows regardless of inner row
-        # count, so the main entity upsert is unaffected when a target is missing.
-        rel_clause = f"""
+        # count, so later fields are unaffected when a target is missing.
+        if order_property:
+            rel_clause = f"""
+// Handle {field_name} relationships ({direction}, ordered by list index)
+CALL {{
+  WITH n, item
+  WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
+  UNWIND range(0, size(_target_uids) - 1) AS _idx
+  WITH n, _target_uids[_idx] AS _target_uid, _idx
+  MATCH (target:{target_label} {{uid: _target_uid}})
+  MERGE {rel_pattern}
+  SET _r.`{order_property}` = _idx
+}}"""
+        else:
+            rel_clause = f"""
 // Handle {field_name} relationships ({direction})
 CALL {{
   WITH n, item
@@ -136,28 +188,17 @@ CALL {{
 
     label_clause = _label_clause(entity_label, base_label)
     template_str = f"""
-// Bulk upsert with relationships (Pure Cypher - No APOC)
+// Bulk relationship creation (Pure Cypher - No APOC) — phase 2, nodes exist
 UNWIND $items AS item
-// Connection data is used to create EDGES, not stored as node properties.
-// item._node_props is pre-filtered in Python (batch_preparer) to exclude the
-// connection keys, so the node carries only non-relationship properties.
-WITH item, item._node_props AS props
-MERGE (n:{label_clause} {{uid: item.uid}})
-  ON CREATE SET
-    n = props,
-    n.created_at = datetime()
-  ON MATCH SET
-    n += props,
-    n.updated_at = datetime()
-WITH n, item
+MATCH (n:{label_clause} {{uid: item.uid}})
 {"".join(rel_clauses)}
 RETURN count(n) as processed
 """
 
     return CypherTemplate(
-        name=f"{entity_label.lower()}_with_relationships",
+        name=f"{entity_label.lower()}_relationships",
         template=template_str,
-        description=f"Upsert {entity_label} with relationships",
+        description=f"Create relationships for {entity_label}",
     )
 
 
@@ -246,7 +287,7 @@ class BulkUpsertBackend:
                     )
                 )
 
-    async def upsert_with_relationships(
+    async def upsert_nodes(
         self,
         entity_label: str,
         base_label: str | None,
@@ -254,8 +295,8 @@ class BulkUpsertBackend:
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
     ) -> Result[IngestionResult]:
-        """Upsert entities and create their graph edges in one batched transaction."""
-        template = build_relationship_template(entity_label, base_label, relationship_config)
+        """Node-only upsert (phase 1) — connection fields filtered off the node."""
+        template = build_node_upsert_template(entity_label, base_label)
 
         with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
             async with self._driver.session() as session:
@@ -278,10 +319,96 @@ class BulkUpsertBackend:
                         total_processed=len(entities),
                         nodes_created=stats.get("nodes_created", 0),
                         nodes_updated=0,  # Calculated from properties_set when needed
+                        relationships_created=0,
+                        errors=[],
+                    )
+                )
+
+    async def create_relationships(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, RelationshipConfig],
+        batch_size: int = 500,
+    ) -> Result[IngestionResult]:
+        """Relationships-only pass (phase 2) — every node batch already ran."""
+        if not relationship_config:
+            return Result.ok(
+                IngestionResult(
+                    total_processed=len(entities),
+                    nodes_created=0,
+                    nodes_updated=0,
+                    relationships_created=0,
+                    errors=[],
+                )
+            )
+
+        template = build_relationship_template(entity_label, base_label, relationship_config)
+
+        with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
+            async with self._driver.session() as session:
+                executor = CypherExecutor(session, dict)
+                items = prepare_batch_items(entities, rel_config=relationship_config)
+
+                result = await executor.execute_batch(
+                    template=template,
+                    items=items,
+                    batch_size=batch_size,
+                    extra_params={"entity_label": entity_label},
+                )
+
+                if result.is_error:
+                    return Result.fail(result)
+
+                stats = result.value
+                return Result.ok(
+                    IngestionResult(
+                        total_processed=len(entities),
+                        nodes_created=0,
+                        nodes_updated=0,
                         relationships_created=stats.get("relationships_created", 0),
                         errors=[],
                     )
                 )
+
+    async def upsert_with_relationships(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, RelationshipConfig],
+        batch_size: int = 500,
+    ) -> Result[IngestionResult]:
+        """Upsert entities, then create their graph edges (two-phase).
+
+        Nodes land before any edge Cypher runs, so references between entities
+        of the same call resolve (the single-file door's shape). Directory
+        ingest calls the two phases itself so relationships run after EVERY
+        type's node batch — see ``core/services/ingestion/batch.py``.
+        """
+        nodes_result = await self.upsert_nodes(
+            entity_label, base_label, entities, relationship_config, batch_size
+        )
+        if nodes_result.is_error:
+            return nodes_result
+
+        rels_result = await self.create_relationships(
+            entity_label, base_label, entities, relationship_config, batch_size
+        )
+        if rels_result.is_error:
+            return rels_result
+
+        nodes = nodes_result.value
+        return Result.ok(
+            IngestionResult(
+                total_processed=len(entities),
+                nodes_created=nodes.nodes_created,
+                nodes_updated=nodes.nodes_updated,
+                relationships_created=rels_result.value.relationships_created,
+                errors=[],
+            )
+        )
 
     async def delete_batch(
         self, entity_label: str, uids: list[str], cascade: bool = False

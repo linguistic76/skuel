@@ -536,6 +536,13 @@ class QueryProcessor:
             zpd_result = await self.zpd_service.assess_ku_readiness(user_uid, target_ku_uids)
             if not zpd_result.is_error:
                 zone_evidence = zpd_result.value
+            logger.info(
+                "ZPD readiness assessed for user %s: %d target KUs %s (evidence keys: %s)",
+                user_uid,
+                len(target_ku_uids),
+                target_ku_uids,
+                sorted(zone_evidence) if zone_evidence else "none",
+            )
 
         guidance = self.intent_classifier.determine_guidance_mode(
             question, ps_bundle, zone_evidence, target_ku_uids

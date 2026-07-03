@@ -481,6 +481,8 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 
 **Ku UID is flat** (`ku_{slug}_{random}`) — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID.
 
+**Two KU UID forms, never sniff:** authored (vault) `ku.{ns}.{slug}` and generated (API) `ku_{slug}_{random}` are BOTH sanctioned. UIDs are opaque — spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge, never by UID prefix. **See:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
+
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
 
 ## EntityTimestampMixin

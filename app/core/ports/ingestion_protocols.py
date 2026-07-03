@@ -131,6 +131,24 @@ class BulkUpsertOperations(Protocol):
         template_name: str | None = None,
     ) -> Result[IngestionResult]: ...
 
+    async def upsert_nodes(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, RelationshipConfig],
+        batch_size: int = 500,
+    ) -> Result[IngestionResult]: ...
+
+    async def create_relationships(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, RelationshipConfig],
+        batch_size: int = 500,
+    ) -> Result[IngestionResult]: ...
+
     async def upsert_with_relationships(
         self,
         entity_label: str,

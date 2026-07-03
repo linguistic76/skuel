@@ -64,11 +64,21 @@ class TestCurriculumRichContext:
         )
         await services.goals.core.backend.create(goal)
 
-        # Create knowledge for step
-        ku = CurriculumDTO(
-            uid=UIDGenerator.generate_random_uid("ku"),
+        # Create knowledge for step: a related PathStep (CONTAINS_KNOWLEDGE
+        # target) plus a genuine Ku (USES_KU target) so knowledge_relationships
+        # carries BOTH kinds and the entity_type discriminator can be pinned.
+        related_step = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ps"),
             title="Python Functions",
             entity_type=EntityType.PATH_STEP,
+            domain=Domain.TECH,
+        )
+        await services.ps.core.backend.create(related_step.to_dict())
+
+        ku = CurriculumDTO(
+            uid=UIDGenerator.generate_random_uid("ku"),
+            title="First-Class Functions",
+            entity_type=EntityType.KU,
             domain=Domain.TECH,
         )
         await services.ps.core.backend.create(ku.to_dict())
@@ -93,7 +103,11 @@ class TestCurriculumRichContext:
             },
         )
 
-        # Create relationships
+        # Create relationships — PRODUCTION edge names only. HAS_STEP is the one
+        # LP→PS containment edge (RelationshipName.HAS_STEP; written by ingestion
+        # and the LP step mixin) and USES_KU is THE composition edge. A fixture
+        # writing a phantom edge (the old CONTAINS_STEP here) makes a broken
+        # reader look green — the WORKING_ON trap Arc B fixed, again.
         await services.lp.core.backend.driver.execute_query(
             """
             // Enroll user in path
@@ -104,17 +118,22 @@ class TestCurriculumRichContext:
             // Add step to path
             WITH lp
             MATCH (ps:PathStep {uid: $ps_uid})
-            CREATE (lp)-[:CONTAINS_STEP {sequence: 1}]->(ps)
+            CREATE (lp)-[:HAS_STEP {sequence: 1}]->(ps)
 
             // Align path with goal
             WITH lp, ps
             MATCH (goal:Goal {uid: $goal_uid})
             CREATE (lp)-[:ALIGNED_WITH_GOAL]->(goal)
 
-            // Step teaches knowledge
+            // Step references a related PathStep's knowledge
+            WITH ps
+            MATCH (related:Entity {uid: $related_step_uid})
+            CREATE (ps)-[:CONTAINS_KNOWLEDGE]->(related)
+
+            // Step composes an atomic Ku
             WITH ps
             MATCH (ku:Entity {uid: $ku_uid})
-            CREATE (ps)-[:CONTAINS_KNOWLEDGE]->(ku)
+            CREATE (ps)-[:USES_KU]->(ku)
 
             // User actively studying step — IN_PROGRESS is the edge the PS
             // enrollment door writes (PsMasteryService)
@@ -128,6 +147,7 @@ class TestCurriculumRichContext:
                 "lp_uid": learning_path.uid,
                 "ps_uid": path_step.uid,
                 "goal_uid": goal.uid,
+                "related_step_uid": related_step.uid,
                 "ku_uid": ku.uid,
             },
         )
@@ -190,13 +210,19 @@ class TestCurriculumRichContext:
         assert "learning_path" in step_context
         assert "is_sequenced" in step_context
 
-        # Check that knowledge relationship was included
-        assert len(step_context["knowledge_relationships"]) == 1
-        assert step_context["knowledge_relationships"][0]["uid"] == ku.uid
+        # Both knowledge edges (USES_KU + CONTAINS_KNOWLEDGE) surface, each
+        # carrying the target's entity_type — the label-derived discriminator
+        # consumers use to split Ku from PathStep (ADR-013 never-sniff rule).
+        knowledge_by_uid = {kr["uid"]: kr for kr in step_context["knowledge_relationships"]}
+        assert set(knowledge_by_uid) == {ku.uid, related_step.uid}
+        assert knowledge_by_uid[ku.uid]["entity_type"] == EntityType.KU.value
+        assert knowledge_by_uid[related_step.uid]["entity_type"] == EntityType.PATH_STEP.value
 
-        # Check that parent path was included
+        # Parent path comes from the HAS_STEP edge; name is read from the
+        # Entity `title` property (LP nodes have no `name` property).
         assert step_context["learning_path"] is not None
         assert step_context["learning_path"]["uid"] == learning_path.uid
+        assert step_context["learning_path"]["name"] == learning_path.title
         assert step_context["is_sequenced"] is True
 
         print("✅ MEGA-QUERY curriculum integration complete")

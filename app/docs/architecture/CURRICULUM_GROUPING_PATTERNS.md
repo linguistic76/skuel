@@ -122,6 +122,23 @@ content: |
 
 **Graph Role:** KU is the leaf node - all other patterns ultimately reference KUs.
 
+#### Two Sanctioned UID Forms — the Never-Sniff Rule
+
+Both KU UID spellings are sanctioned (ADR-013, explicit `uid:` override; ruling
+reaffirmed 2026-07-03):
+
+| Form | Format | Provenance |
+|------|--------|------------|
+| Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); vault frontmatter uses colon form `ku:{ns}:{slug}`, normalized `:` → `.` at ingestion |
+| Generated | `ku_{slug}_{random}` | API — the Universal flat format shared with all Activity domains |
+
+**No migration between them, ever.** UID spelling is provenance (curated vs
+generated), not type information. **Entity kind is determined by label,
+`entity_type`, or edge — NEVER by UID string prefix.** A `startswith("ku_")`
+check silently drops every authored KU (and vice versa); consumers that need
+to split mixed UID lists take the `entity_type` field the MEGA-QUERY carries
+on `knowledge_relationships`, or resolve by lookup.
+
 ---
 
 ### PS (Path Step) - The Curriculum Content Entity

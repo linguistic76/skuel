@@ -81,6 +81,7 @@ def render_ps_detail_content(
     user_uid: str | None,
     user_role: UserRole | None = None,
     has_task_templates: bool = False,
+    kus: list[dict] | None = None,
     # Retained for API compatibility; not rendered in this design iteration.
     toc_html: str = "",
     exercises: list[dict] | None = None,
@@ -104,6 +105,7 @@ def render_ps_detail_content(
         user_role: Viewer's role — gates teacher-only controls.
         has_task_templates: True when the PS has TaskTemplates — "Start learning"
             triggers engagement (task spawn) rather than read-progress toggle.
+        kus: Atomic Kus this step composes (USES_KU) — rendered as reader links.
         toc_html: Not used in this layout (no TOC sidebar).
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
@@ -137,6 +139,7 @@ def render_ps_detail_content(
         _back_link(),
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
+        _kus_section(kus) if kus else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
@@ -408,6 +411,41 @@ def _body_section(content_html: str) -> "FT":
         cls="mt-[30px]",
         role="region",
         **{"aria-labelledby": "idea-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Knowledge units section
+# ---------------------------------------------------------------------------
+
+
+def _kus_section(kus: list[dict]) -> "FT":
+    """Atomic Kus this PathStep composes (USES_KU edges) as reader links."""
+    return Section(
+        H2(
+            "Knowledge in this step",
+            id="ps-kus-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        Div(
+            *[
+                A(
+                    ku.get("title") or ku["uid"],
+                    href=f"/explore/ku/{ku['uid']}",
+                    cls=(
+                        "inline-flex items-center px-3 py-1.5 rounded-full border "
+                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "text-foreground hover:bg-accent hover:text-accent-foreground"
+                    ),
+                )
+                for ku in kus
+                if ku.get("uid")
+            ],
+            cls="flex flex-wrap gap-2",
+        ),
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-kus-h"},
     )
 
 

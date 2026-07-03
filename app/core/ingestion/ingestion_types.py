@@ -35,11 +35,17 @@ class RelationshipConfig(TypedDict, total=False):
             - "incoming": creates ``(n)<-[:TYPE]-(target)``
             - "outgoing": creates ``(n)-[:TYPE]->(target)`` [default]
             - "both": creates bidirectional edges
+        order_property: When set, the YAML list order is persisted onto each
+            edge as this property (0-based index, refreshed on re-ingest) —
+            sourced from the registry's ``order_by_property`` (e.g. HAS_STEP
+            ``sequence``, ORGANIZES ``order``). The vault list IS the ordering;
+            dropping it would lose authored sequence.
     """
 
     rel_type: str
     target_label: str
     direction: Literal["incoming", "outgoing", "both"]
+    order_property: str
 
 
 @dataclass

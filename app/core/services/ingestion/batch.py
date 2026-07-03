@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 
+from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -957,6 +958,16 @@ async def ingest_directory(
             )
         )
 
+    # Two-phase ingest: ALL node batches land first, then ALL relationship
+    # batches. Relationship Cypher MATCHes targets (no stub nodes), so an edge
+    # to an entity persisted by a LATER type batch — or a later row of the same
+    # batch — would silently drop. Under incremental sync the source file then
+    # hashes as unchanged and the edge is never retried, so "linked on a later
+    # re-ingest" never comes. Running edges strictly after every node exists
+    # makes one sync produce the complete graph.
+    relationship_passes: list[
+        tuple[EntityType | NonKuDomain, list[dict[str, Any]], dict[str, RelationshipConfig]]
+    ] = []
     for entity_type, entities in entities_by_type.items():
         config = ENTITY_CONFIGS.get(entity_type)
         if not config or bulk_backend is None:
@@ -990,7 +1001,7 @@ async def ingest_directory(
                 )
 
         rel_config = config.relationship_config or {}
-        result = await bulk_backend.upsert_with_relationships(
+        result = await bulk_backend.upsert_nodes(
             entity_label=config.entity_label,
             base_label=config.base_label,
             entities=entities,
@@ -1002,8 +1013,9 @@ async def ingest_directory(
             stats = result.value
             total_nodes_created += stats.nodes_created
             total_nodes_updated += stats.nodes_updated
-            total_relationships_created += stats.relationships_created
             logger.info(f"Ingested {len(entities)} {entity_type.value} entities")
+            if rel_config:
+                relationship_passes.append((entity_type, entities, rel_config))
             if post_persist_fn is not None:
                 await post_persist_fn(entity_type, entities, chunk_sources)
         else:
@@ -1016,6 +1028,31 @@ async def ingest_directory(
                 suggestion="Check Neo4j connection and database constraints.",
             )
             errors.append(batch_error.to_dict())
+
+    # Phase 2: relationships for every successfully-upserted type batch.
+    for entity_type, entities, rel_config in relationship_passes:
+        config = ENTITY_CONFIGS.get(entity_type)
+        if not config or bulk_backend is None:
+            continue
+        rel_result = await bulk_backend.create_relationships(
+            entity_label=config.entity_label,
+            base_label=config.base_label,
+            entities=entities,
+            relationship_config=rel_config,
+            batch_size=batch_size,
+        )
+        if rel_result.is_ok:
+            total_relationships_created += rel_result.value.relationships_created
+        else:
+            rel_error = IngestionError(
+                file=f"<batch:{entity_type.value}>",
+                error=str(rel_result.expect_error()),
+                stage="relationships",
+                error_type="database",
+                entity_type=entity_type.value,
+                suggestion="Check Neo4j connection and database constraints.",
+            )
+            errors.append(rel_error.to_dict())
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     total_edges_created = 0

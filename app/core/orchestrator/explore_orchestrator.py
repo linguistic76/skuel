@@ -116,6 +116,10 @@ class ExploreOrchestrator:
         """Get learning mastery state for a specific PathStep."""
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
 
+    async def get_used_kus(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get the atomic Kus a PathStep composes (USES_KU edges)."""
+        return await self._ps.get_used_kus(ps_uid)
+
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list]:
         """Get exercises linked to a PathStep (unauthenticated read-only view)."""
         return await self._ps.get_exercises_for_path_step(ps_uid)
@@ -386,12 +390,16 @@ class ExploreOrchestrator:
                 if pin_uid in known_titles:
                     title, et = known_titles[pin_uid]
                     pinned_items.append((pin_uid, title, et))
-                elif pin_uid.startswith("ku_"):
-                    ku_result = await self._ku.get_ku(pin_uid)
-                    if ku_result.is_ok and ku_result.value:
-                        pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
-                elif pin_uid.startswith("ps:"):
-                    pinned_items.append((pin_uid, pin_uid, "ps"))
+                    continue
+                # Entity kind by lookup, never by UID prefix (ADR-013
+                # never-sniff rule): try the KU store first, fall back to PS.
+                ku_result = await self._ku.get_ku(pin_uid)
+                if ku_result.is_ok and ku_result.value:
+                    pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
+                    continue
+                ps_result = await self._ps.get(pin_uid)
+                if ps_result.is_ok and ps_result.value:
+                    pinned_items.append((pin_uid, ps_result.value.title or pin_uid, "ps"))
 
         return {
             "studying_kus": studying_kus[:5],

@@ -627,7 +627,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // Filter learning paths for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_lp_nodes) > 0 THEN all_lp_nodes ELSE [null] END as lp
-OPTIONAL MATCH (lp)-[r_step:HAS_STEP|CONTAINS_STEP]->(step:PathStep)
+// HAS_STEP is the one containment edge (RelationshipName.HAS_STEP) — written by
+// both ingestion (connections.contains_steps) and the LP step mixin; CONTAINS_STEP
+// never had a writer.
+OPTIONAL MATCH (lp)-[r_step:HAS_STEP]->(step:PathStep)
 WHERE lp IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -775,7 +778,11 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ps, ps_prereq_steps, ps_habits,
      collect(DISTINCT {uid: ps_task.uid, title: ps_task.title, status: ps_task.status}) as ps_tasks
 
-OPTIONAL MATCH (ps)-[:CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|TEACHES]->(ps_ku:Entity)
+// USES_KU is THE canonical composition edge (PathStep composes atomic Kus);
+// TEACHES was a phantom name with no RelationshipName entry and no writer.
+// entity_type rides along so consumers split Ku vs PathStep targets by
+// label-derived type, never by UID prefix (ADR-013 never-sniff rule).
+OPTIONAL MATCH (ps)-[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE]->(ps_ku:Entity)
 WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -787,9 +794,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits, ps_tasks,
-     collect(DISTINCT {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain}) as ps_knowledge
+     collect(DISTINCT {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type}) as ps_knowledge
 
-OPTIONAL MATCH (lp_parent:LearningPath)-[:CONTAINS_STEP]->(ps)
+OPTIONAL MATCH (lp_parent:LearningPath)-[:HAS_STEP]->(ps)
 WHERE ps IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -808,7 +815,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
              practice_tasks: ps_tasks,
              knowledge_relationships: ps_knowledge,
              learning_path: CASE WHEN lp_parent IS NOT NULL
-                 THEN {uid: lp_parent.uid, name: lp_parent.name}
+                 THEN {uid: lp_parent.uid, name: lp_parent.title}
                  ELSE null END,
              total_prerequisites: size(ps_prereq_steps),
              total_practice_opportunities: size(ps_habits) + size(ps_tasks),
