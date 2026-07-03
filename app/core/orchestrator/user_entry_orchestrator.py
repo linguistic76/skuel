@@ -148,12 +148,8 @@ class UserEntryOrchestrator:
     async def list_exercise_entries(
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[UserEntry]]:
-        """Return teacher-review-pipeline entries (exercise submissions)."""
-        return await self._entries.list_for_user(
-            user_uid=user_uid,
-            pipeline=Pipeline.TEACHER_REVIEW,
-            limit=limit,
-        )
+        """Return the user's exercise submissions (FULFILLS_EXERCISE edge, any pipeline)."""
+        return await self._entries.list_exercise_entries(user_uid=user_uid, limit=limit)
 
     async def delete_entry(self, uid: str, user_uid: UserUID) -> Result[bool]:
         """Ownership-verified cascade delete."""

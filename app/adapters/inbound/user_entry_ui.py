@@ -290,8 +290,17 @@ def create_user_entry_ui_routes(
 
     @rt("/submit")
     async def submit_redirect(request: Request) -> Any:
-        """Legacy URL — redirect to canonical /submissions/exercise."""
-        return RedirectResponse(url="/submissions/exercise", status_code=302)
+        """Legacy URL — redirect to canonical /submissions/exercise.
+
+        Query params must survive: the PS learning-loop "Submit →" links carry
+        ``exercise_uid`` + ``from_ps`` through this URL, and dropping them
+        strips the exercise preselection off the form.
+        """
+        url = "/submissions/exercise"
+        query = request.url.query
+        if query:
+            url = f"{url}?{query}"
+        return RedirectResponse(url=url, status_code=302)
 
     # =========================================================================
     # SUBMIT — JOURNAL UPLOAD UX (/submissions/journal)

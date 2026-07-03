@@ -136,6 +136,34 @@ class _UserEntryContentMixin:
         """
         return await self.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
 
+    async def get_exercise_entries_for_user(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """A user's exercise submissions — defined by the FULFILLS_EXERCISE edge.
+
+        Pipeline-agnostic: an AI-destined turn-in is as much an exercise
+        submission as a teacher-review one (systems review, 2026-07-03; the
+        old pipeline=TEACHER_REVIEW filter hid solo-learner submissions from
+        their own history). TEACHER_REVIEW entries without an edge are kept
+        for pre-edge legacy rows.
+        """
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: $entry_type}})
+        WHERE EXISTS((e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->()) OR e.pipeline = 'teacher_review'
+        RETURN e
+        ORDER BY e.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query,
+            {"user_uid": user_uid, "entry_type": _USER_ENTRY, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(record["e"]) for record in result.value])
+
     async def get_entries_for_path_step(
         self,
         user_uid: UserUID,
