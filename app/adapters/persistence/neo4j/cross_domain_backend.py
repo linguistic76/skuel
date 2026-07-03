@@ -687,7 +687,7 @@ class CrossDomainBackend:
             MATCH (u:User {uid: $user_uid})
             OPTIONAL MATCH (u)-[:MASTERED]->(ku:Entity)
             WITH u, collect(DISTINCT ku.uid) as mastered
-            OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:Lp)
+            OPTIONAL MATCH (u)-[:ENROLLED_IN]->(lp:LearningPath)
             OPTIONAL MATCH (lp)-[:CONTAINS]->(step:PathStep)
             WITH u, mastered, lp, count(DISTINCT step) AS total_steps
             WITH u, mastered,

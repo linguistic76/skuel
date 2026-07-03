@@ -14,7 +14,7 @@ The Journals domain is an AI companion for personal reflection, thinking-in-writ
 
 **Access:** Any authenticated user. No LearningPath enrollment required.
 
-**Contrast with Askesis:** Askesis requires LP enrollment and is driven by the curriculum graph (PathStep + KU bundle + ZPD). Journals has no enrollment gate and is driven by UserContext + the entry itself.
+**Contrast with Askesis:** Askesis requires an active PathStep or an LP enrollment (PS-first gate) and is driven by the curriculum graph (PathStep + KU bundle + ZPD). Journals has no enrollment gate and is driven by UserContext + the entry itself.
 
 **Persistence (ADR-073):** Both the text-entry path (`POST /journals/start`) and the file-upload path (`POST /journals/upload`, `POST /journals/folder-process`) are **zero-persistence** — they run the workflow and return the response inline (`HX-Retarget` to `#journal-workspace`) or write the processed output to the user's own `je_out/` folder (see §7), writing **nothing** to Neo4j. The user keeps whatever they copy or download. Audio transcription is synchronous and file-based (decision A). Periodic notes remain a deliberate stored feature.
 

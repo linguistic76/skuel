@@ -46,7 +46,7 @@ RETURN labels(n) as type, count(n) as count
 ORDER BY count DESC
 
 // View the learning path structure
-MATCH (lp:Lp {uid: 'lp:mindfulness-101'})
+MATCH (lp:LearningPath {uid: 'lp:mindfulness-101'})
 OPTIONAL MATCH (lp)-[:HAS_STEP]->(ps:PathStep)
 OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
 RETURN lp, ls, ku

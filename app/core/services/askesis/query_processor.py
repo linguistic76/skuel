@@ -9,7 +9,7 @@ Responsibilities:
 - Coordinate EntityExtractor, ContextRetriever, IntentClassifier, ResponseGenerator
 - Answer user questions with retrieval + generation
 - Process queries with full context
-- LP enrollment gate — Askesis works within enrolled Learning Paths
+- Enrollment gate (PS-first) — Askesis works with active Path Steps, plus Learning Paths when available
 
 This service is part of the refactored AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
@@ -31,7 +31,9 @@ January 2026: Refactored to use IntentClassifier and ResponseGenerator
 for single responsibility and reduced file size (962 -> ~500 lines).
 March 2026: Removed all fallback/template paths — works or fails.
 March 2026: Absorbed Socratic pipeline into main RAG pipeline.
-LP enrollment gate. ZPD + GuidanceMode wired into answer flow.
+ZPD + GuidanceMode wired into answer flow.
+July 2026: Enrollment gate is PS-first — an active PathStep or an enrolled
+Learning Path unlocks Askesis (systems-review Arc B).
 """
 
 from __future__ import annotations
@@ -59,22 +61,35 @@ if TYPE_CHECKING:
     from core.services.askesis_citation_service import AskesisCitationService
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.llm_service import LLMService
+    from core.services.user.unified_user_context import UserContext
     from core.services.user_service import UserService
 
 logger = get_logger(__name__)
 
 
-# Enrollment gate response — returned when user has no enrolled Learning Paths.
+# Enrollment gate response — returned when the user has neither an active
+# PathStep nor an enrolled Learning Path (PS-first: either one unlocks Askesis).
 _ENROLLMENT_GATE_RESPONSE: dict[str, Any] = {
-    "answer": "Askesis works within your Learning Path. Enroll in a Learning Path to begin.",
+    "answer": (
+        "Askesis works within your learning. Start learning on a Path Step to begin — "
+        "or enroll in a Learning Path."
+    ),
     "context_used": {},
     "suggested_actions": [
-        {"action": "enroll_learning_path", "description": "Browse available Learning Paths"}
+        {"action": "start_path_step", "description": "Browse Path Steps and start learning"},
+        {"action": "enroll_learning_path", "description": "Browse available Learning Paths"},
     ],
     "confidence": 1.0,
     "mode": "enrollment_gate",
     "has_citations": False,
 }
+
+
+def _passes_enrollment_gate(user_context: UserContext) -> bool:
+    """PS-first enrollment gate — an active PathStep (IN_PROGRESS) or an enrolled
+    Learning Path unlocks Askesis. Both fields are populated at standard AND rich
+    context depth."""
+    return bool(user_context.current_ps_uids or user_context.enrolled_path_uids)
 
 
 class QueryProcessor:
@@ -87,7 +102,7 @@ class QueryProcessor:
     - Answer user questions (complete RAG pipeline)
     - Process queries with context
     - Coordinate sub-services for intent, entities, context, response
-    - LP enrollment gate — requires enrolled Learning Paths
+    - Enrollment gate (PS-first) — requires an active PathStep or enrolled Learning Path
 
     Architecture:
     - Orchestrates IntentClassifier for intent classification
@@ -100,7 +115,7 @@ class QueryProcessor:
 
     January 2026: Refactored to use IntentClassifier and ResponseGenerator
     for single responsibility and reduced complexity.
-    March 2026: Absorbed Socratic pipeline. LP enrollment gate.
+    March 2026: Absorbed Socratic pipeline. July 2026: PS-first enrollment gate.
     """
 
     def __init__(
@@ -223,8 +238,8 @@ class QueryProcessor:
 
         user_context = user_context_result.value
 
-        # Step 2: LP enrollment gate
-        if not user_context.enrolled_path_uids:
+        # Step 2: Enrollment gate — PS-first, LP when available
+        if not _passes_enrollment_gate(user_context):
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
         # Step 3: Load conversation history
@@ -351,7 +366,7 @@ class QueryProcessor:
         """
         Process Askesis query with full user context.
 
-        LP-scoped, ZPD-informed pipeline. Retrieves complete user learning
+        PS-first, ZPD-informed pipeline. Retrieves complete user learning
         context in a single Pure Cypher query and generates personalized,
         GuidanceMode-aware responses.
 
@@ -409,7 +424,7 @@ class QueryProcessor:
             )
 
         user_context = user_context_result.value
-        if not user_context.enrolled_path_uids:
+        if not _passes_enrollment_gate(user_context):
             return Result.ok(_ENROLLMENT_GATE_RESPONSE)
 
         # Step 2: Get learning context (served from already-built UserContext, no extra query)

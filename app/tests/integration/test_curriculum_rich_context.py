@@ -116,10 +116,11 @@ class TestCurriculumRichContext:
             MATCH (ku:Entity {uid: $ku_uid})
             CREATE (ps)-[:CONTAINS_KNOWLEDGE]->(ku)
 
-            // User working on step
+            // User actively studying step — IN_PROGRESS is the edge the PS
+            // enrollment door writes (PsMasteryService)
             WITH ps
             MATCH (user:User {uid: $user_uid})
-            CREATE (user)-[:WORKING_ON]->(ps)
+            CREATE (user)-[:IN_PROGRESS]->(ps)
             SET ps.status = 'active'
             """,
             {

@@ -246,7 +246,7 @@ if result.is_ok:
 - `answer_user_question()` - Full RAG with guided pipeline
 - `process_query_with_context()` - Context-enriched processing with guided pipeline
 
-Both methods run the same LP-scoped pipeline: LP enrollment gate → intent classification → PS bundle loading → ZPD evidence → GuidanceMode determination → guided system prompt → LLM generation. Falls back to standard global RAG when no PS bundle is available.
+Both methods run the same PS-first pipeline: enrollment gate (an active PathStep OR an enrolled Learning Path unlocks Askesis — systems-review Arc B, July 2026) → intent classification → PS bundle loading → ZPD evidence → GuidanceMode determination → guided system prompt → LLM generation. Falls back to standard global RAG when no PS bundle is available.
 
 **January 2026 Decomposition:** Intent classification and response generation extracted to separate services.
 
