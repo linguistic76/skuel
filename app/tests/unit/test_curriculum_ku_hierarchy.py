@@ -5,7 +5,7 @@ Curriculum Hierarchy Tests
 Tests for the Curriculum base class and leaf class hierarchy. Verifies:
 
 1. Curriculum base class field inheritance from Entity (no type forcing)
-2. PathStep leaf class forces EntityType.PATH_STEP in __post_init__
+2. PathStep leaf class defaults to EntityType.PATH_STEP and rejects a mismatch (G6)
 3. PathStep and LearningPath inherit from Curriculum (not Entity)
 4. Substance methods work with real data (not stubs)
 5. Learning methods (complexity, SEL, level) work correctly
@@ -13,6 +13,8 @@ Tests for the Curriculum base class and leaf class hierarchy. Verifies:
 """
 
 from datetime import datetime, timedelta
+
+import pytest
 
 from core.models.curriculum import Curriculum
 from core.models.entity import Entity
@@ -45,10 +47,10 @@ class TestCurriculumKuCreation:
         cu = Curriculum(uid="ku_test", title="Test", entity_type=EntityType.TASK)
         assert cu.entity_type == EntityType.TASK  # Not overridden
 
-    def test_path_step_leaf_forces_path_step_type(self):
-        """PathStep leaf class forces entity_type=EntityType.PATH_STEP in __post_init__."""
-        ps = PathStep(uid="ps:test", title="Test", entity_type=EntityType.TASK)
-        assert ps.entity_type == EntityType.PATH_STEP  # PathStep always forces PATH_STEP type
+    def test_path_step_leaf_rejects_wrong_type(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            PathStep(uid="ps:test", title="Test", entity_type=EntityType.TASK)
 
     def test_path_step_basic_creation(self):
         """PathStep can be created and is a Curriculum instance."""

@@ -41,6 +41,9 @@ class ActivityReportDTO(UserOwnedDTO):
     No file fields (original_filename, file_path, etc.) — those belong to Submission.
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.ACTIVITY_REPORT, kw_only=True)
+
     # =========================================================================
     # PROCESSOR
     # =========================================================================

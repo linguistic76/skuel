@@ -42,7 +42,11 @@ class EntityDTO:
     # =========================================================================
     uid: str = ""
     title: str = ""
-    entity_type: EntityType = EntityType.KU
+    # REQUIRED — no default. A silent EntityType.KU default persisted Habits/Goals
+    # with entity_type='ku' for months (systems-review G6). Leaf DTOs re-declare an
+    # honest per-type default (HabitDTO → HABIT, ...); base + intermediate DTOs
+    # (EntityDTO, UserOwnedDTO, CurriculumDTO) must be told what they are.
+    entity_type: EntityType = field(kw_only=True)
     parent_entity_uid: EntityUID | None = None
     domain: Domain = Domain.KNOWLEDGE
     created_by: str | None = None

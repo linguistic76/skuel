@@ -47,6 +47,9 @@ class GoalDTO(UserOwnedDTO):
     - Identity (2): target_identity, identity_evidence_required
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.GOAL, kw_only=True)
+
     # =========================================================================
     # CLASSIFICATION
     # =========================================================================

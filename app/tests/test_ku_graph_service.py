@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityType
 from core.services.ps.ps_graph_service import PsGraphService
 from core.utils.result_simplified import Result
 
@@ -19,6 +19,7 @@ def make_ku_dto(uid="ku.test.1", title="Test Title", domain="tech"):
     """Helper to create complete CurriculumDTO for tests."""
     return CurriculumDTO(
         uid=uid,
+        entity_type=EntityType.KU,
         title=title,
         domain=Domain(domain),
         quality_score=0.0,

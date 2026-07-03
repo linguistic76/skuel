@@ -53,6 +53,9 @@ class PrincipleDTO(UserOwnedDTO):
     - Status (2): is_active, adopted_date
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.PRINCIPLE, kw_only=True)
+
     # =========================================================================
     # STATEMENT
     # =========================================================================

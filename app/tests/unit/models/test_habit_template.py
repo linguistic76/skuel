@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import json
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -19,9 +21,10 @@ class TestHabitTemplateConstruction:
         assert ht.recurrence_end_offset is None
         assert ht.is_identity_habit is False
 
-    def test_entity_type_forced(self):
-        ht = HabitTemplate(uid="htpl_force", title="x", entity_type=EntityType.HABIT)
-        assert ht.entity_type == EntityType.HABIT_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            HabitTemplate(uid="htpl_force", title="x", entity_type=EntityType.HABIT)
 
     def test_default_status_is_draft(self):
         assert HabitTemplate(uid="htpl_s", title="t").status == EntityStatus.DRAFT

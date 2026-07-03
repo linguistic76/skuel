@@ -46,6 +46,9 @@ class ExerciseDTO(CurriculumDTO):
     - expected_modality: What submission format this exercise expects
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.EXERCISE, kw_only=True)
+
     # =========================================================================
     # EXERCISE-SPECIFIC FIELDS
     # =========================================================================

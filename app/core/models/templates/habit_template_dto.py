@@ -45,6 +45,9 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
 class HabitTemplateDTO(EntityDTO):
     """Mutable DTO for HabitTemplate entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.HABIT_TEMPLATE, kw_only=True)
+
     # Classification
     polarity: HabitPolarity | None = None
     habit_category: HabitCategory | None = None

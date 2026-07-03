@@ -48,6 +48,9 @@ class EventDTO(UserOwnedDTO):
     - Quality (4): habit_completion_quality, knowledge_retention_check, recurrence_maintains_habit, skip_breaks_habit_streak
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.EVENT, kw_only=True)
+
     # =========================================================================
     # SCHEDULING
     # =========================================================================

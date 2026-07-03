@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.forms.form_template import FormTemplate
@@ -24,14 +26,10 @@ class TestFormTemplateConstruction:
         assert len(ft.form_schema) == 1
         assert ft.form_schema[0]["name"] == "q1"
 
-    def test_entity_type_forced(self):
-        """entity_type is always FORM_TEMPLATE regardless of input."""
-        ft = FormTemplate(
-            uid="ft_test_456",
-            title="Test",
-            entity_type=EntityType.TASK,  # Wrong type — should be overridden
-        )
-        assert ft.entity_type == EntityType.FORM_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            FormTemplate(uid="ft_test_456", title="Test", entity_type=EntityType.TASK)
 
     def test_default_status(self):
         ft = FormTemplate(uid="ft_test_789", title="Test")

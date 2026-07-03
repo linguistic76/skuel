@@ -11,6 +11,9 @@ Neo4j container and asserts the graph contracts:
 - the run summary lands in ``entry.metadata["activity_extraction"]``,
 - guard 1 (completed-run metadata) makes re-processing a no-op,
 - guard 2 (line-hash dedup) makes ``force`` re-runs duplicate-free,
+- guard 3 (semantic dedup, R3): a bridge that REWORDS its lines every run —
+  the live LLM behavior that caused G8's duplicates — merges into the
+  existing entity instead of duplicating,
 - non-teacher ``@context(ku)`` creation lines are gated into creation_errors.
 
 Entity creation itself goes through a thin graph-writing stub (the facade
@@ -62,6 +65,46 @@ class _GraphTasksStub:
             )
         self.created_uids.append(uid)
         return Result.ok(SimpleNamespace(uid=uid, title=request.title))
+
+
+class _GraphHabitsStub:
+    """Create-capable stand-in that writes real ``:Entity:Habit`` nodes."""
+
+    def __init__(self, driver: Any) -> None:
+        self.driver = driver
+        self.created_uids: list[str] = []
+
+    async def create_habit(self, request: Any, user_uid: str) -> Result[Any]:
+        uid = f"habit:extract_it_{uuid4().hex[:8]}"
+        async with self.driver.session() as session:
+            await session.run(
+                """
+                CREATE (h:Entity:Habit {uid: $uid, title: $title,
+                        entity_type: 'habit', user_uid: $user_uid,
+                        created_at: datetime()})
+                """,
+                uid=uid,
+                title=request.title,
+                user_uid=user_uid,
+            )
+        self.created_uids.append(uid)
+        return Result.ok(SimpleNamespace(uid=uid, title=request.title))
+
+
+class _RewordingBridgeStub:
+    """Bridge double reproducing the G8 signature: same semantic activity,
+    differently-worded DSL line (→ different Guard-2 hash) on every call."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def transform_with_context(
+        self, text: str, user_uid: str | None = None, active_goals: Any = None
+    ) -> Result[Any]:
+        self.calls += 1
+        return Result.ok(
+            SimpleNamespace(activity_lines=[f"Meditate @context(habit) @priority({self.calls})"])
+        )
 
 
 def _user_service(can_create_curriculum: bool) -> MagicMock:
@@ -210,3 +253,54 @@ class TestExtractActivitiesPipeline:
             )
             record = await res.single()
         assert record["edges"] == 1
+
+    @pytest.mark.asyncio
+    async def test_rewording_bridge_reruns_merge_instead_of_duplicating(
+        self, neo4j_driver, user_entry_service, seed_user
+    ):
+        """Guard 3 (R3): twice over one entry, node count stays stable.
+
+        The bridge stub rewords its generated line on every run (different
+        Guard-2 hash, same semantic title) — exactly the live G8 signature
+        that created "meditate" x3 from one entry.
+        """
+        user_uid = await seed_user(f"user_extract_{uuid4().hex[:6]}")
+        entry = await _create_entry(
+            user_entry_service, user_uid, "I want to build a meditation practice.\n"
+        )
+
+        habits_stub = _GraphHabitsStub(neo4j_driver)
+        bridge_stub = _RewordingBridgeStub()
+        dispatcher = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            activity_extractor=ActivityExtractorService(habits_service=habits_stub),
+            user_service=_user_service(can_create_curriculum=False),
+            dsl_bridge=bridge_stub,
+        )
+
+        first = await dispatcher.process(entry)
+        assert first.is_ok, f"first run failed: {first.error}"
+        assert len(habits_stub.created_uids) == 1
+
+        # Re-sync: the bridge rewords the line → Guard 2 misses, Guard 3 merges.
+        second = await dispatcher.process(first.value, force=True)
+        assert second.is_ok, f"second run failed: {second.error}"
+        assert bridge_stub.calls == 2, "bridge did not run twice"
+        assert len(habits_stub.created_uids) == 1, "re-sync duplicated the habit"
+
+        summary = (second.value.metadata or {}).get("activity_extraction")
+        assert isinstance(summary, dict)
+        assert summary["habits_created"] == 0
+        assert summary["lines_merged_existing"] == 1
+
+        async with neo4j_driver.session() as session:
+            res = await session.run(
+                """
+                MATCH (h:Habit)-[r:EXTRACTED_FROM]->(e:UserEntry {uid: $uid})
+                RETURN count(h) AS habits, count(r) AS edges
+                """,
+                uid=entry.uid,
+            )
+            record = await res.single()
+        assert record["habits"] == 1, "graph grew a duplicate habit"
+        assert record["edges"] == 1, "provenance edge duplicated instead of merged"

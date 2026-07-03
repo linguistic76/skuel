@@ -19,6 +19,9 @@ from core.models.enums.principle_enums import (
 class PrincipleTemplateDTO(EntityDTO):
     """Mutable DTO for PrincipleTemplate entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.PRINCIPLE_TEMPLATE, kw_only=True)
+
     # Statement
     statement: str | None = None
 

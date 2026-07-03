@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.principle_enums import (
@@ -21,9 +23,10 @@ class TestPrincipleTemplateConstruction:
         assert pt.statement is None
         assert pt.expressions == ()
 
-    def test_entity_type_forced(self):
-        pt = PrincipleTemplate(uid="ptpl_force", title="x", entity_type=EntityType.PRINCIPLE)
-        assert pt.entity_type == EntityType.PRINCIPLE_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            PrincipleTemplate(uid="ptpl_force", title="x", entity_type=EntityType.PRINCIPLE)
 
     def test_default_status_is_draft(self):
         assert PrincipleTemplate(uid="ptpl_s", title="t").status == EntityStatus.DRAFT

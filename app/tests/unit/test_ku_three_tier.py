@@ -165,6 +165,7 @@ class TestCurriculumDTOFromDict:
         """from_dict must parse sel_category and learning_level from strings."""
         data = {
             "uid": "ku_test_abc",
+            "entity_type": "ku",
             "title": "Test",
             "domain": "knowledge",  # enum value is lowercase
             "sel_category": "self_awareness",
@@ -179,6 +180,7 @@ class TestCurriculumDTOFromDict:
         now = datetime.now()
         data = {
             "uid": "ku_test_dt",
+            "entity_type": "ku",
             "title": "Test",
             "domain": "knowledge",
             "last_applied_date": now.isoformat(),
@@ -192,6 +194,7 @@ class TestCurriculumDTOFromDict:
         """from_dict must handle minimal dict (only required fields)."""
         data = {
             "uid": "ku_minimal",
+            "entity_type": "ku",
             "title": "Minimal",
             "domain": "knowledge",
         }
@@ -205,6 +208,7 @@ class TestCurriculumDTOFromDict:
         """Embedding infrastructure fields must NOT appear on CurriculumDTO (ADR-037)."""
         data = {
             "uid": "ku_embed",
+            "entity_type": "ku",
             "title": "With Embedding",
             "domain": "knowledge",
             "embedding": [0.1] * 1024,
@@ -229,6 +233,7 @@ class TestCurriculumDTOToDict:
         """to_dict must serialize sel_category and learning_level to strings."""
         dto = CurriculumDTO(
             uid="ku_test_ser",
+            entity_type=EntityType.KU,
             title="Test",
             domain=Domain.KNOWLEDGE,
             sel_category=SELCategory.SELF_MANAGEMENT,
@@ -244,6 +249,7 @@ class TestCurriculumDTOToDict:
         now = datetime.now()
         dto = CurriculumDTO(
             uid="ku_test_dt",
+            entity_type=EntityType.KU,
             title="Test",
             domain=Domain.KNOWLEDGE,
             last_applied_date=now,
@@ -257,6 +263,7 @@ class TestCurriculumDTOToDict:
         """to_dict with sel_category=None must produce None, not crash."""
         dto = CurriculumDTO(
             uid="ku_test_none",
+            entity_type=EntityType.KU,
             title="Test",
             domain=Domain.KNOWLEDGE,
         )
@@ -267,6 +274,7 @@ class TestCurriculumDTOToDict:
         """to_dict must include all 5 substance counter fields."""
         dto = CurriculumDTO(
             uid="ku_test_sub",
+            entity_type=EntityType.KU,
             title="Test",
             domain=Domain.KNOWLEDGE,
             times_applied_in_tasks=3,

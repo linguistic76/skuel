@@ -16,7 +16,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
@@ -35,6 +35,9 @@ class KuDTO(EntityDTO):
       - source: self_observation/research/teacher
       - sel_category: SEL competency (self_awareness, self_management, etc.)
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.KU, kw_only=True)
 
     namespace: str | None = None
     ku_category: str | None = None

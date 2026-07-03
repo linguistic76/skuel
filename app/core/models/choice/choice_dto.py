@@ -44,6 +44,9 @@ class ChoiceDTO(UserOwnedDTO):
     - Curriculum (2): inspiration_type, expands_possibilities
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.CHOICE, kw_only=True)
+
     # =========================================================================
     # DECISION
     # =========================================================================

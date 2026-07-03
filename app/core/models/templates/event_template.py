@@ -17,7 +17,7 @@ the date component becomes engagement-relative via ``event_offset``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import (
     time,
 )
@@ -36,9 +36,16 @@ if TYPE_CHECKING:
 class EventTemplate(Entity):
     """Immutable domain model for event templates (EntityType.EVENT_TEMPLATE)."""
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.EVENT_TEMPLATE, kw_only=True)
+
     def __post_init__(self) -> None:
         if self.entity_type != EntityType.EVENT_TEMPLATE:
-            object.__setattr__(self, "entity_type", EntityType.EVENT_TEMPLATE)
+            raise ValueError(
+                f"EventTemplate constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

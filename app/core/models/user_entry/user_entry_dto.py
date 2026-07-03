@@ -16,7 +16,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -41,6 +41,9 @@ class UserEntryDTO(UserOwnedDTO):
                       max_retention
     - Modality (1): modality
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.USER_ENTRY, kw_only=True)
 
     # =========================================================================
     # FILE

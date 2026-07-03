@@ -15,7 +15,7 @@ See: /docs/patterns/three_tier_type_system.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -34,6 +34,9 @@ class InteractionDTO(UserOwnedDTO):
     - Curriculum context (2): context_path_step_uid, context_learning_path_uid
     - Source + result (2): source_entity_uid, result_status
     """
+
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.INTERACTION, kw_only=True)
 
     # =========================================================================
     # INTERACTION TYPE + TARGET

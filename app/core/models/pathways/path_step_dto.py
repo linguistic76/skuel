@@ -37,6 +37,9 @@ class PathStepDTO(CurriculumDTO):
     - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
     """
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.PATH_STEP, kw_only=True)
+
     # =========================================================================
     # INTENT
     # =========================================================================

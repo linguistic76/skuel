@@ -42,6 +42,26 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.dsl.converter")
 
 
+def derive_principle_title(description: str) -> str:
+    """Principle title = first segment before any dash/colon, capped at 100 chars.
+
+    Shared by the converter (what gets persisted) and the extractor's semantic
+    dedup key (R3) so both compute the identical title for a given line.
+    """
+    title = description.split(" - ")[0].split(":")[0].strip()
+    if len(title) > 100:
+        title = title[:97] + "..."
+    return title
+
+
+def derive_choice_title(description: str) -> str:
+    """Choice title = the description, capped at 200 chars (shared with R3 dedup)."""
+    title = description
+    if len(title) > 200:
+        title = title[:197] + "..."
+    return title
+
+
 def _not_a(activity: ParsedActivityLine, entity_type: EntityType) -> Result[ConversionResult]:
     """Shared validation failure for a context mismatch."""
     return Result.fail(
@@ -252,9 +272,7 @@ def activity_to_principle_request(activity: ParsedActivityLine) -> Result[Conver
 
     # Extract principle title (first part before any dash or colon)
     description = activity.description
-    title = description.split(" - ")[0].split(":")[0].strip()
-    if len(title) > 100:
-        title = title[:97] + "..."
+    title = derive_principle_title(description)
 
     # Full statement is the complete description
     statement = description
@@ -328,9 +346,7 @@ def activity_to_choice_request(activity: ParsedActivityLine) -> Result[Conversio
         return _not_a(activity, EntityType.CHOICE)
 
     # Title from description
-    title = activity.description
-    if len(title) > 200:
-        title = title[:197] + "..."
+    title = derive_choice_title(activity.description)
 
     # Infer domain from energy states
     domain = Domain.PERSONAL

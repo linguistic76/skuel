@@ -45,6 +45,9 @@ def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
 class ChoiceTemplateDTO(EntityDTO):
     """Mutable DTO for ChoiceTemplate entities."""
 
+    # Honest leaf default (base EntityDTO requires entity_type — G6).
+    entity_type: EntityType = field(default=EntityType.CHOICE_TEMPLATE, kw_only=True)
+
     choice_type: ChoiceType | None = None
     options: list[dict[str, Any]] = field(default_factory=list)
     decision_rationale: str | None = None

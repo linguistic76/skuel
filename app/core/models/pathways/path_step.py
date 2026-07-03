@@ -25,7 +25,7 @@ Key relationships:
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -47,10 +47,17 @@ class PathStep(Curriculum):
     for intent, knowledge references, path relationship, and mastery tracking.
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.PATH_STEP, kw_only=True)
+
     def __post_init__(self) -> None:
-        """Force entity_type=PATH_STEP, then delegate to Entity."""
+        """Validate entity_type=PATH_STEP, then delegate to Entity."""
         if self.entity_type != EntityType.PATH_STEP:
-            object.__setattr__(self, "entity_type", EntityType.PATH_STEP)
+            raise ValueError(
+                f"PathStep constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
         super().__post_init__()
 
     # =========================================================================

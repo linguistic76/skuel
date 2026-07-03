@@ -484,7 +484,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         query = """
         MATCH (entry:UserEntry {uid: $entry_uid})
         UNWIND $links AS link
-        MATCH (e {uid: link.uid})
+        MATCH (e:Entity {uid: link.uid})
         MERGE (e)-[r:EXTRACTED_FROM]->(entry)
         ON CREATE SET r.extracted_at = datetime()
         SET r.source_line_hash = link.line_hash,
@@ -526,7 +526,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             vault_id: The injected 🆔 ID (e.g. ``sk_abc123``)
         """
         query = """
-        MATCH (e {uid: $entity_uid})-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
+        MATCH (e:Entity {uid: $entity_uid})-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
         SET r.vault_id = $vault_id
         RETURN count(r) AS updated
         """

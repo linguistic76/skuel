@@ -17,7 +17,7 @@ See: /docs/user-guides/form-submissions.md
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.entity import Entity
@@ -40,6 +40,10 @@ class FormTemplate(Entity):
     Shared content (admin-created, no user_uid).
     """
 
+    # Honest leaf identity (G6): defaults to its own type; __post_init__
+    # rejects a mismatch instead of silently correcting it.
+    entity_type: EntityType = field(default=EntityType.FORM_TEMPLATE, kw_only=True)
+
     # =========================================================================
     # FORM-SPECIFIC FIELDS
     # =========================================================================
@@ -51,8 +55,12 @@ class FormTemplate(Entity):
     # =========================================================================
 
     def __post_init__(self) -> None:
-        """Force entity_type and parse form_schema from JSON if needed."""
-        object.__setattr__(self, "entity_type", EntityType.FORM_TEMPLATE)
+        """Validate entity_type=and parse form_schema from JSON if needed."""
+        if self.entity_type != EntityType.FORM_TEMPLATE:
+            raise ValueError(
+                f"FormTemplate constructed with entity_type={self.entity_type!r} "
+                f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
+            )
 
         # Parse form_schema from JSON string (Neo4j stores as string)
         if isinstance(self.form_schema, str):

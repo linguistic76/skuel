@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import json
 
 from core.models.choice.choice_option import ChoiceOption
@@ -20,9 +22,10 @@ class TestChoiceTemplateConstruction:
         assert ct.options == ()
         assert ct.expands_possibilities is False
 
-    def test_entity_type_forced(self):
-        ct = ChoiceTemplate(uid="ctpl_force", title="x", entity_type=EntityType.CHOICE)
-        assert ct.entity_type == EntityType.CHOICE_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            ChoiceTemplate(uid="ctpl_force", title="x", entity_type=EntityType.CHOICE)
 
     def test_default_status_is_draft(self):
         assert ChoiceTemplate(uid="ctpl_s", title="t").status == EntityStatus.DRAFT

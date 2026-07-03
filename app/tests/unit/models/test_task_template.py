@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import json
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -23,14 +25,10 @@ class TestTaskTemplateConstruction:
         assert tt.fulfills_goal_template_uid is None
         assert tt.goal_progress_contribution == 0.0
 
-    def test_entity_type_forced(self):
-        """entity_type is always TASK_TEMPLATE regardless of input."""
-        tt = TaskTemplate(
-            uid="ttpl_force",
-            title="Coerce",
-            entity_type=EntityType.TASK,  # wrong; should be overridden
-        )
-        assert tt.entity_type == EntityType.TASK_TEMPLATE
+    def test_entity_type_mismatch_raises(self):
+        """G6: a wrong entity_type fails loudly instead of being silently corrected."""
+        with pytest.raises(ValueError, match="entity_type"):
+            TaskTemplate(uid="ttpl_force", title="Coerce", entity_type=EntityType.TASK)
 
     def test_default_status_is_draft(self):
         tt = TaskTemplate(uid="ttpl_status", title="t")
