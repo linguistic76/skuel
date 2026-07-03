@@ -1433,18 +1433,8 @@ class ExerciseOperations(Protocol):
         """List user's exercises. Returns Result[list[Exercise]]."""
         ...
 
-    async def update_exercise(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Any | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[Exercise]:
-        """Update an exercise. Returns Result[Exercise]."""
+    async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
+        """Update an exercise (generic CRUD patch + ADR-074 embedding refresh)."""
         ...
 
     # Curriculum linking

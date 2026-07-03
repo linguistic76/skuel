@@ -294,11 +294,13 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     async def get_enrolled_ps_exercises_with_status(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Get personal exercises linked to PathSteps the user is enrolled in.
+        """Get personal + curriculum exercises linked to PathSteps the user is enrolled in.
 
         Returns the same shape as get_student_exercises_with_status() so results
         can be merged at the service layer. Exercises are discovered via:
-            (user)-[:IN_PROGRESS]->(ps)-[:HAS_EXERCISE]->(exercise {scope: 'personal'})
+            (user)-[:IN_PROGRESS]->(ps)-[:HAS_EXERCISE]->(exercise)
+        covering the user's own PathStep-anchored templates (scope=personal) and
+        vault-authored shared exercises (scope=curriculum).
 
         Args:
             user_uid: Student UID
@@ -310,7 +312,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
             MATCH (ps)-[:{RelationshipName.HAS_EXERCISE}]->(exercise:Entity {{entity_type: 'exercise'}})
-            WHERE exercise.scope = 'personal'
+            WHERE exercise.scope IN ['personal', 'curriculum']
             WITH DISTINCT user, exercise
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)

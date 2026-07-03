@@ -332,11 +332,12 @@ async def compose_services(
         logger.info("✅ UserService created (foundation service)")
 
         # Ensure system user exists for infrastructure operations.
-        # Fail-fast: system-owned content (e.g. the default transcript exercise)
-        # creates OWNS edges against (:User {uid: "user_system"}). If that node
-        # doesn't exist the MATCH yields zero rows, MERGE silently no-ops, and
-        # the exercise becomes an orphan with no warning. Bootstrap should die
-        # here rather than ship an app with broken system-owned content.
+        # Fail-fast: system-owned content (e.g. ingestion defaults, see
+        # core/services/ingestion/config.py) creates OWNS edges against
+        # (:User {uid: "user_system"}). If that node doesn't exist the MATCH
+        # yields zero rows, MERGE silently no-ops, and the entity becomes an
+        # orphan with no warning. Bootstrap should die here rather than ship
+        # an app with broken system-owned content.
         logger.info("Ensuring system user exists...")
         system_user_result = await user_service.ensure_system_user()
         if system_user_result.is_error:
@@ -1008,13 +1009,6 @@ async def compose_services(
         notification_backend = NotificationBackend(executor=query_executor)
         notification_service = NotificationService(executor=notification_backend)
         logger.info("✅ NotificationService created")
-
-        # Seed default transcript exercise (idempotent create/update)
-        seed_result = await exercise_service.seed_default_exercise()
-        if seed_result.is_ok:
-            logger.info("Default transcript exercise loaded")
-        else:
-            logger.warning(f"Default transcript exercise: {seed_result.error}")
 
         # Create sharing backend + service (cross-domain, queries :Entity nodes)
         from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend

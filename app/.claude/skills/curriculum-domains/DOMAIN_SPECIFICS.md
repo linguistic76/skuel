@@ -178,13 +178,14 @@ await lp_service.create_path_from_steps(user_uid, name, ps_uids)
 
 **Purpose:** The instruction template that closes the learning loop. Without Exercise, the loop (Exercise → UserEntry → EntryReport → RevisedExercise) cannot start. Exercise is a first-class curriculum EntityType — architecturally coequal with PathStep, not an appendage.
 
-**Three scopes:**
+**Four scopes:**
 
 | Scope | Who creates | Anchor | Requirement |
 |-------|-------------|--------|-------------|
-| `PERSONAL` | Any user | `path_step_uid` required | Writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write to keep property + edge in sync) |
+| `PERSONAL` | Any user | `path_step_uid` optional | When set, writes `Exercise.path_step_uid` **and** `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (dual-write); unset = free-standing template in the user's library |
 | `ASSIGNED` | TEACHER+ | `group_uid` required | Shared via `SHARED_WITH_GROUP` (ADR-040) |
 | `ASSESSMENT` | TEACHER+ | `scoring_rubric` required | `pass_threshold` defaults to 0.7 |
+| `CURRICULUM` | Content vault (ingestion only) | `exercise_uids:` in PathStep YAML | Shared content, no user OWNS edge; API create rejected; ingestion rejects every other scope (no owner mechanism at the file boundary) |
 
 **Service:** `ExerciseService` — flat (no sub-service decomposition). CRUD plus domain-specific methods:
 - `create_exercise(user_uid, name, instructions, ..., path_step_uid)` — convenience builder
@@ -195,7 +196,7 @@ await lp_service.create_path_from_steps(user_uid, name, ps_uids)
 - `get_exercises_for_curriculum(curriculum_uid)` — reverse lookup
 
 **Key Relationships:**
-- `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor (PERSONAL scope)
+- `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — curriculum anchor (anchored PERSONAL + CURRICULUM scopes)
 - `(User)-[:OWNS]->(Exercise)` — creator ownership
 - `(Exercise)-[:SHARED_WITH_GROUP]->(Group)` — ASSIGNED scope distribution
 - `(Exercise)-[:REQUIRES_KNOWLEDGE]->(Ku)` — declared prerequisites

@@ -70,6 +70,15 @@ def prepare_batch_items(
     for entity in entities:
         item = to_neo4j_node(entity)
         flatten_entity_connections(entity, item)
+        # to_neo4j_node drops RELATIONSHIP_SKIP_FIELDS (graph-native: edges, not
+        # node properties) — but the registry's yaml_field_path keys in rel_config
+        # are exactly the edge SOURCES the Cypher template consumes. Restore any
+        # the mapper stripped (e.g. exercise_uids, learning_path_uids) so edges
+        # get created; the _node_props filter below still keeps them off the node.
+        if rel_config is not None and isinstance(entity, dict):
+            for key in rel_config:
+                if key not in item and entity.get(key):
+                    item[key] = entity[key]
         items.append(item)
 
     if rel_config is not None:
