@@ -334,24 +334,29 @@ recording that a submission happened against a given exercise.
 **Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
 `InteractionResult` (PENDING → REPORT_GENERATED → SHARED_WITH_TEACHER → COMPLETED/FAILED)
 
-**What it captures today (ADR-054).** `_create_interaction_record()` builds the Interaction
-with only three fields:
+**What it captures today (ADR-054; PathStep context wired 2026-07-03).**
+`_create_interaction_record()` builds the Interaction with:
 - `interaction_type`: `InteractionType.EXERCISE_SUBMISSION`
 - `target_uid`: the Exercise UID being submitted against
 - `source_entity_uid`: back-pointer to the `UserEntry` UID
+- `context_path_step_uid`: from the request's `about_path_step_uid` (the PS page's
+  Submit → flow carries it as a hidden form field) — nullable when the submission
+  didn't come from a PathStep context
 
-> **Not currently wired:** the deterministic PathStep / LearningPath context capture —
-> `from_ps` → `context_path_step_uid` / `context_learning_path_uid` (the earlier
-> `_get_learning_context` / `render_upload_form` flow) — is **not** implemented on the
-> `create_entry()` path. The form route only stashes `from_ps` in entry metadata; the
-> Interaction's context fields are left null. Consequently the `INTERACTION_DURING` /
-> `INTERACTION_WITHIN` edges below are **not** created for create_entry-path interactions.
-> Wiring curriculum context back into the Interaction is open follow-up (see ZPD/Askesis below).
+> **Registry requirement (found the hard way):** `create_relationships_batch` validates
+> every edge against `LABEL_CONFIGS` in `core/models/relationship_registry.py`. Interaction
+> has its own `INTERACTION_CONFIG` there (RECORDS / INTERACTION_DURING / INTERACTION_WITHIN).
+> Before it existed, every context edge was rejected as "invalid for Interaction" and the
+> audit nodes were persisted as orphans — silently, because creation is fire-and-forget.
+> Pinned by `tests/integration/user_entry/test_interaction_record.py`.
+
+> **Still not wired:** LearningPath context (`context_learning_path_uid` →
+> `INTERACTION_WITHIN`) — no caller passes it yet; open follow-up (see ZPD/Askesis below).
 
 **Graph relationships:**
 ```cypher
 (interaction)-[:RECORDS]->(submission)           // back-pointer to source artifact — created today
-(interaction)-[:INTERACTION_DURING]->(pathstep)  // only if context_path_step_uid is set (currently unset)
+(interaction)-[:INTERACTION_DURING]->(pathstep)  // created when about_path_step_uid rides the submission
 (interaction)-[:INTERACTION_WITHIN]->(lp)        // only if context_learning_path_uid is set (currently unset)
 ```
 
