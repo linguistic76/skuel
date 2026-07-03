@@ -120,7 +120,8 @@ across types is null in Cypher (silently skips nodes).
 
 A third mode, `--audit` (L3b ruling, 2026-07-02), is the timestamp-free sweep: it selects
 EVERY embedded node and lets the §8 content-hash fine filter (entities) / the
-`embedding_source_text <> context_window` predicate (chunks) decide. It catches silent-pin
+`embedding_source_text <> context_window` OR version-mismatch predicate (chunks) decide
+(version outranks text on both sides). It catches silent-pin
 states the `--stale` timestamps are blind to — a raced store leaves `embedding_updated_at`
 AHEAD of `updated_at` — plus missed publishes and field-map drift, spending API only on
 real mismatches. Because audit's candidate set is the whole corpus, its freshness-read

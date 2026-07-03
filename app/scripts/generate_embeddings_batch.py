@@ -175,11 +175,20 @@ async def generate_embeddings_batch(
                 # Audit selects EVERY embedded node — the fine filter IS the
                 # audit. Failing open here would re-embed the whole corpus, so
                 # audit fails CLOSED instead (bail, re-run when reads work).
+                # The aborted flag keeps the bail-out visible in main()'s
+                # summary/exit code — zeroed stats alone would read as success.
                 logger.error(
                     f"Freshness read failed — aborting {label} audit: "
                     f"{fresh_result.expect_error().message}"
                 )
-                return {"label": label, "total": 0, "processed": 0, "successful": 0, "failed": 0}
+                return {
+                    "label": label,
+                    "total": 0,
+                    "processed": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "aborted": True,
+                }
             logger.warning(
                 f"Freshness fine-filter failed — re-embedding all candidates: "
                 f"{fresh_result.expect_error().message}"
@@ -336,7 +345,8 @@ async def generate_chunk_embeddings(
     unlike entities: a re-chunk wipes a changed chunk's embedding back to
     NULL (store_content_with_chunks), which the default mode covers.
     --audit: chunks whose stored embedding_source_text (the text the vector
-    was generated from) no longer equals the node's context_window — the
+    was generated from) no longer equals the node's context_window, OR whose
+    embedding_version mismatches (version outranks text, ADR-074 §8) — the
     chunk equivalent of the entity hash audit, pure Cypher (both texts live
     on the node).
 
@@ -348,10 +358,14 @@ async def generate_chunk_embeddings(
     logger.info(f"Starting batch chunk {mode}")
 
     if audit:
+        # Version outranks text (ADR-074 §8): a version-mismatched chunk is
+        # stale even when its source text still matches — same semantics the
+        # entity audit inherits from verify_fresh_embeddings.
         predicate = """c.embedding IS NOT NULL AND (
         c.embedding_source_text IS NULL OR c.embedding_source_text <> c.context_window
+        OR c.embedding_version IS NULL OR c.embedding_version <> $current_version
     )"""
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"current_version": EMBEDDING_VERSION}
     elif stale:
         predicate = """c.embedding IS NOT NULL AND (
         c.embedding_version IS NULL OR c.embedding_version <> $current_version
@@ -607,17 +621,28 @@ async def main():
 
     total_processed = sum(s["successful"] for s in all_stats)
     total_failed = sum(s["failed"] for s in all_stats)
+    aborted_labels = [s["label"] for s in all_stats if s.get("aborted")]
 
     for stats in all_stats:
+        suffix = (
+            " — ABORTED (freshness read failed, nothing verified)" if stats.get("aborted") else ""
+        )
         logger.info(
             f"{stats['label']}: {stats['successful']}/{stats['total']} successful "
-            f"({stats['failed']} failed)"
+            f"({stats['failed']} failed){suffix}"
         )
+
+    await driver.close()
+
+    if aborted_labels:
+        logger.error(
+            f"\n❌ Audit incomplete — aborted labels: {', '.join(aborted_labels)}. "
+            "Re-run when Neo4j freshness reads work."
+        )
+        raise SystemExit(1)
 
     logger.info("\n✅ All batch embedding generation complete")
     logger.info(f"Total: {total_processed} successful, {total_failed} failed")
-
-    await driver.close()
 
 
 if __name__ == "__main__":
