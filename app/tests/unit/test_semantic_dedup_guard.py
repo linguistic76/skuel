@@ -80,7 +80,7 @@ class _CountingCreator:
 @pytest.mark.asyncio
 class TestCreateForDomainGuards:
     async def test_bridge_line_matching_existing_entity_merges(self):
-        """Same title, different wording → provenance refresh, no new node."""
+        """Same title, different wording → resolves to existing entity, no new node."""
         extractor = ActivityExtractorService()
         extraction = ActivityExtractionResult(entry_uid="ue_x", user_uid="user_x")
         creator = _CountingCreator()
@@ -100,9 +100,10 @@ class TestCreateForDomainGuards:
         assert creator.calls == 0
         assert created == 0 and uids == []
         assert extraction.lines_merged_existing == 1
-        assert extraction.created_links == [
-            ("habit_existing", normalized_line_hash(line.raw_line), None)
-        ]
+        # The existing entity's EXTRACTED_FROM edge stays untouched: writing the
+        # bridge line's provenance would overwrite a real checkbox
+        # source_line_hash/vault_id on the single (entity, entry) edge.
+        assert extraction.created_links == []
 
     async def test_non_bridge_line_is_not_semantically_deduped(self):
         """User-typed lines keep exact Guard-2 semantics — no title merging."""
@@ -151,11 +152,8 @@ class TestCreateForDomainGuards:
         assert creator.calls == 1
         assert created == 1 and uids == ["habit_created_1"]
         assert extraction.lines_merged_existing == 1
-        # Both lines carry provenance onto the SAME entity.
-        assert [link[0] for link in extraction.created_links] == [
-            "habit_created_1",
-            "habit_created_1",
-        ]
+        # Only the CREATING line writes provenance; the merged rewording does not.
+        assert [link[0] for link in extraction.created_links] == ["habit_created_1"]
 
     async def test_exact_hash_guard_still_wins_first(self):
         extractor = ActivityExtractorService()
@@ -179,3 +177,38 @@ class TestCreateForDomainGuards:
         assert extraction.lines_skipped_existing == 1
         assert extraction.lines_merged_existing == 0
         assert extraction.created_links == []
+
+
+@pytest.mark.asyncio
+class TestCurriculumBranchThreading:
+    async def test_ku_branch_threads_guard3(self):
+        """Kody #501 medium: the KU/PS/LP branches must thread Guard 3 too —
+        a teacher force-rerun with reworded bridge KU lines must merge."""
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, MagicMock
+
+        from core.models.user_entry.user_entry import UserEntry
+
+        ku_service = MagicMock()
+        ku_service.create_ku = AsyncMock(
+            return_value=Result.ok(SimpleNamespace(uid="ku_should_not_create"))
+        )
+        extractor = ActivityExtractorService(ku_service=ku_service)
+        entry = UserEntry(uid="ue_x", title="t", user_uid="user_x", content="x")
+        line = "- [ ] New concept @context(ku)"
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_x",
+            content_override=line,
+            allow_curriculum_creation=True,
+            bridge_line_hashes=frozenset({normalized_line_hash(line)}),
+            existing_extracted={("Ku", "new concept"): "ku_existing"},
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.kus_found == 1
+        assert extraction.kus_created == 0
+        assert extraction.lines_merged_existing == 1
+        ku_service.create_ku.assert_not_awaited()

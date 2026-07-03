@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 import json
+
+import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.goal_enums import GoalTimeframe, GoalType, MeasurementType

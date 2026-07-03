@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 import json
+
+import pytest
 
 from core.models.choice.choice_option import ChoiceOption
 from core.models.enums.choice_enums import ChoiceType

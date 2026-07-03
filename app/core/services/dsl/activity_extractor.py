@@ -27,8 +27,9 @@ SKUEL entities:
    dedup against existing `EXTRACTED_FROM` edges, makes re-extraction skip
    already-extracted literal lines. Guard 3 (R3, 2026-07-03), semantic dedup
    by `(source entry, node label, normalized title)`, catches LLM-bridge lines
-   that hash differently on every sync — a match MERGEs provenance onto the
-   existing entity instead of duplicating it.
+   that hash differently on every sync — a match resolves to the existing
+   entity instead of duplicating it (its original provenance edge stays
+   untouched).
 3. **Graph-aware**: Creates entities connected to the user's ownership graph;
    the caller writes `(created)-[:EXTRACTED_FROM]->(entry)` provenance from
    `ActivityExtractionResult.created_links`.
@@ -102,8 +103,12 @@ def normalized_line_hash(raw_line: str) -> str:
 #
 #     key = (source entry, entity node label, normalized title)
 #
-# On a match the extractor MERGEs — it records fresh provenance for the line
-# onto the EXISTING entity instead of creating a new one. The guard applies
+# On a match the extractor MERGEs — the line resolves to the EXISTING entity
+# and nothing is created. The entity's original EXTRACTED_FROM edge is left
+# untouched: there is ONE edge per (entity, entry) and rewriting its
+# source_line_hash/vault_id with bridge values would break the ADR-070
+# checkbox round-trip. Idempotency comes from the semantic map itself, which
+# is rebuilt from graph titles on every run. The guard applies
 # only to bridge-generated lines (the caller passes their hashes); user-typed
 # DSL/checkbox lines keep exact Guard-2 semantics.
 
@@ -725,6 +730,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.kus_created += created
                 extraction.created_ku_uids.extend(uids)
@@ -740,6 +747,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.path_steps_created += created
                 extraction.created_ps_uids.extend(uids)
@@ -755,6 +764,8 @@ class ActivityExtractorService:
                     user_uid,
                     extraction,
                     existing_line_hashes,
+                    bridge_line_hashes,
+                    existing_extracted,
                 )
                 extraction.learning_paths_created += created
                 extraction.created_lp_uids.extend(uids)
@@ -827,8 +838,9 @@ class ActivityExtractorService:
         Guard 2 (exact): lines whose normalized hash already carries an
         EXTRACTED_FROM edge are skipped. Guard 3 (semantic, R3): bridge-
         generated lines whose (node label, normalized title) matches an entity
-        already extracted from this entry MERGE — fresh provenance is recorded
-        for the existing uid, no new node is created.
+        already extracted from this entry MERGE — the line resolves to the
+        existing uid, no new node is created and the existing provenance edge
+        is left untouched.
 
         Returns (created_count, created_uids); appends (uid, line_hash) pairs
         to `extraction.created_links` and failures to
@@ -849,8 +861,14 @@ class ActivityExtractorService:
             if node_label is not None:
                 key = semantic_dedup_key(node_label, _candidate_title(label, activity.description))
                 if line_hash in bridge_line_hashes and (uid := existing_extracted.get(key)):
-                    # Guard 3 merge: refresh provenance on the existing entity.
-                    extraction.created_links.append((uid, line_hash, activity.vault_id))
+                    # Guard 3 merge: the entity already exists with its own
+                    # EXTRACTED_FROM edge — leave that edge UNTOUCHED. Writing
+                    # this line's provenance would MERGE onto the single
+                    # (entity, entry) edge and overwrite a real checkbox
+                    # source_line_hash/vault_id with the bridge hash and None,
+                    # breaking the ADR-070 ID-injection round-trip (Kody #501
+                    # high). Idempotency doesn't need the write: the semantic
+                    # map is rebuilt from graph titles on every run.
                     extraction.lines_merged_existing += 1
                     self.logger.debug(
                         f"Semantic dedup: {label} '{activity.description[:40]}' "
