@@ -39,6 +39,7 @@ from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
 from core.models.enums.entity_enums import EntityType
 from core.models.query_types import QueryIntent
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -670,22 +671,31 @@ class ContextRetriever:
     async def _fetch_kus(self, graph_context: dict[str, Any]) -> list[Ku]:
         """Fetch full Ku objects composed by the PS.
 
-        Derived from the PS's knowledge edges (USES_KU/TRAINS_KU/...) via
-        graph_context.knowledge_relationships, whose entries carry the target's
-        entity_type from the MEGA-QUERY ps_knowledge block. Entity kind comes
-        from the graph label, never from UID prefix — both sanctioned KU UID
-        forms (authored ``ku.{ns}.{slug}`` and generated ``ku_{slug}_{random}``)
+        Derived from the PS's COMPOSITION edges (USES_KU/TRAINS_KU/
+        CONTAINS_KNOWLEDGE) via graph_context.knowledge_relationships, whose
+        entries carry the target's entity_type and rel_type from the MEGA-QUERY
+        ps_knowledge block. Prerequisite/enabled KU neighbors (REQUIRES_KNOWLEDGE/
+        ENABLES_KNOWLEDGE) stay out of ``bundle.kus`` — they are neighborhood
+        context, not this step's target knowledge. Entity kind comes from the
+        graph label, never from UID prefix — both sanctioned KU UID forms
+        (authored ``ku.{ns}.{slug}`` and generated ``ku_{slug}_{random}``)
         pass through here (ADR-013 never-sniff rule).
         """
         if not self.ku_service:
             return []
 
+        composition_rel_types = {
+            RelationshipName.USES_KU.value,
+            RelationshipName.TRAINS_KU.value,
+            RelationshipName.CONTAINS_KNOWLEDGE.value,
+        }
         ku_uids: set[str] = {
             kr["uid"]
             for kr in graph_context.get("knowledge_relationships", [])
             if isinstance(kr, dict)
             and kr.get("uid")
             and kr.get("entity_type") == EntityType.KU.value
+            and kr.get("rel_type") in composition_rel_types
         }
 
         results = await asyncio.gather(*(self.ku_service.get_ku(uid) for uid in ku_uids))

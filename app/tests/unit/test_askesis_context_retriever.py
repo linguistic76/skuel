@@ -404,9 +404,20 @@ class TestFetchKusEdgeDerived:
 
         graph_context = {
             "knowledge_relationships": [
-                {"uid": "ku.mindfulness.breath", "entity_type": "ku"},
-                {"uid": "ku_functions_a1b2c3", "entity_type": "ku"},
-                {"uid": "ps.mindfulness.posture-basics", "entity_type": "path_step"},
+                {"uid": "ku.mindfulness.breath", "entity_type": "ku", "rel_type": "USES_KU"},
+                {"uid": "ku_functions_a1b2c3", "entity_type": "ku", "rel_type": "TRAINS_KU"},
+                {
+                    "uid": "ps.mindfulness.posture-basics",
+                    "entity_type": "path_step",
+                    "rel_type": "ENABLES_KNOWLEDGE",
+                },
+                # Prerequisite/enabled KU neighbors are context, NOT this
+                # step's composed knowledge — must stay out of bundle.kus.
+                {
+                    "uid": "ku.mindfulness.prereq",
+                    "entity_type": "ku",
+                    "rel_type": "REQUIRES_KNOWLEDGE",
+                },
             ]
         }
 
@@ -426,8 +437,9 @@ class TestFetchKusEdgeDerived:
             await retriever._fetch_kus(
                 {
                     "knowledge_relationships": [
-                        {"uid": "ku.no.type"},  # no entity_type — cannot assume kind
-                        {"entity_type": "ku"},  # no uid
+                        {"uid": "ku.no.type", "rel_type": "USES_KU"},  # no entity_type
+                        {"entity_type": "ku", "rel_type": "USES_KU"},  # no uid
+                        {"uid": "ku.no.rel", "entity_type": "ku"},  # no rel_type
                         "not-a-dict",
                     ]
                 }
@@ -441,7 +453,11 @@ class TestFetchKusEdgeDerived:
         retriever = self._retriever(None)
         assert (
             await retriever._fetch_kus(
-                {"knowledge_relationships": [{"uid": "x", "entity_type": "ku"}]}
+                {
+                    "knowledge_relationships": [
+                        {"uid": "x", "entity_type": "ku", "rel_type": "USES_KU"}
+                    ]
+                }
             )
             == []
         )

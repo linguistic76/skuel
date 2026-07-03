@@ -407,8 +407,8 @@ class LateralRelationshipBackend:
                 sibling.uid as sibling_uid,
                 sibling.title as sibling_title,
                 type(r) as hierarchy_type,
-                r.order as order
-            ORDER BY r.order, sibling.title
+                coalesce(r.order, r.sequence) as order
+            ORDER BY coalesce(r.order, r.sequence), sibling.title
             """,
             {"entity_uid": entity_uid},
         )

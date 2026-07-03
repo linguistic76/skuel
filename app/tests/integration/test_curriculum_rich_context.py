@@ -212,11 +212,15 @@ class TestCurriculumRichContext:
 
         # Both knowledge edges (USES_KU + CONTAINS_KNOWLEDGE) surface, each
         # carrying the target's entity_type — the label-derived discriminator
-        # consumers use to split Ku from PathStep (ADR-013 never-sniff rule).
+        # consumers use to split Ku from PathStep (ADR-013 never-sniff rule) —
+        # and rel_type, which separates composition edges from prerequisite/
+        # enabled neighbors (bundle.kus takes composition only).
         knowledge_by_uid = {kr["uid"]: kr for kr in step_context["knowledge_relationships"]}
         assert set(knowledge_by_uid) == {ku.uid, related_step.uid}
         assert knowledge_by_uid[ku.uid]["entity_type"] == EntityType.KU.value
+        assert knowledge_by_uid[ku.uid]["rel_type"] == "USES_KU"
         assert knowledge_by_uid[related_step.uid]["entity_type"] == EntityType.PATH_STEP.value
+        assert knowledge_by_uid[related_step.uid]["rel_type"] == "CONTAINS_KNOWLEDGE"
 
         # Parent path comes from the HAS_STEP edge; name is read from the
         # Entity `title` property (LP nodes have no `name` property).
