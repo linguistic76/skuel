@@ -48,7 +48,7 @@ class _FakeBulkBackend:
     async def ensure_constraints(self, entity_label: str) -> None:
         return None
 
-    async def upsert_with_relationships(
+    async def upsert_nodes(
         self,
         entity_label: str,
         base_label: str | None,
@@ -63,6 +63,26 @@ class _FakeBulkBackend:
             IngestionResult(
                 total_processed=len(entities),
                 nodes_created=len(entities),
+                nodes_updated=0,
+                relationships_created=0,
+                errors=[],
+            )
+        )
+
+    async def create_relationships(
+        self,
+        entity_label: str,
+        base_label: str | None,
+        entities: list[dict[str, Any]],
+        relationship_config: dict[str, Any],
+        batch_size: int = 500,
+    ) -> Any:
+        from core.ingestion.ingestion_types import IngestionResult
+
+        return Result.ok(
+            IngestionResult(
+                total_processed=len(entities),
+                nodes_created=0,
                 nodes_updated=0,
                 relationships_created=0,
                 errors=[],

@@ -628,12 +628,14 @@ edges:
     to: ku:mindfulness:attention
     type: USES_KU
 
-  # Learning Path → PathSteps (CONTAINS_STEP)
+  # Learning Path → PathSteps (HAS_STEP — the one containment edge;
+  # prefer `connections.contains_steps:` in the LP frontmatter, which
+  # writes HAS_STEP with `sequence` from list order automatically)
   - from: lp:mindfulness-101
     to: ps:mindfulness:breath-awareness-basics
-    type: CONTAINS_STEP
+    type: HAS_STEP
     properties:
-      order: 1
+      sequence: 0
 
   # Ku lateral relationships
   - from: ku:mindfulness:breath

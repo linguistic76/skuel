@@ -62,10 +62,10 @@ the same dependency pattern.
    ordered path steps. The LP backend already has `get_paths_containing_ku()` and
    `get_ku_mastery_progress()` — use `LpBackend` to get the step sequence:
    ```cypher
-   MATCH (lp:LearningPath {uid: $uid})-[:CONTAINS_STEP {order: order}]->(ps:PathStep)
-         -[:TEACHES]->(ku:Entity)
-   RETURN ku.uid, ku.title, ls.order
-   ORDER BY ls.order
+   MATCH (lp:LearningPath {uid: $uid})-[r:HAS_STEP]->(ps:PathStep)
+         -[:USES_KU]->(ku:Entity)
+   RETURN ku.uid, ku.title, r.sequence
+   ORDER BY r.sequence
    ```
 
 2. **Filter by mastery.** Check `_user_context.mastered_knowledge_uids` (already populated

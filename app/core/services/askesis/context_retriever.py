@@ -37,7 +37,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
+from core.models.enums.entity_enums import EntityType
 from core.models.query_types import QueryIntent
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
@@ -63,6 +65,18 @@ class EntityLookup(Protocol):
     """
 
     async def get(self, uid: str) -> Result[Any]: ...
+
+
+@runtime_checkable
+class KuLookup(Protocol):
+    """Minimal protocol for the Ku facade in PS bundle loading.
+
+    KuService exposes ``get_ku`` (not the BaseService ``get``), so it needs
+    its own lookup slice — typing it as EntityLookup hid a crash behind the
+    ``Any``-typed deps container until the first real KU fetch.
+    """
+
+    async def get_ku(self, uid: str) -> Result[Any]: ...
 
 
 logger = get_logger(__name__)
@@ -125,7 +139,7 @@ class ContextRetriever:
         vector_search_service: Any,  # boundary: Neo4jVectorSearchService
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup | None = None,
-        ku_service: EntityLookup | None = None,
+        ku_service: KuLookup | None = None,
         habits_service: EntityLookup | None = None,
         tasks_service: EntityLookup | None = None,
         events_service: EntityLookup | None = None,
@@ -407,7 +421,7 @@ class ContextRetriever:
         1. Find the active PS from user_context.active_path_steps_rich
         2. Extract graph_context (habits, tasks, knowledge UIDs)
         3. Fetch full PathStep content for primary + supporting knowledge UIDs
-        4. Fetch full Ku objects for trains_ku_uids
+        4. Fetch full Ku objects composed by the PS (knowledge edges)
         5. Fetch full activity entities from graph_context UIDs
         6. Assemble into frozen PsBundle
 
@@ -438,7 +452,7 @@ class ContextRetriever:
         # the others — a partial bundle (PS + whatever succeeded) is more
         # useful than no bundle at all.
         related_ps_coro = self._fetch_related_path_steps(path_step, graph_context)
-        kus_coro = self._fetch_kus(path_step)
+        kus_coro = self._fetch_kus(graph_context)
         lp_coro = self._fetch_learning_path(graph_context)
         habits_coro = self._fetch_entities_by_uid(
             graph_context.get("practice_habits", []), self.habits_service
@@ -620,11 +634,13 @@ class ContextRetriever:
     async def _fetch_related_path_steps(
         self, path_step: PathStep, graph_context: dict[str, Any]
     ) -> list[PathStep]:
-        """Fetch full PathSteps for knowledge UIDs.
+        """Fetch full PathSteps related to this step's knowledge neighborhood.
 
-        The PathStep has knowledge_uids pointing to PathSteps/KUs via CONTAINS_KNOWLEDGE.
-        The graph_context also has knowledge_relationships with UIDs.
-        We fetch full content so the Socratic engine can use it as curriculum context.
+        graph_context.knowledge_relationships (MEGA-QUERY ps_knowledge block)
+        carries every knowledge-edge target with its entity_type; we take the
+        path_step-typed entries. path_step.knowledge_uids entries are resolved
+        via lookup — entity kind comes from the store, never from UID spelling
+        (ADR-013 never-sniff rule).
         """
         if not self.ps_service:
             return []
@@ -633,9 +649,12 @@ class ContextRetriever:
         if path_step.knowledge_uids:
             ps_uids.update(path_step.knowledge_uids)
 
-        # Also check graph_context knowledge_relationships for additional UIDs
         for kr in graph_context.get("knowledge_relationships", []):
-            if isinstance(kr, dict) and kr.get("uid"):
+            if (
+                isinstance(kr, dict)
+                and kr.get("uid")
+                and kr.get("entity_type") == EntityType.PATH_STEP.value
+            ):
                 ps_uids.add(kr["uid"])
 
         results = await asyncio.gather(*(self.ps_service.get(uid) for uid in ps_uids))
@@ -649,26 +668,37 @@ class ContextRetriever:
 
         return path_steps
 
-    async def _fetch_kus(self, path_step: PathStep) -> list[Ku]:
-        """Fetch full Ku objects for trains_ku_uids on the PS.
+    async def _fetch_kus(self, graph_context: dict[str, Any]) -> list[Ku]:
+        """Fetch full Ku objects composed by the PS.
 
-        Note: trains_ku_uids is not a field on PathStep model directly;
-        it's derived from TRAINS_KU relationships. We check the PS's
-        semantic_links and knowledge UIDs for KU-prefixed UIDs.
+        Derived from the PS's COMPOSITION edges (USES_KU/TRAINS_KU/
+        CONTAINS_KNOWLEDGE) via graph_context.knowledge_relationships, whose
+        entries carry the target's entity_type and rel_type from the MEGA-QUERY
+        ps_knowledge block. Prerequisite/enabled KU neighbors (REQUIRES_KNOWLEDGE/
+        ENABLES_KNOWLEDGE) stay out of ``bundle.kus`` — they are neighborhood
+        context, not this step's target knowledge. Entity kind comes from the
+        graph label, never from UID prefix — both sanctioned KU UID forms
+        (authored ``ku.{ns}.{slug}`` and generated ``ku_{slug}_{random}``)
+        pass through here (ADR-013 never-sniff rule).
         """
         if not self.ku_service:
             return []
 
-        ku_uids: set[str] = set()
-        # KU UIDs start with "ku_"
-        for uid in path_step.knowledge_uids:
-            if uid.startswith("ku_"):
-                ku_uids.add(uid)
-        for uid in path_step.semantic_links or ():
-            if uid.startswith("ku_"):
-                ku_uids.add(uid)
+        composition_rel_types = {
+            RelationshipName.USES_KU.value,
+            RelationshipName.TRAINS_KU.value,
+            RelationshipName.CONTAINS_KNOWLEDGE.value,
+        }
+        ku_uids: set[str] = {
+            kr["uid"]
+            for kr in graph_context.get("knowledge_relationships", [])
+            if isinstance(kr, dict)
+            and kr.get("uid")
+            and kr.get("entity_type") == EntityType.KU.value
+            and kr.get("rel_type") in composition_rel_types
+        }
 
-        results = await asyncio.gather(*(self.ku_service.get(uid) for uid in ku_uids))
+        results = await asyncio.gather(*(self.ku_service.get_ku(uid) for uid in ku_uids))
 
         kus: list[Ku] = []
         for uid, result in zip(ku_uids, results, strict=False):
