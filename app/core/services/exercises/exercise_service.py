@@ -20,7 +20,6 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import ExerciseTimeEstimate
@@ -33,7 +32,6 @@ from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 from core.ports.query_types import (
     CurriculumExerciseResult,
     ExerciseStatusRow,
@@ -43,7 +41,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, FILE_IO_EXCEPTIONS
+from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -52,12 +50,11 @@ from core.utils.uid_generator import UIDGenerator
 
 logger = get_logger(__name__)
 
-_UNSET: Any = object()  # Sentinel for "argument not provided"
-
 if TYPE_CHECKING:
     from datetime import date
 
     from core.models.context_types import ContextualExercise
+    from core.models.update_contracts import RawChanges
     from core.ports.query_types import ListContext
     from core.services.user.unified_user_context import RichUserContext
 
@@ -153,12 +150,12 @@ class ExerciseService(BaseService):
         Scope-specific relationship writes:
         - All scopes: (User)-[:OWNS]->(Exercise) via entity.owner_uid
         - PERSONAL + path_step_uid set: (PathStep)-[:HAS_EXERCISE]->(Exercise) dual-write.
-          Returns failure if the edge write fails — PERSONAL exercises without this edge
-          are invisible from PathStep views.
+          The anchor is optional, but when path_step_uid is set the edge write must
+          succeed — a set field without its mirror edge is silent inconsistency.
         - ASSIGNED + group_uid set: (Exercise)-[:SHARED_WITH_GROUP]->(Group) sharing
 
-        Scope-field validation lives at the API boundary (ExerciseCreateRequest model_validator),
-        not here — internal callers like load_exercise_from_file may omit optional fields.
+        Scope-field validation lives at the API boundary (ExerciseCreateRequest
+        model_validator), not here.
 
         Called by the CRUD route factory (via ConversionServiceV2 registry) and by
         create_exercise() (the convenience builder that also generates UIDs).
@@ -241,7 +238,7 @@ class ExerciseService(BaseService):
         Convenience builder: constructs an Exercise from named fields and delegates
         to create() for persistence and side effects.
 
-        For PERSONAL scope: path_step_uid required.
+        For PERSONAL scope: path_step_uid optional (when set, HAS_EXERCISE is dual-written).
         For ASSIGNED scope: group_uid required.
         For ASSESSMENT scope: scoring_rubric required.
         """
@@ -322,63 +319,27 @@ class ExerciseService(BaseService):
     # UPDATE
     # ========================================================================
 
-    @with_error_handling("update_exercise", error_type="database")
-    async def update_exercise(
-        self,
-        uid: str,
-        name: str | None = None,
-        instructions: str | None = None,
-        model: str | None = None,
-        context_notes: list[str] | None = None,
-        domain: Domain | None = None,
-        is_active: bool | None = None,
-        metadata: dict[str, Any] | None = None,
-        form_schema: Any = _UNSET,
-    ) -> Result[Exercise]:
+    async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
+        """Update an Exercise, then publish the post-persist embedding refresh (ADR-074).
+
+        Overrides the generic CRUD update (the path the CRUD route factory calls)
+        to add the embedding event — text-field changes (title/instructions) must
+        re-embed via the background worker.
         """
-        Update an Exercise. Only provided fields will be updated.
-
-        form_schema uses _UNSET sentinel so None means "clear the schema"
-        while omitting the argument means "don't change it".
-        """
-        get_result = await self.backend.get(uid)
-        if get_result.is_error:
-            return get_result
-        if not get_result.value:
-            return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
-
-        updates: dict[str, Any] = {}
-        if name is not None:
-            updates["title"] = name
-        if instructions is not None:
-            updates["instructions"] = instructions
-        if model is not None:
-            updates["model"] = model
-        if context_notes is not None:
-            updates["context_notes"] = context_notes
-        if domain is not None:
-            updates["domain"] = get_enum_value(domain)
-        if metadata is not None:
-            updates["metadata"] = metadata
-        if form_schema is not _UNSET:
-            updates["form_schema"] = form_schema if form_schema else None
-
-        result = await self.backend.update(uid, updates)
-        if result.is_error:
-            self.logger.error(f"Failed to update exercise {uid}: {result.error}")
+        changes = updates.to_changes()
+        result = await super().update(uid, updates)
+        if result.is_error or result.value is None:
             return result
 
-        # Post-persist embedding refresh (ADR-074) — only when a text field changed
-        if result.value is not None:
-            from core.events.embedding_publisher import publish_embedding_requested
+        from core.events.embedding_publisher import publish_embedding_requested
 
-            await publish_embedding_requested(
-                self.event_bus,
-                EntityType.EXERCISE,
-                result.value,
-                self.logger,
-                changed_fields=updates.keys(),
-            )
+        await publish_embedding_requested(
+            self.event_bus,
+            EntityType.EXERCISE,
+            result.value,
+            self.logger,
+            changed_fields=changes.keys(),
+        )
 
         self.logger.info(f"Exercise updated: {uid}")
         return result
@@ -518,123 +479,6 @@ class ExerciseService(BaseService):
 
         self.logger.info(f"Found {len(exercises)} exercises with status for PS {ps_uid}")
         return Result.ok(exercises)
-
-    # ========================================================================
-    # FILE-BASED EXERCISE LOADING
-    # ========================================================================
-
-    async def seed_default_exercise(
-        self,
-        instructions_path: str | None = None,
-        exercise_uid: str = "jp.transcript_default",
-        model: str = "gpt-4o",
-    ) -> Result[Exercise]:
-        """Load/update default transcript exercise from instructions file.
-
-        Called at startup to ensure default exercises exist.
-        Encapsulates file resolution, system user ownership, and idempotent create/update.
-        """
-        from pathlib import Path
-
-        path = instructions_path
-        if path is None:
-            path = os.getenv(
-                "SKUEL_TRANSCRIPT_INSTRUCTIONS_PATH",
-                str(Path(__file__).parents[3] / "data" / "instructions - transcripts 0.md"),
-            )
-
-        return await self.load_exercise_from_file(
-            file_path=path,
-            user_uid=UserUID("user_system"),
-            exercise_uid=exercise_uid,
-            model=model,
-        )
-
-    async def load_exercise_from_file(
-        self,
-        file_path: str,
-        user_uid: UserUID,
-        exercise_uid: str | None = None,
-        model: str = "gpt-4o",
-    ) -> Result[Exercise]:
-        """
-        Load or update an Exercise from a markdown instructions file.
-        """
-        try:
-            from pathlib import Path
-
-            path = Path(file_path)
-            if not path.exists():
-                return Result.fail(
-                    Errors.validation(
-                        f"Instructions file not found: {file_path}", field="file_path"
-                    )
-                )
-
-            instructions = path.read_text(encoding="utf-8")
-            name = path.stem.replace("instructions - ", "").replace("instructions-", "").title()
-            if not name or name == "Instructions":
-                name = path.stem.title()
-
-            if exercise_uid:
-                existing = await self.backend.get(exercise_uid)
-                if existing.is_ok and existing.value:
-                    result = await self.update_exercise(
-                        uid=exercise_uid, instructions=instructions, model=model
-                    )
-                    self.logger.info(f"Exercise updated from file: {exercise_uid} - {file_path}")
-                    return result
-                else:
-                    exercise_result = await self.create_exercise(
-                        user_uid=user_uid,
-                        name=name,
-                        instructions=instructions,
-                        model=model,
-                    )
-                    if exercise_result.is_error:
-                        return exercise_result
-                    # Override UID if specified
-                    await self.update_exercise(
-                        uid=exercise_result.value.uid,
-                        metadata={"source_file": str(file_path)},
-                    )
-                    self.logger.info(
-                        f"Exercise created from file: {exercise_result.value.uid} - {file_path}"
-                    )
-                    return exercise_result
-            else:
-                exercise_result = await self.create_exercise(
-                    user_uid=user_uid,
-                    name=name,
-                    instructions=instructions,
-                    model=model,
-                )
-                if exercise_result.is_ok:
-                    await self.update_exercise(
-                        uid=exercise_result.value.uid,
-                        metadata={"source_file": str(file_path)},
-                    )
-                    self.logger.info(
-                        f"Exercise created from file: {exercise_result.value.uid} - {file_path}"
-                    )
-                return exercise_result
-
-        except FILE_IO_EXCEPTIONS as e:
-            self.logger.error(f"Error loading exercise from file {file_path}: {e}")
-            return Result.fail(
-                Errors.system(
-                    f"Failed to load exercise from file: {e!s}",
-                    operation="load_exercise_from_file",
-                )
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Error loading exercise from file {file_path}: {e}")
-            return Result.fail(
-                Errors.system(
-                    f"Failed to load exercise from file: {e!s}",
-                    operation="load_exercise_from_file",
-                )
-            )
 
     # ========================================================================
     # DELETE
@@ -919,21 +763,11 @@ class ExerciseService(BaseService):
             return await self.list_user_exercises(user_uid, active_only=False)
 
         def apply_filters(all_exercises: list[Any]) -> list[Any]:
-            if status_filter == ExerciseScope.PERSONAL:
-                return [
-                    e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.PERSONAL
-                ]
-            elif status_filter == ExerciseScope.ASSIGNED:
-                return [
-                    e for e in all_exercises if getattr(e, "scope", None) == ExerciseScope.ASSIGNED
-                ]
-            elif status_filter == ExerciseScope.ASSESSMENT:
-                return [
-                    e
-                    for e in all_exercises
-                    if getattr(e, "scope", None) == ExerciseScope.ASSESSMENT
-                ]
-            return all_exercises
+            try:
+                scope = ExerciseScope(status_filter)
+            except ValueError:
+                return all_exercises
+            return [e for e in all_exercises if getattr(e, "scope", None) == scope]
 
         return await build_filtered_context(
             fetch_all=fetch_all,

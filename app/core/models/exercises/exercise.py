@@ -79,11 +79,14 @@ class Exercise(Curriculum):
     - EntryReport = instructions + entry content -> LLM -> response
 
     Exercise-specific fields (13):
-    - path_step_uid: PathStep this exercise belongs to (required for PERSONAL scope; mirrors HAS_EXERCISE edge)
-    - owner_uid: UID of the user who created this exercise
+    - path_step_uid: Optional PathStep anchor (mirrors HAS_EXERCISE edge when set; anchored
+      PERSONAL exercises appear on their PathStep's learning-loop page, unanchored ones are
+      free-standing templates in the user's library)
+    - owner_uid: UID of the user who created this exercise (None for CURRICULUM scope)
     - instructions: LLM prompt for processing
     - model: Which LLM to use
-    - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group), or ASSESSMENT (formal test)
+    - scope: ExerciseScope.PERSONAL (user's own template), ASSIGNED (teacher → group),
+      ASSESSMENT (formal test), or CURRICULUM (vault-authored shared content, no user owner)
     - due_date: Due date for ASSIGNED/ASSESSMENT scope
     - group_uid: Target group for ASSIGNED scope
     - enrichment_mode: Processing strategy
@@ -133,7 +136,7 @@ class Exercise(Curriculum):
     # EXERCISE-SPECIFIC FIELDS (14)
     # =========================================================================
     path_step_uid: str | None = (
-        None  # PathStep anchor — required for PERSONAL scope (mirrors HAS_EXERCISE edge)
+        None  # Optional PathStep anchor (mirrors HAS_EXERCISE edge when set)
     )
     owner_uid: str | None = None  # UID of the user who created this exercise
     exercise_number: int | None = (
@@ -195,13 +198,11 @@ class Exercise(Curriculum):
         """Check if exercise has minimum required fields.
 
         Scope-specific constraints:
-        - PERSONAL: requires path_step_uid (exercise belongs to a PathStep)
+        - PERSONAL/CURRICULUM: no extra fields (the PathStep anchor is optional)
         - ASSIGNED: requires group_uid (teacher assigns to a class)
         - ASSESSMENT: requires scoring_rubric (formal test with grading criteria)
         """
         base_valid = bool(self.title and self.instructions and self.model)
-        if self.scope == ExerciseScope.PERSONAL:
-            return base_valid and bool(self.path_step_uid)
         if self.scope == ExerciseScope.ASSIGNED:
             return base_valid and bool(self.group_uid)
         if self.scope == ExerciseScope.ASSESSMENT:

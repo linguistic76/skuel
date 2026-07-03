@@ -174,6 +174,12 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="ex",
         required_fields=("title", "instructions"),
         relationship_config=generate_ingestion_relationship_config(EntityType.EXERCISE),
+        # File-ingested exercises are shared curriculum content — no user OWNS
+        # edge, so PERSONAL/ASSIGNED/ASSESSMENT (all owner- or group-bound) are
+        # rejected by validate_entity_data. Absent scope defaults here, NOT to
+        # the Exercise model default (PERSONAL), which would silently create an
+        # ownerless "personal" exercise no view can surface.
+        default_values={"scope": "curriculum"},
         embeddable=True,
     ),
     EntityType.KU: EntityIngestionConfig(

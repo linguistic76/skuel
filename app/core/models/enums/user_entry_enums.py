@@ -23,16 +23,20 @@ class SubmissionModality(StrEnum):
 
 class ExerciseScope(StrEnum):
     """
-    Scope of an exercise (instruction template).
+    Scope of an exercise (instruction template) — who the template is for, and who owns it.
 
-    PERSONAL: User's own AI feedback template (default)
+    PERSONAL: User's own AI feedback template (default) — always OWNS-linked to a real user
     ASSIGNED: Teacher-created, assigned to a group (ADR-040)
     ASSESSMENT: Formal test/exam with scoring rubric and pass/fail criteria
+    CURRICULUM: Owned by the curriculum itself, for everyone — authored in the content
+        vault, no user OWNS edge. Anchored to PathSteps via HAS_EXERCISE
+        (``exercise_uids`` in PathStep YAML frontmatter). Not creatable via the API.
     """
 
     PERSONAL = "personal"
     ASSIGNED = "assigned"
     ASSESSMENT = "assessment"
+    CURRICULUM = "curriculum"
 
 
 class FormattingStyle(StrEnum):
