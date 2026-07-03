@@ -2135,6 +2135,58 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
     default_context_intent=QueryIntent.HIERARCHICAL,
 )
 
+# -----------------------------------------------------------------------------
+# INTERACTION (ADR-051 — User Interaction Contract audit records)
+# Situated learning-loop events persisted as :Entity:Interaction. Written by
+# UserEntryService._create_interaction_record at submission time; read by the
+# PS submissions-and-feedback query (INTERACTION_DURING is its required anchor).
+# Without this config, create_relationships_batch rejected every Interaction
+# context edge ("Batch validation failed") and left orphan audit nodes.
+# -----------------------------------------------------------------------------
+INTERACTION_CONFIG = DomainRelationshipConfig(
+    domain=Domain.SYSTEM,
+    entity_label="Interaction",
+    dto_class=EntityDTO,
+    model_class=Entity,
+    backend_get_method="get",
+    ownership_relationship=RelationshipName.OWNS,
+    is_shared_content=False,
+    relationships=(
+        # Outgoing: Interaction → UserEntry (the artifact this event recorded)
+        UnifiedRelationshipDefinition(
+            RelationshipName.RECORDS,
+            "Entity",
+            "outgoing",
+            "recorded_entry",
+            "recorded_entry",
+            fields=("uid", "title", "pipeline"),
+            single=True,
+        ),
+        # Outgoing: Interaction → PathStep (curriculum context at event time)
+        UnifiedRelationshipDefinition(
+            RelationshipName.INTERACTION_DURING,
+            "Entity",
+            "outgoing",
+            "context_path_step",
+            "path_step",
+            fields=("uid", "title"),
+            single=True,
+        ),
+        # Outgoing: Interaction → LearningPath (enrollment context at event time)
+        UnifiedRelationshipDefinition(
+            RelationshipName.INTERACTION_WITHIN,
+            "Entity",
+            "outgoing",
+            "context_learning_path",
+            "learning_path",
+            fields=("uid", "title"),
+            single=True,
+        ),
+    ),
+    bidirectional_relationships=(),
+    default_context_intent=QueryIntent.HIERARCHICAL,
+)
+
 # =============================================================================
 # NOTE (February 2026): MOC_CONFIG REMOVED
 # =============================================================================
@@ -2188,6 +2240,8 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     "RevisedExercise": REVISED_EXERCISE_CONFIG,
     # User-authored content (ADR-054)
     "UserEntry": USER_ENTRY_CONFIG,
+    # Interaction audit records (ADR-051 — User Interaction Contract)
+    "Interaction": INTERACTION_CONFIG,
     # Backward-compat aliases (old label keys used by DomainConfig files)
     "Lesson": PS_CONFIG,  # backward-compat alias (Lesson merged into PathStep)
     "Ls": PS_CONFIG,

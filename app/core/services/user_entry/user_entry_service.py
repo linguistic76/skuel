@@ -241,12 +241,15 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(create_result)
         created: UserEntry = create_result.value
 
-        # 3. Auto-create Interaction audit record
+        # 3. Auto-create Interaction audit record. The PathStep context is what
+        # the PS submissions-and-feedback query anchors on (INTERACTION_DURING),
+        # so about_path_step_uid must ride onto the record.
         if request.fulfills_exercise_uid and self.interaction_service is not None:
             await self._create_interaction_record(
                 entry_uid=created.uid,
                 user_uid=user_uid,
                 exercise_uid=request.fulfills_exercise_uid,
+                path_step_uid=request.about_path_step_uid,
             )
 
         # 4. Optional TRANSFORMS edge (multi-stage pipelines)
@@ -364,6 +367,25 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
+
+    @with_error_handling("list_exercise_entries")
+    async def list_exercise_entries(
+        self,
+        user_uid: UserUID,
+        limit: int = 50,
+    ) -> Result[list[UserEntry]]:
+        """List the user's exercise submissions (submission history).
+
+        Defined by the FULFILLS_EXERCISE edge, not by pipeline — an AI-destined
+        turn-in belongs in the submitter's history exactly like a teacher-review
+        one (systems review, 2026-07-03).
+
+        Backend: UserEntryBackend.get_exercise_entries_for_user.
+        """
+        result = await self.backend.get_exercise_entries_for_user(user_uid, limit)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(self._to_domain_models(result.value or [], UserEntryDTO, UserEntry))
 
     @with_error_handling("get_review_queue")
     async def get_review_queue(
@@ -541,12 +563,14 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         entry_uid: str,
         user_uid: UserUID,
         exercise_uid: str,
+        path_step_uid: str | None = None,
     ) -> None:
         """Fire-and-forget Interaction audit record.
 
         Ports the behavior from ``SubmissionsService._create_interaction_record``
         with the new entity type. The entry is already persisted; a failure
-        here is logged but not propagated.
+        here is logged but not propagated. ``path_step_uid`` becomes the
+        INTERACTION_DURING context edge the PS feedback view anchors on.
         """
         if self.interaction_service is None:
             return
@@ -560,6 +584,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 interaction_type=InteractionType.EXERCISE_SUBMISSION,
                 target_uid=exercise_uid,
                 source_entity_uid=entry_uid,
+                context_path_step_uid=path_step_uid,
             )
             result = await self.interaction_service.create_interaction(interaction)
             if result.is_error:

@@ -396,27 +396,39 @@ class ExerciseService(BaseService):
     @with_error_handling("get_student_exercises", error_type="database")
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """
-        Get all exercises for a student (via MEMBER_OF -> Group <- SHARED_WITH_GROUP -> Exercise).
+        Get all exercises available to a student, from both sources:
 
-        Args:
-            user_uid: Student UID
+        - Assigned (MEMBER_OF -> Group <- SHARED_WITH_GROUP -> Exercise)
+        - Enrolled-PS curriculum (IN_PROGRESS -> PathStep -[:HAS_EXERCISE]-> Exercise)
 
-        Returns:
-            Result containing list of assigned exercises
+        The union is what "my exercises" means for every consumer (submit-form
+        dropdown, profile) — a solo learner with no group still sees the
+        exercises of the PathSteps they enrolled in (systems review, 2026-07-03).
+
+        Backend: ExerciseBackend.get_student_exercises +
+        ExerciseBackend.get_enrolled_ps_exercises_with_status.
         """
-        result = await self.backend.get_student_exercises(user_uid)
+        assigned_result = await self.backend.get_student_exercises(user_uid)
+        if assigned_result.is_error:
+            return Result.fail(assigned_result)
 
-        if result.is_error:
-            return Result.fail(result)
+        enrolled_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid)
+        if enrolled_result.is_error:
+            return Result.fail(enrolled_result)
 
-        exercises = []
-        for record in result.value or []:
-            props = record["exercise"]
+        exercises: list[Exercise] = []
+        seen_uids: set[str] = set()
+        for record in (assigned_result.value or []) + (enrolled_result.value or []):
+            props = dict(record["exercise"])
+            if props.get("uid") in seen_uids:
+                continue
             try:
                 exercise = Exercise(**props)
-                exercises.append(exercise)
             except DATA_CONVERSION_EXCEPTIONS as e:
                 self.logger.warning(f"Failed to deserialize exercise: {e}")
+                continue
+            seen_uids.add(exercise.uid)
+            exercises.append(exercise)
 
         self.logger.info(f"Found {len(exercises)} exercises for student {user_uid}")
         return Result.ok(exercises)

@@ -125,14 +125,18 @@ def render_upload_form(
     # Optional context fields (silent hidden inputs)
     hidden_fields: list[Any] = []
     if selected_exercise_uid:
-        # Disabled when dest !== 'teacher' so an AI/portfolio switch doesn't
-        # silently mark the exercise as submitted (P2: Codex finding on #392).
+        # The exercise link persists on EVERY destination (ruled 2026-07-03,
+        # systems review R1): a submission fulfills its exercise regardless of
+        # who responds — responder (teacher/LLM) and visibility are orthogonal
+        # axes. "Submitted" means work exists against the exercise, which is
+        # true for AI-destined turn-ins too. Supersedes the #392 cure that
+        # disabled this input for non-teacher destinations and thereby made
+        # self-serve exercise submission impossible.
         hidden_fields.append(
             Input(
                 type="hidden",
                 name="fulfills_exercise_uid",
                 value=selected_exercise_uid,
-                **{"x-bind:disabled": "dest !== 'teacher'"},
             )
         )
     if from_ps:

@@ -324,8 +324,10 @@ class TestBuildRelationshipCreateQuery:
         query = BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE")
 
         assert "UNWIND $rels AS rel" in query
-        assert "MATCH (a {uid: rel.from_uid})" in query
-        assert "MATCH (b {uid: rel.to_uid})" in query
+        # :Entity-bound endpoints: chunk-store :Content shadow nodes share the
+        # entity's uid, so an unlabeled match would double-bind every edge.
+        assert "MATCH (a:Entity {uid: rel.from_uid})" in query
+        assert "MATCH (b:Entity {uid: rel.to_uid})" in query
 
     def test_uses_literal_relationship_type(self):
         """Test that relationship type is literal in query (not parameterized)."""

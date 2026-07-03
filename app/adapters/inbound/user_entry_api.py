@@ -149,9 +149,23 @@ def create_user_entry_api_routes(
         if len(file_content) > 100_000_000:
             return Result.fail(Errors.validation("File too large (max 100MB)", field="file"))
 
-        # Best-effort server-side file storage delegated to UserEntryService in a
-        # later step. For now carry metadata only; pipelines that need the raw
-        # bytes (Deepgram/LLM) run against ``processed_content`` after wiring.
+        # Text uploads carry their content onto the entry — the LLM pipelines
+        # (LLM_SUMMARY, exercise reports) read ``entry.content``, and a worksheet
+        # turn-in whose text is dropped can never receive feedback. Binary
+        # uploads (audio/video) stay metadata-only; their bytes flow through the
+        # transcription pipelines instead.
+        content_text: str | None = None
+        filename_lower = (uploaded_file.filename or "").lower()
+        content_type = uploaded_file.content_type or ""
+        is_texty = content_type.startswith("text/") or filename_lower.endswith(
+            (".md", ".markdown", ".txt")
+        )
+        if file_content and is_texty:
+            try:
+                content_text = file_content.decode("utf-8")
+            except UnicodeDecodeError:
+                content_text = None  # mislabeled binary — keep metadata-only
+
         pipeline_str = str(form.get("pipeline") or Pipeline.NONE.value)
         try:
             pipeline = Pipeline(pipeline_str)
@@ -181,6 +195,7 @@ def create_user_entry_api_routes(
 
         req = UserEntryCreateRequest(
             title=str(title_val),
+            content=content_text,
             pipeline=pipeline,
             instructions=(str(form.get("instructions")) if form.get("instructions") else None),
             original_filename=uploaded_file.filename,

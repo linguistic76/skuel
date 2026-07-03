@@ -611,6 +611,12 @@ class BatchCypherBuilder:
 
         Pure Cypher approach - relationship type is literal in the query.
 
+        Both endpoints are bound to ``:Entity``: the chunk store keeps
+        ``:Content`` shadow nodes under the SAME uid as their entity, so an
+        unlabeled ``MATCH {uid}`` binds both and duplicates every edge
+        (found live: doubled INTERACTION_DURING, systems review 2026-07-03).
+        Every caller of this builder connects :Entity domain nodes.
+
         Args:
             rel_type: The relationship type (e.g., "APPLIES_KNOWLEDGE")
 
@@ -625,8 +631,8 @@ class BatchCypherBuilder:
         """
         return f"""
         UNWIND $rels AS rel
-        MATCH (a {{uid: rel.from_uid}})
-        MATCH (b {{uid: rel.to_uid}})
+        MATCH (a:Entity {{uid: rel.from_uid}})
+        MATCH (b:Entity {{uid: rel.to_uid}})
         MERGE (a)-[r:{rel_type}]->(b)
         SET r += rel.properties
         RETURN count(r) as created_count

@@ -18,6 +18,8 @@ from adapters.inbound.auth import make_service_getter, require_authenticated_use
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_json_body
+from core.config.intelligence_tier import IntelligenceTier
+from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
     ExerciseKnowledgeRequest,
     ReportGenerateRequest,
@@ -26,6 +28,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.ports.query_types import CurriculumExerciseResult, RequiredKnowledgeResult
 from core.services.content_enrichment_service import ContentEnrichmentService
 from core.services.exercises.exercise_service import ExerciseService
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.services.report.entry_report_service import EntryReportService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -40,6 +43,7 @@ def create_exercises_api_routes(
     transcript_service: ContentEnrichmentService | None,
     entry_report_service: EntryReportService | None,
     user_service: Any = None,
+    intelligence_tier: IntelligenceTier | None = None,
 ) -> list[Any]:
     """
     Create exercises API routes using factory pattern.
@@ -51,6 +55,7 @@ def create_exercises_api_routes(
         transcript_service: ContentEnrichmentService for entry lookup
         entry_report_service: EntryReportService for AI reports
         user_service: UserService for role checks
+        intelligence_tier: System tier for the ADR-043 per-user AI gate
     """
 
     get_user_service = make_service_getter(user_service)
@@ -61,14 +66,18 @@ def create_exercises_api_routes(
 
     @rt("/api/exercises/report", methods=["POST"])
     @csrf_protected
-    @require_teacher(get_user_service)
     @boundary_handler()
-    async def generate_report(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
+    async def generate_report(request: Request) -> Result[dict[str, Any]]:
         """
         Generate AI report for an entry using an exercise.
 
         Creates a EntryReport entity (processor_type=LLM) linked to the
         submission via REPORT_FOR — symmetric with human teacher reports.
+
+        Access (ruled 2026-07-03, systems review R1): the submission OWNER may
+        summon the LLM reviewer for their own entry — the self-serve half of
+        the learning loop. Teachers may generate reports for entries they
+        review. Gated per-user by the ADR-043 intelligence tier (LLM = FULL).
 
         Body (JSON):
         - submission_uid: Submission UID (required)
@@ -79,7 +88,7 @@ def create_exercises_api_routes(
         Returns:
         - 200: EntryReport entity created {report_uid, submission_uid, exercise_uid, content}
         - 400: Invalid input
-        - 404: Entry or exercise not found
+        - 404: Entry or exercise not found (or not the caller's entry, non-teacher)
         - 503: Service not available
         """
         if not entry_report_service:
@@ -96,6 +105,28 @@ def create_exercises_api_routes(
             )
 
         user_uid = require_authenticated_user(request)
+
+        # Per-user tier gate (ADR-043): fail-secure — the LLM reviewer is a
+        # FULL-tier capability; missing gate dependencies mean deny.
+        if intelligence_tier is None or user_service is None:
+            return Result.fail(
+                Errors.business(
+                    rule="ai_tier_gate_unavailable",
+                    message="AI report generation is not available on this deployment",
+                )
+            )
+        caller_result = await user_service.get_user(user_uid)
+        if caller_result.is_error or caller_result.value is None:
+            return Result.fail(Errors.database("get_user", "Could not verify user access tier"))
+        caller = caller_result.value
+        effective_tier = get_user_intelligence_tier(intelligence_tier, caller.role)
+        if not effective_tier.ai_enabled:
+            return Result.fail(
+                Errors.business(
+                    rule="ai_tier_required",
+                    message="AI report generation requires a paid subscription (FULL tier)",
+                )
+            )
 
         # Parse request body
         parsed = await parse_json_body(request, ReportGenerateRequest)
@@ -117,6 +148,12 @@ def create_exercises_api_routes(
         # transcript_service.get() returns Result[Entity]; narrow to UserEntry
         # which is what generate_report requires. Wrong-type entries hit a 404.
         if not isinstance(entry, UserEntry):
+            return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
+
+        # Owner-or-teacher: a non-teacher may only summon the reviewer for
+        # their OWN entry. Not-found (not 403) so entry UIDs don't leak
+        # (OWNERSHIP_VERIFICATION pattern).
+        if entry.user_uid != user_uid and not caller.role.has_permission(UserRole.TEACHER):
             return Result.fail(Errors.not_found("UserEntry", report_request.submission_uid))
 
         # Generate report — creates EntryReport entity + REPORT_FOR relationship

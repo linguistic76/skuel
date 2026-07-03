@@ -35,6 +35,7 @@ EXERCISES_CONFIG = DomainRouteConfig(
         "transcript_service": "content_enrichment",
         "entry_report_service": "entry_report",
         "user_service": "user",
+        "intelligence_tier": "intelligence_tier",
     },
     ui_related_services={
         "transcript_service": "content_enrichment",
