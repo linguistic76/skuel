@@ -154,16 +154,17 @@ n.embedding_text_hash = "..."       # sha256 of the embedded text (ADR-074 §8 �
 text is their freshness-equality check; entities use the hash.)
 
 Version history: v1 = OpenAI @1536 via the GenAI plugin; v2 = BGE @1024 via HF (never
-backfilled); v3 = OpenAI @1024 (ADR-068). The `get_or_create_embedding()` method checks version
-before returning cached embeddings — stale versions are automatically regenerated.
+backfilled); v3 = OpenAI @1024 (ADR-068). Freshness is THE one skip decision
+(`verify_fresh_embeddings`, ADR-074 §8): version current AND text-hash match — version
+outranks hash, so a model migration re-embeds regardless of text equality.
 
 ### Cache-First Strategy
 
 ```
 get_or_create_embedding(uid, label, text)
-  → check_version_compatibility(uid, label)
-    → is_current? Return cached embedding (no API call)
-    → stale/missing? Generate new → store with metadata → return
+  → verify_fresh_embeddings({uid: text})     # version current + text-hash match
+    → fresh? Return cached embedding (no API call; embedding_updated_at touched)
+    → stale/missing/text changed? Generate new → store with metadata + hash → return
 ```
 
 ---

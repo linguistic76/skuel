@@ -984,11 +984,17 @@ def embeddings_service():
     from unittest.mock import AsyncMock, MagicMock
 
     from core.services.embeddings_service import EmbeddingsService
+    from core.utils.result_simplified import Result
 
     mock_backend = MagicMock()
     mock_backend.store_embedding_metadata = AsyncMock()
     mock_backend.get_embedding_metadata = AsyncMock()
     mock_backend.get_cached_embedding = AsyncMock()
+    # Freshness pre-check reads (ADR-074 §8): no stored rows = nothing fresh,
+    # so the worker embeds the full batch — the pre-#493 behavior these tests
+    # were written against.
+    mock_backend.get_embedding_freshness = AsyncMock(return_value=Result.ok([]))
+    mock_backend.touch_embedding_updated_at = AsyncMock(return_value=Result.ok([{"touched": 0}]))
     mock_client = MagicMock()
     mock_client.model = "BAAI/bge-large-en-v1.5"
     mock_client.dimension = 1024

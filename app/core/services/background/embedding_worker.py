@@ -331,14 +331,16 @@ class EmbeddingBackgroundWorker:
 
         batch_start = time.time()
 
-        # Content-hash idempotency: drop requests whose stored embedding
-        # already matches the event text BEFORE any generation spend — force
-        # re-ingests publish for every re-processed file, changed or not.
-        batch = await self._drop_fresh_requests(batch)
-        if not batch:
-            return
-
         try:
+            # Content-hash idempotency: drop requests whose stored embedding
+            # already matches the event text BEFORE any generation spend — force
+            # re-ingests publish for every re-processed file, changed or not.
+            # Inside the safety net: an unexpected raise here (fail-open covers
+            # Result errors, not bugs) must not kill the timer loop.
+            batch = await self._drop_fresh_requests(batch)
+            if not batch:
+                return
+
             # Concurrent per-item generation; exceptions are captured per item
             # so a raising call degrades exactly like a Result failure.
             results = await asyncio.gather(

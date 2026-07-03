@@ -54,7 +54,9 @@ ORDER BY version, count DESC
 ```
 
 Anything with a version older than the current constant needs re-embedding;
-`check_version_compatibility()` / `get_or_create_embedding()` treat it as stale automatically.
+`verify_fresh_embeddings()` (THE skip decision — version outranks text hash) and its
+consumers (worker pre-check, `--stale` fine filter, `get_or_create_embedding()`) treat
+it as stale automatically.
 
 ---
 

@@ -270,9 +270,10 @@ class EmbeddingsService:
         touched (metadata-only, no API call) so the coarse timestamp filter
         converges instead of re-flagging them on every ``--stale`` run.
 
-        Both pre-generation consumers — the background worker's batch
-        pre-check and the ``--stale`` backfill's fine filter — call this, so
-        the freshness semantics live in exactly one place.
+        All pre-generation consumers — the background worker's batch
+        pre-check, the ``--stale`` backfill's fine filter, and
+        ``get_or_create_embedding``'s cache decision — call this, so the
+        freshness semantics live in exactly one place.
 
         Args:
             candidates: uid → the embedding text that WOULD be embedded now
@@ -420,15 +421,19 @@ class EmbeddingsService:
 
     async def get_or_create_embedding(self, uid: str, label: str, text: str) -> Result[list[float]]:
         """
-        Get cached embedding or create new one with version tracking.
+        Return the stored embedding if it is fresh, else generate + store.
 
-        Cache hit: Return existing embedding (no API call).
-        Cache miss or stale: Generate new embedding and store with metadata.
+        Freshness is THE one skip decision (``verify_fresh_embeddings``):
+        version current AND stored ``embedding_text_hash`` matches ``text`` —
+        a version-current node whose text changed regenerates instead of
+        returning its stale vector. Fails OPEN: a freshness-read error (or a
+        failed cached-vector read) regenerates — correctness over savings.
 
         Args:
             uid: Node UID
             label: Node label
-            text: Text to embed (used if generating new)
+            text: The CURRENT embedding text — both the freshness input and,
+                on a miss, what gets embedded and hashed
 
         Returns:
             Result containing embedding vector
@@ -436,11 +441,9 @@ class EmbeddingsService:
         if not NeoLabel.is_valid(label):
             return Result.fail(Errors.validation(f"Invalid Neo4j label: {label}", field="label"))
 
-        # Check if node has current-version embedding
-        compat_result = await self.check_version_compatibility(uid, label)
-
-        if compat_result.is_ok and compat_result.value["is_current"]:
-            # Cache hit - get existing embedding
+        fresh_result = await self.verify_fresh_embeddings({uid: text})
+        if fresh_result.is_ok and uid in fresh_result.value:
+            # Cache hit - stored vector provably matches this text
             result = await self.backend.get_cached_embedding(label=NeoLabel(label), uid=uid)
 
             if result.is_ok and result.value and result.value[0].get("embedding"):
@@ -451,7 +454,7 @@ class EmbeddingsService:
                 self.logger.warning(f"Failed to get cached embedding: {result.error}")
                 # Fall through to regenerate
 
-        # Cache miss or stale - generate new embedding
+        # Cache miss, stale, or freshness read failed (fail open) - regenerate
         self.logger.debug(f"Cache miss: {label}:{uid} - generating new embedding")
 
         embedding_result = await self.create_embedding(text)
@@ -461,7 +464,7 @@ class EmbeddingsService:
 
         embedding = embedding_result.value
 
-        # Store with metadata
+        # Store with metadata (writes the text hash for the next freshness read)
         store_result = await self.store_embedding_with_metadata(
             uid=uid, label=label, embedding=embedding, text=text
         )

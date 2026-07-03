@@ -151,7 +151,7 @@ skuel_embedding_queue_size > 500
 
 **Runbook**:
 - **HighAIErrorRate**: Check OPENAI_API_KEY (covers chat + embeddings — ADR-068), verify rate limits, check provider status pages
-- **EmbeddingQueueBacklog**: Check worker logs, verify HuggingFace API availability, consider increasing batch size
+- **EmbeddingQueueBacklog**: Check worker logs, verify OpenAI API availability, consider increasing batch size
 - **HighEmbeddingFailureRate**: Check OpenAI status, review error logs, verify text preprocessing
 - **SlowOpenAICalls**: Check OpenAI service status, review batch sizes, verify network latency
 
