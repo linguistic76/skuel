@@ -229,6 +229,7 @@ async def test_partially_fresh_parent_embeds_only_changed_chunks():
         embeddings=[VECTOR],
         version=EMBEDDING_VERSION,
         model="test-embedder",
+        texts=["beta"],
     )
     assert worker._total_skipped == 1
 

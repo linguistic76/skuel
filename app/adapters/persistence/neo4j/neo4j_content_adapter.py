@@ -1,19 +1,20 @@
 """
-Neo4j Content Repository Adapter
-==================================
+Neo4j Content Adapter
+=====================
 
-Implements ContentRepoPort for Neo4j database.
-Manages Content nodes separately from Knowledge nodes.
+Persists the (Entity)-[:HAS_CONTENT]->(Content)-[:HAS_CHUNK]->(ContentChunk)
+subtree. Write path: ingestion / batch re-chunk via ``store_content_with_chunks``
+(MERGE upsert — ADR-074); embedding worker reads freshness and stores chunk
+vectors here. Display reads use the inline ``Entity.content`` field, not this
+adapter; re-chunk body reads go through ``BatchChunkingBackend``.
 """
 
 __version__ = "1.0"
 
 
-import hashlib
-from datetime import UTC, datetime
-from enum import Enum
 from typing import Any
 
+from core.models.ps_content.content import CurriculumContent
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -22,10 +23,10 @@ logger = get_logger(__name__)
 
 class Neo4jContentAdapter:
     """
-    Neo4j implementation of the ContentRepoPort.
+    Neo4j adapter for the Content/ContentChunk subtree.
 
     Manages Content nodes that store the body text of knowledge units.
-    Content nodes are linked to Knowledge nodes via HAS_CONTENT relationship.
+    Content nodes are linked to Entity nodes via HAS_CONTENT relationship.
     """
 
     def __init__(self, neo4j_connection) -> None:
@@ -36,151 +37,6 @@ class Neo4jContentAdapter:
             neo4j_connection: Neo4j database connection
         """
         self.neo4j = neo4j_connection
-
-    async def fetch_content(self, unit_uid: str) -> dict[str, Any] | None:
-        """
-        Fetch content for a knowledge unit.
-
-        Args:
-            unit_uid: The knowledge unit's UID
-
-        Returns:
-            Dictionary with content data or None if not found
-        """
-        query = """
-        MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
-        RETURN content {
-            .body,
-            .format,
-            .language,
-            .source_path,
-            .body_sha256,
-            .created_at,
-            .updated_at
-        } as content
-        """
-
-        result = await self.neo4j.execute_query(query, {"uid": unit_uid})
-
-        if result and len(result) > 0:
-            content: dict[str, Any] = result[0]["content"]
-            return content
-        return None
-
-    async def create_content(self, unit_uid: str, body: str, **metadata: Any) -> dict[str, Any]:
-        """
-        Create content for a knowledge unit.
-
-        Creates a Content node and links it to the Knowledge via HAS_CONTENT.
-
-        Args:
-            unit_uid: The knowledge unit's UID
-            body: The content body (markdown)
-            **metadata: Additional metadata (format, language, etc.)
-
-        Returns:
-            Created content dictionary
-        """
-        # Calculate body hash for integrity
-        body_sha256 = hashlib.sha256(body.encode()).hexdigest()
-
-        # Prepare timestamps
-        now = datetime.now(UTC).isoformat()
-
-        # Default values
-        format_type = metadata.get("format", "markdown")
-        language = metadata.get("language", "en")
-        source_path = metadata.get("source_path")
-
-        query = """
-        MATCH (unit:Entity {uid: $uid})
-        CREATE (content:Content {
-            unit_uid: $uid
-            body: $body
-            format: $format
-            language: $language
-            source_path: $source_path
-            body_sha256: $body_sha256
-            created_at: $created_at
-            updated_at: $updated_at
-        })
-        CREATE (unit)-[:HAS_CONTENT]->(content)
-        RETURN content {
-            .unit_uid,
-            .body,
-            .format,
-            .language,
-            .source_path,
-            .body_sha256,
-            .created_at,
-            .updated_at
-        } as content
-        """
-
-        params = {
-            "uid": unit_uid,
-            "body": body,
-            "format": format_type,
-            "language": language,
-            "source_path": source_path,
-            "body_sha256": body_sha256,
-            "created_at": now,
-            "updated_at": now,
-        }
-
-        result = await self.neo4j.execute_query(query, params)
-
-        if result and len(result) > 0:
-            logger.info(f"Created content for knowledge unit: {unit_uid}")
-            content: dict[str, Any] = result[0]["content"]
-            return content
-
-        raise RuntimeError(f"Failed to create content for {unit_uid}")
-
-    async def update_content(self, unit_uid: str, body: str) -> dict[str, Any]:
-        """
-        Update content for a knowledge unit.
-
-        Args:
-            unit_uid: The knowledge unit's UID
-            body: The new content body
-
-        Returns:
-            Updated content dictionary
-        """
-        # Calculate new body hash
-        body_sha256 = hashlib.sha256(body.encode()).hexdigest()
-        now = datetime.now(UTC).isoformat()
-
-        query = """
-        MATCH (unit:Entity {uid: $uid})-[:HAS_CONTENT]->(content:Content)
-        SET content.body = $body,
-            content.body_sha256 = $body_sha256,
-            content.updated_at = $updated_at
-        RETURN content {
-            .unit_uid,
-            .body,
-            .format,
-            .language,
-            .source_path,
-            .body_sha256,
-            .created_at,
-            .updated_at
-        } as content
-        """
-
-        params = {"uid": unit_uid, "body": body, "body_sha256": body_sha256, "updated_at": now}
-
-        result = await self.neo4j.execute_query(query, params)
-
-        if result and len(result) > 0:
-            logger.info(f"Updated content for knowledge unit: {unit_uid}")
-            content: dict[str, Any] = result[0]["content"]
-            return content
-
-        # Content doesn't exist, create it
-        logger.warning(f"Content not found for {unit_uid}, creating new content")
-        return await self.create_content(unit_uid, body)
 
     async def delete_content_subtree(self, unit_uid: str) -> bool:
         """
@@ -225,7 +81,7 @@ class Neo4jContentAdapter:
     async def store_content_with_chunks(
         self,
         uid: str,
-        content: Any,  # KnowledgeContent object
+        content: CurriculumContent,
     ) -> bool:
         """
         Store content with its semantic chunks for RAG retrieval.
@@ -234,11 +90,10 @@ class Neo4jContentAdapter:
         - Content node with full text
         - ContentChunk nodes for each chunk
         - HAS_CHUNK relationships
-        - ContentMetadata node with analytics
 
         Args:
             uid: Knowledge unit UID,
-            content: KnowledgeContent object with chunks
+            content: CurriculumContent with chunks
 
         Returns:
             True if successful
@@ -260,53 +115,32 @@ class Neo4jContentAdapter:
             // Link to knowledge unit
             MERGE (ku)-[:HAS_CONTENT]->(c)
 
-            // Create metadata node
-            MERGE (m:ContentMetadata {uid: $uid})
-            SET m.has_code = $has_code
-            SET m.has_examples = $has_examples
-            SET m.has_definitions = $has_definitions
-            SET m.complexity_score = $complexity_score
-            SET m.readability_score = $readability_score
-
-            // Link metadata
-            MERGE (c)-[:HAS_METADATA]->(m)
-
             RETURN c.uid as uid
             """
 
-            # Extract metadata from content object using getattr for safety
-            metadata = {
+            params = {
                 "uid": uid,
-                "body": getattr(content, "body", str(content)),
-                "format": getattr(content, "format", "markdown"),
-                "word_count": getattr(content, "word_count", 0),
-                "chunk_count": getattr(content, "chunk_count", 0),
-                "has_code": False,
-                "has_examples": False,
-                "has_definitions": False,
-                "complexity_score": 0.5,
-                "readability_score": 0.5,
+                "body": content.body,
+                "format": content.format,
+                "word_count": content.word_count,
+                "chunk_count": content.chunk_count,
             }
 
             # Execute main content storage
-            result = await self.neo4j.execute_query(query, metadata)
+            result = await self.neo4j.execute_query(query, params)
 
             if not result:
                 logger.error(f"Failed to store content for {uid}")
                 return False
 
             # Store chunks if available
-            chunks = getattr(content, "chunks", None)
-            if chunks:
+            if content.chunks:
                 # Idempotency: drop only the chunks that no longer exist in the
                 # new chunk set (uids are deterministic — parent_uid + index).
                 # Surviving uids are MERGEd below with their embeddings
                 # preserved when the text is unchanged, so a force re-ingest of
                 # an identical body never wipes good chunk vectors.
-                new_uids = [
-                    getattr(chunk, "chunk_id", f"{uid}_chunk_{i}")
-                    for i, chunk in enumerate(content.chunks)
-                ]
+                new_uids = [chunk.chunk_id for chunk in content.chunks]
                 await self.neo4j.execute_query(
                     """
                     MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
@@ -352,27 +186,15 @@ class Neo4jContentAdapter:
                 """
 
                 for i, chunk in enumerate(content.chunks):
-                    # Convert chunk_type enum to string for Neo4j
-                    chunk_type = getattr(chunk, "chunk_type", "CONTENT")
-                    if isinstance(chunk_type, Enum):
-                        chunk_type = chunk_type.value
-                    else:
-                        chunk_type = str(chunk_type)
-
                     chunk_params = {
                         "uid": uid,
-                        "chunk_uid": getattr(chunk, "chunk_id", f"{uid}_chunk_{i}"),
-                        "chunk_type": chunk_type,
-                        "text": getattr(chunk, "text", str(chunk)),
-                        "context_window": getattr(
-                            chunk, "context_window", getattr(chunk, "text", str(chunk))
-                        ),
-                        "start_index": getattr(chunk, "chunk_index", i),
-                        "end_index": getattr(
-                            chunk, "word_count", len(getattr(chunk, "text", "").split())
-                        ),
-                        "chunking_version": getattr(chunk, "chunking_version", "v1"),
-                        # Note: Metadata not stored (Neo4j can't handle nested structures)
+                        "chunk_uid": chunk.chunk_id,
+                        "chunk_type": chunk.chunk_type.value,
+                        "text": chunk.text,
+                        "context_window": chunk.context_window,
+                        "start_index": chunk.chunk_index,
+                        "end_index": chunk.word_count,
+                        "chunking_version": chunk.chunking_version,
                         "sequence": i,
                     }
 
@@ -386,14 +208,6 @@ class Neo4jContentAdapter:
                             f"Created chunk {i} ({chunk_params['chunk_type']}): {chunk_params['chunk_uid']}"
                         )
 
-                    # Update metadata based on chunk types
-                    if chunk_params["chunk_type"] == "CODE":
-                        metadata["has_code"] = True
-                    elif chunk_params["chunk_type"] == "EXAMPLE":
-                        metadata["has_examples"] = True
-                    elif chunk_params["chunk_type"] == "DEFINITION":
-                        metadata["has_definitions"] = True
-
                 logger.info(f"Stored {len(content.chunks)} chunks for {uid}")
 
             logger.debug(f"Successfully stored content with chunks for {uid}")
@@ -406,6 +220,13 @@ class Neo4jContentAdapter:
     async def get_chunks(self, uid: str, chunk_type: str | None = None) -> list[dict[str, Any]]:
         """
         Retrieve chunks for a knowledge unit.
+
+        PLANNED (unwired by intent — ruled 2026-07-02): zero production callers
+        today; kept as the chunk-inspection read surface (RAG debugging, a
+        future chunk-viewer UI). The live RAG path (vector_search_backend)
+        traverses chunks in its own vector query and does not need this.
+        Registered here because the bloat detector's PLANNED_METHODS registry
+        only scans core/services/.
 
         Args:
             uid: Knowledge unit UID,
@@ -486,12 +307,21 @@ class Neo4jContentAdapter:
         embeddings: list[list[float]],
         version: str,
         model: str,
+        texts: list[str],
     ) -> bool:
         """
         Store pre-generated embeddings on existing ContentChunk nodes.
 
         Used by the background worker after batch generation and by the
         backfill script's chunk mode (both pass the current EMBEDDING_VERSION).
+
+        ``embedding_source_text`` is stamped from ``texts`` — the exact text
+        each vector was generated from — NOT from the node's current
+        ``context_window``. Stamping the node-current value would mislabel the
+        vector when a conflicting re-chunk lands between event publish and
+        this store; with truthful provenance the already-queued event for the
+        newer text sees the mismatch and re-embeds (self-heal within one batch
+        cycle). Mirrors the entity-side ``text_hash`` param design.
 
         Args:
             chunk_uids: List of chunk UIDs to update
@@ -500,6 +330,8 @@ class Neo4jContentAdapter:
                 core.services.embeddings_service so chunk staleness detection
                 tracks the same constant as entity embeddings)
             model: Model name (e.g., "text-embedding-3-small")
+            texts: The source text each embedding was generated from (same
+                length/order as embeddings)
 
         Returns:
             True if successful, False otherwise
@@ -518,13 +350,13 @@ class Neo4jContentAdapter:
                 c.embedding_version = $version,
                 c.embedding_model = $model,
                 c.embedding_updated_at = datetime(),
-                c.embedding_source_text = c.context_window
+                c.embedding_source_text = chunk_data.source_text
             RETURN count(c) as updated_count
             """
 
             chunks_param = [
-                {"uid": uid, "embedding": emb}
-                for uid, emb in zip(chunk_uids, embeddings, strict=True)
+                {"uid": uid, "embedding": emb, "source_text": text}
+                for uid, emb, text in zip(chunk_uids, embeddings, texts, strict=True)
             ]
 
             result = await self.neo4j.execute_query(

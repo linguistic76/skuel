@@ -167,7 +167,6 @@ class PsService:
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: PsAIService | None = None,
-        content_repo: Any | None = None,
         ku_backend: Any | None = None,
         chunking_service: Any | None = None,
         query_builder: Any | None = None,
@@ -184,7 +183,6 @@ class PsService:
             graph_intel: GraphIntelligenceService (REQUIRED)
             event_bus: Event bus for domain events (optional)
             ai_service: Optional PsAIService for AI features
-            content_repo: Content storage backend (optional)
             ku_backend: KuBackend for substance metric operations (optional)
             chunking_service: Chunking service for RAG (optional)
             query_builder: QueryBuilder for optimized queries (optional)
@@ -222,7 +220,6 @@ class PsService:
         # Create all 12 sub-services via factory
         subs: PsSubServices = create_ps_sub_services(
             backend=backend,
-            _content_repo=content_repo,
             _chunking_service=chunking_service,
             graph_intel=graph_intel,
             _query_builder=query_builder,
@@ -256,7 +253,6 @@ class PsService:
         self.repo = backend
         self.executor = executor
         self.event_bus = event_bus
-        self.content_repo = content_repo
         self.ku_backend = ku_backend
         self.user_service = user_service
         self.graph_intel = graph_intel
@@ -428,6 +424,20 @@ class PsService:
         min_confidence: float = 0.7,
         limit: int = 5,
     ) -> Result[list[dict[str, Any]]]:
+        """Metadata-aware learning paths within a time/complexity budget.
+
+        PLANNED capability (ruled 2026-07-02): the whole chain (this facade →
+        PsGraphService → build_metadata_aware_path_query) is unwired — no route
+        calls it, and its Cypher filters on ``reading_time_minutes`` /
+        ``complexity_level`` entity properties that nothing writes yet (0 live
+        entities carry them → zero paths, always). Wiring requires the
+        content-metadata unification campaign FIRST: one ContentMetadata class
+        (ps_content's rich model vs lp_intelligence's duplicate), persisted
+        onto entity nodes at ingest, then a route. Not in PLANNED_METHODS —
+        facade delegation name-aliases it live for the scanner.
+
+        Backend: PsGraphService.find_time_aware_learning_path.
+        """
         return await self.graph.find_time_aware_learning_path(
             target_uid, user_time_budget, max_complexity, min_confidence, limit
         )

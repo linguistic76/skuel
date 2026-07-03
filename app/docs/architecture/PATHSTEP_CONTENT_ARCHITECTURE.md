@@ -105,8 +105,9 @@ After ingestion, this YAML produces the following graph structure:
     -[:HAS_CHUNK {sequence: 0}]->
 
 (:ContentChunk {
-    uid: "ps:mindfulness:101_chunk_0",
-    chunk_type: "CONTENT",              ← CONTENT | CODE | EXAMPLE | DEFINITION
+    uid: "ps:mindfulness:101:chunk:0",  ← deterministic: {parent_uid}:chunk:{index}
+    chunk_type: "section",              ← ContentChunkType value (section | definition |
+                                          example | exercise | code | summary | ...)
     text: "## What Is Mindfulness?\n\nMindfulness is paying attention...",
     context_window: "...",              ← text + ~100-word pre/post buffer (what gets embedded)
     start_index: 0,
@@ -119,11 +120,14 @@ After ingestion, this YAML produces the following graph structure:
 
     -[:HAS_CHUNK {sequence: 1}]->
 
-(:ContentChunk { uid: "..._chunk_1", ... })
+(:ContentChunk { uid: "...:chunk:1", ... })
 ...
-
-(:Content)-[:HAS_METADATA]->(:ContentMetadata { has_code, has_examples, ... })
 ```
+
+(No metadata node: the write-only `:ContentMetadata` node — fabricated constants,
+zero readers — was deleted 2026-07-02; deletion paths keep a cleanup MATCH for
+stragglers. Content analytics is a PLANNED capability anchored at
+`PsService.find_time_aware_learning_path`.)
 
 Also created from the `uses_kus:` list:
 
