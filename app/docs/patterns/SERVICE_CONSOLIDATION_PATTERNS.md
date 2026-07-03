@@ -606,12 +606,11 @@ from core.services.curriculum_domain_config import create_ps_sub_services
 
 subs = create_ps_sub_services(
     backend=repo,
-    content_repo=content_repo,
-    chunking_service=chunking_service,
+    _chunking_service=chunking_service,
     graph_intel=graph_intel,
-    query_builder=query_builder,
+    _query_builder=query_builder,
     event_bus=event_bus,
-    _driver=driver,
+    _executor=executor,
 )
 
 # Assign sub-services from factory result
