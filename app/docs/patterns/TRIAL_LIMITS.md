@@ -120,7 +120,7 @@ MATCH (u:User {uid: $uid})-[:LEARNING|MASTERED]->(k:Entity)
 RETURN count(DISTINCT k) as count
 
 # LP enrollment count
-MATCH (u:User {uid: $uid})-[:ENROLLED_IN]->(lp:Lp)
+MATCH (u:User {uid: $uid})-[:ENROLLED_IN]->(lp:LearningPath)
 RETURN count(lp) as count
 ```
 

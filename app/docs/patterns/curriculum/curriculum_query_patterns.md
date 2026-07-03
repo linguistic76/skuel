@@ -95,7 +95,7 @@ WITH user,
      $available_minutes AS time_budget
 
 // Step 3: Query curriculum with context filters
-MATCH (lp:Lp)-[:CONTAINS]->(ku:Curriculum)
+MATCH (lp:LearningPath)-[:CONTAINS]->(ku:Curriculum)
 WHERE
   // Context-driven filtering
   lp.uid = current_path
@@ -117,7 +117,7 @@ ORDER BY ku.sequence_order
 
 ```cypher
 // Get next knowledge units for user's current learning path
-MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
+MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:LearningPath)
 WHERE lp.uid = $current_path_uid
 
 // Get all knowledge units in this path
@@ -162,7 +162,7 @@ LIMIT $limit
 
 ```cypher
 // Get user's life path knowledge with substance scores
-MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:Lp)
+MATCH (user:User {uid: $user_uid})-[:ULTIMATE_PATH]->(life_path:LearningPath)
 
 // Get all knowledge in life path
 MATCH (life_path)-[:CONTAINS]->(ku:Curriculum)
@@ -322,7 +322,7 @@ RETURN
 // Phase 1: Create LearningPaths with sections
 UNWIND $learning_paths AS lp_data
 
-MERGE (lp:Lp {uid: lp_data.uid})
+MERGE (lp:LearningPath {uid: lp_data.uid})
 SET
   lp.title = lp_data.title,
   lp.section = lp_data.section,
@@ -378,7 +378,7 @@ RETURN
 MATCH (user:User {uid: $user_uid})
 
 // Get all enrolled learning paths
-OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:Lp)
+OPTIONAL MATCH (user)-[:ENROLLED_IN]->(lp:LearningPath)
 OPTIONAL MATCH (lp)-[:CONTAINS]->(ku:Curriculum)
 
 // Get mastery state
@@ -398,7 +398,7 @@ WITH user, lp,
      END AS path_progress
 
 // Get life path
-OPTIONAL MATCH (user)-[:ULTIMATE_PATH]->(life_path:Lp)
+OPTIONAL MATCH (user)-[:ULTIMATE_PATH]->(life_path:LearningPath)
 
 RETURN
   user.uid AS user_uid,
@@ -436,7 +436,7 @@ ORDER BY lp.section, lp.title
 MATCH (user:User {uid: $user_uid})
 
 // Get user's current learning path
-MATCH (user)-[:ENROLLED_IN]->(current_path:Lp)
+MATCH (user)-[:ENROLLED_IN]->(current_path:LearningPath)
 WHERE current_path.uid = $current_path_uid
 
 // Get available knowledge units
@@ -599,7 +599,7 @@ RETURN
 
 ```cypher
 // Core entity constraints (unique identifiers)
-CREATE CONSTRAINT lp_uid IF NOT EXISTS FOR (lp:Lp) REQUIRE lp.uid IS UNIQUE;
+CREATE CONSTRAINT lp_uid IF NOT EXISTS FOR (lp:LearningPath) REQUIRE lp.uid IS UNIQUE;
 CREATE CONSTRAINT ku_uid IF NOT EXISTS FOR (ku:Curriculum) REQUIRE ku.uid IS UNIQUE;
 CREATE CONSTRAINT user_uid IF NOT EXISTS FOR (u:User) REQUIRE u.uid IS UNIQUE;
 
@@ -612,7 +612,7 @@ CREATE CONSTRAINT journal_uid IF NOT EXISTS FOR (j:Journal) REQUIRE j.uid IS UNI
 
 // Indexes for common query patterns
 CREATE INDEX ku_section IF NOT EXISTS FOR (ku:Curriculum) ON (ku.section);
-CREATE INDEX lp_section IF NOT EXISTS FOR (lp:Lp) ON (lp.section);
+CREATE INDEX lp_section IF NOT EXISTS FOR (lp:LearningPath) ON (lp.section);
 CREATE INDEX user_lookup IF NOT EXISTS FOR (u:User) ON (u.username);
 ```
 
