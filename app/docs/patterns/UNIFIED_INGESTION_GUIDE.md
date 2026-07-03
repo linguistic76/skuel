@@ -518,6 +518,14 @@ A file **cannot spoof ownership**: under descriptor-governed ingestion the resol
 is *authoritative* and overrides any `user_uid:` written into the frontmatter/YAML (so a
 personal-vault task claiming `user_uid: someone_else` is still owned by the vault's owner).
 
+**Excluded dirs inside an open vault:** `SyncAllowlist.excluded_dirs` walls specific
+subtrees even when the allowlist is whole-vault. The content vault excludes `Resources/`
+(the raw reference library — full book texts with no `type:` frontmatter, never
+ingestible; without the wall the sweep re-attempted all of it on every sync). Whether
+those files become `Resource` nodes is the Resource write side's design question
+(systems-review Arc D) — remove the exclusion in `services_bootstrap/compose.py` when
+that lands.
+
 > Stage-1 boundary (accepted): pointing the dashboard at *another* user's personal vault
 > stamps the acting admin as owner — the shared personal descriptor is a template and the
 > path alone cannot name the real user. The per-user local-agent topology (ADR-070 north

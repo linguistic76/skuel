@@ -395,3 +395,25 @@ async def test_ingest_directory_upgrades_full_to_smart_when_wall_governs(
     captured.clear()
     await svc.ingest_directory(tmp_path / "content", ingestion_mode="full")  # type: ignore[attr-defined]
     assert captured["mode"] == "full"
+
+
+def test_excluded_dir_walls_inside_open_vault(tmp_path: Path) -> None:
+    # Content-vault posture: whole-vault allowlist + an explicit exclusion for
+    # the raw reference library (Resources/ — no `type:` frontmatter, never
+    # ingestible). Exclusion wins even though the dir nests under the allowed
+    # root; everything else stays open.
+    root = tmp_path / "vault"
+    wall = build_sync_allowlist(
+        root, content_root=root, excluded_dirs=frozenset({root / "Resources"})
+    )
+    assert wall.permits(root / "Resources" / "book" / "chapter1.md") is False
+    assert wall.permits(root / "Ku" / "ku_breath.md") is True
+    # Outside the governed root the wall never applies, excluded name or not.
+    assert wall.permits(tmp_path / "elsewhere" / "Resources" / "x.md") is True
+
+
+def test_excluded_dirs_default_empty_keeps_behavior(tmp_path: Path) -> None:
+    root = tmp_path / "vault"
+    wall = build_sync_allowlist(root, content_root=root)
+    assert wall.excluded_dirs == frozenset()
+    assert wall.permits(root / "Resources" / "book.md") is True
