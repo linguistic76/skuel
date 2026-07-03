@@ -1215,7 +1215,16 @@ async def compose_services(
         # silently wall off a folder. Content vault: whole-vault (single-vault
         # branch), curriculum fully open minus the je_* staging floor.
         _personal_allowlist = build_sync_allowlist(_personal_root, content_root=_content_root)
-        _content_allowlist = build_sync_allowlist(_content_root, content_root=_content_root)
+        # Resources/ is the raw reference library (full book texts, no `type:`
+        # frontmatter) — not ingestible content. Without this wall the whole-vault
+        # sweep re-attempts all of it on every sync (never tracked, zero writes).
+        # Whether these become Resource nodes is Arc D's (Resource write side)
+        # design question — remove this exclusion when that lands.
+        _content_allowlist = build_sync_allowlist(
+            _content_root,
+            content_root=_content_root,
+            excluded_dirs=frozenset({_content_root / "Resources"}),
+        )
 
         # Residual single-file / domain ingestion doors (/api/ingest/file, etc.)
         # inherit the personal vault's wall; the reconciler passes each vault's
@@ -1224,7 +1233,8 @@ async def compose_services(
         logger.info(
             "✅ Vault sync allowlists active (fail-closed): "
             f"personal={len(_personal_allowlist.allowed_dirs)} dir(s) under {_personal_root}, "
-            f"content=whole-vault under {_content_root}"
+            f"content=whole-vault under {_content_root} "
+            f"(excluded: {len(_content_allowlist.excluded_dirs)} reference dir(s))"
         )
 
         _content_descriptor = VaultDescriptor(

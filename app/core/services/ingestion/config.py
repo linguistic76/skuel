@@ -382,14 +382,21 @@ class SyncAllowlist:
 
     governed_root: Path
     allowed_dirs: frozenset[Path]
+    # Explicit walls *inside* an otherwise-allowed tree. Used for the content
+    # vault's raw reference library (``Resources/`` — book texts with no
+    # ``type:`` frontmatter): the whole-vault allowlist would sweep them into
+    # every sync attempt. Checked before allowed_dirs, so an excluded dir wins
+    # even when nested under an allowed one.
+    excluded_dirs: frozenset[Path] = frozenset()
 
     def permits(self, path: Path) -> bool:
         """Whether ``path`` is allowed by this wall (True = keep).
 
         Outside the governed root → always permitted (ungoverned tree — e.g. the
         admin content vault, including any folder there that happens to be *named*
-        ``je_*``). Inside → walled if it is a ``je_*`` staging folder, else
-        permitted only when nested under an allowed dir.
+        ``je_*``). Inside → walled if it is a ``je_*`` staging folder or sits
+        under an ``excluded_dirs`` entry, else permitted only when nested under
+        an allowed dir.
 
         The wall judges a file by *where it sits in the vault*, not where a
         symlink target points: we canonicalize the directory chain
@@ -405,6 +412,8 @@ class SyncAllowlist:
         # prefix component can't false-positive and so it never touches unrelated
         # trees (a content-vault "je_out/" is handled by the branch above).
         if is_staging_path(located.relative_to(self.governed_root)):
+            return False
+        if any(located.is_relative_to(excluded) for excluded in self.excluded_dirs):
             return False
         return any(located.is_relative_to(allowed) for allowed in self.allowed_dirs)
 
@@ -427,6 +436,7 @@ def build_sync_allowlist(
     *,
     allowed_dirs: str | None = None,
     content_root: Path | None = None,
+    excluded_dirs: frozenset[Path] = frozenset(),
 ) -> SyncAllowlist:
     """Build the fail-closed vault-sync allowlist for ``governed_root``.
 
@@ -460,6 +470,7 @@ def build_sync_allowlist(
       reprocesses retract stale staging rows like the routine incremental paths.
     """
     governed = governed_root.resolve()
+    resolved_excluded = frozenset(d.resolve() for d in excluded_dirs)
     raw = allowed_dirs
     if raw and raw.strip():
         configured = [Path(p.strip()).resolve() for p in raw.split(":") if p.strip()]
@@ -472,7 +483,9 @@ def build_sync_allowlist(
                 dropped,
                 governed,
             )
-        return SyncAllowlist(governed_root=governed, allowed_dirs=valid)
+        return SyncAllowlist(
+            governed_root=governed, allowed_dirs=valid, excluded_dirs=resolved_excluded
+        )
 
     # Var unset. Single-vault (content vault is / is under the governed root):
     # allow the whole vault so curriculum isn't starved — the staging floor still
@@ -480,11 +493,16 @@ def build_sync_allowlist(
     if content_root is not None:
         content = content_root.resolve()
         if content == governed or content.is_relative_to(governed):
-            return SyncAllowlist(governed_root=governed, allowed_dirs=frozenset({governed}))
+            return SyncAllowlist(
+                governed_root=governed,
+                allowed_dirs=frozenset({governed}),
+                excluded_dirs=resolved_excluded,
+            )
     # Distinct personal vault: fail-closed default to the doorway folders only.
     return SyncAllowlist(
         governed_root=governed,
         allowed_dirs=frozenset(governed / subdir for subdir in _DEFAULT_SYNC_SUBDIRS),
+        excluded_dirs=resolved_excluded,
     )
 
 
