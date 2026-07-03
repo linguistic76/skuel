@@ -12,9 +12,11 @@ from typing import Any
 from fasthtml.common import (
     H1,
     H3,
+    A,
     Div,
     Header,
     Li,
+    Ol,
     P,
     Span,
     Ul,
@@ -577,6 +579,27 @@ def create_pathways_ui_routes(
                     ),
                     cls="flex flex-wrap gap-2 mb-4",
                 ),
+                Div(
+                    H3("Steps", cls="font-semibold mb-2"),
+                    # metadata["steps"] arrives sorted by the HAS_STEP sequence
+                    # property, so this list renders in authored path order.
+                    Ol(
+                        *[
+                            Li(
+                                A(
+                                    step.title or step.uid,
+                                    href=f"/explore/ps/{step.uid}",
+                                    cls="text-primary hover:underline",
+                                )
+                            )
+                            for step in steps
+                        ],
+                        cls="list-decimal ml-4 space-y-1",
+                    ),
+                    cls="mb-4",
+                )
+                if steps
+                else None,
                 Div(
                     H3("Outcomes", cls="font-semibold mb-2"),
                     Ul(*[Li(o) for o in outcomes], cls="list-disc ml-4"),

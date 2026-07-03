@@ -366,3 +366,138 @@ class TestIntentToChunkTypes:
         from core.services.askesis.context_retriever import _intent_to_chunk_types
 
         assert _intent_to_chunk_types(QueryIntent[intent_name]) is None
+
+
+class TestFetchKusEdgeDerived:
+    """_fetch_kus derives KUs from graph_context knowledge edges, never UID prefix.
+
+    Both sanctioned KU UID forms (authored ``ku.{ns}.{slug}`` and generated
+    ``ku_{slug}_{random}``) must pass through — entity kind comes from the
+    MEGA-QUERY's entity_type field (ADR-013 never-sniff rule).
+    """
+
+    def _retriever(self, ku_service: Any) -> ContextRetriever:
+        return ContextRetriever(
+            graph_intel=_make_graph_intel(),
+            embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
+            ps_service=MagicMock(),
+            ku_service=ku_service,
+            habits_service=MagicMock(),
+            tasks_service=MagicMock(),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=MagicMock(),
+        )
+
+    @pytest.mark.anyio
+    async def test_fetches_ku_typed_entries_both_uid_forms(self) -> None:
+        """ku-typed entries are fetched regardless of UID spelling."""
+        fetched: list[str] = []
+
+        async def _get(uid: str) -> Result[Any]:
+            fetched.append(uid)
+            return Result.ok(_make_entity(uid, f"KU {uid}"))
+
+        ku_service = MagicMock(get_ku=AsyncMock(side_effect=_get))
+        retriever = self._retriever(ku_service)
+
+        graph_context = {
+            "knowledge_relationships": [
+                {"uid": "ku.mindfulness.breath", "entity_type": "ku", "rel_type": "USES_KU"},
+                {"uid": "ku_functions_a1b2c3", "entity_type": "ku", "rel_type": "TRAINS_KU"},
+                {
+                    "uid": "ps.mindfulness.posture-basics",
+                    "entity_type": "path_step",
+                    "rel_type": "ENABLES_KNOWLEDGE",
+                },
+                # Prerequisite/enabled KU neighbors are context, NOT this
+                # step's composed knowledge — must stay out of bundle.kus.
+                {
+                    "uid": "ku.mindfulness.prereq",
+                    "entity_type": "ku",
+                    "rel_type": "REQUIRES_KNOWLEDGE",
+                },
+            ]
+        }
+
+        kus = await retriever._fetch_kus(graph_context)
+
+        assert sorted(fetched) == ["ku.mindfulness.breath", "ku_functions_a1b2c3"]
+        assert len(kus) == 2
+
+    @pytest.mark.anyio
+    async def test_empty_and_malformed_entries_yield_no_kus(self) -> None:
+        """No knowledge_relationships, or entries without uid/entity_type → []."""
+        ku_service = MagicMock(get_ku=AsyncMock())
+        retriever = self._retriever(ku_service)
+
+        assert await retriever._fetch_kus({}) == []
+        assert (
+            await retriever._fetch_kus(
+                {
+                    "knowledge_relationships": [
+                        {"uid": "ku.no.type", "rel_type": "USES_KU"},  # no entity_type
+                        {"entity_type": "ku", "rel_type": "USES_KU"},  # no uid
+                        {"uid": "ku.no.rel", "entity_type": "ku"},  # no rel_type
+                        "not-a-dict",
+                    ]
+                }
+            )
+            == []
+        )
+        ku_service.get_ku.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_no_ku_service_returns_empty(self) -> None:
+        retriever = self._retriever(None)
+        assert (
+            await retriever._fetch_kus(
+                {
+                    "knowledge_relationships": [
+                        {"uid": "x", "entity_type": "ku", "rel_type": "USES_KU"}
+                    ]
+                }
+            )
+            == []
+        )
+
+
+class TestFetchRelatedPathStepsTypeFilter:
+    """_fetch_related_path_steps takes only path_step-typed graph entries."""
+
+    @pytest.mark.anyio
+    async def test_ku_typed_entries_are_not_fetched_as_path_steps(self) -> None:
+        fetched: list[str] = []
+
+        async def _get(uid: str) -> Result[Any]:
+            fetched.append(uid)
+            return Result.ok(_make_entity(uid, f"PS {uid}"))
+
+        ps_service = MagicMock(get=AsyncMock(side_effect=_get))
+        retriever = ContextRetriever(
+            graph_intel=_make_graph_intel(),
+            embeddings_service=MagicMock(),
+            vector_search_service=MagicMock(),
+            ps_service=ps_service,
+            ku_service=MagicMock(),
+            habits_service=MagicMock(),
+            tasks_service=MagicMock(),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=MagicMock(),
+        )
+
+        path_step = _make_entity("ps:test_1", "Primary")
+        path_step.knowledge_uids = []
+        graph_context = {
+            "knowledge_relationships": [
+                {"uid": "ku.mindfulness.breath", "entity_type": "ku"},
+                {"uid": "ps.mindfulness.posture-basics", "entity_type": "path_step"},
+            ]
+        }
+
+        steps = await retriever._fetch_related_path_steps(path_step, graph_context)
+
+        assert fetched == ["ps.mindfulness.posture-basics"]
+        assert len(steps) == 1

@@ -418,6 +418,21 @@ class IncrementalStats:
 
 ---
 
+## Relationship Creation — Two-Phase, Ordered
+
+Directory ingest is two-phase: ALL node batches (every entity type) land
+before ANY relationship batch runs, so references between entities of the
+same sync always resolve. Relationship Cypher `MATCH`es targets (never
+`MERGE` — no stub nodes); a target missing after phase 1 genuinely doesn't
+exist. This matters under incremental sync: an edge dropped on first contact
+would never be retried, because the unchanged source file skips forever.
+
+Ordered relationship fields (registry `order_by_property`, e.g. LP
+`connections.contains_steps:` → `HAS_STEP.sequence`, `organizes:` →
+`ORGANIZES.order`) persist the YAML list index (0-based) onto the edge,
+refreshed on every re-ingest — reordering the list in the vault reorders the
+graph. See `adapters/persistence/neo4j/bulk_upsert_backend.py`.
+
 ## Relationship Validation
 
 Validate that referenced UIDs exist before creating edges:

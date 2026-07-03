@@ -402,13 +402,13 @@ class LateralRelationshipBackend:
             WHERE (parent)-[]->(entity {uid: $entity_uid})
             AND sibling.uid != $entity_uid
             AND type(r) IN ['SUBGOAL', 'SUBHABIT', 'SUBEVENT', 'SUBPRINCIPLE',
-                             'SUBCHOICE', 'CONTAINS_STEP', 'ORGANIZES']
+                             'SUBCHOICE', 'HAS_STEP', 'ORGANIZES']
             RETURN
                 sibling.uid as sibling_uid,
                 sibling.title as sibling_title,
                 type(r) as hierarchy_type,
-                r.order as order
-            ORDER BY r.order, sibling.title
+                coalesce(r.order, r.sequence) as order
+            ORDER BY coalesce(r.order, r.sequence), sibling.title
             """,
             {"entity_uid": entity_uid},
         )

@@ -174,8 +174,10 @@ class PsBundle:
         return truncate_to_budget(raw, AskesisTokenBudget.MAX_CURRICULUM_CHARS)
 
     def __str__(self) -> str:
+        lp_uid = self.learning_path.uid if self.learning_path else None
         return (
             f"PsBundle(ps={self.path_step.uid}, "
+            f"learning_path={lp_uid}, "
             f"related_steps={len(self.related_steps)}, kus={len(self.kus)}, "
             f"resources={len(self.resources)}, "
             f"habits={len(self.habits)}, tasks={len(self.tasks)})"

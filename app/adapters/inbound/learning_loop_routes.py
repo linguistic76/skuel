@@ -314,6 +314,12 @@ def create_learning_loop_detail_routes(
             if exercises_result.is_ok and exercises_result.value:
                 exercises = exercises_result.value
 
+        # Atomic Kus this step composes (USES_KU) — reader links
+        kus: list[dict] = []
+        kus_result = await orchestrator.get_used_kus(uid)
+        if kus_result.is_ok and kus_result.value:
+            kus = list(kus_result.value)
+
         # Render markdown
         content_html, toc_html = render_markdown_with_toc(content_body or "")
 
@@ -322,6 +328,7 @@ def create_learning_loop_detail_routes(
             uid=uid,
             content_html=content_html,
             toc_html=toc_html,
+            kus=kus,
             is_marked_read=is_marked_read,
             is_bookmarked=is_bookmarked,
             is_in_progress=is_in_progress,

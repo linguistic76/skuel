@@ -116,6 +116,10 @@ class ExploreOrchestrator:
         """Get learning mastery state for a specific PathStep."""
         return await self._ps.mastery.get_learning_state(user_uid, ps_uid)
 
+    async def get_used_kus(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get the atomic Kus a PathStep composes (USES_KU edges)."""
+        return await self._ps.get_used_kus(ps_uid)
+
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list]:
         """Get exercises linked to a PathStep (unauthenticated read-only view)."""
         return await self._ps.get_exercises_for_path_step(ps_uid)
@@ -382,16 +386,35 @@ class ExploreOrchestrator:
             for ps in in_progress_ps:
                 known_titles[ps.uid] = (ps.title or ps.uid, "ps")
 
+            # Entity kind by lookup, never by UID prefix (ADR-013 never-sniff
+            # rule). Two concurrent rounds instead of per-pin serial awaits:
+            # batch the KU lookups, then batch PS lookups for the KU misses.
+            unresolved = [uid for uid in pins_result.value if uid not in known_titles]
+            ku_results = await asyncio.gather(
+                *(self._ku.get_ku(uid) for uid in unresolved), return_exceptions=True
+            )
+            ku_titles: dict[str, str] = {
+                uid: res.value.title or uid
+                for uid, res in zip(unresolved, ku_results, strict=True)
+                if not isinstance(res, BaseException) and res.is_ok and res.value
+            }
+            ku_misses = [uid for uid in unresolved if uid not in ku_titles]
+            ps_results = await asyncio.gather(
+                *(self._ps.get(uid) for uid in ku_misses), return_exceptions=True
+            )
+            ps_titles: dict[str, str] = {
+                uid: res.value.title or uid
+                for uid, res in zip(ku_misses, ps_results, strict=True)
+                if not isinstance(res, BaseException) and res.is_ok and res.value
+            }
             for pin_uid in pins_result.value:
                 if pin_uid in known_titles:
                     title, et = known_titles[pin_uid]
                     pinned_items.append((pin_uid, title, et))
-                elif pin_uid.startswith("ku_"):
-                    ku_result = await self._ku.get_ku(pin_uid)
-                    if ku_result.is_ok and ku_result.value:
-                        pinned_items.append((pin_uid, ku_result.value.title or pin_uid, "ku"))
-                elif pin_uid.startswith("ps:"):
-                    pinned_items.append((pin_uid, pin_uid, "ps"))
+                elif pin_uid in ku_titles:
+                    pinned_items.append((pin_uid, ku_titles[pin_uid], "ku"))
+                elif pin_uid in ps_titles:
+                    pinned_items.append((pin_uid, ps_titles[pin_uid], "ps"))
 
         return {
             "studying_kus": studying_kus[:5],
