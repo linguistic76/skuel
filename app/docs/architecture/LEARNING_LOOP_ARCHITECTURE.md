@@ -104,10 +104,11 @@ structural relationship as sub-goal under parent goal. See
 for the full hierarchy.
 
 **What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
-sits within LearningPaths. Admin-created and shared across all users. Every Exercise is
-grounded in one or more PathSteps via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` and, for
-PERSONAL-scope exercises, denormalized as `Exercise.path_step_uid`. PathSteps compose
-atomic Kus via `(PathStep)-[:USES_KU]->(Ku)`.
+sits within LearningPaths. Admin-created and shared across all users. PathStep-anchored
+Exercises link via `(PathStep)-[:HAS_EXERCISE]->(Exercise)` (anchored PERSONAL exercises
+also denormalize `Exercise.path_step_uid`; CURRICULUM exercises anchor via `exercise_uids:`
+in PathStep YAML; unanchored PERSONAL templates are free-standing in the user's library).
+PathSteps compose atomic Kus via `(PathStep)-[:USES_KU]->(Ku)`.
 
 **Historical note:** The former `Lesson` entity type was merged into `PathStep` in April 2026.
 PathStep is now the single curriculum content entity; there is no separate Lesson layer.
@@ -147,13 +148,14 @@ Exercise.path_step_uid  (stored on the Exercise node itself)
 
 This covers the reverse direction without traversal. Asking "which PathStep does this Exercise
 belong to?" reads `path_step_uid` directly off the Exercise node — no graph hop required.
-This property is only present for `ExerciseScope.PERSONAL` exercises, which are always anchored
-to exactly one PathStep.
+This property is only present for anchored `ExerciseScope.PERSONAL` exercises — the anchor is
+optional, and unanchored personal templates (the /submit save-template flow) carry neither the
+property nor the edge.
 
 **The dual-write**
 
-When a PERSONAL Exercise is created, `ExerciseService.create()` writes both forms in one
-operation (`exercise_service.py:176–183`):
+When an anchored PERSONAL Exercise is created, `ExerciseService.create()` writes both forms in
+one operation:
 
 1. The `path_step_uid` property is stored on the Exercise node (forward: Exercise → PathStep)
 2. The `HAS_EXERCISE` edge is created from PathStep to Exercise (forward: PathStep → Exercise)
@@ -172,9 +174,9 @@ without extra queries.
 Activity Domain models use a different pattern for cross-domain UID fields. For example,
 `Task.reinforces_habit_uid` and `Habit.supports_goal_uid` are marked `# DERIVED FROM EDGE`
 — they are populated by an enrich step at read time and never stored as node properties.
-The Exercise/PathStep dual-write is a deliberate divergence from this pattern: because PERSONAL
-exercises are always 1:1 with a PathStep and are queried from both directions in the learning
-loop, the cost of materialising the reverse pointer at write time is worth the simpler reads.
+The Exercise/PathStep dual-write is a deliberate divergence from this pattern: an anchored
+PERSONAL exercise is 1:1 with its PathStep and is queried from both directions in the learning
+loop, so the cost of materialising the reverse pointer at write time is worth the simpler reads.
 
 ### Layer 1: What You Can Learn
 
