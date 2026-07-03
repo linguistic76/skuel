@@ -548,8 +548,8 @@ async def compose_services(
         chunking_service = EntityChunkingService()
         logger.info("✅ EntityChunkingService created for automatic chunk generation")
 
-        # Content adapter implements ContentOperations protocol — used by ingestion
-        # (store_content_with_chunks) and by the embedding worker (store_chunk_embeddings).
+        # Content adapter — used by ingestion (store_content_with_chunks), batch
+        # re-chunking, and the embedding worker (store_chunk_embeddings).
         connection = await get_connection()
         content_adapter = Neo4jContentAdapter(connection)
 
@@ -648,7 +648,6 @@ async def compose_services(
             progress_backend=progress_backend,
             knowledge_backend=ps_backend,
             atomic_ku_backend=ku_backend,
-            content_adapter=content_adapter,
             chunking_service=chunking_service,
             user_service=user_service,
             graph_intelligence=graph_intelligence,

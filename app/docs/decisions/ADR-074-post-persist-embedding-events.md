@@ -118,6 +118,14 @@ predicate coerces `updated_at` through `datetime()` because its storage type is
 writer-decided — ISO strings and native datetimes coexist in the live graph, and a bare `<`
 across types is null in Cypher (silently skips nodes).
 
+A third mode, `--audit` (L3b ruling, 2026-07-02), is the timestamp-free sweep: it selects
+EVERY embedded node and lets the §8 content-hash fine filter (entities) / the
+`embedding_source_text <> context_window` predicate (chunks) decide. It catches silent-pin
+states the `--stale` timestamps are blind to — a raced store leaves `embedding_updated_at`
+AHEAD of `updated_at` — plus missed publishes and field-map drift, spending API only on
+real mismatches. Because audit's candidate set is the whole corpus, its freshness-read
+failure mode is CLOSED (abort), not open — failing open would re-embed everything.
+
 ### 8. Content-hash idempotency — the freshness signal is content, not timestamps
 
 The timestamp predicate (`embedding_updated_at < updated_at`) is only a **coarse** proxy for
@@ -147,8 +155,10 @@ at store time saves nothing — the API call already happened):
 - **Failure mode is open:** any freshness-read error embeds the full batch — correctness
   over savings.
 - **Chunks need no hash field:** their uids are deterministic (`{parent_uid}:chunk:{index}`)
-  and `store_chunk_embeddings` already writes `embedding_source_text` (= the context window
-  at embed time), so raw text equality is the check. What chunks needed instead was
+  and `store_chunk_embeddings` writes `embedding_source_text` (= the exact text the vector
+  was generated from, passed per chunk — NOT the node-current context window, which could
+  have been rewritten by a conflicting re-chunk between event publish and store; L3a ruling
+  2026-07-02), so raw text equality is the check. What chunks needed instead was
   persistence that stops destroying good vectors: `store_content_with_chunks` now deletes
   only vanished uids and MERGEs survivors, wiping embedding fields only when the stored
   source text no longer matches the incoming context window. The worker then skips fresh

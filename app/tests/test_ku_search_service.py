@@ -22,17 +22,14 @@ class TestKuSearchServiceInitialization:
     def test_initialization_with_all_dependencies(self):
         """Test successful initialization with backend, then attrs set post-construction."""
         backend = MagicMock()
-        content_repo = MagicMock()
         intelligence = MagicMock()
         query_builder = MagicMock()
 
         service = PsSearchService(backend=backend)
-        service.content_repo = content_repo
         service.intelligence = intelligence
         service.query_builder = query_builder
 
         assert service.backend == backend
-        assert service.content_repo == content_repo
         assert service.intelligence == intelligence
         assert service.query_builder == query_builder
 
@@ -74,7 +71,6 @@ class TestTextSearch:
         """Create service with mocked dependencies."""
         backend = MagicMock()
         svc = PsSearchService(backend=backend)
-        svc.content_repo = MagicMock()
         svc.query_builder = AsyncMock()
         return svc
 

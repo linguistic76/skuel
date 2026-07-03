@@ -24,6 +24,7 @@ import pytest
 from neo4j.exceptions import ServiceUnavailable
 
 from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
+from core.models.ps_content.content_chunks import ContentChunkType
 
 
 class _FakeConnection:
@@ -46,7 +47,7 @@ class _FakeChunk:
     chunk_id: str
     text: str
     context_window: str
-    chunk_type: str = "CONTENT"
+    chunk_type: ContentChunkType = ContentChunkType.SECTION
     chunk_index: int = 0
     word_count: int = 2
     chunking_version: str = "v1"
@@ -107,6 +108,47 @@ async def test_chunk_upsert_merges_and_preserves_unchanged_embeddings():
     assert "chunk.embedding_source_text IS NULL" in chunk_query
     assert chunk_params["chunk_uid"] == "ps:test:doc:chunk:0"
     assert chunk_params["context_window"] == "window 0"
+
+
+@pytest.mark.asyncio
+async def test_content_upsert_writes_no_metadata_node():
+    """The fabricated :ContentMetadata write is gone (L1 ruling 2026-07-02) —
+    the upsert touches only :Content and its HAS_CONTENT link."""
+    conn = _FakeConnection()
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_content_with_chunks("ps:test:doc", _content(1))
+
+    upsert_query, upsert_params = conn.queries[0]
+    assert "ContentMetadata" not in upsert_query
+    assert "HAS_METADATA" not in upsert_query
+    assert "complexity_score" not in upsert_params
+
+
+@pytest.mark.asyncio
+async def test_store_chunk_embeddings_stamps_event_text_provenance():
+    """embedding_source_text comes from the texts the vectors were generated
+    from (per-chunk param), NEVER the node-current context_window — a
+    conflicting re-chunk between publish and store must not mislabel the
+    vector (L3a ruling 2026-07-02)."""
+    conn = _FakeConnection(rows=[{"updated_count": 2}])
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_chunk_embeddings(
+        chunk_uids=["c1", "c2"],
+        embeddings=[[0.1], [0.2]],
+        version="v3",
+        model="test-model",
+        texts=["window 1", "window 2"],
+    )
+
+    query, params = conn.queries[0]
+    assert "c.embedding_source_text = chunk_data.source_text" in query
+    assert "c.context_window" not in query
+    assert params["chunks"] == [
+        {"uid": "c1", "embedding": [0.1], "source_text": "window 1"},
+        {"uid": "c2", "embedding": [0.2], "source_text": "window 2"},
+    ]
 
 
 @pytest.mark.asyncio
