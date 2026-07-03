@@ -263,8 +263,8 @@ lp:def456ghi012
 
 ```cypher
 // Learning Path contains steps
-(lp:Lp)-[:HAS_STEP {order: 1, sequence: 1}]->(ps:PathStep)
-(lp:Lp)-[:HAS_STEP {order: 2, sequence: 2}]->(ps:PathStep)
+(lp:LearningPath)-[:HAS_STEP {order: 1, sequence: 1}]->(ps:PathStep)
+(lp:LearningPath)-[:HAS_STEP {order: 2, sequence: 2}]->(ps:PathStep)
 ```
 
 ---

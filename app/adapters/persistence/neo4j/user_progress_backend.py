@@ -97,21 +97,32 @@ class UserProgressBackend:
         )
 
     async def get_active_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get user's active (enrolled) learning paths."""
+        """Get user's active (enrolled) learning paths.
+
+        Enrollment lifecycle lives on the ENROLLED_IN relationship's r.status
+        (written by UserBackend.enroll_in_learning_path / complete_learning_path) —
+        an ENROLLED edge with enrollment_status never had a writer.
+        """
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[e:ENROLLED]->(p:Lp)
-            WHERE e.enrollment_status = 'active'
+            MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(p:LearningPath)
+            WHERE coalesce(r.status, 'active') IN ['active', 'in_progress']
             RETURN collect(p.uid) as active_paths
             """,
             {"user_uid": user_uid},
         )
 
     async def get_completed_learning_paths(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get user's completed learning paths."""
+        """Get user's completed learning paths.
+
+        Reads r.status='completed' on ENROLLED_IN — the state
+        UserBackend.complete_learning_path actually writes (a :COMPLETED edge
+        to LearningPath never had a writer).
+        """
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[c:COMPLETED]->(p:Lp)
+            MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(p:LearningPath)
+            WHERE r.status = 'completed'
             RETURN collect(p.uid) as completed_paths
             """,
             {"user_uid": user_uid},

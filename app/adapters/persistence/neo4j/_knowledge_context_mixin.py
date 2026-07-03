@@ -215,7 +215,7 @@ class _KnowledgeContextMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Find learning paths that teach a KU via PathStep chain."""
         query = """
-        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:Lp)
+        MATCH (ku:Entity {uid: $ku_uid})<-[:CONTAINS_KNOWLEDGE]-(ps:PathStep)<-[:HAS_STEP]-(lp:LearningPath)
         RETURN DISTINCT lp.uid as path_uid
         ORDER BY lp.created_at DESC
         LIMIT $limit

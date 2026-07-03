@@ -181,10 +181,15 @@ class _AdaptiveMixin:
         return await self.execute_query(query, {"user_uid": user_uid})
 
     async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Query user's active/in-progress learning paths."""
+        """Query user's active/in-progress learning paths.
+
+        Enrollment lifecycle lives on the ENROLLED_IN relationship
+        (UserBackend.enroll_in_learning_path sets r.status='active';
+        complete_learning_path flips it to 'completed') — not on the LP node.
+        """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:Lp)
-        WHERE lp.status = 'active' OR lp.status = 'in_progress'
+        MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath)
+        WHERE coalesce(r.status, 'active') IN ['active', 'in_progress']
         RETURN lp
         """
         return await self.execute_query(query, {"user_uid": user_uid})
@@ -192,9 +197,14 @@ class _AdaptiveMixin:
     async def query_completed_learning_paths(
         self, user_uid: UserUID
     ) -> Result[list[Neo4jProperties]]:
-        """Query UIDs of completed learning paths for a user."""
+        """Query UIDs of completed learning paths for a user.
+
+        Reads r.status='completed' on ENROLLED_IN — the state
+        UserBackend.complete_learning_path actually writes.
+        """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:COMPLETED]->(lp:Lp)
+        MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath)
+        WHERE r.status = 'completed'
         RETURN lp.uid as lp_uid
         """
         return await self.execute_query(query, {"user_uid": user_uid})

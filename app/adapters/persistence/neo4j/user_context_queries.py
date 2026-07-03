@@ -713,9 +713,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // ====================================================================
 // PATH STEPS - Fetch active steps with rich data
+// IN_PROGRESS is the edge the PS enrollment door writes (PsMasteryService);
+// WORKING_ON/ENROLLED_IN had no production writer targeting PathStep, which
+// left active_path_steps_rich permanently empty (systems-review Arc B).
 // ====================================================================
-OPTIONAL MATCH (user)-[:WORKING_ON|ENROLLED_IN]->(ps:PathStep)
-WHERE ps.status IN ['draft', 'active']
+OPTIONAL MATCH (user)-[:IN_PROGRESS]->(ps:PathStep)
+// Vault-ingested PathSteps carry no status property (NULL) — treat missing
+// status as active; the filter only excludes explicitly terminal states.
+WHERE ps.status IS NULL OR ps.status IN ['draft', 'active']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

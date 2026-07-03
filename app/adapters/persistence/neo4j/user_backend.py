@@ -715,7 +715,7 @@ class UserBackend:
 
             query = """
             MATCH (u:User {uid: $user_uid})
-            MATCH (lp:Lp {uid: $learning_path_uid})
+            MATCH (lp:LearningPath {uid: $learning_path_uid})
             MERGE (u)-[r:ENROLLED_IN]->(lp)
             SET r.enrolled_at = coalesce(r.enrolled_at, datetime()),
                 r.target_completion = $target_completion,
@@ -739,10 +739,12 @@ class UserBackend:
                 record = await result.single()
 
                 if not record:
+                    # MERGE only fails to produce a row when a MATCH found nothing —
+                    # the LP (or user) doesn't exist, not a database outage.
                     return Result.fail(
-                        Errors.database(
-                            operation="enroll_in_learning_path",
-                            message="Failed to create enrollment",
+                        Errors.not_found(
+                            resource="LearningPath",
+                            identifier=learning_path_uid,
                         )
                     )
 
@@ -776,7 +778,7 @@ class UserBackend:
         """
         try:
             query = """
-            MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:Lp {uid: $learning_path_uid})
+            MATCH (u:User {uid: $user_uid})-[r:ENROLLED_IN]->(lp:LearningPath {uid: $learning_path_uid})
             SET r.status = 'completed',
                 r.completed_at = datetime(),
                 r.completion_score = $completion_score,

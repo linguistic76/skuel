@@ -136,11 +136,12 @@ async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
 
 @pytest.mark.asyncio
 async def test_enrollment_gate_fires(skuel_app, populated_test_data):
-    """User with knowledge units but no LP enrollment gets the enrollment gate response.
+    """User with neither an active PathStep nor an LP enrollment gets the gate response.
 
-    populated_test_data has KUs but no LearningPath enrollment, so
-    user_context.enrolled_path_uids is empty and the pipeline short-circuits
-    before any LLM call.
+    populated_test_data has KUs but no IN_PROGRESS PathStep and no LearningPath
+    enrollment, so both user_context.current_ps_uids and enrolled_path_uids are
+    empty and the pipeline short-circuits before any LLM call (PS-first gate,
+    systems-review Arc B).
     """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
@@ -153,10 +154,10 @@ async def test_enrollment_gate_fires(skuel_app, populated_test_data):
     data = result.value
 
     assert data["mode"] == "enrollment_gate", (
-        f"Expected enrollment_gate mode for user with no LP, got: {data['mode']}"
+        f"Expected enrollment_gate mode for user with no PS and no LP, got: {data['mode']}"
     )
-    assert "Learning Path" in data["answer"], (
-        "Enrollment gate response should mention Learning Path"
+    assert "Path Step" in data["answer"], (
+        "Enrollment gate response should point at PathStep enrollment first"
     )
 
 

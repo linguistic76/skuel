@@ -18,7 +18,7 @@ from ui.components import Icon
 
 def render_askesis_shell(
     username: str = "User",
-    learning_path_label: str = "Learning path",
+    learning_scope_label: str = "Your learning",
 ) -> Any:
     """
     Full-height 3-column chat surface for /askesis.
@@ -27,7 +27,7 @@ def render_askesis_shell(
     Alpine root state: { sidebarOpen: true }
     """
     return Div(
-        _sidebar(username, learning_path_label),
+        _sidebar(username, learning_scope_label),
         _center_panel(),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
@@ -81,7 +81,7 @@ def render_assistant_message(text: str, sources: list[dict] | None = None) -> An
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _sidebar(username: str, learning_path_label: str) -> Any:
+def _sidebar(username: str, learning_scope_label: str) -> Any:
     """Left sidebar: conversation list + controls. Width transitions 274px ↔ 62px."""
     return Div(
         # Full sidebar content (shown when open)
@@ -90,7 +90,7 @@ def _sidebar(username: str, learning_path_label: str) -> Any:
             _sb_new_chat_btn(),
             _sb_search_field(),
             _sb_history(),
-            _sb_account_footer(username, learning_path_label),
+            _sb_account_footer(username, learning_scope_label),
             cls="flex flex-col h-full",
             **{"x-show": "sidebarOpen"},
         ),
@@ -181,7 +181,7 @@ def _sb_history() -> Any:
     )
 
 
-def _sb_account_footer(username: str, learning_path_label: str) -> Any:
+def _sb_account_footer(username: str, learning_scope_label: str) -> Any:
     return Div(
         _response_mode_panel(),
         Div(
@@ -195,7 +195,7 @@ def _sb_account_footer(username: str, learning_path_label: str) -> Any:
                     cls="text-[13.5px] font-semibold text-foreground leading-tight",
                 ),
                 Div(
-                    learning_path_label,
+                    learning_scope_label,
                     cls="text-[11.5px] text-muted-foreground leading-tight truncate",
                 ),
                 cls="flex-1 min-w-0",
@@ -334,7 +334,7 @@ def _composer_area() -> Any:
         Div(
             _composer_form(),
             P(
-                "Askesis answers from your Learning Path and cites its sources. Verify anything important.",
+                "Askesis answers from your Path Steps and Learning Paths, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
             ),
             cls="max-w-[768px] mx-auto w-full px-4",
@@ -347,7 +347,7 @@ def _composer_form() -> Any:
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
         Textarea(
-            placeholder="Ask about your Learning Path…",
+            placeholder="Ask about your learning…",
             name="message",
             rows=1,
             cls="w-full border-none outline-none bg-transparent resize-none text-[15px] leading-[1.6] text-foreground placeholder:text-muted-foreground",

@@ -205,7 +205,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
     async def get_learning_path_uids(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get learning paths containing this KU."""
         query = """
-        MATCH (lp:Lp)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
+        MATCH (lp:LearningPath)-[:CONTAINS_KNOWLEDGE|INCLUDES_KNOWLEDGE]->(ku:Entity {uid: $ku_uid})
         RETURN lp.uid as uid
         LIMIT 50
         """
