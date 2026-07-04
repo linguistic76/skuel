@@ -153,10 +153,20 @@ SKUEL's `/core/models/validation_rules.py` provides reusable validator factories
 
 ```python
 def validate_future_date(*field_names: str) -> Callable:
-    """Validate date/datetime is not in the past"""
+    """Validate date/datetime is not in the past.
+
+    Honors validation context {"allow_past_dates": True} — the
+    EXTRACT_ACTIVITIES converters pass it via model_validate() because
+    historical vault notes legitimately carry past dates (Arc E, G10).
+    Constructor / FastHTML auto-validation pass no context → guard stands.
+    """
     @field_validator(*field_names)
-    def _validate(cls, v: date | datetime | None) -> date | datetime | None:
+    def _validate(
+        cls, v: date | datetime | None, info: ValidationInfo
+    ) -> date | datetime | None:
         if v is None:
+            return v
+        if info.context and info.context.get("allow_past_dates"):
             return v
         if isinstance(v, datetime):
             if v <= datetime.now():

@@ -435,7 +435,13 @@ graph. See `adapters/persistence/neo4j/bulk_upsert_backend.py`.
 
 ## Relationship Validation
 
-Validate that referenced UIDs exist before creating edges:
+Validate that referenced UIDs exist before creating edges. Dangling targets
+otherwise no-op silently inside the relationship Cypher (the MATCH miss drops
+the UNWIND row), so this pre-check is the only place a phantom UID becomes
+visible. Real reconciler syncs (`VaultReconciler.sync` — both vault doors and
+`./dev vault-sync`) always pass `validate_targets=True` (Arc E, G10); every
+missing (source, target) pair lands in the stats `warnings` list and surfaces
+through the sync UI/API:
 
 ```python
 stats = await service.ingest_directory(
@@ -443,8 +449,8 @@ stats = await service.ingest_directory(
     validate_targets=True,  # Enable validation
 )
 
-# Warnings logged for missing targets:
-# [ku] 'ku.nonexistent' referenced by 3 entities but does not exist
+# stats.warnings — one entry per missing reference:
+# "lp.mindfulness-101: relationship target 'ps.phantom-step' does not exist — edge not created"
 ```
 
 ### Direct Validation API
