@@ -124,7 +124,7 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-13 of SKUEL's 20 entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, Resource, FormTemplate, FormSubmission, EntryReport, ActivityReport).
+14 of SKUEL's entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, FormTemplate, FormSubmission, EntryReport, ActivityReport).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
@@ -132,6 +132,7 @@ title: My Task Title    # Display title
 | `PathStep` | `ps`, `Lesson` (legacy) | `ps:` | `ps:mindfulness:breath-awareness-basics` |
 | `Exercise` | — | `ex:` | `ex:sel:know-yourself-check-in` |
 | `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
+| `Resource` | — | `resource:` | `resource:atlas-of-the-heart` |
 | `Task` | — | `task:` | `task:log-first-5-sessions` |
 | `Goal` | — | `goal:` | `goal:mindfulness-beginner` |
 | `Habit` | — | `habit:` | `habit:daily-2min-breath` |
@@ -394,6 +395,8 @@ uses_kus:
   - ku:namespace:concept                             # USES_KU → Ku
 exercise_uids:
   - ex:namespace:exercise-slug                       # HAS_EXERCISE → Exercise (learning loop anchor)
+resource_uids:
+  - resource:book-slug                               # CITES_RESOURCE → Resource (works on Ku YAML too)
 
 # Learning Path
 connections:
