@@ -132,6 +132,14 @@ This is the same UID the calendar routes use, so vault-synced daily notes
 resolve to the correct SKUEL journal page automatically. You may still
 supply an explicit `uid:` to override.
 
+An **explicit authored** `uid:` follows the vault convention (colons in the
+file, dots in the graph): `uid: moc:worldview` persists as `moc.worldview`.
+Any authored prefix is accepted — a UserEntry uid is an opaque deterministic
+join key, never type information (ADR-013 never-sniff; the entity kind is
+whatever `type:` says). The *derived* periodic UIDs in the table above are
+deliberately NOT normalized — their colon form is the calendar routes' join
+contract.
+
 ### Markdown body → `content`
 
 For a `type: user_entry` **markdown** file, the parsed body (everything
@@ -171,6 +179,43 @@ the single implementation of:
 
 `UserEntryService` and the ingestion bridge both hold the same resolver
 instance; there is no second code path.
+
+---
+
+## MOC files (`moc: true`) — body links → ORGANIZES edges
+
+`moc: true` is a frontmatter field **any** ingestible file can carry — it is
+orthogonal to `type:`, pipeline, and vault. Its one effect: after the entity
+persists, the file's body links become
+`(entity)-[:ORGANIZES {order}]->(target)` edges to each link target that
+resolves to an already-ingested entity (order = document position, 0-based).
+MOC identity stays **emergent**: the `moc` field flows onto the node as an
+inert, human-visible property that nothing queries — a node is a MOC because
+it has ORGANIZES edges (the "ORGANIZES Path" to knowledge).
+
+- **Link forms:** wiki-links (`[[target]]`, `|alias`, `#heading`) and
+  markdown links (`[label](target.md)`, URL-encoded paths decoded). External
+  URLs, image embeds, and non-`.md` attachments are ignored.
+- **Resolution:** link target → vault file path suffix →
+  `IngestionMetadata` path→uid row, scoped to the vault that governs the MOC
+  file. Only file-backed entities resolve.
+- **Two postures, one mechanism (ruled 2026-07-04):** in a *personal* vault
+  an unresolved link is a **plan**, not an error — skipped silently, filling
+  in when the MOC file is next re-ingested after the target lands. The
+  *content* vault keeps Arc E strict dangling-target warnings.
+- **Re-sync semantics:** editing the MOC re-draws its edges on next sync —
+  removed links drop their edges (full refresh, mirroring how rel-config
+  `order_property` values refresh); an unchanged file is skipped entirely
+  (no-op). File deletion propagates through the normal deletion
+  reconciliation (entity + edges).
+- **Batch timing:** the directory door applies MOC passes at the END of a
+  sync — after `IngestionMetadata` stamping and deletion reconciliation — so
+  a MOC and its targets ingested in the *same* sync link correctly.
+
+Implementation: `core/services/ingestion/moc_links.py` (extraction),
+`UnifiedIngestionService._apply_moc_links` (resolution + posture),
+`IngestionWriteBackend.resolve_path_suffixes` / `refresh_moc_organizes`
+(Cypher).
 
 ---
 

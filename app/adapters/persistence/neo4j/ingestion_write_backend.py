@@ -105,3 +105,63 @@ class IngestionWriteBackend:
             uids=list(uids),
         )
         return [r["uid"] for r in records]
+
+    async def resolve_path_suffixes(
+        self, suffixes: list[str], root_prefix: str | None
+    ) -> list[dict[str, Any]]:
+        """Resolve vault note path suffixes to entity uids via IngestionMetadata.
+
+        The tracker stores canonical absolute paths, so a link target like
+        ``/0design/delmad.md`` resolves with ``ENDS WITH``. ``root_prefix``
+        scopes matches to one vault (a personal MOC must not resolve into the
+        content vault on a shared basename). Edge-file rows (``edge:``-prefixed
+        uid slot) are excluded — they map to relationships, not nodes.
+
+        May return multiple rows per suffix (same basename in two folders);
+        the caller picks a deterministic winner.
+        """
+        records, _, _ = await self._driver.execute_query(
+            """
+            UNWIND $suffixes AS suffix
+            MATCH (s:IngestionMetadata)
+            WHERE s.file_path ENDS WITH suffix
+              AND ($root_prefix IS NULL OR s.file_path STARTS WITH $root_prefix)
+              AND NOT s.entity_uid STARTS WITH 'edge:'
+            RETURN suffix, s.entity_uid AS entity_uid, s.file_path AS file_path
+            """,
+            suffixes=list(suffixes),
+            root_prefix=root_prefix,
+        )
+        return [dict(r) for r in records]
+
+    async def refresh_moc_organizes(self, source_uid: str, target_uids: list[str]) -> int:
+        """Make ``target_uids`` (in order) the complete set of the source's
+        outgoing ORGANIZES edges.
+
+        The one write of the MOC edge pass: stale edges (targets no longer
+        linked in the body) are deleted, surviving/new edges are MERGEd, and
+        ``order`` is refreshed from list position (0-based — same contract as
+        the rel-config ``order_property`` machinery). An empty ``target_uids``
+        drops every outgoing ORGANIZES edge (an emptied MOC body). Targets
+        that don't exist as :Entity nodes are silently skipped by the MATCH —
+        the caller decides whether unresolved links warrant warnings.
+
+        Returns the number of ORGANIZES edges now present.
+        """
+        records, _, _ = await self._driver.execute_query(
+            """
+            MATCH (n:Entity {uid: $source_uid})
+            OPTIONAL MATCH (n)-[stale:ORGANIZES]->(t:Entity)
+            WHERE NOT t.uid IN $target_uids
+            DELETE stale
+            WITH DISTINCT n
+            UNWIND range(0, size($target_uids) - 1) AS idx
+            MATCH (target:Entity {uid: $target_uids[idx]})
+            MERGE (n)-[r:ORGANIZES]->(target)
+            SET r.order = idx
+            RETURN count(r) AS edges
+            """,
+            source_uid=source_uid,
+            target_uids=list(target_uids),
+        )
+        return int(records[0]["edges"]) if records else 0

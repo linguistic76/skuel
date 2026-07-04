@@ -110,6 +110,12 @@ class IngestionWriteOperations(Protocol):
 
     async def find_existing_uids_for_label(self, label: NeoLabel, uids: list[str]) -> list[str]: ...
 
+    async def resolve_path_suffixes(
+        self, suffixes: list[str], root_prefix: str | None
+    ) -> list[dict[str, Any]]: ...
+
+    async def refresh_moc_organizes(self, source_uid: str, target_uids: list[str]) -> int: ...
+
 
 @runtime_checkable
 class BulkUpsertOperations(Protocol):

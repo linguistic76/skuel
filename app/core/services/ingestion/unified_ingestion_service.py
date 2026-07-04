@@ -48,6 +48,7 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.services.vault.vault_descriptor import VaultKind
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -62,6 +63,7 @@ from .config import (
     is_ingestible_path,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
+from .moc_links import extract_moc_link_suffixes
 from .parser import parse_markdown, parse_yaml
 from .preparer import (
     prepare_edge_data,
@@ -528,12 +530,96 @@ class UnifiedIngestionService:
             )
 
     # ========================================================================
+    # MOC EDGE PASS — ``moc: true`` body links → ORGANIZES edges
+    # ========================================================================
+
+    async def _apply_moc_links(
+        self,
+        entity_uid: str,
+        link_suffixes: list[str],
+        file_path: Path,
+    ) -> list[str]:
+        """The MOC edge pass (resolve half): body links → ordered ORGANIZES edges.
+
+        ``moc: true`` on any ingestible file has exactly one effect — this pass.
+        Each extracted link suffix is resolved against the tracker's path→uid
+        mapping (``IngestionMetadata``), scoped to the vault that governs the
+        MOC file; resolved targets become ``(moc)-[:ORGANIZES {order}]->(target)``
+        edges with ``order`` = document position. The write is a full refresh:
+        edges for links removed from the body are deleted (mirrors how
+        rel-config ``order_property`` values refresh on re-ingest).
+
+        MOC identity stays emergent — nothing reads the ``moc`` node property;
+        this pass runs off the frontmatter at ingestion time only, so dangling
+        links fill in when the MOC file is next re-ingested (edit or --force).
+
+        Unresolved links are posture-dependent (ruled 2026-07-04): PERSONAL
+        vaults skip silently (a MOC names territory before content exists —
+        dangling links are plans, not errors); the CONTENT vault gets Arc E
+        style warnings (returned for the sync stats). No registry → personal
+        posture, unscoped resolution (tests / minimal composes).
+
+        Backend: IngestionWriteBackend.resolve_path_suffixes /
+        refresh_moc_organizes.
+        """
+        root_prefix: str | None = None
+        content_posture = False
+        if self.vault_registry is not None:
+            descriptor = self.vault_registry.resolve_by_path(file_path, self.default_user_uid)
+            if descriptor.is_ok:
+                root_prefix = str(descriptor.value.root.resolve())
+                content_posture = descriptor.value.kind is VaultKind.CONTENT
+
+        resolved_by_suffix: dict[str, str] = {}
+        if link_suffixes:
+            rows = await self._write_backend.resolve_path_suffixes(link_suffixes, root_prefix)
+            # Same basename in two folders → multiple rows for one suffix.
+            # Deterministic winner: shortest path, then lexicographic (closest
+            # to Obsidian's shortest-path link resolution).
+            candidates: dict[str, list[tuple[int, str, str]]] = {}
+            for row in rows:
+                path = str(row["file_path"])
+                candidates.setdefault(str(row["suffix"]), []).append(
+                    (len(path), path, str(row["entity_uid"]))
+                )
+            for suffix, matches in candidates.items():
+                resolved_by_suffix[suffix] = min(matches)[2]
+
+        target_uids: list[str] = []
+        for suffix in link_suffixes:
+            uid = resolved_by_suffix.get(suffix)
+            # Self-links are dropped (a MOC linking itself draws nothing);
+            # two links resolving to one entity keep the first position.
+            if uid is not None and uid != entity_uid and uid not in target_uids:
+                target_uids.append(uid)
+
+        edges = await self._write_backend.refresh_moc_organizes(entity_uid, target_uids)
+
+        unresolved = [s for s in link_suffixes if s not in resolved_by_suffix]
+        self.logger.info(
+            f"MOC edge pass for {entity_uid}: {edges} ORGANIZES edges "
+            f"({len(target_uids)} resolved, {len(unresolved)} unresolved of "
+            f"{len(link_suffixes)} links)"
+        )
+        if content_posture and unresolved:
+            return [
+                f"{entity_uid}: MOC link target '{suffix}' does not resolve to an "
+                "ingested entity — ORGANIZES edge not created"
+                for suffix in unresolved
+            ]
+        return []
+
+    # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
 
     @with_error_handling("ingest_file", error_type="system")
     async def ingest_file(
-        self, file_path: Path, *, user_uid: UserUID | None = None
+        self,
+        file_path: Path,
+        *,
+        user_uid: UserUID | None = None,
+        defer_moc_pass: bool = False,
     ) -> Result[dict[str, Any]]:
         """
         Ingest a single file (MD or YAML) into Neo4j.
@@ -552,6 +638,11 @@ class UnifiedIngestionService:
             file_path: Path to file to ingest
             user_uid: Override user UID for multi-tenant entities.
                       If not provided, uses self.default_user_uid.
+            defer_moc_pass: When True (the directory/batch door), a
+                      ``moc: true`` file's ORGANIZES edge pass is NOT run
+                      inline — the batch applies it end-of-sync, after
+                      IngestionMetadata rows land, so same-sync link targets
+                      resolve. Direct callers keep the default (inline).
 
         Returns:
             Result with ingestion details including uid, title, entity_type
@@ -625,7 +716,7 @@ class UnifiedIngestionService:
                     )
                 )
             effective_user_uid = self._resolve_owner(file_path, user_uid)
-            return await ingest_user_entry(
+            ue_result = await ingest_user_entry(
                 data=data,
                 file_path=file_path,
                 user_uid=effective_user_uid,
@@ -634,6 +725,16 @@ class UnifiedIngestionService:
                 body=body,
                 user_entry_processor=self.user_entry_processor,
             )
+            # MOC edge pass — the user-entry door bypasses prepare_entity_data,
+            # so link extraction happens here. The batch door defers to
+            # end-of-sync (same-sync targets need their metadata rows first).
+            if ue_result.is_ok and data.get("moc") is True and not defer_moc_pass:
+                ue_moc_warnings = await self._apply_moc_links(
+                    str(ue_result.value["uid"]), extract_moc_link_suffixes(body), file_path
+                )
+                if ue_moc_warnings:
+                    ue_result.value["moc_warnings"] = ue_moc_warnings
+            return ue_result
 
         # Validate UID format before preparation (early fail-fast)
         uid_result = validate_uid_format(entity_type, data, file_path)
@@ -662,6 +763,11 @@ class UnifiedIngestionService:
         validation_result = validate_entity_data(entity_type, entity_data, file_path)
         if validation_result.is_error:
             return Result.fail(validation_result)
+
+        # MOC edge pass input (``moc: true`` files): the transient link-suffix
+        # list must never persist as a node property — pop before the upsert,
+        # apply after (the plain ``moc`` field itself stays, inert).
+        moc_link_suffixes: list[str] | None = entity_data.pop("_moc_links", None)
 
         # For PathStep: pop content before Neo4j storage — content lives on :Content node, not :Entity node.
         # word_count is written unconditionally: the bulk upsert (`n += props`)
@@ -720,19 +826,28 @@ class UnifiedIngestionService:
                 entity_data["uid"], ku_content_body, file_format, str(file_path)
             )
 
-        return Result.ok(
-            {
-                "uid": entity_data["uid"],
-                "title": entity_data.get("title") or entity_data.get("name"),
-                "entity_type": entity_type.value,  # Serialize as string for JSON
-                "format": file_format,
-                "success": True,
-                "nodes_created": stats.nodes_created,
-                "nodes_updated": stats.nodes_updated,
-                "relationships_created": stats.relationships_created,
-                "chunks_generated": chunks_generated,  # Track whether chunking succeeded
-            }
-        )
+        # MOC edge pass (inline for the direct single-file door; the batch
+        # door defers to end-of-sync so same-sync targets resolve).
+        moc_warnings: list[str] = []
+        if moc_link_suffixes is not None and not defer_moc_pass:
+            moc_warnings = await self._apply_moc_links(
+                str(entity_data["uid"]), moc_link_suffixes, file_path
+            )
+
+        result_payload: dict[str, Any] = {
+            "uid": entity_data["uid"],
+            "title": entity_data.get("title") or entity_data.get("name"),
+            "entity_type": entity_type.value,  # Serialize as string for JSON
+            "format": file_format,
+            "success": True,
+            "nodes_created": stats.nodes_created,
+            "nodes_updated": stats.nodes_updated,
+            "relationships_created": stats.relationships_created,
+            "chunks_generated": chunks_generated,  # Track whether chunking succeeded
+        }
+        if moc_warnings:
+            result_payload["moc_warnings"] = moc_warnings
+        return Result.ok(result_payload)
 
     # ========================================================================
     # BATCH OPERATIONS - Delegate to batch module
@@ -852,7 +967,9 @@ class UnifiedIngestionService:
             effective_mode = "smart"
 
         async def _ingest_file_for_batch(path: Path) -> Result[Any]:
-            return await self.ingest_file(path, user_uid=effective_user_uid)
+            # defer_moc_pass: the batch applies MOC edge passes end-of-sync
+            # (after IngestionMetadata rows land) so same-sync targets resolve.
+            return await self.ingest_file(path, user_uid=effective_user_uid, defer_moc_pass=True)
 
         return await ingest_directory(
             directory=directory,
@@ -873,6 +990,7 @@ class UnifiedIngestionService:
             allowlist=effective_allowlist,
             owner_is_authoritative=self._owner_is_authoritative,
             post_persist_fn=self._ingest_post_persist,
+            moc_pass_fn=self._apply_moc_links,
         )
 
     async def ingest_vault(

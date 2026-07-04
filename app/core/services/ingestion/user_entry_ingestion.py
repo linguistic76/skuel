@@ -25,6 +25,7 @@ from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.services.ingestion.preparer import normalize_uid
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -223,6 +224,13 @@ async def build_user_entry_request(
     if file_path.is_absolute():
         ingestion_metadata["vault_file_path"] = str(file_path)
 
+    # ``moc: true`` rides into metadata as an inert, human-visible marker —
+    # nothing queries it (MOC identity is emergent: a node with ORGANIZES
+    # edges). The frontmatter flag's one live effect is the edge pass the
+    # ingestion door runs post-persist.
+    if data.get("moc") is True:
+        ingestion_metadata["moc"] = True
+
     # Derive a deterministic UID for periodic notes so vault-synced files land
     # on the same UID that the calendar routes use:
     # ue:{entry_kind}:{user_uid}:{period_key}.  This makes the SKUEL journal
@@ -231,6 +239,14 @@ async def build_user_entry_request(
     # entries.  The `date:` field is parsed by PyYAML as datetime.date, so
     # .isoformat() normalises it to the string the routes expect.
     uid_override: str | None = data.get("uid")
+    if uid_override:
+        # Authored uids follow the vault convention: colons in the file, dots
+        # in the graph (``moc:worldview`` → ``moc.worldview``). The prefix is
+        # opaque provenance, never type information (ADR-013 never-sniff), so
+        # any authored prefix is accepted. The DERIVED periodic uids below are
+        # deliberately NOT normalized — their colon form
+        # (``ue:daily:{user}:{date}``) is the calendar routes' join contract.
+        uid_override = normalize_uid(str(uid_override))
     if not uid_override:
         entry_kind = metadata.get("entry_kind") if isinstance(metadata, dict) else None
         if entry_kind == "daily":
