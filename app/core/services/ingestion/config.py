@@ -294,6 +294,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
             "prerequisite_step_uids",
             "prerequisite_knowledge_uids",
             "learning_path_uids",
+            # Was missing (latent): a colon-authored ``organizes:`` target kept
+            # its colons and the edge MATCH silently missed the dot-stored uid.
+            # Also load-bearing for the MOC pass, which spares frontmatter-
+            # authored ORGANIZES targets from its stale-edge refresh.
+            "organizes",
         ),
         uid_singular_to_plural_fields=(
             ("learning_path_uid", "learning_path_uids"),

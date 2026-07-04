@@ -50,6 +50,7 @@ from .config import (
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
+from .moc_links import frontmatter_organizes_targets
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import (
@@ -255,20 +256,26 @@ def parse_file_sync(
             return (None, None, error.to_dict())
 
         # Stage 4: Pre-preparation validation (same contract as the single-file
-        # door — ingest_file validates UID prefix then required fields)
-        uid_result = validate_uid_format(entity_type, data, file_path)
-        if uid_result.is_error:
-            err = uid_result.expect_error()
-            error = create_error(
-                file_path=file_path,
-                error=err.display_message,
-                stage="validation",
-                error_type="validation",
-                entity_type=entity_type_str,
-                field="uid",
-                suggestion=f"Use the UID prefix for {entity_type_str} entities (see error).",
-            )
-            return (None, None, error.to_dict())
+        # door — ingest_file validates UID prefix then required fields).
+        # USER_ENTRY is exempt, mirroring ingest_file (its USER_ENTRY branch
+        # returns before validate_uid_format): an authored UserEntry uid is an
+        # opaque deterministic join key (e.g. ``moc:worldview``), never type
+        # information (ADR-013 never-sniff) — the entity kind is whatever
+        # ``type:`` says, and the service normalizes/persists the uid.
+        if entity_type != EntityType.USER_ENTRY:
+            uid_result = validate_uid_format(entity_type, data, file_path)
+            if uid_result.is_error:
+                err = uid_result.expect_error()
+                error = create_error(
+                    file_path=file_path,
+                    error=err.display_message,
+                    stage="validation",
+                    error_type="validation",
+                    entity_type=entity_type_str,
+                    field="uid",
+                    suggestion=f"Use the UID prefix for {entity_type_str} entities (see error).",
+                )
+                return (None, None, error.to_dict())
 
         validation_result = validate_required_fields(entity_type, data, file_path)
         if validation_result.is_error:
@@ -506,6 +513,7 @@ async def ingest_directory(
         Awaitable[None],
     ]
     | None = None,
+    moc_pass_fn: Callable[[str, list[str], Path, list[str]], Awaitable[list[str]]] | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -558,6 +566,16 @@ async def ingest_directory(
             ``UnifiedIngestionService._ingest_post_persist``, embedding
             publishes + PathStep chunking). Never called for failed batches
             or in dry-run mode.
+        moc_pass_fn: Optional MOC edge-pass callback
+            (``UnifiedIngestionService._apply_moc_links``). Files with
+            ``moc: true`` have their body-link suffixes collected during the
+            per-type loops and applied END of sync — after IngestionMetadata
+            rows are stamped and deletion reconciliation ran — so link targets
+            ingested in the SAME sync resolve. Signature:
+            ``async (entity_uid, link_suffixes, file_path,
+            protected_target_uids) -> warnings``;
+            returned warnings merge into the sync stats (content-vault
+            posture; personal vaults return none).
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -904,6 +922,13 @@ async def ingest_directory(
     total_nodes_updated = 0
     total_relationships_created = 0
 
+    # MOC edge passes (``moc: true`` files) collected during the per-type loops
+    # and applied END of sync — after metadata stamping + deletion
+    # reconciliation — so same-sync link targets resolve via their
+    # IngestionMetadata rows. (entity_uid, ordered link suffixes, source file,
+    # frontmatter ``organizes:`` targets spared from the stale-edge refresh)
+    moc_items: list[tuple[str, list[str], Path, list[str]]] = []
+
     # USER_ENTRY routing: bypass the bulk upsert engine.  UserEntry requires the
     # full UserEntryService pipeline (OWNS edge, audience resolution, extraction).
     # When ingest_file_fn is wired (from UnifiedIngestionService), call it for
@@ -970,6 +995,18 @@ async def ingest_directory(
                                 EntityType.USER_ENTRY,
                                 str(result_data["uid"]),
                             )
+                            # MOC user_entry (e.g. a knowledge-pipeline map):
+                            # collect against the REAL service uid; the edge
+                            # pass runs end-of-sync (ingest_file deferred it).
+                            if ue_entity.get("moc") is True:
+                                moc_items.append(
+                                    (
+                                        str(result_data["uid"]),
+                                        list(ue_entity.get("_moc_links") or []),
+                                        ue_path,
+                                        frontmatter_organizes_targets(ue_entity),
+                                    )
+                                )
                         # Per-line extraction problems (parse/creation/link
                         # errors) that did not fail the file: surface as
                         # warnings (G10) — the entry persisted and stays
@@ -1017,8 +1054,22 @@ async def ingest_directory(
         # same shape ingest_file produces. The popped body is threaded to
         # post_persist_fn keyed by uid so the shared chunk step can run.
         chunk_sources: dict[str, PathStepChunkSource] = {}
+        batch_moc_items: list[tuple[str, list[str], Path, list[str]]] = []
         for entity in entities:
             source_path = entity.pop("_file_path", None)
+            # MOC link suffixes are engine-private too — popped for every
+            # entity (never a node property), collected for the end-of-sync
+            # edge pass when the file carried ``moc: true``.
+            moc_links = entity.pop("_moc_links", None)
+            if moc_links is not None and source_path:
+                batch_moc_items.append(
+                    (
+                        str(entity["uid"]),
+                        list(moc_links),
+                        Path(source_path),
+                        frontmatter_organizes_targets(entity),
+                    )
+                )
             if entity_type == EntityType.PATH_STEP:
                 # `or ""` — frontmatter `content:` with no value parses to None
                 content_body = entity.pop("content", "") or ""
@@ -1052,6 +1103,9 @@ async def ingest_directory(
                 relationship_passes.append((entity_type, entities, rel_config))
             if post_persist_fn is not None:
                 await post_persist_fn(entity_type, entities, chunk_sources)
+            # Only persisted entities get their MOC edge pass — a failed
+            # batch would refresh edges against a node that never landed.
+            moc_items.extend(batch_moc_items)
         else:
             batch_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",
@@ -1146,6 +1200,30 @@ async def ingest_directory(
                     "operation": "reconcile_deletions",
                 }
             )
+
+    # MOC edge passes — LAST, so every same-sync target has its
+    # IngestionMetadata row (stamped above) and deleted files are already
+    # retracted. Failure-isolated per MOC: the node persisted; the error is
+    # surfaced AND the file's metadata row is dropped so the next sync
+    # re-processes it (its hash would otherwise read as unchanged and the
+    # edge pass would never retry).
+    if moc_items and moc_pass_fn is not None:
+        for moc_uid, moc_links, moc_path, moc_protected in moc_items:
+            try:
+                validation_warnings.extend(
+                    await moc_pass_fn(moc_uid, moc_links, moc_path, moc_protected)
+                )
+            except NEO4J_EXCEPTIONS as e:
+                errors.append(
+                    IngestionError(
+                        file=str(moc_path),
+                        error=f"MOC edge pass failed for {moc_uid}: {e}",
+                        stage="moc_edge_pass",
+                        error_type="database",
+                    ).to_dict()
+                )
+                if tracker is not None and ingestion_mode != "full":
+                    await tracker.delete_ingestion_metadata([moc_path])
 
     duration = (datetime.now() - start_time).total_seconds()
 
