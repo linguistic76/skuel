@@ -193,12 +193,17 @@ class _LpStepMixin:
         self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[dict[str, Any]]]:
         """
-        List all learning paths for a user, with their steps.
+        List a user's learning paths (authored via HAS_PATH or enrolled via
+        ENROLLED_IN), with their steps.
+
+        ENROLLED_IN is the edge the enroll route writes; reading HAS_PATH
+        alone left every enrollment invisible on the pathways dashboard.
 
         Returns raw records: each record has 'p' (path node) and 'steps_data'.
         """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_PATH]->(p:Entity {entity_type: 'learning_path'})
+        MATCH (u:User {uid: $user_uid})-[:HAS_PATH|ENROLLED_IN]->(p:Entity {entity_type: 'learning_path'})
+        WITH DISTINCT p
         OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {entity_type: 'path_step'})
         WITH p, collect({step: s, sequence: r.sequence}) as steps_data
         ORDER BY p.uid DESC

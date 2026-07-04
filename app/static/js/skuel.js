@@ -712,15 +712,20 @@
 
                 init: function() {
                     var self = this;
-                    document.body.addEventListener('htmx:afterSwap', function(event) {
+                    // afterRequest (not afterSwap): error responses never swap,
+                    // so listening on afterSwap silently dropped every
+                    // boundary_handler error toast (G7 totality find). One
+                    // listener now surfaces X-Toast headers for successes,
+                    // hx-swap="none" responses, AND 4xx/5xx errors.
+                    document.body.addEventListener('htmx:afterRequest', function(event) {
                         var xhr = event.detail.xhr;
                         if (!xhr) return;
 
-                        var successMsg = xhr.getResponseHeader('X-Toast-Message');
-                        var successType = xhr.getResponseHeader('X-Toast-Type') || 'success';
+                        var msg = xhr.getResponseHeader('X-Toast-Message');
+                        var type = xhr.getResponseHeader('X-Toast-Type') || 'success';
 
-                        if (successMsg) {
-                            self.show(successMsg, successType);
+                        if (msg) {
+                            self.show(msg, type);
                         }
                     });
                 }

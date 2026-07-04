@@ -216,6 +216,19 @@ The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 - **Phase 4 — RevisedExercise** (the targeted revision) + why it is object-language (naming rationale).
 - **The Binding Graph Relationships**, **Service Architecture Summary**, and **API Routes Per Phase**.
 
+**Who triggers Phase 3:** a teacher (review queue), or the submission OWNER
+self-serving an AI review — `POST /api/exercises/report` (owner-or-teacher
+guard + per-user ADR-043 FULL-tier gate; surfaced as the "Request AI feedback"
+button on `/gradebook/{uid}`). Ruled 2026-07-03 (systems review R1); shipped
+PR #497 + care arc.
+
+**Teacher transition:** students auto-join the default teacher group
+(`group_default_{admin_uid}`, oldest HUMAN admin — `@skuel.local` service
+accounts excluded) on PathStep enrollment, and `teacher_review` submissions
+against CURRICULUM-scope exercises auto-share to the submitter's default group
+(fallback in `core/services/user_entry/audience_resolver.py`), landing in
+`/teaching/queue`.
+
 ---
 
 ## The Development Lens
@@ -334,7 +347,8 @@ that never closes the loop.
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (9 cluster files) |
-| `adapters/inbound/study_ui.py` | 2+3+4 | Student submit form, submissions list, feedback display |
+| `adapters/inbound/user_entry_ui.py` | 2+3+4 | Student submit form (`/submissions/exercise`), gradebook detail (`/gradebook/{uid}`), feedback display |
+| `adapters/inbound/user_entry_api.py` | 2+3 | UserEntry API (`POST /api/user-entries/upload` file-upload door) |
 | `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |

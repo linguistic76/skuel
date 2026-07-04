@@ -35,6 +35,8 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
         "groups_service": "groups",
         "batch_transcription_service": "batch_transcription",
         "processing_service": "user_entry_processor",
+        "user_service": "user",
+        "intelligence_tier": "intelligence_tier",
     },
 )
 

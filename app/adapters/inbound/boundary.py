@@ -118,12 +118,16 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
 
 
 def _header_safe(value: str) -> str:
-    """Coerce a header value to latin-1 (RFC 9110 — Starlette encodes strictly).
+    """Coerce a header value to latin-1 and a single line (RFC 9110).
 
     Error messages flow into X-Toast-Message verbatim; one em-dash must degrade
-    the toast character, not 500 the whole response.
+    the toast character, not 500 the whole response. Newlines are just as
+    fatal: a multi-line Pydantic validation message in a header makes uvicorn
+    drop the connection with NO response ("Invalid HTTP header value"), so
+    CR/LF and other control characters collapse to spaces.
     """
-    return value.encode("latin-1", "replace").decode("latin-1")
+    single_line = "".join(ch if ch == "\t" or (ch >= " " and ch != "\x7f") else " " for ch in value)
+    return single_line.encode("latin-1", "replace").decode("latin-1")
 
 
 def result_to_exception[T](result: Result[T]) -> T:

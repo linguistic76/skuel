@@ -297,7 +297,26 @@ class AudienceResolver:
                 self.logger.warning(f"Could not resolve exercise groups for auto-share: {reason}")
                 failed.append((request.fulfills_exercise_uid, reason))
             else:
-                for record in groups_result.value or []:
+                records = list(groups_result.value or [])
+                if not records:
+                    # Curriculum fallback (ruled 2026-07-04): vault-authored
+                    # exercises are never ASSIGNED to a group, so the
+                    # intersection is empty and a teacher_review submission
+                    # would dissolve with no reviewer. Route it to the
+                    # submitter's default group (owned by the default
+                    # teacher). The backend query is scope-gated: zero rows
+                    # for non-curriculum exercises.
+                    fallback = await self.sharing_service.backend.query_default_groups_for_curriculum_submission(
+                        exercise_uid=request.fulfills_exercise_uid,
+                        user_uid=user_uid,
+                    )
+                    if fallback.is_error:
+                        reason = str(fallback.expect_error())
+                        self.logger.warning(f"Curriculum default-group fallback failed: {reason}")
+                        failed.append((request.fulfills_exercise_uid, reason))
+                    else:
+                        records = list(fallback.value or [])
+                for record in records:
                     raw = record.get("group_uid") if isinstance(record, dict) else None
                     if not raw:
                         continue

@@ -175,6 +175,8 @@ def _greeting_header(plan: dict[str, Any]) -> "FT":
 def _hero_article(plan: dict[str, Any]) -> "FT":
     featured = plan.get("featured", {})
     uid = featured.get("uid", "")
+    if not uid:
+        return Div()
     title = featured.get("title", "")
     thread = featured.get("thread", "")
     excerpt = featured.get("excerpt", "")
@@ -185,7 +187,7 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
         Div(
             Span(
                 Span(cls="w-[7px] h-[7px] rounded-full bg-green-500 flex-none"),
-                "Ready now",
+                featured.get("status_label", "Ready now"),
                 cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-green-700",
             ),
             Span("·", cls="text-[11px] text-muted-foreground/70"),
@@ -297,7 +299,10 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
                 "hover:opacity-90 focus:outline-none focus-visible:ring-2"
             ),
         ),
-        Span(f"{minutes} min read", cls="font-mono text-[12.5px] text-muted-foreground"),
+        Span(
+            f"{minutes} min read" if minutes else "",
+            cls="font-mono text-[12.5px] text-muted-foreground",
+        ),
         Button(
             Icon("bookmark", cls="w-[17px] h-[17px]"),
             type="button",
@@ -542,7 +547,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
         title_cls = "text-[14px] text-muted-foreground line-through"
         row_cls = "py-2 px-0 hover:bg-muted/50"
         meta: FT = Span(
-            f"read · {minutes} min",
+            f"read · {minutes} min" if minutes else "read",
             cls="font-mono text-[11px] text-muted-foreground/50 whitespace-nowrap",
         )
     elif status == "current":
@@ -564,7 +569,8 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
         title_cls = "text-[14px] font-medium text-foreground/90"
         row_cls = "py-2 px-0 hover:bg-muted/50"
         meta = Span(
-            f"{minutes} min", cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap"
+            f"{minutes} min" if minutes else "",
+            cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap",
         )
 
     return A(

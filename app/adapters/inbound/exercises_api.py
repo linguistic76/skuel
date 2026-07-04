@@ -17,7 +17,7 @@ from fasthtml.common import Request
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.user_enums import UserRole
 from core.models.exercises.exercise_request import (
@@ -128,8 +128,13 @@ def create_exercises_api_routes(
                 )
             )
 
-        # Parse request body
-        parsed = await parse_json_body(request, ReportGenerateRequest)
+        # Parse request body — JSON for API callers, form-encoded for the
+        # HTMX "Request AI feedback" button (htmx posts urlencoded hx-vals).
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            parsed = await parse_json_body(request, ReportGenerateRequest)
+        else:
+            parsed = await parse_form_body(request, ReportGenerateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         report_request = parsed.value

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
     from core.models.user_entry.user_entry import UserEntry
+    from core.ports.query_types import SubmissionChain
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.entry_report_service import EntryReportService
@@ -203,6 +204,16 @@ class UserEntryOrchestrator:
         shows for exactly the entries the respond POST accepts (ADR-069).
         """
         return await self._entry_report.is_response_eligible(entry)
+
+    async def get_entry_chain(self, entry_uid: str) -> Result[SubmissionChain]:
+        """Full submission chain for an entry: exercise, feedback, revisions.
+
+        The ``exercise`` projection comes from the FULFILLS_EXERCISE edge —
+        the writer's single source of truth (entry metadata never carried it).
+
+        Backend: ReportRelationshipService.get_submission_chain.
+        """
+        return await self._report_relationship.get_submission_chain(entry_uid)
 
     async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
         """List the EntryReports attached to an entry (the "Responses" section).

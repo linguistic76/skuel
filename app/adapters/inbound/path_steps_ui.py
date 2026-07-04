@@ -296,6 +296,17 @@ def create_path_steps_ui_routes(
         form = await request.form()
         state = str(form.get("state", ""))
         review = str(form.get("review", "")) == "true"
+        if state not in ("read", "learning"):
+            # A malformed POST must not look like success — the old
+            # fall-through returned 200 and the caller's optimistic UI stuck.
+            return result_to_response(
+                Result.fail(
+                    Errors.validation(
+                        f"Unknown progress state {state!r} — expected 'read' or 'learning'",
+                        field="state",
+                    )
+                )
+            )
         result: Result[bool] | None = None
         if state == "read":
             result = await ps_service.mastery.mark_as_read(user_uid, uid)
@@ -330,8 +341,12 @@ def create_path_steps_ui_routes(
         user_uid = require_authenticated_user(request)
         form = await request.form()
         desired = str(form.get("on", "")).lower() == "true"
-        await ps_service.mastery.set_bookmark(user_uid, uid, desired)
-        return Div()  # hx-swap="none" — response is discarded
+        result = await ps_service.mastery.set_bookmark(user_uid, uid, desired)
+        if result.is_error:
+            # G7: a failed write must reach the user (X-Toast via the global
+            # listener), not vanish behind the optimistic star.
+            return result_to_response(result)
+        return Div()  # hx-swap="none" — success response is discarded
 
     # ========================================================================
     # ENGAGEMENT HTMX ACTIONS (slice 1: engage + abandon)
@@ -547,8 +562,12 @@ def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
     the loading placeholder (or itself on refresh after engagement).
     """
     if not tasks:
+        # Truthful empty state: this fragment renders for enrolled users too,
+        # and most steps ship no task templates — "click Start learning" was
+        # wrong on both axes for them.
         body: Any = P(
-            "No tasks yet. Click Start learning to create tasks from this step.",
+            "No tasks from this step yet. Steps that include task templates "
+            "create them when you start learning.",
             cls="text-[13px] text-muted-foreground",
         )
     else:

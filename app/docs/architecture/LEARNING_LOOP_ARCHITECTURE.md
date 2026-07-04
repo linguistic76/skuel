@@ -72,7 +72,7 @@ Every measurement flows from real user behaviour, not self-reported progress.
 
 | Track | Entry Point | Report Entity | Who Responds |
 |-------|------------|-----------------|--------------|
-| **Curriculum** | Student uploads a file against an Exercise | `ENTRY_REPORT` | Teacher or AI (via Exercise instructions) |
+| **Curriculum** | Student uploads a file against an Exercise | `ENTRY_REPORT` | Teacher or AI (via Exercise instructions); the AI report is triggered by the submission owner (self-serve, `POST /api/exercises/report`, ADR-043 tier-gated) or a teacher |
 | **Activity** | User's lived practice over a time window | `ACTIVITY_REPORT` | AI (scheduled or on-demand) or Admin |
 
 Activity Domains are **equal** entry points — not secondary. A user's Tasks, Goals, Habits,
@@ -449,7 +449,9 @@ Both say "here is what your work means."
 
 **What:** Evaluation of a specific `UserEntry`. One artifact in, one
 `EntryReport` node out. Two sources: teacher writes (`HUMAN`) or AI evaluates
-via the Exercise's `instructions` field (`LLM`).
+via the Exercise's `instructions` field (`LLM`). The LLM report is triggered
+by the submission OWNER (self-serve — `POST /api/exercises/report`, per-user
+ADR-043 FULL-tier gate) or by a teacher.
 
 **EntityType:** `EntityType.ENTRY_REPORT`
 **Self-describing outcome:** Each report records its `assessment_outcome` (`AssessmentOutcome` enum):
@@ -615,10 +617,10 @@ endpoints lazy-load into the page:
 | Section | Endpoint | What It Shows |
 |---|---|---|
 | **Exercises** | `GET /learning-loop/ps/{ps_uid}/exercises` | Exercises linked via `HAS_EXERCISE`, with status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and contextual action links |
-| **My Submissions** | `GET /learning-loop/ps/{ps_uid}/submissions` | User's submissions discovered via `Interaction -[:INTERACTION_DURING]-> PathStep`, with status badges and links to view submission or feedback |
-| **Feedback** | `GET /learning-loop/ps/{ps_uid}/feedback` | Same submissions filtered to those with reports, showing outcome badges (Approved / Revision Requested) |
+| **My Submissions & Feedback** | `GET /learning-loop/ps/{ps_uid}/submissions-and-feedback` | User's submissions discovered via `Interaction -[:INTERACTION_DURING]-> PathStep`, with status badges, outcome badges (Approved / Revision Requested), and links to view submission or feedback |
+| **Embedded Forms** | `GET /learning-loop/ps/{ps_uid}/forms` | FormTemplates embedded in this PathStep, with inline submit (`POST /learning-loop/ps/{ps_uid}/forms/{template_uid}/submit`) |
 
-Routes wired in `adapters/inbound/explore_ui.py` (`create_explore_ui_routes`). Fragment renderers in
+Routes wired in `adapters/inbound/learning_loop_routes.py` (`create_learning_loop_fragment_routes`). Fragment renderers in
 `ui/learning_loop/` (shared with Library exercises tab). The `from_ps` parameter
 threads through exercise links so the submit form knows which PathStep the student
 navigated from, enabling deterministic Interaction context recording.

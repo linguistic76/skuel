@@ -33,7 +33,11 @@ if TYPE_CHECKING:
 _GROUNDING_GOAL_LIMIT = 10
 
 
-async def active_goal_titles(goals_service: GoalsService | None, user_uid: UserUID) -> list[str]:
+async def active_goal_titles(
+    goals_service: GoalsService | None, user_uid: UserUID
+) -> list[
+    str
+]:  # skuel-lint: disable=SKUEL005 -- soft-enhancement helper, deliberately infallible: degrades to [] (module docstring); JournalService.active_goal_titles adds the Result wrapper at the service contract layer
     """Titles of the user's active goals — the grounding fed to the DSL bridge.
 
     Returns an empty list (never an error) when no goals service is wired or the
