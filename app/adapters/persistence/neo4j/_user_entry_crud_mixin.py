@@ -340,6 +340,51 @@ class _UserEntryCrudMixin:
             ]
         )
 
+    async def get_user_active_extraction_twins(
+        self, user_uid: UserUID, labels: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """Return the user's OWNED, non-terminal entities of the given domain labels.
+
+        Input to extraction dedup Guard 4 (cross-entry, F4): a checkbox/DSL line
+        whose (label, normalized title) matches an ACTIVE owned entity merges
+        into it instead of re-creating a node the F4 cleanup just deleted.
+        Terminal entities (completed/cancelled/...) are excluded — re-typing a
+        finished task's title is a legitimate new task, not a duplicate.
+
+        Ordered oldest-first so the map builder's ``setdefault`` keeps the same
+        winner the F4 fixer keeps (oldest ``created_at``).
+
+        Source is :Entity-bound and excludes :Content chunk shadows (G13).
+        """
+        from core.models.enums.entity_enums import EntityStatus
+
+        terminal = [s.value for s in EntityStatus if s.is_terminal()]
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
+        WHERE NOT e:Content
+          AND any(lb IN labels(e) WHERE lb IN $labels)
+          AND NOT coalesce(e.status, '') IN $terminal
+        RETURN e.uid AS entity_uid,
+               e.title AS title,
+               labels(e) AS labels
+        ORDER BY e.created_at ASC
+        """
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "labels": labels, "terminal": terminal}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "entity_uid": rec.get("entity_uid", ""),
+                    "title": rec.get("title") or "",
+                    "labels": rec.get("labels") or [],
+                }
+                for rec in (result.value or [])
+            ]
+        )
+
     async def update_teacher_feedback_state(
         self, teacher_uid: str, properties: Neo4jProperties
     ) -> Result[bool]:

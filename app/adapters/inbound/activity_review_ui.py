@@ -62,7 +62,7 @@ def create_activity_review_ui_routes(
 
     @rt("/activity-review/queue")
     @require_admin(get_user_service)
-    async def activity_review_queue_page(request: Request, current_user: Any) -> Any:
+    async def activity_review_queue_page(request: Request, current_user: Any = None) -> Any:
         """Admin queue: pending review requests from users."""
         _not_found = object()
         _uid_val = getattr(current_user, "uid", _not_found)

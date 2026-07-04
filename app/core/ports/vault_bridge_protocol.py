@@ -101,13 +101,30 @@ class WriteResult:
 
 @dataclass
 class VaultSyncStats:
-    """Aggregate results of a VaultReconciler.sync() call."""
+    """Aggregate results of a VaultReconciler.sync() call.
+
+    Honest by construction (G10): ingestion failures, dangling-target
+    warnings, and skip reasons all survive into this object — a sync door
+    may only say "complete" when ``is_clean`` is True.
+    """
 
     entries_ingested: int = 0
     ids_injected: int = 0
     tasks_marked_done: int = 0
+    # Inbound ingestion outcome (carried from IngestionStats/IncrementalStats)
+    files_failed: int = 0
+    files_walled: int = 0
+    files_unsupported: int = 0
+    entities_deleted: int = 0
+    edges_deleted: int = 0
+    warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     first_run_notice: bool = False
+
+    @property
+    def is_clean(self) -> bool:
+        """No failures and no surfaced warnings — the only 'Sync complete' state."""
+        return not self.errors and not self.warnings and self.files_failed == 0
 
 
 # ============================================================================

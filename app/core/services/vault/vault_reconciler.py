@@ -30,7 +30,7 @@ import secrets
 import string
 from datetime import date
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -170,16 +170,21 @@ class VaultReconciler:
         # ``allowlist`` explicitly is belt-and-suspenders: the ingestion mechanism
         # resolves the same owner and wall by path (resolve_by_path), and the guard
         # above enforces that by-kind and by-path agree on this root.
+        # ``validate_targets=True`` (G10): dangling relationship targets no-op
+        # inside the relationship Cypher, so real syncs must run the pre-check
+        # and surface every phantom UID as a warning — not a silent row drop,
+        # not a hard failure.
         ingest_result = await self._ingestion.ingest_directory(
             descriptor.root,
             ingestion_mode="smart",
             force=force,
+            validate_targets=True,
             user_uid=owner,
             allowlist=descriptor.allowlist,
         )
         if ingest_result.is_error:
             return Result.fail(ingest_result)
-        stats.entries_ingested = _count_ingested(ingest_result.value)
+        _merge_ingest_stats(stats, ingest_result.value)
 
         # Steps 2-3: consent gate + outbound. Only vaults that support the task
         # round-trip have anything to write back, so the consent gate engages
@@ -382,8 +387,37 @@ class VaultReconciler:
 # =========================================================================
 
 
-def _count_ingested(stats: IngestionStats | IncrementalStats | DryRunPreview | None) -> int:
-    """Extract a meaningful node count from IngestionStats | IncrementalStats."""
-    if isinstance(stats, (IngestionStats, IncrementalStats)):
-        return int(stats.nodes_created or 0) + int(stats.nodes_updated or 0)
-    return 0
+def _merge_ingest_stats(
+    stats: VaultSyncStats,
+    ingest: IngestionStats | IncrementalStats | DryRunPreview | None,
+) -> None:
+    """Carry the ingestion outcome into the sync stats — counts AND problems.
+
+    Historically only the node counts survived (``_count_ingested``), so
+    every sync door reported "Sync complete" over failed files, dropped
+    edges, and dropped lines (G10). Errors are dict-shaped
+    (``IngestionError.to_dict`` / ad-hoc ``{"message": ...}``) — flatten to
+    readable strings for the UI/API surface.
+    """
+    if not isinstance(ingest, (IngestionStats, IncrementalStats)):
+        return
+    stats.entries_ingested = int(ingest.nodes_created or 0) + int(ingest.nodes_updated or 0)
+    stats.files_failed = int(ingest.failed or 0)
+    stats.files_walled = int(ingest.files_walled or 0)
+    stats.files_unsupported = int(ingest.files_unsupported or 0)
+    stats.warnings.extend(ingest.warnings)
+    for error in ingest.errors or []:
+        stats.errors.append(_format_ingest_error(error))
+    if isinstance(ingest, IncrementalStats):
+        stats.entities_deleted = int(ingest.entities_deleted or 0)
+        stats.edges_deleted = int(ingest.edges_deleted or 0)
+
+
+def _format_ingest_error(error: dict[str, Any]) -> str:
+    """One readable line per ingestion error dict."""
+    file = error.get("file") or error.get("operation") or ""
+    message = error.get("error") or error.get("message") or str(error)
+    stage = error.get("stage")
+    prefix = f"{file}: " if file else ""
+    suffix = f" [{stage}]" if stage else ""
+    return f"{prefix}{message}{suffix}"

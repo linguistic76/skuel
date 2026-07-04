@@ -106,7 +106,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/report", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def submit_feedback(request: Request, uid: str, current_user: Any) -> Any:
+    async def submit_feedback(request: Request, uid: str, current_user: Any = None) -> Any:
         """Submit a .md feedback file as the teacher report for a student submission."""
         from fasthtml.common import Div, P
 
@@ -140,7 +140,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/revision", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def request_revision(request: Request, uid: str, current_user: Any) -> Any:
+    async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
         """Request revision for a student submission with structured feedback.
 
         When exercise_uid is present, creates EntryReport + RevisedExercise
@@ -209,7 +209,9 @@ def create_teaching_api_routes(
 
     @rt("/api/reports/{report_uid}/download", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)
-    async def download_report_file(request: Request, report_uid: str, current_user: Any) -> Any:
+    async def download_report_file(
+        request: Request, report_uid: str, current_user: Any = None
+    ) -> Any:
         """Download the .md feedback file attached to an EntryReport."""
         path_result = await teacher_review_service.get_report_file_path(report_uid)
         if path_result.is_error or not path_result.value:
@@ -234,7 +236,7 @@ def create_teaching_api_routes(
     @rt("/api/teaching/review/{uid}/approve", methods=["POST"])
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
-    async def approve_report(request: Request, uid: str, current_user: Any) -> Any:
+    async def approve_report(request: Request, uid: str, current_user: Any = None) -> Any:
         """Approve a student report."""
         from fasthtml.common import Div, P
 

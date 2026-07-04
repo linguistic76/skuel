@@ -245,6 +245,21 @@ All DDL is idempotent (`IF NOT EXISTS`) — safe on every startup.
 
 ## Best Practices
 
+### 0. Never MATCH by uid without a label guard (G13 shadow rule)
+
+The chunk store's `:Content` node shares its entity's uid, so an unlabeled
+`MATCH (n {uid: $uid})` binds BOTH nodes — duplicated rows, doubled MERGE
+edges, misread labels (found live: doubled INTERACTION_DURING, systems
+review 2026-07-03; codebase-wide sweep in Arc E). Two sanctioned forms:
+
+```cypher
+// Entity-only paths — bind the universal base label
+MATCH (n:Entity {uid: $uid})
+
+// Mixed-label paths (endpoints may be User/Group/…) — exclude the shadow
+MATCH (n {uid: $uid}) WHERE NOT n:Content
+```
+
 ### 1. Always Use Parameters
 
 ```cypher

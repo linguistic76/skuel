@@ -480,18 +480,27 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
     if not activity.is_task():
         return Result.fail(Errors.validation(...))
 
-    request = TaskCreateRequest(
-        title=activity.description,
-        due_date=activity.when.date() if activity.when else None,
-        duration_minutes=activity.duration_minutes or 30,
-        priority=map_dsl_priority_to_enum(activity.priority),
-        status=EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
-        recurrence_pattern=map_repeat_to_recurrence(activity.repeat_pattern),
-        # Knowledge connections
-        applies_knowledge_uids=activity.get_linked_knowledge(),
-        # Goal connections
-        fulfills_goal_uid=activity.get_linked_goals()[0] if activity.get_linked_goals() else None,
-        tags=activity.energy_states if activity.energy_states else [],
+    # model_validate + INGESTED_NOTE_CONTEXT: past due dates are admissible on
+    # this path — historical vault notes must still create their tasks (Arc E,
+    # G10). Interactive creation constructs requests without the context and
+    # keeps the future-date guard.
+    request = TaskCreateRequest.model_validate(
+        {
+            "title": activity.description,
+            "due_date": activity.when.date() if activity.when else None,
+            "duration_minutes": activity.duration_minutes or 30,
+            "priority": map_dsl_priority_to_enum(activity.priority),
+            "status": EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
+            "recurrence_pattern": map_repeat_to_recurrence(activity.repeat_pattern),
+            # Knowledge connections
+            "applies_knowledge_uids": activity.get_linked_knowledge(),
+            # Goal connections
+            "fulfills_goal_uid": (
+                activity.get_linked_goals()[0] if activity.get_linked_goals() else None
+            ),
+            "tags": activity.energy_states if activity.energy_states else [],
+        },
+        context=INGESTED_NOTE_CONTEXT,
     )
     return Result.ok(request)
 ```

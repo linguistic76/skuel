@@ -41,6 +41,23 @@ class TestCheckboxGate:
         assert parsed.contexts == [EntityType.TASK]
         assert parsed.is_task()
 
+    @pytest.mark.parametrize(
+        "line",
+        ["- [ ] ", "- [ ]", "- [x] ", "- [ ] #daily", "- [ ] 📅 2026-07-01"],
+    )
+    def test_empty_checkbox_is_template_scaffolding(self, line):
+        """A checkbox with no description (after marker/tag stripping) is the
+        daily-note template's blank slot — skip it instead of producing a task
+        create that fails title validation on every sync (G10 noise)."""
+        assert obsidian_task_line_to_parsed(line) is None
+
+    def test_empty_checkbox_with_vault_id_still_parses(self):
+        """A blank line carrying a 🆔 join key references a real task — the
+        completion round-trip must still see it."""
+        parsed = obsidian_task_line_to_parsed("- [x] 🆔 sk_abc123")
+        assert parsed is not None
+        assert parsed.vault_id == "sk_abc123"
+
 
 class TestCheckedState:
     def test_unchecked(self):

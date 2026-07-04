@@ -251,10 +251,12 @@ class BatchCypherBuilder:
             result = BatchCypherBuilder.build_relationship_properties_query(rels)
             records = await backend.execute_query(result.query, result.params)
         """
+        # NOT :Content — chunk-store shadow nodes share their entity's uid; an
+        # unguarded uid MATCH binds both and duplicates rows (G13).
         query = """
         UNWIND $rels as rel
         OPTIONAL MATCH (a {uid: rel.from_uid})-[r]->(b {uid: rel.to_uid})
-        WHERE type(r) = rel.rel_type
+        WHERE type(r) = rel.rel_type AND NOT a:Content AND NOT b:Content
         RETURN rel.from_uid as from_uid, rel.to_uid as to_uid, rel.rel_type as rel_type, properties(r) as props
         """
 
@@ -292,10 +294,11 @@ class BatchCypherBuilder:
             records = await backend.execute_query(result.query, result.params)
             deleted_count = records[0]["deleted_count"] if records else 0
         """
+        # NOT :Content — G13 shadow-uid guard (see build_relationship_create_query).
         query = """
         UNWIND $rels as rel
         MATCH (a {uid: rel.from_uid})-[r]-(b {uid: rel.to_uid})
-        WHERE type(r) = rel.rel_type
+        WHERE type(r) = rel.rel_type AND NOT a:Content AND NOT b:Content
         DELETE r
         RETURN count(r) as deleted_count
         """
@@ -353,11 +356,13 @@ class BatchCypherBuilder:
 
         results: dict[str, BatchQueryResult] = {}
 
+        # NOT :Content in all three below — G13 shadow-uid guard
+        # (see build_relationship_create_query).
         if outgoing:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})-[r]->(related)
-            WHERE type(r) = pair.rel_type
+            WHERE type(r) = pair.rel_type AND NOT n:Content
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in outgoing]
@@ -369,7 +374,7 @@ class BatchCypherBuilder:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})<-[r]-(related)
-            WHERE type(r) = pair.rel_type
+            WHERE type(r) = pair.rel_type AND NOT n:Content
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in incoming]
@@ -381,7 +386,7 @@ class BatchCypherBuilder:
             query = """
             UNWIND $pairs as pair
             MATCH (n {uid: pair.uid})-[r]-(related)
-            WHERE type(r) = pair.rel_type
+            WHERE type(r) = pair.rel_type AND NOT n:Content
             RETURN pair.uid as uid, pair.rel_type as rel_type, count(r) as count
             """
             pairs_data = [{"uid": uid, "rel_type": rel_type} for uid, rel_type in both]

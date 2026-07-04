@@ -149,6 +149,12 @@ get_user_service = make_service_getter(services.user)
 @require_admin(get_user_service)
 async def list_all_users(request, current_user):
     # current_user is the FULL User entity (not just uid)
+    #
+    # ⚠️ If you ANNOTATE the param, it MUST default to None:
+    # `current_user: Any = None`. FastHTML resolves the wrapped signature
+    # and 400s ("Missing required field: current_user") on an annotated
+    # param with no default BEFORE the decorator can inject it.
+    # Unannotated params resolve to None, so the bare form also works.
     admin_uid = current_user.uid
     admin_role = current_user.role
 

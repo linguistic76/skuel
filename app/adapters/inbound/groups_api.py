@@ -62,7 +62,7 @@ def create_groups_api_routes(
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def add_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
+    async def add_member(request: Request, uid: str, current_user: Any = None) -> Result[bool]:
         """Add a member to a group. Owner only."""
         ownership_error = await verify_entity_ownership(
             group_service, uid, current_user.uid, "group"
@@ -85,7 +85,7 @@ def create_groups_api_routes(
     @csrf_protected
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
-    async def remove_member(request: Request, uid: str, current_user: Any) -> Result[bool]:
+    async def remove_member(request: Request, uid: str, current_user: Any = None) -> Result[bool]:
         """Remove a member from a group. Owner only."""
         ownership_error = await verify_entity_ownership(
             group_service, uid, current_user.uid, "group"

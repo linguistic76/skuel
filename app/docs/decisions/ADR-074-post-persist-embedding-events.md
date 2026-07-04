@@ -235,6 +235,11 @@ at store time saves nothing — the API call already happened):
   stored by the one writer, pre-generation skips in worker (+chunk parents) and `--stale`
   fine filter, chunk persistence preserves unchanged chunks' vectors,
   `--stamp-hashes` one-shot rollout. A repeated force sync now re-embeds ~nothing.
+- **Follow-up (Arc E, 2026-07-03):** chunk persistence switched from MERGE-kept nodes to
+  delete-then-create with embedding **carry-over** (old `embedding_source_text` matching the
+  new `context_window` inherits the vector). §8's guarantee is unchanged — unchanged text
+  never re-embeds — but node identity is no longer preserved across re-chunks, so nothing
+  stale survives a force re-ingest (the #490 force-reingest integration test's contract).
 - **Follow-up (arc residue 4):** the re-sync above required manually invalidating
   `IngestionMetadata` rows (`SET s.content_hash='force', s.file_mtime=0.0`) because the vault
   wall upgrades full → smart and unchanged files never re-process through any admin door.

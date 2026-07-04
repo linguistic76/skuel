@@ -196,13 +196,24 @@ function showSyncResult(result, isError) {
     } else {
         const ingested = result.entries_ingested ?? 0;
         const errors = (result.errors || []).length;
+        const warnings = (result.warnings || []).length;
+        const failed = result.files_failed ?? 0;
         let summary = `${ingested} note(s) ingested`;
+        if (failed > 0) summary += ` &middot; ${failed} file(s) failed`;
         if (errors > 0) summary += ` &middot; ${errors} error(s)`;
+        if (warnings > 0) summary += ` &middot; ${warnings} warning(s)`;
+        // "synced" is only claimed for a clean run (G10) — problems get an
+        // amber banner; the full error/warning lines are in the JSON below.
+        const clean = errors === 0 && warnings === 0 && failed === 0;
+        const cardCls = clean
+            ? 'bg-green-50 text-green-800 border-green-200'
+            : 'bg-amber-50 text-amber-900 border-amber-200';
+        const headline = clean ? 'Content vault synced' : 'Content vault sync had problems';
         statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
+            <div class="p-4 rounded-lg border ${cardCls}">
                 __ICON_CHECK__
                 <div>
-                    <span class="font-semibold">Content vault synced</span>
+                    <span class="font-semibold">${headline}</span>
                     <span class="text-sm opacity-80 ml-2">${summary}</span>
                 </div>
             </div>`;

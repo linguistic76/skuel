@@ -114,17 +114,37 @@ def _consent_form() -> Div:
 
 
 def _sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
-    """Fragment shown after a successful sync."""
+    """Fragment shown after a sync ran.
+
+    "Sync complete" ONLY when the run was clean (G10) — failed files,
+    ingestion errors, and dangling-target warnings flip the header and are
+    listed in full, never hidden behind a success banner.
+    """
     ingested = stats_dict.get("entries_ingested", 0)
     injected = stats_dict.get("ids_injected", 0)
     done = stats_dict.get("tasks_marked_done", 0)
+    failed = stats_dict.get("files_failed", 0)
+    walled = stats_dict.get("files_walled", 0)
+    unsupported = stats_dict.get("files_unsupported", 0)
     errors: list[str] = stats_dict.get("errors", [])
+    warnings: list[str] = stats_dict.get("warnings", [])
 
     items = [
         Li(Span(f"{ingested}", cls="font-semibold"), " notes ingested"),
         Li(Span(f"{injected}", cls="font-semibold"), " task IDs injected into vault"),
         Li(Span(f"{done}", cls="font-semibold"), " tasks marked done in vault"),
     ]
+    if failed:
+        items.append(Li(Span(f"{failed}", cls="font-semibold text-error"), " files failed"))
+    if walled:
+        items.append(
+            Li(Span(f"{walled}", cls="font-semibold"), " files skipped (outside sync folders)")
+        )
+    if unsupported:
+        items.append(
+            Li(Span(f"{unsupported}", cls="font-semibold"), " files skipped (unsupported format)")
+        )
+
     error_section = (
         Div(
             H3("Errors", cls="text-sm font-semibold text-error mt-3 mb-1"),
@@ -133,12 +153,34 @@ def _sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         if errors
         else Span()
     )
+    warning_section = (
+        Div(
+            H3("Warnings", cls="text-sm font-semibold text-warning mt-3 mb-1"),
+            Ul(*[Li(w, cls="text-xs text-warning") for w in warnings], cls="list-disc pl-4"),
+        )
+        if warnings
+        else Span()
+    )
+
+    clean = not errors and not warnings and not failed
+    # Every failed file also appends an error entry, so len(errors) already
+    # covers files_failed — max() only guards a count drift between the two.
+    problem_count = max(len(errors), failed)
+    header = (
+        H3("Sync complete", cls="text-base font-semibold text-success mb-2")
+        if clean
+        else H3(
+            f"Sync finished with problems ({problem_count} error(s), {len(warnings)} warning(s))",
+            cls="text-base font-semibold text-error mb-2",
+        )
+    )
 
     return Div(
         Div(
-            H3("Sync complete", cls="text-base font-semibold text-success mb-2"),
+            header,
             Ul(*items, cls="list-disc pl-4 text-sm text-base-content/80 space-y-1"),
             error_section,
+            warning_section,
             cls="bg-base-200 border border-base-300 rounded-lg p-5",
         ),
         _sync_button("Sync again"),
@@ -290,7 +332,9 @@ def create_vault_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
-    async def vault_sync_content(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+    async def vault_sync_content(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """Sync the shared content (curriculum) vault through the reconciler.
 
         Admin-only. Inbound-only: ``sync`` ignores the acting user for
