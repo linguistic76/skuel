@@ -114,7 +114,9 @@ class IngestionWriteOperations(Protocol):
         self, suffixes: list[str], root_prefix: str | None
     ) -> list[dict[str, Any]]: ...
 
-    async def refresh_moc_organizes(self, source_uid: str, target_uids: list[str]) -> int: ...
+    async def refresh_moc_organizes(
+        self, source_uid: str, target_uids: list[str], protected_target_uids: list[str]
+    ) -> int: ...
 
 
 @runtime_checkable

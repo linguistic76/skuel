@@ -50,6 +50,7 @@ from .config import (
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
+from .moc_links import frontmatter_organizes_targets
 from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import (
@@ -512,7 +513,7 @@ async def ingest_directory(
         Awaitable[None],
     ]
     | None = None,
-    moc_pass_fn: Callable[[str, list[str], Path], Awaitable[list[str]]] | None = None,
+    moc_pass_fn: Callable[[str, list[str], Path, list[str]], Awaitable[list[str]]] | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -571,7 +572,8 @@ async def ingest_directory(
             per-type loops and applied END of sync — after IngestionMetadata
             rows are stamped and deletion reconciliation ran — so link targets
             ingested in the SAME sync resolve. Signature:
-            ``async (entity_uid, link_suffixes, file_path) -> warnings``;
+            ``async (entity_uid, link_suffixes, file_path,
+            protected_target_uids) -> warnings``;
             returned warnings merge into the sync stats (content-vault
             posture; personal vaults return none).
 
@@ -923,8 +925,9 @@ async def ingest_directory(
     # MOC edge passes (``moc: true`` files) collected during the per-type loops
     # and applied END of sync — after metadata stamping + deletion
     # reconciliation — so same-sync link targets resolve via their
-    # IngestionMetadata rows. (entity_uid, ordered link suffixes, source file)
-    moc_items: list[tuple[str, list[str], Path]] = []
+    # IngestionMetadata rows. (entity_uid, ordered link suffixes, source file,
+    # frontmatter ``organizes:`` targets spared from the stale-edge refresh)
+    moc_items: list[tuple[str, list[str], Path, list[str]]] = []
 
     # USER_ENTRY routing: bypass the bulk upsert engine.  UserEntry requires the
     # full UserEntryService pipeline (OWNS edge, audience resolution, extraction).
@@ -1001,6 +1004,7 @@ async def ingest_directory(
                                         str(result_data["uid"]),
                                         list(ue_entity.get("_moc_links") or []),
                                         ue_path,
+                                        frontmatter_organizes_targets(ue_entity),
                                     )
                                 )
                         # Per-line extraction problems (parse/creation/link
@@ -1050,7 +1054,7 @@ async def ingest_directory(
         # same shape ingest_file produces. The popped body is threaded to
         # post_persist_fn keyed by uid so the shared chunk step can run.
         chunk_sources: dict[str, PathStepChunkSource] = {}
-        batch_moc_items: list[tuple[str, list[str], Path]] = []
+        batch_moc_items: list[tuple[str, list[str], Path, list[str]]] = []
         for entity in entities:
             source_path = entity.pop("_file_path", None)
             # MOC link suffixes are engine-private too — popped for every
@@ -1058,7 +1062,14 @@ async def ingest_directory(
             # edge pass when the file carried ``moc: true``.
             moc_links = entity.pop("_moc_links", None)
             if moc_links is not None and source_path:
-                batch_moc_items.append((str(entity["uid"]), list(moc_links), Path(source_path)))
+                batch_moc_items.append(
+                    (
+                        str(entity["uid"]),
+                        list(moc_links),
+                        Path(source_path),
+                        frontmatter_organizes_targets(entity),
+                    )
+                )
             if entity_type == EntityType.PATH_STEP:
                 # `or ""` — frontmatter `content:` with no value parses to None
                 content_body = entity.pop("content", "") or ""
@@ -1197,9 +1208,11 @@ async def ingest_directory(
     # re-processes it (its hash would otherwise read as unchanged and the
     # edge pass would never retry).
     if moc_items and moc_pass_fn is not None:
-        for moc_uid, moc_links, moc_path in moc_items:
+        for moc_uid, moc_links, moc_path, moc_protected in moc_items:
             try:
-                validation_warnings.extend(await moc_pass_fn(moc_uid, moc_links, moc_path))
+                validation_warnings.extend(
+                    await moc_pass_fn(moc_uid, moc_links, moc_path, moc_protected)
+                )
             except NEO4J_EXCEPTIONS as e:
                 errors.append(
                     IngestionError(

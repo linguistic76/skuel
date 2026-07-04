@@ -26,7 +26,10 @@ import pytest
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.services.ingestion.batch import parse_file_sync
-from core.services.ingestion.moc_links import extract_moc_link_suffixes
+from core.services.ingestion.moc_links import (
+    extract_moc_link_suffixes,
+    frontmatter_organizes_targets,
+)
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.user_entry_ingestion import build_user_entry_request
 from core.services.ingestion.validator import validate_uid_format
@@ -134,6 +137,29 @@ class TestPreparerMocHook:
             data = {"type": "ku", "uid": "ku:test", "title": "T", "moc": value}
             entity = prepare_entity_data(EntityType.KU, data, "[[x]]", Path("test.md"))
             assert "_moc_links" not in entity, f"moc={value!r} must not trigger the pass"
+
+    def test_pathstep_organizes_frontmatter_is_normalized(self):
+        """Colon-authored ``organizes:`` targets must normalize to dots — both
+        for the rel-config edge MATCH (latent pre-existing miss) and for the
+        MOC pass's protected-targets comparison."""
+        data = {
+            "type": "ps",
+            "uid": "ps:test:map",
+            "title": "T",
+            "organizes": ["ku:test:fm-child"],
+            "moc": True,
+        }
+        entity = prepare_entity_data(EntityType.PATH_STEP, data, "[[x]]", Path("map.md"))
+        assert entity["organizes"] == ["ku.test.fm-child"]
+        assert frontmatter_organizes_targets(entity) == ["ku.test.fm-child"]
+
+    def test_frontmatter_organizes_targets_shapes(self):
+        assert frontmatter_organizes_targets({}) == []
+        assert frontmatter_organizes_targets({"organizes": "ku.single"}) == ["ku.single"]
+        assert frontmatter_organizes_targets({"organizes": ["ku.a", 7, "ku.b"]}) == [
+            "ku.a",
+            "ku.b",
+        ]
 
 
 # ============================================================================
@@ -249,7 +275,7 @@ class _FakeWriteBackend:
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         self.rows = rows
         self.resolve_calls: list[tuple[list[str], str | None]] = []
-        self.refresh_calls: list[tuple[str, list[str]]] = []
+        self.refresh_calls: list[tuple[str, list[str], list[str]]] = []
 
     async def resolve_path_suffixes(
         self, suffixes: list[str], root_prefix: str | None
@@ -257,8 +283,10 @@ class _FakeWriteBackend:
         self.resolve_calls.append((suffixes, root_prefix))
         return self.rows
 
-    async def refresh_moc_organizes(self, source_uid: str, target_uids: list[str]) -> int:
-        self.refresh_calls.append((source_uid, target_uids))
+    async def refresh_moc_organizes(
+        self, source_uid: str, target_uids: list[str], protected_target_uids: list[str]
+    ) -> int:
+        self.refresh_calls.append((source_uid, target_uids, protected_target_uids))
         return len(target_uids)
 
 
@@ -284,7 +312,7 @@ class TestApplyMocLinks:
         warnings = await service._apply_moc_links(
             "moc.test", ["/a.md", "/b.md", "/missing.md"], Path("/vault/moc.md")
         )
-        assert backend.refresh_calls == [("moc.test", ["ue_a", "ue_b"])]
+        assert backend.refresh_calls == [("moc.test", ["ue_a", "ue_b"], [])]
         assert warnings == []  # no registry → personal posture → silent skip
 
     async def test_ambiguous_suffix_picks_shortest_then_lexicographic(self):
@@ -296,7 +324,7 @@ class TestApplyMocLinks:
         )
         service = _make_service(backend)
         await service._apply_moc_links("moc.test", ["/n.md"], Path("/vault/moc.md"))
-        assert backend.refresh_calls == [("moc.test", ["ue_near"])]
+        assert backend.refresh_calls == [("moc.test", ["ue_near"], [])]
 
     async def test_self_link_dropped(self):
         backend = _FakeWriteBackend(
@@ -307,14 +335,24 @@ class TestApplyMocLinks:
         )
         service = _make_service(backend)
         await service._apply_moc_links("moc.test", ["/moc.md", "/a.md"], Path("/vault/moc.md"))
-        assert backend.refresh_calls == [("moc.test", ["ue_a"])]
+        assert backend.refresh_calls == [("moc.test", ["ue_a"], [])]
 
     async def test_empty_links_still_refresh_to_drop_stale_edges(self):
         backend = _FakeWriteBackend([])
         service = _make_service(backend)
         await service._apply_moc_links("moc.test", [], Path("/vault/moc.md"))
         assert backend.resolve_calls == []  # nothing to resolve
-        assert backend.refresh_calls == [("moc.test", [])]
+        assert backend.refresh_calls == [("moc.test", [], [])]
+
+    async def test_protected_frontmatter_targets_pass_through(self):
+        """A file with BOTH ``organizes:`` frontmatter and ``moc: true`` keeps
+        its frontmatter-authored edges — protected uids reach the refresh."""
+        backend = _FakeWriteBackend(
+            [{"suffix": "/a.md", "entity_uid": "ue_a", "file_path": "/vault/a.md"}]
+        )
+        service = _make_service(backend)
+        await service._apply_moc_links("ps.map", ["/a.md"], Path("/vault/map.md"), ["ku.fm-child"])
+        assert backend.refresh_calls == [("ps.map", ["ue_a"], ["ku.fm-child"])]
 
     async def test_content_vault_posture_warns_on_unresolved(self, tmp_path: Path):
         from core.services.ingestion.config import SyncAllowlist
@@ -378,4 +416,4 @@ class TestApplyMocLinks:
             "moc.worldview", ["/never ingested.md"], personal_root / "knowledge" / "m.md"
         )
         assert warnings == []
-        assert backend.refresh_calls == [("moc.worldview", [])]
+        assert backend.refresh_calls == [("moc.worldview", [], [])]

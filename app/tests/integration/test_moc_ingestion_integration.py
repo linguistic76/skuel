@@ -162,6 +162,54 @@ class TestMocEdgePass:
             record = await res.single()
             assert record["c"] == 0
 
+    async def test_frontmatter_organizes_survives_moc_refresh(
+        self, moc_ingestion_service, neo4j_driver, tmp_path: Path
+    ):
+        """A PathStep carrying BOTH ``organizes:`` frontmatter and ``moc: true``
+        keeps its frontmatter-authored ORGANIZES edge across MOC refreshes —
+        including a refresh where the body link set changes (Kody #506
+        finding 1)."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+
+        _ku_file(vault / "fm child.md", "fmchild")
+        _ku_file(vault / "body child.md", "bodychild")
+        (vault / "psmap.md").write_text(
+            "---\ntype: ps\nuid: ps:test:mocpass-psmap\ntitle: PS Map\nmoc: true\n"
+            "organizes:\n  - ku:test:mocpass-fmchild\n---\n[[body child]]\n"
+        )
+        # PathStep uid gets the ps prefix — adjust the module cleanup key.
+        result = await moc_ingestion_service.ingest_directory(vault, ingestion_mode="smart")
+        assert result.is_ok, str(result)
+        assert not result.value.errors, f"errors: {result.value.errors}"
+
+        edges = await _organized_targets(neo4j_driver, "ps.test.mocpass-psmap")
+        assert (f"{_UID_PREFIX}-bodychild", 0) in edges
+        fm_targets = [uid for uid, _ in edges]
+        assert f"{_UID_PREFIX}-fmchild" in fm_targets, (
+            f"frontmatter organizes edge missing: {edges}"
+        )
+
+        # Edit the body (drop the body link): frontmatter edge must survive.
+        (vault / "psmap.md").write_text(
+            "---\ntype: ps\nuid: ps:test:mocpass-psmap\ntitle: PS Map\nmoc: true\n"
+            "organizes:\n  - ku:test:mocpass-fmchild\n---\nno links now\n"
+        )
+        result2 = await moc_ingestion_service.ingest_directory(vault, ingestion_mode="smart")
+        assert result2.is_ok
+        edges2 = await _organized_targets(neo4j_driver, "ps.test.mocpass-psmap")
+        assert [uid for uid, _ in edges2] == [f"{_UID_PREFIX}-fmchild"], (
+            f"expected only the frontmatter edge to survive, got: {edges2}"
+        )
+
+        # Cleanup the ps-prefixed node this test created (module fixture only
+        # sweeps the ku prefix).
+        async with neo4j_driver.session() as session:
+            await session.run("MATCH (n:Entity {uid: 'ps.test.mocpass-psmap'}) DETACH DELETE n")
+            await session.run(
+                "MATCH (s:IngestionMetadata {entity_uid: 'ps.test.mocpass-psmap'}) DELETE s"
+            )
+
     async def test_content_vault_posture_warns_on_dangling(
         self, moc_ingestion_service, neo4j_driver, tmp_path: Path
     ):

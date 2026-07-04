@@ -63,7 +63,7 @@ from .config import (
     is_ingestible_path,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
-from .moc_links import extract_moc_link_suffixes
+from .moc_links import extract_moc_link_suffixes, frontmatter_organizes_targets
 from .parser import parse_markdown, parse_yaml
 from .preparer import (
     prepare_edge_data,
@@ -538,6 +538,7 @@ class UnifiedIngestionService:
         entity_uid: str,
         link_suffixes: list[str],
         file_path: Path,
+        protected_target_uids: list[str] | None = None,
     ) -> list[str]:
         """The MOC edge pass (resolve half): body links → ordered ORGANIZES edges.
 
@@ -558,6 +559,11 @@ class UnifiedIngestionService:
         dangling links are plans, not errors); the CONTENT vault gets Arc E
         style warnings (returned for the sync stats). No registry → personal
         posture, unscoped resolution (tests / minimal composes).
+
+        ``protected_target_uids`` (the file's own ``organizes:`` frontmatter
+        targets, normalized): the refresh's stale-delete spares these — the
+        rel-config authoring surface and the body-link surface coexist on one
+        file without the MOC pass erasing the frontmatter-authored edges.
 
         Backend: IngestionWriteBackend.resolve_path_suffixes /
         refresh_moc_organizes.
@@ -593,7 +599,9 @@ class UnifiedIngestionService:
             if uid is not None and uid != entity_uid and uid not in target_uids:
                 target_uids.append(uid)
 
-        edges = await self._write_backend.refresh_moc_organizes(entity_uid, target_uids)
+        edges = await self._write_backend.refresh_moc_organizes(
+            entity_uid, target_uids, protected_target_uids or []
+        )
 
         unresolved = [s for s in link_suffixes if s not in resolved_by_suffix]
         self.logger.info(
@@ -827,11 +835,16 @@ class UnifiedIngestionService:
             )
 
         # MOC edge pass (inline for the direct single-file door; the batch
-        # door defers to end-of-sync so same-sync targets resolve).
+        # door defers to end-of-sync so same-sync targets resolve). The file's
+        # own ``organizes:`` frontmatter targets are protected from the
+        # stale-edge refresh — both authoring surfaces coexist.
         moc_warnings: list[str] = []
         if moc_link_suffixes is not None and not defer_moc_pass:
             moc_warnings = await self._apply_moc_links(
-                str(entity_data["uid"]), moc_link_suffixes, file_path
+                str(entity_data["uid"]),
+                moc_link_suffixes,
+                file_path,
+                frontmatter_organizes_targets(entity_data),
             )
 
         result_payload: dict[str, Any] = {

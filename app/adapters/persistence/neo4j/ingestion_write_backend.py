@@ -134,25 +134,32 @@ class IngestionWriteBackend:
         )
         return [dict(r) for r in records]
 
-    async def refresh_moc_organizes(self, source_uid: str, target_uids: list[str]) -> int:
-        """Make ``target_uids`` (in order) the complete set of the source's
-        outgoing ORGANIZES edges.
+    async def refresh_moc_organizes(
+        self, source_uid: str, target_uids: list[str], protected_target_uids: list[str]
+    ) -> int:
+        """Make ``target_uids`` (in order) the source's outgoing ORGANIZES edges.
 
         The one write of the MOC edge pass: stale edges (targets no longer
         linked in the body) are deleted, surviving/new edges are MERGEd, and
         ``order`` is refreshed from list position (0-based — same contract as
         the rel-config ``order_property`` machinery). An empty ``target_uids``
-        drops every outgoing ORGANIZES edge (an emptied MOC body). Targets
-        that don't exist as :Entity nodes are silently skipped by the MATCH —
-        the caller decides whether unresolved links warrant warnings.
+        drops every non-protected outgoing ORGANIZES edge (an emptied MOC
+        body). Targets that don't exist as :Entity nodes are silently skipped
+        by the MATCH — the caller decides whether unresolved links warrant
+        warnings.
 
-        Returns the number of ORGANIZES edges now present.
+        ``protected_target_uids`` — edges to these targets are spared from the
+        stale-delete: a file can author ORGANIZES through BOTH the
+        ``organizes:`` frontmatter field (rel-config) and ``moc: true`` body
+        links; the MOC refresh must not erase the frontmatter-authored set.
+
+        Returns the number of body-link ORGANIZES edges now present.
         """
         records, _, _ = await self._driver.execute_query(
             """
             MATCH (n:Entity {uid: $source_uid})
             OPTIONAL MATCH (n)-[stale:ORGANIZES]->(t:Entity)
-            WHERE NOT t.uid IN $target_uids
+            WHERE NOT t.uid IN $target_uids AND NOT t.uid IN $protected_uids
             DELETE stale
             WITH DISTINCT n
             UNWIND range(0, size($target_uids) - 1) AS idx
@@ -163,5 +170,6 @@ class IngestionWriteBackend:
             """,
             source_uid=source_uid,
             target_uids=list(target_uids),
+            protected_uids=list(protected_target_uids),
         )
         return int(records[0]["edges"]) if records else 0

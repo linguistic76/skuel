@@ -30,7 +30,11 @@ See: /docs/patterns/UNIFIED_INGESTION_GUIDE.md § MOC files
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # Wiki-link: [[target]], [[target|alias]], [[target#heading]].
 _WIKI_LINK_RE = re.compile(r"\[\[([^\[\]]+)\]\]")
@@ -111,4 +115,19 @@ def extract_moc_link_suffixes(body: str | None) -> list[str]:
     return suffixes
 
 
-__all__ = ["extract_moc_link_suffixes"]
+def frontmatter_organizes_targets(entity_data: Mapping[str, Any]) -> list[str]:
+    """The file's own ``organizes:`` frontmatter targets (normalized uids).
+
+    These are the rel-config authoring surface for ORGANIZES; the MOC edge
+    pass spares them from its stale-edge refresh so a file carrying BOTH
+    ``organizes:`` and ``moc: true`` keeps its frontmatter-authored edges.
+    """
+    raw = entity_data.get("organizes")
+    if isinstance(raw, str):
+        return [raw]
+    if isinstance(raw, list):
+        return [u for u in raw if isinstance(u, str)]
+    return []
+
+
+__all__ = ["extract_moc_link_suffixes", "frontmatter_organizes_targets"]
