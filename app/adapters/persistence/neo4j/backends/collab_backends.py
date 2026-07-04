@@ -494,7 +494,7 @@ class LateralRelationshipBackend:
         """Get alternative entities with side-by-side comparison data."""
         return await self.executor.execute_query(
             """
-            MATCH (entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
+            MATCH (entity:Entity {uid: $uid})-[r:ALTERNATIVE_TO]-(alternative)
             RETURN
                 alternative.uid as uid,
                 alternative.title as title,
@@ -569,10 +569,13 @@ class LateralRelationshipBackend:
         self, source_uid: str, target_uid: str
     ) -> Result[list[Neo4jProperties]]:
         """Verify both entities exist in the graph."""
+        # :Entity throughout this validation block — a :Content shadow shares
+        # its entity's uid, so unlabeled uid MATCHes double-count/misvalidate
+        # (G13); lateral-relationship endpoints are always entities.
         return await self.executor.execute_query(
             """
-            MATCH (source {uid: $source_uid})
-            MATCH (target {uid: $target_uid})
+            MATCH (source:Entity {uid: $source_uid})
+            MATCH (target:Entity {uid: $target_uid})
             RETURN count(source) as source_count, count(target) as target_count
             """,
             {"source_uid": source_uid, "target_uid": target_uid},
@@ -584,8 +587,8 @@ class LateralRelationshipBackend:
         """Verify entities share the same parent."""
         return await self.executor.execute_query(
             """
-            MATCH (parent)-[]->(source {uid: $source_uid})
-            MATCH (parent)-[]->(target {uid: $target_uid})
+            MATCH (parent)-[]->(source:Entity {uid: $source_uid})
+            MATCH (parent)-[]->(target:Entity {uid: $target_uid})
             RETURN count(parent) as shared_parent_count
             """,
             {"source_uid": source_uid, "target_uid": target_uid},
@@ -597,10 +600,10 @@ class LateralRelationshipBackend:
         """Verify entities are at the same hierarchical depth."""
         return await self.executor.execute_query(
             """
-            MATCH path1 = (root)-[*]->(source {uid: $source_uid})
+            MATCH path1 = (root)-[*]->(source:Entity {uid: $source_uid})
             WHERE NOT ()-[]->(root)
             WITH length(path1) as source_depth
-            MATCH path2 = (root2)-[*]->(target {uid: $target_uid})
+            MATCH path2 = (root2)-[*]->(target:Entity {uid: $target_uid})
             WHERE NOT ()-[]->(root2)
             WITH source_depth, length(path2) as target_depth
             RETURN source_depth, target_depth
@@ -618,7 +621,7 @@ class LateralRelationshipBackend:
         """Check that creating this relationship won't create a circular dependency."""
         return await self.executor.execute_query(
             f"""
-            MATCH (target {{uid: $target_uid}})-[:{relationship_type}*1..10]->(source {{uid: $source_uid}})
+            MATCH (target:Entity {{uid: $target_uid}})-[:{relationship_type}*1..10]->(source:Entity {{uid: $source_uid}})
             RETURN count(*) as cycle_count
             """,
             {"source_uid": source_uid, "target_uid": target_uid},

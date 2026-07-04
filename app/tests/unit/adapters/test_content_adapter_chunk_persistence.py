@@ -1,13 +1,16 @@
 """
-Unit tests for Neo4jContentAdapter chunk persistence idempotency.
+Unit tests for Neo4jContentAdapter chunk persistence (delete-then-create).
 
-A force re-ingest re-chunks every PathStep body, changed or not. Chunk uids
-are deterministic (parent_uid + index), so persistence must:
+A force re-ingest re-chunks every PathStep body, changed or not. Since Arc E
+(force-reingest contract) persistence is **delete-then-create**:
 
-- delete ONLY chunks absent from the new set (never blanket-delete)
-- MERGE surviving uids, preserving embedding fields when the stored
-  embedding_source_text still equals the incoming context_window
-- wipe embedding fields when the text changed (stale vector must not survive)
+- the ENTIRE outgoing chunk set is deleted (no MERGE-kept nodes — stale
+  properties from earlier chunker/schema generations must not linger)
+- fresh nodes are CREATEd; embedding fields are inherited via carry-over
+  when an old chunk's embedding_source_text equals the new context_window
+  (ADR-074 §8: unchanged text never re-embeds — idempotency by carry-over,
+  not node reuse)
+- changed text gets NULL embedding fields (stale vector must not survive)
 
 Also covers get_chunk_embedding_freshness — the worker's pre-generation
 chunk read (fails OPEN by returning [] on a Neo4j error).
@@ -28,10 +31,21 @@ from core.models.ps_content.content_chunks import ContentChunkType
 
 
 class _FakeConnection:
-    """Captures queries/params; returns canned rows."""
+    """Captures queries/params; returns canned rows.
 
-    def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
-        self.rows = rows if rows is not None else [{"uid": "x"}]
+    ``responses`` maps a query substring → rows for the first matching query;
+    unmatched queries get ``default_rows``. Keeps the per-call shape honest:
+    the create query must see a real ``created`` count, the carry-over read
+    must see embedding rows only when a test stages them.
+    """
+
+    def __init__(
+        self,
+        default_rows: list[dict[str, Any]] | None = None,
+        responses: dict[str, list[dict[str, Any]]] | None = None,
+    ) -> None:
+        self.default_rows = default_rows if default_rows is not None else [{"uid": "x"}]
+        self.responses = responses or {}
         self.queries: list[tuple[str, dict[str, Any]]] = []
         self.raise_on_query = False
 
@@ -39,7 +53,10 @@ class _FakeConnection:
         if self.raise_on_query:
             raise ServiceUnavailable("down")
         self.queries.append((query, params or {}))
-        return self.rows
+        for marker, rows in self.responses.items():
+            if marker in query:
+                return rows
+        return self.default_rows
 
 
 @dataclass
@@ -76,45 +93,86 @@ def _content(n: int = 2) -> _FakeContent:
     )
 
 
+def _create_responses(created: int) -> dict[str, list[dict[str, Any]]]:
+    """Canned rows: empty carry-over read + a real created count for CREATE."""
+    return {
+        "WHERE chunk.embedding IS NOT NULL": [],
+        "CREATE (chunk:ContentChunk": [{"created": created}],
+    }
+
+
 @pytest.mark.asyncio
-async def test_delete_is_scoped_to_vanished_chunks():
-    """The pre-delete keeps the new chunk set's uids — a re-chunk of identical
-    content must not destroy embedded chunk nodes."""
-    conn = _FakeConnection()
+async def test_delete_clears_entire_outgoing_chunk_set():
+    """Delete-then-create: the whole old chunk set goes (no keep_uids
+    scoping) — stale properties can never survive on a MERGE-kept node."""
+    conn = _FakeConnection(responses=_create_responses(2))
     adapter = Neo4jContentAdapter(conn)
 
     assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
 
-    delete_query, delete_params = conn.queries[1]  # [0] is the Content upsert
+    # [0] Content upsert, [1] carry-over read, [2] delete, [3] create
+    carry_query, _ = conn.queries[1]
+    assert "chunk.embedding IS NOT NULL" in carry_query
+    assert "embedding_source_text" in carry_query
+    delete_query, _ = conn.queries[2]
     assert "DETACH DELETE" in delete_query
-    assert "WHERE NOT chunk.uid IN $keep_uids" in delete_query
-    assert delete_params["keep_uids"] == ["ps:test:doc:chunk:0", "ps:test:doc:chunk:1"]
+    assert "keep_uids" not in delete_query
 
 
 @pytest.mark.asyncio
-async def test_chunk_upsert_merges_and_preserves_unchanged_embeddings():
-    """MERGE (not CREATE) on the deterministic uid; embedding fields are wiped
-    only when embedding_source_text no longer matches the incoming window."""
-    conn = _FakeConnection()
+async def test_chunks_created_fresh_with_embedding_carry_over():
+    """Fresh CREATE (never MERGE); an old chunk's embedding is inherited when
+    its embedding_source_text matches the new context_window (ADR-074 §8 —
+    unchanged text never re-embeds), NULL otherwise."""
+    conn = _FakeConnection(
+        responses={
+            "WHERE chunk.embedding IS NOT NULL": [
+                {
+                    "source_text": "window 0",
+                    "embedding": [0.1],
+                    "version": "v3",
+                    "model": "test-model",
+                    "updated_at": "2026-07-01T00:00:00",
+                }
+            ],
+            "CREATE (chunk:ContentChunk": [{"created": 2}],
+        }
+    )
     adapter = Neo4jContentAdapter(conn)
 
-    assert await adapter.store_content_with_chunks("ps:test:doc", _content(1))
+    assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
 
-    chunk_query, chunk_params = conn.queries[2]
-    assert "MERGE (chunk:ContentChunk {uid: $chunk_uid})" in chunk_query
-    assert "CREATE (chunk:ContentChunk" not in chunk_query
-    # Conditional wipe: source-text mismatch (or never embedded) → null out
-    assert "chunk.embedding_source_text <> $context_window" in chunk_query
-    assert "chunk.embedding_source_text IS NULL" in chunk_query
-    assert chunk_params["chunk_uid"] == "ps:test:doc:chunk:0"
-    assert chunk_params["context_window"] == "window 0"
+    create_query, create_params = conn.queries[3]
+    assert "CREATE (chunk:ContentChunk" in create_query
+    assert "MERGE (chunk:ContentChunk" not in create_query
+    rows = create_params["chunks"]
+    assert rows[0]["chunk_uid"] == "ps:test:doc:chunk:0"
+    # window 0 matched the carry-over map → embedding inherited
+    assert rows[0]["embedding"] == [0.1]
+    assert rows[0]["embedding_source_text"] == "window 0"
+    # window 1 had no prior embedding → NULL fields (worker will embed it)
+    assert rows[1]["embedding"] is None
+    assert rows[1]["embedding_source_text"] is None
+
+
+@pytest.mark.asyncio
+async def test_create_count_mismatch_fails():
+    """A short CREATE count means chunks silently missing — hard False."""
+    conn = _FakeConnection(
+        responses={
+            "WHERE chunk.embedding IS NOT NULL": [],
+            "CREATE (chunk:ContentChunk": [{"created": 1}],
+        }
+    )
+    adapter = Neo4jContentAdapter(conn)
+    assert not await adapter.store_content_with_chunks("ps:test:doc", _content(2))
 
 
 @pytest.mark.asyncio
 async def test_content_upsert_writes_no_metadata_node():
     """The fabricated :ContentMetadata write is gone (L1 ruling 2026-07-02) —
     the upsert touches only :Content and its HAS_CONTENT link."""
-    conn = _FakeConnection()
+    conn = _FakeConnection(responses=_create_responses(1))
     adapter = Neo4jContentAdapter(conn)
 
     assert await adapter.store_content_with_chunks("ps:test:doc", _content(1))
@@ -131,7 +189,7 @@ async def test_store_chunk_embeddings_stamps_event_text_provenance():
     from (per-chunk param), NEVER the node-current context_window — a
     conflicting re-chunk between publish and store must not mislabel the
     vector (L3a ruling 2026-07-02)."""
-    conn = _FakeConnection(rows=[{"updated_count": 2}])
+    conn = _FakeConnection(default_rows=[{"updated_count": 2}])
     adapter = Neo4jContentAdapter(conn)
 
     assert await adapter.store_chunk_embeddings(
@@ -154,7 +212,7 @@ async def test_store_chunk_embeddings_stamps_event_text_provenance():
 @pytest.mark.asyncio
 async def test_freshness_read_returns_rows():
     conn = _FakeConnection(
-        rows=[
+        default_rows=[
             {
                 "uid": "c1",
                 "has_embedding": True,

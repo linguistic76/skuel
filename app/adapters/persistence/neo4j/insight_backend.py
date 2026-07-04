@@ -62,7 +62,7 @@ class InsightBackend:
 
             // Create relationship to primary entity if it exists
             WITH i
-            OPTIONAL MATCH (e {uid: $entity_uid})
+            OPTIONAL MATCH (e:Entity {uid: $entity_uid})
             FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
                 CREATE (i)-[:ABOUT_ENTITY]->(e)
             )

@@ -267,8 +267,10 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
+        # NOT :Content — G13 shadow-uid guard (chunk-store shadow shares uid).
         query = f"""
         MATCH (n {{uid: $uid}})
+        WHERE NOT n:Content
         MATCH {pattern}
         {where_clause}
         RETURN related.uid as uid
@@ -312,6 +314,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         rel_type = relationship_type.value
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         RETURN properties(r) as props
         """
 
@@ -365,6 +368,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         rel_type = relationship_type.value
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         SET r += $properties
         RETURN r
         """
@@ -572,6 +576,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         SET r = $metadata
         RETURN r
         """
@@ -622,6 +627,7 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
         """
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{relationship_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         SET r.traversal_count = coalesce(r.traversal_count, 0) + 1,
             r.last_traversed = datetime()
         RETURN r.traversal_count as count

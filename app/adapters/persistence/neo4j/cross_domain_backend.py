@@ -649,9 +649,11 @@ class CrossDomainBackend:
 
     async def get_entity_labels(self, uid: str) -> Result[list[dict[str, Any]]]:
         """Get an entity node and its labels for domain determination."""
+        # :Entity — a :Content shadow shares its entity's uid; unlabeled, this
+        # would return two rows and label reads become ambiguous (G13).
         return await self.executor.execute_query(
             """
-            MATCH (n {uid: $uid})
+            MATCH (n:Entity {uid: $uid})
             RETURN n, labels(n) as labels
             """,
             {"uid": uid},
@@ -727,7 +729,7 @@ class CrossDomainBackend:
         """Find connections from an entity to targets in specified domain labels."""
         return await self.executor.execute_query(
             """
-            MATCH (source {uid: $entity_uid})
+            MATCH (source:Entity {uid: $entity_uid})
             MATCH (source)-[r]-(target)
             WHERE any(label IN labels(target) WHERE label IN $target_domains)
             RETURN

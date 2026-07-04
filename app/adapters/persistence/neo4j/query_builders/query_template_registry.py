@@ -50,10 +50,10 @@ class QueryTemplateRegistry:
             TemplateSpec(
                 name="get_by_uid",
                 description="Fetch entity by unique ID",
-                base_template="MATCH (n {uid: $uid}) RETURN n",
+                base_template="MATCH (n {uid: $uid}) WHERE NOT n:Content RETURN n",
                 required_parameters={"uid"},
                 optimization_rules={
-                    "has_uid_index": "MATCH (n {uid: $uid}) RETURN n"  # Already optimal
+                    "has_uid_index": "MATCH (n {uid: $uid}) WHERE NOT n:Content RETURN n"  # Already optimal
                 },
                 estimated_base_cost=1,
             ),
@@ -79,6 +79,7 @@ class QueryTemplateRegistry:
                 description="Update entity properties",
                 base_template="""
                     MATCH (n {uid: $uid})
+                    WHERE NOT n:Content
                     SET n += $properties
                     RETURN n
                 """,
@@ -95,6 +96,7 @@ class QueryTemplateRegistry:
                 description="Delete entity and relationships",
                 base_template="""
                     MATCH (n {uid: $uid})
+                    WHERE NOT n:Content
                     DETACH DELETE n
                     RETURN true as deleted
                 """,
@@ -142,6 +144,7 @@ class QueryTemplateRegistry:
                 description="Find related nodes",
                 base_template="""
                     MATCH (n {uid: $uid})-[r:$rel_type]-(related)
+                    WHERE NOT n:Content
                     RETURN related, r, type(r) as relationship_type
                 """,
                 required_parameters={"uid", "rel_type"},
@@ -157,6 +160,7 @@ class QueryTemplateRegistry:
                 description="Create relationship between nodes",
                 base_template="""
                     MATCH (a {uid: $from_uid}), (b {uid: $to_uid})
+                    WHERE NOT a:Content AND NOT b:Content
                     CREATE (a)-[r:$rel_type $properties]->(b)
                     RETURN r
                 """,

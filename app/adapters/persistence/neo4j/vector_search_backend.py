@@ -81,8 +81,8 @@ class VectorSearchBackend:
         """Get semantic relationships between entity and context UIDs."""
         return await self._executor.execute_query(
             """
-            MATCH (entity {uid: $entity_uid})
-            MATCH (context)
+            MATCH (entity:Entity {uid: $entity_uid})
+            MATCH (context:Entity)
             WHERE context.uid IN $context_uids
             MATCH (entity)-[r]->(context)
             WHERE r.confidence IS NOT NULL

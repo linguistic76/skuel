@@ -134,8 +134,8 @@ class SemanticSimilarityQueries:
             # 3. ku.react_lifecycle (distance: 0.45) - Somewhat relevant
         """
         cypher = """
-        MATCH (query {uid: $query_uid})
-        MATCH (candidate)
+        MATCH (query:Entity {uid: $query_uid})
+        MATCH (candidate:Entity)
         WHERE candidate.uid IN $candidate_uids
 
         // Find semantic relationship (if exists)
@@ -260,7 +260,7 @@ class SemanticSimilarityQueries:
             #   Alternative 3: ku.js_core_concepts (distance: 0.38)
         """
         cypher = """
-        MATCH (target {uid: $target_uid})<-[:REQUIRES_KNOWLEDGE]-(prereq)
+        MATCH (target:Entity {uid: $target_uid})<-[:REQUIRES_KNOWLEDGE]-(prereq)
 
         // Find semantically similar alternatives for each prerequisite
         OPTIONAL MATCH (prereq)-[r:RELATED_TO|SIMILAR_TO]-(alternative)
@@ -326,7 +326,7 @@ class SemanticSimilarityQueries:
             # (EXCLUDES: ku.class_components - deprecated)
         """
         cypher = """
-        MATCH (source {uid: $source_uid})-[r:RELATED_TO|SIMILAR_TO]-(related)
+        MATCH (source:Entity {uid: $source_uid})-[r:RELATED_TO|SIMILAR_TO]-(related)
 
         // Semantic similarity filter
         WHERE r.semantic_distance IS NOT NULL

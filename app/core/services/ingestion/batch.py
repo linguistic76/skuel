@@ -46,6 +46,7 @@ from .config import (
     ENTITY_CONFIGS,
     SyncAllowlist,
     collect_files,
+    collect_files_detailed,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
@@ -596,8 +597,10 @@ async def ingest_directory(
             )
         )
 
-    # Collect all supported files using simplified pattern matching
-    all_files = collect_files(directory, pattern, allowlist=allowlist)
+    # Collect all supported files using simplified pattern matching, with
+    # skip-reason bookkeeping (G10): walled/unsupported files are reported in
+    # the stats instead of silently vanishing from the totals.
+    all_files, collection_skips = collect_files_detailed(directory, pattern, allowlist=allowlist)
 
     if not all_files:
         if ingestion_mode == "full":
@@ -639,6 +642,8 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                files_walled=collection_skips.walled,
+                files_unsupported=collection_skips.unsupported,
                 errors=empty_errors,
             )
         )
@@ -731,6 +736,8 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                files_walled=collection_skips.walled,
+                files_unsupported=collection_skips.unsupported,
                 errors=reconcile_errors if reconcile_errors else None,
             )
         )
@@ -781,7 +788,11 @@ async def ingest_directory(
             # Track file -> entity mapping for ingestion metadata updates
             file_entity_map[str(files_to_process[i])] = (entity_type, entity_data.get("uid", ""))
 
-    # Optional: Validate relationship targets before ingestion
+    # Optional: Validate relationship targets before ingestion. Dangling
+    # targets no-op inside the relationship Cypher (the MATCH miss drops the
+    # UNWIND row), so this pre-check is the ONLY place a phantom UID becomes
+    # visible — every missing (source, target) pair gets its own warning (G10),
+    # not just the aggregate repeat-count summary.
     validation_warnings: list[str] = []
     if validate_targets and write_backend is not None:
         for entity_type, entities in entities_by_type.items():
@@ -791,9 +802,16 @@ async def ingest_directory(
                     entities, config.relationship_config, write_backend
                 )
                 if validation_result.is_ok and not validation_result.value.valid:
-                    for warning in validation_result.value.warnings:
-                        logger.warning(f"[{entity_type.value}] {warning}")
-                        validation_warnings.append(warning)
+                    for source_uid, targets in sorted(
+                        validation_result.value.missing_by_entity.items()
+                    ):
+                        for target_uid in targets:
+                            warning = (
+                                f"{source_uid}: relationship target '{target_uid}' does not "
+                                "exist — edge not created"
+                            )
+                            logger.warning(f"[{entity_type.value}] {warning}")
+                            validation_warnings.append(warning)
 
     # DRY-RUN MODE: Preview changes without writing to Neo4j
     if dry_run and write_backend is not None:
@@ -942,6 +960,12 @@ async def ingest_directory(
                             total_nodes_created += result_data["nodes_created"]
                         else:
                             total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+                        # Per-line extraction problems (parse/creation/link
+                        # errors) that did not fail the file: surface as
+                        # warnings (G10) — the entry persisted and stays
+                        # tracked, but the user must see what was dropped.
+                        for warning in result_data.get("extraction_warnings") or []:
+                            validation_warnings.append(f"{ue_path.name}: {warning}")
         else:
             logger.warning(
                 f"{len(user_entry_entities)} UserEntry file(s) found in directory ingest "
@@ -1127,6 +1151,9 @@ async def ingest_directory(
                 relationships_created=total_relationships_created,
                 edges_created=total_edges_created,
                 duration_seconds=duration,
+                files_walled=collection_skips.walled,
+                files_unsupported=collection_skips.unsupported,
+                warnings=validation_warnings,
                 errors=errors if errors else None,
             )
         )
@@ -1147,6 +1174,9 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                files_walled=collection_skips.walled,
+                files_unsupported=collection_skips.unsupported,
+                warnings=validation_warnings,
                 errors=errors if errors else None,
             )
         )

@@ -231,9 +231,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             >>> print(source_labels)  # ["Task"]
             >>> print(target_labels)  # ["Entity", "Entity"]
         """
+        # NOT :Content — the chunk store's shadow node shares its entity's uid;
+        # an unguarded uid MATCH would read the shadow's labels here and wrong
+        # validation would follow (G13). Endpoints may be User/Group (non-
+        # :Entity), so exclusion — not :Entity binding — is the guard.
         query = """
-        MATCH (a {uid: $from_uid})
-        MATCH (b {uid: $to_uid})
+        MATCH (a {uid: $from_uid}) WHERE NOT a:Content
+        MATCH (b {uid: $to_uid}) WHERE NOT b:Content
         RETURN labels(a) as source_labels, labels(b) as target_labels
         """
 
@@ -437,9 +441,12 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         props = properties or {}
 
+        # NOT :Content — same G13 shadow-uid guard as _get_node_labels: an
+        # unguarded MERGE would create the edge to BOTH the entity and its
+        # chunk-store shadow (the doubled-INTERACTION_DURING bug class).
         query = f"""
-        MATCH (a {{uid: $from_uid}})
-        MATCH (b {{uid: $to_uid}})
+        MATCH (a {{uid: $from_uid}}) WHERE NOT a:Content
+        MATCH (b {{uid: $to_uid}}) WHERE NOT b:Content
         MERGE (a)-[r:{relationship_type}]->(b)
         SET r += $properties
         RETURN r
@@ -566,8 +573,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
         """
         rel_type = relationship_type.value
+        # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         DETACH DELETE r
         RETURN count(r) as deleted_count
         """
@@ -679,8 +688,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             - count_related(): Count all relationships of a type
         """
         rel_type = relationship_type.value
+        # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
         MATCH (a {{uid: $from_uid}})-[r:{rel_type}]->(b {{uid: $to_uid}})
+        WHERE NOT a:Content AND NOT b:Content
         RETURN count(r) > 0 as exists
         """
 
@@ -761,8 +772,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
         where_clause = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
+        # NOT :Content — G13 shadow-uid guard (see create_relationship).
         query = f"""
         MATCH (n {{uid: $uid}})
+        WHERE NOT n:Content
         MATCH {pattern}
         {where_clause}
         RETURN count(related) as count

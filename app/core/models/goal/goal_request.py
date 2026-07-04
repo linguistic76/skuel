@@ -11,7 +11,14 @@ Uses shared validation rules from core.models.validation_rules for DRY complianc
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.enums.goal_enums import (
@@ -88,9 +95,15 @@ class GoalCreateRequest(BaseModel):
     _validate_title = validate_required_string("title")
 
     @model_validator(mode="after")
-    def validate_target_date(self):
-        """Validate target date is in the future and after start date."""
-        if self.target_date and self.target_date < date.today():
+    def validate_target_date(self, info: ValidationInfo) -> "GoalCreateRequest":
+        """Validate target date is in the future and after start date.
+
+        The future check honors the ingestion validation context
+        (``allow_past_dates`` — historical vault notes legitimately carry
+        past target dates; see validate_future_date, G10/Arc E).
+        """
+        allow_past = bool(info.context and info.context.get("allow_past_dates"))
+        if not allow_past and self.target_date and self.target_date < date.today():
             raise ValueError("Target date must be in the future")
 
         # Use shared validator helper for date ordering

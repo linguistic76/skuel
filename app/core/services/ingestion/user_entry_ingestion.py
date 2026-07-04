@@ -31,6 +31,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from core.models.user_entry.user_entry import UserEntry
     from core.services.user_entry.audience_resolver import AudienceResolver
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
@@ -369,6 +370,7 @@ async def ingest_user_entry(
     # Failure-isolated: an extraction error never fails the journal node that is
     # already committed — log it and surface it, let a re-sync retry.
     extraction_error: str | None = None
+    extraction_warnings: list[str] = []
     if user_entry_processor is not None and entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
         try:
             # force=True: edits must re-extract (the completed-run guard would
@@ -380,6 +382,13 @@ async def ingest_user_entry(
                     f"EXTRACT_ACTIVITIES failed for {entry.uid} (journal persisted): "
                     f"{extraction_error}"
                 )
+            else:
+                # Per-line problems from a run that COMPLETED (partial
+                # failures): historically these lived only in the entry-node
+                # metadata, invisible to every sync surface (G10). Surface
+                # them as warnings — the entry persisted, but the user must
+                # see which lines were dropped and why.
+                extraction_warnings = _extraction_warnings_from_entry(process_result.value)
         except Exception as exc:  # safety-net: extraction must not unwind persistence
             extraction_error = str(exc)
             logger.exception(f"EXTRACT_ACTIVITIES raised for {entry.uid} (journal persisted)")
@@ -401,8 +410,29 @@ async def ingest_user_entry(
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
             "extraction_error": extraction_error,
+            "extraction_warnings": extraction_warnings,
         }
     )
+
+
+def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
+    """Per-line extraction problems recorded on a COMPLETED run (G10).
+
+    ``UserEntryProcessingService`` stores its run summary under
+    ``metadata.activity_extraction``; parse/creation/link errors there mean
+    lines were dropped without failing the file. Pull them out so the sync
+    stats can show them instead of leaving them buried on the node.
+    """
+    if entry is None:
+        return []
+    summary = (entry.metadata or {}).get("activity_extraction")
+    if not isinstance(summary, dict):
+        return []
+    warnings: list[str] = []
+    for key in ("parse_errors", "creation_errors", "link_errors"):
+        for problem in summary.get(key) or []:
+            warnings.append(str(problem))
+    return warnings
 
 
 __all__ = ["build_user_entry_request", "ingest_user_entry"]
