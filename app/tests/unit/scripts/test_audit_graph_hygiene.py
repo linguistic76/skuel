@@ -409,3 +409,57 @@ class TestOrphanAuthCleanup:
         assert [r["uid"] for r in plan.sessions] == ["session_x"]
         assert [r["uid"] for r in plan.auth_events] == ["auth_orphan"]
         assert [r["uid"] for r in plan.audit_trail] == ["auth_failed_login"]
+
+
+class TestTestUserCleanupKodyFindings:
+    """Kody #504: unlabeled owned rows must block the user, not silently drop."""
+
+    def test_unlabeled_owned_entity_blocks_the_owner(self):
+        users = [
+            {
+                "uid": "user_verifyperiodic",
+                "email": "v@example.com",
+                "edge_sigs": ["OWNS:out"],
+                "session_count": 0,
+                "auth_event_count": 0,
+            }
+        ]
+        owned = [
+            {
+                "owner": "user_verifyperiodic",
+                "uid": "weird_node",
+                "labels": ["Entity"],  # no single domain label
+                "edge_sigs": ["OWNS:in"],
+            }
+        ]
+        plans = plan_test_user_cleanup(users, owned)
+        assert plans[0].blockers and "no single domain label" in plans[0].blockers[0]
+        assert plans[0].owned == []
+
+
+class TestRepointSubsetSemantics:
+    """EXPECTED_DUPE_EDGES is a ceiling (subset), not equality — a dupe whose
+    ABOUT_ENTITY edge was already re-pointed by a partial prior run must stay
+    deletable on re-run (Kody #504 equality suggestion rejected for this)."""
+
+    def test_dupe_missing_about_entity_edge_is_still_fixable(self):
+        rows = [
+            {
+                "uid": "task_dupe",
+                "title": "move furniture",
+                "owner": "user_x",
+                "labels": ["Entity", "Task"],
+                "edge_sigs": ["OWNS:in"],  # ABOUT_ENTITY already re-pointed
+                "about_sources": [],
+            },
+            {
+                "uid": "task_winner",
+                "title": "move furniture",
+                "owner": "user_x",
+                "labels": ["Entity", "Task"],
+                "edge_sigs": ["OWNS:in", "ABOUT_ENTITY:in"],
+                "about_sources": ["insight.x"],
+            },
+        ]
+        plans = plan_about_entity_repoints(rows, ruled={"task_dupe": "task_winner"})
+        assert not plans[0].blockers

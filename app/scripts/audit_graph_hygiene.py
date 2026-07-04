@@ -106,8 +106,10 @@ RULED_ABOUT_ENTITY_REPOINTS = {
     "task_80fc80ab": "task_cdaf1474",
 }
 
-# F7: the dupes must carry EXACTLY these edges (ownership + the insight edge
-# being re-pointed); anything else is unmodeled state → REPORT.
+# F7: the dupe's edges must be a SUBSET of these (ownership + the insight edge
+# being re-pointed); anything beyond is unmodeled state → REPORT. Subset, not
+# equality, deliberately: a partial prior run leaves the dupe missing
+# ABOUT_ENTITY:in (already re-pointed) — still safely deletable on re-run.
 EXPECTED_DUPE_EDGES = frozenset({"OWNS:in", "ABOUT_ENTITY:in"})
 
 
@@ -434,10 +436,17 @@ def plan_test_user_cleanup(
     auth_event_count; owned_rows with keys: owner, uid, labels, edge_sigs.
     """
     owned_by: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    blocked_owners: dict[str, list[str]] = defaultdict(list)
     for row in owned_rows:
         label = domain_label(row.get("labels") or [])
         if label is None:
-            continue  # ≠1 domain label → R4 anomaly; F5 won't guess
+            # ≠1 domain label → R4 anomaly; F5 won't guess AND won't delete the
+            # user around it — a dropped row must block, or the user delete
+            # would report success while its data remains (Kody #504).
+            blocked_owners[row["owner"]].append(
+                f"owned entity {row['uid']} has no single domain label"
+            )
+            continue
         owned_by[row["owner"]].append(
             {"uid": row["uid"], "label": label, "edge_sigs": sorted(row.get("edge_sigs") or [])}
         )
@@ -453,6 +462,7 @@ def plan_test_user_cleanup(
         unexpected = set(row.get("edge_sigs") or []) - EXPECTED_TEST_USER_EDGES
         if unexpected:
             plan.blockers.append(f"user carries unexpected edges: {sorted(unexpected)}")
+        plan.blockers.extend(blocked_owners.get(row["uid"], []))
         plans.append(plan)
     return plans
 
@@ -858,9 +868,18 @@ async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tup
     for plan in plans:
         if plan.blockers:
             continue
+        all_owned_deleted = True
         for entity in plan.owned:
             if await _delete_entity_checked(driver, entity["uid"], entity["label"]):
                 entities_deleted += 1
+            else:
+                all_owned_deleted = False
+        if not all_owned_deleted:
+            # Deleting the user around a refused entity would orphan it and
+            # report success anyway (Kody #504) — leave the whole user for
+            # the next run, after the shadow anomaly is resolved.
+            print(f"    !! {plan.uid}: owned entity delete refused — user kept")
+            continue
         await driver.execute_query(
             "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s) DETACH DELETE s", uid=plan.uid
         )
@@ -953,6 +972,14 @@ async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> 
     repointed = deleted = 0
     for plan in plans:
         if plan.blockers:
+            continue
+        # Shadow precheck BEFORE mutating: re-pointing first and then refusing
+        # the delete would leave the pair half-migrated (Kody #504).
+        shadow = await driver.execute_query(
+            "MATCH (c:Content {uid: $uid}) RETURN count(c) AS n", uid=plan.dupe_uid
+        )
+        if shadow.records and int(shadow.records[0]["n"]) > 0:
+            print(f"    !! {plan.dupe_uid}: :Content shadow shares this uid — pair skipped")
             continue
         result = await driver.execute_query(
             """
