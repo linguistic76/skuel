@@ -207,7 +207,9 @@ it has ORGANIZES edges (the "ORGANIZES Path" to knowledge).
   removed links drop their edges (full refresh, mirroring how rel-config
   `order_property` values refresh); an unchanged file is skipped entirely
   (no-op). File deletion propagates through the normal deletion
-  reconciliation (entity + edges).
+  reconciliation (entity + edges). The refresh spares the file's own
+  `organizes:` frontmatter targets — the rel-config authoring surface and
+  the body-link surface coexist on one file.
 - **Batch timing:** the directory door applies MOC passes at the END of a
   sync — after `IngestionMetadata` stamping and deletion reconciliation — so
   a MOC and its targets ingested in the *same* sync link correctly.
