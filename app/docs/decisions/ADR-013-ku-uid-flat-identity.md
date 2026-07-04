@@ -442,3 +442,20 @@ await lesson_core.unorganize_lesson(old_parent_uid, ku_uid)
 await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
 # All references to ku_uid remain valid
 ```
+
+## Addendum (2026-07-04, Arc F/G12): the two-form reality in today's graph
+
+Both UID forms remain sanctioned, but they are provenance, not a migration plan:
+
+- **Authored** (vault): files author `ku:{ns}:{slug}` (colons); ingestion normalizes
+  `:` → `.` (`normalize_uid()`, `core/services/ingestion/preparer.py`), so the graph
+  stores `ku.{ns}.{slug}`. The same colon→dot rewrite applies to PS/LP UIDs and to
+  Edge-YAML `from`/`to` references.
+- **Generated** (API): `ku_{slug}_{random}`, this ADR's format.
+
+As of 2026-07-04 the live graph holds **only** dotted authored Ku UIDs (89/89);
+zero flat generated Kus exist yet, because all curriculum content to date arrived
+via vault ingestion. That is expected, not drift — the flat format activates when
+KUs are created through the API. No migration between the forms, ever; entity kind
+is determined by label/`entity_type`/edge, never by UID spelling (the never-sniff
+rule, reaffirmed 2026-07-03).

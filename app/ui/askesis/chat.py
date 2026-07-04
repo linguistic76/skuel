@@ -334,7 +334,7 @@ def _composer_area() -> Any:
         Div(
             _composer_form(),
             P(
-                "Askesis answers from your Path Steps and Learning Paths, citing its sources. Verify anything important.",
+                "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
             ),
             cls="max-w-[768px] mx-auto w-full px-4",

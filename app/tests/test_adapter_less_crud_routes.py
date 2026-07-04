@@ -757,10 +757,15 @@ class EchoTaskService:
 
     def __init__(self):
         self.created: list[Any] = []
+        self.deleted: list[tuple[str, str, bool]] = []
 
     async def create(self, entity: Any) -> Result[Any]:
         self.created.append(entity)
         return Result.ok(entity)
+
+    async def delete_for_user(self, uid: str, user_uid: str, cascade: bool = False) -> Result[bool]:
+        self.deleted.append((uid, user_uid, cascade))
+        return Result.ok(True)
 
     async def list(
         self,
@@ -837,6 +842,26 @@ async def test_real_factory_list_returns_paginated_payload():
     assert body["limit"] == 100
     assert body["offset"] == 0
     assert [t["uid"] for t in body["items"]] == ["task:aaa111", "task:bbb222"]
+
+
+@pytest.mark.asyncio
+async def test_real_factory_delete_cascades_for_owned_entities():
+    """G18: the registered delete handler must pass cascade=True.
+
+    Every owned activity carries at least the OWNS edge, so a non-cascade
+    delete could never succeed from this route — it 422'd unconditionally.
+    """
+    service = EchoTaskService()
+    _, rt = _real_task_factory(service)
+
+    response = await rt.handlers["/api/tasks/delete"](
+        FactoryRequest(method="POST"), uid="task:doomed"
+    )
+    body, status = extract_response(response)
+
+    assert status == 200
+    assert body is True
+    assert service.deleted == [("task:doomed", "user_test", True)]
 
 
 if __name__ == "__main__":

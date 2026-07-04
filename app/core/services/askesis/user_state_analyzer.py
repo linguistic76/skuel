@@ -377,7 +377,7 @@ class UserStateAnalyzer:
             insights.append(
                 AskesisInsight(
                     type=InsightType.OPPORTUNITY,
-                    title="Multiple learning paths available",
+                    title="Multiple topics ready to learn",
                     description=f"{len(ready_knowledge)} knowledge units ready to learn",
                     confidence=ConfidenceLevel.GOOD,
                     impact="medium",

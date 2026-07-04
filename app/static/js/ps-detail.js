@@ -11,6 +11,11 @@
  *
  * All mutations POST via htmx.ajax() — skuel.js attaches X-CSRF-Token
  * to every htmx request automatically, so no manual token wiring needed.
+ *
+ * Progress updates are optimistic: the UI flips immediately, and if the
+ * server rejects the write (enrollment cap, write error) the htmx
+ * lifecycle listener in init() rolls the state back and surfaces the
+ * server's X-Toast-Message as an error toast (G7).
  */
 (function () {
   'use strict';
@@ -27,6 +32,40 @@
       nextStep: s.next_step || null,
       practiceOpen: true,
       depsOpen: false,
+      _syncedStatus: null,
+
+      init: function () {
+        var self = this;
+        this._syncedStatus = this.status;
+        // postProgress() passes source: this.$el, so the htmx lifecycle
+        // events for progress POSTs fire on this element (and the listener
+        // is GC'd with it on page swaps). On failure, roll the optimistic
+        // state back to the last server-confirmed value and show the toast.
+        this.$el.addEventListener('htmx:afterRequest', function (evt) {
+          var cfg = evt.detail && evt.detail.requestConfig;
+          if (!cfg || String(cfg.path).indexOf('/progress') === -1) return;
+          if (evt.detail.successful) {
+            self._syncedStatus = self.status;
+            return;
+          }
+          self.status = self._syncedStatus;
+          var xhr = evt.detail.xhr;
+          var msg =
+            (xhr && xhr.getResponseHeader('X-Toast-Message')) ||
+            'Could not update progress — please try again';
+          window.dispatchEvent(
+            new CustomEvent('toast', { detail: { message: msg, type: 'error' } })
+          );
+        });
+      },
+
+      postProgress: function (values) {
+        htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
+          source: this.$el,
+          values: values,
+          swap: 'none',
+        });
+      },
 
       get progressPct() {
         return this.status === 'read' ? 100 : this.status === 'learning' ? 55 : 0;
@@ -45,10 +84,7 @@
           this.status = 'learning';
           htmx.ajax('POST', '/api/ps/' + this.uid + '/engage', { swap: 'none' });
           // Mark as in-progress so mastery state persists across page reloads.
-          htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
-            values: { state: 'learning' },
-            swap: 'none',
-          });
+          this.postProgress({ state: 'learning' });
           // Reload the tasks fragment after the server has had time to spawn tasks.
           var tasksEl = document.getElementById('ps-tasks-fragment');
           if (tasksEl) {
@@ -57,18 +93,12 @@
           return;
         }
         var newState = this.status === 'learning' ? 'read' : 'learning';
-        htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
-          values: { state: newState },
-          swap: 'none',
-        });
+        this.postProgress({ state: newState });
         this.status = newState;
       },
 
       reviewAgain: function () {
-        htmx.ajax('POST', '/explore/ps/' + this.uid + '/progress', {
-          values: { state: 'learning', review: 'true' },
-          swap: 'none',
-        });
+        this.postProgress({ state: 'learning', review: 'true' });
         this.status = 'learning';
       },
 

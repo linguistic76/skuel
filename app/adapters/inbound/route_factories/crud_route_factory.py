@@ -147,8 +147,10 @@ class CRUDOperations(Protocol[T]):
         """Update entity, only if owned by user"""
         ...
 
-    async def delete_for_user(self, uid: str, user_uid: UserUID) -> Result[bool]:
-        """Delete entity, only if owned by user"""
+    async def delete_for_user(
+        self, uid: str, user_uid: UserUID, cascade: bool = False
+    ) -> Result[bool]:
+        """Delete entity, only if owned by user (cascade removes relationships too)"""
         ...
 
 
@@ -541,6 +543,10 @@ class CRUDRouteFactory[T]:
 
         SECURITY (December 2025): When verify_ownership=True, requires authentication
         and verifies the requesting user owns the entity before deleting.
+
+        CASCADE (July 2026, G18): ownership-verified deletes always cascade.
+        Every owned entity carries at least the OWNS edge, so a non-cascade
+        delete can never succeed from this route — it 422'd unconditionally.
         """
         service = self.service
         domain = self.domain
@@ -558,7 +564,7 @@ class CRUDRouteFactory[T]:
 
             if verify_ownership:
                 user_uid = require_authenticated_user(request)
-                result = await service.delete_for_user(uid, user_uid)
+                result = await service.delete_for_user(uid, user_uid, cascade=True)
                 logger.info(f"Deleted {domain}: {uid} for user {user_uid}")
             else:
                 result = await service.delete(uid)
