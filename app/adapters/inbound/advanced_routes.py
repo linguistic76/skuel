@@ -145,7 +145,7 @@ def create_jupyter_sync_routes(
     @rt("/jupyter/fetch")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def fetch(request: Request, current_user: Any, uid: str) -> JSONResponse:
+    async def fetch(request: Request, uid: str, current_user: Any = None) -> JSONResponse:
         """
         Fetch content from Neo4j for Jupyter editing.
 
@@ -158,7 +158,7 @@ def create_jupyter_sync_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def save(request: Request, current_user: Any, uid: str) -> JSONResponse:
+    async def save(request: Request, uid: str, current_user: Any = None) -> JSONResponse:
         """Save Jupyter-edited content back to Neo4j. Expects JSON body with edited content."""
         content = await request.json()
         return await jupyter_sync.save_jupyter_changes(uid, content)
@@ -167,7 +167,9 @@ def create_jupyter_sync_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def sync_to_obsidian(request: Request, current_user: Any, uid: str) -> JSONResponse:
+    async def sync_to_obsidian(
+        request: Request, uid: str, current_user: Any = None
+    ) -> JSONResponse:
         """
         Sync Neo4j changes back to Obsidian markdown files.
 
@@ -179,7 +181,9 @@ def create_jupyter_sync_routes(
     @rt("/jupyter/detect-conflicts")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def detect_conflicts(request: Request, current_user: Any, uid: str) -> JSONResponse:
+    async def detect_conflicts(
+        request: Request, uid: str, current_user: Any = None
+    ) -> JSONResponse:
         """
         Detect conflicts between Neo4j and Obsidian content.
 
@@ -206,14 +210,14 @@ def create_performance_routes(
     @rt("/performance/metrics")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def metrics(request: Request, current_user: Any) -> JSONResponse:
+    async def metrics(request: Request, current_user: Any = None) -> JSONResponse:
         """Get current performance metrics (response time, throughput, cache hit rate, etc.)."""
         return await performance_optimization.get_current_metrics()
 
     @rt("/performance/cache-stats")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def cache_stats(request: Request, current_user: Any) -> Result[Any]:
+    async def cache_stats(request: Request, current_user: Any = None) -> Result[Any]:
         """Get cache performance statistics (hit rate, size, evictions, efficiency)."""
         stats = performance_optimization.inference_engine.get_cache_stats()
         return Result.ok(stats)
@@ -222,7 +226,7 @@ def create_performance_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def optimize_performance(request: Request, current_user: Any) -> JSONResponse:
+    async def optimize_performance(request: Request, current_user: Any = None) -> JSONResponse:
         """Trigger performance optimization analysis and tuning."""
         return await performance_optimization.optimize_performance()
 

@@ -58,7 +58,9 @@ def create_entry_report_api_routes(
     @csrf_protected
     @require_teacher(user_service_getter)
     @boundary_handler(success_status=201)
-    async def create_assessment(request: Request, current_user: Any) -> Result[AssessmentResponse]:
+    async def create_assessment(
+        request: Request, current_user: Any = None
+    ) -> Result[AssessmentResponse]:
         """Create a teacher assessment for a student."""
         teacher_uid = current_user.uid
         body = await request.json()

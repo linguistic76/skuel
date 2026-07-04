@@ -46,7 +46,11 @@ from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-from core.services.dsl.activity_extractor import normalized_line_hash, semantic_dedup_key
+from core.services.dsl.activity_extractor import (
+    USER_OWNED_DEDUP_LABELS,
+    normalized_line_hash,
+    semantic_dedup_key,
+)
 from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
 from core.services.dsl.grounding import goals_as_context
 from core.utils.exception_types import FILE_IO_EXCEPTIONS, LLM_EXCEPTIONS
@@ -511,6 +515,25 @@ class UserEntryProcessingService:
             if label and row.get("title") and row.get("entity_uid"):
                 existing_extracted[semantic_dedup_key(label, row["title"])] = row["entity_uid"]
 
+        # --- User-wide active twins (Guard 4 input, cross-entry/F4) -----------
+        # Rows are oldest-first; setdefault keeps the same winner the F4 fixer
+        # keeps. A line matching an ACTIVE owned twin merges instead of
+        # re-creating a node the cleanup deleted (resurrection guard).
+        twins_result = await self.entry_service.backend.get_user_active_extraction_twins(
+            entry.user_uid, list(USER_OWNED_DEDUP_LABELS)
+        )
+        if twins_result.is_error:
+            return await self._fail(entry, twins_result.expect_error(), phase="read_provenance")
+        user_owned_semantic: dict[tuple[str, str], str] = {}
+        for row in twins_result.value or []:
+            label = next(
+                (lb for lb in row.get("labels", []) if lb not in ("Entity", "Content")), None
+            )
+            if label and row.get("title") and row.get("entity_uid"):
+                user_owned_semantic.setdefault(
+                    semantic_dedup_key(label, row["title"]), row["entity_uid"]
+                )
+
         # --- Existing APPLIES_KNOWLEDGE targets (substance idempotency) --------
         # The edge write below is MERGE-idempotent, but the substance event is
         # NOT — publishing KnowledgeReflectedInEntry for an edge that already
@@ -544,6 +567,7 @@ class UserEntryProcessingService:
             existing_line_hashes=existing_line_hashes,
             bridge_line_hashes=bridge_line_hashes,
             existing_extracted=existing_extracted,
+            user_owned_semantic=user_owned_semantic,
         )
         if extract_result.is_error:
             return await self._fail(entry, extract_result.expect_error(), phase="extract")

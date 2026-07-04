@@ -960,6 +960,16 @@ async def ingest_directory(
                             total_nodes_created += result_data["nodes_created"]
                         else:
                             total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+                        # Record the REAL entry uid the service minted (e.g.
+                        # ue:daily:{user}:{date}), not the parse-phase
+                        # title-derived guess — the tracker row feeds deletion
+                        # propagation, and a uid that matches no node makes
+                        # file-deletion a silent no-op on the entity side (G10).
+                        if result_data.get("uid"):
+                            file_entity_map[str(ue_path)] = (
+                                EntityType.USER_ENTRY,
+                                str(result_data["uid"]),
+                            )
                         # Per-line extraction problems (parse/creation/link
                         # errors) that did not fail the file: surface as
                         # warnings (G10) — the entry persisted and stays

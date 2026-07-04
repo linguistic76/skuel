@@ -332,7 +332,9 @@ def create_vault_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
-    async def vault_sync_content(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+    async def vault_sync_content(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """Sync the shared content (curriculum) vault through the reconciler.
 
         Admin-only. Inbound-only: ``sync`` ignores the acting user for

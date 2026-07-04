@@ -407,6 +407,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc = _entry_service_with_updated(updated_entry)
     svc.backend.get_relationships = AsyncMock(return_value=Result.ok([]))
     svc.backend.get_extracted_entities_for_entry = AsyncMock(return_value=Result.ok([]))
+    svc.backend.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
     svc.backend.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
     svc.backend.add_relationship = AsyncMock(return_value=Result.ok(True))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
@@ -688,6 +689,43 @@ class TestExtractActivities:
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.
         assert kwargs["existing_extracted"] == {("Task", "prior task"): "task_prior"}
+
+    @pytest.mark.asyncio
+    async def test_user_owned_twins_are_read_and_threaded(self):
+        """Guard 4 (cross-entry, F4): the user-wide active-twin map is built
+        oldest-first (setdefault keeps the F4 winner) and handed to the
+        extractor."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        svc = _extract_entry_service(entry)
+        svc.backend.get_user_active_extraction_twins = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task_oldest",
+                        "title": " Reflect  Daily ",
+                        "labels": ["Entity", "Task"],
+                    },
+                    {
+                        "entity_uid": "task_newer_twin",
+                        "title": "reflect daily",
+                        "labels": ["Entity", "Task"],
+                    },
+                    {"entity_uid": "task_untitled", "title": "", "labels": ["Entity", "Task"]},
+                ]
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["user_owned_semantic"] == {("Task", "reflect daily"): "task_oldest"}
 
     @pytest.mark.asyncio
     async def test_provenance_write_failure_fails_run(self):

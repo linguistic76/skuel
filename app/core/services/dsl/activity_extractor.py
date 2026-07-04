@@ -128,6 +128,19 @@ _NODE_LABEL_BY_EXTRACTOR_LABEL: dict[str, str] = {
     "LifePath": "LifePath",
 }
 
+# Node labels eligible for Guard 4 (cross-entry, F4) dedup: the USER-OWNED
+# domains extraction can create. Curriculum labels (Ku/PathStep/LearningPath)
+# are SHARED-scope — never user-owned twins — and stay out of the map.
+USER_OWNED_DEDUP_LABELS: tuple[str, ...] = (
+    "Task",
+    "Habit",
+    "Goal",
+    "Event",
+    "Principle",
+    "Choice",
+    "LifePath",
+)
+
 
 def normalized_activity_title(title: str) -> str:
     """Whitespace-collapsed, casefolded title — the R3 semantic-key normalizer.
@@ -275,6 +288,10 @@ class ActivityExtractionResult:
     # Bridge-generated lines merged into an existing entity via the semantic
     # key (Guard 3, R3) — provenance refreshed, no new node.
     lines_merged_existing: int = 0
+    # Lines merged into an ACTIVE entity the user already owns with the same
+    # (label, normalized title) — Guard 4 (cross-entry, F4). Prevents a note
+    # re-process from resurrecting nodes the F4 dedup cleanup deleted.
+    lines_merged_cross_entry: int = 0
 
     # ========================================================================
     # ERRORS & TIMING
@@ -378,6 +395,7 @@ class ActivityExtractionResult:
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
             "lines_merged_existing": self.lines_merged_existing,
+            "lines_merged_cross_entry": self.lines_merged_cross_entry,
             # ================================================================
             # Aggregates
             # ================================================================
@@ -496,6 +514,7 @@ class ActivityExtractorService:
         existing_line_hashes: frozenset[str] = frozenset(),
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
+        user_owned_semantic: dict[tuple[str, str], str] | None = None,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from a UserEntry and create corresponding entities.
@@ -519,6 +538,11 @@ class ActivityExtractorService:
             existing_extracted: ``semantic_dedup_key`` → uid for entities
                 already EXTRACTED_FROM this entry. Mutated during the run so
                 same-run duplicates also merge.
+            user_owned_semantic: ``semantic_dedup_key`` → uid for ACTIVE
+                (non-terminal) entities the user already OWNS, across all
+                entries (Guard 4, cross-entry/F4). Any matching line merges
+                instead of creating — a note re-process must not resurrect
+                nodes the F4 dedup cleanup deleted.
 
         Returns:
             Result containing ActivityExtractionResult with counts, UIDs,
@@ -530,6 +554,8 @@ class ActivityExtractorService:
         )
         if existing_extracted is None:
             existing_extracted = {}
+        if user_owned_semantic is None:
+            user_owned_semantic = {}
 
         content = (
             content_override
@@ -624,6 +650,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.tasks_created += created
             extraction.created_task_uids.extend(uids)
@@ -638,6 +665,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.habits_created += created
             extraction.created_habit_uids.extend(uids)
@@ -652,6 +680,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.goals_created += created
             extraction.created_goal_uids.extend(uids)
@@ -666,6 +695,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.events_created += created
             extraction.created_event_uids.extend(uids)
@@ -680,6 +710,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.principles_created += created
             extraction.created_principle_uids.extend(uids)
@@ -694,6 +725,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.choices_created += created
             extraction.created_choice_uids.extend(uids)
@@ -708,6 +740,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.finances_created += created
             extraction.created_finance_uids.extend(uids)
@@ -732,6 +765,7 @@ class ActivityExtractorService:
                     existing_line_hashes,
                     bridge_line_hashes,
                     existing_extracted,
+                    user_owned_semantic,
                 )
                 extraction.kus_created += created
                 extraction.created_ku_uids.extend(uids)
@@ -749,6 +783,7 @@ class ActivityExtractorService:
                     existing_line_hashes,
                     bridge_line_hashes,
                     existing_extracted,
+                    user_owned_semantic,
                 )
                 extraction.path_steps_created += created
                 extraction.created_ps_uids.extend(uids)
@@ -766,6 +801,7 @@ class ActivityExtractorService:
                     existing_line_hashes,
                     bridge_line_hashes,
                     existing_extracted,
+                    user_owned_semantic,
                 )
                 extraction.learning_paths_created += created
                 extraction.created_lp_uids.extend(uids)
@@ -784,6 +820,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.calendar_items_created += created
             extraction.created_calendar_uids.extend(uids)
@@ -802,6 +839,7 @@ class ActivityExtractorService:
                 existing_line_hashes,
                 bridge_line_hashes,
                 existing_extracted,
+                user_owned_semantic,
             )
             extraction.lifepath_items_created += created
             extraction.created_lifepath_uids.extend(uids)
@@ -812,7 +850,8 @@ class ActivityExtractorService:
             f"Extraction complete for {entry.uid}: "
             f"created {extraction.total_created} entities, "
             f"skipped {extraction.lines_skipped_existing} already-extracted lines, "
-            f"merged {extraction.lines_merged_existing} semantic duplicates "
+            f"merged {extraction.lines_merged_existing} semantic duplicates, "
+            f"merged {extraction.lines_merged_cross_entry} cross-entry twins "
             f"({len(extraction.creation_errors)} errors)"
         )
 
@@ -832,6 +871,7 @@ class ActivityExtractorService:
         existing_line_hashes: frozenset[str],
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
+        user_owned_semantic: dict[tuple[str, str], str] | None = None,
     ) -> tuple[int, list[str]]:
         """Run one domain's create loop with dedup guards and provenance capture.
 
@@ -840,7 +880,12 @@ class ActivityExtractorService:
         generated lines whose (node label, normalized title) matches an entity
         already extracted from this entry MERGE — the line resolves to the
         existing uid, no new node is created and the existing provenance edge
-        is left untouched.
+        is left untouched. Guard 4 (cross-entry, F4): ANY line whose key
+        matches an ACTIVE entity the user already owns merges the same way —
+        no node, no provenance write — so re-processing a note (e.g. after 🆔
+        injection changed its hash) cannot resurrect a node the F4 dedup
+        cleanup deleted. Terminal twins don't block: re-typing a completed
+        task's title is a new task.
 
         Returns (created_count, created_uids); appends (uid, line_hash) pairs
         to `extraction.created_links` and failures to
@@ -848,6 +893,8 @@ class ActivityExtractorService:
         """
         if existing_extracted is None:
             existing_extracted = {}
+        if user_owned_semantic is None:
+            user_owned_semantic = {}
         node_label = _NODE_LABEL_BY_EXTRACTOR_LABEL.get(label)
         created = 0
         uids: list[str] = []
@@ -873,6 +920,18 @@ class ActivityExtractorService:
                     self.logger.debug(
                         f"Semantic dedup: {label} '{activity.description[:40]}' "
                         f"merged into existing {uid}"
+                    )
+                    continue
+                if uid := user_owned_semantic.get(key):
+                    # Guard 4 merge (cross-entry, F4): the user already owns an
+                    # ACTIVE twin (possibly extracted from another entry, or a
+                    # provenance-orphan the cleanup kept). Same no-write rule as
+                    # Guard 3 — touching provenance here would clobber the
+                    # twin's own edge state (Kody #501).
+                    extraction.lines_merged_cross_entry += 1
+                    self.logger.debug(
+                        f"Cross-entry dedup: {label} '{activity.description[:40]}' "
+                        f"merged into owned active twin {uid}"
                     )
                     continue
 
