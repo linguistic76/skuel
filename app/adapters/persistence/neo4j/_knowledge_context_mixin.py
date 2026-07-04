@@ -472,8 +472,15 @@ class _KnowledgeContextMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Get Resources cited by PathSteps/KUs via CITES_RESOURCE.
 
+        Rows are ranked by the citing source's position in ``source_uids``
+        before the limit applies, so callers can express priority through list
+        order (the Askesis bundle leads with the anchor PathStep — without the
+        ranking, ``LIMIT`` without ``ORDER BY`` could drop the anchor's own
+        citations on large bundles).
+
         Args:
-            source_uids: UIDs of PathSteps/KUs to traverse from.
+            source_uids: UIDs of PathSteps/KUs to traverse from, highest
+                priority first.
             limit: Maximum number of resources to return.
 
         Returns:
@@ -482,7 +489,10 @@ class _KnowledgeContextMixin:
         query = """
         MATCH (source:Entity)-[:CITES_RESOURCE]->(r:Resource)
         WHERE source.uid IN $source_uids
-        RETURN DISTINCT r {.*} AS resource
+        WITH r, min([i IN range(0, size($source_uids) - 1)
+                     WHERE $source_uids[i] = source.uid][0]) AS source_rank
+        ORDER BY source_rank
+        RETURN r {.*} AS resource
         LIMIT $limit
         """
         return await self.execute_query(query, {"source_uids": source_uids, "limit": limit})

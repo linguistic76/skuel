@@ -27,6 +27,23 @@ from ui.components.button import _BTN_BASE, _BTN_SIZES
 _SUBTITLE_CLS = "block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
 
 
+def safe_external_url(url: str | None) -> str | None:
+    """Return ``url`` only if it uses an allowlisted external scheme.
+
+    Data-sourced URLs (e.g. Resource ``source_url`` from vault descriptors)
+    must never reach an ``href`` unfiltered — a ``javascript:`` or ``data:``
+    value would become stored XSS on click. Only http/https survive; anything
+    else (including scheme-relative and whitespace tricks) returns None so the
+    caller renders plain text instead of a link.
+    """
+    if not url:
+        return None
+    normalized = url.strip().lower()
+    if normalized.startswith(("http://", "https://")):
+        return url.strip()
+    return None
+
+
 def icon_tile(
     icon: str, bg_cls: str, icon_cls: str, size: str = "md"
 ) -> Any:  # boundary: fasthtml-elements

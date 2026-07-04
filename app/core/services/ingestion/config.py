@@ -147,10 +147,9 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 15 configs: 13 of the 25 EntityTypes are file-ingestible, plus the two
+# 16 configs: 14 of the 25 EntityTypes are file-ingestible, plus the two
 # NonKuDomain types (FINANCE, GROUP). Not file-ingestible:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
-#   - RESOURCE: Created via API with curated metadata
 #   - FORM_TEMPLATE/FORM_SUBMISSION: Created via API
 #   - ENTRY_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
 #   - The six Activity Templates: PS-owned, spawned on engagement
@@ -190,6 +189,23 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="ku",
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.KU),
+        uid_normalization_fields=("resource_uids",),
+        embeddable=True,
+    ),
+    # Curated reference content (Arc D, ruling 2026-07-03): vault-ingested
+    # descriptor files carry the metadata (author, publisher, media_type, ...);
+    # raw book texts stay walled on disk (compose.py Resources/ exclusion is a
+    # deliberate permanent wall, not a stopgap). Citations point AT resources
+    # via `resource_uids:` on PathStep/Ku YAML — Resource itself has no
+    # outgoing YAML edges. Descriptor body → `content` (short annotation; the
+    # entity embedding covers it via EMBEDDING_FIELD_MAPS — no chunking, which
+    # is PATH_STEP-gated).
+    EntityType.RESOURCE: EntityIngestionConfig(
+        entity_label="Resource",
+        uid_prefix="resource",
+        required_fields=("title",),
+        relationship_config=generate_ingestion_relationship_config(EntityType.RESOURCE),
+        extracts_body_content=True,
         embeddable=True,
     ),
     EntityType.TASK: EntityIngestionConfig(
@@ -266,6 +282,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
             "principle_uids",
             "choice_uids",
             "exercise_uids",
+            "resource_uids",
             "knowledge_uids",
             "trains_ku_uids",
             "prerequisite_step_uids",

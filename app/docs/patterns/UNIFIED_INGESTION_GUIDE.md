@@ -521,10 +521,13 @@ personal-vault task claiming `user_uid: someone_else` is still owned by the vaul
 **Excluded dirs inside an open vault:** `SyncAllowlist.excluded_dirs` walls specific
 subtrees even when the allowlist is whole-vault. The content vault excludes `Resources/`
 (the raw reference library — full book texts with no `type:` frontmatter, never
-ingestible; without the wall the sweep re-attempted all of it on every sync). Whether
-those files become `Resource` nodes is the Resource write side's design question
-(systems-review Arc D) — remove the exclusion in `services_bootstrap/compose.py` when
-that lands.
+ingestible; without the wall the sweep re-attempted all of it on every sync). This wall
+is DELIBERATE and permanent (Arc D ruling 2026-07-03, descriptor-only): `Resource` nodes
+ingest from small descriptor `.md` files elsewhere in the content vault (`Res/`,
+`type: resource`, UID prefix `resource:`), while the raw texts stay reference-only on
+disk. `resource_uids:` on PathStep/Ku YAML creates `CITES_RESOURCE` edges to them.
+Full-text book ingestion is a possible later capability with its own design pass — do
+not remove the `services_bootstrap/compose.py` exclusion without that ruling.
 
 > Stage-1 boundary (accepted): pointing the dashboard at *another* user's personal vault
 > stamps the acting admin as owner — the shared personal descriptor is a template and the
