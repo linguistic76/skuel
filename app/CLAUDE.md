@@ -479,7 +479,7 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 
 **Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
 
-**Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
+**Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 
 **Ku UID is flat** (`ku_{slug}_{random}`) — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID.
 
