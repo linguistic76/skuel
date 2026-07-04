@@ -153,6 +153,12 @@ class SharingBackendOperations(Protocol):
         user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
+    async def query_default_groups_for_curriculum_submission(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]: ...
+
 
 @runtime_checkable
 class SharingOperations(Protocol):

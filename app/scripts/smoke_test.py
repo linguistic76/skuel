@@ -192,6 +192,81 @@ def _render_js_smoke_fixture() -> "FT":
     )
 
 
+# Synthetic-event driver for the enroll-failure pipeline (promoted from Arc F's
+# live-only CDP check). Asserts, with no server:
+#   1. the GLOBAL toast listener (toastManager, htmx:afterRequest on body)
+#      surfaces X-Toast headers from a FAILED response — error responses never
+#      swap, so an afterSwap-only listener silently dropped every error toast;
+#   2. ps-detail.js rolls the optimistic progress state back to the last
+#      server-confirmed value when the progress POST fails.
+# Failure signal: an uncaught TypeError (matches _JS_ERROR_MARKERS).
+_ENROLL_FAILURE_DRIVER_JS = """
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    var failures = [];
+    try {
+      var tm = document.getElementById('smoke-toastmanager');
+      var fakeXhr = { getResponseHeader: function (h) {
+        if (h === 'X-Toast-Message') return 'SMOKE_TOAST_MSG';
+        if (h === 'X-Toast-Type') return 'error';
+        return null; } };
+      document.body.dispatchEvent(new CustomEvent('htmx:afterRequest', {
+        detail: { xhr: fakeXhr, successful: false, requestConfig: { path: '/smoke/none' } } }));
+      var toasts = window.Alpine.$data(tm).toasts;
+      if (!toasts || toasts.length !== 1
+          || toasts[0].message !== 'SMOKE_TOAST_MSG' || toasts[0].type !== 'error') {
+        failures.push('global toast listener did not surface the X-Toast error header');
+      }
+      var ps = document.getElementById('smoke-pathstep');
+      var data = window.Alpine.$data(ps);
+      data.status = 'read';
+      var blankXhr = { getResponseHeader: function () { return null; } };
+      ps.dispatchEvent(new CustomEvent('htmx:afterRequest', {
+        detail: { xhr: blankXhr, successful: false,
+                  requestConfig: { path: '/explore/ps/ps.smoke/progress' } } }));
+      if (data.status !== 'learning') {
+        failures.push('pathstep did not roll back optimistic state on failed progress POST');
+      }
+    } catch (e) { failures.push('driver threw: ' + e); }
+    if (failures.length) {
+      throw new TypeError('SMOKE enroll-failure pipeline: ' + failures.join(' | '));
+    }
+  }, 800);
+});
+"""
+
+
+def _render_enroll_failure_fixture() -> "FT":
+    """Hermetic page for the enroll-failure surfacing pipeline (G7 totality).
+
+    Mounts toastManager + the ps-detail ``pathstep`` component, then drives
+    them with synthetic htmx lifecycle events — no server, no Neo4j.
+    """
+    from fasthtml.common import Body, Div, Html, Script, Span
+
+    from ui.components.icon import Icon
+    from ui.layouts.base_page import build_head
+
+    return Html(
+        build_head("Enroll Failure Pipeline Smoke"),
+        Body(
+            Script(_FIXTURE_STUB_JS),
+            Div(
+                "SKUEL",
+                Icon("check"),
+                Div(Span("t"), id="smoke-toastmanager", **{"x-data": "toastManager"}),
+                Div(
+                    Span("p"),
+                    id="smoke-pathstep",
+                    **{"x-data": "pathstep({uid: 'ps.smoke', progress_state: 'learning'})"},
+                ),
+            ),
+            Script(src="/static/js/ps-detail.js"),
+            Script(_ENROLL_FAILURE_DRIVER_JS),
+        ),
+    )
+
+
 def render_pages() -> dict[str, str]:
     """Render the pages that load the full global JS bundle.
 
@@ -199,6 +274,8 @@ def render_pages() -> dict[str, str]:
       + Alpine + HTMX, exactly the bundle that once froze.
     - ``js_smoke``: mounts one x-data per skuel.js registry block to catch Alpine
       component registration/timing regressions (#468).
+    - ``enroll_failure``: synthetic-event drive of the error-toast + optimistic
+      rollback pipeline (promoted from Arc F's live-only CDP check).
     """
     from fasthtml.common import to_xml
 
@@ -207,6 +284,7 @@ def render_pages() -> dict[str, str]:
     renderers: dict[str, Callable[[], Any]] = {
         "login": render_login_landing_page,
         "js_smoke": _render_js_smoke_fixture,
+        "enroll_failure": _render_enroll_failure_fixture,
     }
 
     pages: dict[str, str] = {}

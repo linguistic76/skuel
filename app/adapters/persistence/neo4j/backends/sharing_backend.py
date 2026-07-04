@@ -276,6 +276,37 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
+    async def query_default_groups_for_curriculum_submission(
+        self,
+        exercise_uid: EntityUID,
+        user_uid: UserUID,
+    ) -> Result[list[Neo4jProperties]]:
+        """Fallback review route for CURRICULUM exercises: the submitter's default group(s).
+
+        Curriculum exercises are vault-authored and never ASSIGNED to a group,
+        so the assignment-intersection auto-share resolves to nothing and a
+        teacher_review submission would dissolve unseen. Ruled 2026-07-04:
+        such submissions share with the submitter's default group (the
+        ``group_default_{admin_uid}`` group every enrolled student auto-joins,
+        owned by the default teacher). Scope-gated in Cypher: a non-curriculum
+        exercise returns zero rows, so PERSONAL submissions can never leak to
+        the default group through this path.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid})
+            WHERE ex.entity_type = 'exercise' AND ex.scope = 'curriculum'
+            MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)
+            WHERE g.uid STARTS WITH 'group_default_'
+              AND coalesce(g.is_active, true) = true
+            RETURN g.uid AS group_uid
+            """,
+            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     async def query_user_can_use_exercise(
         self,
         exercise_uid: EntityUID,

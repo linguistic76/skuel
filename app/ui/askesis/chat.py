@@ -312,13 +312,11 @@ def _center_panel() -> Any:
 
 
 def _top_bar() -> Any:
+    # Plain product label — the old "Sonnet 4.5" model-picker button was
+    # prototype chrome: wrong model, wrong provider (Askesis runs on the
+    # OpenAI-backed LLMService), and its dropdown chevron opened nothing.
     return Div(
-        Button(
-            Span("Sonnet 4.5", cls="text-[15.5px] font-semibold text-foreground"),
-            Icon("chevron-down", size=16, cls="text-muted-foreground"),
-            cls="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-muted transition-colors",
-            type="button",
-        ),
+        Span("Askesis", cls="text-[15.5px] font-semibold text-foreground px-3 py-1.5"),
         Div(
             _icon_ghost_btn("share", "Share"),
             _icon_ghost_btn("more-horizontal", "More options"),

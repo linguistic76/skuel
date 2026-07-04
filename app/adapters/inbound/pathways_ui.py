@@ -37,6 +37,7 @@ from ui.pathways.components import (
     render_step_browser_card,
 )
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.error_banner import render_inline_error
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships import EntityRelationshipsSection
@@ -91,9 +92,19 @@ def create_pathways_ui_routes(
             active_streak=0,
             completion_rate=0.0,
         )
-        if not summary_result.is_error and summary_result.value:
+        summary_error: str | None = None
+        if summary_result.is_error:
+            # G7: an all-zeros dashboard on a query failure reads as "you have
+            # no paths" — render the error instead of a fabricated empty state.
+            summary_error = summary_result.expect_error().message
+        elif summary_result.value:
             active_paths = summary_result.value["active_paths"]
             stats = summary_result.value["stats"]
+        if summary_error is not None:
+            return Div(
+                render_inline_error(f"Could not load your learning overview: {summary_error}"),
+                cls="max-w-xl mx-auto py-8",
+            )
 
         if active_paths:
             paths_section = Div(

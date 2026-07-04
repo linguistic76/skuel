@@ -180,7 +180,9 @@ def render_report_card(assessment: Any) -> Any:
     content = getattr(assessment, "content", "") or ""
     preview = content[:200] + ("..." if len(content) > 200 else "")
     created_at = getattr(assessment, "created_at", None)
-    user_uid = getattr(assessment, "user_uid", "") or ""
+    # Attribution is the AUTHOR (created_by), not the owner \u2014 reports are
+    # owned by the student for access control.
+    author_uid = getattr(assessment, "created_by", "") or getattr(assessment, "user_uid", "") or ""
 
     processor_type = getattr(assessment, "processor_type", None)
     if processor_type:
@@ -198,7 +200,7 @@ def render_report_card(assessment: Any) -> Any:
             CardBody(
                 H4(title, cls="font-semibold mb-1"),
                 P(
-                    f"From: {user_uid} \u00b7 {date_str} \u00b7 {source_label}",
+                    f"From: {author_uid} \u00b7 {date_str} \u00b7 {source_label}",
                     cls="text-sm text-muted-foreground mb-2",
                 ),
                 P(preview, cls="text-sm"),
@@ -279,11 +281,14 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
         badges.append(Badge(label, variant=variant))
     badges.append(render_processor_badge(ptype_str))
 
-    # Metadata line
+    # Metadata line — attribution is the AUTHOR (created_by), not the owner:
+    # a teacher report is owned by the student (user_uid) for access control,
+    # so "From: {user_uid}" credited the student with their own feedback.
+    author_uid = getattr(report, "created_by", "") or ""
     meta_parts = []
-    if user_uid:
+    if author_uid or user_uid:
         source_label = "AI" if ptype_str == "llm" else "Teacher"
-        meta_parts.append(f"From: {user_uid} ({source_label})")
+        meta_parts.append(f"From: {author_uid or user_uid} ({source_label})")
     if date_str:
         meta_parts.append(date_str)
     if subject_uid:

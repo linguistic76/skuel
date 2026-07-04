@@ -472,10 +472,13 @@ class TestPsTasksFragment:
         assert 'hx-trigger="ps-engaged"' in html
         assert 'hx-swap="outerHTML"' in html
 
-    def test_empty_tasks_shows_call_to_action(self) -> None:
+    def test_empty_tasks_shows_truthful_empty_state(self) -> None:
+        # Care-arc W7: the old "Click Start learning" call-to-action was wrong
+        # for enrolled users and for steps without task templates.
         html = to_xml(_ps_tasks_fragment(_PS_UID, []))
 
-        assert "No tasks yet" in html
+        assert "No tasks from this step yet" in html
+        assert "Click Start learning" not in html
 
     def test_task_title_links_to_detail_page(self) -> None:
         task = _FakeTask(uid="task_001", title="Read chapter 3")

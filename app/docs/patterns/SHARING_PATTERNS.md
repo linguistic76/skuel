@@ -118,22 +118,28 @@ access = await sharing_service.check_access(
 
 ### Pattern 2: Teacher Assignment Auto-Sharing (ADR-040)
 
-**Use Case:** Teacher assigns work to a group. When a student submits, the entity is automatically shared with the assigning teacher.
+**Use Case:** Teacher assigns work to a group. When a student submits, the entry is automatically shared with the relevant group(s) so it lands in the teacher's review queue.
 
 ```python
 # Step 1: Teacher creates assigned Exercise (targets a group)
 # (handled by ExerciseService with scope=ASSIGNED)
 
 # Step 2: Student submits against assigned Exercise
-# Exercise linking happens via SubmissionCreated event → exercise_handler
-# which calls SubmissionsCoreService.process_exercise_submission()
-# This automatically:
-# - Validates exercise scope is ASSIGNED and student is in the target group
-# - Auto-generates canonical title with revision number
-# - Creates FULFILLS_EXERCISE relationship (submission → root exercise)
+# UserEntryService.create_entry() → AudienceResolver auto-shares at submit time:
+# - Explicit share_with_groups / share_with_users on the request WIN (no auto-share)
+# - Otherwise, pipeline=teacher_review + fulfills_exercise_uid auto-shares to the
+#   INTERSECTION of the exercise's assigned groups and the submitter's memberships
+#   (query_exercise_groups_for_member — prevents leaking a submission to a group
+#   the submitter has no relationship with)
+# - NEW 2026-07-04: when that intersection is empty AND the exercise is
+#   CURRICULUM-scope (vault-authored, never group-ASSIGNED), share to the
+#   submitter's default group(s) (query_default_groups_for_curriculum_submission,
+#   scope-gated in Cypher so personal exercises can never leak)
 
-# Step 3: Teacher views review queue (OWNS-based, not SHARES_WITH)
+# Step 3: Teacher views review queue (SHARED_WITH_GROUP over groups the teacher OWNS)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
+# → get_review_queue_by_groups: entries SHARED_WITH_GROUP an owned group,
+#   filtered pipeline='teacher_review'
 
 # Step 4: Teacher provides feedback
 await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
@@ -144,16 +150,19 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 // Exercise structure
 (teacher:User)-[:OWNS]->(group:Group)
 (student:User)-[:MEMBER_OF]->(group:Group)
-(exercise:Exercise {scope: "assigned"})-[:FOR_GROUP]->(group:Group)
+(exercise:Exercise {scope: "assigned"})-[:SHARED_WITH_GROUP]->(group:Group)
 
-// On student submission (auto-created by process_exercise_submission)
+// On student submission (auto-created by AudienceResolver)
 (submission:Entity)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
+(submission:Entity)-[:SHARED_WITH_GROUP]->(group:Group)
 ```
 
 **Key Differences from Manual Sharing:**
-- No `share()` or `SHARES_WITH` call — teacher discovers submissions via `get_review_queue()`
-  which matches all exercise_submissions via `OWNS` + `FULFILLS_EXERCISE`
-- Visibility is NOT changed — teacher access is role-gated, not relationship-gated
+- No user-level `share()` / `SHARES_WITH` call — `AudienceResolver` writes
+  `SHARED_WITH_GROUP` edges at submit time; the teacher discovers submissions via
+  `get_review_queue()` (`SHARED_WITH_GROUP` over groups the teacher `OWNS`,
+  filtered `pipeline='teacher_review'`)
+- Visibility is NOT changed — teacher access is group-relationship-gated
 - Entity ownership stays with the student
 - `verify_teacher_has_group_access()` requires teacher and student to share an active `Group` (`(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)`); cross-group teachers get 404
 
@@ -184,12 +193,7 @@ access_result = await sharing_service.check_access(
 assert access_result.value is True  # ✅ Public access
 ```
 
-**API Endpoint:**
-```http
-GET /api/submissions/public?user_uid=user_alice&limit=10
-```
-
-Returns only `visibility=PUBLIC` entities. Visibility filter and `limit` are both applied at query time via `SubmissionsCoreService.get_public_submissions()` — callers always receive up to `limit` public results.
+**API surface:** visibility is set at creation via the `visibility` field on the UserEntry create routes (`adapters/inbound/user_entry_api.py` maps `public` → `Visibility.PUBLIC`). There is currently no public-listing endpoint — public access is enforced at read time by `check_access()`.
 
 ---
 
@@ -668,8 +672,8 @@ if result.is_error:
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `share_with_groups` field on create (no standalone sharing-management routes)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}/entries/{entry_uid}`)
-- **UI Routes:** `adapters/inbound/study_ui.py`
-- **UI Components:** `ui/submissions/sharing.py`
+- **UI Routes:** `adapters/inbound/user_entry_ui.py`
+- **UI Components:** `ui/user_entry/forms.py` (share-with-group / visibility fields on the submit form)
 - **Profile Tab:** `adapters/inbound/user_profile_ui.py`
 
 ### Documentation

@@ -200,7 +200,11 @@ class EmbeddingBackgroundWorker:
         await self._process_batches_loop()
         return Result.ok(None)
 
-    async def drain(self) -> dict[str, int]:
+    async def drain(
+        self,
+    ) -> dict[
+        str, int
+    ]:  # skuel-lint: disable=SKUEL005 -- infallible stats counter: per-item failures are counted+requeued (bounded by MAX_GENERATION_ATTEMPTS), never raised; callers read the counters
         """
         Process both queues until empty, once — no timer loop.
 

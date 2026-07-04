@@ -18,7 +18,7 @@ Data shape: PathStepSubmissionRow TypedDict (core/ports/query_types.py).
 
 from typing import Any
 
-from fasthtml.common import H3, A, Div, Span
+from fasthtml.common import H3, A, Div, P, Span
 
 from core.ports.query_types import PathStepSubmissionRow
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -108,11 +108,17 @@ def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div
 
     Composes the submissions list and feedback list into a single fragment,
     used by the /learning-loop/ps/{ps_uid}/submissions-and-feedback endpoint.
-    When the user has no submissions yet, collapse silently — the Start
-    Learning button is the gateway, not a stack of empty states.
+    The page renders the "Submissions & Feedback" heading unconditionally, so
+    an empty fragment reads as a headed void — with no submissions, render one
+    muted line instead of the full two-section stack.
     """
     if not rows:
-        return Div()
+        return Div(
+            P(
+                "Nothing submitted for this step yet.",
+                cls="text-[13px] text-muted-foreground",
+            )
+        )
     return Div(
         H3("My Submissions", cls="text-base font-semibold mb-2 mt-6"),
         render_ps_submissions(rows),

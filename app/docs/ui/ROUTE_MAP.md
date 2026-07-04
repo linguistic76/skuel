@@ -24,15 +24,13 @@ Tabbed layout mirroring `/home`, with one tab per group the student is a member 
 
 Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) driven by `ExploreOrchestrator.get_reading_plan()`. Shell-first: shell loads immediately; `/explore/content` HTMX fragment delivers the plan. Alpine factory: `exploreReading` in `static/js/explore-reading.js`; `window.SEED` carries minimal state (greeting, why-evidence, featured UID). All visual content is server-rendered in `ui/explore/reading_plan.py`.
 
-**Sections (top to bottom):**
-1. **Greeting header** — time-of-day greeting + "you finished X yesterday" (Alpine for greeting text).
-2. **Hero article** — the single highest-readiness KU; "Why now" panel with expandable "Why am I ready?" evidence (Alpine disclosure); Read button + save toggle (Alpine optimistic).
-3. **Thread rail** — horizontal-scroll cards of other ready KUs; reader's choice.
-4. **In-progress** — continue reading (progress bar + minutes left).
-5. **Path step** — the active PathStep composed of KUs (read/current/upcoming states) + capabilities tray (practice, apply, assessment, reflection, journal — varies by step).
-6. **Lateral** — "Because you read X" related KUs.
-7. **Library CTA** — links to `/explore/library`; shows real Ku count from DB.
-8. **Keyboard hints** — `r` read · `w` why am I ready · `s` save · `/` search library.
+**Sections (top to bottom) — real learner state only (de-faked 2026-07-04, care arc):**
+1. **Greeting header** — time-of-day greeting (Alpine for greeting text); the "you finished X yesterday" line renders only from real read-history and collapses without it (no fabricated line until read-history intelligence exists).
+2. **Hero article** — the next unread KU inside the user's active IN_PROGRESS PathStep (real "why"); falls back to the first library KU with an honest label. Read button + save toggle (Alpine optimistic).
+3. **Path step** — the user's real IN_PROGRESS PathStep with its `USES_KU` composition and per-KU read state (read/current/upcoming) + capabilities tray (practice, apply, assessment, reflection, journal — varies by step).
+4. **Ready rail / In-progress / Related** — stay collapsed (empty) until the ZPD reading-plan intelligence exists (future `UserContextIntelligence.get_ready_to_read_today`); the renderer collapses empty sections rather than inventing state.
+5. **Library CTA** — links to `/explore/library`; shows real Ku count from DB.
+6. **Keyboard hints** — `r` read · `w` why am I ready · `s` save · `/` search library.
 
 **Routes:**
 - `GET /explore` — reading surface shell
@@ -89,7 +87,7 @@ MOC root page (no sidebar) — three cards linking to the three GradeBook sub-pa
 - `/activity-reports` — Holistic reports aggregating activity patterns and progress; submit at `/submit-activity-report`.
 - `/revised-exercises` — Exercises returned for revision with teacher comments; detail at `/revised-exercises/detail`.
 
-All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry`.
+All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge) and a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`).
 
 ### `/library`
 
@@ -127,7 +125,7 @@ Nested hub (no sidebar) with 4 HTMX-loaded preview blocks (Needs Review, Revisio
 
 **Exercises page** shows exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`:
 
-1. `scope=assigned` exercises via `FOR_GROUP` group membership
+1. `scope=assigned` exercises via `SHARED_WITH_GROUP` group membership
 2. `scope=personal` exercises linked via `HAS_EXERCISE` to PathSteps the user is `IN_PROGRESS` in
 
 Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and context-sensitive action links. Exercise titles link to `GET /exercises/get?uid=` (student detail page with Submit + Download buttons; Markdown download via `GET /api/exercises/md?uid=`, renderer at `adapters/outbound/exercise_renderer.py`).

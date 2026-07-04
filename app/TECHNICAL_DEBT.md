@@ -1,8 +1,8 @@
 # Technical Debt & Development Roadmap
 
-**Last Updated:** June 29, 2026
+**Last Updated:** July 4, 2026
 **Total Production Ruff Errors:** 0
-**Active TODOs:** 5
+**Active TODOs:** 4
 
 ## Philosophy
 
@@ -20,7 +20,7 @@ Development follows a calculated approach: features are built when they serve re
 |------|-------|------|-------|
 | **1 — Foundation Fixes** | Strengthen what exists | ✅ Done | 0 |
 | **2 — MVP Completions** | Working product gaps | ✅ Done | 0 |
-| **3 — Data-Dependent** | Require usage data to justify | After real usage | 6 |
+| **3 — Data-Dependent** | Require usage data to justify | After real usage | 5 |
 | **Shelved** | Prerequisite-gated | When thresholds met | 3 |
 | **Decision Points** | Billing/architecture choices | When business model clarifies | 0 |
 
@@ -48,7 +48,7 @@ These only make sense once there are real users generating real data. Building t
 | 8 | `core/services/analytics/analytics_life_path_service.py` | 450 | [FEATURE] | `get_alignment_trend()` needs historical depth. Snapshot write path now live (`ALIGNMENT_SNAPSHOT` rel on each `update_alignment_score`); trend query is real. Needs sustained engagement to be meaningful. | **30+ days** of daily alignment snapshots for at least one user |
 | 9 | `core/services/user/user_context_service.py` | 526 | [ENHANCEMENT] | After task completion, record knowledge application tracking, time investment, learning progress. Needs clear UX for what users see from this data. | UX design decided + **10+ daily active users** generating completion data |
 | 10 | `adapters/persistence/neo4j/query_builders/faceted_query_builder.py` | 210 | [ENHANCEMENT] | Replace string-split query parsing with `analyze_query_intent()` (already exists in `SearchIntelligenceService`). Current string split works for well-formed queries. | User-reported poor search results OR observed query mis-parse patterns in usage logs |
-| 11 | `adapters/inbound/middleware.py` + `static/service-worker.js` + `adapters/inbound/pwa_routes.py` | `StaticCacheHeadersMiddleware` / cache strategy | [PERFORMANCE] | **Static caching + PWA needs a deliberate design pass.** (a) Static assets use a blunt `Cache-Control: no-cache` (always-correct: forces revalidation so a stale broken asset can never be served — the fix for the infinite-loop `skuel.js` cache trap), but FastHTML's static route ignores `If-None-Match`, so every load re-downloads (~1MB) instead of returning 304. (b) The service worker caches `/static/*` **cache-first**, so app-asset updates are invisible to returning clients between `CACHE_VERSION` bumps. (c) The SW currently never registers: `/service-worker.js` 404s because FastHTML's static catch-all route shadows the explicit `@rt("/service-worker.js")` in `pwa_routes.py` (same shadowing class as the static mount) — the PWA is effectively inert. **Plan**: cache version-stamped vendor assets (lucide/alpine/htmx/chart.js/vis-network) as `immutable`+long-lived, content-hash app assets (skuel.js, output.css) for URL cache-busting, make app assets SW network-first (or hashed), and fix `/service-worker.js` serving so the PWA works. | Before production deploy / when serving real traffic |
+| 11 | `adapters/inbound/middleware.py` + `static/service-worker.js` | `StaticCacheHeadersMiddleware` / cache strategy | [PERFORMANCE] | **Static caching needs a deliberate design pass.** (a) Static assets use a blunt `Cache-Control: no-cache` (always-correct: forces revalidation so a stale broken asset can never be served — the fix for the infinite-loop `skuel.js` cache trap), but FastHTML's static route ignores `If-None-Match`, so every load re-downloads (~1MB) instead of returning 304. (b) The service worker caches `/static/*` **cache-first**, so app-asset updates are invisible to returning clients between `CACHE_VERSION` bumps. *(Resolved 2026-07-04, care arc: the SW-never-registers 404 is fixed — `scripts/dev/bootstrap.py` strips FastHTML's `{fname:path}` extension catch-all before mounting /static, so `/service-worker.js` and `/offline.html` now serve via `pwa_routes.py` and the SW registers; this also closed an exposure where any static-ext repo file, e.g. `/tailwind.config.js`, was publicly served.)* **Plan**: cache version-stamped vendor assets (lucide/alpine/htmx/chart.js/vis-network) as `immutable`+long-lived, content-hash app assets (skuel.js, output.css) for URL cache-busting, and make app assets SW network-first (or hashed). | Before production deploy / when serving real traffic |
 
 ---
 
@@ -77,9 +77,7 @@ These are architectural choices that depend on business decisions, not code qual
 
 ## Non-Production TODOs (tracked, low priority)
 
-| File | Description |
-|------|-------------|
-| `tests/integration/test_async_embeddings.py:560-561` | Add end-to-end test with real Neo4j + performance benchmarking test. |
+None currently tracked. (The former `tests/integration/test_async_embeddings.py` end-to-end TODO is covered by `test_end_to_end_neo4j_embedding_storage`.)
 
 ---
 
