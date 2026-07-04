@@ -102,21 +102,39 @@ def _create_responses(created: int) -> dict[str, list[dict[str, Any]]]:
 
 
 @pytest.mark.asyncio
-async def test_delete_clears_entire_outgoing_chunk_set():
-    """Delete-then-create: the whole old chunk set goes (no keep_uids
-    scoping) — stale properties can never survive on a MERGE-kept node."""
+async def test_delete_and_create_are_one_atomic_statement():
+    """Delete-then-create runs as ONE Cypher statement (single transaction):
+    a failed create rolls the delete back, so a partial write can never leave
+    the Content node chunkless (Kody #503 critical). The whole old chunk set
+    goes (no keep_uids scoping) — stale properties can never survive."""
     conn = _FakeConnection(responses=_create_responses(2))
     adapter = Neo4jContentAdapter(conn)
 
     assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
 
-    # [0] Content upsert, [1] carry-over read, [2] delete, [3] create
+    # [0] Content upsert, [1] carry-over read, [2] combined delete+create
+    assert len(conn.queries) == 3
     carry_query, _ = conn.queries[1]
     assert "chunk.embedding IS NOT NULL" in carry_query
     assert "embedding_source_text" in carry_query
-    delete_query, _ = conn.queries[2]
-    assert "DETACH DELETE" in delete_query
-    assert "keep_uids" not in delete_query
+    replace_query, _ = conn.queries[2]
+    assert "DETACH DELETE" in replace_query
+    assert "CREATE (chunk:ContentChunk" in replace_query
+    assert "keep_uids" not in replace_query
+
+
+@pytest.mark.asyncio
+async def test_zero_chunk_result_still_clears_stale_chunks():
+    """An empty chunk list must still run the delete side of the combined
+    statement (UNWIND [] yields no create rows; the DETACH DELETE precedes it)."""
+    conn = _FakeConnection(responses=_create_responses(0))
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_content_with_chunks("ps:test:doc", _content(0))
+
+    replace_query, replace_params = conn.queries[2]
+    assert "DETACH DELETE" in replace_query
+    assert replace_params["chunks"] == []
 
 
 @pytest.mark.asyncio
@@ -142,7 +160,7 @@ async def test_chunks_created_fresh_with_embedding_carry_over():
 
     assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
 
-    create_query, create_params = conn.queries[3]
+    create_query, create_params = conn.queries[2]
     assert "CREATE (chunk:ContentChunk" in create_query
     assert "MERGE (chunk:ContentChunk" not in create_query
     rows = create_params["chunks"]

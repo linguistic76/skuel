@@ -250,8 +250,11 @@ def plan_wrong_door_cleanup(
         uid = row.get("uid") or ""
         if row.get("pipeline") != "extract_activities":
             continue
+        # All three deterministic periodic-note prefixes ingest_user_entry mints.
         is_journal_door = row.get("owner") == content_owner and (
-            uid.startswith("ue:daily:") or uid.startswith("ue:weekly:")
+            uid.startswith("ue:daily:")
+            or uid.startswith("ue:weekly:")
+            or uid.startswith("ue:monthly:")
         )
         is_legacy = uid.startswith("ue_")
         if is_journal_door:

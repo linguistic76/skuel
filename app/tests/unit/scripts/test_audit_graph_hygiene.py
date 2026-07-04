@@ -144,6 +144,21 @@ class TestWrongDoorPlan:
         assert [e["uid"] for e in plan.entities_to_delete] == ["h_admin"]
         assert plan.orphaned_survivors == []
 
+    def test_all_periodic_prefixes_count_as_journal_door(self):
+        """ingest_user_entry mints ue:daily:/ue:weekly:/ue:monthly: — all three
+        are the journal door for the R2 ruling (Kody #503: monthly was missed)."""
+        entries = [
+            _entry("ue:daily:user_admin:2026-06-16", owner="user_admin"),
+            _entry("ue:weekly:user_admin:2026-W25", owner="user_admin"),
+            _entry("ue:monthly:user_admin:2026-06", owner="user_admin"),
+        ]
+        plan = plan_wrong_door_cleanup(entries, [], content_owner="user_admin")
+        assert sorted(e["uid"] for e in plan.entries_to_delete) == [
+            "ue:daily:user_admin:2026-06-16",
+            "ue:monthly:user_admin:2026-06",
+            "ue:weekly:user_admin:2026-W25",
+        ]
+
     def test_legacy_entry_duplicate_deleted_only_with_surviving_copy(self):
         entries = [
             _entry("ue_legacy", owner="user_a"),
