@@ -291,7 +291,7 @@ get_user_service = make_service_getter(services.user)
 @rt("/admin/users")
 @require_admin(get_user_service)
 @boundary_handler()
-async def admin_users_list(request, current_user: Any):
+async def admin_users_list(request, current_user: Any = None):
     # current_user is injected by decorator
     # Guaranteed to be ADMIN role
     ...
@@ -529,7 +529,7 @@ class AdminLogsComponents:
 @rt("/admin/logs")
 @require_admin(get_user_service)
 @boundary_handler()
-async def admin_logs(request, current_user: Any):
+async def admin_logs(request, current_user: Any = None):
     content = Div(...)
     return create_admin_page(
         content=content,
