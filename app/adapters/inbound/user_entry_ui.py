@@ -669,9 +669,15 @@ def create_user_entry_ui_routes(
         # Submission chain: exercise (FULFILLS_EXERCISE edge — the writer's
         # single source of truth), feedback reports, revisions. The old
         # metadata read never rendered: the writer stores the edge, not a
-        # metadata key.
+        # metadata key. A failed chain query must not masquerade as "no
+        # feedback" (Kody #505) — surface it instead of rendering {}.
         chain_result = await orchestrator.get_entry_chain(uid)
-        chain = chain_result.value if chain_result.is_ok else {}
+        chain_error: str | None = None
+        chain: dict[str, Any] = {}
+        if chain_result.is_error:
+            chain_error = chain_result.expect_error().message
+        else:
+            chain = dict(chain_result.value or {})
         fulfilled_exercise = chain.get("exercise") or None
 
         exercise_link: Any = None
@@ -742,12 +748,22 @@ def create_user_entry_ui_routes(
         if fulfilled_exercise and await _caller_ai_enabled(user_uid):
             ai_feedback_button = _render_ai_feedback_button(uid, str(fulfilled_exercise.get("uid")))
 
+        responses_section: Any = (
+            Div(
+                render_inline_error(f"Could not load feedback for this submission: {chain_error}"),
+                id="entry-responses",
+                cls="mt-6",
+            )
+            if chain_error is not None
+            else _render_entry_responses(responses)
+        )
+
         content = Div(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
             detail_card,
             respond_button,
             ai_feedback_button,
-            _render_entry_responses(responses),
+            responses_section,
         )
 
         return await render_gradebook_sidebar_page(

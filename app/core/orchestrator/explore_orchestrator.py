@@ -463,12 +463,13 @@ class ExploreOrchestrator:
         today = date.today()
         date_label = today.strftime("%A · %B ") + str(today.day)
 
+        # list() returns (items, total_count) — use the real DB total, not the
+        # page size, and fetch just one row for the fallback hero (Kody #505).
         library_total = 0
         first_library_ku: Any = None
-        ku_result = await self._ku.core.list(limit=500)
+        ku_result = await self._ku.core.list(limit=1)
         if not ku_result.is_error and ku_result.value:
-            kus = ku_result.value[0]
-            library_total = len(kus)
+            kus, library_total = ku_result.value
             first_library_ku = kus[0] if kus else None
 
         active_path_step: dict[str, Any] | None = None

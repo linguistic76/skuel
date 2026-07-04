@@ -126,7 +126,7 @@ def _header_safe(value: str) -> str:
     drop the connection with NO response ("Invalid HTTP header value"), so
     CR/LF and other control characters collapse to spaces.
     """
-    single_line = "".join(ch if ch >= " " or ch == "\t" else " " for ch in value)
+    single_line = "".join(ch if ch == "\t" or (ch >= " " and ch != "\x7f") else " " for ch in value)
     return single_line.encode("latin-1", "replace").decode("latin-1")
 
 

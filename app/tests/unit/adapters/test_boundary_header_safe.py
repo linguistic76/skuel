@@ -46,6 +46,11 @@ class TestHeaderSafeLineCollapse:
         assert _header_safe("a\x0bb") == "a b"
         assert _header_safe("a\x00b\x1fc") == "a b c"
 
+    def test_del_collapses_to_space(self) -> None:
+        # DEL (\x7f) sits ABOVE space so a plain `ch >= " "` filter lets it
+        # through, but it's a CTL in HTTP field-content (Kody #505).
+        assert _header_safe("a\x7fb") == "a b"
+
     def test_tab_is_preserved(self) -> None:
         # RFC 9110 allows horizontal tab in field values; the implementation
         # deliberately keeps it.

@@ -44,10 +44,14 @@
           this.whyOpen = !this.whyOpen;
         } else if (e.key === 's') {
           e.preventDefault();
-          this.toggleSave(this.seed.featured_uid);
+          // No featured KU (empty library, no in-progress step) — hero is
+          // collapsed, so the save/read shortcuts have no target.
+          if (this.seed.featured_uid) { this.toggleSave(this.seed.featured_uid); }
         } else if (e.key === 'r') {
           e.preventDefault();
-          window.location.href = '/explore/read/' + this.seed.featured_uid;
+          if (this.seed.featured_uid) {
+            window.location.href = '/explore/read/' + this.seed.featured_uid;
+          }
         } else if (e.key === '/') {
           e.preventDefault();
           window.location.href = '/explore/library';
