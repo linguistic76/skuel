@@ -47,10 +47,10 @@ if TYPE_CHECKING:
 # EntityType → event class for every type the background worker subscribes to.
 # Mirrors the worker's subscription list (embedding_worker.start) — extend both
 # together when a new entity type becomes embeddable.
-# NOTE: RESOURCE currently has no producer that reaches this chokepoint —
-# Resource is not file-ingestible (no ENTITY_CONFIGS entry) and ResourceService
-# is read-only. The mapping is staged so the first Resource creation path
-# (ingestion config or a ResourceService.create) embeds with zero extra wiring.
+# RESOURCE's producer is vault ingestion (Arc D 2026-07-03): descriptor files
+# ingest via ENTITY_CONFIGS[RESOURCE] (embeddable=True), so both ingest doors
+# publish ResourceEmbeddingRequested through this chokepoint. ResourceService
+# stays read-only — there is no API create path for resources.
 EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
     EntityType.TASK: TaskEmbeddingRequested,
     EntityType.GOAL: GoalEmbeddingRequested,
