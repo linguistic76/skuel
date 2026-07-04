@@ -93,8 +93,12 @@ async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[T]:
 async def update_for_user(self, uid: str, updates: dict, user_uid: UserUID) -> Result[T]:
     """Update entity only if owned by user."""
 
-async def delete_for_user(self, uid: str, user_uid: UserUID) -> Result[bool]:
-    """Delete entity only if owned by user."""
+async def delete_for_user(
+    self, uid: str, user_uid: UserUID, cascade: bool = False
+) -> Result[bool]:
+    """Delete entity only if owned by user. The CRUD delete route passes
+    cascade=True (G18): every owned entity carries at least the OWNS edge,
+    so a non-cascade delete can never succeed from the route."""
 ```
 
 ### CRUDRouteFactory

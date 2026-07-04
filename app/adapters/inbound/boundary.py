@@ -101,7 +101,7 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
 
         # Add custom headers
         for key, value in headers.items():
-            response.headers[key] = value
+            response.headers[key] = _header_safe(value)
 
         return response
 
@@ -111,10 +111,19 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> JSONR
 
     # Return client-safe error context (no stack traces or internal details)
     response = JSONResponse(content=error.to_client_dict(), status_code=status_code)
-    response.headers["X-Toast-Message"] = error.message
+    response.headers["X-Toast-Message"] = _header_safe(error.message)
     response.headers["X-Toast-Type"] = "error"
 
     return response
+
+
+def _header_safe(value: str) -> str:
+    """Coerce a header value to latin-1 (RFC 9110 — Starlette encodes strictly).
+
+    Error messages flow into X-Toast-Message verbatim; one em-dash must degrade
+    the toast character, not 500 the whole response.
+    """
+    return value.encode("latin-1", "replace").decode("latin-1")
 
 
 def result_to_exception[T](result: Result[T]) -> T:

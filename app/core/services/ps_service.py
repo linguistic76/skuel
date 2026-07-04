@@ -721,7 +721,7 @@ class PsService:
     async def mark_in_progress(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         return await self.mastery.mark_in_progress(user_uid, ku_uid)
 
-    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[None]:
+    async def mark_as_read(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:
         return await self.mastery.mark_as_read(user_uid, ku_uid)
 
     async def toggle_bookmark(self, user_uid: UserUID, ku_uid: str) -> Result[bool]:

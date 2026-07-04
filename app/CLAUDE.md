@@ -471,11 +471,13 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 
 ## Curriculum Grouping Patterns
 
-| Pattern | UID Format | Topology | Metaphor |
+| Pattern | UID authored (vault) → stored (graph) | Topology | Metaphor |
 |---------|-----------|----------|----------|
-| Ku | `ku_{slug}_{random}` | Atom | A single concept/fact |
-| PS | `ps:{namespace}:{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
-| LP | `lp:{namespace}:{slug}` | Path | An ordered sequence of path steps |
+| Ku | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
+| PS | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
+| LP | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
+
+**Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships.
 

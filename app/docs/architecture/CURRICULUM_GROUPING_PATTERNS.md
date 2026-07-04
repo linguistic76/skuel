@@ -59,13 +59,28 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 
 ## The Three Grouping Patterns
 
-| Pattern | UID Format | Grouping Style | Topology | Metaphor |
+| Pattern | UID authored (vault) → stored (graph) | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
-| **KU** | `ku_{slug}_{random}` | Atomic unit | Point | A single concept/fact |
-| **PS** | `ps:{random}` | Unit for learning | Unit | A step that composes Kus into content |
-| **LP** | `lp:{random}` | Linear sequence | Path | An ordered sequence of PathSteps |
+| **KU** | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atomic unit | Point | A single concept/fact |
+| **PS** | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Unit for learning | Unit | A step that composes Kus into content |
+| **LP** | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Linear sequence | Path | An ordered sequence of PathSteps |
 
-**Note:** MOC uses the `ku_{slug}_{random}` format since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
+**Note:** MOC uses whatever UID form its Ku carries, since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
+
+### Authored Colons → Stored Dots (the sanctioned two-form reality)
+
+Vault files author curriculum UIDs with **colons** (`ps:mindfulness:breath-awareness-basics`);
+the graph stores **dots** (`ps.mindfulness.breath-awareness-basics`). The rewrite happens at
+ingestion — `normalize_uid()` in `core/services/ingestion/preparer.py` replaces `:` → `.` on
+the entity `uid:`, on every rel-config UID field (`kus:`, `exercise_uids:`, `resource_uids:`,
+`contains_steps`, …), and on Edge-YAML `from`/`to`. This is deliberate, not drift (colons are
+Neo4j-hostile in several tooling contexts; dots are the storage spelling).
+
+Consequences:
+- **Never compare a file UID to a graph UID raw** — normalize first (or query by the dotted form).
+- Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — as of 2026-07-04 the
+  graph holds only dotted authored curriculum UIDs (all 89 Kus are `ku.{ns}.{slug}`; zero flat
+  generated Kus exist yet). Both forms stay sanctioned; see the never-sniff rule below.
 
 ### Two Paths to Knowledge (Montessori-Inspired)
 
@@ -153,14 +168,14 @@ on `knowledge_relationships`, or resolve by lookup.
 - Can require mastery threshold
 - May include practice activities
 
-**Example:**
+**Example (authored form — stored as `ps.python.understanding-functions`):**
 ```yaml
-uid: ps:abc123
+uid: ps:python:understanding-functions
 title: Understanding Functions
 order: 3
 kus:
-  - ku_python-functions_a1b2c3
-  - ku_python-parameters_d4e5f6
+  - ku:python:functions
+  - ku:python:parameters
 mastery_threshold: 0.8
 ```
 
@@ -178,14 +193,15 @@ mastery_threshold: 0.8
 - Represents a full competency arc
 - Linear progression (Step 1 → 2 → 3 → Done)
 
-**Example:**
+**Example (authored form — stored as `lp.python.beginners`):**
 ```yaml
-uid: lp:abc123
+uid: lp:python:beginners
 title: Python for Beginners
-steps:
-  - ls:def456
-  - ls:ghi789
-  - ls:jkl012
+connections:
+  contains_steps:
+    - ps:python:understanding-functions
+    - ps:python:control-flow
+    - ps:python:first-program
 prerequisites: []
 outcomes:
   - "Write basic Python programs"

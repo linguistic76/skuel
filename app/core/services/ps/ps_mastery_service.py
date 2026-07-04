@@ -272,7 +272,7 @@ class PsMasteryService:
         self,
         user_uid: UserUID,
         ku_uid: str,
-    ) -> Result[None]:
+    ) -> Result[bool]:
         """Mark a KU as read by the user."""
         result = await self.backend.mark_as_read(user_uid, ku_uid)  # type: ignore[attr-defined]
 
@@ -280,7 +280,7 @@ class PsMasteryService:
             return Result.fail(result)
 
         self.logger.info(f"Marked KU as read: {user_uid} -> {ku_uid}")
-        return Result.ok(None)
+        return Result.ok(True)
 
     async def set_bookmark(self, user_uid: UserUID, ku_uid: str, desired: bool) -> Result[bool]:
         """Set bookmark to an explicit state — idempotent, safe on retry.
