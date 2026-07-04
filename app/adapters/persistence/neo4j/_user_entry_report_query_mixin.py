@@ -172,10 +172,14 @@ class _UserEntryReportQueryMixin:
         return await self.get_submission_chain_raw(submission_uid=entry_uid)
 
     async def get_admin_uid(self) -> Result[list[Neo4jProperties]]:
-        """Get the UID of the oldest admin user."""
+        """Get the UID of the oldest admin user.
+
+        The role lives in the `role` property (the User dataclass field name);
+        `user_role` was a legacy property no current write path produces.
+        """
         query = """
         MATCH (admin:User)
-        WHERE admin.user_role = 'admin'
+        WHERE admin.role = 'admin'
         RETURN admin.uid AS admin_uid
         ORDER BY admin.created_at ASC
         LIMIT 1

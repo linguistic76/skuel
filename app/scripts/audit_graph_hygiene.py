@@ -26,12 +26,33 @@ FIX categories (--apply):
   F4  Cross-entry duplicates among SURVIVING entries (same label +
       normalized title from different deterministic entries): keep the
       oldest, delete the rest — same edge-safety demotion rule as F2.
-      Groups touching test users are skipped (Arc F).
+      Groups touching test users are skipped (F5 owns those).
+  F5  Test users (sysreview_sim, csrfprobe2, verifyperiodic) + ALL their
+      owned subtrees, sessions, auth events, and tracker rows (Arc F).
+      A user carrying edges beyond {OWNS, HAS_SESSION, HAD_AUTH_EVENT}
+      demotes to REPORT. Also sweeps ORPHAN sessions/auth events left by
+      earlier test-user deletions (user_uid names a User that no longer
+      exists); null-user_uid AuthEvents are the by-design failed-login
+      audit trail (user_not_found) and are report-only.
+  F6  Legacy ``IN_PROGRESS → :Ku`` enrollment edges (old KU-studying model)
+      — RULED (Mike, 2026-07-04): MIGRATE to the PathStep whose USES_KU
+      covers the Ku (edge properties carried over; existing PS enrollment
+      never clobbered), then remove the :Ku edge. A Ku with no (or several)
+      covering PS demotes to REPORT — Mike's call, never guessed.
+      ``--delete-uncovered-ku-edges`` (post-dialog only) deletes the
+      reported uncovered edges instead.
+  F7  ABOUT_ENTITY-blocked duplicate tasks from Arc E — RULED (Mike,
+      2026-07-04): RE-POINT the incoming ABOUT_ENTITY edges to the
+      surviving semantic twin (RULED_ABOUT_ENTITY_REPOINTS), then delete
+      the dupe. Missing survivor / owner or title mismatch / unexpected
+      edges demote to REPORT.
+  F8  User ``role`` property values that aren't the lowercase enum value
+      (G12 drift, e.g. legacy "MEMBER") — normalized so raw-Cypher role
+      predicates match again.
 
 REPORT-ONLY categories (never touched by --apply):
-  R2  Multi-owner daily-note UserEntry collisions remaining AFTER F3
-      (expected residual: test-user dates only — Arc F).
-  R3  Test users left in the graph (sysreview_sim, csrfprobe2, verifyperiodic).
+  R2  Multi-owner daily-note UserEntry collisions remaining AFTER F3+F5
+      (expected residual after Arc F: none).
   R4  Structural anomalies: :Entity nodes missing entity_type, nodes with ≠1
       domain label, :Content chunk shadows carrying EXTRACTED_FROM (G13).
 
@@ -60,6 +81,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.user_enums import UserRole
 from core.services.dsl.activity_extractor import normalized_activity_title
 
 # Loser edges must be EXACTLY this provenance pair for a duplicate group to be
@@ -72,6 +94,21 @@ KNOWN_TEST_USER_UIDS = (
     "user_csrfprobe2",
     "user_verifyperiodic",
 )
+
+# F5: a test user carrying anything beyond these edges holds state the plan
+# didn't model → REPORT, not delete.
+EXPECTED_TEST_USER_EDGES = frozenset({"OWNS:out", "HAS_SESSION:out", "HAD_AUTH_EVENT:out"})
+
+# F7 ruled mapping (Mike, 2026-07-04): Arc E's dry-run identified the surviving
+# semantic twin for each ABOUT_ENTITY-blocked duplicate task.
+RULED_ABOUT_ENTITY_REPOINTS = {
+    "task_8ec20443": "task_b9d52706",
+    "task_80fc80ab": "task_cdaf1474",
+}
+
+# F7: the dupes must carry EXACTLY these edges (ownership + the insight edge
+# being re-pointed); anything else is unmodeled state → REPORT.
+EXPECTED_DUPE_EDGES = frozenset({"OWNS:in", "ABOUT_ENTITY:in"})
 
 
 def expected_types_by_label() -> dict[str, str]:
@@ -376,6 +413,187 @@ def find_daily_owner_collisions(entry_rows: list[dict[str, Any]]) -> list[dict[s
     ]
 
 
+@dataclass
+class TestUserPlan:
+    """F5: one test user + everything that hangs off it."""
+
+    uid: str
+    email: str | None
+    owned: list[dict[str, Any]] = field(default_factory=list)  # uid, label, edge_sigs
+    session_count: int = 0
+    auth_event_count: int = 0
+    blockers: list[str] = field(default_factory=list)
+
+
+def plan_test_user_cleanup(
+    user_rows: list[dict[str, Any]], owned_rows: list[dict[str, Any]]
+) -> list[TestUserPlan]:
+    """F5 categorizer (pure): test users + owned subtrees/sessions/auth events.
+
+    Expects user_rows with keys: uid, email, edge_sigs, session_count,
+    auth_event_count; owned_rows with keys: owner, uid, labels, edge_sigs.
+    """
+    owned_by: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in owned_rows:
+        label = domain_label(row.get("labels") or [])
+        if label is None:
+            continue  # ≠1 domain label → R4 anomaly; F5 won't guess
+        owned_by[row["owner"]].append(
+            {"uid": row["uid"], "label": label, "edge_sigs": sorted(row.get("edge_sigs") or [])}
+        )
+    plans: list[TestUserPlan] = []
+    for row in user_rows:
+        plan = TestUserPlan(
+            uid=row["uid"],
+            email=row.get("email"),
+            owned=owned_by.get(row["uid"], []),
+            session_count=int(row.get("session_count") or 0),
+            auth_event_count=int(row.get("auth_event_count") or 0),
+        )
+        unexpected = set(row.get("edge_sigs") or []) - EXPECTED_TEST_USER_EDGES
+        if unexpected:
+            plan.blockers.append(f"user carries unexpected edges: {sorted(unexpected)}")
+        plans.append(plan)
+    return plans
+
+
+@dataclass
+class OrphanAuthPlan:
+    """F5 orphan sweep: sessions/auth events whose user no longer exists."""
+
+    sessions: list[dict[str, Any]] = field(default_factory=list)  # uid, user_uid
+    auth_events: list[dict[str, Any]] = field(default_factory=list)  # uid, user_uid
+    audit_trail: list[dict[str, Any]] = field(default_factory=list)  # null user_uid — keep
+
+
+def plan_orphan_auth_cleanup(
+    session_rows: list[dict[str, Any]], auth_rows: list[dict[str, Any]]
+) -> OrphanAuthPlan:
+    """F5 orphan categorizer (pure). Inputs are ALREADY filtered to orphans
+    (no HAS_SESSION / HAD_AUTH_EVENT from any User). Null-user_uid AuthEvents
+    are the failed-login audit trail (``user_not_found``) — report, never delete.
+    """
+    plan = OrphanAuthPlan()
+    plan.sessions = list(session_rows)
+    for row in auth_rows:
+        if row.get("user_uid") is None:
+            plan.audit_trail.append(row)
+        else:
+            plan.auth_events.append(row)
+    return plan
+
+
+@dataclass
+class KuEnrollmentMigration:
+    """F6: one legacy ``(user)-[:IN_PROGRESS]->(:Ku)`` edge and its target PS."""
+
+    user_uid: str
+    ku_uid: str
+    covering_ps: list[str] = field(default_factory=list)
+    edge_props: dict[str, Any] = field(default_factory=dict)
+    blockers: list[str] = field(default_factory=list)
+
+    @property
+    def target_ps(self) -> str | None:
+        return self.covering_ps[0] if len(self.covering_ps) == 1 else None
+
+
+def plan_ku_enrollment_migrations(rows: list[dict[str, Any]]) -> list[KuEnrollmentMigration]:
+    """F6 categorizer (pure) — RULED (Mike, 2026-07-04): MIGRATE, never delete.
+
+    Expects rows with keys: user_uid, ku_uid, edge_props, covering_ps (the
+    PathSteps whose USES_KU covers this Ku). Exactly one covering PS is
+    migratable; zero or several go to Mike's dialog.
+    """
+    plans: list[KuEnrollmentMigration] = []
+    for row in rows:
+        plan = KuEnrollmentMigration(
+            user_uid=row["user_uid"],
+            ku_uid=row["ku_uid"],
+            covering_ps=sorted(row.get("covering_ps") or []),
+            edge_props=dict(row.get("edge_props") or {}),
+        )
+        if not plan.covering_ps:
+            plan.blockers.append("no covering PathStep (USES_KU) — Mike's call, do not guess")
+        elif len(plan.covering_ps) > 1:
+            plan.blockers.append(f"multiple covering PathSteps {plan.covering_ps} — Mike's call")
+        plans.append(plan)
+    return plans
+
+
+@dataclass
+class RepointPlan:
+    """F7: one ruled dupe → survivor ABOUT_ENTITY re-point + dupe deletion."""
+
+    dupe_uid: str
+    survivor_uid: str
+    label: str = ""
+    sources: list[str] = field(default_factory=list)
+    blockers: list[str] = field(default_factory=list)
+
+
+def plan_about_entity_repoints(
+    rows: list[dict[str, Any]],
+    ruled: dict[str, str] = RULED_ABOUT_ENTITY_REPOINTS,
+) -> list[RepointPlan]:
+    """F7 categorizer (pure): validate each ruled pair before touching it.
+
+    Expects rows keyed by uid with: uid, title, owner, labels, edge_sigs,
+    about_sources. The dupe must still exist, the survivor must exist with
+    the same owner and normalized title (it IS the semantic twin), and the
+    dupe's edges must be exactly EXPECTED_DUPE_EDGES.
+    """
+    by_uid = {r["uid"]: r for r in rows}
+    plans: list[RepointPlan] = []
+    for dupe_uid, survivor_uid in sorted(ruled.items()):
+        plan = RepointPlan(dupe_uid=dupe_uid, survivor_uid=survivor_uid)
+        dupe = by_uid.get(dupe_uid)
+        survivor = by_uid.get(survivor_uid)
+        if dupe is None:
+            plan.blockers.append("dupe not found (already cleaned?)")
+            plans.append(plan)
+            continue
+        plan.label = domain_label(dupe.get("labels") or []) or ""
+        plan.sources = sorted(dupe.get("about_sources") or [])
+        if survivor is None:
+            plan.blockers.append("survivor missing — cannot re-point")
+        else:
+            if dupe.get("owner") != survivor.get("owner"):
+                plan.blockers.append(
+                    f"owner mismatch: {dupe.get('owner')} vs {survivor.get('owner')}"
+                )
+            if normalized_activity_title(dupe.get("title") or "") != normalized_activity_title(
+                survivor.get("title") or ""
+            ):
+                plan.blockers.append("titles no longer match — not the semantic twin")
+        unexpected = set(dupe.get("edge_sigs") or []) - EXPECTED_DUPE_EDGES
+        if unexpected:
+            plan.blockers.append(f"dupe carries unexpected edges: {sorted(unexpected)}")
+        if not plan.label:
+            plan.blockers.append("dupe has no single domain label")
+        plans.append(plan)
+    return plans
+
+
+def find_role_value_drift(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """F8 categorizer (pure): User.role values that aren't the lowercase enum value.
+
+    Expects rows with keys: uid, role. A value whose lowercase form is a valid
+    UserRole normalizes; anything else is reported with fix=None.
+    """
+    valid = {r.value for r in UserRole}
+    drifts: list[dict[str, Any]] = []
+    for row in rows:
+        role = row.get("role")
+        if role is None or role in valid:
+            continue
+        lowered = role.lower().strip() if isinstance(role, str) else None
+        drifts.append(
+            {"uid": row["uid"], "role": role, "fix": lowered if lowered in valid else None}
+        )
+    return drifts
+
+
 # ============================================================================
 # GRAPH I/O
 # ============================================================================
@@ -435,16 +653,87 @@ async def fetch_anomalies(driver: Any) -> dict[str, list[dict[str, Any]]]:
     return anomalies
 
 
-async def fetch_test_users(driver: Any) -> list[dict[str, Any]]:
-    result = await driver.execute_query(
+async def fetch_test_user_rows(
+    driver: Any,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """F5 inputs: (test-user rows with edge signatures, their owned entities)."""
+    users = await driver.execute_query(
         """
         MATCH (u:User) WHERE u.uid IN $uids
         OPTIONAL MATCH (u)-[r]-()
-        RETURN u.uid AS uid, u.email AS email, count(r) AS edge_count,
-               collect(DISTINCT type(r)) AS edge_types
+        WITH u, collect(DISTINCT type(r) +
+             CASE WHEN startNode(r) = u THEN ':out' ELSE ':in' END) AS edge_sigs
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s)
+        WITH u, edge_sigs, count(DISTINCT s) AS session_count
+        OPTIONAL MATCH (u)-[:HAD_AUTH_EVENT]->(a)
+        RETURN u.uid AS uid, u.email AS email, edge_sigs,
+               session_count, count(DISTINCT a) AS auth_event_count
         """,
         uids=list(KNOWN_TEST_USER_UIDS),
     )
+    owned = await driver.execute_query(
+        """
+        MATCH (u:User)-[:OWNS]->(e:Entity) WHERE u.uid IN $uids
+        OPTIONAL MATCH (e)-[r]-()
+        WITH u, e, collect(DISTINCT type(r) +
+             CASE WHEN startNode(r) = e THEN ':out' ELSE ':in' END) AS edge_sigs
+        RETURN u.uid AS owner, e.uid AS uid, labels(e) AS labels, edge_sigs
+        """,
+        uids=list(KNOWN_TEST_USER_UIDS),
+    )
+    return [dict(r) for r in users.records], [dict(r) for r in owned.records]
+
+
+async def fetch_orphan_auth_rows(
+    driver: Any,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """F5 orphan-sweep inputs: (orphan sessions, orphan auth events)."""
+    sessions = await driver.execute_query(
+        "MATCH (s:Session) WHERE NOT (s)<-[:HAS_SESSION]-(:User) "
+        "RETURN s.uid AS uid, s.user_uid AS user_uid"
+    )
+    events = await driver.execute_query(
+        "MATCH (a:AuthEvent) WHERE NOT (a)<-[:HAD_AUTH_EVENT]-(:User) "
+        "RETURN a.uid AS uid, a.user_uid AS user_uid"
+    )
+    return [dict(r) for r in sessions.records], [dict(r) for r in events.records]
+
+
+async def fetch_legacy_ku_enrollment_rows(driver: Any) -> list[dict[str, Any]]:
+    """F6 inputs: every legacy IN_PROGRESS→:Ku edge + the PathSteps covering the Ku."""
+    result = await driver.execute_query(
+        """
+        MATCH (u:User)-[r:IN_PROGRESS]->(k:Ku)
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU]->(k)
+        RETURN u.uid AS user_uid, k.uid AS ku_uid,
+               properties(r) AS edge_props,
+               collect(DISTINCT ps.uid) AS covering_ps
+        """
+    )
+    return [dict(r) for r in result.records]
+
+
+async def fetch_about_entity_rows(driver: Any) -> list[dict[str, Any]]:
+    """F7 inputs: the ruled dupes + survivors with edges and ABOUT_ENTITY sources."""
+    uids = sorted(set(RULED_ABOUT_ENTITY_REPOINTS) | set(RULED_ABOUT_ENTITY_REPOINTS.values()))
+    result = await driver.execute_query(
+        """
+        MATCH (n:Entity) WHERE n.uid IN $uids
+        OPTIONAL MATCH (n)-[r]-()
+        WITH n, collect(DISTINCT type(r) +
+             CASE WHEN startNode(r) = n THEN ':out' ELSE ':in' END) AS edge_sigs
+        OPTIONAL MATCH (src)-[:ABOUT_ENTITY]->(n)
+        RETURN n.uid AS uid, n.title AS title, n.user_uid AS owner,
+               labels(n) AS labels, edge_sigs, collect(DISTINCT src.uid) AS about_sources
+        """,
+        uids=uids,
+    )
+    return [dict(r) for r in result.records]
+
+
+async def fetch_user_role_rows(driver: Any) -> list[dict[str, Any]]:
+    """F8 inputs: every User's role property."""
+    result = await driver.execute_query("MATCH (u:User) RETURN u.uid AS uid, u.role AS role")
     return [dict(r) for r in result.records]
 
 
@@ -559,6 +848,145 @@ async def apply_duplicate_merges(driver: Any, groups: list[DupGroup]) -> int:
     return deleted
 
 
+async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tuple[int, int]:
+    """F5 apply: owned entities → sessions/auth events → tracker rows → user.
+
+    Returns (users_deleted, owned_entities_deleted). Blocked users are skipped
+    whole — partial deletion would leave an unmodeled half-user behind.
+    """
+    users_deleted = entities_deleted = 0
+    for plan in plans:
+        if plan.blockers:
+            continue
+        for entity in plan.owned:
+            if await _delete_entity_checked(driver, entity["uid"], entity["label"]):
+                entities_deleted += 1
+        await driver.execute_query(
+            "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s) DETACH DELETE s", uid=plan.uid
+        )
+        await driver.execute_query(
+            "MATCH (u:User {uid: $uid})-[:HAD_AUTH_EVENT]->(a) DETACH DELETE a", uid=plan.uid
+        )
+        if plan.owned:
+            await driver.execute_query(
+                "MATCH (m:IngestionMetadata) WHERE m.entity_uid IN $uids DETACH DELETE m",
+                uids=[e["uid"] for e in plan.owned],
+            )
+        result = await driver.execute_query(
+            "MATCH (u:User {uid: $uid}) DETACH DELETE u RETURN count(u) AS n", uid=plan.uid
+        )
+        users_deleted += int(result.records[0]["n"]) if result.records else 0
+    return users_deleted, entities_deleted
+
+
+async def apply_orphan_auth_cleanup(driver: Any, plan: OrphanAuthPlan) -> tuple[int, int]:
+    """F5 orphan sweep apply. Returns (sessions_deleted, auth_events_deleted)."""
+    sessions = events = 0
+    if plan.sessions:
+        result = await driver.execute_query(
+            "MATCH (s:Session) WHERE s.uid IN $uids DETACH DELETE s RETURN count(s) AS n",
+            uids=[r["uid"] for r in plan.sessions],
+        )
+        sessions = int(result.records[0]["n"]) if result.records else 0
+    if plan.auth_events:
+        result = await driver.execute_query(
+            "MATCH (a:AuthEvent) WHERE a.uid IN $uids DETACH DELETE a RETURN count(a) AS n",
+            uids=[r["uid"] for r in plan.auth_events],
+        )
+        events = int(result.records[0]["n"]) if result.records else 0
+    return sessions, events
+
+
+async def apply_ku_enrollment_migrations(driver: Any, plans: list[KuEnrollmentMigration]) -> int:
+    """F6 apply: move the legacy edge onto the covering PS, properties intact.
+
+    ``ON CREATE`` only — an existing IN_PROGRESS on the target PS is real,
+    current study state and must never be clobbered by 2026-04 legacy props.
+    """
+    migrated = 0
+    for plan in plans:
+        if plan.blockers or plan.target_ps is None:
+            continue
+        result = await driver.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[old:IN_PROGRESS]->(k:Ku {uid: $ku_uid})
+            MATCH (ps:Entity:PathStep {uid: $ps_uid})
+            MERGE (u)-[new:IN_PROGRESS]->(ps)
+            ON CREATE SET new += properties(old)
+            DELETE old
+            RETURN count(old) AS n
+            """,
+            user_uid=plan.user_uid,
+            ku_uid=plan.ku_uid,
+            ps_uid=plan.target_ps,
+        )
+        migrated += int(result.records[0]["n"]) if result.records else 0
+    return migrated
+
+
+async def apply_uncovered_ku_edge_deletions(driver: Any, plans: list[KuEnrollmentMigration]) -> int:
+    """F6 fallback (``--delete-uncovered-ku-edges``, post-dialog only): delete
+    the legacy edges that have NO covering PS — there is nothing to migrate to.
+    """
+    deleted = 0
+    for plan in plans:
+        if plan.covering_ps:
+            continue  # migratable or multi-covered — not this fallback's business
+        result = await driver.execute_query(
+            """
+            MATCH (u:User {uid: $user_uid})-[old:IN_PROGRESS]->(k:Ku {uid: $ku_uid})
+            DELETE old
+            RETURN count(old) AS n
+            """,
+            user_uid=plan.user_uid,
+            ku_uid=plan.ku_uid,
+        )
+        deleted += int(result.records[0]["n"]) if result.records else 0
+    return deleted
+
+
+async def apply_about_entity_repoints(driver: Any, plans: list[RepointPlan]) -> tuple[int, int]:
+    """F7 apply: move ABOUT_ENTITY edges to the survivor, then delete the dupe.
+
+    Returns (edges_repointed, dupes_deleted).
+    """
+    repointed = deleted = 0
+    for plan in plans:
+        if plan.blockers:
+            continue
+        result = await driver.execute_query(
+            """
+            MATCH (src)-[old:ABOUT_ENTITY]->(dupe:Entity {uid: $dupe_uid})
+            MATCH (survivor:Entity {uid: $survivor_uid})
+            MERGE (src)-[new:ABOUT_ENTITY]->(survivor)
+            ON CREATE SET new += properties(old)
+            DELETE old
+            RETURN count(old) AS n
+            """,
+            dupe_uid=plan.dupe_uid,
+            survivor_uid=plan.survivor_uid,
+        )
+        repointed += int(result.records[0]["n"]) if result.records else 0
+        if await _delete_entity_checked(driver, plan.dupe_uid, plan.label):
+            deleted += 1
+    return repointed, deleted
+
+
+async def apply_role_normalizations(driver: Any, drifts: list[dict[str, Any]]) -> int:
+    """F8 apply: lowercase the fixable role values."""
+    fixed = 0
+    for drift in drifts:
+        if not drift["fix"]:
+            continue
+        result = await driver.execute_query(
+            "MATCH (u:User {uid: $uid}) SET u.role = $fix RETURN count(u) AS n",
+            uid=drift["uid"],
+            fix=drift["fix"],
+        )
+        fixed += int(result.records[0]["n"]) if result.records else 0
+    return fixed
+
+
 # ============================================================================
 # REPORTING
 # ============================================================================
@@ -572,7 +1000,11 @@ def print_dry_run(
     dedup_fixable: list[DupGroup],
     dedup_blocked: list[DupGroup],
     residual_collisions: list[dict[str, Any]],
-    test_users: list[dict[str, Any]],
+    test_user_plans: list[TestUserPlan],
+    orphan_auth: OrphanAuthPlan,
+    ku_migrations: list[KuEnrollmentMigration],
+    repoints: list[RepointPlan],
+    role_drifts: list[dict[str, Any]],
     anomalies: dict[str, list[dict[str, Any]]],
 ) -> None:
     print("=" * 72)
@@ -645,19 +1077,76 @@ def print_dry_run(
             for s in g.node_summaries:
                 print(f"        {s}")
 
+    deletable_users = [p for p in test_user_plans if not p.blockers]
     print(
-        f"\n[REPORT R2] multi-owner daily-note collisions remaining after F3: "
+        f"\n[FIX F5] test users to delete (with subtrees): "
+        f"{len(deletable_users)}/{len(test_user_plans)}"
+    )
+    for plan in test_user_plans:
+        status = "delete" if not plan.blockers else f"BLOCKED ({'; '.join(plan.blockers)})"
+        print(
+            f"    {status} {plan.uid} ({plan.email}) — {len(plan.owned)} owned entities, "
+            f"{plan.session_count} sessions, {plan.auth_event_count} auth events"
+        )
+        for entity in plan.owned:
+            print(f"        owned: {entity['uid']} :{entity['label']} {entity['edge_sigs']}")
+    print(
+        f"    orphan sweep (earlier test-user deletions): "
+        f"{len(orphan_auth.sessions)} sessions, {len(orphan_auth.auth_events)} auth events"
+    )
+    for row in orphan_auth.sessions:
+        print(f"        session {row['uid']} (user_uid={row['user_uid']})")
+    for row in orphan_auth.auth_events:
+        print(f"        auth event {row['uid']} (user_uid={row['user_uid']})")
+    if orphan_auth.audit_trail:
+        print(
+            f"    kept: {len(orphan_auth.audit_trail)} null-user_uid AuthEvents "
+            f"(failed-login audit trail, by design)"
+        )
+
+    migratable = [p for p in ku_migrations if not p.blockers]
+    print(
+        f"\n[FIX F6] legacy IN_PROGRESS→:Ku edges (RULED: migrate to covering PS): "
+        f"{len(migratable)}/{len(ku_migrations)} migratable"
+    )
+    for migration in ku_migrations:
+        props = {k: str(v) for k, v in migration.edge_props.items()}
+        if migration.blockers:
+            print(
+                f"    DIALOG {migration.user_uid} → {migration.ku_uid} — "
+                f"{'; '.join(migration.blockers)} (props: {props})"
+            )
+        else:
+            print(
+                f"    migrate {migration.user_uid} → {migration.ku_uid} "
+                f"onto PS {migration.target_ps}"
+            )
+
+    fixable_repoints = [p for p in repoints if not p.blockers]
+    print(
+        f"\n[FIX F7] ABOUT_ENTITY re-points (RULED pairs): {len(fixable_repoints)}/{len(repoints)}"
+    )
+    for repoint in repoints:
+        status = "re-point" if not repoint.blockers else f"BLOCKED ({'; '.join(repoint.blockers)})"
+        print(
+            f"    {status} {repoint.dupe_uid} → survivor {repoint.survivor_uid} "
+            f"(sources: {repoint.sources})"
+        )
+
+    fixable_roles = [d for d in role_drifts if d["fix"]]
+    print(f"\n[FIX F8] User.role value drift: {len(fixable_roles)}/{len(role_drifts)} fixable")
+    for drift in role_drifts:
+        if drift["fix"]:
+            print(f"    {drift['uid']}: {drift['role']!r} → {drift['fix']!r}")
+        else:
+            print(f"    REPORT {drift['uid']}: {drift['role']!r} — no valid lowercase form")
+
+    print(
+        f"\n[REPORT R2] multi-owner daily-note collisions remaining after F3+F5: "
         f"{len(residual_collisions)}"
     )
     for c in residual_collisions:
         print(f"    {c['date']}: {', '.join(c['entries'])}")
-
-    print(f"\n[REPORT R3] test users in graph: {len(test_users)}")
-    for u in test_users:
-        print(
-            f"    {u['uid']} ({u.get('email')}) — {u.get('edge_count')} edges "
-            f"{sorted(u.get('edge_types') or [])}"
-        )
 
     print("\n[REPORT R4] structural anomalies:")
     for name, rows in anomalies.items():
@@ -671,8 +1160,13 @@ async def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Execute the FIX categories (F1 type corrections, F2 duplicate merges). "
-        "Run the dry-run and get sign-off first.",
+        help="Execute the FIX categories (F1–F8). Run the dry-run and get sign-off first.",
+    )
+    parser.add_argument(
+        "--delete-uncovered-ku-edges",
+        action="store_true",
+        help="F6 fallback, post-dialog only: delete legacy IN_PROGRESS→:Ku edges "
+        "that have NO covering PathStep (nothing to migrate to). Requires --apply.",
     )
     args = parser.parse_args()
 
@@ -701,12 +1195,22 @@ async def main() -> int:
         dedup_fixable = [g for g in dedup_groups if not g.blockers]
         dedup_blocked = [g for g in dedup_groups if g.blockers]
 
-        # Residual collisions = what F3 does NOT resolve (expected: test users).
+        user_rows, owned_rows = await fetch_test_user_rows(driver)
+        test_user_plans = plan_test_user_cleanup(user_rows, owned_rows)
+        orphan_auth = plan_orphan_auth_cleanup(*await fetch_orphan_auth_rows(driver))
+        ku_migrations = plan_ku_enrollment_migrations(await fetch_legacy_ku_enrollment_rows(driver))
+        repoints = plan_about_entity_repoints(await fetch_about_entity_rows(driver))
+        role_drifts = find_role_value_drift(await fetch_user_role_rows(driver))
+
+        # Residual collisions = what F3 + F5 do NOT resolve (expected: none).
+        f5_deleted_uids = {e["uid"] for p in test_user_plans if not p.blockers for e in p.owned}
         surviving_entries = [
-            r for r in entry_rows if (r.get("uid") or "") not in wrong_door.deleted_entry_uids
+            r
+            for r in entry_rows
+            if (r.get("uid") or "") not in wrong_door.deleted_entry_uids
+            and (r.get("uid") or "") not in f5_deleted_uids
         ]
         residual_collisions = find_daily_owner_collisions(surviving_entries)
-        test_users = await fetch_test_users(driver)
         anomalies = await fetch_anomalies(driver)
 
         print_dry_run(
@@ -717,7 +1221,11 @@ async def main() -> int:
             dedup_fixable,
             dedup_blocked,
             residual_collisions,
-            test_users,
+            test_user_plans,
+            orphan_auth,
+            ku_migrations,
+            repoints,
+            role_drifts,
             anomalies,
         )
 
@@ -742,6 +1250,32 @@ async def main() -> int:
         f4_deleted = await apply_cross_entry_dedup(driver, dedup_fixable)
         f4_expected = sum(len(g.loser_uids) for g in dedup_fixable)
         print(f"F4: deleted {f4_deleted}/{f4_expected} cross-entry duplicate nodes")
+        f5_users, f5_entities = await apply_test_user_cleanup(driver, test_user_plans)
+        f5_expected_users = len([p for p in test_user_plans if not p.blockers])
+        print(
+            f"F5: deleted {f5_users}/{f5_expected_users} test users, {f5_entities} owned entities"
+        )
+        f5_sessions, f5_events = await apply_orphan_auth_cleanup(driver, orphan_auth)
+        print(
+            f"F5 orphan sweep: deleted {f5_sessions}/{len(orphan_auth.sessions)} sessions, "
+            f"{f5_events}/{len(orphan_auth.auth_events)} auth events "
+            f"({len(orphan_auth.audit_trail)} audit-trail rows kept)"
+        )
+        f6_migrated = await apply_ku_enrollment_migrations(driver, ku_migrations)
+        f6_expected = len([p for p in ku_migrations if not p.blockers])
+        print(f"F6: migrated {f6_migrated}/{f6_expected} legacy :Ku enrollment edges")
+        if args.delete_uncovered_ku_edges:
+            f6_deleted = await apply_uncovered_ku_edge_deletions(driver, ku_migrations)
+            print(f"F6 fallback: deleted {f6_deleted} uncovered legacy :Ku edges (post-dialog)")
+        f7_repointed, f7_deleted = await apply_about_entity_repoints(driver, repoints)
+        f7_expected = len([p for p in repoints if not p.blockers])
+        print(
+            f"F7: re-pointed {f7_repointed} ABOUT_ENTITY edges, "
+            f"deleted {f7_deleted}/{f7_expected} dupes"
+        )
+        f8_fixed = await apply_role_normalizations(driver, role_drifts)
+        f8_expected = len([d for d in role_drifts if d["fix"]])
+        print(f"F8: normalized {f8_fixed}/{f8_expected} User.role values")
 
         # Post-apply verification: FIX categories must now be empty.
         post_entities = await fetch_entity_type_rows(driver)
@@ -753,12 +1287,36 @@ async def main() -> int:
         residual_dedup = [
             g for g in plan_cross_entry_dedup(post_extracted, set(), set()) if not g.blockers
         ]
+        post_users, post_owned = await fetch_test_user_rows(driver)
+        residual_test_users = plan_test_user_cleanup(post_users, post_owned)
+        residual_orphans = plan_orphan_auth_cleanup(*await fetch_orphan_auth_rows(driver))
+        residual_migrations = plan_ku_enrollment_migrations(
+            await fetch_legacy_ku_enrollment_rows(driver)
+        )
+        if args.delete_uncovered_ku_edges:
+            residual_ku = residual_migrations  # everything should be gone
+        else:
+            residual_ku = [p for p in residual_migrations if not p.blockers]
+        residual_repoints = [
+            p
+            for p in plan_about_entity_repoints(await fetch_about_entity_rows(driver))
+            if "dupe not found" not in "; ".join(p.blockers)
+        ]
+        residual_roles = [
+            d for d in find_role_value_drift(await fetch_user_role_rows(driver)) if d["fix"]
+        ]
         print(
             f"\nPost-apply: {len(residual_types)} type mismatches, "
             f"{len(residual_dups)} fixable same-entry groups, "
             f"{len(residual_wrong_door.entries_to_delete)} wrong-door entries, "
             f"{len(residual_wrong_door.entities_to_delete)} wrong-door entities, "
-            f"{len(residual_dedup)} fixable cross-entry groups remaining"
+            f"{len(residual_dedup)} fixable cross-entry groups, "
+            f"{len(residual_test_users)} test users, "
+            f"{len(residual_orphans.sessions) + len(residual_orphans.auth_events)} orphan "
+            f"sessions/auth events, "
+            f"{len(residual_ku)} actionable legacy :Ku edges, "
+            f"{len(residual_repoints)} pending re-points, "
+            f"{len(residual_roles)} fixable role drifts remaining"
         )
         clean = (
             not residual_types
@@ -766,6 +1324,12 @@ async def main() -> int:
             and not residual_wrong_door.entries_to_delete
             and not residual_wrong_door.entities_to_delete
             and not residual_dedup
+            and not residual_test_users
+            and not residual_orphans.sessions
+            and not residual_orphans.auth_events
+            and not residual_ku
+            and not residual_repoints
+            and not residual_roles
         )
         return 0 if clean else 1
     finally:

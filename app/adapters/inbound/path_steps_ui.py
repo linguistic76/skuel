@@ -14,6 +14,7 @@ from starlette.datastructures import FormData
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
+from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.result_helpers import require_found
 from core.models.enums import UserRole
@@ -26,6 +27,7 @@ from core.services.ps_engagement.ps_engagement_service import (
 )
 from core.services.ps_service import PsService
 from core.utils.logging import get_logger
+from core.utils.result_simplified import Errors, Result
 from ui.components import Button, ButtonT
 from ui.explore.ps_completion_review import render_review_error, render_review_form
 from ui.explore.ps_publish_state import (
@@ -285,25 +287,37 @@ def create_path_steps_ui_routes(
         state=learning, review=false → new enrollment (mark_in_progress, cap enforced, fires PathStepEnrolled)
         state=learning, review=true  → Review again (mark_as_learning, no cap, no event)
         state=read                   → mark_as_read
-        Alpine has already updated the UI optimistically — response is discarded.
+        Alpine updates the UI optimistically; on success the empty response is
+        discarded. Failures (enrollment cap, write errors) return an error status
+        with X-Toast headers — ps-detail.js rolls the optimistic state back and
+        surfaces the toast (G7: no more silent failures).
         """
         user_uid = require_authenticated_user(request)
         form = await request.form()
         state = str(form.get("state", ""))
         review = str(form.get("review", "")) == "true"
+        result: Result[bool] | None = None
         if state == "read":
-            await ps_service.mastery.mark_as_read(user_uid, uid)
+            result = await ps_service.mastery.mark_as_read(user_uid, uid)
         elif state == "learning":
             if review:
-                await ps_service.mastery.mark_as_learning(user_uid, uid)
+                result = await ps_service.mastery.mark_as_learning(user_uid, uid)
             else:
                 count_result = await ps_service.mastery.count_in_progress_steps(user_uid)
                 if not count_result.is_error and (count_result.value or 0) >= 2:
-                    return (
-                        Div()
-                    )  # hx-swap="none" — cap exceeded; Alpine state corrects on next load
-                await ps_service.mastery.mark_in_progress(user_uid, uid)
-        return Div()  # hx-swap="none" — response is discarded
+                    return result_to_response(
+                        Result.fail(
+                            Errors.business(
+                                rule="ps_enrollment_cap",
+                                message="You can study at most 2 Path Steps at once"
+                                " - mark one as read to start another.",
+                            )
+                        )
+                    )
+                result = await ps_service.mastery.mark_in_progress(user_uid, uid)
+        if result is not None and result.is_error:
+            return result_to_response(result)
+        return Div()  # hx-swap="none" — success response is discarded
 
     @rt("/explore/ps/{uid}/bookmark", methods=["POST"])
     @csrf_protected

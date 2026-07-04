@@ -567,6 +567,14 @@ except ValidationError as e:
 
 Cross-field validation (password matching, terms acceptance) uses `@model_validator(mode="after")` — business rules live in the model, not the route handler.
 
+### User node schema (the ruling, July 2026 — Arc F/G12)
+
+The graph `:User` node carries exactly the `User` dataclass field names (`core/models/user/user.py`):
+
+- **Username lives in `title`** — there is NO `username` property. `get_user_by_username` matches `{title: $username}`; login resolves username → `title` → node → `.email` → authenticate by email. (A legacy `username` property was migrated to `title` on 2026-06-12.)
+- **Role lives in `role`** (NOT `user_role`), stored as the lowercase enum *value* (`"admin"`, `"member"`). Raw Cypher must compare against `.value`; model loads are alias-aware via `UserRole.from_string`.
+- **`is_premium` is an independent flag, not derived from role.** Subscription checks go through `User.is_subscriber()` → `role.is_subscriber()`; a MEMBER with `is_premium=false` is by design.
+
 ---
 
 ## Rate Limiting

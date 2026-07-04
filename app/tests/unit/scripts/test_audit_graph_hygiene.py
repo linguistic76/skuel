@@ -16,9 +16,13 @@ from audit_graph_hygiene import (  # type: ignore[import-not-found]
     domain_label,
     expected_types_by_label,
     find_daily_owner_collisions,
+    find_role_value_drift,
     find_type_mismatches,
     group_same_entry_duplicates,
+    plan_about_entity_repoints,
     plan_cross_entry_dedup,
+    plan_ku_enrollment_migrations,
+    plan_test_user_cleanup,
     plan_wrong_door_cleanup,
 )
 
@@ -264,3 +268,144 @@ class TestDailyOwnerCollisions:
         assert len(collisions) == 1
         assert collisions[0]["date"] == "2026-06-16"
         assert len(collisions[0]["entries"]) == 2
+
+
+class TestTestUserCleanup:
+    def test_clean_user_with_subtree_is_deletable(self):
+        users = [
+            {
+                "uid": "user_verifyperiodic",
+                "email": "v@example.com",
+                "edge_sigs": ["OWNS:out", "HAS_SESSION:out", "HAD_AUTH_EVENT:out"],
+                "session_count": 2,
+                "auth_event_count": 2,
+            }
+        ]
+        owned = [
+            {
+                "owner": "user_verifyperiodic",
+                "uid": "ue:daily:user_verifyperiodic:2026-06-01",
+                "labels": ["Entity", "UserEntry"],
+                "edge_sigs": ["OWNS:in"],
+            }
+        ]
+        plans = plan_test_user_cleanup(users, owned)
+        assert len(plans) == 1 and not plans[0].blockers
+        assert plans[0].owned[0]["label"] == "UserEntry"
+
+    def test_unexpected_user_edge_blocks_whole_user(self):
+        users = [
+            {
+                "uid": "user_csrfprobe2",
+                "email": "c@test.local",
+                "edge_sigs": ["HAS_SESSION:out", "SHARES_WITH:out"],
+                "session_count": 1,
+                "auth_event_count": 0,
+            }
+        ]
+        plans = plan_test_user_cleanup(users, [])
+        assert plans[0].blockers and "SHARES_WITH" in plans[0].blockers[0]
+
+
+class TestKuEnrollmentMigrations:
+    def test_single_covering_ps_is_migratable(self):
+        rows = [
+            {
+                "user_uid": "user_x",
+                "ku_uid": "ku.a.b",
+                "edge_props": {"progress_score": 0.0},
+                "covering_ps": ["ps.a.step-1"],
+            }
+        ]
+        plans = plan_ku_enrollment_migrations(rows)
+        assert not plans[0].blockers and plans[0].target_ps == "ps.a.step-1"
+
+    def test_uncovered_and_multi_covered_go_to_dialog(self):
+        rows = [
+            {"user_uid": "u", "ku_uid": "ku.orphan", "edge_props": {}, "covering_ps": []},
+            {
+                "user_uid": "u",
+                "ku_uid": "ku.shared",
+                "edge_props": {},
+                "covering_ps": ["ps.one", "ps.two"],
+            },
+        ]
+        plans = plan_ku_enrollment_migrations(rows)
+        assert "no covering PathStep" in plans[0].blockers[0]
+        assert plans[0].target_ps is None
+        assert "multiple covering PathSteps" in plans[1].blockers[0]
+
+
+class TestAboutEntityRepoints:
+    RULED = {"task_dupe": "task_winner"}
+
+    def _row(self, uid, title="move furniture", owner="user_x", edges=None, sources=None):
+        return {
+            "uid": uid,
+            "title": title,
+            "owner": owner,
+            "labels": ["Entity", "Task"],
+            "edge_sigs": edges if edges is not None else ["OWNS:in", "ABOUT_ENTITY:in"],
+            "about_sources": sources or [],
+        }
+
+    def test_valid_pair_repoints(self):
+        rows = [
+            self._row("task_dupe", sources=["insight.completion_pattern.x"]),
+            self._row("task_winner", edges=["OWNS:in"]),
+        ]
+        plans = plan_about_entity_repoints(rows, ruled=self.RULED)
+        assert not plans[0].blockers
+        assert plans[0].label == "Task"
+        assert plans[0].sources == ["insight.completion_pattern.x"]
+
+    def test_missing_survivor_or_title_drift_blocks(self):
+        no_survivor = plan_about_entity_repoints([self._row("task_dupe")], ruled=self.RULED)
+        assert "survivor missing" in no_survivor[0].blockers[0]
+        drifted = plan_about_entity_repoints(
+            [self._row("task_dupe"), self._row("task_winner", title="something else")],
+            ruled=self.RULED,
+        )
+        assert any("titles no longer match" in b for b in drifted[0].blockers)
+
+    def test_unexpected_dupe_edge_blocks(self):
+        rows = [
+            self._row("task_dupe", edges=["OWNS:in", "ABOUT_ENTITY:in", "BLOCKS:out"]),
+            self._row("task_winner"),
+        ]
+        plans = plan_about_entity_repoints(rows, ruled=self.RULED)
+        assert any("unexpected edges" in b for b in plans[0].blockers)
+
+    def test_already_cleaned_dupe_reports_not_crashes(self):
+        plans = plan_about_entity_repoints([self._row("task_winner")], ruled=self.RULED)
+        assert "dupe not found" in plans[0].blockers[0]
+
+
+class TestRoleValueDrift:
+    def test_uppercase_enum_name_normalizes(self):
+        rows = [
+            {"uid": "user_a", "role": "MEMBER"},
+            {"uid": "user_b", "role": "member"},
+            {"uid": "user_c", "role": "admin"},
+        ]
+        drifts = find_role_value_drift(rows)
+        assert drifts == [{"uid": "user_a", "role": "MEMBER", "fix": "member"}]
+
+    def test_unknown_value_reports_without_fix(self):
+        drifts = find_role_value_drift([{"uid": "user_x", "role": "superuser"}])
+        assert drifts[0]["fix"] is None
+
+
+class TestOrphanAuthCleanup:
+    def test_null_user_uid_events_are_audit_trail_not_deletions(self):
+        from audit_graph_hygiene import plan_orphan_auth_cleanup
+
+        sessions = [{"uid": "session_x", "user_uid": "user_gone"}]
+        events = [
+            {"uid": "auth_orphan", "user_uid": "user_gone"},
+            {"uid": "auth_failed_login", "user_uid": None},
+        ]
+        plan = plan_orphan_auth_cleanup(sessions, events)
+        assert [r["uid"] for r in plan.sessions] == ["session_x"]
+        assert [r["uid"] for r in plan.auth_events] == ["auth_orphan"]
+        assert [r["uid"] for r in plan.audit_trail] == ["auth_failed_login"]
