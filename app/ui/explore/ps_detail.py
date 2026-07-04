@@ -461,10 +461,13 @@ def _kus_section(kus: list[dict]) -> "FT":
 def _resource_chip(resource: dict) -> "FT":
     """One cited Resource as a reference chip: media icon, title, author/year,
     external source link when the descriptor carries one."""
+    from ui.primitives import safe_external_url
+
     author = resource.get("author") or ""
     year = resource.get("publication_year")
     attribution = f"{author}{f' ({year})' if year else ''}".strip()
-    source_url = resource.get("source_url")
+    # Scheme-allowlisted: a javascript:/data: source_url renders as plain text.
+    source_url = safe_external_url(resource.get("source_url"))
 
     inner = (
         Icon("book-open", cls="w-3.5 h-3.5 shrink-0"),

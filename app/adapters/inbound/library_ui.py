@@ -151,22 +151,26 @@ def render_resource_list(resources: list[Any]) -> Div:
             description="Admin-curated content (books, talks, films) will appear here once added.",
         )
 
+    from ui.primitives import safe_external_url
+
     rows = []
     for r in resources:
         author_text = r.author or ""
         year_text = f" ({r.publication_year})" if r.publication_year else ""
         attribution = f"{author_text}{year_text}".strip()
 
+        # Scheme-allowlisted: a javascript:/data: source_url gets no link.
+        safe_url = safe_external_url(r.source_url)
         link_btn = (
             ButtonLink(
                 "Open →",
-                href=r.source_url,
+                href=safe_url,
                 target="_blank",
                 rel="noopener noreferrer",
                 cls=(ButtonT.ghost, "ml-auto"),
                 size="sm",
             )
-            if r.source_url
+            if safe_url
             else None
         )
 

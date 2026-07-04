@@ -183,6 +183,39 @@ def test_batch_items_keep_resource_uids_dropped_by_mapper() -> None:
     assert "uses_kus" not in item["_node_props"]
 
 
+# ============================================================================
+# 5. UI SAFETY — source_url scheme allowlist (Kody #502, stored-XSS class)
+# ============================================================================
+
+
+def test_safe_external_url_allows_http_https() -> None:
+    from ui.primitives import safe_external_url
+
+    assert safe_external_url("https://hypermedia.systems") == "https://hypermedia.systems"
+    assert safe_external_url("http://example.org/x") == "http://example.org/x"
+    assert safe_external_url("  https://example.org  ") == "https://example.org"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        " \tjavascript:alert(1)",
+        "data:text/html;base64,PHNjcmlwdD4=",
+        "vbscript:x",
+        "//evil.example",
+        "ftp://example.org",
+        "",
+        None,
+    ],
+)
+def test_safe_external_url_rejects_unsafe_schemes(url: str | None) -> None:
+    from ui.primitives import safe_external_url
+
+    assert safe_external_url(url) is None
+
+
 def test_ku_batch_items_keep_resource_uids() -> None:
     """Ku ingestion gains its first rel_config with this arc — pin the same
     seam for the Ku door."""
