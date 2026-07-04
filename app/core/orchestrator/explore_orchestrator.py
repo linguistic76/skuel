@@ -429,16 +429,34 @@ class ExploreOrchestrator:
         }
 
     # ------------------------------------------------------------------
-    # Reading plan (stub — will be replaced by intelligence method)
+    # Reading plan (real learner state; ZPD ready-set is a future arc)
     # ------------------------------------------------------------------
 
-    async def get_reading_plan(self, _user_uid: UserUID | None) -> dict[str, Any]:
-        """Return a reading plan for the Explore reading-first surface.
+    @staticmethod
+    def _estimate_reading_minutes(text: str | None) -> int:
+        """Rough reading time at ~200 wpm; 0 when there is nothing to estimate."""
+        words = len((text or "").split())
+        return max(1, round(words / 200)) if words else 0
 
-        Stub implementation: returns curated seed data so the UI ships.
-        TODO: Replace body with UserContextIntelligence.get_ready_to_read_today()
-              once ReadingPlan model and intelligence method are implemented.
-              See: data/handoff/explore/explore.html for the data contract.
+    async def get_reading_plan(self, user_uid: UserUID | None) -> dict[str, Any]:
+        """Return the reading plan for the Explore reading-first surface.
+
+        Real learner state only (de-faked 2026-07-04, care arc ruling): the
+        shipped stub fabricated a read-history line, a nonexistent active
+        path step, and invented ready-now cards that dead-ended in
+        "not found". Now:
+
+        - ``active_path_step`` — the user's real IN_PROGRESS PathStep, its
+          USES_KU composition, and per-KU read state (``is_understood``).
+        - ``featured`` — the next unread KU inside that step (real "why");
+          falls back to the first library KU with honest copy.
+        - ``last_completed`` / ``in_progress`` / ``also_ready`` / ``related``
+          — empty until the intelligence behind them exists (read-history
+          and the ZPD-derived ready set); the renderer collapses empty
+          sections rather than inventing state.
+
+        TODO: UserContextIntelligence.get_ready_to_read_today (own arc)
+              fills also_ready/related from the ZPD assessment.
         """
         from datetime import date
 
@@ -446,147 +464,133 @@ class ExploreOrchestrator:
         date_label = today.strftime("%A · %B ") + str(today.day)
 
         library_total = 0
-        featured_uid = "ku-presence"
-        featured_title = "Presence"
+        first_library_ku: Any = None
         ku_result = await self._ku.core.list(limit=500)
         if not ku_result.is_error and ku_result.value:
             kus = ku_result.value[0]
             library_total = len(kus)
-            if kus:
-                first = kus[0]
-                featured_uid = getattr(first, "uid", featured_uid)
-                featured_title = getattr(first, "title", featured_title) or featured_title
+            first_library_ku = kus[0] if kus else None
+
+        active_path_step: dict[str, Any] | None = None
+        featured: dict[str, Any] = {}
+
+        if user_uid:
+            ps_uids_result = await self._ps.mastery.get_in_progress_step_uids(user_uid)
+            ps_uids = list(ps_uids_result.value or []) if not ps_uids_result.is_error else []
+            step: Any = None
+            if ps_uids:
+                batch_result = await self._ps.get_steps_batch(ps_uids[:1])
+                if batch_result.is_ok and batch_result.value:
+                    step = batch_result.value[0]
+            if step is not None:
+                used_result, states_result = await asyncio.gather(
+                    self._ps.get_used_kus(step.uid),
+                    self._ku.get_user_learning_states(user_uid),
+                )
+                understood: set[str] = set()
+                if states_result.is_ok and states_result.value:
+                    understood = {
+                        rec.get("uid", "")
+                        for rec in states_result.value
+                        if rec.get("is_understood")
+                    }
+                knowledge_units: list[dict[str, Any]] = []
+                current_ku: dict[str, Any] | None = None
+                used_rows = (used_result.value or []) if used_result.is_ok else []
+                for row in used_rows:
+                    ku_uid = str(row.get("uid", ""))
+                    if ku_uid in understood:
+                        status = "read"
+                    elif current_ku is None:
+                        status = "current"
+                    else:
+                        status = "upcoming"
+                    unit = {
+                        "uid": ku_uid,
+                        "title": row.get("title") or ku_uid,
+                        "status": status,
+                        "reading_minutes": 0,
+                        "excerpt": None,
+                    }
+                    if status == "current":
+                        current_ku = unit
+                    knowledge_units.append(unit)
+
+                units_total = len(knowledge_units)
+                units_read = sum(1 for u in knowledge_units if u["status"] == "read")
+                active_path_step = {
+                    "uid": step.uid,
+                    "title": step.title or step.uid,
+                    "summary": step.description or "",
+                    "contributes_to_lifepath": "",
+                    "units_total": units_total,
+                    "units_read": units_read,
+                    "progress": (units_read / units_total) if units_total else 0.0,
+                    "knowledge_units": knowledge_units,
+                    # Capability tray (practice/apply) is per-step authored
+                    # content — none exists yet, so the tray collapses.
+                    "capabilities": [],
+                }
+
+                if current_ku is not None:
+                    ku_detail = await self._ku.get_ku(current_ku["uid"])
+                    detail = ku_detail.value if ku_detail.is_ok else None
+                    excerpt = getattr(detail, "description", None) or ""
+                    minutes = self._estimate_reading_minutes(
+                        getattr(detail, "content", None) or excerpt
+                    )
+                    current_ku["reading_minutes"] = minutes
+                    featured = {
+                        "uid": current_ku["uid"],
+                        "title": current_ku["title"],
+                        "thread": getattr(detail, "namespace", "") or "",
+                        "kind": getattr(detail, "ku_category", "") or "",
+                        "excerpt": excerpt,
+                        "reading_minutes": minutes,
+                        "status_label": "Up next in your step",
+                        "why_now": (
+                            f"It's the next idea in {step.title or 'your current step'}, "
+                            "the step you're working through."
+                        ),
+                        "why": [
+                            {
+                                "met": True,
+                                "text": (
+                                    f"Part of {step.title or 'your current step'} — "
+                                    "the path step you chose to study."
+                                ),
+                            }
+                        ],
+                    }
+
+        if not featured and first_library_ku is not None:
+            excerpt = getattr(first_library_ku, "description", None) or ""
+            featured = {
+                "uid": getattr(first_library_ku, "uid", ""),
+                "title": getattr(first_library_ku, "title", "") or "",
+                "thread": getattr(first_library_ku, "namespace", "") or "",
+                "kind": getattr(first_library_ku, "ku_category", "") or "",
+                "excerpt": excerpt,
+                "reading_minutes": self._estimate_reading_minutes(
+                    getattr(first_library_ku, "content", None) or excerpt
+                ),
+                "status_label": "From the library",
+                "why_now": (
+                    "A starting point from the library — enroll in a path step "
+                    "for a guided sequence."
+                ),
+                "why": [],
+            }
 
         return {
             "reader_name": "there",
             "date_label": date_label,
-            "last_completed": {"uid": "ku-attention", "title": "Attention"},
-            "featured": {
-                "uid": featured_uid,
-                "title": featured_title,
-                "thread": "consciousness",
-                "kind": "state",
-                "excerpt": (
-                    "Most of the time you are somewhere else — rehearsing the past, "
-                    "drafting the future. Presence is the felt experience of being fully "
-                    "here: not thinking about life, but in contact with it."
-                ),
-                "reading_minutes": 4,
-                "why_now": (
-                    "Presence rests directly on Attention, which you just finished. "
-                    "Your other open threads aren't ready yet; this one is exactly at your edge."
-                ),
-                "why": [
-                    {
-                        "met": True,
-                        "text": "Attention — read yesterday. It's the one idea Presence is built on.",
-                    },
-                    {
-                        "met": True,
-                        "text": "Prerequisites met — 1 of 1. Nothing else is blocking it.",
-                    },
-                    {
-                        "met": None,
-                        "text": "One step past what you already know — your edge, not a leap.",
-                    },
-                ],
-            },
-            "in_progress": [
-                {
-                    "uid": "ku-zpd",
-                    "title": "Zone of Proximal Development",
-                    "progress": 0.40,
-                    "minutes_left": 3,
-                },
-            ],
-            "also_ready": [
-                {
-                    "uid": "ku-boundaries",
-                    "title": "Boundary Setting",
-                    "thread": "relationships",
-                    "thread_color": "oklch(0.55 0.22 295)",
-                    "excerpt": "What you will and won't accept — and how to hold the line kindly.",
-                    "reading_minutes": 4,
-                },
-                {
-                    "uid": "ku-six-choices",
-                    "title": "Six Choices",
-                    "thread": "choices",
-                    "thread_color": "oklch(0.55 0.20 255)",
-                    "excerpt": "The handful of moves a hard situation actually offers you.",
-                    "reading_minutes": 3,
-                },
-                {
-                    "uid": "ku-habits",
-                    "title": "Habits",
-                    "thread": "self-management",
-                    "thread_color": "oklch(0.60 0.15 165)",
-                    "excerpt": "How repetition quietly becomes automatic — for you and against you.",
-                    "reading_minutes": 5,
-                },
-            ],
-            "active_path_step": {
-                "uid": "ps-coming-home",
-                "title": "Coming Home to Attention",
-                "summary": "Three ideas that build the ground of presence — then a practice that ties them into one.",
-                "contributes_to_lifepath": "Steady Mind",
-                "units_total": 3,
-                "units_read": 1,
-                "progress": 0.33,
-                "knowledge_units": [
-                    {
-                        "uid": "ku-attention",
-                        "title": "Attention",
-                        "status": "read",
-                        "reading_minutes": 4,
-                        "excerpt": None,
-                    },
-                    {
-                        "uid": featured_uid,
-                        "title": featured_title,
-                        "status": "current",
-                        "reading_minutes": 4,
-                        "excerpt": None,
-                    },
-                    {
-                        "uid": "ku-gentle-return",
-                        "title": "Gentle Return",
-                        "status": "upcoming",
-                        "reading_minutes": 3,
-                        "excerpt": "Noticing you've wandered — and coming back without judgment.",
-                    },
-                ],
-                "capabilities": [
-                    {
-                        "kind": "practice",
-                        "title": "Sit with a wandering mind",
-                        "locked": True,
-                        "summary": "A guided sitting that turns the three ideas into one. Unlocks when all three are read.",
-                    },
-                    {
-                        "kind": "apply",
-                        "title": "Apply it to a task on your plan",
-                        "locked": True,
-                        "summary": "Carry it into a task on your plan. Unlocks when all three steps are read.",
-                    },
-                ],
-            },
-            "related": [
-                {
-                    "uid": "ku-buzzing",
-                    "title": "Buzzing",
-                    "kind": "state",
-                    "reading_minutes": 3,
-                    "excerpt": "When attention fragments and jumps between stimuli faster than you can follow.",
-                },
-                {
-                    "uid": "ku-compassion",
-                    "title": "Compassion",
-                    "kind": "value",
-                    "reading_minutes": 5,
-                    "excerpt": "Moving from understanding suffering to acting to ease it.",
-                },
-            ],
+            "last_completed": {},
+            "featured": featured,
+            "in_progress": [],
+            "also_ready": [],
+            "active_path_step": active_path_step,
+            "related": [],
             "library": {
                 "total": library_total,
                 "tags": ["#attention", "#mindfulness", "#self-awareness", "#choices"],

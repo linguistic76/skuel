@@ -49,13 +49,18 @@
             return;
           }
           self.status = self._syncedStatus;
+          // The global toastManager (htmx:afterRequest on body) surfaces
+          // X-Toast headers for every response — only dispatch the local
+          // fallback when the failure carried no header (network error),
+          // so the user never sees a double toast.
           var xhr = evt.detail.xhr;
-          var msg =
-            (xhr && xhr.getResponseHeader('X-Toast-Message')) ||
-            'Could not update progress — please try again';
-          window.dispatchEvent(
-            new CustomEvent('toast', { detail: { message: msg, type: 'error' } })
-          );
+          if (!xhr || !xhr.getResponseHeader('X-Toast-Message')) {
+            window.dispatchEvent(
+              new CustomEvent('toast', {
+                detail: { message: 'Could not update progress — please try again', type: 'error' }
+              })
+            );
+          }
         });
       },
 

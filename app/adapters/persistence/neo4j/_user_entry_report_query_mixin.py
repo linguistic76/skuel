@@ -172,14 +172,21 @@ class _UserEntryReportQueryMixin:
         return await self.get_submission_chain_raw(submission_uid=entry_uid)
 
     async def get_admin_uid(self) -> Result[list[Neo4jProperties]]:
-        """Get the UID of the oldest admin user.
+        """Get the UID of the oldest human admin user.
 
         The role lives in the `role` property (the User dataclass field name);
         `user_role` was a legacy property no current write path produces.
+
+        Service accounts (`@skuel.local` emails: user_system, the legacy
+        vault-watcher) carry role=admin but must never win this pick — the
+        caller treats the result as the default TEACHER for curriculum
+        content, and a default group owned by user_system is a review queue
+        nobody can ever log into.
         """
         query = """
         MATCH (admin:User)
         WHERE admin.role = 'admin'
+          AND NOT coalesce(admin.email, '') ENDS WITH '@skuel.local'
         RETURN admin.uid AS admin_uid
         ORDER BY admin.created_at ASC
         LIMIT 1

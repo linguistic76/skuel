@@ -77,7 +77,10 @@ def render_ps_feedback(submissions: list[PathStepSubmissionRow]) -> Div:
     if not with_reports:
         return EmptyState(
             title="No feedback yet",
-            description="Feedback from teachers will appear here after your submissions are reviewed.",
+            description=(
+                "Feedback appears here after a teacher reviews your submission "
+                "or you request AI feedback on it."
+            ),
         )
 
     count_note = Span(

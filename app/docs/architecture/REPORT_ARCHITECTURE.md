@@ -491,6 +491,7 @@ When `openai_service` is available, the generator:
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
+| `/api/exercises/report` | POST | Owner or Teacher (per-user FULL tier, ADR-043) | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
 | `/api/reports/assessments` | POST | Teacher | Create teacher assessment (`ENTRY_REPORT`) |
 | `/api/reports/assessments/for-student` | GET | Teacher | Student's received assessments |
 | `/api/reports/assessments/by-teacher` | GET | Teacher | Teacher's authored assessments |

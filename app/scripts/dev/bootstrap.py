@@ -427,10 +427,18 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
         logger.warning(f"⚠️ Cannot create static directory: {static_path} - {e}")
         logger.warning("📝 INFRASTRUCTURE TOLERANCE: App will run but static files won't serve")
 
+    # One static mechanism: the /static mount below. fast_app() also installs
+    # a root-scope extension catch-all (`/{fname:path}.{ext:static}` serving
+    # from CWD) which (a) served ANY static-ext repo file publicly (verified:
+    # /tailwind.config.js → 200) and (b) shadowed every root-scope .js/.html
+    # route registered after it — /service-worker.js and /offline.html 404'd,
+    # so the PWA service worker never installed (TECHNICAL_DEBT item 11).
+    app.router.routes = [
+        r for r in app.router.routes if "{fname:path}" not in getattr(r, "path", "")
+    ]
+
     # Mount static files (will work even if directory creation failed).
-    # NOTE: FastHTML's catch-all static route — not this mount — is what actually
-    # serves /static/*; cache headers are applied via StaticCacheHeadersMiddleware
-    # below (which works regardless of which route serves the file).
+    # Cache headers are applied via StaticCacheHeadersMiddleware below.
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
     # Add request ID middleware for log correlation

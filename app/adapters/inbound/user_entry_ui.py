@@ -42,6 +42,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
@@ -125,6 +126,26 @@ def _render_respond_button(entry_uid: str) -> Any:
     )
 
 
+def _render_ai_feedback_button(entry_uid: str, exercise_uid: str) -> Any:
+    """Button that summons the LLM exercise reviewer for the owner's entry (R1).
+
+    Posts to the single gated door (``POST /api/exercises/report``). Success
+    reloads the page so the new report appears under Responses; failures
+    surface through the global toast listener reading the X-Toast headers
+    (``boundary_handler`` sets them on every error).
+    """
+    return Button(
+        "Request AI feedback",
+        cls=(ButtonT.primary, "mt-4"),
+        size="sm",
+        hx_post="/api/exercises/report",
+        hx_vals=json.dumps({"submission_uid": entry_uid, "exercise_uid": exercise_uid}),
+        hx_swap="none",
+        hx_disabled_elt="this",
+        hx_on__after_request="if(event.detail.successful) location.reload()",
+    )
+
+
 def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
     """Adapt a ``UserEntry`` to the dict shape ``render_yours_list`` expects."""
     return {
@@ -147,6 +168,8 @@ def create_user_entry_ui_routes(
     groups_service: GroupService | None = None,
     batch_transcription_service: Any | None = None,
     processing_service: Any | None = None,
+    user_service: Any | None = None,
+    intelligence_tier: Any | None = None,
 ) -> list[Any]:
     """Register the UserEntry UI routes.
 
@@ -162,6 +185,10 @@ def create_user_entry_ui_routes(
             routes now live in journals_routes.py).
         processing_service: Retained for API compatibility (journal upload
             routes now live in journals_routes.py).
+        user_service: Resolves the caller's role for the per-user AI tier
+            gate (ADR-043) behind the "Request AI feedback" button.
+        intelligence_tier: System ``IntelligenceTier``; with ``user_service``
+            decides whether the AI-feedback affordance renders at all.
     """
     if user_entry_service is None:
         raise RuntimeError("UserEntryService is required — check bootstrap wiring")
@@ -169,6 +196,20 @@ def create_user_entry_ui_routes(
         raise RuntimeError("UserEntryOrchestrator is required — check bootstrap wiring")
 
     logger.info("Creating UserEntry UI routes")
+
+    async def _caller_ai_enabled(user_uid: str) -> bool:
+        """Per-user AI tier gate (ADR-043) for the AI-feedback affordance.
+
+        Fail-secure: missing deps or an unresolvable caller mean the button
+        does not render. The POST route re-enforces the same gate.
+        """
+        if user_service is None or intelligence_tier is None:
+            return False
+        caller_result = await user_service.get_user(user_uid)
+        if caller_result.is_error or caller_result.value is None:
+            return False
+        effective = get_user_intelligence_tier(intelligence_tier, caller_result.value.role)
+        return bool(effective.ai_enabled)
 
     # =========================================================================
     # SUBMISSIONS MOC ROOT
@@ -625,12 +666,23 @@ def create_user_entry_ui_routes(
         entry = entry_result.value
         body_text = entry.processed_content or entry.content or ""
 
-        fulfills_uid = (entry.metadata or {}).get("fulfills_exercise_uid")
+        # Submission chain: exercise (FULFILLS_EXERCISE edge — the writer's
+        # single source of truth), feedback reports, revisions. The old
+        # metadata read never rendered: the writer stores the edge, not a
+        # metadata key.
+        chain_result = await orchestrator.get_entry_chain(uid)
+        chain = chain_result.value if chain_result.is_ok else {}
+        fulfilled_exercise = chain.get("exercise") or None
+
         exercise_link: Any = None
-        if fulfills_uid:
+        if fulfilled_exercise:
             exercise_link = Div(
-                Span("Exercise: ", cls="font-medium text-sm text-muted-foreground"),
-                Badge(str(fulfills_uid), variant=BadgeT.outline, size=Size.sm),
+                Span("Fulfills exercise: ", cls="font-medium text-sm text-muted-foreground"),
+                Badge(
+                    str(fulfilled_exercise.get("title") or fulfilled_exercise.get("uid")),
+                    variant=BadgeT.outline,
+                    size=Size.sm,
+                ),
                 cls="mb-4",
             )
 
@@ -646,12 +698,15 @@ def create_user_entry_ui_routes(
                     cls="text-sm text-muted-foreground mb-2",
                 ),
                 exercise_link,
-                H4("Processed Content", cls="mt-6 mb-4"),
+                H4(
+                    "Processed Content" if entry.processed_content else "Submitted Content",
+                    cls="mt-6 mb-4",
+                ),
                 Div(
                     P(body_text, cls="whitespace-pre-wrap text-sm")
                     if body_text
                     else P(
-                        "No processed content yet.",
+                        "No content yet.",
                         cls="text-sm text-muted-foreground",
                     ),
                     cls="p-4 bg-muted rounded-lg",
@@ -670,9 +725,8 @@ def create_user_entry_ui_routes(
         )
 
         # Responses section (ADR-069) — EntryReports pointing at this entry,
-        # via ReportRelationshipService.get_submission_chain.
-        responses_result = await orchestrator.get_entry_responses(uid)
-        responses = responses_result.value if responses_result.is_ok else []
+        # from the same chain fetch as the badge.
+        responses = list(chain.get("feedback") or [])
         # Button visibility uses the SAME eligibility check the respond POST
         # enforces — so it shows for NONE-pipeline TRANSFORMS children too.
         eligible = await orchestrator.is_entry_response_eligible(entry)
@@ -680,10 +734,19 @@ def create_user_entry_ui_routes(
             _render_respond_button(uid) if (eligible.is_ok and eligible.value) else None
         )
 
+        # "Request AI feedback" (R1): the owner may summon the LLM reviewer
+        # for an exercise-fulfilling entry. Render only when the entry
+        # fulfills an exercise AND the caller's effective tier allows AI
+        # (ADR-043) — the POST re-enforces both server-side.
+        ai_feedback_button: Any = None
+        if fulfilled_exercise and await _caller_ai_enabled(user_uid):
+            ai_feedback_button = _render_ai_feedback_button(uid, str(fulfilled_exercise.get("uid")))
+
         content = Div(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
             detail_card,
             respond_button,
+            ai_feedback_button,
             _render_entry_responses(responses),
         )
 
