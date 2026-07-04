@@ -1216,10 +1216,13 @@ async def compose_services(
         # branch), curriculum fully open minus the je_* staging floor.
         _personal_allowlist = build_sync_allowlist(_personal_root, content_root=_content_root)
         # Resources/ is the raw reference library (full book texts, no `type:`
-        # frontmatter) — not ingestible content. Without this wall the whole-vault
-        # sweep re-attempts all of it on every sync (never tracked, zero writes).
-        # Whether these become Resource nodes is Arc D's (Resource write side)
-        # design question — remove this exclusion when that lands.
+        # frontmatter) — DELIBERATELY walled, permanently (Arc D ruling
+        # 2026-07-03: descriptor-only). Resource nodes are ingested from small
+        # descriptor .md files elsewhere in the content vault (`Res/`); the raw
+        # texts stay reference-only on disk. Full-text ingestion (bodies →
+        # chunks → embeddings, one-Resource-many-files design) is a possible
+        # later capability with its own design pass — do not remove this wall
+        # without that ruling.
         _content_allowlist = build_sync_allowlist(
             _content_root,
             content_root=_content_root,

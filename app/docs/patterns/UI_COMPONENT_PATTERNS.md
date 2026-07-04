@@ -968,6 +968,8 @@ Import from `ui.components`: `Card, CardBody, CardHeader, CardTitle` (M5 ✅). B
 
 Action links (Submit, View Report, Download, View all) must use `ButtonLink()` — not raw `A()` with ad-hoc Tailwind. Raw `A()` is reserved for entity title links, breadcrumbs, sidebar navigation, and inline contextual text links (e.g. links inside a paragraph sentence).
 
+**Data-sourced hrefs must pass `safe_external_url()`** (`ui/primitives.py`): any URL that originates from stored data (e.g. Resource `source_url` from vault descriptors) is scheme-allowlisted to http/https before reaching an `href` — a `javascript:`/`data:` value renders as plain text instead of a link (stored-XSS class, Kody #502). Hardcoded route paths don't need it.
+
 **Adoption status:** Used across ~45 files. No raw `A()` action CTAs remain.
 
 ```python

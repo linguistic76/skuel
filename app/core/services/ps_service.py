@@ -779,6 +779,20 @@ class PsService:
         """Get all atomic Kus used by this PathStep."""
         return await self.core.backend.get_used_kus(ps_uid)  # type: ignore[attr-defined]
 
+    async def get_cited_resources(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get curated Resources this PathStep cites (CITES_RESOURCE edges).
+
+        Backend: KnowledgeContextMixin.get_cited_resources — takes a UID list
+        (Askesis traverses whole bundles); this facade scopes it to one step
+        and flattens the ``{"resource": {...}}`` rows to plain property dicts.
+        The explicit limit overrides the backend's bundle-oriented default of
+        20 so a heavily-cited step never silently drops citations.
+        """
+        result = await self.core.backend.get_cited_resources([ps_uid], limit=100)  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([row["resource"] for row in (result.value or []) if row.get("resource")])
+
     # ============================================================================
     # CONTENT AND TAG MANAGEMENT
     # ============================================================================

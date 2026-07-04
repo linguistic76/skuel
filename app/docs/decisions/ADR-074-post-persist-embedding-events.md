@@ -94,6 +94,11 @@ the `:Content` node alone would orphan chunks in the vector index), and both doo
 `EMBEDDING_EVENT_TYPES` with a staged note so the first Resource creation path embeds with
 zero extra wiring. This is deliberate staging (PLANNED-tier thinking), not dead code.
 
+> **Update 2026-07-03 (Arc D):** the producer now exists — Resource became vault-ingestible
+> (`ENTITY_CONFIGS[RESOURCE]`, `embeddable=True`), so both ingest doors publish
+> `ResourceEmbeddingRequested` exactly as staged. Zero extra wiring was needed, as designed.
+> `ResourceService` remains read-only (no API create path).
+
 ### 7. Script-mode freshness gap → in-process drain, `--stale` backfill as backstop
 
 One-shot syncs (`./dev vault-sync`, the script-mode reconciler) publish to an **in-process**

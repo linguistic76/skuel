@@ -487,10 +487,14 @@ class ContextRetriever:
 
         # Step 3b: Fetch Resources cited by bundle PathSteps/KUs (Ring 2 context)
         # Done after path_steps/kus resolve so we know which UIDs to traverse from.
+        # The anchor PS leads the list — its own citations are the most relevant
+        # resources in the bundle (first live data: Arc D, 2026-07-03).
         related_ps_uids = [a.uid for a in related_ps]
         ku_uids_list = [k.uid for k in kus]
         try:
-            resources = await self._fetch_cited_resources(related_ps_uids + ku_uids_list)
+            resources = await self._fetch_cited_resources(
+                [path_step.uid, *related_ps_uids, *ku_uids_list]
+            )
         except NEO4J_EXCEPTIONS as exc:
             logger.warning("PS bundle fetch failed for resources (user %s): %s", user_uid, exc)
             resources = []

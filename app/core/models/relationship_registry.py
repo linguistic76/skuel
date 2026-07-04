@@ -1641,6 +1641,18 @@ KU_CONFIG = DomainRelationshipConfig(
             "trained_by_steps",
             "trained_by",
         ),
+        # === Reference material: Ku cites curated Resources ===
+        # (Askesis' get_cited_resources traverses CITES_RESOURCE from both
+        # PathSteps and KUs — the registry makes Ku-authored `resource_uids:`
+        # free; no Ku citations are authored yet.)
+        UnifiedRelationshipDefinition(
+            RelationshipName.CITES_RESOURCE,
+            "Resource",
+            "outgoing",
+            "cited_resources",
+            "resources",
+            yaml_field_path="resource_uids",
+        ),
     ),
     prerequisite_relationship_names=(),
     enables_relationship_names=(),
@@ -1855,6 +1867,15 @@ PS_CONFIG = DomainRelationshipConfig(
             "exercises",
             "exercises",
             yaml_field_path="exercise_uids",
+        ),
+        # === Reference material: PS cites curated Resources ===
+        UnifiedRelationshipDefinition(
+            RelationshipName.CITES_RESOURCE,
+            "Resource",
+            "outgoing",
+            "cited_resources",
+            "resources",
+            yaml_field_path="resource_uids",
         ),
         # === Path membership ===
         # Incoming: Other → PS (LP is now also :Entity)

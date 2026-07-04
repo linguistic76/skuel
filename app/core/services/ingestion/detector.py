@@ -34,6 +34,9 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "ku": EntityType.KU,
     # Exercises
     "exercise": EntityType.EXERCISE,
+    # Curated reference content (books, talks, films — descriptor metadata;
+    # raw texts stay walled on disk, see Arc D ruling 2026-07-03)
+    "resource": EntityType.RESOURCE,
     # Activity domains
     "task": EntityType.TASK,
     "goal": EntityType.GOAL,

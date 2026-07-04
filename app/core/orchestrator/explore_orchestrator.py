@@ -120,6 +120,10 @@ class ExploreOrchestrator:
         """Get the atomic Kus a PathStep composes (USES_KU edges)."""
         return await self._ps.get_used_kus(ps_uid)
 
+    async def get_cited_resources(self, ps_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get the curated Resources a PathStep cites (CITES_RESOURCE edges)."""
+        return await self._ps.get_cited_resources(ps_uid)
+
     async def get_exercises_for_path_step(self, ps_uid: str) -> Result[list]:
         """Get exercises linked to a PathStep (unauthenticated read-only view)."""
         return await self._ps.get_exercises_for_path_step(ps_uid)

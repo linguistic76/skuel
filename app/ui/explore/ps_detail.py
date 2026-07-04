@@ -82,6 +82,7 @@ def render_ps_detail_content(
     user_role: UserRole | None = None,
     has_task_templates: bool = False,
     kus: list[dict] | None = None,
+    resources: list[dict] | None = None,
     # Retained for API compatibility; not rendered in this design iteration.
     toc_html: str = "",
     exercises: list[dict] | None = None,
@@ -106,6 +107,8 @@ def render_ps_detail_content(
         has_task_templates: True when the PS has TaskTemplates — "Start learning"
             triggers engagement (task spawn) rather than read-progress toggle.
         kus: Atomic Kus this step composes (USES_KU) — rendered as reader links.
+        resources: Curated Resources this step cites (CITES_RESOURCE) —
+            rendered as reference chips (author/year, source link when known).
         toc_html: Not used in this layout (no TOC sidebar).
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
@@ -140,6 +143,7 @@ def render_ps_detail_content(
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
         _kus_section(kus) if kus else Div(),
+        _resources_section(resources) if resources else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
@@ -446,6 +450,63 @@ def _kus_section(kus: list[dict]) -> "FT":
         cls="mt-[24px]",
         role="region",
         **{"aria-labelledby": "ps-kus-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Resources section
+# ---------------------------------------------------------------------------
+
+
+def _resource_chip(resource: dict) -> "FT":
+    """One cited Resource as a reference chip: media icon, title, author/year,
+    external source link when the descriptor carries one."""
+    from ui.primitives import safe_external_url
+
+    author = resource.get("author") or ""
+    year = resource.get("publication_year")
+    attribution = f"{author}{f' ({year})' if year else ''}".strip()
+    # Scheme-allowlisted: a javascript:/data: source_url renders as plain text.
+    source_url = safe_external_url(resource.get("source_url"))
+
+    inner = (
+        Icon("book-open", cls="w-3.5 h-3.5 shrink-0"),
+        Span(resource.get("title") or resource["uid"], cls="font-medium"),
+        Span(f"— {attribution}", cls="text-muted-foreground") if attribution else None,
+        Icon("arrow-up-right", cls="w-3 h-3 shrink-0 text-muted-foreground")
+        if source_url
+        else None,
+    )
+    chip_cls = (
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
+        "border-border bg-muted/40 text-[13px] text-foreground"
+    )
+    if source_url:
+        return A(
+            *inner,
+            href=source_url,
+            target="_blank",
+            rel="noopener noreferrer",
+            cls=f"{chip_cls} hover:bg-accent hover:text-accent-foreground",
+        )
+    return Span(*inner, cls=chip_cls)
+
+
+def _resources_section(resources: list[dict]) -> "FT":
+    """Curated Resources this PathStep cites (CITES_RESOURCE edges)."""
+    return Section(
+        H2(
+            "Resources",
+            id="ps-resources-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        Div(
+            *[_resource_chip(r) for r in resources if r.get("uid")],
+            cls="flex flex-wrap gap-2",
+        ),
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-resources-h"},
     )
 
 
