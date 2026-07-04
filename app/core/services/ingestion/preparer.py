@@ -24,6 +24,7 @@ from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 
 from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
+from .moc_links import extract_moc_link_suffixes
 
 logger = get_logger("skuel.ingestion.preparer")
 
@@ -133,6 +134,15 @@ def prepare_entity_data(
     # would erase the frontmatter-provided content before chunking.
     if body and config.extracts_body_content:
         entity_data["content"] = body
+
+    # MOC edge pass (parse half): ``moc: true`` on ANY ingestible file turns
+    # its body links into ordered ORGANIZES edges post-persist. The extracted
+    # suffixes ride the transient ``_moc_links`` key — both ingest doors pop it
+    # before node persistence (it must never become a node property; the plain
+    # ``moc`` field itself flows through as an inert, human-visible property).
+    # An empty body yields [] so an emptied MOC still drops its stale edges.
+    if data.get("moc") is True:
+        entity_data["_moc_links"] = extract_moc_link_suffixes(body)
 
     # Singular → plural consolidation (runs first; normalization pass follows)
     for singular_field, plural_field in config.uid_singular_to_plural_fields:

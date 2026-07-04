@@ -280,6 +280,18 @@ knowledge (PathStep) and user practice (UserEntry → EntryReport → RevisedExe
 
 **Graph Role:** MOC provides non-linear navigation by organizing KUs into a graph structure parallel to the linear PS/LP structure.
 
+**July 2026 - Vault authoring surface (`moc: true`) + any-Entity MOCs:**
+The ORGANIZES Path gained its authoring surface: `moc: true` in the
+frontmatter of ANY ingestible vault file turns the file's body links
+(wiki + markdown) into `ORGANIZES {order}` edges to link targets that
+resolve to ingested entities (order = document position; edits re-draw on
+next sync). The identity rule generalizes beyond Ku: any Entity with
+outgoing ORGANIZES edges is a MOC — e.g. a personal-vault UserEntry
+knowledge map. Identity stays emergent; the `moc` field itself is inert
+(nothing queries it). Dangling links are plans (skipped silently) in
+personal vaults; the content vault keeps strict warnings.
+**See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
+
 ---
 
 ## How the Patterns Relate
