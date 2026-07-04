@@ -14,6 +14,7 @@ at the boundary.
 """
 
 from datetime import date, datetime, timedelta
+from typing import Any
 
 from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import EntityStatus, RecurrencePattern
@@ -40,6 +41,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.dsl.converter")
+
+# These converters run ONLY on the EXTRACT_ACTIVITIES ingestion path (vault
+# notes → activities). Historical notes legitimately carry past dates, so the
+# future-date guard is relaxed here via Pydantic validation context — the
+# interactive API/UI creation paths construct their requests without this
+# context and keep the guard (see validate_future_date, G10/Arc E).
+INGESTED_NOTE_CONTEXT = {"allow_past_dates": True}
 
 
 def derive_principle_title(description: str) -> str:
@@ -107,21 +115,27 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
     # Map recurrence
     recurrence = map_repeat_to_recurrence(activity.repeat_pattern)
 
-    # Build request
-    request = TaskCreateRequest(
-        title=activity.description,
-        due_date=due_date,
-        scheduled_date=activity.scheduled_date,
-        duration_minutes=activity.duration_minutes or 30,
-        priority=priority,
-        status=EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
-        recurrence_pattern=recurrence,
-        # Knowledge connections
-        applies_knowledge_uids=activity.get_linked_knowledge(),
-        # Goal connections
-        fulfills_goal_uid=activity.get_linked_goals()[0] if activity.get_linked_goals() else None,
-        # Tags from energy states (@energy) + obsidian-tasks #tags / period marker
-        tags=list(dict.fromkeys(activity.energy_states + activity.extra_tags)),
+    # Build request — model_validate so the ingestion validation context
+    # applies (past due/scheduled dates are admissible for historical notes).
+    request = TaskCreateRequest.model_validate(
+        {
+            "title": activity.description,
+            "due_date": due_date,
+            "scheduled_date": activity.scheduled_date,
+            "duration_minutes": activity.duration_minutes or 30,
+            "priority": priority,
+            "status": EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
+            "recurrence_pattern": recurrence,
+            # Knowledge connections
+            "applies_knowledge_uids": activity.get_linked_knowledge(),
+            # Goal connections
+            "fulfills_goal_uid": (
+                activity.get_linked_goals()[0] if activity.get_linked_goals() else None
+            ),
+            # Tags from energy states (@energy) + obsidian-tasks #tags / period marker
+            "tags": list(dict.fromkeys(activity.energy_states + activity.extra_tags)),
+        },
+        context=INGESTED_NOTE_CONTEXT,
     )
 
     logger.debug(f"Converted activity to TaskCreateRequest: {request.title}")
@@ -192,14 +206,21 @@ def activity_to_goal_request(activity: ParsedActivityLine) -> Result[ConversionR
     if activity.when:
         target_date = activity.when.date()
 
-    request = GoalCreateRequest(
-        title=activity.description,
-        target_date=target_date,
-        priority=map_dsl_priority_to_enum(activity.priority),
-        required_knowledge_uids=activity.get_linked_knowledge(),
-        guiding_principle_uids=activity.get_linked_principles(),
-        tags=activity.energy_states if activity.energy_states else [],
-    )
+    # model_validate so the ingestion validation context applies (a past
+    # target_date on a historical note must not reject the goal). A past
+    # target also needs a coherent start_date — the model defaults it to
+    # today, which would violate the (kept) target-after-start invariant.
+    data: dict[str, Any] = {
+        "title": activity.description,
+        "target_date": target_date,
+        "priority": map_dsl_priority_to_enum(activity.priority),
+        "required_knowledge_uids": activity.get_linked_knowledge(),
+        "guiding_principle_uids": activity.get_linked_principles(),
+        "tags": activity.energy_states if activity.energy_states else [],
+    }
+    if target_date is not None and target_date < date.today():
+        data["start_date"] = target_date
+    request = GoalCreateRequest.model_validate(data, context=INGESTED_NOTE_CONTEXT)
 
     logger.debug(f"Converted activity to GoalCreateRequest: {request.title}")
     return Result.ok(request)

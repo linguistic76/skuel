@@ -212,3 +212,86 @@ class TestCurriculumBranchThreading:
         assert extraction.kus_created == 0
         assert extraction.lines_merged_existing == 1
         ku_service.create_ku.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+class TestCrossEntryGuard:
+    """Guard 4 (cross-entry, F4): a line matching an ACTIVE owned twin merges.
+
+    Terminal twins never reach the map — the backend query
+    (``get_user_active_extraction_twins``) excludes terminal statuses, so
+    re-typing a completed task's title creates a fresh task.
+    """
+
+    async def test_user_typed_line_merges_into_owned_active_twin(self):
+        """The resurrection guard: re-processing a note whose extracted entity
+        was deleted by the F4 cleanup must resolve to the surviving twin."""
+        extractor = ActivityExtractorService()
+        extraction = ActivityExtractionResult(entry_uid="ue_x", user_uid="user_x")
+        creator = _CountingCreator()
+        line = _line("Meditate", "- [ ] Meditate")
+
+        created, uids = await extractor._create_for_domain(
+            [line],
+            creator,
+            "Habit",
+            "user_x",
+            extraction,
+            existing_line_hashes=frozenset(),
+            bridge_line_hashes=frozenset(),
+            existing_extracted={},
+            user_owned_semantic={("Habit", "meditate"): "habit_survivor"},
+        )
+
+        assert creator.calls == 0
+        assert created == 0 and uids == []
+        assert extraction.lines_merged_cross_entry == 1
+        assert extraction.lines_merged_existing == 0
+        # Same no-write rule as Guard 3: the survivor's provenance stays untouched.
+        assert extraction.created_links == []
+
+    async def test_same_entry_guard3_wins_before_guard4(self):
+        extractor = ActivityExtractorService()
+        extraction = ActivityExtractionResult(entry_uid="ue_x", user_uid="user_x")
+        creator = _CountingCreator()
+        line = _line("Meditate", "Meditate @context(habit) reworded")
+
+        created, _uids = await extractor._create_for_domain(
+            [line],
+            creator,
+            "Habit",
+            "user_x",
+            extraction,
+            existing_line_hashes=frozenset(),
+            bridge_line_hashes=frozenset({normalized_line_hash(line.raw_line)}),
+            existing_extracted={("Habit", "meditate"): "habit_same_entry"},
+            user_owned_semantic={("Habit", "meditate"): "habit_other_entry"},
+        )
+
+        assert created == 0
+        assert extraction.lines_merged_existing == 1
+        assert extraction.lines_merged_cross_entry == 0
+
+    async def test_no_twin_creates_normally(self):
+        """A key absent from the map (new title, or twin was terminal and thus
+        excluded at map build) creates a fresh entity."""
+        extractor = ActivityExtractorService()
+        extraction = ActivityExtractionResult(entry_uid="ue_x", user_uid="user_x")
+        creator = _CountingCreator()
+        line = _line("Call the plumber", "- [ ] Call the plumber")
+
+        created, uids = await extractor._create_for_domain(
+            [line],
+            creator,
+            "Habit",
+            "user_x",
+            extraction,
+            existing_line_hashes=frozenset(),
+            bridge_line_hashes=frozenset(),
+            existing_extracted={},
+            user_owned_semantic={("Habit", "meditate"): "habit_survivor"},
+        )
+
+        assert creator.calls == 1
+        assert created == 1 and uids == ["habit_created_1"]
+        assert extraction.lines_merged_cross_entry == 0

@@ -22,7 +22,7 @@ from typing import Any
 
 from core.constants import SYSTEM_USER_UID
 from core.ingestion.ingestion_types import RelationshipConfig
-from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
 from core.models.relationship_registry import (
     ENTITY_TYPE_TO_LABEL,
     LABEL_CONFIGS,
@@ -273,6 +273,12 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
         extracts_body_content=True,
+        # G17 write side (Arc E): vault PathSteps historically carried NO
+        # status, and the MEGA-QUERY active-path filter reads it — stamp an
+        # explicit ACTIVE default at ingestion (an authored ``status:`` wins;
+        # defaults only fill absent keys). The Arc B NULL-tolerant read stays
+        # as the guard for graphs that have not re-synced under this code yet.
+        default_values={"status": EntityStatus.ACTIVE.value},
         uid_normalization_fields=(
             "uses_kus",
             "habit_uids",
@@ -557,6 +563,82 @@ def _file_mtime(path: Path) -> float:
     return path.stat().st_mtime
 
 
+@dataclass(frozen=True)
+class FileCollectionSkips:
+    """Skip-reason bookkeeping for a directory scan (G10 honest counts).
+
+    ``walled``: files matching the supported patterns that the vault
+    exclusions rejected (allowlist wall, je_* staging floor, or symlink).
+    ``unsupported``: non-hidden files in the tree whose extension the
+    ingestion engine does not read at all (only counted for the recursive
+    all-files patterns — a targeted pattern scan makes no claim about the
+    rest of the tree).
+    """
+
+    walled: int = 0
+    unsupported: int = 0
+
+
+_SUPPORTED_SUFFIXES = frozenset({".md", ".yaml", ".yml"})
+
+
+def _is_hidden(path: Path, root: Path) -> bool:
+    """Whether any path component under ``root`` is dotfile-hidden (.obsidian etc.)."""
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    return any(part.startswith(".") for part in relative.parts)
+
+
+def collect_files_detailed(
+    directory: Path,
+    pattern: str = "*",
+    allowlist: SyncAllowlist | None = None,
+) -> tuple[list[Path], FileCollectionSkips]:
+    """``collect_files`` plus skip-reason bookkeeping (G10).
+
+    Same collection semantics; additionally counts what the scan saw but did
+    not collect, so sync stats can report walled/unsupported files instead of
+    letting them vanish from the totals (#500 residue).
+    """
+    matched: list[Path] = []
+
+    if pattern in ("*", "**/*"):
+        matched.extend(directory.glob("**/*.md"))
+        matched.extend(directory.glob("**/*.yaml"))
+        matched.extend(directory.glob("**/*.yml"))
+    elif pattern.endswith(".md") or pattern.endswith((".yaml", ".yml")):
+        matched.extend(directory.glob(f"**/{pattern}"))
+    else:
+        matched.extend(directory.glob(f"**/{pattern}.md"))
+        matched.extend(directory.glob(f"**/{pattern}.yaml"))
+        matched.extend(directory.glob(f"**/{pattern}.yml"))
+
+    # Vault exclusions: the always-on je_* staging floor plus the optional
+    # fail-closed privacy allowlist. reconcile_deletions applies the SAME predicate
+    # so a tracked row survives iff its file would still be collected here.
+    collected = [f for f in matched if is_ingestible_path(f, allowlist)]
+    walled = sum(1 for f in matched if not _is_hidden(f, directory)) - sum(
+        1 for f in collected if not _is_hidden(f, directory)
+    )
+
+    unsupported = 0
+    if pattern in ("*", "**/*"):
+        unsupported = sum(
+            1
+            for f in directory.glob("**/*")
+            if f.is_file()
+            and f.suffix.lower() not in _SUPPORTED_SUFFIXES
+            and not _is_hidden(f, directory)
+        )
+
+    return (
+        sorted(collected, key=_file_mtime, reverse=True),
+        FileCollectionSkips(walled=walled, unsupported=unsupported),
+    )
+
+
 def collect_files(
     directory: Path,
     pattern: str = "*",
@@ -582,25 +664,8 @@ def collect_files(
     Returns:
         List of file paths sorted by modification time (newest first)
     """
-    all_files: list[Path] = []
-
-    if pattern in ("*", "**/*"):
-        all_files.extend(directory.glob("**/*.md"))
-        all_files.extend(directory.glob("**/*.yaml"))
-        all_files.extend(directory.glob("**/*.yml"))
-    elif pattern.endswith(".md") or pattern.endswith((".yaml", ".yml")):
-        all_files.extend(directory.glob(f"**/{pattern}"))
-    else:
-        all_files.extend(directory.glob(f"**/{pattern}.md"))
-        all_files.extend(directory.glob(f"**/{pattern}.yaml"))
-        all_files.extend(directory.glob(f"**/{pattern}.yml"))
-
-    # Vault exclusions: the always-on je_* staging floor plus the optional
-    # fail-closed privacy allowlist. reconcile_deletions applies the SAME predicate
-    # so a tracked row survives iff its file would still be collected here.
-    all_files = [f for f in all_files if is_ingestible_path(f, allowlist)]
-
-    return sorted(all_files, key=_file_mtime, reverse=True)
+    files, _ = collect_files_detailed(directory, pattern, allowlist)
+    return files
 
 
 __all__ = [
@@ -609,10 +674,12 @@ __all__ = [
     "DEFAULT_USER_UID",
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
+    "FileCollectionSkips",
     "STAGING_EXCLUDED_DIRS",
     "SyncAllowlist",
     "build_sync_allowlist",
     "collect_files",
+    "collect_files_detailed",
     "generate_ingestion_relationship_config",
     "is_ingestible_path",
     "is_staging_path",

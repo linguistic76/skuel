@@ -91,6 +91,16 @@ class Neo4jContentAdapter:
         - ContentChunk nodes for each chunk
         - HAS_CHUNK relationships
 
+        Chunk persistence is **delete-then-create** (Arc E, force-reingest
+        contract): every re-chunk replaces the whole chunk set with fresh
+        nodes, so stale properties from earlier schema/chunker generations
+        can never linger on a MERGE-kept node. Embedding idempotency
+        (ADR-074 §8 — unchanged text never re-embeds) is preserved by
+        carry-over, not by node reuse: before deleting, the old chunks'
+        embedding fields are read, and a new chunk whose ``context_window``
+        matches an old chunk's ``embedding_source_text`` inherits that
+        embedding — the worker's freshness pre-check then skips it.
+
         Args:
             uid: Knowledge unit UID,
             content: CurriculumContent with chunks
@@ -99,7 +109,6 @@ class Neo4jContentAdapter:
             True if successful
         """
         try:
-            # Start transaction for atomic storage
             query = """
             // Match the knowledge unit
             MATCH (ku:Entity {uid: $uid})
@@ -133,61 +142,31 @@ class Neo4jContentAdapter:
                 logger.error(f"Failed to store content for {uid}")
                 return False
 
-            # Store chunks if available
-            if content.chunks:
-                # Idempotency: drop only the chunks that no longer exist in the
-                # new chunk set (uids are deterministic — parent_uid + index).
-                # Surviving uids are MERGEd below with their embeddings
-                # preserved when the text is unchanged, so a force re-ingest of
-                # an identical body never wipes good chunk vectors.
-                new_uids = [chunk.chunk_id for chunk in content.chunks]
-                await self.neo4j.execute_query(
-                    """
-                    MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
-                    WHERE NOT chunk.uid IN $keep_uids
-                    DETACH DELETE chunk
-                    """,
-                    {"uid": uid, "keep_uids": new_uids},
-                )
-
-                # MERGE keeps an existing chunk node; embedding fields are wiped
-                # only when the stored embedding_source_text (what the vector was
-                # generated from) no longer matches the incoming context_window —
-                # a re-chunk of identical content keeps its embedding, and the
-                # worker's freshness pre-check then skips re-generating it.
-                chunk_query = """
-                MATCH (c:Content {uid: $uid})
-                MERGE (chunk:ContentChunk {uid: $chunk_uid})
-                ON CREATE SET
-                    chunk.created_at = datetime(),
-                    chunk.embedding = null,
-                    chunk.embedding_version = null,
-                    chunk.embedding_model = null,
-                    chunk.embedding_updated_at = null,
-                    chunk.embedding_source_text = null
-                SET chunk.chunk_type = $chunk_type,
-                    chunk.text = $text,
-                    chunk.start_index = $start_index,
-                    chunk.end_index = $end_index,
-                    chunk.context_window = $context_window,
-                    chunk.chunking_version = $chunking_version
-                FOREACH (_ IN CASE
-                    WHEN chunk.embedding_source_text IS NULL
-                      OR chunk.embedding_source_text <> $context_window
-                    THEN [1] ELSE [] END |
-                    SET chunk.embedding = null,
-                        chunk.embedding_version = null,
-                        chunk.embedding_model = null,
-                        chunk.embedding_updated_at = null,
-                        chunk.embedding_source_text = null)
-                MERGE (c)-[r:HAS_CHUNK]->(chunk)
-                SET r.sequence = $sequence
-                RETURN chunk.uid
+            # Embedding carry-over map: source_text → embedding fields of the
+            # outgoing chunk set. Read BEFORE the delete below.
+            carry_over: dict[str, dict[str, Any]] = {}
+            old_rows = await self.neo4j.execute_query(
                 """
+                MATCH (c:Content {uid: $uid})-[:HAS_CHUNK]->(chunk:ContentChunk)
+                WHERE chunk.embedding IS NOT NULL
+                RETURN chunk.embedding_source_text AS source_text,
+                       chunk.embedding AS embedding,
+                       chunk.embedding_version AS version,
+                       chunk.embedding_model AS model,
+                       chunk.embedding_updated_at AS updated_at
+                """,
+                {"uid": uid},
+            )
+            for row in old_rows or []:
+                source_text = row.get("source_text")
+                if source_text and source_text not in carry_over:
+                    carry_over[source_text] = dict(row)
 
-                for i, chunk in enumerate(content.chunks):
-                    chunk_params = {
-                        "uid": uid,
+            chunk_rows = []
+            for i, chunk in enumerate(content.chunks):
+                inherited = carry_over.get(chunk.context_window)
+                chunk_rows.append(
+                    {
                         "chunk_uid": chunk.chunk_id,
                         "chunk_type": chunk.chunk_type.value,
                         "text": chunk.text,
@@ -196,19 +175,55 @@ class Neo4jContentAdapter:
                         "end_index": chunk.word_count,
                         "chunking_version": chunk.chunking_version,
                         "sequence": i,
+                        "embedding": inherited["embedding"] if inherited else None,
+                        "embedding_version": inherited["version"] if inherited else None,
+                        "embedding_model": inherited["model"] if inherited else None,
+                        "embedding_updated_at": (inherited["updated_at"] if inherited else None),
+                        "embedding_source_text": (chunk.context_window if inherited else None),
                     }
+                )
 
-                    chunk_result = await self.neo4j.execute_query(chunk_query, chunk_params)
-
-                    if chunk_result is None:
-                        logger.error(f"Failed to create chunk {i} - query returned None")
-                        logger.error(f"Chunk params: {chunk_params}")
-                    else:
-                        logger.debug(
-                            f"Created chunk {i} ({chunk_params['chunk_type']}): {chunk_params['chunk_uid']}"
-                        )
-
-                logger.info(f"Stored {len(content.chunks)} chunks for {uid}")
+            # Delete + recreate in ONE statement = one transaction: a failure
+            # anywhere rolls the delete back, so a partial write can never
+            # leave the Content node chunkless (Kody #503 critical). The
+            # delete runs even for a zero-chunk result (UNWIND [] just yields
+            # no create rows) so stale chunks still clear.
+            chunk_result = await self.neo4j.execute_query(
+                """
+                MATCH (c:Content {uid: $uid})
+                OPTIONAL MATCH (c)-[:HAS_CHUNK]->(old:ContentChunk)
+                DETACH DELETE old
+                WITH DISTINCT c
+                UNWIND $chunks AS row
+                CREATE (chunk:ContentChunk {uid: row.chunk_uid})
+                SET chunk.created_at = datetime(),
+                    chunk.chunk_type = row.chunk_type,
+                    chunk.text = row.text,
+                    chunk.start_index = row.start_index,
+                    chunk.end_index = row.end_index,
+                    chunk.context_window = row.context_window,
+                    chunk.chunking_version = row.chunking_version,
+                    chunk.embedding = row.embedding,
+                    chunk.embedding_version = row.embedding_version,
+                    chunk.embedding_model = row.embedding_model,
+                    chunk.embedding_updated_at = row.embedding_updated_at,
+                    chunk.embedding_source_text = row.embedding_source_text
+                CREATE (c)-[r:HAS_CHUNK]->(chunk)
+                SET r.sequence = row.sequence
+                RETURN count(chunk) AS created
+                """,
+                {"uid": uid, "chunks": chunk_rows},
+            )
+            created = int(chunk_result[0]["created"]) if chunk_result else 0
+            if created != len(content.chunks):
+                logger.error(
+                    f"Chunk create mismatch for {uid}: expected "
+                    f"{len(content.chunks)}, created {created}"
+                )
+                return False
+            if content.chunks:
+                kept = sum(1 for row in chunk_rows if row["embedding"] is not None)
+                logger.info(f"Stored {created} chunks for {uid} ({kept} embeddings carried over)")
 
             logger.debug(f"Successfully stored content with chunks for {uid}")
             return True

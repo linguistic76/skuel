@@ -59,7 +59,7 @@ def build_graph_context_query(
     if intent == QueryIntent.HIERARCHICAL:
         # Pure Cypher variable-length pattern for hierarchical traversal
         return f"""
-            MATCH (u {{uid: $uid}})
+            MATCH (u:Entity {{uid: $uid}})
             OPTIONAL MATCH path = (u)-[:HAS_CHILD|PARENT_OF|CHILD_OF*0..{depth}]-(related)
             WITH u, collect(DISTINCT related) as related_nodes
             OPTIONAL MATCH (u)-[:HAS_CHILD|CHILD_OF]->(child)
@@ -72,7 +72,7 @@ def build_graph_context_query(
     elif intent == QueryIntent.PREREQUISITE:
         # Pure Cypher variable-length pattern for prerequisite chains
         return f"""
-            MATCH (u {{uid: $uid}})
+            MATCH (u:Entity {{uid: $uid}})
             OPTIONAL MATCH path = (u)-[:PREREQUISITE_FOR|ENABLES*0..{depth}]->(prereq)
             WITH u, collect(DISTINCT prereq) as prereq_chain
             OPTIONAL MATCH (u)-[:PREREQUISITE_FOR]->(direct_prereq)
@@ -84,7 +84,7 @@ def build_graph_context_query(
     elif intent == QueryIntent.PRACTICE:
         # Pure Cypher pattern for practice/example nodes
         return f"""
-            MATCH (u {{uid: $uid}})
+            MATCH (u:Entity {{uid: $uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.HAS_EXERCISE}|HAS_EXAMPLE*0..{depth}]->(practice)
             WHERE practice.content_type IN ['exercise', 'example', 'practice']
             WITH u, collect(DISTINCT practice) as practice_nodes
@@ -95,7 +95,7 @@ def build_graph_context_query(
     elif intent == QueryIntent.RELATIONSHIP:
         # Pure Cypher pattern for relationship exploration
         return f"""
-            MATCH (u {{uid: $uid}})
+            MATCH (u:Entity {{uid: $uid}})
             OPTIONAL MATCH path = (u)-[r*0..{depth}]-(related)
             WHERE length(path) <= {depth}
             WITH u, collect(DISTINCT related) as nodes, collect(DISTINCT r) as relationships
@@ -106,7 +106,7 @@ def build_graph_context_query(
 
     else:  # EXPLORATORY or SPECIFIC - no variable-length pattern, depth not applicable
         return """
-            MATCH (u {uid: $uid})
+            MATCH (u:Entity {uid: $uid})
             OPTIONAL MATCH (u)-[r]-(related)
             WITH u, type(r) as rel_type, collect(related) as related_nodes
             RETURN collect({type: rel_type, nodes: related_nodes}) as relationships,

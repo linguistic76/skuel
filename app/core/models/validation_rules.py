@@ -48,6 +48,14 @@ def validate_future_date(*field_names: str) -> Callable:
 
     Works with both `date` and `datetime` types.
 
+    **Ingestion-context relaxation (G10, Arc E):** validation context
+    ``{"allow_past_dates": True}`` skips the check. Interactive creation
+    (constructor / FastHTML-Pydantic auto-validation) passes no context, so
+    the guard stands there; the EXTRACT_ACTIVITIES converters pass the
+    context via ``model_validate`` because historical vault notes
+    legitimately carry past dates — rejecting them made those notes
+    permanently unable to create their activities.
+
     Args:
         *field_names: Names of fields to validate
 
@@ -63,8 +71,13 @@ def validate_future_date(*field_names: str) -> Callable:
     """
 
     @field_validator(*field_names)
-    def _validate_future_date(cls, v: date | datetime | None) -> date | datetime | None:
+    def _validate_future_date(
+        cls, v: date | datetime | None, info: ValidationInfo
+    ) -> date | datetime | None:
         if v is None:
+            return v
+
+        if info.context and info.context.get("allow_past_dates"):
             return v
 
         if isinstance(v, datetime):
@@ -76,39 +89,6 @@ def validate_future_date(*field_names: str) -> Callable:
         return v
 
     return _validate_future_date
-
-
-def validate_future_date_or_today(*field_names: str) -> Callable:
-    """
-    Create a validator that ensures date fields are today or in the future.
-
-    Args:
-        *field_names: Names of fields to validate
-
-    Returns:
-        Pydantic field validator
-
-    Example:
-        class EventCreateRequest(BaseModel):
-            event_date: date
-
-            _validate_event_date = validate_future_date_or_today("event_date")
-    """
-
-    @field_validator(*field_names)
-    def _validate_future_or_today(cls, v: date | datetime | None) -> date | datetime | None:
-        if v is None:
-            return v
-
-        today = date.today()
-        check_date = v.date() if isinstance(v, datetime) else v
-
-        if check_date < today:
-            raise ValueError("Date must be today or in the future")
-
-        return v
-
-    return _validate_future_or_today
 
 
 def validate_past_date(*field_names: str) -> Callable:

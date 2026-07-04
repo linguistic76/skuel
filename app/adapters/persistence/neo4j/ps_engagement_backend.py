@@ -157,9 +157,11 @@ class PsEngagementBackend:
     async def set_pathstep_published(
         self, ps_uid: str, status: str, updated_at: str
     ) -> Result[list[dict[str, Any]]]:
+        # :Entity — the PathStep's :Content shadow shares its uid; unlabeled,
+        # this SET would stamp status onto the shadow node too (G13).
         return await self._executor.execute_write(
             query="""
-            MATCH (ps {uid: $uid})
+            MATCH (ps:Entity {uid: $uid})
             SET ps.status = $status,
                 ps.updated_at = $updated_at
             RETURN ps
@@ -175,8 +177,10 @@ class PsEngagementBackend:
     async def delete_instance(
         self, instance_uid: str, operation: str
     ) -> Result[list[dict[str, Any]]]:
+        # :Entity — an unlabeled uid DETACH DELETE could take a :Content
+        # shadow node with it (G13); spawned instances are always entities.
         return await self._executor.execute_write(
-            query="MATCH (n {uid: $uid}) DETACH DELETE n",
+            query="MATCH (n:Entity {uid: $uid}) DETACH DELETE n",
             params={"uid": instance_uid},
             operation=operation,
         )
@@ -186,7 +190,7 @@ class PsEngagementBackend:
     ) -> Result[list[dict[str, Any]]]:
         return await self._executor.execute_write(
             query="""
-            MATCH (n {uid: $uid})
+            MATCH (n:Entity {uid: $uid})
             SET n.engagement_state = 'owned',
                 n.updated_at = $updated_at
             RETURN n.uid AS uid

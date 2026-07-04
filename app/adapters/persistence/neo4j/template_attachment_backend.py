@@ -36,8 +36,10 @@ class TemplateAttachmentBackend:
         self, ps_uid: str, template_uid: str, edge_name: RelationshipName
     ) -> Result[list[dict[str, Any]]]:
         """MERGE the ``edge_name`` edge between PS and template (idempotent)."""
+        # :Entity — a PathStep's :Content shadow shares its uid; an unlabeled
+        # MERGE would attach the template to both nodes (G13).
         query = (
-            "MATCH (ps {uid: $ps_uid}), (t {uid: $template_uid}) "
+            "MATCH (ps:Entity {uid: $ps_uid}), (t:Entity {uid: $template_uid}) "
             f"MERGE (ps)-[:{edge_name}]->(t) "
             "RETURN ps.uid AS ps_uid, t.uid AS t_uid"
         )
@@ -52,9 +54,9 @@ class TemplateAttachmentBackend:
     ) -> Result[list[dict[str, Any]]]:
         """DELETE the ``edge_name`` edge; returns a ``removed`` count row."""
         query = (
-            "MATCH (ps {uid: $ps_uid})-[r:"
+            "MATCH (ps:Entity {uid: $ps_uid})-[r:"
             f"{edge_name}"
-            "]->(t {uid: $template_uid}) "
+            "]->(t:Entity {uid: $template_uid}) "
             "DELETE r RETURN count(r) AS removed"
         )
         return await self._executor.execute_write(
@@ -68,7 +70,7 @@ class TemplateAttachmentBackend:
     ) -> Result[list[dict[str, Any]]]:
         """Return ``props`` rows for templates attached to ``ps_uid`` via ``edge_name``."""
         query = (
-            "MATCH (ps {uid: $ps_uid})-[:"
+            "MATCH (ps:Entity {uid: $ps_uid})-[:"
             f"{edge_name}"
             "]->(t) "
             "RETURN properties(t) AS props "

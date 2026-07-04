@@ -120,6 +120,16 @@ class UserEntryCrudOperations(Protocol):
         """Set vault_id on an existing EXTRACTED_FROM edge (ADR-070 ID injection)."""
         ...
 
+    async def get_user_active_extraction_twins(
+        self, user_uid: UserUID, labels: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """The user's OWNED, non-terminal entities of the given domain labels.
+
+        Returns dicts with keys: entity_uid, title, labels — ordered oldest-first.
+        Input to extraction dedup Guard 4 (cross-entry, F4).
+        """
+        ...
+
 
 # ============================================================================
 # ISP parent 2 — lifecycle: create-with-link + revision resolution

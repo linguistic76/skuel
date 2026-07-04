@@ -139,6 +139,13 @@ def obsidian_task_line_to_parsed(
     description = _TAG_RE.sub(" ", description)
     description = " ".join(description.split())
 
+    # Empty checkbox = template scaffolding (daily notes ship a blank '- [ ] '
+    # slot), not a task. Creating it would just fail title validation and spam
+    # every sync report with the same warning (G10 alarm fatigue). A blank line
+    # that DOES carry a 🆔 join key still parses — it references a real task.
+    if not description and not vault_id:
+        return None
+
     # Canonicalize the checkbox prefix to '- [ ] ' — collapsing BOTH the checked
     # state AND the bullet char ('-' vs '*') — so the dedup hash is stable across
     # check/uncheck and bullet style (the active flip-to-COMPLETED round-trip is

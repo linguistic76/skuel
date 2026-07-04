@@ -460,7 +460,7 @@ def create_path_steps_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
-    async def organize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+    async def organize_route(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
         """Organize a path step under another (create ORGANIZES relationship)."""
         parsed = await parse_json_body(request, StepOrganizeRequest)
         if parsed.is_error:
@@ -478,7 +478,9 @@ def create_path_steps_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def unorganize_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+    async def unorganize_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """Remove organization relationship between path steps."""
         parsed = await parse_json_body(request, StepOrganizeRequest)
         if parsed.is_error:
@@ -494,7 +496,7 @@ def create_path_steps_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def reorder_route(request: Request, current_user: Any) -> Result[dict[str, Any]]:
+    async def reorder_route(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
         """Change the order of a child path step within its parent."""
         parsed = await parse_json_body(request, StepReorderRequest)
         if parsed.is_error:

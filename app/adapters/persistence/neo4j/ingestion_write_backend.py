@@ -43,9 +43,13 @@ class IngestionWriteBackend:
         ``RelationshipName`` — the enum type makes the interpolation injection-safe
         (MyPy rejects raw strings at the call site).
         """
+        # NOT :Content — the chunk store's shadow node shares its entity's
+        # uid; an unguarded MERGE would duplicate the edge onto the shadow
+        # (G13). Exclusion, not :Entity binding: edge endpoints may be
+        # non-Entity labels (e.g. Group).
         query = f"""
-        MATCH (a {{uid: $from_uid}})
-        MATCH (b {{uid: $to_uid}})
+        MATCH (a {{uid: $from_uid}}) WHERE NOT a:Content
+        MATCH (b {{uid: $to_uid}}) WHERE NOT b:Content
         MERGE (a)-[r:{rel_type}]->(b)
         SET r += $props
         RETURN a.uid AS from_uid, b.uid AS to_uid, type(r) AS rel_type,
@@ -60,9 +64,9 @@ class IngestionWriteBackend:
         return list(records)
 
     async def entity_exists(self, uid: str) -> bool:
-        """True if a node with ``uid`` exists."""
+        """True if a node with ``uid`` exists (:Content shadows excluded, G13)."""
         records, _, _ = await self._driver.execute_query(
-            "MATCH (n {uid: $uid}) RETURN n.uid", uid=uid
+            "MATCH (n {uid: $uid}) WHERE NOT n:Content RETURN n.uid", uid=uid
         )
         return bool(records)
 
@@ -84,6 +88,7 @@ class IngestionWriteBackend:
             """
             UNWIND $uids AS uid
             OPTIONAL MATCH (n {uid: uid})
+            WHERE NOT n:Content
             RETURN uid, n IS NOT NULL AS exists
             """,
             {"uids": uids},

@@ -51,6 +51,13 @@ class IngestionStats:
     relationships_created: int = 0
     edges_created: int = 0
     duration_seconds: float = 0.0
+    # Skip-reason bookkeeping (G10): files the scan saw but did not process —
+    # walled = supported files excluded by the vault wall (allowlist/staging/
+    # symlink); unsupported = non-hidden files with unsupported extensions.
+    files_walled: int = 0
+    files_unsupported: int = 0
+    # Surfaced-but-non-fatal problems (e.g. dangling relationship targets).
+    warnings: list[str] = field(default_factory=list)
     errors: list[dict[str, Any]] | None = None
 
     @property
@@ -165,6 +172,14 @@ class IncrementalStats:
     entities_deleted: int = 0
     edges_deleted: int = 0  # deleted Edge YAMLs: relationship removed
     stale_metadata_removed: int = 0  # moved/renamed files: old tracking row only
+    # Skip-reason bookkeeping (G10): files the scan saw but did not process —
+    # walled = supported files excluded by the vault wall (allowlist/staging/
+    # symlink); unsupported = non-hidden files with unsupported extensions.
+    files_walled: int = 0
+    files_unsupported: int = 0
+    # Surfaced-but-non-fatal problems: dangling relationship targets
+    # (validate_targets), per-line extraction errors that did not fail the file.
+    warnings: list[str] = field(default_factory=list)
     errors: list[dict[str, Any]] | None = None
 
     @property

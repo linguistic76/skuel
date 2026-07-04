@@ -272,10 +272,19 @@ SKUEL centralizes reusable validators as factory functions:
 # core/models/validation_rules.py
 
 def validate_future_date(*field_names: str) -> Callable:
-    """Factory: Validate date/datetime is not in the past"""
+    """Factory: Validate date/datetime is not in the past.
+
+    Skipped under validation context {"allow_past_dates": True} — the
+    ingestion converters pass it (historical vault notes); interactive
+    paths pass no context, so the guard stands there (Arc E, G10).
+    """
     @field_validator(*field_names)
-    def _validate(cls, v: date | datetime | None) -> date | datetime | None:
+    def _validate(
+        cls, v: date | datetime | None, info: ValidationInfo
+    ) -> date | datetime | None:
         if v is None:
+            return v
+        if info.context and info.context.get("allow_past_dates"):
             return v
         if isinstance(v, datetime):
             if v <= datetime.now():
