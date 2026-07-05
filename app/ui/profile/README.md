@@ -30,10 +30,10 @@ Uses `BasePage(STANDARD)` — no sidebar.
 ## Hub Sections (hub.py)
 
 ```python
-def ProfileHubView(context: UserContext) -> Div:
+def ProfileHubView(active_tab: str = "submissions") -> Div:
     return Div(
-        personal_header(context),           # Focus + Velocity (shared component)
-        ActivityHubView(),                  # All 6 Activity Domain blocks (inline)
+        _tab_bar(),      # Curriculum / Reports / Submissions (Alpine activeTab)
+        _tab_panels(),   # LIBRARY_BLOCKS / GRADEBOOK_BLOCKS / SubmissionsTabPanel
     )
 ```
 
@@ -49,8 +49,6 @@ Each of the 6 Activity Domains renders as a scrollable block via `_activity_doma
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /api/profile/{slug}/preview` | Top 3 active items for an Activity Domain block |
-| `GET /api/profile/reports/exercise-summary` | 5 most recent exercise reports |
-| `GET /api/profile/reports/activity-summary` | 5 most recent activity reports |
 
 ## Configuration-Driven Domain Statistics
 

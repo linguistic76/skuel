@@ -504,14 +504,14 @@ def create_library_ui_routes(
     async def library_exercises_preview(request: Request) -> Any:
         """HTMX fragment: top 3 exercises with status pill for hub preview."""
         user_uid = require_authenticated_user(request)
-        result = await orchestrator.get_student_exercises_with_status(user_uid)
+        result = await orchestrator.get_student_exercises_with_status(user_uid, limit=3)
         if result.is_error:
             return HubPreviewEmpty("exercises")
         rows = result.value or []
         if not rows:
             return HubPreviewEmpty("exercises")
         cards = []
-        for row in rows[:3]:
+        for row in rows:
             status_key = exercise_status_key(row)
             badge = exercise_status_badge(status_key)
             cards.append(
@@ -526,14 +526,14 @@ def create_library_ui_routes(
     @rt("/api/library/resources/preview")
     async def library_resources_preview(request: Request) -> Any:
         """HTMX fragment: top 3 resources with media badge for hub preview."""
-        result = await orchestrator.list_resources()
+        result = await orchestrator.list_resources(limit=3)
         if result.is_error:
             return HubPreviewEmpty("resources")
         resources = result.value or []
         if not resources:
             return HubPreviewEmpty("resources")
         cards = []
-        for res in resources[:3]:
+        for res in resources:
             media_type = getattr(res, "media_type", None)
             badge = _media_badge(media_type) if media_type else None
             cards.append(

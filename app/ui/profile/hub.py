@@ -27,10 +27,11 @@ def normalize_tab(slug: str | None) -> str:
 def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
     """Profile hub — 3 tabs (Curriculum / Reports / Submissions)."""
     active_tab = normalize_tab(active_tab)
+    tabs_js = "[" + ", ".join(f"'{slug}'" for slug, _ in _TAB_SPEC) + "]"
     return Div(
         _tab_bar(),
         _tab_panels(),
-        **{"x-data": f"{{ activeTab: '{active_tab}' }}", "x-cloak": True},
+        **{"x-data": f"{{ activeTab: '{active_tab}', tabs: {tabs_js} }}", "x-cloak": True},
     )
 
 
@@ -47,11 +48,29 @@ _TAB_SPEC: tuple[tuple[str, str], ...] = (
 )
 
 
+# Roving tabindex (WAI-ARIA tabs pattern): only the active tab is in the tab
+# order; arrow keys move activation AND focus between tabs.
+_FOCUS_ACTIVE_TAB = "$nextTick(() => document.getElementById('profile-tab-' + activeTab).focus())"
+
+
 def _tab_bar() -> Div:
     return Div(
         *[_tab_button(slug, label) for slug, label in _TAB_SPEC],
         role="tablist",
         cls="flex border-b border-border mb-6",
+        **{
+            "aria-label": "Profile sections",
+            "@keydown.arrow-right.prevent": (
+                "activeTab = tabs[(tabs.indexOf(activeTab) + 1) % tabs.length]; "
+                + _FOCUS_ACTIVE_TAB
+            ),
+            "@keydown.arrow-left.prevent": (
+                "activeTab = tabs[(tabs.indexOf(activeTab) - 1 + tabs.length) % tabs.length]; "
+                + _FOCUS_ACTIVE_TAB
+            ),
+            "@keydown.home.prevent": f"activeTab = tabs[0]; {_FOCUS_ACTIVE_TAB}",
+            "@keydown.end.prevent": f"activeTab = tabs[tabs.length - 1]; {_FOCUS_ACTIVE_TAB}",
+        },
     )
 
 
@@ -59,6 +78,9 @@ def _tab_button(slug: str, label: str) -> Button:
     return Button(
         label,
         role="tab",
+        id=f"profile-tab-{slug}",
+        type="button",
+        aria_controls=f"profile-panel-{slug}",
         cls=_TAB_BASE,
         **{
             ":aria-selected": f"activeTab === '{slug}'",
@@ -70,22 +92,20 @@ def _tab_button(slug: str, label: str) -> Button:
 
 
 def _tab_panels() -> Div:
+    def _panel(slug: str, content: Div) -> Div:
+        return Div(
+            content,
+            role="tabpanel",
+            id=f"profile-panel-{slug}",
+            aria_labelledby=f"profile-tab-{slug}",
+            tabindex="0",
+            **{"x-show": f"activeTab === '{slug}'"},
+        )
+
     return Div(
-        Div(
-            HubDomainBlockList(LIBRARY_BLOCKS),
-            role="tabpanel",
-            **{"x-show": "activeTab === 'curriculum'"},
-        ),
-        Div(
-            HubDomainBlockList(GRADEBOOK_BLOCKS),
-            role="tabpanel",
-            **{"x-show": "activeTab === 'reports'"},
-        ),
-        Div(
-            SubmissionsTabPanel(),
-            role="tabpanel",
-            **{"x-show": "activeTab === 'submissions'"},
-        ),
+        _panel("curriculum", HubDomainBlockList(LIBRARY_BLOCKS)),
+        _panel("reports", HubDomainBlockList(GRADEBOOK_BLOCKS)),
+        _panel("submissions", SubmissionsTabPanel()),
     )
 
 

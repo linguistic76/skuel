@@ -14,18 +14,13 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports import (
-        AssessmentOperations,
-        SharingOperations,
-    )
+    from core.ports import SharingOperations
     from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
-    from core.services.exercises.exercise_service import ExerciseService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_service import PsService
-    from core.services.report.activity_report_service import ActivityReportService
     from core.services.tasks_service import TasksService
     from core.services.user.intelligence.factory import UserContextIntelligenceFactory
     from core.services.user.unified_user_context import RichUserContext
@@ -82,11 +77,8 @@ class ProfileOrchestrator:
         events_service: "EventsService",
         choices_service: "ChoicesService",
         principles_service: "PrinciplesService",
-        assessment_service: "AssessmentOperations",
-        activity_report_service: "ActivityReportService",
         sharing_service: "SharingOperations",
         ps_service: "PsService",
-        exercises_service: "ExerciseService",
         context_intelligence: "UserContextIntelligenceFactory | None",
     ) -> None:
         self._tasks_service = tasks_service
@@ -95,18 +87,11 @@ class ProfileOrchestrator:
         self._events_service = events_service
         self._choices_service = choices_service
         self._principles_service = principles_service
-        self._assessment_service = assessment_service
-        self._activity_report_service = activity_report_service
         self._sharing_service = sharing_service
         self._ps_service = ps_service
-        self._exercises_service = exercises_service
         # Public so compose_services can post-wire it after the intelligence hub
         # is built (mirrors progress_generator.analytics_service post-wiring).
         self.context_intelligence = context_intelligence
-
-    async def get_assigned_exercises(self, user_uid: UserUID) -> Result[list[Any]]:
-        """Get exercises assigned to this student."""
-        return await self._exercises_service.get_student_exercises(user_uid)
 
     async def get_domain_preview_items(self, user_uid: UserUID, slug: str) -> Result[list[Any]]:
         """Get the top 3 active items for a domain, sorted by priority."""
@@ -139,18 +124,6 @@ class ProfileOrchestrator:
         ]
         sorted_items = sorted(active_items, key=_preview_priority_sort_key)
         return Result.ok(sorted_items[:3])
-
-    async def get_recent_entry_reports(
-        self, user_uid: UserUID, limit: int = 5
-    ) -> Result[list[Any]]:
-        """Get recent exercise reports (teacher assessments) received by the user."""
-        return await self._assessment_service.get_assessments_for_student(user_uid, limit=limit)
-
-    async def get_recent_activity_reports(
-        self, user_uid: UserUID, limit: int = 5
-    ) -> Result[list[Any]]:
-        """Get recent activity reports for the user."""
-        return await self._activity_report_service.get_history(user_uid, limit=limit)
 
     async def get_shared_with_me_items(
         self, user_uid: UserUID, limit: int = 50

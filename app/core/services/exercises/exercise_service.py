@@ -440,7 +440,7 @@ class ExerciseService(BaseService):
 
     @with_error_handling("get_student_exercises_with_status", error_type="database")
     async def get_student_exercises_with_status(
-        self, user_uid: UserUID
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[ExerciseStatusRow]]:
         """Get exercises with submission + report status for the library exercises tab.
 
@@ -452,12 +452,22 @@ class ExerciseService(BaseService):
         submission_status, has_report, report_uid, report_outcome, group_name,
         and the vault living channel's has_in_progress / in_progress_uid
         (declared-intent entry, no turn-in edge — "exercise in progress").
+
+        ``limit`` is pushed down to both backend queries and re-applied after the
+        assigned-first merge/dedupe, which keeps the result identical to a full
+        fetch sliced to ``limit`` (assigned rows have no internal duplicates, so
+        the first ``limit`` merged rows never depend on rows beyond each query's
+        own top ``limit``). ``None`` returns all exercises.
         """
-        assigned_result = await self.backend.get_student_exercises_with_status(user_uid)
+        assigned_result = await self.backend.get_student_exercises_with_status(
+            user_uid, limit=limit
+        )
         if assigned_result.is_error:
             return Result.fail(assigned_result)
 
-        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid)
+        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(
+            user_uid, limit=limit
+        )
         if ps_result.is_error:
             return Result.fail(ps_result)
 
@@ -486,6 +496,9 @@ class ExerciseService(BaseService):
                 "in_progress_uid": record.get("in_progress_uid"),
             }
             exercises.append(row)
+
+        if limit is not None:
+            exercises = exercises[:limit]
 
         self.logger.info(f"Found {len(exercises)} exercises with status for student {user_uid}")
         return Result.ok(exercises)
