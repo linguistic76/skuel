@@ -128,8 +128,13 @@ def login(base_url: str, username: str, password: str) -> dict[str, str]:
         )
         response.raise_for_status()
         cookies = dict(client.cookies)
-        if not cookies:
-            raise RuntimeError("login produced no session cookies — bad credentials?")
+        # A FAILED login still leaves csrf_token in the jar (set on GET /login),
+        # so a non-empty check would pass unauthenticated. Require the actual
+        # session cookie.
+        if "skuel_session" not in cookies:
+            raise RuntimeError(
+                "login did not create a skuel_session cookie — bad credentials or login failed"
+            )
         return cookies
 
 
