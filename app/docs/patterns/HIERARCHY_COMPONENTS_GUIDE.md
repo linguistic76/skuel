@@ -635,16 +635,15 @@ Components are mobile-friendly:
 
 **Fixes:**
 
-1. **Verify HTMX event listener exists** in skuel.js:
-   ```javascript
-   document.addEventListener('htmx:load', function(event) {
-       var loadedElement = event.detail.elt;
-       if (loadedElement && loadedElement._x_dataStack === undefined) {
-           window.Alpine.initTree(loadedElement);
-       }
-   });
-   ```
-2. **This is already implemented** in skuel.js:1141-1164
+1. **No glue code is needed (or wanted):** Alpine 3 initializes `x-data` trees
+   added to the DOM via its own MutationObserver, and htmx processes `hx-*`
+   attributes on swapped content itself. Do NOT add an `htmx:load` handler that
+   calls `Alpine.initTree()` / `htmx.process()` — htmx fires `htmx:load` on
+   `<body>` at startup and reprocessing re-fires every `hx-trigger="load"`
+   request (duplicate fragment loads + `htmx:swapError` on the detached target).
+2. **Check the component is registered** in skuel.js inside `alpine:init`
+   (not `DOMContentLoaded`) — a missing registration surfaces as
+   "`<component> is not defined`".
 3. **Check console for Alpine errors**
 
 ---

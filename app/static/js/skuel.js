@@ -140,9 +140,12 @@
                 return;
             }
 
-            // Otherwise, auto-detect from path/verb
-            var verb = event.detail.verb || 'GET';
-            var path = event.detail.path || '';
+            // Otherwise, auto-detect from path/verb.
+            // htmx 1.9 carries verb (lowercase) and path on requestConfig —
+            // event.detail.verb / event.detail.path do not exist.
+            var requestConfig = event.detail.requestConfig || {};
+            var verb = (requestConfig.verb || 'get').toUpperCase();
+            var path = requestConfig.path || '';
 
             // Determine operation type from path/verb
             var operation = 'Loading';
@@ -161,7 +164,7 @@
                     operation = 'Tracking';
                 } else if (path.includes('/enroll')) {
                     operation = 'Enrolling';
-                } else if (path.includes('/toggle')) {
+                } else if (path.includes('/toggle') || path.includes('/status')) {
                     operation = 'Updating status';
                 }
             }
@@ -197,9 +200,13 @@
                 }
             }
 
-            // 3. Auto-detect from path if no custom message
+            // 3. Auto-detect from path if no custom message — mutations only.
+            // htmx 1.9's pathInfo has requestPath/finalRequestPath (no .path);
+            // verb lives on requestConfig (lowercase).
             if (!successMessage) {
-                var path = event.detail.pathInfo ? event.detail.pathInfo.path : '';
+                var requestConfig = event.detail.requestConfig || {};
+                var verb = (requestConfig.verb || 'get').toUpperCase();
+                var path = verb !== 'GET' ? (requestConfig.path || '') : '';
 
                 if (path.includes('/create')) {
                     successMessage = 'Created successfully';
@@ -215,7 +222,7 @@
                     successMessage = 'Tracked successfully';
                 } else if (path.includes('/enroll')) {
                     successMessage = 'Enrolled successfully';
-                } else if (path.includes('/toggle')) {
+                } else if (path.includes('/toggle') || path.includes('/status')) {
                     successMessage = 'Status updated';
                 } else if (path.includes('/decide')) {
                     successMessage = 'Decision recorded';
@@ -916,51 +923,15 @@
         });
 
         // =========================================================================
-        // Live Region for Screen Reader Announcements
+        // HTMX + Alpine on dynamic content: NO glue needed.
         // =========================================================================
-
-        document.body.addEventListener('htmx:afterSwap', function(event) {
-            var liveRegion = document.getElementById('live-region');
-            if (!liveRegion) return;
-
-            var target = event.detail.target;
-            var announcement = target.dataset.liveAnnounce || 'Content updated';
-
-            liveRegion.textContent = announcement;
-            setTimeout(function() {
-                liveRegion.textContent = '';
-            }, 1000);
-        });
-
-        // =========================================================================
-        // HTMX Integration - Initialize Alpine on dynamic content
-        // =========================================================================
-
-        // htmx:load fires on every element loaded via HTMX
-        document.body.addEventListener('htmx:load', function(event) {
-            var loadedElement = event.detail.elt;
-
-            // Initialize Alpine.js if element has x-data
-            if (window.Alpine && loadedElement) {
-                if (loadedElement.hasAttribute && loadedElement.hasAttribute('x-data')) {
-                    if (!loadedElement._x_dataStack) {
-                        window.Alpine.initTree(loadedElement);
-                    }
-                }
-                // Also check children
-                var alpineElements = loadedElement.querySelectorAll ? loadedElement.querySelectorAll('[x-data]') : [];
-                alpineElements.forEach(function(el) {
-                    if (!el._x_dataStack) {
-                        window.Alpine.initTree(el);
-                    }
-                });
-            }
-
-            // Process HTMX attributes on loaded content
-            if (window.htmx && loadedElement) {
-                window.htmx.process(loadedElement);
-            }
-        });
+        // htmx processes hx-* attributes on swapped content itself, and Alpine 3
+        // initializes new x-data trees via its own MutationObserver. Do NOT call
+        // htmx.process() from an htmx:load handler: htmx fires htmx:load on <body>
+        // at startup, and its init-hash covers ALL attributes (our aria-busy
+        // writes invalidate it), so reprocessing re-fires every hx-trigger="load"
+        // request — duplicating fragment loads and crashing the losing swap
+        // (htmx:swapError on a detached target).
 
     });
 

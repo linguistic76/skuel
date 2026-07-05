@@ -35,13 +35,20 @@ In most cases, no extra code is needed — the auto-detection system infers anno
 
 The JavaScript listener reads the HTMX request URL and auto-detects the operation type:
 
+Auto-detection applies to mutations only (non-GET requests) — GET fragment
+loads swap silently unless they carry `data-announce`.
+
 | URL Pattern | Loading Announcement | Success Announcement |
 |-------------|---------------------|---------------------|
 | `/create` | "Creating..." | "Created successfully" |
 | `/update`, `/edit`, `/save` | "Updating..." | "Updated successfully" |
 | `/delete`, `/remove` | "Deleting..." | "Deleted successfully" |
 | `/complete` | "Completing..." | "Completed successfully" |
-| `/toggle` | "Updating status..." | "Status updated" |
+| `/upload` | "Uploading..." | "Uploaded successfully" |
+| `/track` | "Tracking..." | "Tracked successfully" |
+| `/enroll` | "Enrolling..." | "Enrolled successfully" |
+| `/toggle`, `/status` | "Updating status..." | "Status updated" |
+| `/decide` | — | "Decision recorded" |
 
 ```python
 # No extra code needed — URL path triggers auto-detection
