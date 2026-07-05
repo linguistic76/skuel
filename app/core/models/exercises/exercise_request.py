@@ -15,9 +15,24 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from core.models.enums.entity_enums import Domain
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.type_hints import UserUID
+
+
+def _validate_domain_value(value: str | None) -> str | None:
+    """Reject domain strings that are not Domain enum values (422 at the boundary,
+    not a 500 in conversion — conversion does ``Domain(schema.domain)``)."""
+    if value is None:
+        return None
+    try:
+        Domain(value)
+    except ValueError:
+        valid = ", ".join(member.value for member in Domain)
+        msg = f"invalid domain '{value}'. Valid values: {valid}"
+        raise ValueError(msg) from None
+    return value
 
 
 class ExerciseCreateRequest(BaseModel):
@@ -97,6 +112,12 @@ class ExerciseCreateRequest(BaseModel):
         le=1.0,
         description="Minimum score (0.0-1.0) to pass an assessment",
     )
+
+    @field_validator("domain")
+    @classmethod
+    def validate_domain(cls, v: str | None) -> str | None:
+        """Validate domain against the Domain enum."""
+        return _validate_domain_value(v)
 
     @field_validator("scoring_rubric")
     @classmethod
@@ -208,6 +229,12 @@ class ExerciseUpdateRequest(BaseModel):
         le=1.0,
         description="Minimum score (0.0-1.0) to pass an assessment",
     )
+
+    @field_validator("domain")
+    @classmethod
+    def validate_domain(cls, v: str | None) -> str | None:
+        """Validate domain against the Domain enum."""
+        return _validate_domain_value(v)
 
     @field_validator("scoring_rubric")
     @classmethod
