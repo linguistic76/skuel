@@ -2,9 +2,10 @@
  * Ku reader — Alpine factory.
  *
  * Registers Alpine.data('kuReading', factory); paired with
- * x-data="kuReading(window.KU_SEED)" on the content root
- * (ui/explore/ku_detail.py). Seed comes from window.KU_SEED
- * emitted by the server in the HTMX fragment.
+ * x-data="kuReading({...})" on the content root (ui/explore/ku_detail.py).
+ * The seed is inlined in the x-data expression — never a window global set
+ * by a sibling <script>: htmx defers inline-script evaluation to the settle
+ * phase, but Alpine initializes the swapped tree first.
  *
  * Owns: status toggle (studying/understood), mastery level selection
  * for the perception-gap form, keyboard shortcuts (u / Escape).

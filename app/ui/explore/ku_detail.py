@@ -24,7 +24,6 @@ from fasthtml.common import (
     Header,
     NotStr,
     P,
-    Script,
     Section,
     Span,
 )
@@ -102,12 +101,10 @@ def render_ku_detail_content(
         else "none"
     )
     seed = {"uid": uid, "status": status}
-    seed_json = (
-        json.dumps(seed, default=str)
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-    )
+    # Inline in x-data, never a window global set by a sibling <script>: htmx
+    # defers inline-script evaluation to the settle phase, but Alpine
+    # initializes the swapped tree first — the global would be undefined.
+    seed_json = json.dumps(seed, default=str)
 
     kind = (getattr(ku, "ku_category", "") or "").lower()
     namespace = getattr(ku, "namespace", "") or ""
@@ -125,7 +122,6 @@ def render_ku_detail_content(
     )
 
     return Div(
-        Script(NotStr(f"window.KU_SEED = {seed_json};")),
         _back_link(),
         Article(
             _article_header(uid, title, kind, namespace, reading_minutes, user_uid, is_pinned),
@@ -137,7 +133,7 @@ def render_ku_detail_content(
         id="ku-detail-content",
         cls=_COLUMN_CLS,
         **{
-            "x-data": "kuReading(window.KU_SEED)",
+            "x-data": f"kuReading({seed_json})",
             "@keydown.window": "onKey($event)",
         },
     )
