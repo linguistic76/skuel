@@ -198,6 +198,13 @@ defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
   sync results (the copy is compensated/deleted, the living entry stays;
   the file is retried next sync). Every exercise should have a reachable
   reviewer — an unreviewable turn-in is never a silent success.
+- **Visibility:** the declared intent surfaces as an **"In Progress"**
+  status pill on the exercise lists (`/library/exercises`, profile
+  Exercises tab, PathStep detail) with a "View Entry →" link to the living
+  entry at `/gradebook/{uid}`; a filed turn-in outranks the intent on the
+  pill. A living entry with `moc: true` body links additionally renders
+  its ORGANIZES children as a "Map of Content" card section on its
+  `/gradebook/{uid}` page.
 
 ```yaml
 ---

@@ -118,7 +118,7 @@ adapters/persistence/neo4j/
         activity_backends.py      # HabitsBackend, GoalsBackend, TasksBackend, EventsBackend, ChoicesBackend, PrinciplesBackend
         curriculum_backends.py    # KuBackend, PsBackend, LpBackend
         exercise_backends.py      # ExerciseBackend, RevisedExerciseBackend, EntryReportBackend
-        user_entry_backend.py     # UserEntryBackend (shell over 5 _user_entry_*_mixin files)
+        user_entry_backend.py     # UserEntryBackend (shell over 5 _user_entry_*_mixin files + shared _OrganizesMixin)
         sharing_backend.py        # SharingBackend
         forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
         templates_backends.py     # TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend
@@ -877,12 +877,13 @@ Time: 30 seconds
 - `_lp_progress_mixin.py` — KU mastery progress + search queries (6 methods)
 - `_lp_intelligence_mixin.py` — intelligence + adaptive learning (8 methods)
 
-**UserEntryBackend** is decomposed into 5 domain-specific mixins:
+**UserEntryBackend** is decomposed into 5 domain-specific mixins plus one shared mixin:
 - `_user_entry_crud_mixin.py` — entry CRUD + teacher feedback state
 - `_user_entry_lifecycle_mixin.py` — exercise processing, temporal/thematic relationships, `FULFILLS_EXERCISE {revision}` edges, `TRANSFORMS` links
 - `_user_entry_assessment_mixin.py` — assessments + teacher review operations
 - `_user_entry_report_query_mixin.py` — report relationship queries, learning loop chains
 - `_user_entry_content_mixin.py` — pipeline processing context + exercise-instruction enrichment
+- `_organizes_mixin.py` (shared with PsBackend) — ORGANIZES reads for emergent-MOC entries; only `get_organized_children` is exposed through the protocol (`UserEntryOrganizesOperations`)
 
 Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) live in `_backend_helpers.py`.
 

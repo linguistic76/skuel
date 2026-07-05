@@ -62,6 +62,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
+    from core.ports.query_types import OrganizerResult
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
@@ -466,6 +467,19 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         Backend: _UserEntryCrudMixin.get_latest_entry_for_exercise.
         """
         return await self.backend.get_latest_entry_for_exercise(user_uid, exercise_uid)
+
+    @with_error_handling("get_organized_children")
+    async def get_organized_children(self, uid: str) -> Result[list[OrganizerResult]]:
+        """Ordered ORGANIZES children of an entry — the emergent-MOC map.
+
+        A user entry with outgoing ORGANIZES edges (drawn by the vault MOC
+        ingestion, ``moc: true``) is a Map of Content; /gradebook/{uid} renders
+        its children as cards. NOT ownership-verified — callers gate on an
+        owner-scoped :meth:`get_entry` first.
+
+        Backend: _OrganizesMixin.get_organized_children (shared with PsBackend).
+        """
+        return await self.backend.get_organized_children(uid)
 
     @with_error_handling("get_review_queue")
     async def get_review_queue(

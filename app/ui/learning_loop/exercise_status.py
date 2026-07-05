@@ -4,9 +4,15 @@ Status reflects both Phase 2 (UserEntry state, ADR-054) and Phase 3 (EntryReport
 outcome) collapsed into a single display key:
 
     not_submitted     — no UserEntry exists yet → "Submit →" link
-    submitted         — UserEntry exists, no report yet → "View Submission →" link
+    in_progress       — a vault living entry declares the exercise
+                        (fulfills_exercise_uid intent, no turn-in yet) → "View Entry →"
+    submitted         — turn-in exists, no report yet → "View Submission →" link
     feedback_available — EntryReport exists (APPROVED or AI_EVALUATED) → "View Report →"
     revision_requested — EntryReport with NEEDS_REVISION → "View Report →"
+
+Precedence is loop-phase order: a report beats a turn-in beats declared intent —
+after the copy files, the chip advances to "Submitted" even though the living
+entry keeps its intent property.
 
 Used by both the PathStep detail page (/explore/ps/{uid}) and the Library exercises
 tab (/library/exercises) — extracted from library_ui.py for this shared purpose.
@@ -27,6 +33,7 @@ from ui.primitives import ButtonLink
 
 _EXERCISE_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
     "not_submitted": ("Not Submitted", BadgeT.neutral, ""),
+    "in_progress": ("In Progress", BadgeT.accent, ""),
     "submitted": ("Submitted", BadgeT.info, ""),
     "feedback_available": ("Feedback Available", BadgeT.success, ""),
     "revision_requested": (
@@ -44,13 +51,15 @@ def exercise_status_badge(key: str) -> Any:
 
 
 def exercise_status_key(row: ExerciseStatusRow) -> str:
-    """Derive display status key from exercise row fields."""
+    """Derive display status key from exercise row fields (loop-phase precedence)."""
     if row["has_report"]:
         if (row["report_outcome"] or "").lower() == "needs_revision":
             return "revision_requested"
         return "feedback_available"
     if row["has_submission"]:
         return "submitted"
+    if row["has_in_progress"]:
+        return "in_progress"
     return "not_submitted"
 
 
@@ -72,6 +81,13 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
             "Submit →",
             href=submit_href,
             cls=ButtonT.primary,
+            size="sm",
+        )
+    if status == "in_progress":
+        return ButtonLink(
+            "View Entry →",
+            href=f"/gradebook/{row['in_progress_uid']}",
+            cls=ButtonT.ghost,
             size="sm",
         )
     if status == "submitted":

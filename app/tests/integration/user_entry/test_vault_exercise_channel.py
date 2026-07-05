@@ -29,8 +29,10 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
 from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
 from core.models.enums.neo_labels import NeoLabel
+from core.models.exercises.exercise import Exercise
 from core.models.interaction.interaction import Interaction
 from core.services.ingestion.user_entry_ingestion import ingest_user_entry
 from core.services.interaction import InteractionService
@@ -342,3 +344,138 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     snap = await _graph_counts(neo4j_driver, student, exercise_uid)
     assert snap["living_status"] == "active"  # living entry persisted
     assert snap["copies"] == 0  # compensated — no unreviewable orphan
+
+
+# ============================================================================
+# PR 2 surfaces — In Progress status rows + emergent-MOC child reads
+# ============================================================================
+
+
+async def _student_status_rows(neo4j_driver, student_uid: str) -> list[dict[str, Any]]:
+    """Rows from the chip-feeding backend query (assigned-exercise variant)."""
+    backend = ExerciseBackend(
+        driver=neo4j_driver,
+        label=NeoLabel.EXERCISE,
+        entity_class=Exercise,
+        base_label=NeoLabel.ENTITY,
+    )
+    result = await backend.get_student_exercises_with_status(student_uid)
+    assert result.is_ok, result.expect_error()
+    return [dict(r) for r in (result.value or [])]
+
+
+async def _mark_assigned(neo4j_driver, exercise_uid: str) -> None:
+    """The status query filters on scope='assigned' (seed helper leaves it unset)."""
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (ex:Entity {uid: $uid}) SET ex.scope = 'assigned'",
+            uid=exercise_uid,
+        )
+
+
+@pytest.mark.asyncio
+async def test_living_intent_surfaces_as_in_progress_row(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom
+) -> None:
+    """Declared intent (property, no edge) → has_in_progress on the status row
+    the exercise chips render from; a turn-in copy then sets has_submission
+    while has_in_progress stays truthful (the living entry keeps its intent)."""
+    ctx = await seed_classroom()
+    await _mark_assigned(neo4j_driver, ctx["exercise_uid"])
+
+    # No entry at all → neither flag
+    rows = await _student_status_rows(neo4j_driver, ctx["student_uid"])
+    assert len(rows) == 1
+    assert rows[0]["has_in_progress"] is False
+    assert rows[0]["in_progress_uid"] is None
+    assert rows[0]["has_submission"] is False
+
+    # Living sync → In Progress, still no submission
+    result = await _sync(
+        channel_service, ctx["student_uid"], _living_file_data(ctx["exercise_uid"])
+    )
+    assert result.is_ok, result.expect_error()
+
+    rows = await _student_status_rows(neo4j_driver, ctx["student_uid"])
+    assert rows[0]["has_in_progress"] is True
+    assert rows[0]["in_progress_uid"] == LIVING_UID
+    assert rows[0]["has_submission"] is False
+
+    # Submit flip → the frozen copy is the submission; the living entry's
+    # intent remains and must NOT be counted as a submission (edge-only)
+    result = await _sync(
+        channel_service,
+        ctx["student_uid"],
+        _living_file_data(ctx["exercise_uid"], status="submitted"),
+    )
+    assert result.is_ok, result.expect_error()
+    copy_uid = result.value["submitted_copy_uid"]
+
+    rows = await _student_status_rows(neo4j_driver, ctx["student_uid"])
+    assert rows[0]["has_submission"] is True
+    assert rows[0]["submission_uid"] == copy_uid
+    assert rows[0]["has_in_progress"] is True
+    assert rows[0]["in_progress_uid"] == LIVING_UID
+
+
+@pytest.mark.asyncio
+async def test_another_users_living_entry_is_invisible(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom, seed_user, seed_membership
+) -> None:
+    """Ownership scope: student B's status rows never reflect student A's
+    living entry against the same assigned exercise."""
+    ctx = await seed_classroom()
+    await _mark_assigned(neo4j_driver, ctx["exercise_uid"])
+    other = await seed_user("user_ue_other", name="Other")
+    await seed_membership(other, ctx["group_uid"])
+
+    result = await _sync(
+        channel_service, ctx["student_uid"], _living_file_data(ctx["exercise_uid"])
+    )
+    assert result.is_ok, result.expect_error()
+
+    rows = await _student_status_rows(neo4j_driver, other)
+    assert len(rows) == 1
+    assert rows[0]["has_in_progress"] is False
+    assert rows[0]["in_progress_uid"] is None
+
+
+@pytest.mark.asyncio
+async def test_user_entry_backend_reads_organized_children(
+    clean_neo4j, channel_service, user_entry_backend, neo4j_driver, seed_classroom
+) -> None:
+    """The emergent-MOC read behind /gradebook/{uid}: ORGANIZES children come
+    back ordered and typed (entity_type drives per-type detail hrefs)."""
+    ctx = await seed_classroom()
+
+    result = await _sync(
+        channel_service, ctx["student_uid"], _living_file_data(ctx["exercise_uid"])
+    )
+    assert result.is_ok, result.expect_error()
+
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (living:Entity:UserEntry {uid: $living_uid})
+            MERGE (t:Entity:Task {uid: 'tk_moc_child', entity_type: 'task',
+                                  title: 'Child task'})
+            MERGE (ex:Entity {uid: $exercise_uid})
+            MERGE (living)-[:ORGANIZES {order: 1}]->(t)
+            MERGE (living)-[:ORGANIZES {order: 0}]->(ex)
+            """,
+            living_uid=LIVING_UID,
+            exercise_uid=ctx["exercise_uid"],
+        )
+
+    children_result = await user_entry_backend.get_organized_children(LIVING_UID)
+    assert children_result.is_ok, children_result.expect_error()
+    children = children_result.value
+    assert [c["uid"] for c in children] == [ctx["exercise_uid"], "tk_moc_child"]
+    assert children[0]["entity_type"] == "exercise"
+    assert children[1]["entity_type"] == "task"
+    assert [c["order"] for c in children] == [0, 1]
+
+    # Negative control: a non-MOC entry has no children section to render
+    empty_result = await user_entry_backend.get_organized_children("ue_no_such_moc")
+    assert empty_result.is_ok
+    assert empty_result.value == []

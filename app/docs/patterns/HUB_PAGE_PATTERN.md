@@ -250,20 +250,21 @@ Returned by HTMX preview endpoints to populate `HubDomainBlock` areas.
 ```python
 def hub_cards_from_organizers(
     children: list[OrganizerResult],
-    href_template: str = "/ku/read?uid={uid}",
+    href_template: str = "/ku/{uid}",
     default_icon: str = "📖",
     default_description: str = "",
+    href_for: Callable[[OrganizerResult], str] | None = None,
 ) -> list[HubCardData]:
 
 def hub_cards_from_root_organizers(
     roots: list[RootOrganizerResult],
-    href_template: str = "/ku/read?uid={uid}",
+    href_template: str = "/ku/{uid}",
     default_icon: str = "📖",
     default_description: str = "",
 ) -> list[HubCardData]:
 ```
 
-Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizerResult.child_count` maps to badge.
+Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizerResult.child_count` maps to badge. `href_for` overrides `href_template` when children span entity types (`OrganizerResult.entity_type` + `entity_detail_href()` from `ui/patterns/entity_links.py` resolve the per-type detail URL).
 
 ## Usage: Profile Hub (Personal Overview)
 
@@ -311,6 +312,8 @@ children_result = await ku_service.get_organized_children(moc_uid)
 cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```
+
+Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
 

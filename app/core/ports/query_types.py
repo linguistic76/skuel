@@ -2245,11 +2245,17 @@ class ParentProgressResult(TypedDict, total=False):
 
 
 class OrganizerResult(TypedDict):
-    """Return shape for find_organizers() and get_organized_children()."""
+    """Return shape for find_organizers() and get_organized_children().
+
+    ``entity_type`` rides along because ORGANIZES is entity-agnostic — a MOC's
+    children can be any of the 25 EntityTypes, and UI surfaces need the type to
+    build the right detail href (``ui/patterns/entity_links.py``).
+    """
 
     uid: str
     title: str
     order: int | None
+    entity_type: str | None
 
 
 class RootOrganizerResult(TypedDict):
@@ -2382,6 +2388,12 @@ class ExerciseStatusRow(TypedDict):
 
     Enriches exercise properties with the student's latest submission and report info
     so the Library Exercises tab can display submission/feedback status inline.
+
+    ``has_in_progress`` / ``in_progress_uid`` reflect the vault living channel:
+    an owned UserEntry that declares the exercise via its
+    ``fulfills_exercise_uid`` intent property WITHOUT a FULFILLS_EXERCISE edge
+    (frozen copies carry the edge). The newest such entry is the user's
+    work-in-progress against the exercise.
     """
 
     uid: str
@@ -2395,6 +2407,8 @@ class ExerciseStatusRow(TypedDict):
     has_report: bool
     report_uid: str | None
     report_outcome: str | None
+    has_in_progress: bool
+    in_progress_uid: str | None
 
 
 class PathStepSubmissionRow(TypedDict):

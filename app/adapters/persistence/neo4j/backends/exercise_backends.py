@@ -41,6 +41,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     - get_user_exercises             — OWNS query for user's exercises
     - get_student_exercises          — MEMBER_OF + SHARED_WITH_GROUP traversal
     - get_student_exercises_with_status — Above + FULFILLS_EXERCISE submission check
+                                          + living-intent in-progress check
     - get_exercises_for_curriculum   — Reverse REQUIRES_KNOWLEDGE lookup
     - link_to_curriculum             — MERGE REQUIRES_KNOWLEDGE relationship
     - unlink_from_curriculum         — DELETE REQUIRES_KNOWLEDGE relationship
@@ -258,7 +259,15 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         - has_report: bool
         - report_uid: str | None (most recent report)
         - report_outcome: str | None (assessment_outcome on the report)
+        - has_in_progress: bool (vault living entry declares this exercise)
+        - in_progress_uid: str | None (newest living entry)
         - group_name: str
+
+        The living-entry match is the vault exercise channel's declared intent:
+        an owned UserEntry whose ``fulfills_exercise_uid`` property names the
+        exercise but which carries NO FULFILLS_EXERCISE edge — the edge is
+        exclusive to frozen turn-in copies, so property-without-edge is exactly
+        the work-in-progress file.
 
         Args:
             user_uid: Student UID
@@ -273,11 +282,18 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             WHERE exercise.scope = 'assigned'
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH exercise, group, sub, report
+            WITH user, exercise, group, sub, report
             ORDER BY sub.created_at DESC
-            WITH exercise, group,
+            WITH user, exercise, group,
                  collect(sub)[0] AS latest_sub,
                  collect(report)[0] AS latest_report
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
+            WHERE living.fulfills_exercise_uid = exercise.uid
+              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
+            WITH exercise, group, latest_sub, latest_report, living
+            ORDER BY living.updated_at DESC
+            WITH exercise, group, latest_sub, latest_report,
+                 collect(living)[0] AS latest_living
             RETURN exercise,
                    latest_sub.uid AS submission_uid,
                    latest_sub.status AS submission_status,
@@ -285,6 +301,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    latest_report.uid AS report_uid,
                    latest_report.assessment_outcome AS report_outcome,
                    latest_report IS NOT NULL AS has_report,
+                   latest_living.uid AS in_progress_uid,
+                   latest_living IS NOT NULL AS has_in_progress,
                    group.title AS group_name
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
             """,
@@ -316,11 +334,18 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             WITH DISTINCT user, exercise
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
-            WITH exercise, sub, report
+            WITH user, exercise, sub, report
             ORDER BY sub.created_at DESC
-            WITH exercise,
+            WITH user, exercise,
                  collect(sub)[0] AS latest_sub,
                  collect(report)[0] AS latest_report
+            OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
+            WHERE living.fulfills_exercise_uid = exercise.uid
+              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
+            WITH exercise, latest_sub, latest_report, living
+            ORDER BY living.updated_at DESC
+            WITH exercise, latest_sub, latest_report,
+                 collect(living)[0] AS latest_living
             RETURN exercise,
                    latest_sub.uid AS submission_uid,
                    latest_sub.status AS submission_status,
@@ -328,6 +353,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    latest_report.uid AS report_uid,
                    latest_report.assessment_outcome AS report_outcome,
                    latest_report IS NOT NULL AS has_report,
+                   latest_living.uid AS in_progress_uid,
+                   latest_living IS NOT NULL AS has_in_progress,
                    '' AS group_name
             ORDER BY exercise.created_at DESC
             """,
@@ -352,6 +379,13 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             WITH exercise,
                  collect(sub)[0] AS latest_sub,
                  collect(report)[0] AS latest_report
+            OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS}]->(living:Entity {{entity_type: 'user_entry'}})
+            WHERE living.fulfills_exercise_uid = exercise.uid
+              AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
+            WITH exercise, latest_sub, latest_report, living
+            ORDER BY living.updated_at DESC
+            WITH exercise, latest_sub, latest_report,
+                 collect(living)[0] AS latest_living
             RETURN exercise,
                    latest_sub.uid AS submission_uid,
                    latest_sub.status AS submission_status,
@@ -359,6 +393,8 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    latest_report.uid AS report_uid,
                    latest_report.assessment_outcome AS report_outcome,
                    latest_report IS NOT NULL AS has_report,
+                   latest_living.uid AS in_progress_uid,
+                   latest_living IS NOT NULL AS has_in_progress,
                    '' AS group_name
             ORDER BY exercise.title
             """,

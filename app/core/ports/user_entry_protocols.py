@@ -7,7 +7,7 @@ Backend-level, ISP-split protocols for the unified ``UserEntry`` domain.
 ``JeOutput`` as one type of user-authored artifact. Dispatch is driven by the
 ``Pipeline`` enum on the entry, not by ``entity_type`` branching.
 
-Five ISP parents mirror the five backend mixins (renamed from
+Six ISP parents mirror the six backend mixins (renamed from
 ``_submission_*_mixin.py`` to ``_user_entry_*_mixin.py``):
 
     UserEntryCrudOperations         — content search + feedback-count joins
@@ -19,8 +19,11 @@ Five ISP parents mirror the five backend mixins (renamed from
                                       cross-joins
     UserEntryContentOperations      — processing context + exercise-instruction
                                       enrichment reads
+    UserEntryOrganizesOperations    — ORGANIZES child reads (emergent MOC map);
+                                      the narrow slice of the shared
+                                      ``_OrganizesMixin`` this domain consumes
 
-``UserEntryOperations`` aggregates the five parents and extends
+``UserEntryOperations`` aggregates the six parents and extends
 ``BackendOperations[UserEntry]`` — this is the protocol that
 ``UserEntryBackend`` satisfies and that ``UserEntryService.__init__`` consumes.
 
@@ -36,6 +39,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
+from core.ports.query_types import OrganizerResult
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -433,6 +437,31 @@ class UserEntryContentOperations(Protocol):
 
 
 # ============================================================================
+# ISP parent 6 — ORGANIZES child reads (emergent MOC map)
+# ============================================================================
+
+
+@runtime_checkable
+class UserEntryOrganizesOperations(Protocol):
+    """ORGANIZES-children reads for user entries that act as MOCs.
+
+    MOC is emergent identity — any entity with outgoing ORGANIZES edges. The
+    vault MOC ingestion (``moc: true`` body links) draws the edges; this slice
+    only reads them so /gradebook/{uid} can render the map. Deliberately
+    narrow: the write half of the shared mixin stays ingestion-owned
+    (``refresh_moc_organizes``).
+
+    Implementation: ``_OrganizesMixin`` (shared with ``PsBackend``).
+    """
+
+    async def get_organized_children(
+        self, parent_uid: str, limit: int | None = None
+    ) -> Result[list[OrganizerResult]]:
+        """Direct ORGANIZES children of an entity, ordered by position."""
+        ...
+
+
+# ============================================================================
 # Composed backend protocol — THE contract ``UserEntryBackend`` satisfies
 # ============================================================================
 
@@ -445,17 +474,19 @@ class UserEntryOperations(  # Protocol MRO — intentional
     UserEntryAssessmentOperations,
     UserEntryReportQueryOperations,
     UserEntryContentOperations,
+    UserEntryOrganizesOperations,
     Protocol,
 ):
     """Full backend operations protocol for the ``UserEntry`` domain.
 
     Base CRUD/search/relationships inherited from
-    ``BackendOperations[UserEntry]``; domain methods from the five ISP parents.
+    ``BackendOperations[UserEntry]``; domain methods from the six ISP parents.
 
     Consumer: ``UserEntryService.__init__`` —
     ``backend: UserEntryOperations``.
     Implementation: ``UserEntryBackend`` — composes
-    ``UniversalNeo4jBackend[UserEntry]`` with the five renamed mixins.
+    ``UniversalNeo4jBackend[UserEntry]`` with the five renamed mixins plus the
+    shared ``_OrganizesMixin``.
     """
 
 
