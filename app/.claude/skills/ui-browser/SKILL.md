@@ -338,6 +338,21 @@ HTMX enhances HTML — use semantic elements, not div soup:
 <!-- ❌ Alpine inline component (use skuel.js instead) -->
 <script>Alpine.data('myWidget', ...)</script>  <!-- In template -->
 <!-- ✅ Add to skuel.js -->
+
+<!-- ❌ Seeding x-data from a window global set by a sibling inline script
+     in an HTMX fragment: htmx defers inline-script evaluation to the settle
+     phase, but Alpine initializes the swapped tree first — the global is
+     still undefined at init (broke PS "Start learning", 2026-07-05) -->
+<script>window.SEED = {...}</script>
+<div x-data="myWidget(window.SEED)">
+<!-- ✅ Inline the JSON in the x-data expression (FastHTML: x-data=f"myWidget({json.dumps(seed)})") -->
+<div x-data="myWidget({uid: 'ps.x', status: 'read'})">
+
+<!-- ❌ x-for on a live element — children's loop-var expressions evaluate
+     unscoped (ReferenceError) -->
+<li x-for="dep in blocking" x-text="dep.title">
+<!-- ✅ x-for lives on <template> -->
+<template x-for="dep in blocking" :key="dep.uid"><li x-text="dep.title"></li></template>
 ```
 
 ---
