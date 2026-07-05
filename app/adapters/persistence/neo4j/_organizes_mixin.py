@@ -6,7 +6,9 @@ ORGANIZES relationship management for domain backends.
 
 Provides hierarchy operations via ORGANIZES relationships: create, delete,
 reorder, traverse, cycle detection, and root discovery. Used by PsBackend
-(and potentially KuBackend) for content organization.
+for content organization and by UserEntryBackend for MOC reads (a user
+entry with ORGANIZES edges is an emergent MOC — its children render on
+/gradebook/{uid}).
 
 Requires on concrete class:
     execute_query, logger  (provided by UniversalNeo4jBackend)
@@ -126,7 +128,8 @@ class _OrganizesMixin:
         """Get direct ORGANIZES children of an entity, ordered by position."""
         query = """
         MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
-        RETURN child.uid AS uid, child.title AS title, r.order AS order
+        RETURN child.uid AS uid, child.title AS title, r.order AS order,
+               child.entity_type AS entity_type
         ORDER BY r.order ASC
         """
         params: dict[str, Any] = {"parent_uid": parent_uid}
@@ -137,7 +140,12 @@ class _OrganizesMixin:
         if result.is_error:
             return Result.fail(result)
         children: list[OrganizerResult] = [
-            {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+            {
+                "uid": r["uid"],
+                "title": r["title"],
+                "order": r["order"],
+                "entity_type": r["entity_type"],
+            }
             for r in (result.value or [])
         ]
         return Result.ok(children)
@@ -146,14 +154,20 @@ class _OrganizesMixin:
         """Find all parent entities that organize the given entity."""
         query = """
         MATCH (parent:Entity)-[r:ORGANIZES]->(n:Entity {uid: $entity_uid})
-        RETURN parent.uid AS uid, parent.title AS title, r.order AS order
+        RETURN parent.uid AS uid, parent.title AS title, r.order AS order,
+               parent.entity_type AS entity_type
         ORDER BY parent.title
         """
         result = await self.execute_query(query, {"entity_uid": entity_uid})
         if result.is_error:
             return Result.fail(result)
         organizers: list[OrganizerResult] = [
-            {"uid": r["uid"], "title": r["title"], "order": r["order"]}
+            {
+                "uid": r["uid"],
+                "title": r["title"],
+                "order": r["order"],
+                "entity_type": r["entity_type"],
+            }
             for r in (result.value or [])
         ]
         return Result.ok(organizers)

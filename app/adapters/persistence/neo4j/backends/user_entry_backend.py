@@ -1,7 +1,7 @@
 """
 UserEntryBackend — persistence layer for the unified ``UserEntry`` domain.
 
-Composes five standalone mixins over ``UniversalNeo4jBackend[UserEntry]``.
+Composes six standalone mixins over ``UniversalNeo4jBackend[UserEntry]``.
 Each mixin provides a cohesive slice of persistence operations:
 
     _UserEntryCrudMixin        — content search, feedback counts, exercise lookups
@@ -9,6 +9,8 @@ Each mixin provides a cohesive slice of persistence operations:
     _UserEntryAssessmentMixin  — teacher review queue, assessment operations
     _UserEntryReportQueryMixin — report cross-joins, learning-loop chain reads
     _UserEntryContentMixin     — journal context, exercise instructions, goal links
+    _OrganizesMixin            — ORGANIZES reads (shared with PsBackend): a user
+                                 entry with ORGANIZES edges is an emergent MOC
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j._organizes_mixin import _OrganizesMixin
 from adapters.persistence.neo4j._user_entry_assessment_mixin import (
     _UserEntryAssessmentMixin,
 )
@@ -44,6 +47,7 @@ class UserEntryBackend(  # type: ignore[misc]  # Mixin MRO overrides are intenti
     _UserEntryAssessmentMixin,
     _UserEntryReportQueryMixin,
     _UserEntryContentMixin,
+    _OrganizesMixin,
     UniversalNeo4jBackend[UserEntry],
 ):
     """Domain backend for ``UserEntry`` — the unified user-authored content type.

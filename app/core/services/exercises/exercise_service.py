@@ -444,7 +444,9 @@ class ExerciseService(BaseService):
         - PathStep-linked exercises (scope=personal, via HAS_EXERCISE from enrolled PathSteps)
 
         Returns exercise properties enriched with has_submission, submission_uid,
-        submission_status, has_report, report_uid, report_outcome, and group_name.
+        submission_status, has_report, report_uid, report_outcome, group_name,
+        and the vault living channel's has_in_progress / in_progress_uid
+        (declared-intent entry, no turn-in edge — "exercise in progress").
         """
         assigned_result = await self.backend.get_student_exercises_with_status(user_uid)
         if assigned_result.is_error:
@@ -475,6 +477,8 @@ class ExerciseService(BaseService):
                 "has_report": bool(record.get("has_report", False)),
                 "report_uid": record.get("report_uid"),
                 "report_outcome": record.get("report_outcome"),
+                "has_in_progress": bool(record.get("has_in_progress", False)),
+                "in_progress_uid": record.get("in_progress_uid"),
             }
             exercises.append(row)
 
@@ -510,6 +514,8 @@ class ExerciseService(BaseService):
                 "has_report": bool(record.get("has_report", False)),
                 "report_uid": record.get("report_uid"),
                 "report_outcome": record.get("report_outcome"),
+                "has_in_progress": bool(record.get("has_in_progress", False)),
+                "in_progress_uid": record.get("in_progress_uid"),
             }
             exercises.append(row)
 
