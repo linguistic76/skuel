@@ -16,9 +16,6 @@ Routes:
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
-- GET  /api/submissions/submit/preview   — HTMX hub preview (submit)
-- GET  /api/submissions/journal/preview  — HTMX hub preview (journal CTA)
-- GET  /api/submissions/history/preview  — HTMX hub preview (history)
 
 Journal upload routes (POST /journals/upload, POST /journals/folder-process,
 GET /journals/browse) live in journals_routes.py. Those paths are
@@ -53,13 +50,7 @@ from ui.learning_loop.report import render_yours_list
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
-from ui.patterns.hub import (
-    HubPreviewCard,
-    HubPreviewEmpty,
-    HubPreviewGrid,
-    HubSection,
-    hub_cards_from_organizers,
-)
+from ui.patterns.hub import HubSection, hub_cards_from_organizers
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form, upload_form_script
@@ -381,50 +372,6 @@ def create_user_entry_ui_routes(
             active="journal",
             request=request,
         )
-
-    @rt("/api/submissions/submit/preview")
-    async def submit_preview(request: Request) -> Any:
-        """HTMX preview: pending exercises to submit."""
-        require_authenticated_user(request)
-        return HubPreviewEmpty("submissions")
-
-    @rt("/api/submissions/journal/preview")
-    async def journal_preview(request: Request) -> Any:
-        """HTMX preview: short CTA describing the journal pipeline."""
-        require_authenticated_user(request)
-        return Div(
-            P(
-                "Upload audio, video, or text — AI transcribes and structures it into a journal entry.",
-                cls="text-sm text-muted-foreground",
-            ),
-        )
-
-    @rt("/api/submissions/history/preview")
-    async def history_preview(request: Request) -> Any:
-        """HTMX preview: 3 most recent teacher-review entries."""
-        user_uid = require_authenticated_user(request)
-        result = await orchestrator.list_exercise_entries(user_uid, limit=3)
-        if result.is_error:
-            return HubPreviewEmpty("submissions")
-        entries = result.value or []
-        if not entries:
-            return HubPreviewEmpty("submissions")
-        cards = []
-        for entry in entries[:3]:
-            status = _status_value(entry).replace("_", " ").title()
-            badge = (
-                Span(status, cls="text-[10px] font-medium text-muted-foreground")
-                if status
-                else None
-            )
-            cards.append(
-                HubPreviewCard(
-                    title=entry.title or "Untitled",
-                    href=f"/gradebook/{entry.uid}",
-                    badge=badge,
-                )
-            )
-        return HubPreviewGrid(cards)
 
     # =========================================================================
     # SUBMISSION HISTORY
@@ -819,9 +766,6 @@ def create_user_entry_ui_routes(
         submissions_exercise_page,
         submit_redirect,
         submissions_journal_page,
-        submit_preview,
-        journal_preview,
-        history_preview,
         submissions_history,
         history_list,
         delete_submission,

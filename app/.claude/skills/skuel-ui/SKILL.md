@@ -463,9 +463,9 @@ When building a new SKUEL page or feature, verify:
 | `/ui/profile/hub.py` | `ProfileHubView` — personal overview: Focus/Velocity, Activity Domains (inline), Nous, Settings |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
-| `/ui/workbench/hub.py` | `SUBMISSIONS_BLOCKS` — block definitions for HTMX preview endpoints |
+| `/ui/workbench/hub.py` | `SubmissionsTabPanel` — Submissions tab on `/profile` (4 link buttons mirroring the sidebar) |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
-| `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_moc` (MOC root), submission preview + history endpoints, journal submit/browse/download |
+| `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_moc` (MOC root), submission history endpoints, journal submit/browse/download |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
 | `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |

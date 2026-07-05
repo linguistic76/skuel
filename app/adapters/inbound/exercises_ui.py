@@ -154,7 +154,9 @@ def create_exercises_ui_routes(
                         PageHeader("Exercise Not Found"),
                         P("Missing exercise UID.", cls="text-base-content/70"),
                         ButtonLink(
-                            "← Back to Library", href="/profile?tab=library", cls=ButtonT.ghost
+                            "← Back to Curriculum",
+                            href="/profile?tab=curriculum",
+                            cls=ButtonT.ghost,
                         ),
                         cls=f"{Container.STANDARD} {Spacing.PAGE}",
                     ),
@@ -188,7 +190,9 @@ def create_exercises_ui_routes(
             if result.is_error or not result.value:
                 return Div(
                     render_error_banner("Exercise not found"),
-                    ButtonLink("← Back to Library", href="/profile?tab=library", cls=ButtonT.ghost),
+                    ButtonLink(
+                        "← Back to Curriculum", href="/profile?tab=curriculum", cls=ButtonT.ghost
+                    ),
                     id="exercise-detail-content",
                 )
             exercise = result.value
