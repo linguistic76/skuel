@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.templates.relative_offset import RelativeOffset
 
@@ -112,14 +112,14 @@ class HabitTemplateDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "polarity": HabitPolarity,
-                "habit_category": HabitCategory,
-                "habit_difficulty": HabitDifficulty,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "polarity",
+                "habit_category",
+                "habit_difficulty",
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "reminder_days"],
             dict_fields=["metadata"],
@@ -170,14 +170,14 @@ class HabitTemplateDTO(EntityDTO):
                 "reminder_days",
                 "reminder_enabled",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "polarity": HabitPolarity,
-                "habit_category": HabitCategory,
-                "habit_difficulty": HabitDifficulty,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "polarity",
+                "habit_category",
+                "habit_difficulty",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

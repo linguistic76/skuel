@@ -26,9 +26,9 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums import KuComplexity, LearningLevel, SELCategory
 from core.models.enums.activity_enums import Confidence
-from core.models.enums.entity_enums import EntityStatus, EntityType
 
 
 @dataclass
@@ -116,15 +116,15 @@ class CurriculumDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "confidence": Confidence,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "confidence",
+                "complexity",
+                "learning_level",
+                "sel_category",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -188,15 +188,15 @@ class CurriculumDTO(EntityDTO):
                 "last_reflected_date",
                 "last_choice_informed_date",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "confidence": Confidence,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "confidence",
+                "complexity",
+                "learning_level",
+                "sel_category",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

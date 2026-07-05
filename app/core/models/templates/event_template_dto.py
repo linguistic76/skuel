@@ -10,8 +10,8 @@ from datetime import (
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.templates.relative_offset import RelativeOffset
 
 _OFFSET_FIELDS: tuple[str, ...] = ("event_offset", "recurrence_end_offset")
@@ -116,11 +116,7 @@ class EventTemplateDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain"),
             datetime_fields=["created_at", "updated_at"],
             time_fields=["start_time", "end_time"],
             list_fields=["tags"],
@@ -174,11 +170,7 @@ class EventTemplateDTO(EntityDTO):
                 "recurrence_maintains_habit",
                 "skip_breaks_habit_streak",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-            },
+            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
         )
 
     def __eq__(self, other: object) -> bool:

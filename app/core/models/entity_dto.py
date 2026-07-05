@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import EntityUID
@@ -94,11 +95,7 @@ class EntityDTO:
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain"),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -126,11 +123,7 @@ class EntityDTO:
                 "tags",
                 "metadata",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-            },
+            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
         )
 
     def __eq__(self, other: object) -> bool:

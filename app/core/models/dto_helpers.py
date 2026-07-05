@@ -382,12 +382,10 @@ def update_from_dict(
         # Simple case (TaskDTO pattern)
         update_from_dict(self, updates)
 
-        # With enum conversion (GoalDTO pattern)
-        update_from_dict(self, updates, enum_mappings={
-            "goal_type": GoalType,
-            "status": EntityStatus,
-            "priority": Priority,
-        })
+        # With enum conversion (GoalDTO pattern) — slice the shared registry
+        update_from_dict(self, updates, enum_mappings=enum_fields_for(
+            "goal_type", "status",
+        ))
 
         # With whitelist (DTO pattern)
         update_from_dict(self, updates, allowed_fields={
@@ -589,11 +587,7 @@ def dto_from_dict[T](
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "status": EntityStatus,
-                "priority": Priority,
-                "recurrence_pattern": RecurrencePattern,
-            },
+            enum_fields=enum_fields_for("status", "recurrence_pattern"),
             date_fields=["due_date", "scheduled_date", "completion_date"],
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "knowledge_patterns_detected"],

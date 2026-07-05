@@ -18,9 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.metadata_enums import Visibility
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -83,12 +82,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain", "visibility"),
             datetime_fields=["created_at", "updated_at"],
             list_fields=[
                 "tags",
@@ -131,11 +125,7 @@ class RevisedExerciseDTO(UserOwnedDTO):
                 "revision_rationale",
                 "expected_modality",
             },
-            enum_mappings={
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-            },
+            enum_mappings=enum_fields_for("status", "domain", "visibility"),
         )
 
     def __eq__(self, other: object) -> bool:

@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.choice_enums import ChoiceType
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.templates.relative_offset import RelativeOffset
 
 _OFFSET_FIELDS: tuple[str, ...] = ("decision_deadline_offset",)
@@ -91,12 +91,7 @@ class ChoiceTemplateDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "choice_type": ChoiceType,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain", "choice_type"),
             datetime_fields=["created_at", "updated_at"],
             list_fields=[
                 "tags",
@@ -144,12 +139,7 @@ class ChoiceTemplateDTO(EntityDTO):
                 "inspiration_type",
                 "expands_possibilities",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "choice_type": ChoiceType,
-            },
+            enum_mappings=enum_fields_for("entity_type", "status", "domain", "choice_type"),
         )
 
     def __eq__(self, other: object) -> bool:

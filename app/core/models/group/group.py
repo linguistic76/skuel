@@ -63,11 +63,12 @@ class GroupDTO:
         so GroupDTO is structurally accepted as ``type[DTOProtocol]`` by DomainConfig.
         """
         from core.models.dto_helpers import dto_from_dict
+        from core.models.enum_field_registry import enum_fields_for
 
         return dto_from_dict(
             cls,
             data,
-            enum_fields={},
+            enum_fields=enum_fields_for(),
             datetime_fields=["created_at", "updated_at"],
             dict_fields=["metadata"],
         )
