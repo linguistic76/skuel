@@ -31,6 +31,7 @@ def _make_backend(entry: UserEntry | None = None) -> MagicMock:
     entry = entry or _make_entry()
     backend = MagicMock()
     backend.create = AsyncMock(return_value=Result.ok(entry))
+    backend.upsert = AsyncMock(return_value=Result.ok(entry))
     backend.create_with_exercise_link = AsyncMock(return_value=Result.ok(entry))
     backend.count_entries_for_exercise = AsyncMock(return_value=Result.ok(0))
     backend.add_relationship = AsyncMock(return_value=Result.ok(True))
@@ -262,6 +263,174 @@ class TestCreateEntryRouting:
         await service.create_entry(request, user_uid="user_1")
         kwargs = backend.create_with_exercise_link.await_args.kwargs
         assert kwargs["revision"] == 3
+
+
+class TestLivingEntryChannel:
+    """Vault living channel: deterministic uid + declared exercise (R2).
+
+    A caller-supplied uid with ``fulfills_exercise_uid`` is the living
+    entry — idempotent upsert, intent stored as a node property, NO
+    FULFILLS_EXERCISE edge, no revision mint, no Interaction, and no
+    linker trigger via the event. The no-uid turn-in path is untouched.
+    """
+
+    @pytest.mark.asyncio
+    async def test_deterministic_uid_with_fulfills_upserts_in_place(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="My task list",
+            content="- task one",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok, result.expect_error()
+        backend.upsert.assert_awaited_once()
+        backend.create_with_exercise_link.assert_not_called()
+        backend.create.assert_not_called()
+        backend.count_entries_for_exercise.assert_not_called()
+        entry_passed = backend.upsert.await_args.args[0]
+        assert entry_passed.uid == "ue:vault:tasks-list"
+        assert entry_passed.fulfills_exercise_uid == "ex_1"
+
+    @pytest.mark.asyncio
+    async def test_living_entry_creates_no_interaction(self):
+        interaction_svc = _make_interaction_service()
+        service = _make_service(
+            sharing_service=_make_sharing_service(),
+            interaction_service=interaction_svc,
+        )
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="My task list",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        interaction_svc.create_interaction.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_living_entry_event_carries_no_fulfills(self):
+        """The exercise_handler subscriber keys the linker (scope check +
+        title-stamp) on the event's fulfills field — declared intent must
+        not fire it."""
+        event_bus = MagicMock()
+        event_bus.publish_async = AsyncMock(return_value=None)
+        service = UserEntryService(
+            backend=_make_backend(),
+            sharing_service=_make_sharing_service(),
+            event_bus=event_bus,
+        )
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="My task list",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        event = event_bus.publish_async.await_args.args[0]
+        assert event.fulfills_exercise_uid is None
+
+    @pytest.mark.asyncio
+    async def test_turn_in_event_still_carries_fulfills(self):
+        event_bus = MagicMock()
+        event_bus.publish_async = AsyncMock(return_value=None)
+        service = UserEntryService(
+            backend=_make_backend(),
+            sharing_service=_make_sharing_service(),
+            event_bus=event_bus,
+        )
+        request = UserEntryCreateRequest(
+            title="Turn-in",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        event = event_bus.publish_async.await_args.args[0]
+        assert event.fulfills_exercise_uid == "ex_1"
+
+    @pytest.mark.asyncio
+    async def test_turn_in_copy_also_stores_intent_property(self):
+        """Dual-write on turn-ins (Exercise.path_step_uid precedent): the
+        property records the declaration, the edge records the turn-in."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Turn-in",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        await service.create_entry(request, user_uid="user_1")
+        entry_passed = backend.create_with_exercise_link.await_args.kwargs["entry"]
+        assert entry_passed.fulfills_exercise_uid == "ex_1"
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_with_uid_and_fulfills_rejected(self):
+        """Turn-ins are frozen — a deterministic uid would make them mutable."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="Confused",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        assert "fresh turn-in" in str(result.expect_error())
+        backend.upsert.assert_not_called()
+        backend.create_with_exercise_link.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_living_entry_resolves_exercise_enrichment_mode(self):
+        """The enrichment-mode lookup keys on the DECLARED exercise, not just
+        turn-ins — a living entry later run through an LLM pipeline must
+        resolve the exercise-specific mode (Kody #508)."""
+        from core.models.enums.user_entry_enums import EnrichmentMode
+
+        exercise = MagicMock()
+        exercise.enrichment_mode = EnrichmentMode.CRITICAL_THINKING
+        exercise_service = MagicMock()
+        exercise_service.get_exercise = AsyncMock(return_value=Result.ok(exercise))
+
+        backend = _make_backend()
+        service = UserEntryService(
+            backend=backend,
+            sharing_service=_make_sharing_service(),
+            exercise_service=exercise_service,
+        )
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="My task list",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok, result.expect_error()
+        entry_passed = backend.upsert.await_args.args[0]
+        assert entry_passed.metadata["enrichment_mode"] == EnrichmentMode.CRITICAL_THINKING.value
+
+    @pytest.mark.asyncio
+    async def test_living_entry_still_requires_exercise_authorization(self):
+        """validate_references guards the living declaration at first sync."""
+        sharing = _make_sharing_service()
+        sharing.backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(False))
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="Not my exercise",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_not_mine",
+        )
+        result = await service.create_entry(request, user_uid="user_attacker")
+        assert result.is_error
+        backend.upsert.assert_not_called()
 
 
 class TestTransformsEdge:

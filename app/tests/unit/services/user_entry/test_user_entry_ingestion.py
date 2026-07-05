@@ -353,3 +353,206 @@ class TestIngestUserEntry:
 
         assert result.is_error
         service.create_entry.assert_not_awaited()
+
+
+def _channel_resolver() -> AudienceResolver:
+    """Resolver whose reference guard passes (living channel declarations)."""
+    resolver = _resolver()
+    resolver.validate_references = AsyncMock(return_value=Result.ok(None))  # type: ignore[method-assign]
+    return resolver
+
+
+def _living_entry(uid: str = "ue.vault.tasks-list") -> UserEntry:
+    return UserEntry(
+        uid=uid,
+        title="My task list",
+        user_uid="user_1",
+        pipeline=Pipeline.KNOWLEDGE,
+        fulfills_exercise_uid="ex_list_tasks",
+    )
+
+
+def _copy_entry(uid: str = "ue_copy_1") -> UserEntry:
+    return UserEntry(
+        uid=uid,
+        title="My task list",
+        user_uid="user_1",
+        pipeline=Pipeline.TEACHER_REVIEW,
+        fulfills_exercise_uid="ex_list_tasks",
+    )
+
+
+def _living_file_data(status: str = "in process") -> dict:
+    return {
+        "pipeline": "knowledge",
+        "title": "My task list",
+        "uid": "ue:vault:tasks-list",
+        "fulfills_exercise_uid": "ex_list_tasks",
+        "status": status,
+        "content": "- buy milk",
+        "audience": "private",
+    }
+
+
+class TestVaultExerciseChannel:
+    """The submit-signal branch (R2): living upsert + frozen-copy turn-in."""
+
+    def _service(self, create_side_effects, latest=None) -> MagicMock:
+        service = MagicMock()
+        service.audience_resolver = _channel_resolver()
+        service.create_entry = AsyncMock(side_effect=create_side_effects)
+        service.get_latest_entry_for_exercise = AsyncMock(return_value=Result.ok(latest))
+        service.delete_entry = AsyncMock(return_value=Result.ok(True))
+        return service
+
+    @pytest.mark.asyncio
+    async def test_in_process_file_is_single_living_upsert(self):
+        service = self._service([Result.ok((_living_entry(), ShareOutcome()))])
+        result = await ingest_user_entry(
+            data=_living_file_data("in process"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_ok, result.expect_error()
+        assert service.create_entry.await_count == 1
+        request = service.create_entry.await_args.kwargs["request"]
+        assert request.uid == "ue.vault.tasks-list"  # colon → dot normalization
+        assert request.fulfills_exercise_uid == "ex_list_tasks"
+        assert request.status == EntityStatus.ACTIVE
+        assert result.value["submitted_copy_uid"] is None
+        assert result.value["nodes_created"] == 1
+        service.get_latest_entry_for_exercise.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_submitted_flip_files_frozen_copy(self):
+        service = self._service(
+            [
+                Result.ok((_living_entry(), ShareOutcome())),
+                Result.ok((_copy_entry(), ShareOutcome(shared_groups=("g_teacher",)))),
+            ],
+            latest=None,  # first submission — no prior copy
+        )
+        result = await ingest_user_entry(
+            data=_living_file_data("submitted"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_ok, result.expect_error()
+        assert service.create_entry.await_count == 2
+
+        living_request = service.create_entry.await_args_list[0].kwargs["request"]
+        # The living entry is NOT itself in teacher review — it stays active
+        # while the file says submitted; the copy carries the truthful status.
+        assert living_request.status == EntityStatus.ACTIVE
+        assert living_request.uid == "ue.vault.tasks-list"
+
+        copy_request = service.create_entry.await_args_list[1].args[0]
+        assert copy_request.uid is None  # fresh turn-in path
+        assert copy_request.pipeline == Pipeline.TEACHER_REVIEW
+        assert copy_request.status is None  # service stamps truthful SUBMITTED
+        assert copy_request.fulfills_exercise_uid == "ex_list_tasks"
+        assert copy_request.content == "- buy milk"
+        assert copy_request.metadata == {"submitted_from_entry": "ue.vault.tasks-list"}
+
+        assert result.value["submitted_copy_uid"] == "ue_copy_1"
+        assert result.value["nodes_created"] == 2
+        assert result.value["relationships_created"] == 1  # the copy's edge
+
+    @pytest.mark.asyncio
+    async def test_idle_resync_while_submitted_files_nothing(self):
+        service = self._service(
+            [Result.ok((_living_entry(), ShareOutcome()))],
+            latest={"uid": "ue_copy_1", "content": "- buy milk", "revision": 1},
+        )
+        result = await ingest_user_entry(
+            data=_living_file_data("submitted"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_ok, result.expect_error()
+        assert service.create_entry.await_count == 1  # living upsert only
+        assert result.value["submitted_copy_uid"] is None
+        assert result.value["nodes_created"] == 1
+
+    @pytest.mark.asyncio
+    async def test_edit_while_submitted_files_new_revision_copy(self):
+        service = self._service(
+            [
+                Result.ok((_living_entry(), ShareOutcome())),
+                Result.ok((_copy_entry("ue_copy_2"), ShareOutcome(shared_groups=("g_t",)))),
+            ],
+            latest={"uid": "ue_copy_1", "content": "- OLD content", "revision": 1},
+        )
+        result = await ingest_user_entry(
+            data=_living_file_data("submitted"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_ok, result.expect_error()
+        assert service.create_entry.await_count == 2
+        assert result.value["submitted_copy_uid"] == "ue_copy_2"
+
+    @pytest.mark.asyncio
+    async def test_unreachable_teacher_compensates_and_fails(self):
+        """A copy with zero successful shares is deleted and surfaced as a
+        sync error — never a silent unreviewable turn-in (Mike's invariant)."""
+        service = self._service(
+            [
+                Result.ok((_living_entry(), ShareOutcome())),
+                Result.ok((_copy_entry(), ShareOutcome())),  # no shares landed
+            ],
+            latest=None,
+        )
+        result = await ingest_user_entry(
+            data=_living_file_data("submitted"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_error
+        err = str(result.expect_error())
+        assert "no teacher" in err.lower() or "reached no" in err.lower()
+        service.delete_entry.assert_awaited_once_with("ue_copy_1", "user_1")
+
+    @pytest.mark.asyncio
+    async def test_copy_create_failure_propagates(self):
+        from core.utils.result_simplified import Errors
+
+        service = self._service(
+            [
+                Result.ok((_living_entry(), ShareOutcome())),
+                Result.fail(Errors.validation("no audience was reached", field="audience")),
+            ],
+            latest=None,
+        )
+        result = await ingest_user_entry(
+            data=_living_file_data("submitted"),
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_submitted_without_uid_is_not_the_channel(self):
+        """No deterministic uid → plain turn-in door; no coercion, no copy."""
+        entry = _copy_entry()
+        service = self._service([Result.ok((entry, ShareOutcome(shared_groups=("g_t",))))])
+        data = _living_file_data("submitted")
+        del data["uid"]
+        data["pipeline"] = "teacher_review"
+        result = await ingest_user_entry(
+            data=data,
+            file_path=Path("tasks-list.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+        assert result.is_ok, result.expect_error()
+        assert service.create_entry.await_count == 1
+        request = service.create_entry.await_args.kwargs["request"]
+        assert request.status == EntityStatus.SUBMITTED  # authored status flows
+        service.get_latest_entry_for_exercise.assert_not_called()
