@@ -93,6 +93,16 @@ class UserEntryCrudOperations(Protocol):
         """Exercise UID linked via ``FULFILLS_EXERCISE``, if any."""
         ...
 
+    async def get_latest_entry_for_exercise(
+        self, user_uid: UserUID, exercise_uid: str
+    ) -> Result[Neo4jProperties | None]:
+        """Newest turn-in's uid + content + revision for a user+exercise pair.
+
+        The vault submit-signal branch diffs the living file against this
+        row — the copies are the last-submitted state.
+        """
+        ...
+
     async def get_teacher_feedback_state(self, teacher_uid: str) -> Result[Neo4jProperties]:
         """Read feedback EMA state from ``User`` for turnaround calibration."""
         ...

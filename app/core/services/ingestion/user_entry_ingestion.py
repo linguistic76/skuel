@@ -412,6 +412,20 @@ async def ingest_user_entry(
     entry ``content`` when no explicit ``content:`` field is present, so a
     periodic note's checkbox lines survive ingestion.
 
+    **Vault exercise channel** (deterministic ``uid:`` + ``fulfills_exercise_uid:``):
+    the file is a LIVING entry — one node, upserted in place every sync, the
+    exercise declaration stored as intent (never a ``FULFILLS_EXERCISE`` edge).
+    Authoring ``status: submitted`` is the deliberate turn-in signal: sync files
+    a frozen copy through the existing turn-in machinery (fresh node, edge +
+    revision, Interaction, teacher-group routing) — but only when the content
+    changed since the last copy, so idle re-syncs while still marked
+    ``submitted`` are no-ops and editing while submitted is a re-submission.
+    The living entry itself stays ``active`` while the file says ``submitted``
+    — it is not in a review queue; the copy carries the truthful ``submitted``
+    (the #507 service chokepoint stamps it). Sync never writes into the user's
+    file. A submitted copy that reaches no teacher/group is compensated
+    (deleted) and surfaced as a sync error — never a silent drop.
+
     ``user_entry_processor``, when supplied, runs the entry's pipeline after
     persistence. For ``Pipeline.EXTRACT_ACTIVITIES`` this turns the captured
     ``- [ ]`` body lines into Tasks (ADR-069, ``EXTRACTED_FROM`` edges).
@@ -433,15 +447,36 @@ async def ingest_user_entry(
     )
     if request_result.is_error:
         return Result.fail(request_result)
+    request = request_result.value
+
+    # Submit signal: a living-channel file (deterministic uid + declared
+    # exercise) authored `status: submitted`. The living upsert proceeds with
+    # status ACTIVE — the submitted state belongs to the frozen copy filed
+    # below, not to the notebook the user keeps editing.
+    submit_signal = bool(
+        request.uid and request.fulfills_exercise_uid and request.status == EntityStatus.SUBMITTED
+    )
+    if submit_signal:
+        request = request.model_copy(update={"status": EntityStatus.ACTIVE})
 
     create_result = await user_entry_service.create_entry(
-        request=request_result.value,
+        request=request,
         user_uid=user_uid,
     )
     if create_result.is_error:
         return Result.fail(create_result)
 
     entry, outcome = create_result.value
+
+    submitted_copy_uid: str | None = None
+    if submit_signal:
+        copy_result = await _file_submission_copy(request, entry.uid, user_uid, user_entry_service)
+        if copy_result.is_error:
+            # Living entry persisted (idempotent); failing the file keeps it
+            # out of the tracker's success set so the next sync retries the
+            # copy — the honest alternative to a silently unshared turn-in.
+            return Result.fail(copy_result)
+        submitted_copy_uid = copy_result.value
     logger.info(
         f"Ingested user_entry: {entry.uid} (pipeline={entry.pipeline.value}, "
         f"shared_groups={len(outcome.shared_groups)})"
@@ -475,6 +510,9 @@ async def ingest_user_entry(
             extraction_error = str(exc)
             logger.exception(f"EXTRACT_ACTIVITIES raised for {entry.uid} (journal persisted)")
 
+    # The FULFILLS_EXERCISE edge only exists when a frozen copy was filed —
+    # a living entry's declared exercise is a node property, not an edge.
+    is_turn_in = bool(request.fulfills_exercise_uid) and not request.uid
     return Result.ok(
         {
             "uid": entry.uid,
@@ -482,19 +520,99 @@ async def ingest_user_entry(
             "entity_type": "user_entry",
             "format": "yaml",
             "success": True,
-            "nodes_created": 1,
+            "nodes_created": 2 if submitted_copy_uid else 1,
             "nodes_updated": 0,
             "relationships_created": (
                 len(outcome.shared_groups)
                 + len(outcome.shared_users)
-                + (1 if request_result.value.fulfills_exercise_uid else 0)
+                + (1 if (is_turn_in or submitted_copy_uid) else 0)
             ),
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
+            "submitted_copy_uid": submitted_copy_uid,
             "extraction_error": extraction_error,
             "extraction_warnings": extraction_warnings,
         }
     )
+
+
+async def _file_submission_copy(
+    request: UserEntryCreateRequest,
+    living_uid: str,
+    user_uid: UserUID,
+    user_entry_service: UserEntryService,
+) -> Result[str | None]:
+    """File a frozen submission copy for a living entry marked ``submitted``.
+
+    The dedup state is the copies themselves: a new copy is filed only when
+    the living content differs from the newest ``FULFILLS_EXERCISE``-bearing
+    turn-in's content (no hash bookkeeping to drift; idle re-syncs while the
+    file stays ``submitted`` are no-ops). The copy goes through
+    ``create_entry`` with no uid — the existing turn-in machinery mints the
+    fresh node, edge + revision, Interaction, and teacher-group routing.
+
+    Returns the copy's uid, or ``None`` when content is unchanged since the
+    last copy. A copy that reaches no teacher/group is compensated (deleted)
+    and returned as an error — Mike's invariant: every exercise has a
+    reachable teacher; an unreviewable turn-in is never a silent success.
+    """
+    exercise_uid = request.fulfills_exercise_uid
+    assert exercise_uid is not None  # caller gates on submit_signal
+
+    latest = await user_entry_service.get_latest_entry_for_exercise(user_uid, exercise_uid)
+    if latest.is_error:
+        return Result.fail(latest)
+    if latest.value is not None:
+        last_content = str(latest.value.get("content") or "")
+        if (request.content or "") == last_content:
+            logger.info(
+                f"Submit signal on {living_uid}: content unchanged since last "
+                f"copy ({latest.value.get('uid')}) — no new submission filed"
+            )
+            return Result.ok(None)
+
+    copy_request = UserEntryCreateRequest(
+        title=request.title,
+        content=request.content,
+        description=request.description,
+        tags=list(request.tags),
+        # Provenance only — deliberately NOT vault_file_path: the copy is a
+        # frozen artifact, invisible to VaultReconciler write-back.
+        metadata={"submitted_from_entry": living_uid},
+        pipeline=Pipeline.TEACHER_REVIEW,
+        fulfills_exercise_uid=exercise_uid,
+    )
+    copy_result = await user_entry_service.create_entry(copy_request, user_uid)
+    if copy_result.is_error:
+        return Result.fail(copy_result)
+    copy, copy_outcome = copy_result.value
+
+    if not copy_outcome.any_success:
+        # Zero successful shares AND zero failures slips past the service's
+        # compensation (which requires an attempted-but-failed target). For
+        # the vault channel that silence is an error state: nobody will ever
+        # review the copy. Compensate and surface.
+        delete_result = await user_entry_service.delete_entry(copy.uid, user_uid)
+        if delete_result.is_error:
+            logger.error(
+                f"Compensation delete of unreachable submission copy {copy.uid} "
+                f"failed: {delete_result.expect_error()}"
+            )
+        return Result.fail(
+            Errors.validation(
+                f"Submission for exercise {exercise_uid} reached no teacher or "
+                "group — the exercise has no reviewer reachable from your "
+                "memberships. Fix the exercise's group assignment (or your "
+                "enrollment) and re-sync; the living entry itself is saved.",
+                field="fulfills_exercise_uid",
+            )
+        )
+
+    logger.info(
+        f"Filed frozen submission copy {copy.uid} for living entry {living_uid} "
+        f"(exercise={exercise_uid}, groups={list(copy_outcome.shared_groups)})"
+    )
+    return Result.ok(copy.uid)
 
 
 def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:

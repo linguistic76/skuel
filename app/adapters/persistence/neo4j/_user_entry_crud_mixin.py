@@ -269,6 +269,41 @@ class _UserEntryCrudMixin:
             return Result.ok(None)
         return Result.ok(result.value[0])
 
+    async def get_latest_entry_for_exercise(
+        self, user_uid: UserUID, exercise_uid: str
+    ) -> Result[Neo4jProperties | None]:
+        """Newest turn-in's uid + content for a user+exercise pair.
+
+        The vault submit-signal branch compares the living file's content
+        against this row to decide whether a new frozen copy is due — the
+        copies themselves ARE the last-submitted state, so no separate
+        hash bookkeeping exists to drift. Ordered by the edge's revision
+        (the copy sequence), newest first.
+        """
+        query = """
+        MATCH (target:Entity {uid: $exercise_uid})
+        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+        WITH COALESCE(orig, target) AS exercise
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[r:FULFILLS_EXERCISE]->(exercise)
+        WHERE s.entity_type = $entry_type
+        RETURN s.uid AS uid, s.content AS content, r.revision AS revision
+        ORDER BY r.revision DESC, s.created_at DESC
+        LIMIT 1
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "exercise_uid": exercise_uid,
+                "entry_type": _USER_ENTRY,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.ok(None)
+        return Result.ok(result.value[0])
+
     async def get_exercise_for_entry(self, entry_uid: str) -> Result[str | None]:
         """Exercise UID linked via ``FULFILLS_EXERCISE``, if any."""
         query = """
