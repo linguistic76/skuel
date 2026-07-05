@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.curriculum_enums import LpType
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 
 
 @dataclass
@@ -82,15 +82,15 @@ class LearningPathDTO(CurriculumDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "path_type": LpType,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "path_type",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -148,15 +148,15 @@ class LearningPathDTO(CurriculumDTO):
                 "checkpoint_week_intervals",
                 "estimated_hours",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "path_type": LpType,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "path_type",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

@@ -22,9 +22,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.metadata_enums import Visibility
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.user_owned_dto import UserOwnedDTO
 
@@ -95,13 +94,13 @@ class LifePathDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "alignment_level": AlignmentLevel,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "alignment_level",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -152,13 +151,13 @@ class LifePathDTO(UserOwnedDTO):
                 "vision_themes",
                 "vision_captured_at",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "alignment_level": AlignmentLevel,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "alignment_level",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

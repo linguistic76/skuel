@@ -24,7 +24,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from datetime import date
 
-from core.models.enums import Domain
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
@@ -178,17 +178,17 @@ class PrincipleDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "principle_category": PrincipleCategory,
-                "principle_source": PrincipleSource,
-                "strength": PrincipleStrength,
-                "current_alignment": AlignmentLevel,
-                "engagement_state": EngagementState,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "principle_category",
+                "principle_source",
+                "strength",
+                "current_alignment",
+                "engagement_state",
+            ),
             date_fields=["last_review_date", "adopted_date"],
             datetime_fields=["created_at", "updated_at"],
             list_fields=[
@@ -253,17 +253,17 @@ class PrincipleDTO(UserOwnedDTO):
                 "source_path_step_uid",
                 "engagement_state",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "principle_category": PrincipleCategory,
-                "principle_source": PrincipleSource,
-                "strength": PrincipleStrength,
-                "current_alignment": AlignmentLevel,
-                "engagement_state": EngagementState,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "principle_category",
+                "principle_source",
+                "strength",
+                "current_alignment",
+                "engagement_state",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

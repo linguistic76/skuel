@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain, SELCategory
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 
 
 @dataclass
@@ -63,12 +63,7 @@ class KuDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "sel_category": SELCategory,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain", "sel_category"),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags", "aliases"],
             dict_fields=["metadata"],
@@ -99,12 +94,7 @@ class KuDTO(EntityDTO):
                 "source",
                 "sel_category",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "sel_category": SELCategory,
-            },
+            enum_mappings=enum_fields_for("entity_type", "status", "domain", "sel_category"),
         )
 
     def __eq__(self, other: object) -> bool:

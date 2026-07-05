@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.entity_dto import EntityDTO
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
 from core.models.templates.relative_offset import RelativeOffset
 
@@ -119,12 +119,7 @@ class TaskTemplateDTO(EntityDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "recurrence_pattern": RecurrencePattern,
-            },
+            enum_fields=enum_fields_for("entity_type", "status", "domain", "recurrence_pattern"),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -173,11 +168,7 @@ class TaskTemplateDTO(EntityDTO):
                 "habit_streak_maintainer",
                 "completion_updates_goal",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-            },
+            enum_mappings=enum_fields_for("entity_type", "status", "domain"),
         )
 
     def __eq__(self, other: object) -> bool:

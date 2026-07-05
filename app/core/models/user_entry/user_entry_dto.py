@@ -22,9 +22,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from datetime import datetime
 
-from core.models.enums import Domain
-from core.models.enums.entity_enums import EntityStatus, EntityType
-from core.models.enums.metadata_enums import Visibility
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.user_owned_dto import UserOwnedDTO
@@ -103,14 +102,14 @@ class UserEntryDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "pipeline": Pipeline,
-                "modality": SubmissionModality,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "pipeline",
+                "modality",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -162,14 +161,14 @@ class UserEntryDTO(UserOwnedDTO):
                 "max_retention",
                 "modality",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "pipeline": Pipeline,
-                "modality": SubmissionModality,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "pipeline",
+                "modality",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

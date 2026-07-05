@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
@@ -66,6 +67,31 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     config = ENTITY_CONFIGS.get(entity_type)
     prefix = config.uid_prefix if config else entity_type.value
     return f"{prefix}.{file_path.stem}"
+
+
+def normalize_enum_casing(entity_data: dict[str, Any]) -> None:
+    """
+    Canonicalize authored enum-value casing in place — casing only, no aliases.
+
+    Vault authors type ``learning_level: BEGINNER``; canonical member values
+    are lowercase. Exact-match property filters (the faceted ``sel_category``
+    facet) compare raw strings, so non-canonical casing must never reach the
+    graph — the ``parse_enum_field`` read tolerance (#513) covers conversion,
+    not filtering. For every registered enum-valued field: a valid value is
+    left untouched; a value whose ONLY problem is casing is rewritten to the
+    canonical member value; anything else is left for the validator/DTO
+    boundary to reject with a proper error.
+    """
+    for field_name, enum_cls in ENUM_FIELD_TYPES.items():
+        value = entity_data.get(field_name)
+        if not isinstance(value, str):
+            continue
+        member_values = {member.value for member in enum_cls}
+        if value in member_values:
+            continue
+        lowered = value.lower()
+        if lowered in member_values:
+            entity_data[field_name] = lowered
 
 
 def prepare_entity_data(
@@ -171,6 +197,10 @@ def prepare_entity_data(
             if key not in entity_data:
                 entity_data[key] = value
 
+    # Canonicalize authored enum casing (the enum sibling of normalize_uid's
+    # colon→dot rewrite — "plain English in, working code out")
+    normalize_enum_casing(entity_data)
+
     # Stamp the owner for multi-tenant entity types. When ``owner_is_authoritative``
     # (descriptor-governed ingestion), the vault-resolved owner WINS over any
     # file-supplied ``user_uid`` — otherwise a personal-vault file could claim
@@ -274,6 +304,7 @@ def prepare_edge_data(
 
 __all__ = [
     "generate_uid",
+    "normalize_enum_casing",
     "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",
