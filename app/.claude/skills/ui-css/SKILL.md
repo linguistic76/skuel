@@ -88,7 +88,7 @@ Card.PADDING        # "p-6"
 
 ## Theming
 
-Theme selection is available on `/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `base_page.py` reads from localStorage via `x-init` and applies the theme. Default: `light`.
+Theme selection is available on `/settings` (Display & Appearance section). The selected theme is saved to Neo4j preferences and localStorage. On page load, `dark_mode_script()` (`ui/theme.py`, wired into `build_head()`) restores the stored theme before CSS paints, falling back to `prefers-color-scheme`. Default: `light`.
 
 ---
 
