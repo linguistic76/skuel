@@ -648,8 +648,15 @@ deleted (a former owner must not keep access after re-ingest under a new owner).
 This keeps the `user_uid == :OWNS owner` single-owner invariant that OWNS-consuming
 read paths (faceted search, `get_user_entities`) depend on. The owner is `MATCH`ed,
 not `MERGE`d — an unknown user produces no edge and no stub. Curriculum types never
-carry `user_uid` (ingested exercises are forced to ownerless `scope: curriculum`),
-so they stay edge-free by construction.
+carry `user_uid`, so they stay edge-free by construction. Ingested exercises are
+validated to `scope: curriculum`: shared templates owned by the curriculum itself,
+visible to everyone. That is the shared-node model, not a missing owner — a user's
+ownership of an exercise materializes on their engagement chain (their `OWNS`ed
+UserEntry `-[:FULFILLS_EXERCISE]->` the shared exercise, plus its report/revision
+nodes), never as an `:OWNS` edge on the template. One authoritative template per
+exercise keeps content-vault edits propagating to every learner; a user who wants a
+template of their own creates a fresh PERSONAL exercise via the `/submit`
+save-template flow.
 
 **Authored enum casing is canonicalized at the preparer.** `normalize_enum_casing()`
 (the enum sibling of `normalize_uid`'s colon→dot rewrite) rewrites values whose only
