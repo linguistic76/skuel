@@ -1758,7 +1758,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/finance/` (components, invoice_views, layout, section_views, types)
 
 **Workbench:**
-- `/ui/workbench/hub.py` — `SUBMISSIONS_BLOCKS`
+- `/ui/workbench/hub.py` — `SubmissionsTabPanel` (Submissions tab on `/profile`: 4 link buttons mirroring the sidebar)
 - `/ui/workbench/nav.py` — Submissions sidebar
 
 **Shared:**

@@ -1,8 +1,9 @@
 """Profile hub page — 3-tab personal space.
 
 /profile is the student's home: three tabs sharing the /library colored-header
-block style. The tabs (Library / Exercises / GradeBook) carry the loop
-stages: study, submit, grade. Default is "exercises".
+block style. Curriculum (study) and Reports (grade) show domain preview
+blocks; Submissions (submit) is a simple button panel mirroring the
+/submissions sidebar categories. Default is "submissions".
 """
 
 from __future__ import annotations
@@ -12,19 +13,19 @@ from fasthtml.common import Button, Div
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubDomainBlockList
-from ui.workbench.hub import SUBMISSIONS_BLOCKS
+from ui.workbench.hub import SubmissionsTabPanel
 
-_DEFAULT_TAB_SLUG = "exercises"
-_VALID_TABS = frozenset({"library", "exercises", "gradebook"})
+_DEFAULT_TAB_SLUG = "submissions"
+_VALID_TABS = frozenset({"curriculum", "reports", "submissions"})
 
 
 def normalize_tab(slug: str | None) -> str:
-    """Coerce a query-string tab value to a known slug; default to exercises."""
+    """Coerce a query-string tab value to a known slug; default to submissions."""
     return slug if slug in _VALID_TABS else _DEFAULT_TAB_SLUG
 
 
 def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
-    """Profile hub — 3 tabs (Library / Exercises / GradeBook)."""
+    """Profile hub — 3 tabs (Curriculum / Reports / Submissions)."""
     active_tab = normalize_tab(active_tab)
     return Div(
         _tab_bar(),
@@ -40,9 +41,9 @@ def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
 _TAB_BASE = "px-4 py-2.5 text-[14px] font-medium cursor-pointer transition-colors -mb-px"
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
-    ("library", "Library"),
-    ("exercises", "Exercises"),
-    ("gradebook", "GradeBook"),
+    ("curriculum", "Curriculum"),
+    ("reports", "Reports"),
+    ("submissions", "Submissions"),
 )
 
 
@@ -73,17 +74,17 @@ def _tab_panels() -> Div:
         Div(
             HubDomainBlockList(LIBRARY_BLOCKS),
             role="tabpanel",
-            **{"x-show": "activeTab === 'library'"},
-        ),
-        Div(
-            HubDomainBlockList(SUBMISSIONS_BLOCKS),
-            role="tabpanel",
-            **{"x-show": "activeTab === 'exercises'"},
+            **{"x-show": "activeTab === 'curriculum'"},
         ),
         Div(
             HubDomainBlockList(GRADEBOOK_BLOCKS),
             role="tabpanel",
-            **{"x-show": "activeTab === 'gradebook'"},
+            **{"x-show": "activeTab === 'reports'"},
+        ),
+        Div(
+            SubmissionsTabPanel(),
+            role="tabpanel",
+            **{"x-show": "activeTab === 'submissions'"},
         ),
     )
 
