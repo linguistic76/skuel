@@ -235,8 +235,8 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         form_fields_section,
         instructions_section,
         ButtonLink(
-            "← Back to Library",
-            href="/profile?tab=library",
+            "← Back to Curriculum",
+            href="/profile?tab=curriculum",
             cls=ButtonT.ghost,
         ),
         cls=f"{Container.STANDARD} {Spacing.PAGE}",

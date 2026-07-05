@@ -170,10 +170,10 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_hub(request: Request) -> Any:
-        """Profile hub — 3 tabs (Exercises / Library / GradeBook).
+        """Profile hub — 3 tabs (Curriculum / Reports / Submissions).
 
-        The active tab is selected by `?tab=` (exercises | library | gradebook),
-        defaulting to "exercises" — the content-creation tab (Submit Exercise, Exercises).
+        The active tab is selected by `?tab=` (curriculum | reports | submissions),
+        defaulting to "submissions" — the action tab (links to the /submissions pages).
         """
         require_authenticated_user(request)
 
