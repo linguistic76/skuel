@@ -51,7 +51,7 @@ SearchRouter (THE Orchestrator):
 
 **Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). KU is deliberately excluded from `_SEARCHABLE_DOMAINS` (divergent `KuService.search` facade signature; "knowledge" searches route to PATH_STEP). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
 
-**UserEntry privacy line (July 2026):** `SearchRouter.search(USER_ENTRY, ...)` REQUIRES `user_uid` (refused unscoped) and UserEntry is excluded from the cross-domain sweep + `advanced_search` aggregation — the `/search` "My Entries" filter routes through OWNS-scoped `graph_aware_faceted_search()`. Registry completeness is guarded by `tests/unit/models/test_search_router_registry.py`.
+**UserEntry privacy line (July 2026):** `SearchRouter.search(USER_ENTRY, ...)` REQUIRES `user_uid` (refused unscoped). UserEntry is excluded from the default "All Types" sweep + `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped — the `/search` "My Entries" filter routes through OWNS-scoped `graph_aware_faceted_search()`, and a multi-type `entity_types` filter sweeps it owner-scoped. Registry completeness is guarded by `tests/unit/models/test_search_router_registry.py`.
 
 ## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
 

@@ -69,10 +69,12 @@ All 11 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
 
 **UserEntry privacy line (July 2026):** entries hold private user content (journal
 periodic notes live in this store), so `SearchRouter.search(USER_ENTRY, ...)` REQUIRES
-`user_uid` (refused otherwise), and UserEntry is excluded from the unscoped cross-domain
-sweep and `advanced_search` aggregation. Entries are reachable through the `/search`
-entity-type filter ("My Entries"), which routes through the OWNS-scoped
-`graph_aware_faceted_search()` path.
+`user_uid` (refused otherwise). UserEntry is excluded from the default "All Types"
+sweep and from `advanced_search` aggregation; it participates only when explicitly
+requested AND user-scoped — the `/search` "My Entries" filter routes through the
+OWNS-scoped `graph_aware_faceted_search()` path, and a multi-type `entity_types`
+filter sweeps it owner-scoped (`search_domains` threads `user_uid`; the
+`is_user_owned()` gate keeps shared domains unscoped).
 
 ```python
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
