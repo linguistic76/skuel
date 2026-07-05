@@ -480,6 +480,39 @@ class TestEntryStatus:
         assert entry_passed.status == EntityStatus.DRAFT
 
     @pytest.mark.asyncio
+    async def test_teacher_review_rejects_lifecycle_faking_status(self):
+        """TEACHER_REVIEW status is service-owned — 'completed' would read
+        as teacher-approved without ever entering the queue."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="T",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+            status=EntityStatus.COMPLETED,
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        assert "service-owned" in str(result.expect_error())
+        backend.create_with_exercise_link.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_allows_truthful_submitted(self):
+        """An explicit SUBMITTED equals what the service stamps — allowed."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="T",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+            status=EntityStatus.SUBMITTED,
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        entry_passed = backend.create_with_exercise_link.await_args.kwargs["entry"]
+        assert entry_passed.status == EntityStatus.SUBMITTED
+
+    @pytest.mark.asyncio
     async def test_description_flows_to_entity(self):
         backend = _make_backend()
         service = _make_service(backend=backend)

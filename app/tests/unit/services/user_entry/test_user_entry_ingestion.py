@@ -248,6 +248,31 @@ class TestAuthoredStatusDescriptionOwnership:
         assert result.value.description == "Topics taxonomy"
 
     @pytest.mark.asyncio
+    async def test_falsy_authored_description_preserved(self):
+        """YAML `description: 0` / `description: false` are authored values —
+        only a truly absent field maps to None."""
+        for raw, expected in ((0, "0"), (False, "False")):
+            result = await build_user_entry_request(
+                data={"pipeline": "none", "description": raw},
+                file_path=Path("x.yaml"),
+                user_uid="user_1",
+                audience_resolver=_resolver(),
+            )
+            assert result.is_ok
+            assert result.value.description == expected
+
+    @pytest.mark.asyncio
+    async def test_missing_description_is_none(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.description is None
+
+    @pytest.mark.asyncio
     async def test_ownership_short_form_matches(self):
         result = await build_user_entry_request(
             data={"pipeline": "none", "ownership": "linguistic76"},

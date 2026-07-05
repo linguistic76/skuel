@@ -262,7 +262,7 @@ async def build_user_entry_request(
 
     title = data.get("title") or data.get("name") or file_path.stem.replace("-", " ").title()
     raw_description = data.get("description")
-    description = str(raw_description) if raw_description else None
+    description = None if raw_description is None else str(raw_description)
     tags_raw = data.get("tags") or []
     tags = [str(t) for t in tags_raw] if isinstance(tags_raw, list) else []
     metadata = data.get("metadata") or {}

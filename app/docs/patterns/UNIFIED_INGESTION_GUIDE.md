@@ -119,6 +119,10 @@ The door does not silently drop authored frontmatter it understands:
   list — never silently replaced. Omitted/empty → the pipeline default
   (`submitted` for `teacher_review`, `active` otherwise). Re-syncing an
   edited `status:` updates the node in place (deterministic-uid upsert).
+  **`teacher_review` exception:** status is service-owned there (the review
+  workflow is the only writer after create) — any authored value other than
+  a truthful `submitted` fails the file, so a submission can't be created
+  pre-`completed`/`archived` to fake or dodge review.
 - **`description:`** — flows onto the node's `description` field.
 - **`ownership:`** (alias: `user_uid:`) — a *consistency check*, not a
   transfer: ownership is always stamped from the syncing user. The declared
