@@ -208,11 +208,14 @@ def build_text_search_query(
             f"Requested: {search_fields}, Available: {valid_fields}"
         )
 
-    # Build OR clauses for text search
+    # Build OR clauses for text search. Parenthesized because callers
+    # (text_search_raw) prepend "n.user_uid = $user_uid AND " for owner
+    # scoping — a bare OR-chain would let any non-first field match bypass
+    # the ownership filter (AND binds tighter than OR).
     where_clauses = [
         f"toLower(n.{field}) CONTAINS toLower($query)" for field in validated_search_fields
     ]
-    where_clause = " OR ".join(where_clauses)
+    where_clause = f"({' OR '.join(where_clauses)})"
 
     # Build ORDER BY clause
     direction = "DESC" if order_desc else "ASC"
