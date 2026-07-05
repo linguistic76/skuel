@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.constants import ExerciseTimeEstimate
-from core.models.enums import Domain
+from core.models.enums import Domain, SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import ReportSource
@@ -104,6 +104,11 @@ class ExerciseService(BaseService):
         search_fields=("title", "instructions"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,
+        # Exercises are instance-scoped, not type-scoped: CURRICULUM has no
+        # owner and is visible to everyone; PERSONAL/ASSIGNED/ASSESSMENT are
+        # visible via OWNS / SHARES_WITH / group membership (ADR-038/040).
+        # Without this, OWNS-derived scoping hides all curriculum exercises.
+        search_visibility=SearchVisibility.SCOPE_AWARE,
     )
 
     # Graph enrichment for graph_aware_faceted_search (SearchRouter integration)

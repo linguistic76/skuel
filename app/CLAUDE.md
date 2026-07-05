@@ -423,7 +423,9 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Searchable Domains (SearchRouter):** 11 — Task, Goal, Habit, Event, Choice, Principle, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services; KU deliberately excluded (see SEARCH_ARCHITECTURE § Searchable Entity Types).
 
-**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `graph_enrichment_patterns`, etc.
+**Ownership scoping:** every strategy (text/tags/graph/faceted) is scoped by the domain's `SearchVisibility` declaration on DomainConfig — `OWNER_ONLY` (Activities, UserEntry), `PUBLIC` (PS/LP/KU), `SCOPE_AWARE` (Exercise: curriculum visible to all, owned scopes via OWNS/SHARES_WITH/group membership). One Cypher composition point: `build_search_visibility_clause()`. **See:** SEARCH_ARCHITECTURE § Ownership Scoping.
+
+**DomainConfig** is THE single source of truth for BaseService configuration: `dto_class`, `model_class`, `search_fields`, `search_order_by`, `category_field`, `temporal_exclude_statuses`, `supports_user_progress`, `user_ownership_relationship`, `search_visibility`, `graph_enrichment_patterns`, etc.
 
 **Factory functions:** `create_activity_domain_config()`, `create_curriculum_domain_config()`
 

@@ -32,9 +32,11 @@ if TYPE_CHECKING:
 
 import pytest
 
+from core.models.enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.models.update_contracts import RawChanges
 from core.services.base_service import BaseService
+from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
@@ -101,16 +103,19 @@ class ConcreteTestService(BaseService["BackendOperations[MockModel]", MockModel]
     _dto_class = MockDTO
     _model_class = MockModel
     _search_fields: ClassVar[list[str]] = ["title", "description"]
-    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
     _completed_statuses: ClassVar[list[str]] = ["completed", "archived"]
 
 
 class SharedContentService(BaseService["BackendOperations[MockModel]", MockModel]):
     """Service for shared content (no ownership verification)."""
 
+    _config = DomainConfig(
+        dto_class=MockDTO,
+        model_class=MockModel,
+        user_ownership_relationship=None,  # Shared content
+    )
     _dto_class = MockDTO
     _model_class = MockModel
-    _user_ownership_relationship: ClassVar[str | None] = None  # Shared content
 
 
 # ============================================================================
@@ -603,7 +608,8 @@ class TestSharedContent:
     @pytest.mark.asyncio
     async def test_shared_content_no_ownership_check(self, shared_service, mock_backend):
         """Shared content services skip ownership verification."""
-        assert shared_service._user_ownership_relationship is None
+        assert shared_service.user_ownership_relationship is None
+        assert shared_service.search_visibility is SearchVisibility.PUBLIC
 
     @pytest.mark.asyncio
     async def test_verify_ownership_on_shared_returns_entity(self, shared_service, mock_backend):
@@ -648,7 +654,6 @@ class _FailingValidationService(BaseService["BackendOperations[MockModel]", Mock
 
     _dto_class = MockDTO
     _model_class = MockModel
-    _user_ownership_relationship: ClassVar[str | None] = RelationshipName.OWNS
 
     def _validate_create(self, entity: MockModel) -> Result[None]:
         return Result.fail(Errors.validation(message="nope", field="title"))

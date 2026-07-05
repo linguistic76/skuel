@@ -41,7 +41,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
@@ -75,10 +75,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         search_fields: tuple[str, ...] - Fields to search (DomainConfig-resolved property)
         search_order_by: str - Default sort field (DomainConfig-resolved property)
         category_field: str - Field for categorization (DomainConfig-resolved property)
+        search_visibility: SearchVisibility - Scoping declaration (DomainConfig-resolved property)
+        user_ownership_relationship: RelationshipName | None - Ownership relationship
+            (DomainConfig-resolved property)
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
         _graph_enrichment_patterns: tuple - Graph enrichment config
-        _user_ownership_relationship: RelationshipName | None - Ownership relationship
         _to_domain_models: Conversion method
         _get_config_value: Config accessor method
     """
@@ -92,7 +94,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _graph_enrichment_patterns: ClassVar[
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ]
-    _user_ownership_relationship: ClassVar[RelationshipName | None]
 
     @property
     @abstractmethod
@@ -133,6 +134,28 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     @abstractmethod
     def search_order_by(self) -> str:
         """DomainConfig-resolved sort field — provided by composing class."""
+        ...
+
+    @property
+    @abstractmethod
+    def search_visibility(self) -> SearchVisibility:
+        """DomainConfig-resolved search-visibility declaration — provided by composing class.
+
+        THE scoping input for every search strategy. See
+        ``DomainConfig.get_search_visibility()`` for the derivation.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def user_ownership_relationship(self) -> RelationshipName | None:
+        """DomainConfig-resolved ownership relationship — provided by composing class.
+
+        Same bug class as ``search_fields``: the raw
+        ``_user_ownership_relationship`` ClassVar bypassed DomainConfig, so
+        curriculum domains declaring ``None`` were silently OWNS-scoped by
+        faceted search — hiding all shared content from /search.
+        """
         ...
 
     @abstractmethod
@@ -276,6 +299,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_by=self.search_order_by,
             order_desc=True,
             user_uid=user_uid,
+            visibility=self.search_visibility,
         )
         if result.is_error:
             return Result.fail(result)
@@ -341,6 +365,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[builtins.list[T]]:
         """
         Graph-aware search: text search + relationship traversal in ONE query.
@@ -354,6 +379,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             relationship_type: Type-safe RelationshipName enum
             direction: "outgoing", "incoming", or "both" (default "outgoing")
             limit: Maximum results (default 50)
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing entities matching query AND connected via relationship
@@ -380,6 +406,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit=limit,
             order_by=self.search_order_by,
             order_desc=True,
+            user_uid=user_uid,
+            visibility=self.search_visibility,
         )
         if result.is_error:
             return Result.fail(result)
@@ -398,6 +426,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         tags: builtins.list[str],
         match_all: bool = False,
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[builtins.list[T]]:
         """
         Search entities by tags (array field search).
@@ -406,6 +435,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             tags: List of tag values to search for
             match_all: If True, require ALL tags; if False, ANY tag matches
             limit: Maximum results (default 50)
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing entities with matching tags
@@ -435,6 +465,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit=limit,
             order_by=search_order_by,
             order_desc=True,
+            user_uid=user_uid,
+            visibility=self.search_visibility,
         )
         if result.is_error:
             return Result.fail(result)
@@ -506,7 +538,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Graph-aware faceted search - THE unified method for all domains.
 
         Combines:
-        1. User ownership filter (if _user_ownership_relationship is set)
+        1. Visibility scoping per the domain's search_visibility declaration
+           (OWNER_ONLY: ownership MATCH; PUBLIC: none; SCOPE_AWARE: scope/
+           sharing WHERE fragment)
         2. Property filters from request.to_property_filters()
         3. Text search on _search_fields
         4. Graph pattern enrichment from _graph_enrichment_patterns
@@ -531,12 +565,19 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         )
         limit = getattr(request, "limit", 50)
 
+        # PUBLIC domains (PS, LP, KU) get no ownership MATCH; SCOPE_AWARE
+        # (Exercise) scopes via WHERE in the backend instead of the MATCH.
+        visibility = self.search_visibility
+        ownership_relationship = (
+            self.user_ownership_relationship if visibility is SearchVisibility.OWNER_ONLY else None
+        )
+
         result = await self.backend.faceted_search_raw(
             user_uid,
             # Pass the RelationshipName enum straight through — no from_string
             # round-trip (which would silently drop the ownership filter on an
             # unknown name; see ADR / project_security_posture fail-open risk).
-            user_ownership_relationship=self._user_ownership_relationship,
+            user_ownership_relationship=ownership_relationship,
             search_fields=self.search_fields,
             search_order_by=self.search_order_by,
             graph_enrichment_patterns=self._graph_enrichment_patterns,
@@ -544,6 +585,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             query_text=query_text,
             relationship_filters=relationship_filters,
             limit=limit,
+            visibility=visibility,
         )
         if result.is_error:
             return Result.fail(result)
