@@ -23,8 +23,9 @@ if TYPE_CHECKING:
     from datetime import date
 
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain, KuComplexity, LearningLevel, MasteryImpact, SELCategory
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums import MasteryImpact
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope, SubmissionModality
 
 
@@ -125,17 +126,17 @@ class ExerciseDTO(CurriculumDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "scope": ExerciseScope,
-                "expected_modality": SubmissionModality,
-                "mastery_impact": MasteryImpact,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "scope",
+                "expected_modality",
+                "mastery_impact",
+            ),
             date_fields=["due_date"],
             datetime_fields=[
                 "created_at",
@@ -203,17 +204,17 @@ class ExerciseDTO(CurriculumDTO):
                 "scoring_rubric",
                 "pass_threshold",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "scope": ExerciseScope,
-                "expected_modality": SubmissionModality,
-                "mastery_impact": MasteryImpact,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "scope",
+                "expected_modality",
+                "mastery_impact",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

@@ -31,6 +31,7 @@ See: core/ports/ingestion_protocols.py (BulkUpsertOperations),
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -102,8 +103,50 @@ def build_node_upsert_template(
     Uses pre-filtered ``item._node_props`` for node storage — connection keys
     are excluded in Python (``batch_preparer``) so relationship sources never
     leak onto the node as properties.
+
+    For ``:Entity``-based labels the template also maintains the owner edge:
+    every row persisted with a ``user_uid`` property gets its
+    ``(User)-[:OWNS]->(entity)`` edge and loses any :OWNS edge from OTHER
+    users (single-owner invariant — a former owner must not keep access
+    after a re-ingest under a different owner), restoring the invariant the
+    June-2026 migration enforces from the other side (property == :OWNS owner). The
+    owner is ``MATCH``ed, not ``MERGE``d, so an unknown user is silently
+    skipped — same no-stub semantics as relationship targets. Carve-outs hold
+    by construction: file-ingested exercises are ownerless curriculum content
+    (the validator forces ``scope: curriculum`` and no ``user_uid``), and
+    Group ownership is popped to ``owner_uid`` before this template runs.
     """
     label_clause = _label_clause(entity_label, base_label)
+    owns_clause = ""
+    if base_label == "Entity":
+        owns_clause = """
+// Owner edge — user_uid property implies :OWNS, single owner (edge props
+// mirror the CRUD path's create_user_relationship shape; timestamps are
+// Python-side ISO strings, matching the existing OWNS edge storage format).
+// The stale-owner DELETE enforces the single-owner invariant on re-ingest:
+// when the resolved owner changes (or an out-of-band edge exists), the
+// former owner must not keep access through a leftover :OWNS edge.
+WITH n, props
+CALL {
+  WITH n, props
+  WITH n, props.user_uid AS _owner_uid
+  WHERE _owner_uid IS NOT NULL
+  OPTIONAL MATCH (_stale:User)-[_stale_owns:OWNS]->(n)
+  WHERE _stale.uid <> _owner_uid
+  DELETE _stale_owns
+}
+CALL {
+  WITH n, props
+  WITH n, props.user_uid AS _owner_uid
+  WHERE _owner_uid IS NOT NULL
+  MATCH (owner:User {uid: _owner_uid})
+  MERGE (owner)-[_owns:OWNS]->(n)
+    ON CREATE SET
+      _owns.created_at = $owns_timestamp,
+      _owns.last_accessed = $owns_timestamp,
+      _owns.access_count = 0,
+      _owns.is_active = true
+}"""
     template_str = f"""
 // Bulk node upsert (Pure Cypher - No APOC) — phase 1, edges come later
 UNWIND $items AS item
@@ -115,6 +158,7 @@ MERGE (n:{label_clause} {{uid: item.uid}})
   ON MATCH SET
     n += props,
     n.updated_at = datetime()
+{owns_clause}
 RETURN count(n) as processed
 """
     return CypherTemplate(
@@ -307,7 +351,13 @@ class BulkUpsertBackend:
                     template=template,
                     items=items,
                     batch_size=batch_size,
-                    extra_params={"entity_label": entity_label},
+                    extra_params={
+                        "entity_label": entity_label,
+                        # OWNS edge ON CREATE timestamp — iso string to match
+                        # the CRUD path's edge property format (writer decides
+                        # storage type; existing OWNS edges store iso strings).
+                        "owns_timestamp": datetime.now().isoformat(),
+                    },
                 )
 
                 if result.is_error:

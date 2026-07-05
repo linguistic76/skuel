@@ -20,9 +20,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from core.models.curriculum_dto import CurriculumDTO
-from core.models.enums import Domain, KuComplexity, LearningLevel, SELCategory
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.curriculum_enums import StepDifficulty
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 
 
 @dataclass
@@ -102,15 +102,15 @@ class PathStepDTO(CurriculumDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "step_difficulty": StepDifficulty,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "step_difficulty",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -171,15 +171,15 @@ class PathStepDTO(CurriculumDTO):
                 "estimated_hours",
                 "step_difficulty",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "complexity": KuComplexity,
-                "learning_level": LearningLevel,
-                "sel_category": SELCategory,
-                "step_difficulty": StepDifficulty,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "complexity",
+                "learning_level",
+                "sel_category",
+                "step_difficulty",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

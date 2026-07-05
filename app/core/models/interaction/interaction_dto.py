@@ -18,9 +18,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enum_field_registry import enum_fields_for
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
-from core.models.enums.metadata_enums import Visibility
 from core.models.user_owned_dto import UserOwnedDTO
 
 
@@ -84,13 +84,13 @@ class InteractionDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "visibility": Visibility,
-                "interaction_type": InteractionType,
-                "result_status": InteractionResult,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "visibility",
+                "interaction_type",
+                "result_status",
+            ),
             datetime_fields=["created_at", "updated_at"],
             list_fields=["tags"],
             dict_fields=["metadata"],
@@ -121,11 +121,7 @@ class InteractionDTO(UserOwnedDTO):
                 # Interaction-specific fields
                 "result_status",
             },
-            enum_mappings={
-                "status": EntityStatus,
-                "visibility": Visibility,
-                "result_status": InteractionResult,
-            },
+            enum_mappings=enum_fields_for("status", "visibility", "result_status"),
         )
 
     def __eq__(self, other: object) -> bool:

@@ -24,7 +24,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from datetime import datetime
 
-from core.models.enums import Domain
+from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -137,14 +137,14 @@ class ChoiceDTO(UserOwnedDTO):
         return dto_from_dict(
             cls,
             data,
-            enum_fields={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "choice_type": ChoiceType,
-                "engagement_state": EngagementState,
-            },
+            enum_fields=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "choice_type",
+                "engagement_state",
+            ),
             datetime_fields=[
                 "created_at",
                 "updated_at",
@@ -205,14 +205,14 @@ class ChoiceDTO(UserOwnedDTO):
                 "source_path_step_uid",
                 "engagement_state",
             },
-            enum_mappings={
-                "entity_type": EntityType,
-                "status": EntityStatus,
-                "domain": Domain,
-                "visibility": Visibility,
-                "choice_type": ChoiceType,
-                "engagement_state": EngagementState,
-            },
+            enum_mappings=enum_fields_for(
+                "entity_type",
+                "status",
+                "domain",
+                "visibility",
+                "choice_type",
+                "engagement_state",
+            ),
         )
 
     def __eq__(self, other: object) -> bool:

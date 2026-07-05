@@ -104,7 +104,7 @@ genuinely instance-scoped domains declare it explicitly.
 | Value | Domains | Semantics |
 |-------|---------|-----------|
 | `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
-| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` (the reliable key — live `:OWNS` edges are incomplete for older Activity nodes) |
+| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` — retained by design even though the `user_uid == :OWNS owner` invariant now holds (ingestion writes the edge in `build_node_upsert_template`; `backfill_owns_from_user_uid_2026_07.cypher` restored existing nodes). Faceted search stays edge-based; the ingestion invariant-guard test keeps the two mechanisms equivalent |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
 
 **Composition point:** `build_search_visibility_clause()`

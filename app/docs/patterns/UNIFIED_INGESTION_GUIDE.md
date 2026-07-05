@@ -640,6 +640,25 @@ surface — the `/ingest` dashboard, the `VaultReconciler`, or a bare
 script — yields the same owner.** The reconciler still passes `user_uid=`/`allowlist=`
 explicitly; that is belt-and-suspenders — a by-path caller reproduces the same result.
 
+**Ownership is persisted on BOTH signals, single owner.** Any `:Entity` row the
+bulk upsert persists with a `user_uid` property also gets its
+`(User)-[:OWNS]->(entity)` edge in the same template (`build_node_upsert_template`
+— one chokepoint, both ingest doors), and any :OWNS edge from a DIFFERENT user is
+deleted (a former owner must not keep access after re-ingest under a new owner).
+This keeps the `user_uid == :OWNS owner` single-owner invariant that OWNS-consuming
+read paths (faceted search, `get_user_entities`) depend on. The owner is `MATCH`ed,
+not `MERGE`d — an unknown user produces no edge and no stub. Curriculum types never
+carry `user_uid` (ingested exercises are forced to ownerless `scope: curriculum`),
+so they stay edge-free by construction.
+
+**Authored enum casing is canonicalized at the preparer.** `normalize_enum_casing()`
+(the enum sibling of `normalize_uid`'s colon→dot rewrite) rewrites values whose only
+problem is casing — `learning_level: BEGINNER` is stored as `beginner` — against
+`core/models/enum_field_registry.py`, THE field→Enum association registry the DTOs
+also slice. Values that are wrong even lowercased fall through untouched for the
+validator/DTO boundary to reject. Exact-match property filters (the faceted
+`sel_category` facet) therefore never meet non-canonical casing in the graph.
+
 A directory scan attributes one owner + one wall to the whole batch, so it must belong
 to a single vault: a scan of an ancestor directory that **nests** another vault's root is
 rejected fail-closed (`VaultRegistry.nested_vault_roots`) rather than sweeping and
