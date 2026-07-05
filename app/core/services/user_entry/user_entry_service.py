@@ -150,6 +150,27 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if refs_check.is_error:
             return Result.fail(refs_check)
 
+        # TEACHER_REVIEW status is service-owned: the review workflow
+        # (queue → approve/request-revision) is the only writer after create,
+        # and create always stamps SUBMITTED. An authored/caller status could
+        # otherwise fake the lifecycle (`completed` reads as teacher-approved,
+        # `archived` dodges the queue) — reject anything but a truthful
+        # `submitted` on every entry point (JSON API, YAML door, /submit form).
+        if (
+            request.status is not None
+            and request.pipeline == Pipeline.TEACHER_REVIEW
+            and request.status != EntityStatus.SUBMITTED
+        ):
+            return Result.fail(
+                Errors.validation(
+                    f"status '{request.status.value}' is not allowed for "
+                    "teacher_review submissions — status is service-owned "
+                    "(SUBMITTED at create; the review workflow advances it). "
+                    "Remove the status field.",
+                    field="status",
+                )
+            )
+
         # PUBLIC visibility is portfolio-publication and gated on TEACHER
         # role. This covers every entry point (YAML /upload, /submit form,
         # programmatic callers) so no path can set visibility=PUBLIC on a
@@ -197,9 +218,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             entity_type=EntityType.USER_ENTRY,
             user_uid=user_uid,
             content=request.content,
-            status=EntityStatus.SUBMITTED
-            if request.pipeline == Pipeline.TEACHER_REVIEW
-            else EntityStatus.ACTIVE,
+            description=request.description,
+            status=request.status
+            or (
+                EntityStatus.SUBMITTED
+                if request.pipeline == Pipeline.TEACHER_REVIEW
+                else EntityStatus.ACTIVE
+            ),
             tags=tuple(request.tags),
             metadata=metadata,
             pipeline=request.pipeline,

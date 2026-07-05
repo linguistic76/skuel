@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import Field
 
 from core.models.enums import Domain
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
@@ -50,6 +51,14 @@ class UserEntryCreateRequest(CreateRequestBase):
     )
     title: str = Field(min_length=1, max_length=200, description="Entry title")
     content: str | None = Field(default=None, description="Text content (if any)")
+    description: str | None = Field(default=None, description="Short entry description")
+    status: EntityStatus | None = Field(
+        default=None,
+        description=(
+            "Authored status (e.g. from vault frontmatter). None → pipeline "
+            "default: SUBMITTED for TEACHER_REVIEW, ACTIVE otherwise."
+        ),
+    )
     domain: Domain = Field(default=Domain.KNOWLEDGE, description="Knowledge domain")
     tags: list[str] = Field(default_factory=list, description="Tags")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Free-form metadata")

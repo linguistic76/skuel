@@ -254,7 +254,9 @@ POST /api/user-entries/upload               POST /api/user-entries/form
         ↓                                            ↓
         └──────────────► UserEntryService.create_entry() ◄──────────────┘
                                   │
-   builds UserEntry (status SUBMITTED for pipeline=TEACHER_REVIEW, else ACTIVE)
+   builds UserEntry (status: SUBMITTED for pipeline=TEACHER_REVIEW — service-owned,
+     any other authored status rejected; else authored request.status wins when set
+     — e.g. vault frontmatter — falling back to ACTIVE)
    persists node — create_with_exercise_link() when fulfills_exercise_uid is set:
      → FULFILLS_EXERCISE {revision} → root Exercise (always)
      → FULFILLS_REVISED_EXERCISE {revision} → RevisedExercise (revision cycles only)
