@@ -9,10 +9,18 @@ and audience resolution), reads, updates, and deletion.
 Create flow
 -----------
 1. Build ``UserEntry`` from ``UserEntryCreateRequest``
-2. Persist node (via ``backend.create_with_exercise_link`` when an
-   exercise link is present, otherwise plain ``backend.create``)
-3. Auto-create ``Interaction`` audit record (when linked to an exercise
-   and ``interaction_service`` is wired)
+2. Persist node. Three mutually exclusive paths:
+     - **Turn-in** (``fulfills_exercise_uid`` + no caller uid): fresh
+       random-uid node via ``backend.create_with_exercise_link`` — writes
+       the ``FULFILLS_EXERCISE {revision}`` edge atomically.
+     - **Living entry** (caller-supplied deterministic uid, with or
+       without ``fulfills_exercise_uid``): idempotent ``backend.upsert``.
+       A declared ``fulfills_exercise_uid`` is stored as a node property
+       (intent — "exercise in progress"), NEVER as an edge; re-syncing an
+       edited vault file updates the same node in place.
+     - **Plain create** (no uid, no exercise): ``backend.create``.
+3. Auto-create ``Interaction`` audit record (turn-ins only, when
+   ``interaction_service`` is wired)
 4. Wire optional ``TRANSFORMS`` edge for multi-stage pipelines
 5. Resolve audience + call ``UnifiedSharingService``:
      - ``pipeline=TEACHER_REVIEW`` + exercise link + no explicit audience
@@ -171,6 +179,26 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
             )
 
+        # TEACHER_REVIEW turn-ins are frozen artifacts — always a fresh node,
+        # never an upsert. A deterministic uid would make the "pages handed to
+        # the teacher" mutable after submission. The vault living channel
+        # authors a non-review pipeline (e.g. knowledge) and flips
+        # ``status: submitted`` to file a frozen copy through the no-uid path.
+        if (
+            request.uid
+            and request.pipeline == Pipeline.TEACHER_REVIEW
+            and request.fulfills_exercise_uid
+        ):
+            return Result.fail(
+                Errors.validation(
+                    "pipeline=teacher_review with fulfills_exercise_uid always "
+                    "creates a fresh turn-in — remove the uid field. For a vault "
+                    "living entry, use a non-review pipeline and flip "
+                    "'status: submitted' to file a frozen copy.",
+                    field="uid",
+                )
+            )
+
         # PUBLIC visibility is portfolio-publication and gated on TEACHER
         # role. This covers every entry point (YAML /upload, /submit form,
         # programmatic callers) so no path can set visibility=PUBLIC on a
@@ -180,17 +208,17 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             if public_check.is_error:
                 return Result.fail(public_check)
 
-        # Exercise-linked turn-ins must ALWAYS create fresh, so they mint a
-        # random uid even if the caller supplied one (a deterministic uid +
-        # FULFILLS_EXERCISE would otherwise CREATE on a fixed uid and trip the
-        # uniqueness constraint on the second turn-in). Otherwise a
-        # caller-supplied uid (deterministic vault-note ids like
-        # ``ue:daily:2026-06-16``) routes to an idempotent upsert below so
-        # re-syncing an edited note updates in place; absent one we mint a
-        # random uid and create fresh (the /submit form path).
-        if request.fulfills_exercise_uid:
-            uid = UIDGenerator.generate_random_uid("ue")
-        elif request.uid:
+        # A turn-in is an exercise link WITHOUT a caller uid: it must always
+        # create fresh (frozen copy, FULFILLS_EXERCISE edge, revision mint), so
+        # it gets a random uid — the /submit form and /upload YAML paths.
+        # A caller-supplied deterministic uid (vault-note ids like
+        # ``ue:daily:2026-06-16``) routes to the idempotent upsert below so
+        # re-syncing an edited note updates in place — WITH or without a
+        # declared exercise. The deterministic-uid + fulfills combination is
+        # the vault living channel: the declaration is stored as intent on the
+        # node, never as an edge (the frozen copies carry the edges).
+        turn_in_exercise_uid = None if request.uid else request.fulfills_exercise_uid
+        if request.uid:
             uid = EntityUID(request.uid)
         else:
             uid = UIDGenerator.generate_random_uid("ue")
@@ -200,6 +228,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # can select the right template during LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE
         # processing. Caller-supplied metadata["enrichment_mode"] wins (explicit beats
         # implicit); the exercise lookup is best-effort and a miss is non-fatal.
+        # Keyed on the declared exercise (not just turn-ins): a living entry
+        # that declares an exercise and later runs an LLM pipeline should
+        # resolve the exercise-specific enrichment mode too (Kody #508).
         metadata: dict[str, Any] = dict(request.metadata or {})
         if (
             request.fulfills_exercise_uid
@@ -236,23 +267,25 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             file_size=request.file_size,
             file_type=request.file_type,
             visibility=request.visibility or Visibility.PRIVATE,
+            fulfills_exercise_uid=request.fulfills_exercise_uid,
             created_at=now,
             updated_at=now,
         )
 
-        # 2. Persist node (with or without exercise link)
-        if request.fulfills_exercise_uid:
-            revision = await self._next_revision(user_uid, request.fulfills_exercise_uid)
+        # 2. Persist node (turn-in / living upsert / plain create)
+        if turn_in_exercise_uid:
+            revision = await self._next_revision(user_uid, turn_in_exercise_uid)
             create_result = await self.backend.create_with_exercise_link(
                 entry=entry,
-                exercise_uid=request.fulfills_exercise_uid,
+                exercise_uid=turn_in_exercise_uid,
                 revision=revision,
             )
         elif request.uid:
             # Deterministic uid → idempotent MERGE-on-uid so vault re-sync of an
-            # edited note updates in place instead of duplicating. Exercise-linked
-            # turn-ins always create fresh (they mint a random uid), so this branch
-            # is mutually exclusive with the FULFILLS_EXERCISE path above.
+            # edited note updates in place instead of duplicating. A declared
+            # ``fulfills_exercise_uid`` rides along as the intent property only
+            # — no FULFILLS_EXERCISE edge, no revision mint (the living channel;
+            # frozen copies file through the turn-in branch above).
             #
             # Ownership is enforced atomically inside `backend.upsert` (the MERGE
             # gates its write on the existing owner and returns not-found on a
@@ -266,14 +299,16 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(create_result)
         created: UserEntry = create_result.value
 
-        # 3. Auto-create Interaction audit record. The PathStep context is what
+        # 3. Auto-create Interaction audit record — turn-ins only. A living
+        # entry's declared intent is not a submission event; the audit record
+        # mints when the frozen copy files. The PathStep context is what
         # the PS submissions-and-feedback query anchors on (INTERACTION_DURING),
         # so about_path_step_uid must ride onto the record.
-        if request.fulfills_exercise_uid and self.interaction_service is not None:
+        if turn_in_exercise_uid and self.interaction_service is not None:
             await self._create_interaction_record(
                 entry_uid=created.uid,
                 user_uid=user_uid,
-                exercise_uid=request.fulfills_exercise_uid,
+                exercise_uid=turn_in_exercise_uid,
                 path_step_uid=request.about_path_step_uid,
             )
 
@@ -330,6 +365,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             f"fulfills_exercise={request.fulfills_exercise_uid or '-'})"
         )
 
+        # Event-side ``fulfills_exercise_uid`` means "a turn-in was filed" —
+        # the exercise_handler subscriber runs the linker (scope validation +
+        # revision title-stamp) off it. A living entry's declared intent must
+        # NOT trigger that machinery, so the field rides only for turn-ins.
         await publish_event(
             self.event_bus,
             UserEntryCreated(
@@ -337,7 +376,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 user_uid=user_uid,
                 pipeline=request.pipeline.value,
                 modality=request.modality.value if request.modality else None,
-                fulfills_exercise_uid=request.fulfills_exercise_uid,
+                fulfills_exercise_uid=turn_in_exercise_uid,
                 transforms_of_uid=request.transforms_of_uid,
                 file_type=request.file_type,
             ),
@@ -411,6 +450,22 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(self._to_domain_models(result.value or [], UserEntryDTO, UserEntry))
+
+    @with_error_handling("get_latest_entry_for_exercise")
+    async def get_latest_entry_for_exercise(
+        self,
+        user_uid: UserUID,
+        exercise_uid: str,
+    ) -> Result[dict[str, Any] | None]:
+        """The user's newest turn-in (uid, content, revision) for an exercise.
+
+        The vault exercise channel's dedup source: a frozen copy is filed only
+        when the living file's content differs from this row's ``content``.
+        Returns ``None`` when the user has never turned the exercise in.
+
+        Backend: _UserEntryCrudMixin.get_latest_entry_for_exercise.
+        """
+        return await self.backend.get_latest_entry_for_exercise(user_uid, exercise_uid)
 
     @with_error_handling("get_review_queue")
     async def get_review_queue(

@@ -137,8 +137,10 @@ fresh on every ingest. When a deterministic UID is known, the service
 switches to **MERGE-on-uid upsert** instead: re-ingesting an edited file
 updates the existing node in place rather than duplicating it.
 `created_at` is preserved across re-syncs; `updated_at` and content are
-refreshed. The exercise-linked turn-in path (`fulfills_exercise_uid`)
-always mints a random UID and is unaffected.
+refreshed. An exercise-linked file **without** a `uid:` is the turn-in
+path (`fulfills_exercise_uid` mints a random UID, fresh node every time);
+**with** a deterministic `uid:` it becomes the vault exercise channel's
+living entry — see the next section.
 
 **Periodic notes** (`entry_kind: daily | weekly | monthly`) get a
 deterministic UID automatically — no explicit `uid:` needed:
@@ -160,6 +162,54 @@ join key, never type information (ADR-013 never-sniff; the entity kind is
 whatever `type:` says). The *derived* periodic UIDs in the table above are
 deliberately NOT normalized — their colon form is the calendar routes' join
 contract.
+
+### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
+
+Any exercise, any file: work an exercise in your own vault, sync freely
+while in progress, flip one frontmatter line to submit. The channel is
+defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
+(see `plans/moc-knowledge-channel-design-notes.md` § Phase 0 rulings):
+
+- **Living entry** (`status: in process` or any non-submitted status):
+  ONE node, upserted in place every sync. The exercise declaration is
+  stored as the `fulfills_exercise_uid` **node property — declared intent**
+  ("exercise in progress"), never a `FULFILLS_EXERCISE` edge, no revision,
+  no Interaction. Removing the frontmatter line withdraws the intent (the
+  property clears on the next sync). Authorization is validated at first
+  sync (`query_user_can_use_exercise` — owner, group member, or
+  IN_PROGRESS on an anchored PathStep) and fails the file loudly.
+- **`status: submitted` + sync = the turn-in signal.** Sync files a
+  **frozen copy** through the existing turn-in machinery: fresh random-uid
+  node, `FULFILLS_EXERCISE {revision}` edge, Interaction audit record,
+  `pipeline: teacher_review` with truthful service-stamped `submitted`,
+  audience auto-routing to the exercise's groups. A copy is filed **only
+  when content changed since the last copy** — the newest copy IS the
+  dedup state (no hash bookkeeping), so idle re-syncs while still marked
+  `submitted` are no-ops, and editing while submitted files the next
+  revision. Flip back to `in process` to revise in peace. Sync never
+  writes into the user's file.
+- **The living entry's own status stays `active`** while the file says
+  `submitted` — it is not itself in a review queue; the submitted state
+  belongs to the frozen copy (#507: TEACHER_REVIEW status is
+  service-owned). Consequently `pipeline: teacher_review` + `uid:` +
+  `fulfills_exercise_uid:` is rejected: turn-ins are frozen, living files
+  author a non-review pipeline (typically `knowledge`).
+- **A submitted copy that reaches no teacher/group is an ERROR** in the
+  sync results (the copy is compensated/deleted, the living entry stays;
+  the file is retried next sync). Every exercise should have a reachable
+  reviewer — an unreviewable turn-in is never a silent success.
+
+```yaml
+---
+type: user_entry
+pipeline: knowledge
+uid: ue:vault:my-tasks-list        # deterministic — the living entry
+fulfills_exercise_uid: ex_list_tasks_abc123
+status: in process                 # flip to `submitted` to turn in
+---
+- Ship the garden bed
+- Call the notary
+```
 
 ### Markdown body → `content`
 

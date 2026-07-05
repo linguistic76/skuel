@@ -106,6 +106,19 @@ class UserEntry(UserOwnedEntity):
     modality: SubmissionModality | None = None
 
     # =========================================================================
+    # DECLARED EXERCISE INTENT — vault living channel
+    # =========================================================================
+    # The exercise this entry is being worked against, as declared by the
+    # author (``fulfills_exercise_uid:`` frontmatter on a deterministic-uid
+    # vault file, or the create request). This is INTENT, not the turn-in:
+    # the turn-in truth stays on the ``FULFILLS_EXERCISE {revision}`` edge,
+    # which only frozen submission copies carry. A living vault entry has
+    # the property and never the edge; removing the frontmatter line removes
+    # the property on the next sync (intent withdrawn). Mirrors the
+    # ``Exercise.path_step_uid`` membership-property precedent.
+    fulfills_exercise_uid: str | None = None
+
+    # =========================================================================
     # TITLE GENERATION — ports Submission.generate_exercise_title unchanged;
     # revision is passed explicitly by the caller (it lives on the edge, not
     # the node).

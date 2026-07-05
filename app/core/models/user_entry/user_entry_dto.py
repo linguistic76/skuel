@@ -72,6 +72,11 @@ class UserEntryDTO(UserOwnedDTO):
     modality: SubmissionModality | None = None
 
     # =========================================================================
+    # DECLARED EXERCISE INTENT (vault living channel — see UserEntry docstring)
+    # =========================================================================
+    fulfills_exercise_uid: str | None = None
+
+    # =========================================================================
     # SERIALIZATION
     # =========================================================================
 
