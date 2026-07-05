@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.search.search_router import SearchRouter, UnifiedSearchResult
 from core.models.search_request import SearchRequest
 from services_bootstrap import Services
@@ -75,12 +75,14 @@ class TestUserEntryPrivacyLine:
 
     @pytest.mark.asyncio
     async def test_cross_domain_sweep_excludes_user_entry(self, monkeypatch) -> None:
-        """The 'All Types' sweep never touches the UserEntry store."""
+        """The default 'All Types' sweep never touches the UserEntry store."""
         router = SearchRouter(services=SimpleNamespace())
-        captured: dict[str, list] = {}
+        swept_types: list[EntityType | NonKuDomain] = []
+        swept_uids: list[str | None] = []
 
         async def fake_search_domains(entity_types, query, limit_per_domain=20, user_uid=None):
-            captured["types"] = list(entity_types)
+            swept_types.extend(entity_types)
+            swept_uids.append(user_uid)
             return UnifiedSearchResult(query=query, results_by_domain={}, total_count=0)
 
         monkeypatch.setattr(router, "search_domains", fake_search_domains)
@@ -89,8 +91,44 @@ class TestUserEntryPrivacyLine:
         result = await router.faceted_search(request, user_uid="user_a")
 
         assert result.is_ok
-        assert EntityType.USER_ENTRY not in captured["types"]
-        assert EntityType.TASK in captured["types"]
+        assert EntityType.USER_ENTRY not in swept_types
+        assert EntityType.TASK in swept_types
+        # Owner scope threads through so user-owned domains filter server-side
+        assert swept_uids == ["user_a"]
+
+    @pytest.mark.asyncio
+    async def test_explicit_multi_type_filter_includes_user_entry(self, monkeypatch) -> None:
+        """[USER_ENTRY, TASK] narrows the sweep and keeps entries (scoped)."""
+        router = SearchRouter(services=SimpleNamespace())
+        swept_types: list[EntityType | NonKuDomain] = []
+        swept_uids: list[str | None] = []
+
+        async def fake_search_domains(entity_types, query, limit_per_domain=20, user_uid=None):
+            swept_types.extend(entity_types)
+            swept_uids.append(user_uid)
+            return UnifiedSearchResult(query=query, results_by_domain={}, total_count=0)
+
+        monkeypatch.setattr(router, "search_domains", fake_search_domains)
+
+        request = SearchRequest(
+            query_text="anything", entity_types=[EntityType.USER_ENTRY, EntityType.TASK]
+        )
+        result = await router.faceted_search(request, user_uid="user_a")
+
+        assert result.is_ok
+        assert swept_types == [EntityType.USER_ENTRY, EntityType.TASK]
+        assert swept_uids == ["user_a"]
+
+    @pytest.mark.asyncio
+    async def test_faceted_user_entry_without_user_is_refused(self) -> None:
+        """A user_entry faceted request with no user fails loudly, not empty-ok."""
+        router = SearchRouter(services=SimpleNamespace())
+
+        request = SearchRequest(query_text="anything", entity_types=[EntityType.USER_ENTRY])
+        result = await router.faceted_search(request, user_uid=None)
+
+        assert result.is_error
+        assert "user scope" in str(result.expect_error().message)
 
     @pytest.mark.asyncio
     async def test_advanced_search_skips_user_entry(self) -> None:
@@ -134,6 +172,14 @@ class TestSingleEntityTypeRouting:
         """Two or more entity types stay on the cross-domain path."""
         router = SearchRouter(services=SimpleNamespace())
         request = SearchRequest(query_text="x", entity_types=[EntityType.TASK, EntityType.GOAL])
+
+        assert router._resolve_single_domain(request) is None
+
+    def test_non_searchable_type_resolves_to_none(self) -> None:
+        """KU is registered for get_service but NOT searchable — the dropdown
+        filter must stay consistent with search()'s supports_search() gate."""
+        router = SearchRouter(services=SimpleNamespace())
+        request = SearchRequest(query_text="x", entity_types=[EntityType.KU])
 
         assert router._resolve_single_domain(request) is None
 

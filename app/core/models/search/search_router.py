@@ -511,6 +511,16 @@ class SearchRouter:
             # single entity-type filter (the /search dropdown path)
             domain_str = self._resolve_single_domain(request)
             if domain_str:
+                # Privacy line: refuse loudly rather than fall through to the
+                # sweep and return an empty success for a misprogrammed caller
+                if domain_str == "user_entry" and user_uid is None:
+                    return Result.fail(
+                        Errors.validation(
+                            field="user_uid",
+                            message="user_entry search requires a user scope",
+                        )
+                    )
+
                 # Graph-aware domains with user → graph_aware_faceted_search
                 # January 2026: Unified search for Activity Domains + Curriculum Domains
                 if domain_str in self._GRAPH_AWARE_DOMAINS and user_uid:
@@ -523,8 +533,8 @@ class SearchRouter:
                 if result is not None:
                     return result
 
-            # Route 2: Cross-domain search (no domain specified)
-            cross_results = await self._cross_domain_search(request)
+            # Route 2: Cross-domain search (no single domain resolvable)
+            cross_results = await self._cross_domain_search(request, user_uid)
             search_time = (datetime.now() - start_time).total_seconds() * 1000
             return Result.ok(
                 SearchResponse(
@@ -567,29 +577,36 @@ class SearchRouter:
         }
     )
 
+    @staticmethod
+    def _parse_entity_type(raw: object) -> EntityType | NonKuDomain | None:
+        """Normalize a request entity-type entry to its enum.
+
+        ``use_enum_values=True`` on SearchRequest means ``entity_types`` holds
+        raw value strings after validation — enum identity checks
+        (``isinstance``, ``.value``, ``is_user_owned()``) need the member back.
+        """
+        if isinstance(raw, EntityType | NonKuDomain):
+            return raw
+        return EntityType.from_string(str(raw)) or NonKuDomain.from_string(str(raw))
+
     def _resolve_single_domain(self, request: "SearchRequest") -> str | None:
         """Resolve the request to a single domain string, if one is targeted.
 
         Two sources, in precedence order:
         1. ``request.domain`` — Domain enum value (intelligent_search path).
-        2. A single ``entity_types`` filter — the /search dropdown path.
-           Maps through _SERVICE_REGISTRY so filtered searches take the same
-           single-domain (ownership-aware) route as domain searches instead
-           of falling through to the cross-domain sweep.
-
-        Note: ``use_enum_values=True`` on SearchRequest means entity_types
-        holds raw value strings, so parse before the registry lookup.
+        2. A single SEARCHABLE ``entity_types`` filter — the /search dropdown
+           path. Maps through _SERVICE_REGISTRY so filtered searches take the
+           same single-domain (ownership-aware) route as domain searches.
+           Non-searchable types (e.g. KU, which is registered for
+           ``get_service`` but excluded from ``_SEARCHABLE_DOMAINS``) fall
+           through to the cross-domain sweep, keeping this path consistent
+           with ``search()``'s supports_search() gate.
         """
         if request.domain:
             return request.domain if isinstance(request.domain, str) else request.domain.value
         if len(request.entity_types) == 1:
-            raw = request.entity_types[0]
-            entity_type = (
-                raw
-                if isinstance(raw, EntityType | NonKuDomain)
-                else EntityType.from_string(str(raw)) or NonKuDomain.from_string(str(raw))
-            )
-            if entity_type is not None:
+            entity_type = self._parse_entity_type(request.entity_types[0])
+            if entity_type is not None and self.supports_search(entity_type):
                 return self._SERVICE_REGISTRY.get(entity_type)
         return None
 
@@ -751,19 +768,29 @@ class SearchRouter:
     async def _cross_domain_search(
         self,
         request: "SearchRequest",
+        user_uid: UserUID | None = None,
     ) -> list[dict]:
-        """Search across multiple domains and aggregate results."""
-        # Search all searchable domains EXCEPT UserEntry: the sweep runs
-        # unscoped (no ownership filter), and entries are private user content.
-        # Entries are reachable only through the explicit entity-type filter,
-        # which routes through the OWNS-scoped graph-aware path.
-        sweep_domains: list[EntityType | NonKuDomain] = [
-            et for et in self._SEARCHABLE_DOMAINS if et != EntityType.USER_ENTRY
-        ]
+        """Search across multiple domains and aggregate results.
+
+        An explicit ``entity_types`` filter narrows the sweep (e.g.
+        ``[USER_ENTRY, TASK]``); otherwise all searchable domains EXCEPT
+        UserEntry are swept — entries are private user content and appear in
+        aggregations only when the caller explicitly asks for them AND the
+        search is user-scoped (search() refuses unscoped UserEntry queries).
+        ``user_uid`` scopes user-owned domains; shared domains ignore it.
+        """
+        sweep_domains: list[EntityType | NonKuDomain]
+        if request.entity_types:
+            sweep_domains = [
+                et for et in map(self._parse_entity_type, request.entity_types) if et is not None
+            ]
+        else:
+            sweep_domains = [et for et in self._SEARCHABLE_DOMAINS if et != EntityType.USER_ENTRY]
         unified_result = await self.search_domains(
             sweep_domains,
             request.query_text or "",
             limit_per_domain=max(5, request.limit // 6),
+            user_uid=user_uid,
         )
 
         # Convert to flat list of dicts

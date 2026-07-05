@@ -136,6 +136,29 @@ async def test_unscoped_search_is_refused(
     result = await search_router.search(EntityType.USER_ENTRY, "Tasks")
     assert result.is_error
 
+    # Faceted single-type path refuses loudly too (not an empty success)
+    request = SearchRequest(query_text="Tasks", entity_types=[EntityType.USER_ENTRY])
+    faceted = await search_router.faceted_search(request, user_uid=None)
+    assert faceted.is_error
+
+
+@pytest.mark.asyncio
+async def test_multi_type_filter_returns_scoped_entries(
+    clean_neo4j, user_entry_service, seed_user, search_router
+) -> None:
+    """[USER_ENTRY, TASK] narrows the sweep and still surfaces the caller's
+    own entries (Kody finding on PR #512) — owner-scoped, never cross-user."""
+    created = await _seed_entries(user_entry_service, seed_user)
+
+    request = SearchRequest(
+        query_text="Tasks", entity_types=[EntityType.USER_ENTRY, EntityType.TASK]
+    )
+    result = await search_router.faceted_search(request, user_uid=OWNER_UID)
+    assert result.is_ok, result.expect_error()
+    uids = {r.get("uid") for r in result.value.results}
+    assert created["tasks_list"] in uids
+    assert created["other_users"] not in uids
+
 
 @pytest.mark.asyncio
 async def test_faceted_search_owner_scope_and_pipeline_facet(
