@@ -387,6 +387,35 @@ class TestLivingEntryChannel:
         backend.create_with_exercise_link.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_living_entry_resolves_exercise_enrichment_mode(self):
+        """The enrichment-mode lookup keys on the DECLARED exercise, not just
+        turn-ins — a living entry later run through an LLM pipeline must
+        resolve the exercise-specific mode (Kody #508)."""
+        from core.models.enums.user_entry_enums import EnrichmentMode
+
+        exercise = MagicMock()
+        exercise.enrichment_mode = EnrichmentMode.CRITICAL_THINKING
+        exercise_service = MagicMock()
+        exercise_service.get_exercise = AsyncMock(return_value=Result.ok(exercise))
+
+        backend = _make_backend()
+        service = UserEntryService(
+            backend=backend,
+            sharing_service=_make_sharing_service(),
+            exercise_service=exercise_service,
+        )
+        request = UserEntryCreateRequest(
+            uid="ue:vault:tasks-list",
+            title="My task list",
+            pipeline=Pipeline.KNOWLEDGE,
+            fulfills_exercise_uid="ex_1",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok, result.expect_error()
+        entry_passed = backend.upsert.await_args.args[0]
+        assert entry_passed.metadata["enrichment_mode"] == EnrichmentMode.CRITICAL_THINKING.value
+
+    @pytest.mark.asyncio
     async def test_living_entry_still_requires_exercise_authorization(self):
         """validate_references guards the living declaration at first sync."""
         sharing = _make_sharing_service()

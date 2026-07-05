@@ -279,6 +279,13 @@ class _UserEntryCrudMixin:
         copies themselves ARE the last-submitted state, so no separate
         hash bookkeeping exists to drift. Ordered by the edge's revision
         (the copy sequence), newest first.
+
+        Deliberately the same root-lineage lens as ``_next_revision`` /
+        ``count_entries_for_exercise``: a RevisedExercise target collapses
+        to its root, and revision-cycle copies are visible here because
+        ``create_with_exercise_link`` always anchors ``FULFILLS_EXERCISE``
+        on the root. Dedup and revision numbering therefore agree on what
+        "the last copy" means across a whole exercise lineage.
         """
         query = """
         MATCH (target:Entity {uid: $exercise_uid})

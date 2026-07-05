@@ -228,13 +228,16 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # can select the right template during LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE
         # processing. Caller-supplied metadata["enrichment_mode"] wins (explicit beats
         # implicit); the exercise lookup is best-effort and a miss is non-fatal.
+        # Keyed on the declared exercise (not just turn-ins): a living entry
+        # that declares an exercise and later runs an LLM pipeline should
+        # resolve the exercise-specific enrichment mode too (Kody #508).
         metadata: dict[str, Any] = dict(request.metadata or {})
         if (
-            turn_in_exercise_uid
+            request.fulfills_exercise_uid
             and self.exercise_service is not None
             and "enrichment_mode" not in metadata
         ):
-            ex_result = await self.exercise_service.get_exercise(turn_in_exercise_uid)
+            ex_result = await self.exercise_service.get_exercise(request.fulfills_exercise_uid)
             if ex_result.is_ok:
                 ex_em = ex_result.value.enrichment_mode
                 if ex_em is not None:
