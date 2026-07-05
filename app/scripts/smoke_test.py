@@ -140,6 +140,11 @@ _REGISTRY_COMPONENTS = (
 _FIXTURE_STUB_JS = (
     "window.fetch = function () { return new Promise(function () {}); };"
     "window.WebSocket = function () { return { close: function () {}, send: function () {} }; };"
+    # BasePage registers the PWA service worker; the fixture server doesn't serve
+    # it, and a rejected registration is an "Uncaught (in promise)" false-fail.
+    "if (navigator.serviceWorker) {"
+    "  navigator.serviceWorker.register = function () { return new Promise(function () {}); };"
+    "}"
 )
 
 
@@ -236,6 +241,111 @@ window.addEventListener('load', function () {
 """
 
 
+# Static fragment served by the fixture HTTP server so the authed_chrome fixture
+# can run a REAL htmx request lifecycle (hx-trigger="load" GET -> 200 -> swap)
+# under Chrome — the skuel.js htmx:beforeRequest/afterSwap handlers execute for
+# real, not synthetically. Name deliberately contains "status" so keyword-based
+# announce code paths see a representative path.
+_FRAGMENT_FILES = {
+    "frag_status.html": '<div id="smoke-fragment-loaded">fragment loaded</div>',
+}
+
+# Installed from page content (parses before DOMContentLoaded, hence before htmx
+# initializes and issues hx-trigger="load" requests): counts fragment fetches so
+# the driver can assert each load-triggered element fires EXACTLY once. The
+# htmx-reprocessing bug (htmx.process() from an htmx:load handler + aria-busy
+# writes invalidating htmx's all-attribute init hash) fired every such request
+# twice and crashed the losing swap on a detached target (htmx:swapError).
+_AUTHED_XHR_COUNTER_JS = (
+    "window.__fragmentRequests = 0;"
+    "(function () {"
+    "  var origOpen = XMLHttpRequest.prototype.open;"
+    "  XMLHttpRequest.prototype.open = function (m, u) {"
+    "    if (String(u).indexOf('frag_status') !== -1) { window.__fragmentRequests++; }"
+    "    return origOpen.apply(this, arguments);"
+    "  };"
+    "})();"
+)
+
+# Synthetic-event driver for the authed-chrome fixture. Asserts, with no live
+# server, the three JS exception classes found live on every authed page
+# (2026-07-04) stay fixed — reverting any one fix turns this fixture red:
+#   1. htmx double-processing: the hx-trigger="load" fragment must be fetched
+#      exactly once (reverting the skuel.js htmx:load handler removal -> 2);
+#   2. mutation announce: a successful non-GET swap must announce to the live
+#      region via requestConfig.verb/.path (the old code read the nonexistent
+#      event.detail.pathInfo.path and threw on every htmx request);
+#   3. theme restore: dark_mode_script() must be wired in build_head (the old
+#      multi-statement x-init on <html> was an Alpine Expression Error and the
+#      theme never persisted).
+# Failure signal: an uncaught TypeError (matches _JS_ERROR_MARKERS).
+_AUTHED_CHROME_DRIVER_JS = """
+window.addEventListener('load', function () {
+  setTimeout(function () {
+    var failures = [];
+    try {
+      if (window.__fragmentRequests !== 1) {
+        failures.push('load-triggered fragment fetched ' + window.__fragmentRequests
+          + ' time(s), expected exactly 1 (htmx re-processing regression)');
+      }
+      if (!document.getElementById('smoke-fragment-loaded')) {
+        failures.push('fragment content never swapped in');
+      }
+      var probe = document.getElementById('smoke-announce-probe');
+      document.body.dispatchEvent(new CustomEvent('htmx:afterSwap', {
+        detail: { target: probe,
+                  requestConfig: { verb: 'post', path: '/api/tasks/task_smoke/status' } } }));
+      var live = document.getElementById('live-region');
+      if (!live || live.textContent !== 'Status updated') {
+        failures.push('mutation announce missing: live-region="'
+          + (live ? live.textContent : 'NO LIVE REGION') + '", expected "Status updated"');
+      }
+      if (typeof window.toggleTheme !== 'function') {
+        failures.push('theme restore script not wired (window.toggleTheme missing)');
+      }
+    } catch (e) { failures.push('driver threw: ' + e); }
+    if (failures.length) {
+      throw new TypeError('SMOKE authed chrome: ' + failures.join(' | '));
+    }
+  }, 1500);
+});
+"""
+
+
+def _render_authed_chrome_fixture() -> "FT":
+    """Real authed-layout chrome (BasePage STANDARD + navbar) + htmx lifecycle.
+
+    The other fixtures are bare Html shells, so exceptions carried by the shared
+    authenticated chrome — or fired by htmx request handling — were invisible to
+    this gate (#509 finding: three exception classes on every authed page).
+    This fixture renders the real BasePage document (navbar, live region, toasts,
+    theme script) and runs one real hx-trigger="load" GET against the fixture's
+    own static server, so skuel.js's htmx event handlers actually execute.
+    """
+    import asyncio
+
+    from fasthtml.common import Div, Script
+
+    from ui.components.icon import Icon
+    from ui.layouts.base_page import BasePage
+
+    content = Div(
+        "SKUEL",
+        Icon("check"),
+        Script(_FIXTURE_STUB_JS + _AUTHED_XHR_COUNTER_JS),
+        # Real htmx lifecycle: load-trigger GET against the fixture server.
+        Div(
+            "loading...",
+            id="smoke-fragment",
+            **{"hx-get": "/frag_status.html", "hx-trigger": "load", "hx-swap": "outerHTML"},
+        ),
+        # Target for the synthetic mutation-announce dispatch.
+        Div(id="smoke-announce-probe"),
+        Script(_AUTHED_CHROME_DRIVER_JS),
+    )
+    return asyncio.run(BasePage(content, title="Authed Chrome Smoke", is_authenticated=True))
+
+
 def _render_enroll_failure_fixture() -> "FT":
     """Hermetic page for the enroll-failure surfacing pipeline (G7 totality).
 
@@ -276,6 +386,10 @@ def render_pages() -> dict[str, str]:
       component registration/timing regressions (#468).
     - ``enroll_failure``: synthetic-event drive of the error-toast + optimistic
       rollback pipeline (promoted from Arc F's live-only CDP check).
+    - ``authed_chrome``: real BasePage authed chrome + a real htmx request
+      lifecycle against the fixture server, guarding the three exception classes
+      found live on every authed page (2026-07-04). Live-layer counterpart:
+      ``scripts/authed_smoke.py`` (CDP against a running app; not CI).
     """
     from fasthtml.common import to_xml
 
@@ -285,6 +399,7 @@ def render_pages() -> dict[str, str]:
         "login": render_login_landing_page,
         "js_smoke": _render_js_smoke_fixture,
         "enroll_failure": _render_enroll_failure_fixture,
+        "authed_chrome": _render_authed_chrome_fixture,
     }
 
     pages: dict[str, str] = {}
@@ -403,6 +518,9 @@ def main() -> int:
         os.symlink(STATIC_DIR, root / "static")
         for name, html in pages.items():
             (root / f"{name}.html").write_text(html, encoding="utf-8")
+        # Fragments the authed_chrome fixture fetches over real htmx requests.
+        for fragment_name, fragment_html in _FRAGMENT_FILES.items():
+            (root / fragment_name).write_text(fragment_html, encoding="utf-8")
 
         server = serve(root, port)
         profiles = root / "_profiles"

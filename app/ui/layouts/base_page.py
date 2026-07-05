@@ -47,7 +47,7 @@ from ui.layouts.navbar import (
     create_navbar_for_request,
 )
 from ui.layouts.page_types import PAGE_CONFIG, PageType
-from ui.theme import pwa_headers, skuel_headers
+from ui.theme import dark_mode_script, pwa_headers, skuel_headers
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -93,6 +93,9 @@ def build_head(
         Meta(charset="UTF-8"),
         Meta(name="viewport", content="width=device-width, initial-scale=1.0, viewport-fit=cover"),
         Title(f"{title} - SKUEL"),
+        # Theme restore runs first (before CSS/scripts) so dark mode applies
+        # without a flash of light theme.
+        dark_mode_script(),
         # output.css + HTMX + Alpine + main.css + skuel.js — cached at import
         *_SKUEL_HEADERS,
         # Vis.js Network (self-hosted, v9.1.9) - Lateral Relationships
@@ -307,13 +310,6 @@ async def BasePage(
             """),
             cls="bg-background text-foreground",
         ),
-        **{
-            "x-data": "",
-            "x-init": """
-                var t = localStorage.getItem('skuel-theme');
-                if (t === 'dark') document.documentElement.classList.add('dark');
-            """,
-        },
     )
 
 

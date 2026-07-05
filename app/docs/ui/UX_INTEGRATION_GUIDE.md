@@ -273,27 +273,29 @@ Div(cls="safe-content px-4 py-6")
 
 ### Announce Content Updates
 
-Add `data-live-announce` to HTMX targets:
+Add `data-announce` to the triggering element (or any element inside the
+swapped content). skuel.js's `htmx:afterSwap` handler announces it after a
+successful swap; without it, mutations (non-GET) get a keyword-based default
+("Created successfully", "Status updated", ...). `data-announce-loading` on
+the triggering element customizes the in-flight announcement.
 
 ```python
-# In HTMX swap targets:
-Div(
-    id="results",
+Button(
+    "Search",
     hx_get="/api/search",
-    hx_trigger="input delay:500ms",
-    **{"data-live-announce": "Search results updated"},
+    hx_target="#results",
+    **{"data-announce": "Search results updated"},
 )
 ```
 
 ### Custom Announcements
 
-For dynamic announcements:
+For dynamic announcements use the central announcer (sets aria-live priority
+and clears after 3s):
 
 ```javascript
 // In JavaScript:
-const liveRegion = document.getElementById('live-region');
-liveRegion.textContent = 'Task completed';
-setTimeout(() => liveRegion.textContent = '', 1000);
+window.SKUEL.announce('Task completed', 'polite');
 ```
 
 ---

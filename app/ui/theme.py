@@ -84,7 +84,13 @@ def pwa_headers(
 
 
 def dark_mode_script() -> Script:
-    """Dark mode toggle script — class-based (Tailwind 'dark' on html element)."""
+    """Dark mode restore + toggle — class-based (Tailwind 'dark' on html element).
+
+    Wired into build_head() so it runs before CSS paints (no theme flash).
+    Only an EXPLICIT choice (toggleTheme / the settings form) persists to
+    localStorage; the prefers-color-scheme fallback is applied without being
+    stored, so users who never chose keep following later system changes.
+    """
     return Script("""
         (function() {
             const THEME_KEY = 'skuel-theme';
@@ -95,26 +101,27 @@ def dark_mode_script() -> Script:
                 return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
 
-            function setTheme(theme) {
+            function applyTheme(theme) {
                 if (theme === 'dark') {
                     document.documentElement.classList.add('dark');
                 } else {
                     document.documentElement.classList.remove('dark');
                 }
-                localStorage.setItem(THEME_KEY, theme);
             }
 
-            setTheme(getPreferredTheme());
+            applyTheme(getPreferredTheme());
 
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
                 if (!localStorage.getItem(THEME_KEY)) {
-                    setTheme(e.matches ? 'dark' : 'light');
+                    applyTheme(e.matches ? 'dark' : 'light');
                 }
             });
 
             window.toggleTheme = function() {
                 const isDark = document.documentElement.classList.contains('dark');
-                setTheme(isDark ? 'light' : 'dark');
+                const theme = isDark ? 'light' : 'dark';
+                applyTheme(theme);
+                localStorage.setItem(THEME_KEY, theme);
             };
         })();
     """)
