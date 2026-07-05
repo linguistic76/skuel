@@ -326,6 +326,34 @@ class Visibility(StrEnum):
         return self in {Visibility.PRIVATE, Visibility.SHARED, Visibility.TEAM}
 
 
+class SearchVisibility(StrEnum):
+    """
+    Who a domain's entities are visible to in search results.
+
+    THE single scoping declaration for every search strategy (text, tags,
+    graph traversal, faceted) — declared per domain on ``DomainConfig`` and
+    composed into Cypher by the persistence layer. Distinct from
+    ``Visibility`` (per-entity sharing state): SearchVisibility is the
+    type-level rule; instance-level scope/sharing edges are what
+    SCOPE_AWARE evaluates.
+
+    PUBLIC: Shared content (PS, LP, Ku) — no ownership filter.
+    OWNER_ONLY: User-owned content (Activities, UserEntry) — property-scoped
+        on ``user_uid`` (every user-owned node persists it; :OWNS edges are
+        incomplete in live data, so the property is the reliable scope key).
+    SCOPE_AWARE: Instance-scoped content (Exercise) — CURRICULUM scope is
+        visible to everyone; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT)
+        visible via :OWNS, :SHARES_WITH, or group membership
+        (:MEMBER_OF + :SHARED_WITH_GROUP). ADR-038/040 semantics.
+
+    See: /docs/architecture/SEARCH_ARCHITECTURE.md § Ownership scoping
+    """
+
+    PUBLIC = "public"
+    OWNER_ONLY = "owner_only"
+    SCOPE_AWARE = "scope_aware"
+
+
 # ============================================================================
 # UI PRESENTATION ENUMS
 # ============================================================================

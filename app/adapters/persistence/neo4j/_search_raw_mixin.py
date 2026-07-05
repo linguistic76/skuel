@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums import SearchVisibility
 from core.models.protocols import DomainModelProtocol
 from core.models.type_hints import UserUID
 from core.utils.error_boundary import safe_backend_operation
@@ -64,6 +65,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         order_by: str = "created_at",
         order_desc: bool = True,
         user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Text search across specified fields, returning raw dicts.
@@ -77,7 +79,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit: Maximum results
             order_by: Sort field
             order_desc: Sort descending
-            user_uid: Optional user scope
+            user_uid: Requesting user for the visibility clause
+            visibility: Domain search-visibility declaration
+                (build_search_visibility_clause composes the WHERE fragment)
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -92,14 +96,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit=limit,
             order_by=order_by,
             order_desc=order_desc,
+            visibility=visibility,
+            user_uid=user_uid,
         )
-
-        if user_uid:
-            # Safe only because build_text_search_query parenthesizes its
-            # OR-chain — an unparenthesized chain would let any non-first
-            # field match bypass the ownership scope (AND binds tighter).
-            cypher_query = cypher_query.replace("WHERE ", "WHERE n.user_uid = $user_uid AND ", 1)
-            params["user_uid"] = user_uid
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
@@ -152,6 +151,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Combined text search + relationship traversal in one query.
@@ -165,6 +166,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit: Maximum results
             order_by: Sort field
             order_desc: Sort descending
+            user_uid: Requesting user for the visibility clause
+            visibility: Domain search-visibility declaration
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -182,6 +185,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit=limit,
             order_by=order_by,
             order_desc=order_desc,
+            visibility=visibility,
+            user_uid=user_uid,
         )
 
         async with self.driver.session() as session:
@@ -199,6 +204,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Search array field for ANY/ALL of the given values.
@@ -210,6 +217,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit: Maximum results
             order_by: Sort field
             order_desc: Sort descending
+            user_uid: Requesting user for the visibility clause
+            visibility: Domain search-visibility declaration
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -224,6 +233,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit=limit,
             order_by=order_by,
             order_desc=order_desc,
+            visibility=visibility,
+            user_uid=user_uid,
         )
 
         async with self.driver.session() as session:
@@ -311,6 +322,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         query_text: str | None = None,
         relationship_filters: RelationshipFilters | None = None,
         limit: int = 50,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Graph-aware faceted search combining ownership, filters, text,
@@ -327,19 +339,26 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             relationship_filters: Optional graph-aware relationship-filter intent;
                 its Cypher WHERE-clause fragments are authored below the boundary
             limit: Maximum results
+            visibility: SCOPE_AWARE replaces the ownership MATCH with the
+                scope/sharing WHERE fragment (curriculum + OWNS/SHARES_WITH/
+                group membership); other values keep the MATCH-based path
 
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
         """
         from adapters.persistence.neo4j.query.cypher import (
             build_relationship_filter_fragments,
+            build_search_visibility_clause,
         )
 
         cypher_parts: builtins.list[str] = []
         params: dict[str, Any] = {"user_uid": user_uid}
 
-        # 1. Base MATCH with optional user ownership
-        if user_ownership_relationship:
+        # 1. Base MATCH with optional user ownership. SCOPE_AWARE domains
+        # (Exercise) can't use an ownership MATCH — it would hide CURRICULUM
+        # content that has no owner — so they scope via WHERE instead.
+        scope_aware = visibility is SearchVisibility.SCOPE_AWARE
+        if user_ownership_relationship and not scope_aware:
             cypher_parts.append(
                 f"MATCH (user:User {{uid: $user_uid}})-[:{user_ownership_relationship}]->"
                 f"(entity:{self.label})"
@@ -349,6 +368,12 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
         # 2. WHERE clause for property filters
         where_clauses = ["1=1"]
+        if scope_aware:
+            scope_clause = build_search_visibility_clause(
+                visibility, entity_alias="entity", has_user=True
+            )
+            if scope_clause:
+                where_clauses.append(scope_clause)
         for field, value in property_filters.items():
             param_name = f"filter_{field}"
             where_clauses.append(f"entity.{field} = ${param_name}")

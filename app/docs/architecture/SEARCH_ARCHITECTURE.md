@@ -56,11 +56,11 @@ All 11 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
 `Services` field — guarded by `tests/unit/models/test_search_router_registry.py`
 (every `_SEARCHABLE_DOMAINS` member must resolve, so `supports_search()` can't lie).
 
-| Group | Entity Types | Ownership | Search Mode |
+| Group | Entity Types | SearchVisibility | Search Mode |
 |-------|---------|-----------|-------------|
-| Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
-| Curriculum (2) | PS, LP | Shared content (no ownership filter) | Graph-Aware |
-| Learning Loop (3) | Exercise, RevisedExercise, UserEntry | User-owned (`OWNS`) | Graph-Aware |
+| Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | `OWNER_ONLY` | Graph-Aware |
+| Curriculum (2) | PS, LP | `PUBLIC` (shared, no filter) | Graph-Aware |
+| Learning Loop (3) | Exercise (`SCOPE_AWARE`), RevisedExercise + UserEntry (`OWNER_ONLY`) | mixed | Graph-Aware |
 
 **Deliberate exclusions:**
 - **KU** — `KuService.search` has a divergent facade signature (no `limit`); PathStep is THE curriculum content entity, so "knowledge" searches route to PATH_STEP.
@@ -73,8 +73,8 @@ periodic notes live in this store), so `SearchRouter.search(USER_ENTRY, ...)` RE
 sweep and from `advanced_search` aggregation; it participates only when explicitly
 requested AND user-scoped — the `/search` "My Entries" filter routes through the
 OWNS-scoped `graph_aware_faceted_search()` path, and a multi-type `entity_types`
-filter sweeps it owner-scoped (`search_domains` threads `user_uid`; the
-`is_user_owned()` gate keeps shared domains unscoped).
+filter sweeps it owner-scoped (`search_domains` threads `user_uid`; each domain's
+`SearchVisibility` declaration decides what the uid means — see next section).
 
 ```python
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
@@ -87,6 +87,47 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.USER_ENTRY,
 })
 ```
+
+---
+
+## Ownership Scoping — SearchVisibility (July 2026 ruling)
+
+**Core Principle:** "One scoping mechanism for every strategy — the domain declares
+its visibility, the persistence layer composes the Cypher."
+
+`DomainConfig.search_visibility` (`core/models/enums/metadata_enums.py`) is THE
+scoping declaration for text, tags, graph-traversal, and faceted search alike.
+`DomainConfig.get_search_visibility()` derives it when unset — an ownership
+relationship implies `OWNER_ONLY`, its absence implies `PUBLIC` — so only
+genuinely instance-scoped domains declare it explicitly.
+
+| Value | Domains | Semantics |
+|-------|---------|-----------|
+| `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
+| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` (the reliable key — live `:OWNS` edges are incomplete for older Activity nodes) |
+| `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
+
+**Composition point:** `build_search_visibility_clause()`
+(`adapters/persistence/neo4j/query/cypher/crud_queries.py`) — the single
+WHERE-fragment builder consumed by `build_text_search_query`,
+`build_graph_aware_search_query`, `build_array_any_match_query`, and
+`faceted_search_raw` (which swaps its ownership MATCH for the SCOPE_AWARE
+WHERE fragment, since an ownership MATCH would hide ownerless CURRICULUM
+content). No strategy carries its own ad-hoc filter.
+
+**Fail-closed rules:**
+- `advanced_search` without `request.user_uid` skips user-owned domains
+  entirely and returns curriculum-only for `SCOPE_AWARE` — shared content is
+  the unscoped floor. `/api/search/unified` always passes the authenticated uid.
+- A raw-layer caller passing `user_uid` with no visibility declaration gets
+  `OWNER_ONLY` scoping by default (scoping-by-default; PUBLIC must be declared).
+- `SearchRouter.search()` forwards `user_uid` unconditionally — the former
+  `is_user_owned()` gate is gone; the config declaration decides.
+
+Guarded by `tests/unit/test_search_visibility_scoping.py` (clause shapes,
+parenthesization, derivation, router forwarding) and
+`tests/integration/test_advanced_search_scoping.py` (per-strategy cross-user
+negatives + the exercise visibility matrix, revert-verified against pre-fix main).
 
 ---
 
@@ -132,8 +173,9 @@ response = await search_router.faceted_search(request, user_uid)
 1. `SearchRouter` routes to `_graph_aware_domain_search()` (checks `_GRAPH_AWARE_DOMAINS`)
 2. Domain service executes `graph_aware_faceted_search(request, user_uid, driver)`
 3. Builds Cypher with:
-   - `OWNS` relationship filter for Activity Domains (user ownership)
-   - No ownership filter for KU/PS/LP (shared content)
+   - Visibility scoping per the domain's `SearchVisibility` declaration
+     (`OWNER_ONLY`: ownership MATCH; `PUBLIC`: none for KU/PS/LP;
+     `SCOPE_AWARE`: Exercise scope/sharing WHERE fragment)
    - Property filters from `SearchRequest`
    - Graph pattern filters (`ready_to_learn`, `supports_goals`, etc.)
 4. Enriches results with `_graph_context` (prerequisites, enables, relationships, learning state)

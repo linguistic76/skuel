@@ -725,6 +725,7 @@ class SupportsGraphTraversalSearch(Protocol):
         relationship_type: RelationshipName,
         direction: Direction,
         limit: int,
+        user_uid: UserUID | None = None,
     ) -> Result[list[Any]]:
         """
         Search entities connected via relationship.
@@ -735,6 +736,7 @@ class SupportsGraphTraversalSearch(Protocol):
             relationship_type: Type of relationship to traverse
             direction: Relationship direction ("outgoing", "incoming", "both")
             limit: Maximum results
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing list of connected entities matching query
@@ -758,6 +760,7 @@ class SupportsTagSearch(Protocol):
         tags: list[str],
         match_all: bool,
         limit: int,
+        user_uid: UserUID | None = None,
     ) -> Result[list[Any]]:
         """
         Search entities by tags.
@@ -766,6 +769,7 @@ class SupportsTagSearch(Protocol):
             tags: List of tags to search for
             match_all: True for AND semantics, False for OR
             limit: Maximum results
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing list of entities with matching tags

@@ -17,7 +17,9 @@ Methods:
 from dataclasses import fields, is_dataclass
 from typing import Any, get_origin, get_type_hints
 
+from core.models.enums import ExerciseScope, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
@@ -148,6 +150,68 @@ def build_search_query(
     return query, params
 
 
+def build_search_visibility_clause(
+    visibility: SearchVisibility | None,
+    *,
+    entity_alias: str = "n",
+    has_user: bool,
+) -> str | None:
+    """
+    Build the WHERE fragment that scopes search results to their audience.
+
+    THE single ownership/visibility mechanism for every search strategy
+    (text, tags, graph traversal, faceted) — one composition point so no
+    strategy grows its own ad-hoc filter. The fragment references
+    ``$user_uid`` when ``has_user`` is True; callers must add it to params.
+
+    Semantics per SearchVisibility:
+        None: no declaration — falls back to OWNER_ONLY when a user is
+            present (scoping-by-default: a caller passing a user gets a
+            scoped query unless the domain explicitly declares PUBLIC).
+        PUBLIC: no clause — shared content.
+        OWNER_ONLY: property scope on ``user_uid``. Without a user this
+            applies NO clause — external surfaces (SearchRouter) are
+            responsible for not exposing unscoped user-owned searches
+            (fail-closed skip); internal callers keep today's semantics.
+        SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
+            scopes require :OWNS, :SHARES_WITH, or group membership
+            (:MEMBER_OF + :SHARED_WITH_GROUP). Without a user, only
+            CURRICULUM survives — shared content is the fail-closed floor.
+
+    Returns:
+        Parenthesized WHERE fragment, or None when no scoping applies.
+    """
+    if visibility is None:
+        visibility = SearchVisibility.OWNER_ONLY if has_user else None
+    if visibility is None or visibility is SearchVisibility.PUBLIC:
+        return None
+
+    _validate_identifier(entity_alias, context="entity alias")
+    alias = entity_alias
+
+    if visibility is SearchVisibility.OWNER_ONLY:
+        if not has_user:
+            return None
+        return f"({alias}.user_uid = $user_uid)"
+
+    # SCOPE_AWARE
+    curriculum = f"{alias}.scope = '{ExerciseScope.CURRICULUM.value}'"
+    if not has_user:
+        return f"({curriculum})"
+    owns = RelationshipName.OWNS.value
+    shares = RelationshipName.SHARES_WITH.value
+    member_of = RelationshipName.MEMBER_OF.value
+    shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
+    group_label = NeoLabel.GROUP.value
+    return (
+        f"({curriculum}"
+        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{owns}]->({alias}) }}"
+        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{shares}]->({alias}) }}"
+        f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{member_of}]->"
+        f"(:{group_label})<-[:{shared_with_group}]-({alias}) }})"
+    )
+
+
 def build_text_search_query(
     entity_class: type[T],
     query: str,
@@ -156,6 +220,8 @@ def build_text_search_query(
     limit: int = 50,
     order_by: str = "created_at",
     order_desc: bool = True,
+    visibility: SearchVisibility | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build text search query across multiple fields with OR semantics.
@@ -171,6 +237,9 @@ def build_text_search_query(
         limit: Maximum results (default 50)
         order_by: Field to sort by (default "created_at")
         order_desc: Sort descending (default True)
+        visibility: Domain search-visibility declaration; composed into the
+            WHERE clause via build_search_visibility_clause()
+        user_uid: Requesting user for the visibility clause
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -208,14 +277,22 @@ def build_text_search_query(
             f"Requested: {search_fields}, Available: {valid_fields}"
         )
 
-    # Build OR clauses for text search. Parenthesized because callers
-    # (text_search_raw) prepend "n.user_uid = $user_uid AND " for owner
-    # scoping — a bare OR-chain would let any non-first field match bypass
-    # the ownership filter (AND binds tighter than OR).
+    # Build OR clauses for text search. Parenthesized so the visibility
+    # clause can be ANDed safely — a bare OR-chain would let any non-first
+    # field match bypass the ownership filter (AND binds tighter than OR).
     where_clauses = [
         f"toLower(n.{field}) CONTAINS toLower($query)" for field in validated_search_fields
     ]
     where_clause = f"({' OR '.join(where_clauses)})"
+
+    params: dict[str, Neo4jValue] = {"query": query, "limit": limit}
+    visibility_clause = build_search_visibility_clause(
+        visibility, entity_alias="n", has_user=user_uid is not None
+    )
+    if visibility_clause:
+        where_clause = f"{visibility_clause} AND {where_clause}"
+        if user_uid is not None:
+            params["user_uid"] = user_uid
 
     # Build ORDER BY clause
     direction = "DESC" if order_desc else "ASC"
@@ -233,7 +310,7 @@ def build_text_search_query(
     LIMIT $limit
     """
 
-    return cypher, {"query": query, "limit": limit}
+    return cypher, params
 
 
 def build_relationship_traversal_query(
@@ -307,6 +384,8 @@ def build_graph_aware_search_query(
     limit: int = 50,
     order_by: str = "created_at",
     order_desc: bool = True,
+    visibility: SearchVisibility | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build graph-aware search: text search + relationship traversal in ONE query.
@@ -393,11 +472,21 @@ def build_graph_aware_search_query(
             f"Invalid direction '{direction}'. Must be 'outgoing', 'incoming', or 'both'"
         )
 
-    # Build OR clauses for text search on target
+    # Build OR clauses for text search on target. Parenthesized so the
+    # visibility clause can be ANDed safely (AND binds tighter than OR).
     text_where_clauses = [
         f"toLower(target.{field}) CONTAINS toLower($query)" for field in validated_search_fields
     ]
-    text_where = " OR ".join(text_where_clauses)
+    text_where = f"({' OR '.join(text_where_clauses)})"
+
+    params: dict[str, Neo4jValue] = {"source_uid": source_uid, "query": query, "limit": limit}
+    visibility_clause = build_search_visibility_clause(
+        visibility, entity_alias="target", has_user=user_uid is not None
+    )
+    if visibility_clause:
+        text_where = f"{visibility_clause} AND {text_where}"
+        if user_uid is not None:
+            params["user_uid"] = user_uid
 
     # Build ORDER BY clause
     direction_str = "DESC" if order_desc else "ASC"
@@ -416,7 +505,7 @@ def build_graph_aware_search_query(
     LIMIT $limit
     """
 
-    return cypher, {"source_uid": source_uid, "query": query, "limit": limit}
+    return cypher, params
 
 
 def build_array_contains_query(
@@ -486,6 +575,8 @@ def build_array_any_match_query(
     limit: int = 50,
     order_by: str | None = "created_at",
     order_desc: bool = True,
+    visibility: SearchVisibility | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities matching any/all values in array field.
@@ -532,29 +623,34 @@ def build_array_any_match_query(
     if match_all:
         # AND semantics: ALL values must be in the array
         # Use ALL() predicate with case-insensitive matching
-        cypher = f"""
-        MATCH (n:{label})
-        WHERE ALL(v IN $values WHERE
+        match_where = f"""ALL(v IN $values WHERE
             ANY(item IN n.{field} WHERE toLower(item) = toLower(v))
-        )
-        RETURN n
-        {order_clause}
-        LIMIT $limit
-        """
+        )"""
     else:
         # OR semantics: ANY value matches
-        cypher = f"""
-        MATCH (n:{label})
-        WHERE ANY(v IN $values WHERE
+        match_where = f"""ANY(v IN $values WHERE
             ANY(item IN n.{field} WHERE toLower(item) CONTAINS toLower(v))
-        )
-        RETURN n
-        {order_clause}
-        LIMIT $limit
-        """
+        )"""
 
     result_values: list[str | int | float] = list(values)
-    return cypher, {"values": result_values, "limit": limit}
+    params: dict[str, Neo4jValue] = {"values": result_values, "limit": limit}
+    visibility_clause = build_search_visibility_clause(
+        visibility, entity_alias="n", has_user=user_uid is not None
+    )
+    if visibility_clause:
+        match_where = f"{visibility_clause} AND {match_where}"
+        if user_uid is not None:
+            params["user_uid"] = user_uid
+
+    cypher = f"""
+    MATCH (n:{label})
+    WHERE {match_where}
+    RETURN n
+    {order_clause}
+    LIMIT $limit
+    """
+
+    return cypher, params
 
 
 def build_get_by_field_query(

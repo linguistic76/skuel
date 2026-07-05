@@ -97,7 +97,15 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
                 raise ValueError(f"'{data[field_name]}' is not a valid EntityStatus")
             data[field_name] = resolved
         else:
-            data[field_name] = enum_class(data[field_name])
+            try:
+                data[field_name] = enum_class(data[field_name])
+            except ValueError:
+                # Case-insensitive fallback: vault-authored content persists
+                # uppercase enum values (e.g. "BEGINNER", "SELF_AWARENESS").
+                # A strict parse made every such entity unconvertible —
+                # curriculum exercises silently vanished from search sweeps.
+                lowered = enum_class(data[field_name].lower())
+                data[field_name] = lowered
 
 
 def ensure_list_field(data: dict, field_name: str) -> None:
