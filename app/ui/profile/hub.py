@@ -1,9 +1,10 @@
 """Profile hub page — 3-tab personal space.
 
 /profile is the student's home: three tabs sharing the /library colored-header
-block style. Curriculum (study) and Reports (grade) show domain preview
-blocks; Submissions (submit) is a simple button panel mirroring the
-/submissions sidebar categories. Default is "submissions".
+block style. Curriculum (study) and Reports (grade) show collapsible domain
+accordions (first section open, previews lazy-load on reveal); Submissions
+(submit) is a simple button panel mirroring the /submissions sidebar
+categories. Default is "submissions".
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from fasthtml.common import Button, Div
 
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
-from ui.patterns.hub import HubDomainBlockList
+from ui.patterns.hub import HubAccordionBlockList
 from ui.workbench.hub import SubmissionsTabPanel
 
 _DEFAULT_TAB_SLUG = "submissions"
@@ -103,8 +104,8 @@ def _tab_panels() -> Div:
         )
 
     return Div(
-        _panel("curriculum", HubDomainBlockList(LIBRARY_BLOCKS)),
-        _panel("reports", HubDomainBlockList(GRADEBOOK_BLOCKS)),
+        _panel("curriculum", HubAccordionBlockList(LIBRARY_BLOCKS)),
+        _panel("reports", HubAccordionBlockList(GRADEBOOK_BLOCKS)),
         _panel("submissions", SubmissionsTabPanel()),
     )
 

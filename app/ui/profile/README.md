@@ -1,16 +1,20 @@
 # Profile UI Components
 
-*Last updated: 2026-04-06*
+*Last updated: 2026-07-05*
 
 **Location:** `/ui/profile/`
 
-This directory contains the Profile Hub UI — a **live actionable hub** that surfaces the user's active learning state.
+This directory contains the Profile Hub UI — the student's personal 3-tab home.
 
 ## Overview
 
-The Profile Hub (`/profile`) shows live content:
-- **Personal Header** — Focus (current task) + Velocity (momentum indicator) — shared component from `ui/patterns/personal_header.py` (also used on `/home`)
-- **Activity Domains** — All 6 (Tasks, Goals, Habits, Events, Choices, Principles) visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards loaded via HTMX from `/api/profile/{slug}/preview`.
+The Profile Hub (`/profile`) has three tabs (Alpine `activeTab` state, `?tab=` deep links, WAI-ARIA tabs keyboard pattern):
+
+- **Curriculum** — `LIBRARY_BLOCKS` (Resources / Ku / Path Steps / Exercises) as collapsible accordions
+- **Reports** — `GRADEBOOK_BLOCKS` (Entry Reports / Activity Reports / Revisions) as collapsible accordions
+- **Submissions** (default) — `SubmissionsTabPanel()` button panel mirroring the /submissions sidebar categories
+
+Curriculum/Reports sections render via `HubAccordionBlockList` (`ui/patterns/hub.py`) — native `<details>`/`<summary>`, first section open per tab, previews HTMX-loaded with `intersect once` so a section only fetches when it is open and its tab visible. A default `/profile` load makes zero preview requests.
 
 Uses `BasePage(STANDARD)` — no sidebar.
 
@@ -18,7 +22,7 @@ Uses `BasePage(STANDARD)` — no sidebar.
 
 | File | Purpose |
 |------|---------|
-| `hub.py` | `ProfileHubView(context)` — live actionable sections |
+| `hub.py` | `ProfileHubView(active_tab)` — tab bar + tab panels |
 | `domain_stats_config.py` | Configuration-driven stats extraction (for badge endpoints) |
 | `badges.py` | Status & count badge components |
 | `overview.py` | Detailed overview page components |
@@ -37,12 +41,12 @@ def ProfileHubView(active_tab: str = "submissions") -> Div:
     )
 ```
 
-### Activity Domain Blocks
+### Accordion Blocks
 
-Each of the 6 Activity Domains renders as a scrollable block via `_activity_domain_block()`:
-- Colored header: domain icon + clickable title (links to `/{domain}`) + "View all →" link
-- HTMX lazy-loaded cards from `/api/profile/{slug}/preview` (top 3 active items by priority)
-- Bottom border separator between blocks
+Each Curriculum/Reports section is a `HubAccordionBlock`:
+- Summary row toggles: chevron (rotates via `group-open:`) + domain icon + uppercase label
+- "View all →" `ButtonLink` on the right is the sole navigation (`@click.stop`)
+- Preview panel loads 3 `HubPreviewCard`s (title + description snippet + status badge) from the block's `preview_url`
 
 ### HTMX Endpoints (in user_profile_ui.py)
 

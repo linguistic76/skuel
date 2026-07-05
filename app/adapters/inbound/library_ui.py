@@ -519,6 +519,7 @@ def create_library_ui_routes(
                     title=row["title"] or row["uid"],
                     href=f"/exercises/get?uid={row['uid']}",
                     badge=badge,
+                    description=row["description"],
                 )
             )
         return HubPreviewGrid(cards)
@@ -541,6 +542,7 @@ def create_library_ui_routes(
                     title=getattr(res, "title", res.uid) or res.uid,
                     href="/library/resources",
                     badge=badge,
+                    description=res.description or res.summary,
                 )
             )
         return HubPreviewGrid(cards)
@@ -561,7 +563,7 @@ def create_library_ui_routes(
             HubPreviewCard(
                 title=getattr(ku, "title", ku.uid) or ku.uid,
                 href=f"/explore/ku/{ku.uid}",
-                badge=Badge("Ku", variant=BadgeT.accent, size=Size.sm),
+                description=ku.description or ku.summary,
             )
             for ku in kus[:3]
         ]
@@ -583,12 +585,7 @@ def create_library_ui_routes(
             HubPreviewCard(
                 title=getattr(step, "title", step.uid) or step.uid,
                 href=f"/explore/ps/{step.uid}",
-                badge=Badge(
-                    "Path Step",
-                    variant=None,
-                    cls="bg-teal-100 text-teal-800 border-teal-200",
-                    size=Size.sm,
-                ),
+                description=step.description or step.summary,
             )
             for step in steps[:3]
         ]

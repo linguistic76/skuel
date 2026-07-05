@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fasthtml.common import A, Div, P, Span
+from fasthtml.common import A, Details, Div, P, Span, Summary
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from ui.components import ButtonT, Icon
@@ -159,17 +159,29 @@ class HubBlockData:
     view_all_href: str | None = None  # Override for "View all →"; falls back to href
 
 
-def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
-    """Compact preview card — title + optional badge, links to detail."""
-    parts: list[Span | FT] = []
-    if badge is not None:
-        parts.append(badge)
-    parts.append(
+def HubPreviewCard(
+    title: str,
+    href: str,
+    badge: FT | None = None,
+    description: str | None = None,
+) -> A:
+    """Compact preview card — entity title first, optional description snippet
+    and badge in a meta row below, links to detail."""
+    parts: list[Span | Div | FT] = [
         Span(
             title,
-            cls="text-xs font-medium text-foreground line-clamp-2 leading-snug",
+            cls="text-sm font-semibold text-foreground line-clamp-1 leading-snug",
         )
-    )
+    ]
+    if description:
+        parts.append(
+            Span(
+                description,
+                cls="text-xs text-muted-foreground line-clamp-2 leading-snug",
+            )
+        )
+    if badge is not None:
+        parts.append(Div(badge, cls="mt-auto flex items-center gap-1.5"))
     return A(
         *parts,
         href=href,
@@ -190,6 +202,31 @@ def HubPreviewEmpty(domain: str) -> Div:
     """Empty state for a preview block."""
     return Div(
         P(f"No {domain} yet", cls="text-sm text-foreground/40 text-center py-3"),
+    )
+
+
+_HUB_BLOCK_CLS = "pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0"
+
+
+def _preview_panel(block: HubBlockData, trigger: str) -> Div:
+    """HTMX lazy-loaded card area — self-loading when preview_url set, OOB target otherwise.
+
+    ``intersect once`` (the trigger at both call sites) only fires when the
+    panel gains a layout box in the viewport, so panels inside hidden tab
+    containers or closed ``<details>`` defer their fetch until revealed.
+    """
+    return Div(
+        SkeletonList(count=3),
+        id=f"hub-panel-{block.slug}",
+        **(
+            {
+                "hx_get": block.preview_url,
+                "hx_trigger": trigger,
+                "hx_swap": "innerHTML",
+            }
+            if block.preview_url is not None
+            else {}
+        ),
     )
 
 
@@ -216,27 +253,60 @@ def HubDomainBlock(block: HubBlockData) -> Div:
             ),
             cls="flex items-center justify-between mb-3",
         ),
-        # HTMX lazy-loaded card content — self-loading when preview_url set, OOB target otherwise
-        Div(
-            SkeletonList(count=3),
-            id=f"hub-panel-{block.slug}",
-            **(
-                {
-                    "hx_get": block.preview_url,
-                    "hx_trigger": "load",
-                    "hx_swap": "innerHTML",
-                }
-                if block.preview_url is not None
-                else {}
-            ),
-        ),
-        cls="pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 last:pb-0",
+        _preview_panel(block, "intersect once"),
+        cls=_HUB_BLOCK_CLS,
     )
 
 
 def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
     return Div(*[HubDomainBlock(b) for b in blocks])
+
+
+def HubAccordionBlock(block: HubBlockData, open: bool = False) -> FT:
+    """Collapsible domain block — native ``<details>``/``<summary>``.
+
+    The whole summary row toggles (label is a Span, not a link); "View all"
+    is the sole navigation and stops propagation so it doesn't also toggle.
+    The preview panel's ``intersect once`` trigger defers the HTMX fetch until
+    the block is actually open AND visible — closed accordions cost nothing.
+    """
+    return Details(
+        Summary(
+            Div(
+                Icon(
+                    "chevron-right",
+                    cls="size-4 transition-transform group-open:rotate-90",
+                ),
+                Icon(block.icon, cls="size-4"),
+                Span(
+                    block.label,
+                    cls="text-sm font-semibold uppercase tracking-wider",
+                ),
+                cls="flex items-center gap-2",
+                style=f"color: {block.color};",
+            ),
+            ButtonLink(
+                "View all →",
+                href=block.view_all_href or block.href,
+                cls=ButtonT.ghost,
+                size="xs",
+                **{"@click.stop": ""},
+            ),
+            cls=(
+                "list-none [&::-webkit-details-marker]:hidden cursor-pointer "
+                "select-none flex items-center justify-between mb-3"
+            ),
+        ),
+        _preview_panel(block, "intersect once"),
+        open=open,
+        cls=f"group {_HUB_BLOCK_CLS}",
+    )
+
+
+def HubAccordionBlockList(blocks: list[HubBlockData], open_first: bool = True) -> Div:
+    """Vertical stack of accordion blocks; the first starts open by default."""
+    return Div(*[HubAccordionBlock(b, open=open_first and i == 0) for i, b in enumerate(blocks)])
 
 
 # ---------------------------------------------------------------------------

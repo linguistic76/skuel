@@ -465,9 +465,7 @@ class ExerciseService(BaseService):
         if assigned_result.is_error:
             return Result.fail(assigned_result)
 
-        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(
-            user_uid, limit=limit
-        )
+        ps_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid, limit=limit)
         if ps_result.is_error:
             return Result.fail(ps_result)
 
