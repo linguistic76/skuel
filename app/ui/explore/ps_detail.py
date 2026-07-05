@@ -25,9 +25,9 @@ from fasthtml.common import (
     Li,
     NotStr,
     P,
-    Script,
     Section,
     Span,
+    Template,
     Ul,
 )
 
@@ -130,15 +130,13 @@ def render_ps_detail_content(
         "prev_step": None,
         "next_step": None,
     }
-    seed_json = (
-        json.dumps(seed, default=str)
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-    )
+    # Seed goes INLINE in the x-data expression, never via a window global set
+    # by a sibling <script>: htmx defers inline-script evaluation to the settle
+    # phase, but Alpine's MutationObserver initializes the swapped tree first —
+    # a global would still be undefined at init (uid='' broke Start learning).
+    seed_json = json.dumps(seed, default=str)
 
     return Div(
-        Script(NotStr(f"window.PS_SEED = {seed_json};")),
         _back_link(),
         _hero_card(step, uid, user_uid),
         _body_section(content_html) if content_html else Div(),
@@ -150,7 +148,7 @@ def render_ps_detail_content(
         _footer_nav(),
         id="ps-detail-content",
         cls=_COLUMN_CLS,
-        **{"x-data": "pathstep(window.PS_SEED)"},
+        **{"x-data": f"pathstep({seed_json})"},
     )
 
 
@@ -652,38 +650,43 @@ def _deps_accordion() -> "FT":
                 **{"x-show": "blocking.length === 0"},
             ),
             Ul(
-                Li(
-                    Span(
-                        Icon("check", cls="w-3 h-3", stroke_width="2.4"),
-                        cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
-                        **{
-                            "x-show": "dep.status === 'met'",
-                        },
+                # x-for MUST live on a <template> — on a live element Alpine
+                # evaluates the children's `dep.*` expressions unscoped
+                # (ReferenceError: dep is not defined on every page load).
+                Template(
+                    Li(
+                        Span(
+                            Icon("check", cls="w-3 h-3", stroke_width="2.4"),
+                            cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-priority-low/15 text-priority-low",
+                            **{
+                                "x-show": "dep.status === 'met'",
+                            },
+                        ),
+                        Span(
+                            Icon("lock", cls="w-3 h-3", stroke_width="2.4"),
+                            cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
+                            **{
+                                "x-show": "dep.status !== 'met'",
+                            },
+                        ),
+                        A(
+                            "",
+                            cls="flex-1 text-[13px] font-semibold text-foreground/85 hover:underline",
+                            **{
+                                ":href": "'/explore/ps/' + dep.uid",
+                                "x-text": "dep.title",
+                            },
+                        ),
+                        Span(
+                            "",
+                            cls="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em]",
+                            **{
+                                "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
+                                ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",
+                            },
+                        ),
+                        cls="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-lg bg-muted/40",
                     ),
-                    Span(
-                        Icon("lock", cls="w-3 h-3", stroke_width="2.4"),
-                        cls="w-[22px] h-[22px] rounded-md flex items-center justify-center flex-none bg-destructive/10 text-destructive",
-                        **{
-                            "x-show": "dep.status !== 'met'",
-                        },
-                    ),
-                    A(
-                        "",
-                        cls="flex-1 text-[13px] font-semibold text-foreground/85 hover:underline",
-                        **{
-                            ":href": "'/explore/ps/' + dep.uid",
-                            "x-text": "dep.title",
-                        },
-                    ),
-                    Span(
-                        "",
-                        cls="font-mono text-[10.5px] font-semibold uppercase tracking-[0.05em]",
-                        **{
-                            "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
-                            ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",
-                        },
-                    ),
-                    cls="flex items-center gap-2.5 px-3 py-2.5 border border-border rounded-lg bg-muted/40",
                     **{"x-for": "dep in blocking", ":key": "dep.uid"},
                 ),
                 cls="flex flex-col gap-2",

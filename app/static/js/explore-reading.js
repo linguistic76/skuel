@@ -2,9 +2,11 @@
  * Explore reading surface — Alpine factory.
  *
  * Registers Alpine.data('exploreReading', factory); pair with
- * x-data="exploreReading(window.SEED)" on the page root
- * (ui/explore/reading_plan.py). Seed comes from window.SEED emitted
- * by the server in the same document.
+ * x-data="exploreReading({...})" on the page root
+ * (ui/explore/reading_plan.py). The seed is inlined in the x-data
+ * expression — never a window global set by a sibling <script>: htmx
+ * defers inline-script evaluation to the settle phase, but Alpine
+ * initializes the swapped tree first.
  *
  * Owns: greeting text, "why am I ready?" disclosure, save toggle,
  * keyboard shortcuts. All other content is server-rendered.

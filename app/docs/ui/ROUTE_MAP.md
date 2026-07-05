@@ -22,7 +22,7 @@ Tabbed layout mirroring `/home`, with one tab per group the student is a member 
 
 ### `/explore` — Reading-First Explore Surface
 
-Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) driven by `ExploreOrchestrator.get_reading_plan()`. Shell-first: shell loads immediately; `/explore/content` HTMX fragment delivers the plan. Alpine factory: `exploreReading` in `static/js/explore-reading.js`; `window.SEED` carries minimal state (greeting, why-evidence, featured UID). All visual content is server-rendered in `ui/explore/reading_plan.py`.
+Reading-column view (`max-w-[720px]` centered, `PageType.CUSTOM`, no sidebar) driven by `ExploreOrchestrator.get_reading_plan()`. Shell-first: shell loads immediately; `/explore/content` HTMX fragment delivers the plan. Alpine factory: `exploreReading` in `static/js/explore-reading.js`; the inline x-data seed carries minimal state (greeting, why-evidence, featured UID). All visual content is server-rendered in `ui/explore/reading_plan.py`.
 
 **Sections (top to bottom) — real learner state only (de-faked 2026-07-04, care arc):**
 1. **Greeting header** — time-of-day greeting (Alpine for greeting text); the "you finished X yesterday" line renders only from real read-history and collapses without it (no fabricated line until read-history intelligence exists).
