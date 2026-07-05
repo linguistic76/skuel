@@ -443,7 +443,7 @@ class TestPublicVisibilityGate:
 
 
 class TestEntryStatus:
-    """Status derives from pipeline at create time."""
+    """Authored status wins; otherwise status derives from pipeline."""
 
     @pytest.mark.asyncio
     async def test_teacher_review_creates_submitted(self):
@@ -466,6 +466,29 @@ class TestEntryStatus:
         await service.create_entry(request, user_uid="user_1")
         entry_passed = backend.create.await_args.args[0]
         assert entry_passed.status == EntityStatus.ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_authored_status_overrides_pipeline_default(self):
+        """An explicit request.status (vault frontmatter) beats the default."""
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        request = UserEntryCreateRequest(
+            title="T", pipeline=Pipeline.NONE, status=EntityStatus.DRAFT
+        )
+        await service.create_entry(request, user_uid="user_1")
+        entry_passed = backend.create.await_args.args[0]
+        assert entry_passed.status == EntityStatus.DRAFT
+
+    @pytest.mark.asyncio
+    async def test_description_flows_to_entity(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        request = UserEntryCreateRequest(
+            title="T", pipeline=Pipeline.NONE, description="Topics taxonomy"
+        )
+        await service.create_entry(request, user_uid="user_1")
+        entry_passed = backend.create.await_args.args[0]
+        assert entry_passed.description == "Topics taxonomy"
 
 
 class TestReadOperations:

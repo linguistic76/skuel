@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
@@ -180,6 +181,106 @@ class TestBuildUserEntryRequest:
         )
         assert result.is_error
         assert "pipeline" in str(result.expect_error()).lower()
+
+
+class TestAuthoredStatusDescriptionOwnership:
+    """The door must not silently drop authored frontmatter it understands."""
+
+    @pytest.mark.asyncio
+    async def test_authored_status_flows(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "status": "draft"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.status == EntityStatus.DRAFT
+
+    @pytest.mark.asyncio
+    async def test_status_alias_in_process_maps_to_active(self):
+        """The live fixture's authored spelling — 'in process' → ACTIVE."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "status": "in process"},
+            file_path=Path("nous topics.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.status == EntityStatus.ACTIVE
+
+    @pytest.mark.asyncio
+    async def test_unrecognized_status_fails_loudly(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "status": "vibing"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        err = str(result.expect_error())
+        assert "vibing" in err
+        assert "active" in err  # accepted values listed
+
+    @pytest.mark.asyncio
+    async def test_absent_or_empty_status_is_none(self):
+        """None → the service applies its pipeline default; bare `status:`
+        parses as YAML None and must behave the same as absent."""
+        for data in ({"pipeline": "none"}, {"pipeline": "none", "status": None}):
+            result = await build_user_entry_request(
+                data=data,
+                file_path=Path("x.yaml"),
+                user_uid="user_1",
+                audience_resolver=_resolver(),
+            )
+            assert result.is_ok
+            assert result.value.status is None
+
+    @pytest.mark.asyncio
+    async def test_description_flows(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "description": "Topics taxonomy"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.description == "Topics taxonomy"
+
+    @pytest.mark.asyncio
+    async def test_ownership_short_form_matches(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "ownership": "linguistic76"},
+            file_path=Path("x.yaml"),
+            user_uid="user_linguistic76",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_ownership_canonical_form_matches(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "user_uid": "user_linguistic76"},
+            file_path=Path("x.yaml"),
+            user_uid="user_linguistic76",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_ownership_mismatch_rejected(self):
+        """A file declaring another owner must fail, never be silently
+        claimed by the syncing user."""
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "ownership": "someone_else"},
+            file_path=Path("x.yaml"),
+            user_uid="user_linguistic76",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        err = str(result.expect_error())
+        assert "someone_else" in err
+        assert "user_linguistic76" in err
 
 
 class TestIngestUserEntry:

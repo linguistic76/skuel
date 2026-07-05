@@ -197,9 +197,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             entity_type=EntityType.USER_ENTRY,
             user_uid=user_uid,
             content=request.content,
-            status=EntityStatus.SUBMITTED
-            if request.pipeline == Pipeline.TEACHER_REVIEW
-            else EntityStatus.ACTIVE,
+            description=request.description,
+            status=request.status
+            or (
+                EntityStatus.SUBMITTED
+                if request.pipeline == Pipeline.TEACHER_REVIEW
+                else EntityStatus.ACTIVE
+            ),
             tags=tuple(request.tags),
             metadata=metadata,
             pipeline=request.pipeline,
