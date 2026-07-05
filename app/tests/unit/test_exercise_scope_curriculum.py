@@ -111,6 +111,32 @@ def test_api_still_enforces_assigned_group() -> None:
         )
 
 
+def test_api_rejects_invalid_domain() -> None:
+    """Conversion does ``Domain(schema.domain)`` — an unvalidated string used to
+    surface as a 500 there instead of a 422 here."""
+    with pytest.raises(ValidationError, match="invalid domain"):
+        ExerciseCreateRequest(
+            user_uid="user_test",
+            name="Bad domain",
+            instructions="Do.",
+            domain="Activity Domains",
+        )
+
+
+def test_api_accepts_valid_domain() -> None:
+    request = ExerciseCreateRequest(
+        user_uid="user_test", name="Tasks list", instructions="List.", domain="tasks"
+    )
+    assert request.domain == "tasks"
+
+
+def test_update_api_rejects_invalid_domain() -> None:
+    from core.models.exercises.exercise_request import ExerciseUpdateRequest
+
+    with pytest.raises(ValidationError, match="invalid domain"):
+        ExerciseUpdateRequest(domain="not-a-domain")
+
+
 # ============================================================================
 # 3. INGESTION BOUNDARY
 # ============================================================================

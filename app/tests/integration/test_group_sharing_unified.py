@@ -287,3 +287,134 @@ async def test_unshare_removes_edge(sharing_service, curriculum_group_fixture, n
         group_uid=ctx["group_uid"],
     )
     assert count.records[0]["c"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_share_entity_owned_via_owns_edge_only(
+    sharing_service, curriculum_group_fixture, neo4j_driver
+):
+    """Curriculum entities created through ExerciseService carry ownership as the
+    canonical :OWNS edge (plus an owner_uid property) — no user_uid property.
+    The ownership check must honor the edge, or ADR-040 assigned-exercise
+    auto-share silently fails ("Entity not found" on a node that exists)."""
+    ctx = curriculum_group_fixture
+    teacher_uid = ctx["teacher_uid"]
+    entity_uid = "ex_owns_edge_only_test"
+
+    await neo4j_driver.execute_query(
+        """
+        MATCH (t:User {uid: $teacher_uid})
+        MERGE (e:Entity {uid: $entity_uid})
+          SET e.entity_type = 'exercise',
+              e.title = 'OWNS-edge-only exercise',
+              e.status = 'draft',
+              e.owner_uid = $teacher_uid,
+              e.created_at = datetime(),
+              e.updated_at = datetime()
+        MERGE (t)-[:OWNS]->(e)
+        """,
+        teacher_uid=teacher_uid,
+        entity_uid=entity_uid,
+    )
+
+    try:
+        result = await sharing_service.share_with_group(
+            entity_uid=entity_uid,
+            owner_uid=teacher_uid,
+            group_uid=ctx["group_uid"],
+            share_version="original",
+        )
+        assert result.is_ok, f"share_with_group failed: {result.error}"
+
+        count = await neo4j_driver.execute_query(
+            """
+            MATCH (e:Entity {uid: $uid})-[r:SHARED_WITH_GROUP]->(g:Group {uid: $group_uid})
+            RETURN count(r) as c
+            """,
+            uid=entity_uid,
+            group_uid=ctx["group_uid"],
+        )
+        assert count.records[0]["c"] == 1
+    finally:
+        await neo4j_driver.execute_query(
+            "MATCH (e:Entity {uid: $uid}) DETACH DELETE e", uid=entity_uid
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_share_owns_edge_ownership_mismatch_still_rejected(
+    sharing_service, curriculum_group_fixture, neo4j_driver
+):
+    """The :OWNS fallback must not weaken the check: an entity owned (via edge)
+    by someone else is still not_found for the requesting user."""
+    ctx = curriculum_group_fixture
+    entity_uid = "ex_owns_edge_mismatch_test"
+
+    await neo4j_driver.execute_query(
+        """
+        MATCH (s:User {uid: $student_uid})
+        MERGE (e:Entity {uid: $entity_uid})
+          SET e.entity_type = 'exercise',
+              e.status = 'draft',
+              e.created_at = datetime(),
+              e.updated_at = datetime()
+        MERGE (s)-[:OWNS]->(e)
+        """,
+        student_uid=ctx["student_uid"],
+        entity_uid=entity_uid,
+    )
+
+    try:
+        result = await sharing_service.share_with_group(
+            entity_uid=entity_uid,
+            owner_uid=ctx["teacher_uid"],
+            group_uid=ctx["group_uid"],
+        )
+        assert result.is_error
+        assert result.expect_error().category.value == "not_found"
+    finally:
+        await neo4j_driver.execute_query(
+            "MATCH (e:Entity {uid: $uid}) DETACH DELETE e", uid=entity_uid
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_share_entity_owner_uid_property_without_owns_edge(
+    sharing_service, curriculum_group_fixture, neo4j_driver
+):
+    """ExerciseService.create warns (does not fail) when the :OWNS edge write
+    fails, so owner_uid-property-without-edge can exist. Sharing must resolve
+    it the same way verify_ownership does (Kody #511 finding, accepted) —
+    otherwise the same node passes CRUD ownership but fails sharing."""
+    ctx = curriculum_group_fixture
+    teacher_uid = ctx["teacher_uid"]
+    entity_uid = "ex_owner_prop_no_edge_test"
+
+    await neo4j_driver.execute_query(
+        """
+        MERGE (e:Entity {uid: $entity_uid})
+          SET e.entity_type = 'exercise',
+              e.status = 'draft',
+              e.owner_uid = $teacher_uid,
+              e.created_at = datetime(),
+              e.updated_at = datetime()
+        """,
+        teacher_uid=teacher_uid,
+        entity_uid=entity_uid,
+    )
+
+    try:
+        result = await sharing_service.share_with_group(
+            entity_uid=entity_uid,
+            owner_uid=teacher_uid,
+            group_uid=ctx["group_uid"],
+            share_version="original",
+        )
+        assert result.is_ok, f"share_with_group failed: {result.error}"
+    finally:
+        await neo4j_driver.execute_query(
+            "MATCH (e:Entity {uid: $uid}) DETACH DELETE e", uid=entity_uid
+        )

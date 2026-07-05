@@ -369,16 +369,28 @@ See: `/docs/patterns/SHARING_PATTERNS.md`
 
 ## Entity Requirements
 
-Entities supporting ownership must have a `user_uid` field:
+Ownership lives in two model shapes, and both are honored by
+`verify_ownership` (crud_operations_mixin) and the sharing ownership query
+(`SharingBackend.query_ownership_and_status`):
+
+- **User-owned domains** carry a `user_uid` field:
 
 ```python
 @dataclass(frozen=True)
 class Task:
     uid: str
-    user_uid: UserUID  # REQUIRED for ownership verification
+    user_uid: UserUID  # ownership property
     title: str
     # ...
 ```
+
+- **Owner-bound curriculum** (Exercise) carries `owner_uid` plus the
+  canonical `:OWNS` edge — there is no `user_uid` property on those nodes,
+  and the edge write is warn-only at create, so property-without-edge can
+  exist. Both layers resolve `user_uid` → `owner_uid` → `:OWNS` owner (the
+  mixin sees the model properties; the sharing query adds the edge fallback)
+  so they always agree. An entity with none is unowned: `verify_ownership`
+  returns a system error, sharing refuses.
 
 ## Domains by Ownership Type
 

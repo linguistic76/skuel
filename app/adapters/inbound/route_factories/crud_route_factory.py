@@ -425,7 +425,8 @@ class CRUDRouteFactory[T]:
             # Call service
             result = await service.create(entity)
 
-            logger.info(f"Created {domain}: {uid} for user {user_uid}")
+            if not result.is_error:
+                logger.info(f"Created {domain}: {uid} for user {user_uid}")
             return result
 
         # Apply instrumentation + boundary handling, then register route
@@ -523,10 +524,12 @@ class CRUDRouteFactory[T]:
             if verify_ownership:
                 user_uid = require_authenticated_user(request)
                 result = await service.update_for_user(uid, updates, user_uid)
-                logger.info(f"Updated {domain}: {uid} for user {user_uid}")
+                if not result.is_error:
+                    logger.info(f"Updated {domain}: {uid} for user {user_uid}")
             else:
                 result = await service.update(uid, updates)
-                logger.info(f"Updated {domain}: {uid} (no ownership check)")
+                if not result.is_error:
+                    logger.info(f"Updated {domain}: {uid} (no ownership check)")
 
             return result
 
@@ -565,10 +568,12 @@ class CRUDRouteFactory[T]:
             if verify_ownership:
                 user_uid = require_authenticated_user(request)
                 result = await service.delete_for_user(uid, user_uid, cascade=True)
-                logger.info(f"Deleted {domain}: {uid} for user {user_uid}")
+                if not result.is_error:
+                    logger.info(f"Deleted {domain}: {uid} for user {user_uid}")
             else:
                 result = await service.delete(uid)
-                logger.info(f"Deleted {domain}: {uid} (no ownership check)")
+                if not result.is_error:
+                    logger.info(f"Deleted {domain}: {uid} (no ownership check)")
 
             return result
 
