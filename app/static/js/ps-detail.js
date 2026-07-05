@@ -2,9 +2,11 @@
  * PathStep detail — Alpine factory.
  *
  * Registered as Alpine.data('pathstep', factory). Paired with
- * x-data="pathstep(window.PS_SEED)" on the content root
- * (ui/explore/ps_detail.py). Seed is emitted by the server in the
- * HTMX fragment.
+ * x-data="pathstep({...})" on the content root (ui/explore/ps_detail.py).
+ * The seed is inlined in the x-data expression — never a window global set
+ * by a sibling <script>: htmx defers inline-script evaluation to the settle
+ * phase, but Alpine initializes the swapped tree first, so the component
+ * would read undefined (uid='' broke Start learning, 2026-07-05).
  *
  * Owns: progress state (not_started → learning → read), bookmark
  * toggle, practice + deps accordion open/close.

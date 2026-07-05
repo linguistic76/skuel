@@ -8,8 +8,8 @@ Renders entirely server-side; Alpine owns only:
   - keyboard shortcuts (r / w / s / /)
 
 The Alpine factory lives in static/js/explore-reading.js.
-window.SEED carries the minimal state Alpine needs; all visual content
-comes from the server-rendered plan dict.
+The x-data expression carries the minimal seed Alpine needs; all visual
+content comes from the server-rendered plan dict.
 """
 
 from __future__ import annotations
@@ -27,9 +27,7 @@ from fasthtml.common import (
     Header,
     Kbd,
     Li,
-    NotStr,
     P,
-    Script,
     Section,
     Span,
     Ul,
@@ -88,17 +86,14 @@ def ExploreReadingView(plan: dict[str, Any]) -> "FT":
     plan: dict returned by ExploreOrchestrator.get_reading_plan().
     """
     seed = _build_alpine_seed(plan)
+    # Inline in x-data, never a window global set by a sibling <script>: htmx
+    # defers inline-script evaluation to the settle phase, but Alpine
+    # initializes the swapped tree first — the global would be undefined.
+    # json.dumps default ensure_ascii keeps the payload ASCII-only (covers
+    # U+2028/29), and FastHTML's attribute escaping covers the HTML context.
     seed_json = json.dumps(seed, default=str)
-    safe_json = (
-        seed_json.replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-        .replace(" ", "\\u2028")
-        .replace(" ", "\\u2029")
-    )
 
     return Div(
-        Script(NotStr(f"window.SEED = {safe_json};")),
         _greeting_header(plan),
         _hero_article(plan),
         _thread_rail(plan),
@@ -109,7 +104,7 @@ def ExploreReadingView(plan: dict[str, Any]) -> "FT":
         _keyboard_hints(),
         cls=_COLUMN_CLS,
         **{
-            "x-data": "exploreReading(window.SEED)",
+            "x-data": f"exploreReading({seed_json})",
             "@keydown.window": "onKey($event)",
         },
     )

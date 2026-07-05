@@ -81,7 +81,7 @@ bookmark toggle, and deps accordion. CSRF-protected mutation endpoints:
 - `POST /explore/ps/{uid}/bookmark` (`on=true|false`)
 - `GET /explore/ps/{uid}/tasks` — HTMX fragment: tasks spawned from this PS for the current user
 
-**Engage-to-spawn:** when the PS has TaskTemplates (`has_task_templates` in `PS_SEED`), "Start
+**Engage-to-spawn:** when the PS has TaskTemplates (`has_task_templates` in the inline x-data seed), "Start
 learning" calls `POST /api/ps/{uid}/engage` instead of the progress endpoint — spawning all
 template instances — then fires `ps-engaged` to reload the tasks fragment.
 
