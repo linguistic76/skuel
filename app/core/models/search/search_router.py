@@ -235,13 +235,14 @@ class SearchRouter:
         EntityType.PRINCIPLE: "principles",
         # Finance (singular - standalone domain group)
         NonKuDomain.FINANCE: "finance",
-        # Curriculum Domains (3) - ku, ls, lp form the knowledge foundation
+        # Curriculum Domains (3) - ku, ps, lp form the knowledge foundation
+        EntityType.KU: "ku",
         EntityType.PATH_STEP: "ps",
         EntityType.LEARNING_PATH: "lp",
-        # Learning Loop (3) - Exercise -> Submission -> RevisedExercise
+        # Learning Loop (3) - Exercise -> UserEntry -> RevisedExercise
         EntityType.EXERCISE: "exercises",
         EntityType.REVISED_EXERCISE: "revised_exercises",
-        EntityType.USER_ENTRY: "user_entry_search",
+        EntityType.USER_ENTRY: "user_entry",
         # The Destination - LifePath
         # "Everything flows toward the life path"
         EntityType.LIFE_PATH: "lifepath",
@@ -249,7 +250,12 @@ class SearchRouter:
         NonKuDomain.CALENDAR: "calendar",  # Aggregation: Tasks + Events + Habits + Goals
     }
 
-    # EntityTypes that support DomainSearchOperations[T] protocol
+    # EntityTypes that support DomainSearchOperations[T] protocol.
+    # Every member MUST resolve through _SERVICE_REGISTRY to a live Services
+    # field — guarded by tests/unit/models/test_search_router_registry.py.
+    # KU is deliberately absent: KuService.search has a divergent facade
+    # signature (no limit) and PathStep is THE curriculum content entity —
+    # "knowledge" searches route to PATH_STEP (see _simple_domain_search).
     _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset(
         {
             # Activity Domains (6)
@@ -259,11 +265,10 @@ class SearchRouter:
             EntityType.EVENT,
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
-            # Curriculum Domains (3) - KU, PS, LP
-            EntityType.KU,
+            # Curriculum Domains (2) - PS, LP
             EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
-            # Learning Loop (3) - Exercise, RevisedExercise, Submission
+            # Learning Loop (3) - Exercise, UserEntry, RevisedExercise
             EntityType.EXERCISE,
             EntityType.REVISED_EXERCISE,
             EntityType.USER_ENTRY,
@@ -319,6 +324,7 @@ class SearchRouter:
         entity_type: EntityType | NonKuDomain,
         query: str,
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[list[Any]]:
         """
         Search within a single domain.
@@ -329,6 +335,10 @@ class SearchRouter:
             entity_type: Domain to search in
             query: Search query string
             limit: Maximum results to return
+            user_uid: Optional owner scope, applied by the domain service.
+                REQUIRED for USER_ENTRY — entries are private user content
+                (journal periodic notes live in this store), so an unscoped
+                entry search is refused rather than leaking across users.
 
         Returns:
             Result containing list of domain entities
@@ -339,6 +349,15 @@ class SearchRouter:
                 Errors.validation(
                     field="entity_type",
                     message=f"{entity_type.value} does not support search",
+                )
+            )
+
+        # Privacy line: never run an unscoped UserEntry search
+        if entity_type == EntityType.USER_ENTRY and user_uid is None:
+            return Result.fail(
+                Errors.validation(
+                    field="user_uid",
+                    message="user_entry search requires a user scope",
                 )
             )
 
@@ -357,7 +376,15 @@ class SearchRouter:
             if search_service is None:
                 search_service = service
 
-            return await search_service.search(query, limit)
+            # Forward the owner scope only for user-owned types — shared
+            # domains (PS, LP, Exercise) have no user_uid node property and
+            # would silently return nothing if property-scoped.
+            effective_uid = (
+                user_uid
+                if isinstance(entity_type, EntityType) and entity_type.is_user_owned()
+                else None
+            )
+            return await search_service.search(query, limit, user_uid=effective_uid)
 
         except (AttributeError, TypeError, ValueError) as e:
             self.logger.error(f"Search failed for {entity_type.value}: {e}")
@@ -403,6 +430,7 @@ class SearchRouter:
         entity_types: list[EntityType | NonKuDomain],
         query: str,
         limit_per_domain: int = 20,
+        user_uid: UserUID | None = None,
     ) -> UnifiedSearchResult:
         """
         Search across multiple domains.
@@ -413,6 +441,9 @@ class SearchRouter:
             entity_types: List of domains to search
             query: Search query string
             limit_per_domain: Max results per domain
+            user_uid: Optional owner scope forwarded to each domain search.
+                Without it, USER_ENTRY is refused by search() (privacy line)
+                and simply yields no results here.
 
         Returns:
             UnifiedSearchResult with results grouped by domain
@@ -424,7 +455,7 @@ class SearchRouter:
             if not self.supports_search(entity_type):
                 continue
 
-            result = await self.search(entity_type, query, limit_per_domain)
+            result = await self.search(entity_type, query, limit_per_domain, user_uid=user_uid)
             if result.is_ok and result.value:
                 items = self._wrap_results(result.value, entity_type)
                 results_by_domain[entity_type] = items
@@ -476,13 +507,11 @@ class SearchRouter:
         start_time = datetime.now()
 
         try:
-            # Route 1: Single domain specified
-            if request.domain:
-                domain_str = (
-                    request.domain if isinstance(request.domain, str) else request.domain.value
-                )
-
-                # Graph-aware domains (Activity + KU) with user → graph_aware_faceted_search
+            # Route 1: Single domain specified — either request.domain or a
+            # single entity-type filter (the /search dropdown path)
+            domain_str = self._resolve_single_domain(request)
+            if domain_str:
+                # Graph-aware domains with user → graph_aware_faceted_search
                 # January 2026: Unified search for Activity Domains + Curriculum Domains
                 if domain_str in self._GRAPH_AWARE_DOMAINS and user_uid:
                     result = await self._graph_aware_domain_search(request, user_uid, domain_str)
@@ -534,14 +563,35 @@ class SearchRouter:
             "lp",
             "exercises",
             "revised_exercises",
-            "submissions",
+            "user_entry",
         }
     )
 
-    # Domain string → Services attribute name (when they differ)
-    _DOMAIN_ATTR_ALIASES: dict[str, str] = {
-        "submissions": "submissions_search",
-    }
+    def _resolve_single_domain(self, request: "SearchRequest") -> str | None:
+        """Resolve the request to a single domain string, if one is targeted.
+
+        Two sources, in precedence order:
+        1. ``request.domain`` — Domain enum value (intelligent_search path).
+        2. A single ``entity_types`` filter — the /search dropdown path.
+           Maps through _SERVICE_REGISTRY so filtered searches take the same
+           single-domain (ownership-aware) route as domain searches instead
+           of falling through to the cross-domain sweep.
+
+        Note: ``use_enum_values=True`` on SearchRequest means entity_types
+        holds raw value strings, so parse before the registry lookup.
+        """
+        if request.domain:
+            return request.domain if isinstance(request.domain, str) else request.domain.value
+        if len(request.entity_types) == 1:
+            raw = request.entity_types[0]
+            entity_type = (
+                raw
+                if isinstance(raw, EntityType | NonKuDomain)
+                else EntityType.from_string(str(raw)) or NonKuDomain.from_string(str(raw))
+            )
+            if entity_type is not None:
+                return self._SERVICE_REGISTRY.get(entity_type)
+        return None
 
     # User-owned Activity EntityTypes → Domain enum for faceted_search routing.
     # Curriculum and other shared domains are absent — no ownership filter needed there.
@@ -559,7 +609,7 @@ class SearchRouter:
     # and 2 shared Curriculum domains (no ownership filter required).
     # Excluded intentionally:
     #   Exercise / RevisedExercise / UserEntry — user-owned, no Domain enum mapping for routing.
-    #   EntityType.KU — not registered in _SERVICE_REGISTRY; self.search(KU) silently fails.
+    #   EntityType.KU — not in _SEARCHABLE_DOMAINS (divergent facade search signature).
     _INTELLIGENT_SEARCH_DOMAINS: ClassVar[frozenset[EntityType]] = frozenset(
         {
             EntityType.TASK,
@@ -590,9 +640,8 @@ class SearchRouter:
 
         from core.models.search_request import SearchResponse
 
-        # Map domain to service attribute (alias support for submissions → submissions_search)
-        service_attr = self._DOMAIN_ATTR_ALIASES.get(domain_str, domain_str)
-        domain_service = getattr(self.services, service_attr, None)
+        # Domain strings in _GRAPH_AWARE_DOMAINS are Services attribute names
+        domain_service = getattr(self.services, domain_str, None)
         if domain_service is None:
             return None
 
@@ -655,7 +704,7 @@ class SearchRouter:
             "exercises": EntityType.EXERCISE,
             "exercise": EntityType.EXERCISE,
             "revised_exercises": EntityType.REVISED_EXERCISE,
-            "submissions": EntityType.USER_ENTRY,
+            "user_entry": EntityType.USER_ENTRY,
         }
 
         entity_type = domain_to_entity.get(domain_str.lower())
@@ -704,9 +753,15 @@ class SearchRouter:
         request: "SearchRequest",
     ) -> list[dict]:
         """Search across multiple domains and aggregate results."""
-        # Search all searchable domains
+        # Search all searchable domains EXCEPT UserEntry: the sweep runs
+        # unscoped (no ownership filter), and entries are private user content.
+        # Entries are reachable only through the explicit entity-type filter,
+        # which routes through the OWNS-scoped graph-aware path.
+        sweep_domains: list[EntityType | NonKuDomain] = [
+            et for et in self._SEARCHABLE_DOMAINS if et != EntityType.USER_ENTRY
+        ]
         unified_result = await self.search_domains(
-            list(self._SEARCHABLE_DOMAINS),
+            sweep_domains,
             request.query_text or "",
             limit_per_domain=max(5, request.limit // 6),
         )
@@ -914,6 +969,14 @@ class SearchRouter:
 
             for entity_type in target_domains:
                 if not self.supports_search(entity_type):
+                    continue
+
+                # UserEntry is excluded from cross-domain aggregation: the
+                # advanced-search strategies (text/tags/graph-traversal) run
+                # without an ownership filter, and entries are private user
+                # content. Entries are searchable via faceted_search with the
+                # entity-type filter (OWNS-scoped) or search(..., user_uid=...).
+                if entity_type == EntityType.USER_ENTRY:
                     continue
 
                 service = self.get_service(entity_type)

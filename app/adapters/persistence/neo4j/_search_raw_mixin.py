@@ -80,7 +80,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid: Optional user scope
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records
+            Result[list[dict]]: Raw node property dicts
         """
         from adapters.persistence.neo4j.query import build_text_search_query
 
@@ -95,12 +95,16 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         )
 
         if user_uid:
+            # Safe only because build_text_search_query parenthesizes its
+            # OR-chain — an unparenthesized chain would let any non-first
+            # field match bypass the ownership scope (AND binds tighter).
             cypher_query = cypher_query.replace("WHERE ", "WHERE n.user_uid = $user_uid AND ", 1)
             params["user_uid"] = user_uid
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            data = await result.data()
+            return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("relationship_traversal_raw")
     async def relationship_traversal_raw(
@@ -120,7 +124,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             direction: Traversal direction
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records for related entities
+            Result[list[dict]]: Raw node property dicts for related entities
         """
         from adapters.persistence.neo4j.query import build_relationship_traversal_query
 
@@ -133,7 +137,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            data = await result.data()
+            return Result.ok([record["target"] for record in data])
 
     @safe_backend_operation("graph_aware_search_raw")
     async def graph_aware_search_raw(
@@ -162,7 +167,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort descending
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records
+            Result[list[dict]]: Raw node property dicts
         """
         from adapters.persistence.neo4j.query.cypher import build_graph_aware_search_query
 
@@ -181,7 +186,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            data = await result.data()
+            return Result.ok([record["target"] for record in data])
 
     @safe_backend_operation("array_any_match_raw")
     async def array_any_match_raw(
@@ -206,7 +212,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort descending
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records
+            Result[list[dict]]: Raw node property dicts
         """
         from adapters.persistence.neo4j.query.cypher import build_array_any_match_query
 
@@ -222,7 +228,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            data = await result.data()
+            return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("array_contains_raw")
     async def array_contains_raw(
@@ -245,7 +252,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort descending
 
         Returns:
-            Result[list[dict]]: Raw Neo4j records
+            Result[list[dict]]: Raw node property dicts
         """
         from adapters.persistence.neo4j.query.cypher import build_array_contains_query
 
@@ -260,7 +267,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
 
         async with self.driver.session() as session:
             result = await session.run(cypher_query, params)
-            return Result.ok(await result.data())
+            data = await result.data()
+            return Result.ok([record["n"] for record in data])
 
     @safe_backend_operation("distinct_values_raw")
     async def distinct_values_raw(

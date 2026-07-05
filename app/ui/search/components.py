@@ -243,6 +243,7 @@ def _render_entity_type_select() -> str:
         ("event", "Events"),
         ("choice", "Choices"),
         ("principle", "Principles"),
+        ("user_entry", "My Entries"),
     ]
 
     options = "\n".join(

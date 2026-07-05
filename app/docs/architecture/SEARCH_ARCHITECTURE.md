@@ -50,28 +50,39 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 **Core Principle:** "Property filters for speed, graph patterns for depth, user context for personalization, semantic relationships for relevance"
 
-## Searchable Entity Types (14 total)
+## Searchable Entity Types (11 total)
 
-All 14 entity types are searchable via `SearchRouter` using `graph_aware_faceted_search()`.
+All 11 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
+`Services` field — guarded by `tests/unit/models/test_search_router_registry.py`
+(every `_SEARCHABLE_DOMAINS` member must resolve, so `supports_search()` can't lie).
 
 | Group | Entity Types | Ownership | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | User-owned (`OWNS`) | Graph-Aware |
-| Curriculum (3) | KU, PS, LP | Shared content (no ownership filter) | Graph-Aware |
+| Curriculum (2) | PS, LP | Shared content (no ownership filter) | Graph-Aware |
 | Learning Loop (3) | Exercise, RevisedExercise, UserEntry | User-owned (`OWNS`) | Graph-Aware |
-| Forms (2) | FormTemplate, FormSubmission | Template=shared, Submission=user-owned | Standard |
 
-**Note:** MOC is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
+**Deliberate exclusions:**
+- **KU** — `KuService.search` has a divergent facade signature (no `limit`); PathStep is THE curriculum content entity, so "knowledge" searches route to PATH_STEP.
+- **FormTemplate / FormSubmission** — searchable via their own domain services, not routed through `SearchRouter`.
+- **MOC** is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
+
+**UserEntry privacy line (July 2026):** entries hold private user content (journal
+periodic notes live in this store), so `SearchRouter.search(USER_ENTRY, ...)` REQUIRES
+`user_uid` (refused otherwise), and UserEntry is excluded from the unscoped cross-domain
+sweep and `advanced_search` aggregation. Entries are reachable through the `/search`
+entity-type filter ("My Entries"), which routes through the OWNS-scoped
+`graph_aware_faceted_search()` path.
 
 ```python
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     # Activity (6)
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
-    # Curriculum (3)
-    EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH,
+    # Curriculum (2)
+    EntityType.PATH_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
-    EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.EXERCISE_SUBMISSION,
+    EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.USER_ENTRY,
 })
 ```
 

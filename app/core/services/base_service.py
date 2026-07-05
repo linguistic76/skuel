@@ -446,8 +446,7 @@ class BaseService(
 
         Priority:
             1. _config.search_fields (DomainConfig)
-            2. _search_fields (class attribute)
-            3. ("title", "description") (default)
+            2. ("title", "description") (default)
 
         Returns:
             Tuple of field names for text search
@@ -463,8 +462,7 @@ class BaseService(
 
         Priority:
             1. _config.search_order_by (DomainConfig)
-            2. _search_order_by (class attribute)
-            3. "created_at" (default)
+            2. "created_at" (default)
 
         Returns:
             Field name for ordering search results

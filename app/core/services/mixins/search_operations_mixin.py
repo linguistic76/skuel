@@ -72,8 +72,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep").
             Used for domain-specific target_label filters and log/_domain strings.
         service_name: str - For error messages
-        _search_fields: tuple[str, ...] - Fields to search
-        _search_order_by: str - Default sort field
+        search_fields: tuple[str, ...] - Fields to search (DomainConfig-resolved property)
+        search_order_by: str - Default sort field (DomainConfig-resolved property)
         category_field: str - Field for categorization (DomainConfig-resolved property)
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
@@ -87,8 +87,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     backend: B
     logger: Logger
     service_name: str
-    _search_fields: ClassVar[tuple[str, ...]]
-    _search_order_by: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
     _graph_enrichment_patterns: ClassVar[
@@ -117,6 +115,24 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         domains configuring ``category_field`` via config (e.g. Goals ``"domain"``)
         were silently ignored by category queries.
         """
+        ...
+
+    @property
+    @abstractmethod
+    def search_fields(self) -> tuple[str, ...]:
+        """DomainConfig-resolved search fields — provided by composing class.
+
+        Same bug class as ``category_field``: the raw ``_search_fields``
+        class attribute bypassed DomainConfig, so domains configuring custom
+        fields (e.g. UserEntry ``content``/``processed_content``) silently
+        searched only the ``("title", "description")`` default.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def search_order_by(self) -> str:
+        """DomainConfig-resolved sort field — provided by composing class."""
         ...
 
     @abstractmethod
@@ -255,9 +271,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         result = await self.backend.text_search_raw(
             query,
-            self._search_fields,
+            self.search_fields,
             limit=limit,
-            order_by=self._search_order_by,
+            order_by=self.search_order_by,
             order_desc=True,
             user_uid=user_uid,
         )
@@ -359,10 +375,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             query,
             source_uid=related_uid,
             relationship_type=relationship_type.value,
-            search_fields=self._search_fields,
+            search_fields=self.search_fields,
             direction=direction,
             limit=limit,
-            order_by=self._search_order_by,
+            order_by=self.search_order_by,
             order_desc=True,
         )
         if result.is_error:
@@ -463,7 +479,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             field,
             value,
             limit=limit,
-            order_by=self._search_order_by,
+            order_by=self.search_order_by,
             order_desc=True,
         )
         if result.is_error:
@@ -521,8 +537,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             # round-trip (which would silently drop the ownership filter on an
             # unknown name; see ADR / project_security_posture fail-open risk).
             user_ownership_relationship=self._user_ownership_relationship,
-            search_fields=self._search_fields,
-            search_order_by=self._search_order_by,
+            search_fields=self.search_fields,
+            search_order_by=self.search_order_by,
             graph_enrichment_patterns=self._graph_enrichment_patterns,
             property_filters=property_filters,
             query_text=query_text,
