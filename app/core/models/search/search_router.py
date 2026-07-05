@@ -997,28 +997,41 @@ class SearchRouter:
             results_by_domain: dict[EntityType | NonKuDomain, list[SearchResultItem]] = {}
             total_count = 0
 
-            for entity_type in target_domains:
-                if not self.supports_search(entity_type):
-                    continue
-
-                # UserEntry is excluded from cross-domain aggregation:
-                # entries are private user content with their own scoped
-                # surfaces — faceted_search with the entity-type filter
-                # (OWNS-scoped) or search(..., user_uid=...).
-                if entity_type == EntityType.USER_ENTRY:
-                    continue
-
-                # Fail-closed: without a requesting user, user-owned domains
-                # return nothing (shared content is the unscoped floor).
-                # Authenticated routes always pass request.user_uid; an
-                # internal caller without one gets shared-only results.
-                if (
+            # Filter skips up-front so the per-domain limit budget divides
+            # by the domains that actually run (Kody, PR #513) — a mixed
+            # [TASK, EXERCISE] request without a user must give EXERCISE
+            # the full budget, not half of it:
+            # - UserEntry: excluded from cross-domain aggregation — private
+            #   user content with its own scoped surfaces (faceted_search
+            #   with the entity-type filter, or search(..., user_uid=...)).
+            # - Fail-closed: without a requesting user, user-owned domains
+            #   return nothing (shared content is the unscoped floor).
+            #   Authenticated routes always pass request.user_uid; an
+            #   internal caller without one gets shared-only results.
+            eligible_domains = [
+                entity_type
+                for entity_type in target_domains
+                if self.supports_search(entity_type)
+                and entity_type != EntityType.USER_ENTRY
+                and not (
                     request.user_uid is None
                     and isinstance(entity_type, EntityType)
                     and entity_type.is_user_owned()
-                ):
-                    continue
+                )
+            ]
 
+            # The budget divisor derives from the REQUESTED filter: only an
+            # explicit entity_types filter splits request.limit. The default
+            # sweep keeps full limit per domain (divisor 1 — pre-existing
+            # contract; dividing by ~10 sweep domains would starve them all).
+            limit_per_domain = (
+                request.limit // max(len(eligible_domains), 1)
+                if request.has_entity_type_filter()
+                else request.limit
+            )
+            limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
+
+            for entity_type in eligible_domains:
                 service = self.get_service(entity_type)
                 if service is None:
                     continue
@@ -1033,6 +1046,7 @@ class SearchRouter:
                     search_service=search_service,
                     entity_type=entity_type,
                     request=request,
+                    limit_per_domain=limit_per_domain,
                 )
 
                 if items:
@@ -1063,6 +1077,7 @@ class SearchRouter:
         search_service: Any,
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
+        limit_per_domain: int,
     ) -> list[SearchResultItem]:
         """
         Execute the appropriate search strategy based on request filters.
@@ -1072,12 +1087,12 @@ class SearchRouter:
         1. Graph + Text: Use search_connected_to if available
         2. Tags + Text: Use search_by_tags, then filter by text
         3. Text only: Use search directly
+
+        ``limit_per_domain`` is computed by ``advanced_search`` from the
+        ELIGIBLE domain count (skips already applied), not the raw request
+        filter — otherwise skipped domains eat the budget of running ones.
         """
         items: list[SearchResultItem] = []
-
-        # Calculate per-domain limit
-        limit_per_domain = request.limit // max(len(request.entity_types), 1)
-        limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
 
         # Strategy 0: Semantic-enhanced or learning-aware search
         if request.has_semantic_boost() or request.has_learning_aware():

@@ -292,6 +292,27 @@ class TestAdvancedSearchScoping:
         assert service.search_connected_to.await_args.kwargs["user_uid"] == "user_a"
 
     @pytest.mark.asyncio
+    async def test_skipped_domains_do_not_eat_the_limit_budget(self) -> None:
+        """Kody (PR #513): a mixed [TASK, EXERCISE] request without a user
+        skips TASK fail-closed — EXERCISE must get the FULL limit budget,
+        not half of it."""
+        exercise_service = _mock_task_service()
+        search_router = SearchRouter(
+            services=SimpleNamespace(tasks=_mock_task_service(), exercises=exercise_service)
+        )
+        request = SearchRequest(
+            query_text="Alpha",
+            entity_types=[EntityType.TASK, EntityType.EXERCISE],
+            limit=50,
+        )
+
+        result = await search_router.advanced_search(request)
+
+        assert result.is_ok, result.expect_error()
+        # Strategy 3 signature: search(query, limit_per_domain, user_uid=...)
+        assert exercise_service.search.await_args.args[1] == 50
+
+    @pytest.mark.asyncio
     async def test_string_entity_types_normalize_and_serialize(self, router) -> None:
         """use_enum_values leaves raw strings in entity_types — the filtered
         path must map them back to enum members so SearchResultItem.to_dict()
