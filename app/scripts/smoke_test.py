@@ -343,9 +343,7 @@ def _render_authed_chrome_fixture() -> "FT":
         Div(id="smoke-announce-probe"),
         Script(_AUTHED_CHROME_DRIVER_JS),
     )
-    return asyncio.run(
-        BasePage(content, title="Authed Chrome Smoke", is_authenticated=True)
-    )
+    return asyncio.run(BasePage(content, title="Authed Chrome Smoke", is_authenticated=True))
 
 
 def _render_enroll_failure_fixture() -> "FT":

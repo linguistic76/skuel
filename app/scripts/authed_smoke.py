@@ -229,9 +229,7 @@ def run(base_url: str, username: str, pages: list[str], verbose: bool) -> int:
             session.send("Runtime.enable")
             session.send("Page.enable")
             for name, value in cookies.items():
-                session.send(
-                    "Network.setCookie", {"name": name, "value": value, "url": base_url}
-                )
+                session.send("Network.setCookie", {"name": name, "value": value, "url": base_url})
             for page in pages:
                 print(f"  → {page}")
                 results.append(collect_page(session, base_url, page, verbose))
@@ -244,8 +242,10 @@ def run(base_url: str, username: str, pages: list[str], verbose: bool) -> int:
     failed = False
     for result in results:
         status = "OK" if result.is_clean else "FAIL"
-        print(f"[{status}] {result.page}: {len(result.exceptions)} exception(s), "
-              f"{len(result.console_errors)} console error(s)")
+        print(
+            f"[{status}] {result.page}: {len(result.exceptions)} exception(s), "
+            f"{len(result.console_errors)} console error(s)"
+        )
         for detail in result.exceptions:
             print(f"    exception: {detail}")
         for detail in result.console_errors:
@@ -265,7 +265,9 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://localhost:8001")
     parser.add_argument("--username", default="linguistic76")
     parser.add_argument(
-        "--pages", nargs="+", default=DEFAULT_PAGES,
+        "--pages",
+        nargs="+",
+        default=DEFAULT_PAGES,
         help=f"Pages to check (default: {' '.join(DEFAULT_PAGES)})",
     )
     parser.add_argument("--verbose", action="store_true", help="Dump raw CDP event payloads")
