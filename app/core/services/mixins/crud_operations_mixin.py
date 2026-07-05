@@ -241,8 +241,11 @@ class CrudOperationsMixin(Generic[B, T, U]):
 
         entity = result.value
 
-        # Check ownership - entity must have user_uid attribute
+        # Check ownership. User-owned domains carry ``user_uid``; owner-bound
+        # curriculum (Exercise) carries ``owner_uid`` — both are the same claim.
         entity_user_uid = getattr(entity, "user_uid", None)
+        if entity_user_uid is None:
+            entity_user_uid = getattr(entity, "owner_uid", None)
         if entity_user_uid is None:
             # Entity type doesn't support ownership (e.g., KU, LP)
             # This is a programming error, not a user error

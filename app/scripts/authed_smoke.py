@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authenticated live smoke test — zero JS errors across real authed pages.
+"""Authenticated live smoke test — zero JS/render errors across real authed pages.
 
 The CI smoke test (`./dev smoke`) renders static fixtures with no session and
 no live backend, so it cannot see exceptions that only fire on real
@@ -51,6 +51,8 @@ DEFAULT_PAGES = [
     "/library/exercises",
     "/tasks",
     "/goals",
+    "/notifications",
+    "/gradebook",
 ]
 
 CHROME_BINARY = "google-chrome-stable"
@@ -59,15 +61,16 @@ SETTLE_SECONDS = 3.0  # post-load drain window for htmx fragment loads / Alpine 
 
 @dataclass
 class PageResult:
-    """JS error events collected for one navigated page."""
+    """JS error events + render-shape problems collected for one navigated page."""
 
     page: str
     exceptions: list[str] = field(default_factory=list)
     console_errors: list[str] = field(default_factory=list)
+    render_errors: list[str] = field(default_factory=list)
 
     @property
     def is_clean(self) -> bool:
-        return not self.exceptions and not self.console_errors
+        return not self.exceptions and not self.console_errors and not self.render_errors
 
 
 class CdpSession:
@@ -193,11 +196,40 @@ def format_console(params: dict) -> str:
     return " ".join(parts) or "<no message>"
 
 
+def check_render_shape(session: CdpSession, result: PageResult) -> None:
+    """Flag pages that served 200 without actually rendering a page.
+
+    A handler that returns an un-awaited coroutine (e.g. ``return BasePage(...)``
+    instead of ``return await BasePage(...)``) serves a 200 text/html body of
+    ``<coroutine object ...>`` — zero JS errors, so the event-based checks pass.
+    Caught live on /notifications (2026-07-04)."""
+    evaluated = session.send(
+        "Runtime.evaluate",
+        {
+            "expression": (
+                "JSON.stringify({title: document.title, "
+                "snippet: (document.body && document.body.innerText || '').slice(0, 200)})"
+            ),
+            "returnByValue": True,
+        },
+    )
+    raw = evaluated.get("result", {}).get("value")
+    if not raw:
+        result.render_errors.append("Runtime.evaluate returned nothing — page state unreadable")
+        return
+    shape = json.loads(raw)
+    if "<coroutine object" in shape["snippet"]:
+        result.render_errors.append(f"un-awaited coroutine served as page body: {shape['snippet']}")
+    elif not shape["title"]:
+        result.render_errors.append("empty <title> — page did not render SKUEL chrome")
+
+
 def collect_page(session: CdpSession, base_url: str, page: str, verbose: bool) -> PageResult:
     result = PageResult(page=page)
     session.take_events()  # discard leftovers from the previous page
     session.send("Page.navigate", {"url": f"{base_url}{page}"})
     session.drain(SETTLE_SECONDS)
+    check_render_shape(session, result)
     for event in session.take_events():
         method = event["method"]
         params = event.get("params", {})
@@ -249,19 +281,22 @@ def run(base_url: str, username: str, pages: list[str], verbose: bool) -> int:
         status = "OK" if result.is_clean else "FAIL"
         print(
             f"[{status}] {result.page}: {len(result.exceptions)} exception(s), "
-            f"{len(result.console_errors)} console error(s)"
+            f"{len(result.console_errors)} console error(s), "
+            f"{len(result.render_errors)} render error(s)"
         )
         for detail in result.exceptions:
             print(f"    exception: {detail}")
         for detail in result.console_errors:
             print(f"    console.error: {detail}")
+        for detail in result.render_errors:
+            print(f"    render: {detail}")
         failed = failed or not result.is_clean
 
     print()
     if failed:
-        print("AUTHED SMOKE: FAIL — JS errors present on authed pages")
+        print("AUTHED SMOKE: FAIL — JS or render errors present on authed pages")
         return 1
-    print(f"AUTHED SMOKE: PASS — {len(results)} pages, zero JS errors")
+    print(f"AUTHED SMOKE: PASS — {len(results)} pages, zero JS or render errors")
     return 0
 
 

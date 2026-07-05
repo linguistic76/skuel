@@ -149,11 +149,18 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
-        """Query ownership and status for combined ownership + shareable check."""
+        """Query ownership and status for combined ownership + shareable check.
+
+        Ownership lives in two shapes: user-owned domains stamp a ``user_uid``
+        property, while curriculum entities (e.g. Exercise) carry only the
+        canonical ``:OWNS`` edge. Resolve the property first, then fall back to
+        the edge — an entity with neither stays unowned and unshareable.
+        """
         result = await self.execute_query(
             """
             MATCH (entity:Entity {uid: $entity_uid})
-            RETURN entity.user_uid as actual_owner,
+            OPTIONAL MATCH (owner:User)-[:OWNS]->(entity)
+            RETURN coalesce(entity.user_uid, owner.uid) as actual_owner,
                    entity.status as status,
                    entity.entity_type as entity_type
             """,

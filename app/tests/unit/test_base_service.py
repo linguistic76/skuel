@@ -347,6 +347,37 @@ class TestOwnershipVerification:
         assert "NOT_FOUND" in result.error.code
 
     @pytest.mark.asyncio
+    async def test_verify_ownership_owner_uid_fallback(self, service, mock_backend):
+        """Owner-bound curriculum (Exercise) carries owner_uid, not user_uid —
+        ownership verification must honor it (delete/update via CRUD factory
+        500'd on every exercise before this)."""
+        entity = Mock()
+        entity.user_uid = None
+        entity.owner_uid = "user_001"
+        entity.uid = "ex_001"
+        mock_backend.get.return_value = Result.ok(entity)
+
+        result = await service.verify_ownership("ex_001", "user_001")
+
+        assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_verify_ownership_owner_uid_mismatch_returns_not_found(
+        self, service, mock_backend
+    ):
+        """The owner_uid fallback keeps IDOR protection: mismatch is not_found."""
+        entity = Mock()
+        entity.user_uid = None
+        entity.owner_uid = "other_user"
+        entity.uid = "ex_001"
+        mock_backend.get.return_value = Result.ok(entity)
+
+        result = await service.verify_ownership("ex_001", "user_001")
+
+        assert result.is_error
+        assert "NOT_FOUND" in result.error.code
+
+    @pytest.mark.asyncio
     async def test_get_for_user_respects_ownership(self, service, mock_backend):
         """get_for_user combines get with ownership check."""
         entity = Mock()
