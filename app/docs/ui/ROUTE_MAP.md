@@ -87,7 +87,7 @@ MOC root page (no sidebar) — three cards linking to the three GradeBook sub-pa
 - `/activity-reports` — Holistic reports aggregating activity patterns and progress; submit at `/submit-activity-report`.
 - `/revised-exercises` — Exercises returned for revision with teacher comments; detail at `/revised-exercises/detail`.
 
-All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge) and a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`).
+All three sub-pages use the GradeBook sidebar (Entry Reports → Activity Reports → Revised Exercises). The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge), a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`), and a "Map of Content" card section when the entry has outgoing `ORGANIZES` edges (emergent MOC, drawn by vault `moc: true` ingestion) — children link to their per-type detail pages via `ui/patterns/entity_links.py`.
 
 ### `/library`
 
@@ -128,7 +128,7 @@ Nested hub (no sidebar) with 4 HTMX-loaded preview blocks (Needs Review, Revisio
 1. `scope=assigned` exercises via `SHARED_WITH_GROUP` group membership
 2. `scope=personal` exercises linked via `HAS_EXERCISE` to PathSteps the user is `IN_PROGRESS` in
 
-Inline submission/feedback status pills (Not Submitted / Submitted / Feedback Available / Revision Requested) and context-sensitive action links. Exercise titles link to `GET /exercises/get?uid=` (student detail page with Submit + Download buttons; Markdown download via `GET /api/exercises/md?uid=`, renderer at `adapters/outbound/exercise_renderer.py`).
+Inline submission/feedback status pills (Not Submitted / In Progress / Submitted / Feedback Available / Revision Requested) and context-sensitive action links. "In Progress" reflects the vault exercise channel: a living vault entry declares the exercise via its `fulfills_exercise_uid` intent property with no turn-in edge yet — its action link ("View Entry →") opens the living entry at `/gradebook/{uid}`. A filed turn-in outranks declared intent (the living entry keeps its intent property forever). Exercise titles link to `GET /exercises/get?uid=` (student detail page with Submit + Download buttons; Markdown download via `GET /api/exercises/md?uid=`, renderer at `adapters/outbound/exercise_renderer.py`).
 
 - **Ku tab** — only the user's bookmarked (PINNED) Ku
 - **Path Steps tab** — only enrolled (IN_PROGRESS) steps

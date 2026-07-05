@@ -20,6 +20,8 @@ from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from fasthtml.common import FT
 
 
@@ -247,6 +249,7 @@ def hub_cards_from_organizers(
     href_template: str = "/ku/{uid}",
     default_icon: str = "\U0001f4d6",
     default_description: str = "",
+    href_for: Callable[[OrganizerResult], str] | None = None,
 ) -> list[HubCardData]:
     """Convert ORGANIZES query results into HubCardData list.
 
@@ -255,6 +258,9 @@ def hub_cards_from_organizers(
         href_template: URL template with {uid} placeholder.
         default_icon: Fallback icon for cards.
         default_description: Fallback description for cards.
+        href_for: Per-child href resolver — overrides ``href_template`` when
+            children span entity types (e.g. a user-entry MOC organizing
+            tasks, Kus, and entries; see ``ui/patterns/entity_links.py``).
 
     Returns:
         List of HubCardData sorted by order.
@@ -263,12 +269,17 @@ def hub_cards_from_organizers(
     def by_order(c: OrganizerResult) -> int:
         return c.get("order") or 0
 
+    def child_href(c: OrganizerResult) -> str:
+        if href_for is not None:
+            return href_for(c)
+        return href_template.format(uid=c["uid"])
+
     sorted_children = sorted(children, key=by_order)
     return [
         HubCardData(
             icon=default_icon,
             name=child["title"],
-            href=href_template.format(uid=child["uid"]),
+            href=child_href(child),
             description=default_description,
         )
         for child in sorted_children

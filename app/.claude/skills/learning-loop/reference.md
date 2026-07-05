@@ -97,6 +97,11 @@ The `/learning-loop/ps/{ps_uid}/*` fragment routes remain wired in `learning_loo
 
 Renderers in `ui/learning_loop/` (`exercise_status.py`, `submissions_section.py`, `feedback_section.py`,
 `embedded_forms.py`). Exercise status helpers shared with Library exercises tab (`/library/exercises`).
+Status pills follow loop-phase precedence: report > turn-in > declared intent > nothing
+(Feedback Available / Revision Requested > Submitted > In Progress > Not Submitted). "In Progress"
+is the vault living entry's `fulfills_exercise_uid` intent property with no `FULFILLS_EXERCISE`
+edge (`has_in_progress` / `in_progress_uid` on `ExerciseStatusRow`); its action link opens the
+living entry at `/gradebook/{uid}`.
 
 Forms are linked to PathSteps via `(PathStep)-[:EMBEDS_FORM]->(FormTemplate)`. Admin wires the relationship via
 `POST /api/form-templates/link-path-step`. The fragment returns an empty `<div>` when no forms are linked, so the

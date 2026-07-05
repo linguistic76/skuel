@@ -51,8 +51,15 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.learning_loop.report import render_yours_list
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
-from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.hub import (
+    HubPreviewCard,
+    HubPreviewEmpty,
+    HubPreviewGrid,
+    HubSection,
+    hub_cards_from_organizers,
+)
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form, upload_form_script
@@ -60,11 +67,17 @@ from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
+    from core.ports.query_types import OrganizerResult
     from core.services.groups.group_service import GroupService
     from core.services.report.entry_report_service import EntryReportService
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.routes.user_entry.ui")
+
+
+def _moc_child_href(child: OrganizerResult) -> str:
+    """Detail href for a MOC child of any entity type; ``#`` when none exists."""
+    return entity_detail_href(child.get("entity_type"), child["uid"]) or "#"
 
 
 def _status_value(entry: UserEntry) -> str:
@@ -758,9 +771,36 @@ def create_user_entry_ui_routes(
             else _render_entry_responses(responses)
         )
 
+        # Map of Content — ORGANIZES children drawn by the vault MOC ingestion
+        # (moc: true body links). Renders for ANY owned entry with edges; most
+        # entries have none and get no section. A failed fetch must not
+        # masquerade as "not a MOC" (Kody #505 precedent) — surface it.
+        map_section: Any = None
+        children_result = await orchestrator.get_entry_organized_children(uid)
+        if children_result.is_error:
+            map_section = Div(
+                render_inline_error(
+                    "Could not load this entry's organized contents: "
+                    f"{children_result.expect_error().message}"
+                ),
+                cls="mt-6",
+            )
+        elif children_result.value:
+            map_section = Div(
+                HubSection(
+                    "Map of Content",
+                    hub_cards_from_organizers(
+                        children_result.value,
+                        href_for=_moc_child_href,
+                    ),
+                ),
+                cls="mt-6",
+            )
+
         content = Div(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
             detail_card,
+            map_section,
             respond_button,
             ai_feedback_button,
             responses_section,
