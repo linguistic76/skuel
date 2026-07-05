@@ -385,10 +385,12 @@ class Task:
 ```
 
 - **Owner-bound curriculum** (Exercise) carries `owner_uid` plus the
-  canonical `:OWNS` edge — there is no `user_uid` property on those nodes.
-  Checks resolve `user_uid` first, then fall back to `owner_uid` (mixin) /
-  the `:OWNS` owner (sharing query). An entity with neither is unowned:
-  `verify_ownership` returns a system error, sharing refuses.
+  canonical `:OWNS` edge — there is no `user_uid` property on those nodes,
+  and the edge write is warn-only at create, so property-without-edge can
+  exist. Both layers resolve `user_uid` → `owner_uid` → `:OWNS` owner (the
+  mixin sees the model properties; the sharing query adds the edge fallback)
+  so they always agree. An entity with none is unowned: `verify_ownership`
+  returns a system error, sharing refuses.
 
 ## Domains by Ownership Type
 
