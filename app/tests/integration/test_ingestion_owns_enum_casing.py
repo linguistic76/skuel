@@ -142,6 +142,38 @@ async def test_reingest_is_idempotent_one_owns_edge(
 
 
 @pytest.mark.asyncio
+async def test_reingest_removes_stale_owner_edge(
+    clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
+) -> None:
+    """
+    Single-owner invariant (Kody #514 finding, accepted): when a node carries
+    an :OWNS edge from a user other than its resolved owner (owner change or
+    an out-of-band edge), re-ingest removes the stale edge — a former owner
+    must not keep access.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _write_task_file(vault, "ownstest-stale")
+    assert (await ingestion_service.ingest_directory(vault)).is_ok
+
+    # Simulate the out-of-band edge (bare, propertyless — the walk-era shape)
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (n:Entity {uid: 'task.ownstest-stale'}) "
+            "MATCH (u:User {uid: 'user_test_123'}) "
+            "MERGE (u)-[:OWNS]->(n)"
+        )
+    assert len(await _owns_edges(neo4j_driver, "task.ownstest-stale")) == 2
+
+    # Touch the file so incremental hashing re-processes it, then re-ingest
+    _write_task_file(vault, "ownstest-stale", extra_frontmatter="description: touched\n")
+    assert (await ingestion_service.ingest_directory(vault)).is_ok
+
+    edges = await _owns_edges(neo4j_driver, "task.ownstest-stale")
+    assert [e["owner"] for e in edges] == [OWNER_UID]
+
+
+@pytest.mark.asyncio
 async def test_invariant_no_user_uid_bearing_entity_without_owns(
     clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
 ) -> None:

@@ -104,10 +104,12 @@ def build_node_upsert_template(
     are excluded in Python (``batch_preparer``) so relationship sources never
     leak onto the node as properties.
 
-    For ``:Entity``-based labels the template also MERGEs the owner edge:
+    For ``:Entity``-based labels the template also maintains the owner edge:
     every row persisted with a ``user_uid`` property gets its
-    ``(User)-[:OWNS]->(entity)`` edge, restoring the invariant the June-2026
-    migration enforces from the other side (property == :OWNS owner). The
+    ``(User)-[:OWNS]->(entity)`` edge and loses any :OWNS edge from OTHER
+    users (single-owner invariant — a former owner must not keep access
+    after a re-ingest under a different owner), restoring the invariant the
+    June-2026 migration enforces from the other side (property == :OWNS owner). The
     owner is ``MATCH``ed, not ``MERGE``d, so an unknown user is silently
     skipped — same no-stub semantics as relationship targets. Carve-outs hold
     by construction: file-ingested exercises are ownerless curriculum content
@@ -118,10 +120,21 @@ def build_node_upsert_template(
     owns_clause = ""
     if base_label == "Entity":
         owns_clause = """
-// Owner edge — user_uid property implies :OWNS (edge props mirror the CRUD
-// path's create_user_relationship shape; timestamps are Python-side ISO
-// strings, matching the existing OWNS edge storage format)
+// Owner edge — user_uid property implies :OWNS, single owner (edge props
+// mirror the CRUD path's create_user_relationship shape; timestamps are
+// Python-side ISO strings, matching the existing OWNS edge storage format).
+// The stale-owner DELETE enforces the single-owner invariant on re-ingest:
+// when the resolved owner changes (or an out-of-band edge exists), the
+// former owner must not keep access through a leftover :OWNS edge.
 WITH n, props
+CALL {
+  WITH n, props
+  WITH n, props.user_uid AS _owner_uid
+  WHERE _owner_uid IS NOT NULL
+  OPTIONAL MATCH (_stale:User)-[_stale_owns:OWNS]->(n)
+  WHERE _stale.uid <> _owner_uid
+  DELETE _stale_owns
+}
 CALL {
   WITH n, props
   WITH n, props.user_uid AS _owner_uid

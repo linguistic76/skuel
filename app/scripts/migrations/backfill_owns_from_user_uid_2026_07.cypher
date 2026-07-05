@@ -19,7 +19,9 @@
 //   ingestion via the OWNS clause in build_node_upsert_template (this PR).
 //
 // SAFE:
-//   - MERGE is idempotent — already-consistent nodes gain nothing.
+//   - MERGE is idempotent — already-consistent nodes gain nothing; Phase 1b
+//     only deletes edges whose owner disagrees with the user_uid property
+//     (single-owner invariant; Kody #514 finding accepted + Mike's ruling).
 //   - Only nodes whose user_uid matches an EXISTING :User node are touched;
 //     a dangling user_uid creates neither an edge nor a stub User.
 //   - `user_uid = "user_system"` is explicitly excluded: per the June
@@ -53,12 +55,35 @@ MERGE (owner)-[o:OWNS]->(e)
 RETURN count(o) AS owns_edges_created;
 
 // --------------------------------------------------------------------
-// Phase 2: Validation — expected result: 0 missing_owns_edges
-// Any non-zero result means a user_uid-bearing Entity whose owner exists
-// still lacks its :OWNS edge (the invariant this migration restores).
+// Phase 1b: Single-owner enforcement — delete :OWNS edges from users
+// OTHER than the user_uid property owner. Here (unlike the June migration,
+// where the edge was authoritative) the property is authoritative: the live
+// write paths now keep property == edge on both doors, so any residual
+// multi-owner edge is an out-of-band artifact (e.g. the bare propertyless
+// PR-3-walk-era edges found 2026-07-05) whose survivor must be the property
+// owner. Scoped to entities that HAVE a user_uid — ownerless curriculum
+// content and Exercise owner_uid ownership are untouched.
+// --------------------------------------------------------------------
+MATCH (stale:User)-[r:OWNS]->(e:Entity)
+WHERE e.user_uid IS NOT NULL AND e.user_uid <> 'user_system'
+  AND stale.uid <> e.user_uid
+DELETE r
+RETURN count(r) AS stale_owns_edges_removed;
+
+// --------------------------------------------------------------------
+// Phase 2: Validation — expected result: 0 / 0
+// missing_owns_edges: a user_uid-bearing Entity whose owner exists still
+// lacks its :OWNS edge. stale_owns_edges: an :OWNS edge from a user other
+// than the property owner survived (single-owner invariant).
 // --------------------------------------------------------------------
 MATCH (e:Entity)
 WHERE e.user_uid IS NOT NULL AND e.user_uid <> 'user_system'
-MATCH (owner:User {uid: e.user_uid})
-WHERE NOT (owner)-[:OWNS]->(e)
-RETURN count(e) AS missing_owns_edges;
+OPTIONAL MATCH (owner:User {uid: e.user_uid})
+WITH e, owner
+OPTIONAL MATCH (other:User)-[:OWNS]->(e)
+WITH e, owner, collect(other.uid) AS edge_owners
+RETURN
+  sum(CASE WHEN owner IS NOT NULL AND NOT e.user_uid IN edge_owners THEN 1 ELSE 0 END)
+    AS missing_owns_edges,
+  sum(CASE WHEN any(o IN edge_owners WHERE o <> e.user_uid) THEN 1 ELSE 0 END)
+    AS stale_owns_edges;
