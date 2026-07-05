@@ -109,6 +109,27 @@ when omitted. Accepted values:
 Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 **rejected** with an ADR-054 error (no compat shim — One Path Forward).
 
+### Optional fields: `status`, `description`, `ownership`
+
+The door does not silently drop authored frontmatter it understands:
+
+- **`status:`** — parsed via `EntityStatus.from_string` (case-insensitive,
+  alias-aware: `in progress` / `in process` → `active`, `done` →
+  `completed`, …). Unrecognized values **fail the file** with the accepted
+  list — never silently replaced. Omitted/empty → the pipeline default
+  (`submitted` for `teacher_review`, `active` otherwise). Re-syncing an
+  edited `status:` updates the node in place (deterministic-uid upsert).
+  **`teacher_review` exception:** status is service-owned there (the review
+  workflow is the only writer after create) — any authored value other than
+  a truthful `submitted` fails the file, so a submission can't be created
+  pre-`completed`/`archived` to fake or dodge review.
+- **`description:`** — flows onto the node's `description` field.
+- **`ownership:`** (alias: `user_uid:`) — a *consistency check*, not a
+  transfer: ownership is always stamped from the syncing user. The declared
+  value (`linguistic76` or canonical `user_linguistic76`) must match the
+  syncing user; a mismatch fails the file honestly instead of the entry
+  being claimed by whoever ran the sync. Omitted → no check.
+
 ### Optional field: `uid` (deterministic upsert)
 
 By default a UserEntry is minted a random `ue_<...>` UID and **created**

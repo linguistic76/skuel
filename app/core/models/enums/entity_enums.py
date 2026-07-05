@@ -718,6 +718,7 @@ _ENTITY_STATUS_ALIASES: dict[str, EntityStatus] = {
     "ready": EntityStatus.SCHEDULED,
     "planned": EntityStatus.SCHEDULED,
     "in_progress": EntityStatus.ACTIVE,
+    "in_process": EntityStatus.ACTIVE,
     "todo": EntityStatus.DRAFT,
     "done": EntityStatus.COMPLETED,
     "canceled": EntityStatus.CANCELLED,

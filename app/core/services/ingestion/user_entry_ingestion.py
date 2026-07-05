@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
@@ -131,6 +132,58 @@ def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
     return Result.ok(pipeline)
 
 
+def _parse_status(raw: Any) -> Result[EntityStatus | None]:
+    """Parse the optional ``status:`` field for a UserEntry YAML.
+
+    Absent or empty → ``None`` (the service applies its pipeline default:
+    SUBMITTED for TEACHER_REVIEW, ACTIVE otherwise). Alias-aware via
+    ``EntityStatus.from_string`` (e.g. "in process" → ACTIVE). Unrecognized
+    values fail loudly — the honest alternative to silently dropping an
+    authored status.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return Result.ok(None)
+    status = EntityStatus.from_string(str(raw))
+    if status is None:
+        return Result.fail(
+            Errors.validation(
+                f"Unrecognized status '{raw}'. Expected one of: "
+                f"{', '.join(s.value for s in EntityStatus)}.",
+                field="status",
+            )
+        )
+    return Result.ok(status)
+
+
+def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Result[None]:
+    """Validate the optional ``ownership:`` / ``user_uid:`` frontmatter claim.
+
+    Ownership is ALWAYS stamped from the syncing user (the file cannot
+    transfer it — that would let YAML smuggle entries into another account).
+    The declared field is a consistency check: ``ownership: linguistic76``
+    (or canonical ``user_linguistic76``) must match the syncing user;
+    a mismatch fails honestly instead of the entry being silently claimed
+    by whoever happened to run the sync.
+    """
+    raw = data.get("ownership") or data.get("user_uid")
+    if raw is None or not str(raw).strip():
+        return Result.ok(None)
+    declared = str(raw).strip()
+    canonical = declared if declared.startswith("user_") else f"user_{declared}"
+    if canonical != user_uid:
+        return Result.fail(
+            Errors.forbidden(
+                action="ingest user entry with declared ownership",
+                reason=(
+                    f"File declares ownership '{declared}' but is being synced by "
+                    f"'{user_uid}'. Ownership always follows the syncing user — "
+                    "fix the frontmatter or sync from the declared account."
+                ),
+            )
+        )
+    return Result.ok(None)
+
+
 async def build_user_entry_request(
     data: dict[str, Any],
     file_path: Path,
@@ -156,6 +209,15 @@ async def build_user_entry_request(
     if pipeline_result.is_error:
         return Result.fail(pipeline_result)
     pipeline = pipeline_result.value
+
+    ownership_check = _verify_declared_ownership(data, user_uid)
+    if ownership_check.is_error:
+        return Result.fail(ownership_check)
+
+    status_result = _parse_status(data.get("status"))
+    if status_result.is_error:
+        return Result.fail(status_result)
+    authored_status = status_result.value
 
     audience_result = _parse_audience(data.get("audience"))
     if audience_result.is_error:
@@ -199,6 +261,8 @@ async def build_user_entry_request(
         return Result.fail(refs_check)
 
     title = data.get("title") or data.get("name") or file_path.stem.replace("-", " ").title()
+    raw_description = data.get("description")
+    description = None if raw_description is None else str(raw_description)
     tags_raw = data.get("tags") or []
     tags = [str(t) for t in tags_raw] if isinstance(tags_raw, list) else []
     metadata = data.get("metadata") or {}
@@ -276,6 +340,8 @@ async def build_user_entry_request(
         uid=uid_override,
         title=str(title),
         content=content,
+        description=description,
+        status=authored_status,
         tags=tags,
         metadata=ingestion_metadata,
         pipeline=pipeline,
