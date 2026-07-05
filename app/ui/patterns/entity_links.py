@@ -12,9 +12,11 @@ Detail URL shapes verified against live route registrations:
     Exercise          /exercises/get?uid=     (student detail page)
     UserEntry         /gradebook/{uid}        (user_entry_ui)
     Reports/Revisions /{plural}/detail?uid=   (gradebook sub-pages)
+    FormSubmission    /my-forms/detail?uid=   (form_submissions_ui)
 
-Types with no detail page (Resource, templates, Interaction, LifePath,
-forms) resolve to ``None`` — the caller decides the fallback.
+Types with no detail page (Resource, activity templates, FormTemplate,
+Interaction, LifePath) resolve to ``None`` — the caller decides the
+fallback.
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ _QUERY_PARAM_DETAIL: dict[str, str] = {
     "activity_report": "/activity-reports/detail",
     "revised_exercise": "/revised-exercises/detail",
     "exercise": "/exercises/get",
+    "form_submission": "/my-forms/detail",
 }
 
 _PATH_PARAM_DETAIL: dict[str, str] = {

@@ -31,13 +31,16 @@ from ui.patterns.hub import hub_cards_from_organizers
         ("entry_report", "/entry-reports/detail?uid=tk_1"),
         ("activity_report", "/activity-reports/detail?uid=tk_1"),
         ("revised_exercise", "/revised-exercises/detail?uid=tk_1"),
+        ("form_submission", "/my-forms/detail?uid=tk_1"),
     ],
 )
 def test_detail_href_mapping(entity_type: str, expected: str) -> None:
     assert entity_detail_href(entity_type, "tk_1") == expected
 
 
-@pytest.mark.parametrize("entity_type", ["resource", "interaction", "life_path", None])
+@pytest.mark.parametrize(
+    "entity_type", ["resource", "interaction", "life_path", "form_template", None]
+)
 def test_types_without_detail_pages_resolve_none(entity_type: str | None) -> None:
     assert entity_detail_href(entity_type, "tk_1") is None
 
