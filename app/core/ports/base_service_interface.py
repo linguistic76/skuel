@@ -396,6 +396,7 @@ class SearchOperations(Protocol[T]):
         tags: list[str],
         match_all: bool = False,
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[list[T]]:
         """
         Search entities by tags (array field search).
@@ -404,6 +405,7 @@ class SearchOperations(Protocol[T]):
             tags: List of tag values to search for
             match_all: If True, require ALL tags; if False, ANY tag matches
             limit: Maximum results (default 50)
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing entities with matching tags
@@ -468,6 +470,7 @@ class SearchOperations(Protocol[T]):
         relationship_type: Any,  # RelationshipName enum
         direction: str = "outgoing",
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[list[T]]:
         """
         Graph-aware search: text search + relationship traversal in ONE query.
@@ -478,6 +481,7 @@ class SearchOperations(Protocol[T]):
             relationship_type: Type-safe RelationshipName enum
             direction: "outgoing", "incoming", or "both" (default "outgoing")
             limit: Maximum results (default 50)
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing entities matching query AND connected via relationship

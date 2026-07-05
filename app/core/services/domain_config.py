@@ -56,6 +56,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from core.models.enums import SearchVisibility
 from core.models.protocols.domain_model_protocol import (
     DomainModelProtocol,
     DTOProtocol,
@@ -151,6 +152,12 @@ class DomainConfig:
         RelationshipName.OWNS
     )  # None for shared content (KU)
 
+    # Search-result visibility (THE scoping declaration for every search
+    # strategy — text, tags, graph traversal, faceted). None derives from
+    # user_ownership_relationship via get_search_visibility(); set explicitly
+    # only when the derivation is wrong (Exercise: SCOPE_AWARE).
+    search_visibility: SearchVisibility | None = None
+
     # Temporal queries (get_upcoming / get_overdue / get_active)
     temporal_exclude_statuses: tuple[str, ...] = (
         "completed",
@@ -217,6 +224,22 @@ class DomainConfig:
         # NOTE: We do NOT validate user_ownership_relationship=None + supports_user_progress=True
         # This is VALID for curriculum domains (KU, PS, LP) where progress is tracked via
         # relationships: (User)-[HAS_MASTERY {score}]->(KU), not entity properties.
+
+    def get_search_visibility(self) -> SearchVisibility:
+        """
+        Resolve who this domain's entities are visible to in search.
+
+        Explicit ``search_visibility`` wins; otherwise derive from the
+        ownership declaration: an ownership relationship means user-owned
+        content (OWNER_ONLY), none means shared content (PUBLIC). The
+        derivation keeps the two declarations from silently disagreeing —
+        only genuinely instance-scoped domains (Exercise) set it explicitly.
+        """
+        if self.search_visibility is not None:
+            return self.search_visibility
+        if self.user_ownership_relationship is not None:
+            return SearchVisibility.OWNER_ONLY
+        return SearchVisibility.PUBLIC
 
     def get_entity_label(self) -> str:
         """

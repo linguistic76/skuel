@@ -53,6 +53,7 @@ from .crud_queries import (
     build_prerequisite_traversal_query,
     build_relationship_traversal_query,
     build_search_query,
+    build_search_visibility_clause,
     build_text_search_query,
     convert_value_for_neo4j,
     get_filterable_fields,
@@ -208,6 +209,7 @@ __all__ = [
     # Semantic queries
     "build_semantic_context",
     "build_semantic_filter_query",
+    "build_search_visibility_clause",
     "build_semantic_merge",
     "build_semantic_traversal",
     # Domain queries - prerequisites

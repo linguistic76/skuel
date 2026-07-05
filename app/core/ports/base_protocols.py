@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     import logging
     from datetime import date, datetime
 
-    from core.models.enums import Priority
+    from core.models.enums import Priority, SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
     from core.models.protocols.domain_model_protocol import DomainModelProtocol
     from core.models.relationship_filters import RelationshipFilters
@@ -602,6 +602,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         order_by: str = "created_at",
         order_desc: bool = True,
         user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Text search across specified fields, returning raw dicts."""
         ...
@@ -627,6 +628,8 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Combined text search + relationship traversal in one query."""
         ...
@@ -640,6 +643,8 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Search array field for ANY/ALL of the given values."""
         ...
@@ -676,6 +681,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         query_text: str | None = None,
         relationship_filters: RelationshipFilters | None = None,
         limit: int = 50,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Graph-aware faceted search with ownership, filters, and enrichment.
 

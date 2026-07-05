@@ -376,15 +376,11 @@ class SearchRouter:
             if search_service is None:
                 search_service = service
 
-            # Forward the owner scope only for user-owned types — shared
-            # domains (PS, LP, Exercise) have no user_uid node property and
-            # would silently return nothing if property-scoped.
-            effective_uid = (
-                user_uid
-                if isinstance(entity_type, EntityType) and entity_type.is_user_owned()
-                else None
-            )
-            return await search_service.search(query, limit, user_uid=effective_uid)
+            # Forward the owner scope unconditionally — the domain's
+            # search_visibility declaration (DomainConfig) decides what the
+            # uid means: OWNER_ONLY property-scopes, PUBLIC ignores it,
+            # SCOPE_AWARE (Exercise) resolves curriculum/ownership/sharing.
+            return await search_service.search(query, limit, user_uid=user_uid)
 
         except (AttributeError, TypeError, ValueError) as e:
             self.logger.error(f"Search failed for {entity_type.value}: {e}")
@@ -984,12 +980,19 @@ class SearchRouter:
             result = await router.advanced_search(request, user_context)
         """
         try:
-            # Determine target domains
-            target_domains = (
-                request.entity_types
-                if request.has_entity_type_filter()
-                else list(self._SEARCHABLE_DOMAINS)
-            )
+            # Determine target domains. Normalize filter entries back to enum
+            # members — use_enum_values=True on SearchRequest means
+            # entity_types holds raw strings after validation, and a raw
+            # string in SearchResultItem.entity_type crashes serialization.
+            target_domains: list[EntityType | NonKuDomain]
+            if request.has_entity_type_filter():
+                target_domains = [
+                    parsed
+                    for raw in request.entity_types
+                    if (parsed := self._parse_entity_type(raw)) is not None
+                ]
+            else:
+                target_domains = list(self._SEARCHABLE_DOMAINS)
 
             results_by_domain: dict[EntityType | NonKuDomain, list[SearchResultItem]] = {}
             total_count = 0
@@ -998,12 +1001,22 @@ class SearchRouter:
                 if not self.supports_search(entity_type):
                     continue
 
-                # UserEntry is excluded from cross-domain aggregation: the
-                # advanced-search strategies (text/tags/graph-traversal) run
-                # without an ownership filter, and entries are private user
-                # content. Entries are searchable via faceted_search with the
-                # entity-type filter (OWNS-scoped) or search(..., user_uid=...).
+                # UserEntry is excluded from cross-domain aggregation:
+                # entries are private user content with their own scoped
+                # surfaces — faceted_search with the entity-type filter
+                # (OWNS-scoped) or search(..., user_uid=...).
                 if entity_type == EntityType.USER_ENTRY:
+                    continue
+
+                # Fail-closed: without a requesting user, user-owned domains
+                # return nothing (shared content is the unscoped floor).
+                # Authenticated routes always pass request.user_uid; an
+                # internal caller without one gets shared-only results.
+                if (
+                    request.user_uid is None
+                    and isinstance(entity_type, EntityType)
+                    and entity_type.is_user_owned()
+                ):
                     continue
 
                 service = self.get_service(entity_type)
@@ -1093,6 +1106,7 @@ class SearchRouter:
                     relationship_type=relationship_type,
                     direction=request.connected_direction,
                     limit=limit_per_domain,
+                    user_uid=request.user_uid,
                 )
                 if result.is_ok and result.value:
                     items = self._wrap_results(result.value, entity_type)
@@ -1117,6 +1131,7 @@ class SearchRouter:
                     tags=tags,
                     match_all=request.tags_match_all,
                     limit=limit_per_domain * 2,  # Get more, then filter by text
+                    user_uid=request.user_uid,
                 )
                 if result.is_ok and result.value:
                     items = self._wrap_results(result.value, entity_type)
@@ -1136,7 +1151,9 @@ class SearchRouter:
 
         # Strategy 3: Text search only
         else:
-            result = await search_service.search(request.query_text or "", limit_per_domain)
+            result = await search_service.search(
+                request.query_text or "", limit_per_domain, user_uid=request.user_uid
+            )
             if result.is_ok and result.value:
                 items = self._wrap_results(result.value, entity_type)
 
@@ -1154,7 +1171,9 @@ class SearchRouter:
 
         Uses basic text search and post-filters results.
         """
-        result = await search_service.search(request.query_text or "", limit_per_domain * 2)
+        result = await search_service.search(
+            request.query_text or "", limit_per_domain * 2, user_uid=request.user_uid
+        )
         if not result.is_ok or not result.value:
             return []
 

@@ -227,7 +227,7 @@ def create_search_api_routes(
                 "tags": "python,beginner"
             }
         """
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         if not query.strip():
             return {"error": "Query is required", "total_count": 0, "results_by_domain": {}}
@@ -265,7 +265,9 @@ def create_search_api_routes(
         if tags.strip():
             parsed_tags = split_csv(tags) or None
 
-        # Build request (SearchRequest is THE canonical model)
+        # Build request (SearchRequest is THE canonical model). The
+        # authenticated user scopes every strategy — user-owned domains are
+        # owner-only, exercises resolve curriculum/ownership/sharing.
         search_request = SearchRequest(
             query_text=query,
             entity_types=parsed_entity_types,
@@ -275,6 +277,7 @@ def create_search_api_routes(
             tags_contain=parsed_tags,
             tags_match_all=tags_match_all,
             limit=limit,
+            user_uid=user_uid,
         )
 
         # Execute search
