@@ -62,14 +62,14 @@ Legacy hub superseded. `/submissions`, `/gradebook`, and `/library` are now stan
 Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path.
 
 **Two patterns for Focus+Velocity:**
-- `personal_header(context)` — when `UserContext` is already in scope (e.g. `/profile`)
+- `personal_header(context)` — when `UserContext` is already in scope (today only the `/api/personal-header` endpoint itself)
 - `personal_header_placeholder()` — everywhere else; renders an `hx-get="/api/personal-header" hx-trigger="load"` div that fills in after page render without blocking
 
 Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Focus + Velocity via `personal_header(context)` (already has `UserContext` from its full page load), Activity Domains (6 HTMX-loaded blocks with colored headers and 3 priority-sorted cards each from `/api/profile/{slug}/preview`). Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/events/calendar` + calendar views, `/choices`, `/principles`, `/journals`) links back to `/profile`.
+Three tabs selected by `?tab=` (default `submissions`): **Curriculum** (former Library blocks), **Reports** (former GradeBook blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Exercises, Journals, Sync, History). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/events/calendar` + calendar views, `/choices`, `/principles`, `/journals`) links back to `/profile`.
 
 ### `/ku` — Knowledge Index
 
