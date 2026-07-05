@@ -117,13 +117,17 @@ result = await search_router.intelligent_search("health fitness", user_uid=user_
 ### Advanced Search with Graph Filters
 
 ```python
-# Advanced search with graph and tag filters via SearchRequest
+# Advanced search with graph and tag filters via SearchRequest.
+# user_uid scopes every strategy (text/tags/graph) per each domain's
+# SearchVisibility declaration; without it, user-owned domains are
+# skipped fail-closed and only shared content returns.
 request = SearchRequest(
     query_text="machine learning",
     entity_types=[EntityType.KU],
     connected_to_uid="ku.python-basics",
     connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
     tags_contain=["python"],
+    user_uid=user_uid,
 )
 result = await search_router.advanced_search(request)
 ```
@@ -145,13 +149,13 @@ await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 | `search(entity_type, query, user_uid=...)` | Single-domain text search (USER_ENTRY requires `user_uid`) |
 | `search_domains(entity_types, query, user_uid=...)` | Multi-domain aggregation |
 | `intelligent_search(query, user_uid)` | NL cross-domain with semantic filter extraction |
-| `advanced_search(SearchRequest)` | Filters, graph patterns, tags |
+| `advanced_search(SearchRequest)` | Filters, graph patterns, tags (`request.user_uid` scopes all strategies) |
 | `faceted_search(request, user_uid)` | THE entry point for UI-driven search (/search) |
 
 | Aspect | Value |
 |--------|-------|
 | **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |
-| **User Ownership** | Activity domains use OWNS; Curriculum uses None (shared) |
+| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 
@@ -206,11 +210,12 @@ Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enable
 ## Common Gotchas
 
 1. **Always use SearchRouter** for external access — never call domain services directly from routes
-2. **Curriculum content is shared** — `_user_ownership_relationship = None` (no OWNS filter)
+2. **Curriculum content is shared** — DomainConfig `user_ownership_relationship=None` derives `SearchVisibility.PUBLIC` (no ownership filter); the old `_user_ownership_relationship` ClassVar is gone (it bypassed DomainConfig and OWNS-scoped even shared domains)
 3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
 4. **11 searchable domains** — 6 Activity + 2 Curriculum (PS, LP) + 3 Learning Loop; MOC is not an EntityType and KU is deliberately excluded
 5. **UserEntry search requires `user_uid`** — refused unscoped; excluded from cross-domain sweeps (privacy line)
-6. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
+6. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point (text/tags/graph/faceted); never add a per-strategy ownership filter. See SEARCH_ARCHITECTURE § Ownership Scoping
+7. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
 
 ## UserContext and Search
 
