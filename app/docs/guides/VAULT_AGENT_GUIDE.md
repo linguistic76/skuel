@@ -82,7 +82,7 @@ just repeats step 1 — the agent reuses its key if the file still exists.
 
 ## See also
 
-- `docs/decisions/ADR-075-local-agent-vault-transport.md` — the transport spec
+- `/docs/decisions/ADR-075-local-agent-vault-transport.md` — the transport spec
   (B2 server half, B3 this agent, B4 adapter + reconciler bridge)
-- `agent/README.md` — developer notes on the agent's structure
-- `docs/decisions/ADR-070-bidirectional-vault-bridge.md` — the vault bridge itself
+- `/agent/README.md` — developer notes on the agent's structure
+- `/docs/decisions/ADR-070-bidirectional-vault-bridge.md` — the vault bridge itself
