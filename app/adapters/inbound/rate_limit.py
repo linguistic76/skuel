@@ -48,6 +48,16 @@ def _check_and_record(user_uid: str, limit: int, window_s: float) -> bool:
     return True
 
 
+def allow_key(key: str, limit: int, window_s: float) -> bool:
+    """Sliding-window check for a caller-composed key (e.g. ``ws-handshake:{ip}``).
+
+    The public primitive behind the decorators, for surfaces they cannot wrap
+    (WebSocket handlers take a WebSocket, not a Request). Namespace the key —
+    buckets are shared across the process.
+    """
+    return _check_and_record(key, limit, window_s)
+
+
 def rate_limited(
     *,
     per_user: int,

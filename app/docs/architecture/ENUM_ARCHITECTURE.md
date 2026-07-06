@@ -31,7 +31,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `ku_enums.py` | Ku domain classification | KuCategory |
 | `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory (`get_icon()`), BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
-| `neo_labels.py` | Neo4j node labels | NeoLabel (32 labels) |
+| `neo_labels.py` | Neo4j node labels | NeoLabel (44 labels) |
 
 **Import convention:**
 ```python
@@ -359,7 +359,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `TranscriptionStatus` — PENDING, PROCESSING, COMPLETED, FAILED. Has `is_terminal()` and `can_retry()`.
 
 **Neo4j Labels** (`neo_labels.py`):
-- `NeoLabel` — 32 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
+- `NeoLabel` — 44 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
 
 ---
 

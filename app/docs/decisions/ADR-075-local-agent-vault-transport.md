@@ -470,7 +470,10 @@ keeps device identity in the graph where SKUEL's auth already lives.
   adapters (One Path Forward — #525 made relative the only shape that ever leaves the service
   layer anyway) rather than letting the two adapters disagree.
 - **Pairing-code storage node:** hashed code as a property on `User` vs. a short-lived
-  `(:PairingCode)` node — B2 implementation detail, decided there.
+  `(:PairingCode)` node — B2 implementation detail, decided there. **RESOLVED in B2:
+  properties on `User`** (`pairing_code_hash` + `pairing_code_expires_at`) — one active
+  code per user, atomic `REMOVE` burn on redemption, and no orphan-node TTL cleanup job
+  (preserves the CORE-tier no-background-workers guarantee). See `core/models/auth/device.py`.
 
 ---
 

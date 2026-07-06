@@ -55,6 +55,11 @@ class FastHTMLApp(Protocol):
     maintaining our own stubs. This protocol captures intent, not the full surface.
     """
 
+    # Starlette router — FastHTML's @rt registers HTTP routes only, so
+    # WebSocket endpoints mount here directly (see device_routes.py /ws/agent).
+    # boundary: fasthtml-app — starlette Router, untyped through FastHTML.
+    router: Any
+
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         """ASGI interface."""
         ...

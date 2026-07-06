@@ -146,6 +146,7 @@ class NeoLabel(StrEnum):
     # =========================================================================
     SESSION = "Session"  # User session nodes for auth
     AUTH_EVENT = "AuthEvent"  # Audit trail nodes for security events
+    DEVICE = "Device"  # Enrolled vault-agent devices (ADR-075) — auth infra, not an Entity
 
     # =========================================================================
     # Cross-Cutting Systems

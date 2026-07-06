@@ -27,6 +27,8 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/login` | `auth_routes.py` | User login |
 | `/forgot-password` | `auth_routes.py` | Password reset initiation |
 | `/reset-password` | `auth_routes.py` | Password reset with token |
+| `/api/devices/enroll` | `device_routes.py` | Agent enrollment (ADR-075): the one-time pairing code IS the credential (hashed, 10-min TTL, single-use); IP rate-limited |
+| `WS /ws/agent` | `device_routes.py` | Vault-agent channel (ADR-075): Ed25519 challenge-signature handshake authenticates the device; pre-accept per-IP rate limit + concurrent-handshake cap |
 
 ### Authenticated Routes (User Required)
 
@@ -37,6 +39,7 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/graphql` | `graphql_routes.py` | GraphQL API |
 | `/profile/**` | Various | User profile management |
 | `/tasks/**`, `/goals/**`, etc. | Domain routes | Activity domain CRUD |
+| `/settings/devices/**`, `/api/devices/pairing-code`, `/api/devices/{uid}/revoke` | `device_routes.py` | Vault-agent device management (ADR-075) |
 
 ### Admin Routes (Admin Role Required)
 

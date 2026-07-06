@@ -415,8 +415,21 @@ _EXERCISES_ARCHIVE = (
     "(only is_active), so no live route reaches archiving. Wire an archive/restore "
     "control on the exercise detail page (Mike ruled PLANNED 2026-06-13)"
 )
+# ADR-075 B2 staged the agent channel's RPC surface for B4 (LocalAgentVaultAdapter):
+# the reconciler resolves a user's live channel (get) and drives the four vault ops
+# over it (call). B2 ships the handshake + registry lifecycle only.
+_AGENT_CHANNEL_RPC = (
+    "agent-channel RPC surface staged for ADR-075 B4 — LocalAgentVaultAdapter "
+    "resolves the user's live channel via get() and issues describe_wall/"
+    "list_changed_since/read_note/write_task_updates via call(). B2 (server "
+    "enrollment + WS handshake) registers/closes sessions but never dials out "
+    "(staged in PR B2, 2026-07-06)"
+)
 # Keyed "relative/path.py::method_name".
 PLANNED_METHODS: dict[str, str] = {
+    # --- ADR-075 vault-agent channel (B2 → B4) ---
+    "adapters/inbound/agent_channel_registry.py::call": _AGENT_CHANNEL_RPC,
+    "adapters/inbound/agent_channel_registry.py::get": _AGENT_CHANNEL_RPC,
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
