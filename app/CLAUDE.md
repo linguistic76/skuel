@@ -470,7 +470,7 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 - `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
 - First-run consent gate guards the FIRST sync end to end (read + write) — nothing is ingested before consent; vault-root containment guard prevents upload-entry contamination
 
-**See:** `/docs/decisions/ADR-070-obsidian-vaultbridge.md`
+**See:** `/docs/decisions/ADR-070-bidirectional-vault-bridge.md`
 
 ## Curriculum Grouping Patterns
 
