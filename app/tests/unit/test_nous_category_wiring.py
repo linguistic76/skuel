@@ -14,14 +14,23 @@ Covers the query-layer mechanics behind the `nous` topic facet:
 - Ku model: list-authored `nous` normalizes to tuple
 """
 
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_distinct_values_query,
     build_search_query,
 )
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
+from core.models.pathways.path_step import PathStep
+from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
+from core.utils.result_simplified import Result
 
 
 class TestHasOperator:
@@ -89,3 +98,34 @@ class TestKuNousField:
         ku = Ku(uid="ku_test_456", title="Unassigned")
 
         assert ku.nous == ()
+
+    def test_path_step_list_authored_nous_normalizes_to_tuple(self):
+        # Frozen dataclass must not retain a mutable list (Kody, PR #534)
+        ps = PathStep(uid="ps.test.step", title="Step", nous=["body"])
+
+        assert ps.nous == ("body",)
+
+
+class TestFacetedSweepInterleave:
+    @pytest.mark.asyncio
+    async def test_round_robin_prevents_domain_starvation(self):
+        """A high-yield early domain must not consume the whole limit —
+        faceted results carry no score, so truncation is round-robin
+        interleaved across domains (Kody, PR #534)."""
+
+        def _svc(records):
+            service = MagicMock()
+            service.graph_aware_faceted_search = AsyncMock(return_value=Result.ok(records))
+            return service
+
+        ps_records = [{"uid": f"ps_{i}", "title": f"PS {i}", "_domain": "ps"} for i in range(5)]
+        lp_records = [{"uid": "lp_1", "title": "LP 1", "_domain": "lp"}]
+        router = SearchRouter(services=SimpleNamespace(ps=_svc(ps_records), lp=_svc(lp_records)))
+        request = SearchRequest(nous="body", limit=3)
+
+        results = await router._faceted_sweep(
+            request, "user_mike", [EntityType.PATH_STEP, EntityType.LEARNING_PATH]
+        )
+
+        assert len(results) == 3
+        assert "lp" in [r["_domain"] for r in results]

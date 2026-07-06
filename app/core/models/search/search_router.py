@@ -66,6 +66,7 @@ Changes:
 """
 
 from dataclasses import dataclass, field
+from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar
 
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
@@ -835,8 +836,13 @@ class SearchRouter:
         the request's property filters become WHERE clauses. Domains without
         graph-aware support are SKIPPED, not text-searched: a filtered sweep
         must never mix unfiltered results into a facet the user narrowed.
+
+        Faceted results carry no relevance score, so the final truncation is
+        round-robin interleaved across domains — iteration order must not let
+        an early domain consume the whole budget and starve later ones
+        (Kody, PR #534).
         """
-        results: list[dict] = []
+        per_domain: list[list[dict]] = []
         for entity_type in sweep_domains:
             domain_str = self._SERVICE_REGISTRY.get(entity_type)
             if domain_str is None or domain_str not in self._GRAPH_AWARE_DOMAINS:
@@ -853,7 +859,7 @@ class SearchRouter:
                 self.logger.warning(f"Faceted sweep failed for {domain_str}: {result.error}")
                 continue
 
-            results.extend(
+            domain_results = [
                 {
                     "uid": record.get("uid", ""),
                     "title": record.get("title", ""),
@@ -861,9 +867,14 @@ class SearchRouter:
                     "_score": 0.0,
                 }
                 for record in result.value or []
-            )
+            ]
+            if domain_results:
+                per_domain.append(domain_results)
 
-        return results[: request.limit]
+        merged: list[dict] = []
+        for tier in zip_longest(*per_domain):
+            merged.extend(item for item in tier if item is not None)
+        return merged[: request.limit]
 
     async def intelligent_search(
         self,

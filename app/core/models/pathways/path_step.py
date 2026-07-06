@@ -59,6 +59,9 @@ class PathStep(Curriculum):
                 f"PathStep constructed with entity_type={self.entity_type!r} "
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
+        # Normalize list-authored nous to tuple (frozen dataclass — mirrors Ku)
+        if isinstance(self.nous, list):
+            object.__setattr__(self, "nous", tuple(self.nous))
         super().__post_init__()
 
     # =========================================================================
