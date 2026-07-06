@@ -1372,11 +1372,8 @@ async def compose_services(
             events_service=activity_services["events"],
             choices_service=activity_services["choices"],
             principles_service=activity_services["principles"],
-            assessment_service=user_entry_assessment,
-            activity_report_service=activity_report_service,
             sharing_service=unified_sharing_service,
             ps_service=learning_services["ps"],
-            exercises_service=exercise_service,
             context_intelligence=None,  # Post-wired after _create_intelligence_hub below
         )
         logger.info("✅ Profile Orchestrator created (intelligence post-wired below)")

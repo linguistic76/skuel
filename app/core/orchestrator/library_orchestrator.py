@@ -51,17 +51,29 @@ class LibraryOrchestrator:
     # Exercises
     # ------------------------------------------------------------------
 
-    async def get_student_exercises_with_status(self, user_uid: UserUID) -> Result[list[Any]]:
-        """Get exercises assigned to the student with submission/feedback status."""
-        return await self._exercises.get_student_exercises_with_status(user_uid)
+    async def get_student_exercises_with_status(
+        self, user_uid: UserUID, limit: int | None = None
+    ) -> Result[list[Any]]:
+        """Get exercises assigned to the student with submission/feedback status.
+
+        Args:
+            user_uid: The student to look up exercises for.
+            limit: Cap the returned list (pushed down to the backend queries).
+                ``None`` returns all exercises.
+        """
+        return await self._exercises.get_student_exercises_with_status(user_uid, limit=limit)
 
     # ------------------------------------------------------------------
     # Resources
     # ------------------------------------------------------------------
 
-    async def list_resources(self) -> Result[list[Any]]:
-        """List all admin-curated resources."""
-        return await self._resource.list_all()
+    async def list_resources(self, limit: int = 500) -> Result[list[Any]]:
+        """List admin-curated resources sorted by title.
+
+        Args:
+            limit: Cap the returned list (pushed down to the backend query).
+        """
+        return await self._resource.list_all(limit=limit)
 
     # ------------------------------------------------------------------
     # UserEntry — teacher-review pipeline (ADR-054)

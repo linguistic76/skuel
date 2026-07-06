@@ -24,6 +24,7 @@ from fasthtml.common import (
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
+from core.utils.text_truncation import truncate_to_budget
 from ui.components import ButtonT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
@@ -264,7 +265,15 @@ def create_activity_reports_ui_routes(
                 if period
                 else None
             )
-            cards.append(HubPreviewCard(title=title, href="/activity-reports", badge=badge))
+            content = getattr(report, "processed_content", None) or ""
+            cards.append(
+                HubPreviewCard(
+                    title=title,
+                    href="/activity-reports",
+                    badge=badge,
+                    description=truncate_to_budget(content, 160) if content else None,
+                )
+            )
         return HubPreviewGrid(cards)
 
     logger.info(

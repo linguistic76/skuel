@@ -248,7 +248,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         )
 
     async def get_student_exercises_with_status(
-        self, user_uid: UserUID
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Neo4jProperties]]:
         """Get assigned exercises with submission + report status for a student.
 
@@ -271,10 +271,12 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         Args:
             user_uid: Student UID
+            limit: Cap the number of returned records; ``None`` returns all
 
         Returns:
             Result containing enriched exercise records
         """
+        limit_clause = "LIMIT $limit" if limit is not None else ""
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
@@ -305,12 +307,13 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    latest_living IS NOT NULL AS has_in_progress,
                    group.title AS group_name
             ORDER BY exercise.due_date ASC, exercise.created_at DESC
+            {limit_clause}
             """,
-            {"user_uid": user_uid},
+            {"user_uid": user_uid, "limit": limit},
         )
 
     async def get_enrolled_ps_exercises_with_status(
-        self, user_uid: UserUID
+        self, user_uid: UserUID, limit: int | None = None
     ) -> Result[list[Neo4jProperties]]:
         """Get personal + curriculum exercises linked to PathSteps the user is enrolled in.
 
@@ -322,10 +325,12 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
 
         Args:
             user_uid: Student UID
+            limit: Cap the number of returned records; ``None`` returns all
 
         Returns:
             Result containing enriched exercise records (group_name is empty string)
         """
+        limit_clause = "LIMIT $limit" if limit is not None else ""
         return await self.execute_query(
             f"""
             MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS}]->(ps:Entity)
@@ -357,8 +362,9 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    latest_living IS NOT NULL AS has_in_progress,
                    '' AS group_name
             ORDER BY exercise.created_at DESC
+            {limit_clause}
             """,
-            {"user_uid": user_uid},
+            {"user_uid": user_uid, "limit": limit},
         )
 
     async def get_ps_exercises_with_status(

@@ -1,6 +1,6 @@
-"""Library block definitions — Library tab on /profile.
+"""Library block definitions — Curriculum tab on /profile.
 
-LIBRARY_BLOCKS feeds the Library tab in ui/profile/hub.py. Submission
+LIBRARY_BLOCKS feeds the Curriculum tab in ui/profile/hub.py. Submission
 History was moved to the Submissions tab so each block has a single home.
 """
 
