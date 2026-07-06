@@ -137,19 +137,21 @@ next_logical_step: bool = False
 # Graph pattern: enabled by mastered units
 ```
 
-#### Nous-Specific Facets
+#### NOUS Topic Facet
 
 ```python
-# Nous section filter - for Worldview MOC content
-nous_section: str | None = None
-# Options: "stories", "environment", "intelligence", "consciousness",
-#          "identity", "cosmos", "society", "history", "tech", "values", "practice"
-# Example: nous_section="stories" filters to Stories section content
+# NOUS topic filter — array-membership match against the `nous` property
+# on Ku/PathStep (the 11 official topic sections)
+nous: str | None = None
+# Vocabulary is DERIVED from the graph (KuService.list_nous_topics), currently:
+# "stories", "environment", "intelligence", "investment", "words",
+# "relationships", "social", "body", "exercises", "self-management",
+# "self-awareness"
+# Example: nous="body" filters to Body-topic content
 
 # Content source filter
 source: str | None = None
 # Options: "nous", "obsidian", "manual", "ingested"
-# Example: source="nous" filters to Worldview MOC content only
 ```
 
 #### Pedagogical Filters (Learning Progress)
@@ -274,11 +276,10 @@ request = SearchRequest(
     supports_goals=True
 )
 
-# Nous-specific search (Worldview content)
+# NOUS topic search
 request = SearchRequest(
     query_text="creativity",
-    nous_section="stories",  # Filter to Stories section
-    source="nous",           # Only nous content
+    nous="stories",  # Filter to the Stories topic
 )
 
 # Pedagogical search (learning progress)
@@ -289,7 +290,7 @@ request = SearchRequest(
 
 # Combined nous + pedagogical
 request = SearchRequest(
-    nous_section="intelligence",
+    nous="intelligence",
     viewed_not_mastered=True,  # In-progress intelligence content
 )
 ```
@@ -423,7 +424,7 @@ SearchRequest automatically routes to appropriate search mode:
 
 | Mode | Trigger | Implementation |
 |------|---------|----------------|
-| **Simple Search** | Property filters only (incl. `nous_section`, `source`) | `SimpleSearchService` |
+| **Simple Search** | Property filters only (incl. `nous`, `source`) | `SimpleSearchService` |
 | **Graph-Aware Search** | Any relationship OR pedagogical filter = True | Domain-specific graph handlers |
 
 **Routing Logic:**
@@ -437,7 +438,7 @@ else:
     return await _simple_search(request)
 ```
 
-**Note:** `nous_section` and `source` are property filters (Simple Search), while pedagogical filters require graph traversal (Graph-Aware Search).
+**Note:** `nous` and `source` are property filters (Simple Search), while pedagogical filters require graph traversal (Graph-Aware Search).
 
 ## Integration Points
 
@@ -459,7 +460,7 @@ else:
 | `domain` | Node label (Ku, Task, Event, etc.) |
 | `sel_category` | Property filter |
 | `learning_level` | Property filter |
-| `nous_section` | Property filter (`ku.nous_section`) |
+| `nous` | Array-membership filter (`$v IN entity.nous` — CASE-guarded for scalar properties) |
 | `source` | Property filter (`ku.source`) |
 | `ready_to_learn` | Graph pattern (prerequisites) |
 | `supports_goals` | Graph pattern (relationships) |

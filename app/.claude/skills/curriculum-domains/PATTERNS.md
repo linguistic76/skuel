@@ -17,7 +17,7 @@ class PsCoreService(BaseService[PsOperations, PathStep]):
         model_class=PathStep,
         domain_name="path_step",
         search_fields=("title", "description", "content"),
-        category_field="domain",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
     )
 ```
 

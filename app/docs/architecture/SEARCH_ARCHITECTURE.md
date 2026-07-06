@@ -441,40 +441,39 @@ learning_state_boost_not_started: float = 0.15   # +15%
 
 ---
 
-## Nous Worldview Integration
+## NOUS Topic Integration
 
-Nous content (the Worldview MOC) is stored as KU nodes with special properties:
+NOUS is the official grouping of Kus — the "magazine sections" of SKUEL's
+curriculum (ruled 2026-07-06). Membership is authored in vault YAML as a
+`nous:` list on Ku and PathStep frontmatter and stored as an array property:
 
-| Property | Values | Purpose |
-|----------|--------|---------|
-| `source` | `"nous"`, `"obsidian"`, `"manual"` | Content origin |
-| `nous_section` | `"stories"`, `"environment"`, `"intelligence"`, etc. | Worldview section |
+| Property | Shape | Purpose |
+|----------|-------|---------|
+| `nous` | array of topic slugs, e.g. `["body", "self-awareness"]` | NOUS topic membership (multi-topic; empty = deliberately unassigned per the rawness principle) |
 
 ```python
-# Search only Stories section, unread
+# Search "breath" within the Body topic
 request = SearchRequest(
-    query_text="creativity",
-    nous_section="stories",
-    source="nous",
-    not_yet_viewed=True,
+    query_text="breath",
+    nous="body",
 )
 ```
 
-### Available Nous Sections
+The topic vocabulary is **derived from the graph, never hardcoded**: the
+/search dropdown calls `KuService.list_nous_topics()` →
+`list_all_categories()` (distinct `nous` values, arrays UNWOUND per element).
+Each of the 11 topics has an anchor Ku that self-assigns its own topic, so
+the derived list is complete by construction. Current topics: stories,
+environment, intelligence, investment, words, relationships, social, body,
+exercises, self-management, self-awareness.
 
-| Slug | Description |
-|------|-------------|
-| `stories` | Narrative learning content |
-| `environment` | Environmental topics |
-| `intelligence` | Intelligence and cognition |
-| `consciousness` | Consciousness studies |
-| `identity` | Identity and self |
-| `cosmos` | Cosmological topics |
-| `society` | Social structures |
-| `history` | Historical content |
-| `tech` | Technology topics |
-| `values` | Values and ethics |
-| `practice` | Practical applications |
+Filtering is membership-aware end-to-end: `to_property_filters()` emits the
+real `nous` property; `faceted_search_raw` renders scalar params with a
+`CASE WHEN entity.nous IS :: LIST<ANY> THEN $v IN entity.nous ELSE ... END`
+clause; `get_by_category` uses the `has` operator (exact on scalar category
+fields, element membership on array fields). The cross-domain sweep routes
+through per-domain `graph_aware_faceted_search` whenever property facets are
+present, so "topic only, Type = All" filters correctly.
 
 ---
 
@@ -489,7 +488,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         model_class=PathStep,
         domain_name="ps",
         search_fields=("title", "intent", "description"),
-        category_field="domain",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
     )
     # All methods inherited: search(), graph_aware_faceted_search(),
     # get_by_status(), get_prerequisites(), get_enables(), ...
@@ -552,7 +551,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 | Field Group | Fields |
 |-------------|--------|
 | Core facets | `domain`, `sel_category`, `learning_level`, `content_type`, `educational_level` |
-| Nous facets | `nous_section`, `source` |
+| NOUS facet | `nous` (topic slug — array-membership match), `source` |
 | Status/priority | `status`, `priority` |
 | Relationship filters | `ready_to_learn`, `builds_on_mastered`, `in_active_path`, `supports_goals`, `builds_on_habits`, `applied_in_tasks`, `aligned_with_principles`, `next_logical_step` |
 | Pedagogical filters | `not_yet_viewed`, `viewed_not_mastered`, `ready_to_review` |
@@ -740,8 +739,8 @@ Properties:
   Learning Level         →  learning_level            →  Simple
   Content Type           →  content_type              →  Simple
 
-Nous Worldview:
-  Section dropdown       →  nous_section              →  Simple
+NOUS Topics:
+  Topic dropdown         →  nous                      →  Simple
   Source dropdown        →  source                    →  Simple
 
 Learning Progress:

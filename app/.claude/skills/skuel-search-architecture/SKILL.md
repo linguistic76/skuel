@@ -65,7 +65,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         model_class=PathStep,
         domain_name="ps",
         search_fields=("title", "intent", "description"),
-        category_field="domain",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
     )
     # _user_ownership_relationship = None by default for curriculum
 
