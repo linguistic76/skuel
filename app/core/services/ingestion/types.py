@@ -15,13 +15,14 @@ from core.models.relationship_names import RelationshipName
 
 
 @dataclass(frozen=True)
-class PathStepChunkSource:
-    """Content popped off a PATH_STEP entity pre-upsert (batch door).
+class ChunkSource:
+    """Content popped off a body-chunked entity pre-upsert (batch door).
 
-    Content lives on the :Content node, never the :Entity node, so the batch
-    engine pops it before the bulk upsert and threads it here — keyed by
-    entity uid — to the post-persist chunk step
-    (``UnifiedIngestionService._chunk_path_step_content``). Empty ``content``
+    For entity types with ``chunks_body_content`` set (PathStep, Ku), content
+    lives on the :Content node, never the :Entity node, so the batch engine
+    pops it before the bulk upsert and threads it here — keyed by entity
+    uid — to the post-persist chunk step
+    (``UnifiedIngestionService._chunk_entity_content``). Empty ``content``
     is threaded too: the chunk step's empty-body branch clears any stale
     :Content subtree from a prior non-empty ingest (ADR-074).
     """

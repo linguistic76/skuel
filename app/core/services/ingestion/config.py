@@ -138,11 +138,26 @@ class EntityIngestionConfig:
         "Entity"  # Multi-label base (e.g., :Entity:Task). None for non-Entity types.
     )
     extracts_body_content: bool = False
+    # Body → :Content/:ContentChunk subtree (both ingest doors): the body is
+    # popped off the entity pre-upsert and chunked post-persist; the entity
+    # vector covers frontmatter fields only (ADR-074). Requires
+    # extracts_body_content. False → the body stays wherever
+    # extracts_body_content put it (e.g. Resource's inline `content`).
+    chunks_body_content: bool = False
     primary_name_field: str = "title"
     uid_normalization_fields: tuple[str, ...] = ()
     uid_singular_to_plural_fields: tuple[tuple[str, str], ...] = ()
     owner_uid_from_user_uid: bool = False
     embeddable: bool = False
+
+    def __post_init__(self) -> None:
+        # chunks_body_content consumes the `content` key that only
+        # extracts_body_content sets — a chunked type without extraction
+        # would silently ingest every body as empty (stale-clear path).
+        if self.chunks_body_content and not self.extracts_body_content:
+            raise ValueError(
+                f"{self.entity_label}: chunks_body_content requires extracts_body_content"
+            )
 
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
@@ -190,6 +205,11 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.KU),
         uid_normalization_fields=("resource_uids",),
+        # Kus carry lesson bodies (stubs → lessons, 2026-07-06): same recipe
+        # as PathStep — body popped pre-upsert, chunked to :Content subtree,
+        # entity vector stays frontmatter-only (title/summary/description).
+        extracts_body_content=True,
+        chunks_body_content=True,
         embeddable=True,
     ),
     # Curated reference content (Arc D, ruling 2026-07-03): vault-ingested
@@ -273,6 +293,7 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.PATH_STEP),
         extracts_body_content=True,
+        chunks_body_content=True,
         # G17 write side (Arc E): vault PathSteps historically carried NO
         # status, and the MEGA-QUERY active-path filter reads it — stamp an
         # explicit ACTIVE default at ingestion (an authored ``status:`` wins;
