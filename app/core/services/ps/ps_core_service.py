@@ -83,6 +83,7 @@ class PsCoreService(BaseService["PsOperations", PathStep]):
         domain_name="ps",
         search_fields=("title", "intent", "description"),  # PS-specific fields
         search_order_by="updated_at",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
         content_field="description",  # PS stores content in description field
     )
 

@@ -42,7 +42,6 @@ Legend: **I** = Inherited from BaseService | **O** = Override | **D** = Domain-s
 | `get_by_frequency()` | - | - | D | - | - | - | - | - | - |
 | `get_by_streak_status()` | - | - | D | - | - | - | - | - | - |
 | `get_by_date_range()` | - | - | - | D | - | - | - | - | - |
-| `get_by_namespace()` | - | - | - | - | - | - | D | - | - |
 | `search_by_alias()` | - | - | - | - | - | - | D | - | - |
 | `get_standalone_steps()` | - | - | - | - | - | - | - | D | - |
 | `get_aligned_with_goal()` | - | - | - | - | - | - | - | - | D |
@@ -378,16 +377,20 @@ _graph_enrichment_patterns = [
 **Configuration (from runtime `create_curriculum_domain_config`):**
 ```python
 search_fields = ("title", "description", "summary")
-category_field = "namespace"
+category_field = "nous"  # NOUS topic membership (array — `has` semantics)
 # user_ownership_relationship = None (shared content)
 # graph_enrichment_patterns come from the relationship registry (KU_CONFIG)
 ```
+
+Topic filtering rides the inherited category machinery: `get_by_category("body")`
+matches array membership via the `has` operator, and `list_all_categories()`
+UNWINDs the `nous` arrays to per-topic values (the /search dropdown source via
+`KuService.list_nous_topics()`).
 
 **Domain-Specific Methods:**
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `get_by_namespace` | `(namespace: str, limit: int = 50) -> Result[list[Ku]]` | Filter by ontology namespace |
 | `search_by_alias` | `(alias: str, limit: int = 25) -> Result[list[Ku]]` | Match against Ku aliases |
 
 > Chunk-level vector search lives on `Neo4jVectorSearchService.find_similar_chunks_by_text()`

@@ -2,7 +2,7 @@
 PathStepDTO - Path Step-Specific DTO (Tier 2 - Transfer)
 ==================================================================
 
-Extends CurriculumDTO with 8 path-step-specific fields matching the
+Extends CurriculumDTO with 9 path-step-specific fields matching the
 PathStep frozen dataclass (Tier 3): intent, knowledge references,
 path relationship, and mastery tracking.
 
@@ -30,8 +30,9 @@ class PathStepDTO(CurriculumDTO):
     """
     Mutable DTO for path steps (EntityType.PATH_STEP).
 
-    Extends CurriculumDTO with 8 path-step-specific fields:
+    Extends CurriculumDTO with 9 path-step-specific fields:
     - Intent (1): intent
+    - NOUS membership (1): nous
     - Knowledge references (1): knowledge_uids
     - Path relationship (2): learning_path_uid, sequence
     - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
@@ -44,6 +45,12 @@ class PathStepDTO(CurriculumDTO):
     # INTENT
     # =========================================================================
     intent: str | None = None
+
+    # =========================================================================
+    # NOUS TOPIC MEMBERSHIP
+    # =========================================================================
+    # Multi-topic; empty = deliberately unassigned (rawness principle)
+    nous: list[str] = field(default_factory=list)
 
     # =========================================================================
     # KNOWLEDGE REFERENCES
@@ -125,6 +132,7 @@ class PathStepDTO(CurriculumDTO):
                 "semantic_links",
                 "learning_objectives",
                 "knowledge_uids",
+                "nous",
             ],
             dict_fields=["metadata"],
         )
@@ -163,6 +171,7 @@ class PathStepDTO(CurriculumDTO):
                 "learning_objectives",
                 # PathStep-specific fields
                 "intent",
+                "nous",
                 "knowledge_uids",
                 "learning_path_uid",
                 "sequence",

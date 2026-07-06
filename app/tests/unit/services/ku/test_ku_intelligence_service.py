@@ -80,13 +80,13 @@ class TestKuIntelligencePerformanceAnalytics:
     """Test get_performance_analytics protocol method."""
 
     @pytest.mark.asyncio
-    async def test_returns_total_and_namespace_breakdown(self):
+    async def test_returns_total_and_nous_breakdown(self):
         backend = _make_backend()
         backend.find_by.return_value = Result.ok(
             [
-                _make_ku("ku_a_1", namespace="attention"),
-                _make_ku("ku_b_2", namespace="attention"),
-                _make_ku("ku_c_3", namespace="emotion"),
+                _make_ku("ku_a_1", nous=("body",)),
+                _make_ku("ku_b_2", nous=("body", "self-awareness")),
+                _make_ku("ku_c_3"),  # empty nous = deliberately unassigned
             ]
         )
         service = KuIntelligenceService(backend=backend)
@@ -96,8 +96,9 @@ class TestKuIntelligencePerformanceAnalytics:
         assert result.is_ok
         data = result.value
         assert data["total_kus"] == 3
-        assert data["by_namespace"]["attention"] == 2
-        assert data["by_namespace"]["emotion"] == 1
+        assert data["by_nous"]["body"] == 2
+        assert data["by_nous"]["self-awareness"] == 1
+        assert data["by_nous"]["unassigned"] == 1
 
     @pytest.mark.asyncio
     async def test_handles_backend_error(self):

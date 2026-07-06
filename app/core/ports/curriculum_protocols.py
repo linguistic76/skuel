@@ -343,12 +343,8 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         ...
 
     # =========================================================================
-    # NAMESPACE & ALIAS SEARCH
+    # ALIAS SEARCH
     # =========================================================================
-
-    async def get_by_namespace(self, namespace: str) -> Result[list[Neo4jProperties]]:
-        """Get all Kus in a specific namespace."""
-        ...
 
     async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
         """Search Kus by alias (case-insensitive substring)."""

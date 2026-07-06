@@ -10,7 +10,7 @@ Ku = Unit of Truth/Reference. PathStep = Unit for Learning.
 
 Hierarchy:
     Entity (~29 fields)
-    └── Ku(Entity) +5 fields  ← EntityType.KU (this file)
+    └── Ku(Entity) +6 fields  ← EntityType.KU (this file)
 
 UID Format: ku_{namespace}-{slug}_{random}
     e.g., ku_attention-buzzing_a1b2c3d4
@@ -62,6 +62,11 @@ class Ku(Entity):
     aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
     source: str | None = None  # self_observation/research/teacher
     sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
+    # NOUS topic membership — which of the 11 official topic sections this Ku
+    # belongs to (stories, body, self-awareness, ...). Multi-topic allowed;
+    # empty = deliberately unassigned (rawness principle — content may exist
+    # without a section). Authored in vault YAML as `nous:`.
+    nous: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         """Validate entity_type=KU, then delegate to Entity."""
@@ -70,9 +75,11 @@ class Ku(Entity):
                 f"Ku constructed with entity_type={self.entity_type!r} "
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
-        # Normalize aliases from list to tuple (frozen dataclass)
+        # Normalize list-authored fields to tuples (frozen dataclass)
         if isinstance(self.aliases, list):
             object.__setattr__(self, "aliases", tuple(self.aliases))
+        if isinstance(self.nous, list):
+            object.__setattr__(self, "nous", tuple(self.nous))
         super().__post_init__()
 
     # =========================================================================

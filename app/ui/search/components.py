@@ -50,7 +50,9 @@ from ui.tokens import Container
 # ============================================================================
 
 
-async def render_search_page_with_navbar(request: Any = None) -> Any:
+async def render_search_page_with_navbar(
+    request: Any = None, nous_topics: list[str] | None = None
+) -> Any:
     """
     Main search page with horizontal filters above the search bar.
 
@@ -61,11 +63,13 @@ async def render_search_page_with_navbar(request: Any = None) -> Any:
 
     Args:
         request: Starlette request for auto-detection of auth/admin
+        nous_topics: NOUS topic vocabulary derived from the graph
+            (route fetches via KuService.list_nous_topics)
 
     Returns:
         Complete HTML page using unified BasePage layout
     """
-    content = _render_horizontal_layout()
+    content = _render_horizontal_layout(nous_topics or [])
 
     return await BasePage(
         content=content,
@@ -77,7 +81,7 @@ async def render_search_page_with_navbar(request: Any = None) -> Any:
     )
 
 
-def _render_horizontal_layout() -> Div:
+def _render_horizontal_layout(nous_topics: list[str]) -> Div:
     """
     Horizontal filter layout for search.
 
@@ -87,7 +91,7 @@ def _render_horizontal_layout() -> Div:
     return Div(
         Div(
             # Filter Bar (Tier 1 - All filters always visible)
-            NotStr(_render_filter_bar()),
+            NotStr(_render_filter_bar(nous_topics)),
             # Context Filters (Tier 2 - Expandable based on entity type)
             NotStr(_render_context_filters()),
             # Active Filter Badges
@@ -139,8 +143,8 @@ ALL_FILTER_NAMES = [
     "learning_level",
     "content_type",
     "educational_level",
-    # Nous
-    "nous_section",
+    # NOUS topic
+    "nous",
     # Learning progress
     "not_yet_viewed",
     "viewed_not_mastered",
@@ -163,7 +167,7 @@ def _get_hx_include(exclude: str = "") -> str:
     return ", ".join(f"[name='{n}']" for n in names)
 
 
-def _render_filter_bar() -> str:
+def _render_filter_bar(nous_topics: list[str]) -> str:
     """
     Render Tier 1: Primary filters always visible.
 
@@ -186,7 +190,7 @@ def _render_filter_bar() -> str:
                 <label class="label py-1">
                     <span class="text-xs font-semibold uppercase tracking-wide">Nous</span>
                 </label>
-                {_render_nous_select()}
+                {_render_nous_select(nous_topics)}
             </div>
 
             <!-- Sort Order -->
@@ -262,29 +266,20 @@ def _render_entity_type_select() -> str:
     """
 
 
-def _render_nous_select() -> str:
-    """Nous section dropdown for Tier 1 filter bar."""
-    sections = [
-        ("", "All Nous"),
-        ("stories", "Stories"),
-        ("environment", "Environment"),
-        ("intelligence", "Intelligence"),
-        ("investment", "Investment"),
-        ("words", "Words"),
-        ("relationships", "Relationships"),
-        ("social", "Social"),
-        ("body", "Body"),
-        ("exercises", "Exercises"),
-        ("self_management", "Self-Management"),
-        ("self_awareness", "Self-Awareness"),
-    ]
+def _render_nous_select(nous_topics: list[str]) -> str:
+    """NOUS topic dropdown for Tier 1 filter bar.
+
+    Options are DERIVED from the graph (KuService.list_nous_topics), never
+    hardcoded — the facet cannot drift from the vault vocabulary.
+    """
+    sections = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
     options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
     return f"""
-    <select name="nous_section" class="select select-bordered select-sm w-full"
+    <select name="nous" class="select select-bordered select-sm w-full"
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
-            hx-include="{_get_hx_include("nous_section")}">
+            hx-include="{_get_hx_include("nous")}">
         {options}
     </select>
     """
