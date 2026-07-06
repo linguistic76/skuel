@@ -79,6 +79,7 @@ just repeats step 1 — the agent reuses its key if the file still exists.
 | `Protocol mismatch` | Agent and server speak different protocol versions — update the agent (v1 hard-fails on mismatch by design). |
 | `Refusing to use … permissions are too open` | `chmod 600 ~/.config/skuel-agent/device.key` (same posture as OpenSSH). |
 | `rate-limited` | The server caps handshakes per IP; wait a minute. |
+| `Refusing non-HTTPS server URL …` | Off localhost the agent requires `https://` — plaintext would expose the pairing code and vault content. |
 
 ## See also
 
