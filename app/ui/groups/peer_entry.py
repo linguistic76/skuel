@@ -12,16 +12,16 @@ from typing import Any
 from fasthtml.common import Div, P
 
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
-from ui.groups.shared_preview import _format_shared_at
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
+from ui.patterns.relative_time import format_relative_time
 from ui.primitives import ButtonLink
 
 
 def _attribution(payload: dict[str, Any]) -> str:
     author = payload.get("author_name") or ""
     group_name = payload.get("group_name") or ""
-    when = _format_shared_at(payload.get("shared_at"))
+    when = format_relative_time(payload.get("shared_at"))
 
     bits: list[str] = []
     if author:

@@ -47,6 +47,7 @@ from core.config.credential_store import get_credential
 
 DEFAULT_PAGES = [
     "/profile",
+    "/profile/shared",
     "/today",
     "/library/exercises",
     "/tasks",
