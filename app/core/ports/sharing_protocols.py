@@ -202,8 +202,12 @@ class SharingOperations(Protocol):
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[Any]]:
-        """Get entities shared with a user. Returns Result[list[EntityDTO]]."""
+    ) -> Result[list[dict[str, Any]]]:
+        """Get entities shared with a user, with share-edge metadata.
+
+        Returns Result[list[dict]] — keys: entity (EntityDTO), role,
+        shared_at, shared_by, share_version.
+        """
         ...
 
     async def set_visibility(

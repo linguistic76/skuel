@@ -1,0 +1,101 @@
+"""Shared With Me view — type-aware inbox of entities shared via SHARES_WITH.
+
+Renders whatever the SHARES_WITH edge points at (today: ADR-040 auto-shared
+EntryReports/RevisedExercises and manually shared FormSubmissions) as one
+card shape: title, entity-type badge, sharer attribution, share date, and a
+detail link resolved per-type via ``entity_detail_href``. Group shares are
+deliberately absent — they surface on the /groups hub.
+
+Data shape: items from ``UnifiedSharingService.get_shared_with_me`` —
+``{"entity": EntityDTO, "shared_by", "shared_at", "role", "share_version"}``.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from fasthtml.common import H4, Div, P
+
+from ui.components import ButtonT, Card, CardBody
+from ui.enum_helpers import get_status_badge_class
+from ui.feedback import Badge
+from ui.layout import Size
+from ui.patterns.empty_state import EmptyState
+from ui.patterns.entity_links import entity_detail_href
+from ui.patterns.page_header import PageHeader
+from ui.patterns.relative_time import format_relative_time
+from ui.primitives import ButtonLink
+
+
+def SharedItemCard(item: dict[str, Any]) -> Any:
+    """One shared entity as a card — works for any EntityType."""
+    entity = item["entity"]
+    title = entity.title or entity.uid
+    href = entity_detail_href(entity.entity_type.value, entity.uid)
+    shared_by = item.get("shared_by") or ""
+    when = format_relative_time(item.get("shared_at"))
+
+    meta_bits: list[str] = []
+    if shared_by:
+        meta_bits.append(f"From {shared_by}")
+    if when:
+        meta_bits.append(when)
+    meta_line = " · ".join(meta_bits)
+
+    return Card(
+        CardBody(
+            Div(
+                H4(title, cls="text-sm font-medium line-clamp-2"),
+                Badge(
+                    str(entity.status.value),
+                    variant=None,
+                    size=Size.sm,
+                    cls=get_status_badge_class(str(entity.status.value)),
+                ),
+                cls="flex items-start justify-between gap-2",
+            ),
+            Div(
+                Badge(entity.entity_type.get_display_name(), size=Size.sm),
+                P(meta_line, cls="text-xs text-muted-foreground mb-0") if meta_line else "",
+                cls="flex items-center gap-2 mt-2",
+            ),
+            (
+                Div(
+                    ButtonLink("View", href=href, cls=ButtonT.primary, size="xs"),
+                    cls="mt-3",
+                )
+                if href
+                else ""
+            ),
+            cls="p-4",
+        ),
+        cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
+    )
+
+
+def SharedWithMeView(items: list[dict[str, Any]]) -> Div:
+    """Full Shared With Me page content: header + card grid or empty state."""
+    return Div(
+        PageHeader(
+            "Shared With Me",
+            subtitle="Feedback and content shared directly with you.",
+        ),
+        (
+            Div(
+                *[SharedItemCard(item) for item in items],
+                cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
+            )
+            if items
+            else EmptyState(
+                title="Nothing shared with you yet",
+                description=(
+                    "Teacher feedback, revised exercises, and form submissions "
+                    "shared with you will appear here."
+                ),
+                icon="📥",
+            )
+        ),
+    )
+
+
+__all__ = ["SharedItemCard", "SharedWithMeView"]

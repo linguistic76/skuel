@@ -108,6 +108,6 @@ class ProfileOrchestrator:
 
     async def get_shared_with_me_items(
         self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[Any]]:
-        """Get content shared with the user."""
+    ) -> Result[list[dict[str, Any]]]:
+        """Get content shared with the user (entity DTO + share-edge metadata)."""
         return await self._sharing_service.get_shared_with_me(user_uid=user_uid, limit=limit)
