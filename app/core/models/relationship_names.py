@@ -404,6 +404,7 @@ class RelationshipName(StrEnum):
     HAS_SESSION = "HAS_SESSION"  # (user)-[:HAS_SESSION]->(session)
     HAD_AUTH_EVENT = "HAD_AUTH_EVENT"  # (user)-[:HAD_AUTH_EVENT]->(auth_event)
     HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
+    HAS_DEVICE = "HAS_DEVICE"  # (user)-[:HAS_DEVICE]->(device) - enrolled vault-agent (ADR-075)
 
     # =========================================================================
     # LATERAL RELATIONSHIPS (February 2026 - Unified from LateralRelationType)

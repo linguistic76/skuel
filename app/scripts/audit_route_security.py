@@ -87,6 +87,10 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
     ("auth_ui.py", "reset_password_submit"): "reset is authorized by a token, not a session",
     ("pathways_ui.py", "filter_learning_paths"): "public-curriculum read (LP browse filter)",
     ("graphql_routes.py", "graphql_execute"): "authenticates via _build_graphql_context() helper",
+    ("device_routes.py", "enroll_device_api"): (
+        "agent enrollment is sessionless by design — the one-time pairing code "
+        "IS the credential (hashed, 10-min TTL, single-use burn; ADR-075)"
+    ),
 }
 
 # These programmatic clients can't send a CSRF token; migrate them to bearer-token
@@ -94,6 +98,11 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
 CSRF_EXEMPT: dict[tuple[str, str], str] = {
     ("graphql_routes.py", "graphql_handler"): (
         "programmatic JSON API; the playground form /graphql/execute is separately protected"
+    ),
+    ("device_routes.py", "enroll_device_api"): (
+        "programmatic JSON endpoint for the vault agent: no session, no cookies, "
+        "so there is nothing for cross-site requests to ride on; authenticated by "
+        "the one-time pairing code + IP rate-limited (ADR-075)"
     ),
 }
 
