@@ -114,11 +114,26 @@ class VaultMirrorPuller:
         if wall_result.is_error:
             return Result.fail(wall_result)
         wall = wall_result.value
+        # The pull populates only the INTERSECTION of the agent's self-reported
+        # wall and the server-side allowed folders (Kody #531): describe_wall
+        # is binding, not decorative — an agent that hides a folder cannot
+        # still ship its content through the listing, and the server wall
+        # stays as defense in depth. The deletion sweep below deliberately
+        # keeps the WIDER server scope, so a narrowed agent wall retracts
+        # previously-mirrored content retroactively (same fail-closed
+        # semantics as the server wall), with the deletion valves as guard.
+        agent_allowed = frozenset(wall.allowed_folders)
+        effective_allowed = (
+            agent_allowed
+            if self._allowed_folders is None
+            else self._allowed_folders & agent_allowed
+        )
         logger.info(
-            "Mirror refresh for %s: agent v%s serves %s",
+            "Mirror refresh for %s: agent v%s serves %s (effective: %s)",
             user_uid,
             wall.agent_version,
-            ", ".join(wall.allowed_folders) or "(nothing)",
+            ", ".join(sorted(agent_allowed)) or "(nothing)",
+            ", ".join(sorted(effective_allowed)) or "(nothing)",
         )
 
         listing_result = await self._transport.list_changed_since(user_uid)
@@ -128,11 +143,11 @@ class VaultMirrorPuller:
         stats = MirrorPullStats()
         listed: set[str] = set()
         for stat in listing_result.value.files:
-            target = self._safe_target(stat.relative_path)
+            target = self._safe_target(stat.relative_path, effective_allowed)
             if target is None:
                 stats.warnings.append(
                     f"mirror refresh skipped {stat.relative_path!r}: "
-                    "outside the server-side vault wall"
+                    "outside the effective vault wall (agent ∩ server)"
                 )
                 continue
             listed.add(stat.relative_path)
@@ -191,13 +206,13 @@ class VaultMirrorPuller:
     # containment + sweep
     # ------------------------------------------------------------------
 
-    def _safe_target(self, relative_path: str) -> Path | None:
+    def _safe_target(self, relative_path: str, allowed: frozenset[str]) -> Path | None:
         """Mirror path for a listed file, or None when the row must be refused.
 
         Refuses upward/absolute escapes (a listing row is agent-supplied
-        input), rows outside the server-side allowed folders (Decision 5
-        defense in depth), the ``je_*`` staging floor, and non-ingestible
-        suffixes.
+        input), rows outside ``allowed`` — the effective agent ∩ server folder
+        set (Kody #531; Decision 5 defense in depth) — the ``je_*`` staging
+        floor, and non-ingestible suffixes.
         """
         candidate = Path(relative_path)
         if candidate.is_absolute() or not relative_path:
@@ -208,7 +223,7 @@ class VaultMirrorPuller:
         parts = resolved.relative_to(self._mirror_root).parts
         if not parts:
             return None
-        if self._allowed_folders is not None and parts[0] not in self._allowed_folders:
+        if parts[0] not in allowed:
             return None
         if any(part in STAGING_EXCLUDED_DIRS for part in parts):
             return None
@@ -225,12 +240,16 @@ class VaultMirrorPuller:
     def _sweep_absent(self, listed: set[str], stats: MirrorPullStats) -> None:
         """Delete pull-managed mirror files absent from the agent's listing.
 
-        Scoped to the server-side allowed folders (the exact scope the pull
-        populates), ingestible suffixes only, staging floor and symlinks
-        skipped — so the sweep can only ever remove what a listing could have
-        contained. The removed files' tracked graph rows then flow through the
-        EXISTING deletion reconciliation with all its valves (ADR-075
-        Decision 4 step 3).
+        Deliberately scoped to the SERVER-side allowed folders — a superset of
+        the effective populate scope (agent ∩ server): a folder the agent
+        newly hides has its rows dropped from ``listed``, so its previously
+        mirrored files are swept here and retract retroactively, matching the
+        server wall's fail-closed semantics (Kody #531 follow-through).
+        Ingestible suffixes only, staging floor and symlinks skipped — the
+        sweep can only ever remove what a listing could have contained. The
+        removed files' tracked graph rows then flow through the EXISTING
+        deletion reconciliation with all its valves (ADR-075 Decision 4
+        step 3).
         """
         for sweep_root in self._sweep_roots():
             if not sweep_root.is_dir():

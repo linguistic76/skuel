@@ -1275,17 +1275,14 @@ async def compose_services(
                 )
                 resolved_root = root.resolve()
                 # Server-side top-level folder names scope the pull + its
-                # deletion sweep; whole-vault-open (allowed dir == root, the
-                # combined-root shape) means "no folder filter" (None).
-                whole_vault_open = any(d == resolved_root for d in allowlist.allowed_dirs)
-                allowed_folders = (
-                    None
-                    if whole_vault_open
-                    else frozenset(
-                        d.relative_to(resolved_root).parts[0]
-                        for d in allowlist.allowed_dirs
-                        if d != resolved_root and d.is_relative_to(resolved_root)
-                    )
+                # deletion sweep. The whole-vault-open combined-root shape
+                # cannot reach here: validated_transport() rejects any
+                # local_agent config whose mirror roots overlap INGESTION_PATH
+                # (Kody #531), so the allowlist is always the doorway set.
+                allowed_folders = frozenset(
+                    d.relative_to(resolved_root).parts[0]
+                    for d in allowlist.allowed_dirs
+                    if d != resolved_root and d.is_relative_to(resolved_root)
                 )
                 return VaultDescriptor(
                     kind=VaultKind.PERSONAL,

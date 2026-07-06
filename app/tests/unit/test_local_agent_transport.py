@@ -344,6 +344,41 @@ class TestMirrorPullInbound:
         assert not (mirror_root / "everything").exists()
         assert any("everything/leak.md" in w for w in result.value.warnings)
 
+    @pytest.mark.asyncio
+    async def test_agent_hidden_folder_is_binding_and_retracts(
+        self, rig: TransportRig, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """Kody #531: describe_wall is BINDING, not decorative. A lying agent
+        whose wall reports fewer folders than its listing ships must not have
+        the hidden folder mirrored (populate scope = agent ∩ server), and a
+        previously-mirrored file in the newly-hidden folder is swept —
+        retroactive retraction, same as the server wall."""
+        harness = _connect_agent(source_vault, rig.registry)
+        # Pre-seed the mirror as if 'knowledge' had synced before the agent
+        # narrowed its wall.
+        (mirror_root / "knowledge").mkdir()
+        stale = mirror_root / "knowledge" / "spaced-repetition.md"
+        stale.write_text("# Spaced repetition\n")
+
+        real = harness.websocket.handle_frame
+
+        def lying(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real(frame)
+            if frame.get("op") == "describe_wall" and response.get("ok"):
+                response["result"]["allowed_folders"] = ["periodic_notes"]
+            return response
+
+        harness.websocket.handle_frame = lying
+
+        result = await rig.reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+        assert result.is_ok
+        # The listing still shipped knowledge rows — refused, not mirrored…
+        assert any("knowledge/spaced-repetition.md" in w for w in result.value.warnings)
+        # …and the previously-mirrored copy retracted via the wider sweep.
+        assert not stale.exists()
+        assert (mirror_root / NOTE_PATH).exists()  # the honest folder still syncs
+
 
 # ---------------------------------------------------------------------------
 # (c) outbound: 🆔 injection round-trips into the AGENT-side source vault
@@ -588,6 +623,54 @@ class TestVaultTransportConfig:
     def test_unknown_transport_fails_fast(self) -> None:
         with pytest.raises(ValueError, match="VAULT_TRANSPORT"):
             VaultConfig(vault_transport="carrier_pigeon").validated_transport()
+
+    def test_local_agent_refuses_overlapping_mirror_roots(self, tmp_path: Path) -> None:
+        # Kody #531: the mirror's deletion sweep treats its root as a
+        # pull-managed cache — a combined/nested content layout would let a
+        # personal sync delete curriculum files. Both directions, both roots.
+        combined = VaultConfig(
+            vault_transport="local_agent",
+            vault_root=str(tmp_path / "vault"),
+            ingestion_root=str(tmp_path / "vault"),  # coincident
+            user_vaults_root=str(tmp_path / "user_vaults"),
+        )
+        with pytest.raises(ValueError, match="overlap"):
+            combined.validated_transport()
+
+        nested_content = VaultConfig(
+            vault_transport="local_agent",
+            vault_root=str(tmp_path / "vault"),
+            ingestion_root=str(tmp_path / "vault" / "curriculum"),  # content inside personal
+            user_vaults_root=str(tmp_path / "user_vaults"),
+        )
+        with pytest.raises(ValueError, match="overlap"):
+            nested_content.validated_transport()
+
+        members_inside_content = VaultConfig(
+            vault_transport="local_agent",
+            vault_root=str(tmp_path / "vault"),
+            ingestion_root=str(tmp_path / "content"),
+            user_vaults_root=str(tmp_path / "content" / "user_vaults"),
+        )
+        with pytest.raises(ValueError, match="overlap"):
+            members_inside_content.validated_transport()
+
+        disjoint = VaultConfig(
+            vault_transport="local_agent",
+            vault_root=str(tmp_path / "vault"),
+            ingestion_root=str(tmp_path / "content"),
+            user_vaults_root=str(tmp_path / "user_vaults"),
+        )
+        assert disjoint.validated_transport() == "local_agent"
+
+        # Filesystem transport never runs the mirror sweep — combined roots
+        # stay legal there (Stage 1 unchanged).
+        stage1_combined = VaultConfig(
+            vault_transport="filesystem",
+            vault_root=str(tmp_path / "vault"),
+            ingestion_root=str(tmp_path / "vault"),
+        )
+        assert stage1_combined.validated_transport() == "filesystem"
 
 
 if __name__ == "__main__":
