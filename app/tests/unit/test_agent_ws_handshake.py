@@ -70,11 +70,13 @@ class FakeWebSocket:
     returns the next frame — how tests sign the real random nonce.
     """
 
-    def __init__(self, frames: list[Any]) -> None:
+    def __init__(self, frames: list[Any], *, host: str = "203.0.113.7") -> None:
         self.frames = list(frames)
         self.sent: list[dict[str, Any]] = []
         self.accepted = False
         self.closed: tuple[int, str | None] | None = None
+        # Pre-auth throttle reads websocket.client.host (Kody #529 guard).
+        self.client = SimpleNamespace(host=host)
 
     async def accept(self) -> None:
         self.accepted = True
@@ -142,6 +144,71 @@ class TestSignatureVerification:
         assert not verify_agent_signature(pubkey, "n", "!!!not-b64!!!")
         # Valid b64 but not a DER Ed25519 key.
         assert not verify_agent_signature(_b64url(b"just-bytes"), "n", _sign(private, "n"))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_preauth_guards():
+    """Each test gets clean rate buckets and an empty handshake gate —
+    otherwise the shared per-IP bucket trips across the suite."""
+    from adapters.inbound import device_routes
+    from adapters.inbound.rate_limit import reset_buckets_for_testing
+
+    reset_buckets_for_testing()
+    device_routes._pending_handshakes._active = 0
+    yield
+    reset_buckets_for_testing()
+    device_routes._pending_handshakes._active = 0
+
+
+class TestPreAuthGuards:
+    """Kody #529: the pre-accept throttle — an anonymous client cannot hold
+    handshake sockets open faster than it earns them."""
+
+    @pytest.mark.asyncio
+    async def test_per_ip_rate_limit_rejects_before_accept(self) -> None:
+        from adapters.inbound.device_routes import _CLOSE_RATE_LIMITED, _HANDSHAKE_RATE_LIMIT
+
+        registry = AgentChannelRegistry()
+        service = _user_service(None)
+        for _ in range(_HANDSHAKE_RATE_LIMIT):
+            await handle_agent_ws(FakeWebSocket([]), service, registry)  # type: ignore[arg-type]
+
+        over = FakeWebSocket([])
+        await handle_agent_ws(over, service, registry)  # type: ignore[arg-type]
+        assert not over.accepted  # rejected at the upgrade, never accepted
+        assert over.closed == (_CLOSE_RATE_LIMITED, "rate_limited")
+
+    @pytest.mark.asyncio
+    async def test_other_ip_unaffected_by_a_limited_ip(self) -> None:
+        from adapters.inbound.device_routes import _HANDSHAKE_RATE_LIMIT
+
+        registry = AgentChannelRegistry()
+        service = _user_service(None)
+        for _ in range(_HANDSHAKE_RATE_LIMIT + 1):
+            await handle_agent_ws(FakeWebSocket([]), service, registry)  # type: ignore[arg-type]
+
+        other = FakeWebSocket([], host="198.51.100.9")
+        await handle_agent_ws(other, service, registry)  # type: ignore[arg-type]
+        assert other.accepted
+
+    @pytest.mark.asyncio
+    async def test_concurrency_cap_rejects_and_gate_releases_after_reject(self) -> None:
+        from adapters.inbound import device_routes
+        from adapters.inbound.device_routes import _CLOSE_RATE_LIMITED
+
+        registry = AgentChannelRegistry()
+        service = _user_service(None)
+        device_routes._pending_handshakes._active = device_routes._HANDSHAKE_CONCURRENCY_CAP
+        capped = FakeWebSocket([])
+        await handle_agent_ws(capped, service, registry)  # type: ignore[arg-type]
+        assert not capped.accepted
+        assert capped.closed == (_CLOSE_RATE_LIMITED, "handshake_capacity")
+
+        # A failed-auth handshake must release its slot (finally-path guard).
+        device_routes._pending_handshakes._active = 0
+        rejected = FakeWebSocket([{"type": "auth", "device_pubkey": 1, "signature": 2}])
+        await handle_agent_ws(rejected, service, registry)  # type: ignore[arg-type]
+        assert device_routes._pending_handshakes._active == 0
 
 
 class TestHandshake:

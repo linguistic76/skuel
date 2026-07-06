@@ -50,7 +50,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
-from adapters.inbound.rate_limit import rate_limited_ip
+from adapters.inbound.rate_limit import allow_key, rate_limited_ip
 from core.auth.device_signature import verify_agent_signature
 from core.models.auth.device import Device, PairingCodeIssued
 from core.models.auth.device_request import DeviceEnrollRequest
@@ -73,6 +73,40 @@ PROTOCOL_VERSION = 1
 
 # Application close code for a failed handshake (mirrors require_websocket_admin's 4003).
 _CLOSE_UNAUTHORIZED = 4003
+# Policy-violation close code (RFC 6455 private range) for pre-auth throttling.
+_CLOSE_RATE_LIMITED = 4008
+
+# Pre-auth abuse posture (Kody #529): an unauthenticated client can hold a
+# socket open for up to HANDSHAKE_TIMEOUT_S before any device check runs, so
+# both axes are capped BEFORE accept — handshake attempts per IP per minute,
+# and concurrently-open unauthenticated handshakes process-wide. A real agent
+# handshakes once per connection; these bounds are invisible to it.
+_HANDSHAKE_RATE_LIMIT = 10  # attempts per IP per 60s sliding window
+_HANDSHAKE_CONCURRENCY_CAP = 8
+
+
+class _HandshakeGate:
+    """Non-blocking cap on concurrently-open unauthenticated handshakes.
+
+    Synchronous acquire/release — atomic on the single-threaded event loop, so
+    no lock is needed (unlike asyncio.Semaphore, which cannot try-acquire).
+    """
+
+    def __init__(self, capacity: int) -> None:
+        self._capacity = capacity
+        self._active = 0
+
+    def try_acquire(self) -> bool:
+        if self._active >= self._capacity:
+            return False
+        self._active += 1
+        return True
+
+    def release(self) -> None:
+        self._active = max(0, self._active - 1)
+
+
+_pending_handshakes = _HandshakeGate(_HANDSHAKE_CONCURRENCY_CAP)
 
 
 # ---------------------------------------------------------------------------
@@ -194,18 +228,39 @@ async def handle_agent_ws(
     3. Verify against enrolled UNREVOKED devices; stamp ``last_seen_at``;
        register the channel (superseding any previous one for this user).
     4. Feed subsequent frames to the session's pending RPCs until disconnect.
+
+    Pre-auth abuse posture (Kody #529): before accept, the client IP is
+    checked against a sliding-window rate limit AND a global cap on
+    concurrently-open unauthenticated handshakes — an anonymous client cannot
+    hold sockets open (HANDSHAKE_TIMEOUT_S each) faster than it earns them.
     """
-    await websocket.accept()
-    nonce = _mint_nonce()
-    await websocket.send_json({"type": "challenge", "nonce": nonce, "protocol": PROTOCOL_VERSION})
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    if not allow_key(f"ws-handshake:{client_ip}", _HANDSHAKE_RATE_LIMIT, 60.0):
+        # Not yet accepted: closing here rejects the upgrade outright.
+        await websocket.close(code=_CLOSE_RATE_LIMITED, reason="rate_limited")
+        return
+    if not _pending_handshakes.try_acquire():
+        await websocket.close(code=_CLOSE_RATE_LIMITED, reason="handshake_capacity")
+        return
 
     try:
-        frame = await asyncio.wait_for(websocket.receive_json(), timeout=HANDSHAKE_TIMEOUT_S)
-    except TimeoutError, json.JSONDecodeError:
-        await _reject_handshake(websocket)
-        return
-    except WebSocketDisconnect:
-        return
+        await websocket.accept()
+        nonce = _mint_nonce()
+        await websocket.send_json(
+            {"type": "challenge", "nonce": nonce, "protocol": PROTOCOL_VERSION}
+        )
+
+        try:
+            frame = await asyncio.wait_for(websocket.receive_json(), timeout=HANDSHAKE_TIMEOUT_S)
+        except TimeoutError, json.JSONDecodeError:
+            await _reject_handshake(websocket)
+            return
+        except WebSocketDisconnect:
+            return
+    finally:
+        # The cap covers the UNAUTHENTICATED window only — released as soon as
+        # the auth frame arrived (or the slot timed out), before verification.
+        _pending_handshakes.release()
 
     if not isinstance(frame, dict) or frame.get("type") != "auth":
         await _reject_handshake(websocket)

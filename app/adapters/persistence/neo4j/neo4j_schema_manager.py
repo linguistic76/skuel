@@ -446,6 +446,8 @@ class Neo4jSchemaManager:
         - Composite index on AuthEvent(email, event_type, timestamp) for rate limiting
         - Index on Session(session_token) for session lookup
         - Unique constraint on User(email) for email uniqueness
+        - Unique constraint on Device(pubkey) — WS handshake auth lookup (ADR-075)
+        - Index on User(pairing_code_hash) — enrollment redemption lookup (ADR-075)
 
         Returns:
             Result with summary of created indexes
@@ -477,6 +479,25 @@ class Neo4jSchemaManager:
             results["created"].append("User_email_unique")
         else:
             results["failed"].append("User_email_unique")
+
+        # Device pubkey uniqueness (ADR-075 B2, Kody #529): the WS handshake
+        # authenticates by pubkey lookup — duplicate rows would make auth
+        # resolve to an arbitrary device, and the enrollment read-then-create
+        # pre-check alone is racy. The constraint doubles as the lookup index.
+        device_pubkey_result = await self._create_unique_constraint(NeoLabel.DEVICE, "pubkey")
+        if device_pubkey_result.is_ok:
+            results["created"].append("Device_pubkey_unique")
+        else:
+            results["failed"].append("Device_pubkey_unique")
+
+        # Pairing-code redemption lookup (ADR-075 B2): enrollment matches User
+        # by pairing_code_hash on a public, unauthenticated endpoint —
+        # unindexed it would scan the User label per attempt.
+        pairing_result = await self._create_index(NeoLabel.USER, "pairing_code_hash")
+        if pairing_result.is_ok:
+            results["created"].append("User_pairing_code_hash_idx")
+        else:
+            results["failed"].append("User_pairing_code_hash_idx")
 
         self.logger.info(
             f"Auth indexes synced: {len(results['created'])} created, {len(results['failed'])} failed"

@@ -182,6 +182,37 @@ class TestEnrollment:
         backend.redeem_pairing_code.assert_awaited_once()
         backend.create_device.assert_not_awaited()
 
+    @pytest.mark.asyncio
+    async def test_duplicate_race_maps_constraint_violation_to_validation(self) -> None:
+        # Kody #529: two enrollments can race past the read-then-create
+        # pre-check; the Device(pubkey) UNIQUE constraint is the real guard,
+        # and its violation must surface as the same friendly validation
+        # error, not a raw database failure.
+        from core.utils.result_simplified import Errors
+
+        pubkey = _pubkey_b64url()
+        backend = _backend(
+            create_device=AsyncMock(
+                return_value=Result.fail(
+                    Errors.database(
+                        operation="create_device",
+                        message=(
+                            "Neo.ClientError.Schema.ConstraintValidationFailed: Node "
+                            "already exists with label `Device` and property `pubkey`"
+                        ),
+                    )
+                )
+            )
+        )
+        service = DeviceService(backend)
+
+        result = await service.enroll_device("KAR3MWCS", pubkey, "laptop")
+
+        assert result.is_error
+        error = result.expect_error()
+        assert error.category == ErrorCategory.VALIDATION
+        assert "already enrolled" in error.message
+
 
 class TestDeviceLifecycle:
     @pytest.mark.asyncio

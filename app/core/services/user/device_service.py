@@ -158,6 +158,19 @@ class DeviceService:
             now.isoformat(),
         )
         if created.is_error:
+            # The read-then-create pre-check above is racy under concurrent
+            # enrollments; the Device(pubkey) UNIQUE constraint is the real
+            # guard (Kody #529). Map its violation to the same friendly
+            # validation error instead of a raw database failure.
+            message = str(created.expect_error().message)
+            if "ConstraintValidationFailed" in message or "already exists" in message:
+                return Result.fail(
+                    Errors.validation(
+                        "This device key is already enrolled — revoke the existing "
+                        "device before re-enrolling it",
+                        field="device_pubkey",
+                    )
+                )
             return Result.fail(created)
         if created.value is None:
             return Result.fail(Errors.not_found("User", user_uid))
