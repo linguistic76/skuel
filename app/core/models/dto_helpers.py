@@ -105,17 +105,20 @@ def parse_enum_field(data: dict, field_name: str, enum_class: type[Enum]) -> Non
                 # A strict parse made every such entity unconvertible —
                 # curriculum exercises silently vanished from search sweeps.
                 lowered = data[field_name].lower()
-                if lowered == "none":
-                    # Authored absence marker: optional enum fields may be
-                    # written as `none` in vault YAML (e.g. sel_category on
-                    # NOUS anchor Kus — the rawness principle makes
-                    # deliberately-unassigned VALID). Enums with a real NONE
-                    # member (Pipeline, RecurrencePattern, ...) never reach
-                    # this branch — their strict parse succeeds above. Same
-                    # vanishing-entity bug class as the casing fallback.
-                    data[field_name] = None
-                else:
+                try:
                     data[field_name] = enum_class(lowered)
+                except ValueError:
+                    if lowered == "none":
+                        # Authored absence marker: optional enum fields may be
+                        # written as `none` in vault YAML (e.g. sel_category on
+                        # NOUS anchor Kus — the rawness principle makes
+                        # deliberately-unassigned VALID). Reached only when the
+                        # enum has no NONE member — "NONE" on Pipeline /
+                        # RecurrencePattern parses above (Kody, PR #536). Same
+                        # vanishing-entity bug class as the casing fallback.
+                        data[field_name] = None
+                    else:
+                        raise
 
 
 def ensure_list_field(data: dict, field_name: str) -> None:

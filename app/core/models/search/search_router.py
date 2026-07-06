@@ -714,9 +714,12 @@ class SearchRouter:
 
         from core.models.search_request import SearchResponse
 
-        # Map domain string to EntityType
+        # Map domain string to EntityType. "knowledge" → KU matches the
+        # platform-wide alias (EntityType.from_string, Domain.KNOWLEDGE alias
+        # tuple, GraphQL search_knowledge docstring "knowledge units") — the
+        # old PATH_STEP routing was an exclusion-era workaround (Kody, #536).
         domain_to_entity = {
-            "knowledge": EntityType.PATH_STEP,
+            "knowledge": EntityType.KU,
             "ku": EntityType.KU,
             "lesson": EntityType.PATH_STEP,
             "ps": EntityType.PATH_STEP,
