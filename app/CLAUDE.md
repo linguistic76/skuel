@@ -469,8 +469,9 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 - **Per-user roots:** `VAULT_ROOT` is owner-bound (`SKUEL_PERSONAL_VAULT_OWNER`, defaults to the `SKUEL_DEFAULT_USER_UID` chain); any other user resolves to `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` or gets a clear not-found — no code path serves one user another user's vault
 - `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
 - First-run consent gate guards the FIRST sync end to end (read + write) — nothing is ingested before consent; vault-root containment guard prevents upload-entry contamination
+- **Transport toggle:** `VAULT_TRANSPORT=filesystem|local_agent` (ADR-075, default filesystem) — `local_agent` reaches personal vaults through the user's connected `skuel-vault-agent` via a server-side staging mirror; content vault always stays filesystem
 
-**See:** `/docs/decisions/ADR-070-bidirectional-vault-bridge.md`
+**See:** `/docs/decisions/ADR-070-bidirectional-vault-bridge.md`, `/docs/decisions/ADR-075-local-agent-vault-transport.md`
 
 ## Curriculum Grouping Patterns
 

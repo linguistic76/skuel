@@ -1,6 +1,6 @@
 ---
 title: "ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport"
-updated: 2026-07-05
+updated: 2026-07-06
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, vault-bridge, local-agent, security, websocket, ed25519]
@@ -10,7 +10,7 @@ related_skills: [security]
 
 # ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport
 
-**Status:** Accepted — design ADR; implementation planned as PRs B2/B3/B4 (see *PR Plan* appendix)
+**Status:** Accepted — implemented (B2 server enrollment + channel, B3 user-side agent, B4 adapter + reconciler bridge + `VAULT_TRANSPORT` toggle; see *PR Plan* appendix)
 
 **Date:** 2026-07-05
 
@@ -461,14 +461,28 @@ keeps device identity in the graph where SKUEL's auth already lives.
   protocol is a real category (mitigated by the `protocol` field in the handshake; hard-fail
   on mismatch in v1).
 
-### Open questions (consciously left open)
-- **Mirror retention on revocation/departure:** when a user revokes their last device or
-  deletes their account, when is the mirror deleted? Leaning "revoking the last device keeps
-  the mirror (re-enrollment resumes cheaply); account deletion purges it" — to be ruled in B4.
-- **`list_vault_notes` harmonization:** the port's existing `list_vault_notes` returns
-  absolute paths (Stage-1 shape). B4 should migrate the port to vault-relative paths for ALL
-  adapters (One Path Forward — #525 made relative the only shape that ever leaves the service
-  layer anyway) rather than letting the two adapters disagree.
+### Open questions (all resolved)
+- **Mirror retention on revocation/departure. RESOLVED in B4: revoking the last device
+  RETAINS the mirror; account deletion owns its purge.** The mirror IS the user's synced
+  data store server-side — the staging copy of exactly the content the graph already holds.
+  Revocation is an *access* event (the device can no longer connect), not a *data-deletion*
+  event; deleting user data as a side effect of revoking a credential would violate the
+  deletion-valve philosophy (deletions are explicit, guarded, and owner-driven — never
+  implied). Retention also makes re-enrollment cheap: a fresh device resumes with an intact
+  mirror and the first sync fetches only what changed. Account-deletion flows, when built,
+  own removing `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` alongside the user's graph data —
+  the mirror is purged where the rest of the user's data is purged, in one deliberate flow.
+- **`list_vault_notes` harmonization. RESOLVED in B4: the port returns vault-RELATIVE POSIX
+  paths for ALL adapters** (One Path Forward — #525 made relative the only shape that ever
+  leaves the service layer, and wire paths are structurally relative). `vault_path` scopes
+  the listing to a subdirectory; returned paths stay relative to the vault ROOT.
+  `FilesystemVaultAdapter` migrated with it; no production consumer existed beyond protocol
+  conformance, so the swap was call-site-free. Relatedly, B4 realized "the port grows
+  `list_changed_since` + `describe_wall`" as a **`RemoteVaultBridgePort` extension protocol**
+  (same module) rather than widening `VaultBridgePort` itself: the filesystem transport has
+  no self-reported wall (the server-side allowlist IS its wall) and the ingest engine walks
+  its root directly — a filesystem `describe_wall` would fabricate honesty, and One Path
+  Forward deletes fake implementations rather than shipping them.
 - **Pairing-code storage node:** hashed code as a property on `User` vs. a short-lived
   `(:PairingCode)` node — B2 implementation detail, decided there. **RESOLVED in B2:
   properties on `User`** (`pairing_code_hash` + `pairing_code_expires_at`) — one active
@@ -531,9 +545,10 @@ Three PRs, in dependency order. This ADR is B1 of the Stage-2 sub-arc following 
   Stage 2)
 - ADR-044: Hexagonal boundary (port in `core/ports/`, transport in `adapters/`)
 - ADR-073: Journals zero-persistence (`je_*` floor enforced agent-side too)
-- `docs/patterns/UNIFIED_INGESTION_GUIDE.md` (update in B4 when the mirror phase lands)
-- `core/services/vault/vault_descriptor.py` (descriptor/registry — grows the transport
-  dimension in B4)
+- `docs/patterns/UNIFIED_INGESTION_GUIDE.md` § remote vaults ride a staging mirror
+- `core/services/vault/vault_descriptor.py` (descriptor/registry — the transport dimension
+  is `VaultDescriptor.mirror_pull`; `None` = filesystem)
+- `core/services/vault/mirror_sync.py` (`VaultMirrorPuller` — the Decision 4 refresh)
 
 ---
 
@@ -543,3 +558,5 @@ Three PRs, in dependency order. This ADR is B1 of the Stage-2 sub-arc following 
 |------|--------|--------|---------|
 | 2026-07-05 | Claude Code | Initial design ADR — Stage-2 transport spec (topology honesty, Ed25519 device identity, WS protocol, staging-mirror ingest bridge, invariants carried forward, B2/B3/B4 plan) | 0.1 |
 | 2026-07-06 | Claude Code | B3 shipped — `agent/skuel_vault_agent.py` (enroll/run/status, four RPC ops, agent-side wall; line mutations shared via `/core/ports/vault_bridge_protocol.py`). See `/docs/guides/VAULT_AGENT_GUIDE.md` | 0.2 |
+| 2026-07-06 | Claude Code | B4 shipped — sub-arc complete. `LocalAgentVaultAdapter` (`adapters/vault/local_agent_adapter.py`) + `RemoteVaultBridgePort`; `VaultMirrorPuller` mirror-refresh pre-phase in `VaultReconciler.sync` (Decision 4, inside the per-root lock; preview never dials); `describe` sources the wall from `describe_wall` (intersection); `VAULT_TRANSPORT=filesystem\|local_agent` (Decision 6, filesystem default, personal descriptors only). Open questions RESOLVED: mirror retained on last-device revocation (account deletion owns the purge); `list_vault_notes` harmonized to vault-relative for all adapters. In-process end-to-end proof: `tests/unit/test_local_agent_transport.py` (real agent handler ↔ real registry/adapter/reconciler, no sockets) | 1.0 |
+| 2026-07-06 | Claude Code | Kody #531 hardening: mirror populate scope is the ENFORCED agent ∩ server intersection (`describe_wall` binding, not decorative; sweep keeps the wider server scope so a newly-hidden agent folder retracts retroactively); `VAULT_TRANSPORT=local_agent` fails startup when `VAULT_ROOT`/`SKUEL_USER_VAULTS_ROOT` overlaps `INGESTION_PATH` (either direction — the mirror sweep treats its root as pull-managed cache, a combined layout would delete curriculum) | 1.1 |

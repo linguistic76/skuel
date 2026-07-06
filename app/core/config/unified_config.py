@@ -555,6 +555,9 @@ class FeatureFlags:
 # DEPENDENCY INJECTION CONFIGURATION
 # ============================================================================
 
+# The two personal-vault transports (ADR-075 Decision 6).
+VAULT_TRANSPORTS: frozenset[str] = frozenset({"filesystem", "local_agent"})
+
 
 @dataclass
 class VaultConfig:
@@ -588,6 +591,42 @@ class VaultConfig:
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
 
+    # Personal-vault transport (ADR-075 Decision 6): "filesystem" (Stage 1
+    # default — vault on the server's disk) or "local_agent" (Stage 2 — vaults
+    # live on users' machines; sync pulls through each user's connected
+    # skuel-vault-agent into the server-side staging mirror). Applies to
+    # PERSONAL descriptors only; the content vault is server-local by
+    # definition and always stays filesystem.
+    vault_transport: str = os.getenv("VAULT_TRANSPORT", "filesystem")
+
+    def validated_transport(self) -> str:
+        """The configured transport, fail-fast on an unknown value (compose calls this).
+
+        For ``local_agent``, also refuses mirror roots that overlap the content
+        vault (Kody #531): the mirror puller's deletion sweep manages its root
+        as a pull-owned cache, so a combined/nested layout would let a personal
+        sync delete curriculum files missing from the user's agent listing.
+        """
+        if self.vault_transport not in VAULT_TRANSPORTS:
+            raise ValueError(
+                f"Invalid VAULT_TRANSPORT {self.vault_transport!r} — "
+                f"must be one of {', '.join(sorted(VAULT_TRANSPORTS))} (ADR-075 Decision 6)"
+            )
+        if self.vault_transport == "local_agent":
+            content = self.ingestion_path.resolve()
+            for name, root in (
+                ("VAULT_ROOT", self.vault_path.resolve()),
+                ("SKUEL_USER_VAULTS_ROOT", self.user_vaults_path.resolve()),
+            ):
+                if content == root or content.is_relative_to(root) or root.is_relative_to(content):
+                    raise ValueError(
+                        f"VAULT_TRANSPORT=local_agent requires {name} ({root}) to not "
+                        f"overlap INGESTION_PATH ({content}) — the staging mirror's "
+                        "deletion sweep would treat curriculum files as pull-managed "
+                        "cache (ADR-075 Decision 4)."
+                    )
+        return self.vault_transport
+
     @property
     def vault_path(self) -> Path:
         """Get vault path as Path object"""
@@ -618,6 +657,7 @@ class VaultConfig:
                 "SKUEL_PERSONAL_VAULT_OWNER",
                 os.getenv("SKUEL_DEFAULT_USER_UID", str(SYSTEM_USER_UID)),
             ),
+            vault_transport=os.getenv("VAULT_TRANSPORT", "filesystem"),
         )
 
 

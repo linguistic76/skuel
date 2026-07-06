@@ -1021,6 +1021,18 @@ vault via `POST /api/vault/sync/content` (admin) or the in-process
 `scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
 mode). Personal vaults sync via `POST /api/vault/sync`.
 
+**Remote vaults ride a staging mirror (ADR-075, `VAULT_TRANSPORT=local_agent`):** when a
+personal vault lives on the user's machine, `VaultReconciler.sync` runs a mirror-refresh
+pre-phase (`VaultMirrorPuller`, `core/services/vault/mirror_sync.py`) before ingest — it
+pulls changed/new allowed files from the user's connected `skuel-vault-agent` into the
+member-vault directory (`{SKUEL_USER_VAULTS_ROOT}/{user_uid}/`, which IS the mirror) and
+deletes mirror files absent from the agent's listing. Everything below the mirror phase —
+smart-mode skip, this deletion propagation, both valves, owner scoping, preview — runs on
+the mirror byte-for-byte unchanged; the ingestion engine cannot tell Stage 2 from Stage 1.
+`force=True` keeps its meaning: it re-processes unchanged files, never re-fetches
+hash-identical content. Preview never dials the agent — it reports the mirror as of the
+last refresh.
+
 **Deletion propagation (incremental/smart only):** vault file deleted → graph entity deleted.
 After processing, tracked files under the directory that no longer exist on disk have their
 entity + content subtree (Content/ContentChunk/ContentMetadata) + IngestionMetadata removed

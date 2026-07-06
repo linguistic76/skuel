@@ -70,6 +70,39 @@ In **Settings → Devices**, click **Revoke** next to the device. Its live
 connection is closed immediately and future handshakes fail. Re-pairing later
 just repeats step 1 — the agent reuses its key if the file still exists.
 
+## Server side: enabling the local-agent transport (operators)
+
+The agent only matters when the SKUEL server is configured to reach vaults
+through it. In the server's `.env`:
+
+```bash
+VAULT_TRANSPORT=local_agent   # default: filesystem
+```
+
+- `filesystem` (default) — Stage 1, byte-for-byte unchanged: personal vaults
+  are read off the server's own disk. Local dev keeps this forever; the agent
+  is never a local-dev requirement.
+- `local_agent` — Stage 2 (ADR-075): every personal-vault sync pulls changed
+  files from the user's connected agent into a server-side **staging mirror**
+  at `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/`, then the existing ingestion
+  engine (smart-mode skip, deletion reconciliation + valves, owner scoping,
+  preview) runs on the mirror unchanged. No connected agent → the sync fails
+  fast with "agent not connected — start `skuel-vault-agent run`".
+
+Notes for operators:
+
+- The toggle applies to PERSONAL vaults only; the content vault
+  (`INGESTION_PATH`, admin curriculum) is server-local by definition and
+  always stays filesystem.
+- An unknown `VAULT_TRANSPORT` value fails the compose fast at startup.
+- The mirror holds allowed-folder content only (the same material the graph
+  stores). It is server-internal state — never a git repo, never synced
+  anywhere; disk encryption at the hosting layer is part of the deployment
+  checklist.
+- Revoking a user's last device keeps their mirror (re-enrollment resumes
+  cheaply); account-deletion flows own removing it (ADR-075 open-question
+  ruling).
+
 ## Troubleshooting
 
 | Symptom | Meaning |
