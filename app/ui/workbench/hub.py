@@ -30,7 +30,7 @@ def SubmissionsTabPanel() -> Div:
             )
             for label, href, icon in _SUBMISSION_LINKS
         ],
-        cls="grid grid-cols-2 sm:grid-cols-4 gap-4",
+        cls="flex flex-col items-start gap-4",
     )
 
 
