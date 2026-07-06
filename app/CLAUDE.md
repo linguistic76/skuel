@@ -129,7 +129,7 @@ SKUEL separates runtime into two layers. The **Analog layer** (graph structure, 
 ```
 Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 +-- UserOwnedEntity(Entity) — Task, Goal, Habit, Event, Choice, Principle, LifePath, ActivityReport, UserEntry, EntryReport
-+-- Ku(Entity) — atomic knowledge unit (nous, aliases, sel_category; vestigial: namespace, ku_category, source — retired from vault+graph 2026-07-06)
++-- Ku(Entity) — atomic knowledge unit (nous, aliases, sel_category; former namespace/ku_category/source fully removed 2026-07-06)
 +-- Curriculum(Entity) +21 fields → PathStep, LearningPath, Exercise
 +-- Resource(Entity) +7 fields (Curated content)
 ```

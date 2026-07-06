@@ -16,12 +16,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
-from core.services.filtered_context import build_filtered_context
-from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import coerce_int
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -31,39 +28,11 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
     from core.models.shared.dual_track import DualTrackResult
-    from core.ports.query_types import KuUserSubstanceResult, ListContext
+    from core.ports.query_types import KuUserSubstanceResult
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
-
-
-def _compute_ku_stats(all_kus: list[Any]) -> dict[str, int | float]:
-    """Compute pre-filter stats from the full Ku set."""
-    total = len(all_kus)
-    namespaces: dict[str, int] = {}
-    for ku in all_kus:
-        ns = getattr(ku, "namespace", None) or "unclassified"
-        namespaces[ns] = namespaces.get(ns, 0) + 1
-    return {"total": total, "active": total, **namespaces}
-
-
-def _apply_ku_namespace_filter(all_kus: list[Any], namespace_filter: str) -> list[Any]:
-    """Apply namespace filter to Kus."""
-    if namespace_filter == "all":
-        return all_kus
-    return [k for k in all_kus if getattr(k, "namespace", None) == namespace_filter]
-
-
-_KU_SORT_CONFIG: SortConfig = {
-    "title": (get_title_lower, False),
-    "created_at": (get_created_at_attr, True),
-}
-
-
-def _apply_ku_sort_cfg(kus: list[Any], sort_by: str) -> list[Any]:
-    """Sort Kus using declarative config."""
-    return apply_entity_sort(kus, sort_by, _KU_SORT_CONFIG, "title")
 
 
 class KuService:
@@ -126,10 +95,7 @@ class KuService:
     async def create_ku(
         self,
         title: str,
-        namespace: str | None = None,
-        ku_category: str | None = None,
         aliases: list[str] | None = None,
-        source: str | None = None,
         description: str | None = None,
         summary: str | None = None,
         domain: str | None = None,
@@ -138,10 +104,7 @@ class KuService:
         """Create a new atomic Knowledge Unit."""
         return await self.core.create_ku(
             title=title,
-            namespace=namespace,
-            ku_category=ku_category,
             aliases=aliases,
-            source=source,
             description=description,
             summary=summary,
             domain=domain,
@@ -287,33 +250,3 @@ class KuService:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
-
-    # =========================================================================
-    # QUERY LAYER (FilteredContextProvider)
-    # =========================================================================
-
-    async def get_filtered_context(
-        self,
-        user_uid: UserUID,
-        status_filter: str = "all",
-        sort_by: str = "title",
-    ) -> Result[ListContext]:
-        """Get filtered and sorted Kus with pre-filter stats."""
-
-        async def fetch_all() -> Result[list[Any]]:
-            result = await self.core.list(limit=500)
-            if result.is_error:
-                return Result.fail(result)
-            entities, _ = result.value
-            return Result.ok(list(entities))
-
-        def apply_filters(all_kus: list[Any]) -> list[Any]:
-            return _apply_ku_namespace_filter(all_kus, status_filter)
-
-        return await build_filtered_context(
-            fetch_all=fetch_all,
-            compute_stats=_compute_ku_stats,
-            apply_filters=apply_filters,
-            apply_sort=_apply_ku_sort_cfg,
-            sort_by=sort_by,
-        )

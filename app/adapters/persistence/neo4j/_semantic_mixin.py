@@ -232,28 +232,3 @@ class _SemanticMixin:
             limit=limit,
         )
         return await self.execute_query(query, params)
-
-    async def find_time_aware_paths(
-        self,
-        target_uid: str,
-        user_time_budget: int,
-        max_complexity: str,
-        min_confidence: float,
-        depth: int,
-        limit: int,
-    ) -> Result[list[Neo4jProperties]]:
-        """Build metadata-aware learning paths respecting user constraints."""
-        from adapters.persistence.neo4j.query import build_metadata_aware_path_query
-        from core.models.relationship_names import RelationshipName
-
-        query, params = build_metadata_aware_path_query(
-            target_uid=target_uid,
-            node_label=NeoLabel.ENTITY,
-            relationship_type=RelationshipName.REQUIRES_KNOWLEDGE.value,
-            user_time_budget=user_time_budget,
-            max_complexity_level=max_complexity,
-            min_confidence=min_confidence,
-            depth=depth,
-            limit=limit,
-        )
-        return await self.execute_query(query, params)

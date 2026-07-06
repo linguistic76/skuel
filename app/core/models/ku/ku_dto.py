@@ -3,13 +3,13 @@ KuDTO - Atomic Knowledge Unit DTO (Tier 2 - Transfer)
 =====================================================
 
 Mutable DTO for atomic knowledge unit entities (EntityType.KU).
-Extends EntityDTO (NOT CurriculumDTO) with 6 Ku-specific fields.
+Extends EntityDTO (NOT CurriculumDTO) with 3 Ku-specific fields.
 
 Ku is lightweight — no learning metadata, no substance scores.
 
 Hierarchy:
     EntityDTO (~18 common fields)
-    └── KuDTO(EntityDTO) +6 Ku-specific fields
+    └── KuDTO(EntityDTO) +3 Ku-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -28,11 +28,8 @@ from core.models.enums.entity_enums import EntityType
 class KuDTO(EntityDTO):
     """Mutable DTO for atomic knowledge unit entities (EntityType.KU).
 
-    Extends EntityDTO with 6 Ku-specific fields:
-      - namespace: primary grouping (attention, emotion, body, ...)
-      - ku_category: state/concept/principle/intake/substance/practice/value
+    Extends EntityDTO with 3 Ku-specific fields:
       - aliases: alternative names
-      - source: self_observation/research/teacher
       - sel_category: SEL competency (self_awareness, self_management, etc.)
       - nous: NOUS topic membership (stories, body, self-awareness, ...)
     """
@@ -40,10 +37,7 @@ class KuDTO(EntityDTO):
     # Honest leaf default (base EntityDTO requires entity_type — G6).
     entity_type: EntityType = field(default=EntityType.KU, kw_only=True)
 
-    namespace: str | None = None
-    ku_category: str | None = None
     aliases: list[str] | None = None
-    source: str | None = None
     sel_category: str | None = None
     # NOUS topic membership (stories, body, self-awareness, ...) — multi-topic;
     # empty = deliberately unassigned (rawness principle)
@@ -92,10 +86,7 @@ class KuDTO(EntityDTO):
                 "tags",
                 "metadata",
                 # Ku-specific fields
-                "namespace",
-                "ku_category",
                 "aliases",
-                "source",
                 "sel_category",
                 "nous",
             },

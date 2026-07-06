@@ -45,10 +45,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
     async def create_ku(
         self,
         title: str,
-        namespace: str | None = None,
-        ku_category: str | None = None,
         aliases: list[str] | None = None,
-        source: str | None = None,
         description: str | None = None,
         summary: str | None = None,
         domain: str | None = None,
@@ -58,10 +55,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
 
         Args:
             title: Ku title (e.g., "caffeine", "buzzing", "meditation")
-            namespace: Primary grouping (attention, emotion, body, ...)
-            ku_category: state/concept/principle/intake/substance/practice/value
             aliases: Alternative names
-            source: self_observation/research/teacher
             description: Optional description
             summary: Optional summary
             domain: Optional domain classification
@@ -78,10 +72,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
             uid=EntityUID(uid),
             entity_type=EntityType.KU,
             title=title,
-            namespace=namespace,
-            ku_category=ku_category,
             aliases=tuple(aliases) if aliases else (),
-            source=source,
             description=description,
             summary=summary or "",
             domain=Domain(domain) if domain else Domain.KNOWLEDGE,

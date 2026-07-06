@@ -119,7 +119,7 @@ class TestKuIntelligenceDomainInsights:
     @pytest.mark.asyncio
     async def test_returns_insights_with_usage_and_depth(self):
         backend = _make_backend()
-        ku = _make_ku(namespace="body", ku_category="substance", aliases=("coffee", "java"))
+        ku = _make_ku(aliases=("coffee", "java"))
         backend.get.return_value = Result.ok(ku)
         backend.get_usage_summary.return_value = Result.ok(
             [{"path_steps_using": 3, "path_steps_training": 1, "organized_children": 0}]
@@ -132,7 +132,6 @@ class TestKuIntelligenceDomainInsights:
         assert result.is_ok
         data = result.value
         assert data["ku_title"] == "Test Ku"
-        assert data["namespace"] == "body"
         assert data["alias_count"] == 2
         assert data["usage"]["path_steps_using"] == 3
 
