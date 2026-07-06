@@ -62,14 +62,10 @@ def render_explore_card(
     if len(getattr(item, "description", "") or "") > 120:
         desc += "..."
 
-    # Metadata badges
+    # Metadata badges — Ku is a lightweight reference node (no display metadata);
+    # PathStep carries complexity / time / level.
     meta_parts: list[Any] = []
-    if entity_type == "ku":
-        if getattr(item, "ku_category", None):
-            meta_parts.append(Badge(item.ku_category, variant=BadgeT.neutral, size=Size.sm))
-        if getattr(item, "namespace", None):
-            meta_parts.append(Span(item.namespace, cls="text-xs text-muted-foreground"))
-    else:
+    if entity_type != "ku":
         if getattr(item, "complexity", None):
             meta_parts.append(
                 Span(

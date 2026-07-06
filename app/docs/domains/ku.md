@@ -94,15 +94,15 @@ await ku_service.get_path_steps(ku_uid)
 
 ## Model Fields (Ku-Specific)
 
-Ku extends Entity directly (not Curriculum). These are the 5 Ku-specific fields beyond the ~29 Entity base fields:
+Ku extends Entity directly (not Curriculum). These are the 3 Ku-specific fields beyond the ~29 Entity base fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `namespace` | `str?` | Primary grouping (attention, emotion, sel, mindfulness, ...) |
-| `ku_category` | `str?` | What kind: state, concept, principle, intake, substance, practice, value |
 | `aliases` | `tuple[str, ...]` | Alternative names for search/cross-referencing |
-| `source` | `str?` | Origin: self_observation, research, teacher |
 | `sel_category` | `SELCategory?` | SEL competency: self_awareness, self_management, social_awareness, relationship_skills, responsible_decision_making |
+| `nous` | `tuple[str, ...]` | NOUS topic membership (stories, body, self-awareness, ...) — the category vocabulary (#534 "nous IS the category") |
+
+> The former `namespace` / `ku_category` / `source` fields were retired (vault+graph 2026-07-06, model 2026-07-06). Grouping now lives in `nous` topics.
 
 ## Relationships
 

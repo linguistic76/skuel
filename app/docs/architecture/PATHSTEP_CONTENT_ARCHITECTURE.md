@@ -126,8 +126,10 @@ After ingestion, this YAML produces the following graph structure:
 
 (No metadata node: the write-only `:ContentMetadata` node — fabricated constants,
 zero readers — was deleted 2026-07-02; deletion paths keep a cleanup MATCH for
-stragglers. Content analytics is a PLANNED capability anchored at
-`PsService.find_time_aware_learning_path`.)
+stragglers. The staged metadata-aware path finder that would have consumed it
+(`PsService.find_time_aware_learning_path`) was itself deleted 2026-07-06 once
+the chunk semantic layer superseded the content-metadata campaign — content
+analytics would return with a live metadata write-path first, not as scaffolding.)
 
 Also created from the `uses_kus:` list:
 

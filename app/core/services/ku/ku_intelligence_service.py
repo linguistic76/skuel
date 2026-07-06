@@ -130,8 +130,6 @@ class KuIntelligenceService(
             {
                 "ku_uid": uid,
                 "ku_title": ku.title,
-                "namespace": ku.namespace,
-                "ku_category": ku.ku_category,
                 "alias_count": len(ku.aliases),
                 "usage": usage,
                 "organization_depth": org_depth,

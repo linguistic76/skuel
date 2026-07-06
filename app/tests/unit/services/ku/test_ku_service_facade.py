@@ -81,14 +81,11 @@ class TestKuServiceDelegation:
         service, common = self._make_service()
         common.core.create_ku.return_value = Result.ok(None)
 
-        await service.create_ku(title="caffeine", namespace="body")
+        await service.create_ku(title="caffeine", aliases=["coffee"])
 
         common.core.create_ku.assert_awaited_once_with(
             title="caffeine",
-            namespace="body",
-            ku_category=None,
-            aliases=None,
-            source=None,
+            aliases=["coffee"],
             description=None,
             summary=None,
             domain=None,
