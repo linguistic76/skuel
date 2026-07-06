@@ -615,6 +615,13 @@ async def ingest_directory(
             )
         )
 
+    # Owner scope for deletion reconciliation: when a vault registry governs
+    # this scan (owner_is_authoritative), default_user_uid IS the descriptor-
+    # resolved vault owner — entity deletions are then refused for anything
+    # owned by a different user (cross-owner guard). Ungoverned scans (minimal
+    # composes, no registry) keep legacy path-only scoping.
+    deletion_owner_scope = default_user_uid if owner_is_authoritative else None
+
     # Collect all supported files using simplified pattern matching, with
     # skip-reason bookkeeping (G10): walled/unsupported files are reported in
     # the stats instead of silently vanishing from the totals.
@@ -634,18 +641,23 @@ async def ingest_directory(
         # (inside reconcile_deletions) covers the everything-vanished case;
         # this covers e.g. all *.md deleted while tracked *.yaml files survive.
         empty_errors: list[dict[str, Any]] = [{"message": "No files found"}]
+        empty_warnings: list[str] = []
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
         if ingestion_backend is not None and not dry_run:
             empty_tracker = IngestionTracker(ingestion_backend)
             reconcile_result = await empty_tracker.reconcile_deletions(
-                directory, pattern, allowlist=allowlist
+                directory,
+                pattern,
+                allowlist=allowlist,
+                owner_uid=deletion_owner_scope,
             )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                empty_warnings.extend(reconcile_result.value.ownership_mismatches)
             else:
                 empty_errors.append(
                     {
@@ -662,6 +674,7 @@ async def ingest_directory(
                 stale_metadata_removed=stale_metadata_removed,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
+                warnings=empty_warnings,
                 errors=empty_errors,
             )
         )
@@ -722,14 +735,19 @@ async def ingest_directory(
         edges_deleted = 0
         stale_metadata_removed = 0
         reconcile_errors: list[dict[str, Any]] = []
+        reconcile_warnings: list[str] = []
         if tracker is not None and not dry_run:
             reconcile_result = await tracker.reconcile_deletions(
-                directory, pattern, allowlist=allowlist
+                directory,
+                pattern,
+                allowlist=allowlist,
+                owner_uid=deletion_owner_scope,
             )
             if reconcile_result.is_ok:
                 entities_deleted = reconcile_result.value.entities_deleted
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+                reconcile_warnings.extend(reconcile_result.value.ownership_mismatches)
             else:
                 # Same error surface as the non-empty processing path — a
                 # silently-skipped reconciliation would report a clean sync
@@ -756,6 +774,7 @@ async def ingest_directory(
                 stale_metadata_removed=stale_metadata_removed,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
+                warnings=reconcile_warnings,
                 errors=reconcile_errors if reconcile_errors else None,
             )
         )
@@ -1187,12 +1206,16 @@ async def ingest_directory(
     stale_metadata_removed = 0
     if tracker is not None and ingestion_mode != "full" and not dry_run:
         reconcile_result = await tracker.reconcile_deletions(
-            directory, pattern, allowlist=allowlist
+            directory,
+            pattern,
+            allowlist=allowlist,
+            owner_uid=deletion_owner_scope,
         )
         if reconcile_result.is_ok:
             entities_deleted = reconcile_result.value.entities_deleted
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
+            validation_warnings.extend(reconcile_result.value.ownership_mismatches)
         else:
             errors.append(
                 {
