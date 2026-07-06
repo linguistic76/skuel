@@ -25,11 +25,8 @@ def _build(
         "events_service": MagicMock(),
         "choices_service": MagicMock(),
         "principles_service": MagicMock(),
-        "assessment_service": MagicMock(),
-        "activity_report_service": MagicMock(),
         "sharing_service": MagicMock(),
         "ps_service": MagicMock(),
-        "exercises_service": MagicMock(),
     }
     mocks["tasks_service"].get_user_tasks = AsyncMock()
     mocks["goals_service"].get_user_goals = AsyncMock()
@@ -37,11 +34,8 @@ def _build(
     mocks["events_service"].get_user_events = AsyncMock()
     mocks["choices_service"].get_user_choices = AsyncMock()
     mocks["principles_service"].get_user_principles = AsyncMock()
-    mocks["assessment_service"].get_assessments_for_student = AsyncMock()
-    mocks["activity_report_service"].get_history = AsyncMock()
     mocks["sharing_service"].get_shared_with_me = AsyncMock()
     mocks["ps_service"].get_all_user_knowledge_status = AsyncMock()
-    mocks["exercises_service"].get_student_exercises = AsyncMock()
 
     orch = ProfileOrchestrator(
         tasks_service=mocks["tasks_service"],
@@ -50,11 +44,8 @@ def _build(
         events_service=mocks["events_service"],
         choices_service=mocks["choices_service"],
         principles_service=mocks["principles_service"],
-        assessment_service=mocks["assessment_service"],
-        activity_report_service=mocks["activity_report_service"],
         sharing_service=mocks["sharing_service"],
         ps_service=mocks["ps_service"],
-        exercises_service=mocks["exercises_service"],
         context_intelligence=context_intelligence,
     )
     return orch, mocks
@@ -307,32 +298,6 @@ async def test_get_intelligence_data_factory_misconfigured_returns_none(
 
 
 # --- Smoke delegation tests ---
-
-
-@pytest.mark.asyncio
-async def test_get_assigned_exercises_delegates() -> None:
-    orch, mocks = _build()
-    mocks["exercises_service"].get_student_exercises.return_value = Result.ok([])
-    await orch.get_assigned_exercises("user_1")
-    mocks["exercises_service"].get_student_exercises.assert_called_once_with("user_1")
-
-
-@pytest.mark.asyncio
-async def test_get_recent_entry_reports_delegates() -> None:
-    orch, mocks = _build()
-    mocks["assessment_service"].get_assessments_for_student.return_value = Result.ok([])
-    await orch.get_recent_entry_reports("user_1", limit=7)
-    mocks["assessment_service"].get_assessments_for_student.assert_called_once_with(
-        "user_1", limit=7
-    )
-
-
-@pytest.mark.asyncio
-async def test_get_recent_activity_reports_delegates() -> None:
-    orch, mocks = _build()
-    mocks["activity_report_service"].get_history.return_value = Result.ok([])
-    await orch.get_recent_activity_reports("user_1", limit=8)
-    mocks["activity_report_service"].get_history.assert_called_once_with("user_1", limit=8)
 
 
 @pytest.mark.asyncio

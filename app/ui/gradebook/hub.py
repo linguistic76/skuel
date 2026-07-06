@@ -1,6 +1,6 @@
-"""GradeBook block definitions — GradeBook tab on /profile.
+"""GradeBook block definitions — Reports tab on /profile.
 
-GRADEBOOK_BLOCKS feeds the GradeBook tab in ui/profile/hub.py.
+GRADEBOOK_BLOCKS feeds the Reports tab in ui/profile/hub.py.
 """
 
 from ui.patterns.hub import HubBlockData

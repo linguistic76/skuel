@@ -5,12 +5,12 @@ User Profile UI Routes - Profile Hub Page (MOC Pattern)
 Routes for the user profile hub page and related endpoints.
 
 Key Routes:
-- GET /profile - Profile hub (grouped card grid with links)
+- GET /profile - Profile hub (3 tabs: Curriculum / Reports / Submissions)
 - GET /profile/settings - 301 redirect to /settings
 - GET /profile/shared - Shared content view
 
 Architecture:
-- /profile is a hub page with grouped cards (no sidebar)
+- /profile is a 3-tab hub (Alpine tab bar, HTMX lazy-loaded previews; no sidebar)
 - Uses BasePage(STANDARD) — the MOC pattern
 - Uses UserContext (~250 fields) as the authoritative source for user state
 
@@ -213,153 +213,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             return Para("Unable to load items", cls="text-sm text-muted-foreground py-2")
 
         return render_domain_card_preview(result.value, slug)
-
-    # ------------------------------------------------------------------
-    # HTMX report summary fragments for profile hub
-    # ------------------------------------------------------------------
-
-    @rt("/api/profile/reports/exercise-summary")
-    async def entry_reports_summary(request: Request) -> Any:
-        """HTMX fragment: 5 most recent exercise reports for the profile hub."""
-        from fasthtml.common import A, P, Span
-
-        user_uid = require_authenticated_user(request)
-
-        result = await profile_orchestrator.get_recent_entry_reports(user_uid, limit=5)
-        if result.is_error:
-            return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
-
-        reports = result.value or []
-        if not reports:
-            return P(
-                "No exercise reports yet.",
-                cls="text-sm text-muted-foreground py-3 px-3",
-            )
-
-        rows: list[Any] = []
-        for report in reports:
-            title = getattr(report, "title", None) or "Untitled Report"
-            uid = getattr(report, "uid", "")
-            created = getattr(report, "created_at", None)
-            date_str = created.strftime("%b %d") if created else ""
-
-            rows.append(
-                Div(
-                    A(
-                        title,
-                        href=f"/entry-reports/detail?uid={uid}",
-                        cls="text-sm font-medium text-foreground hover:text-primary truncate",
-                    ),
-                    Span(
-                        date_str,
-                        cls="text-[10px] text-muted-foreground whitespace-nowrap ml-auto",
-                    ),
-                    cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50",
-                )
-            )
-        return Div(*rows)
-
-    @rt("/api/profile/reports/activity-summary")
-    async def activity_reports_summary(request: Request) -> Any:
-        """HTMX fragment: 5 most recent activity reports for the profile hub."""
-        from fasthtml.common import A, P, Span
-
-        user_uid = require_authenticated_user(request)
-
-        result = await profile_orchestrator.get_recent_activity_reports(user_uid, limit=5)
-        if result.is_error:
-            return P("Unable to load reports", cls="text-sm text-muted-foreground py-2")
-
-        reports = result.value or []
-        if not reports:
-            return P(
-                "No activity reports yet.",
-                cls="text-sm text-muted-foreground py-3 px-3",
-            )
-
-        rows: list[Any] = []
-        for report in reports:
-            title = getattr(report, "title", None) or "Activity Report"
-            uid = getattr(report, "uid", "")
-            created = getattr(report, "created_at", None)
-            date_str = created.strftime("%b %d") if created else ""
-            time_period = getattr(report, "time_period", None)
-
-            badges: list[Any] = []
-            if time_period:
-                badges.append(
-                    Span(
-                        time_period,
-                        cls="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded",
-                    )
-                )
-            badges.append(
-                Span(
-                    date_str,
-                    cls="text-[10px] text-muted-foreground whitespace-nowrap",
-                ),
-            )
-
-            rows.append(
-                Div(
-                    A(
-                        title,
-                        href=f"/activity-reports/detail?uid={uid}",
-                        cls="text-sm font-medium text-foreground hover:text-primary truncate",
-                    ),
-                    *badges,
-                    cls="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-muted/50 ml-auto",
-                )
-            )
-        return Div(*rows)
-
-    # ------------------------------------------------------------------
-    # HTMX submission tab fragments for profile hub
-    # ------------------------------------------------------------------
-
-    @rt("/api/profile/submissions/submit-form")
-    async def profile_submit_form(request: Request) -> Any:
-        """HTMX fragment: upload form for the Submit tab on the profile hub."""
-        from fasthtml.common import Div
-
-        try:
-            user_uid = require_authenticated_user(request)
-
-            assigned_exercises: list[Any] = []
-            exercises_result = await profile_orchestrator.get_assigned_exercises(user_uid)
-            if not exercises_result.is_error and exercises_result.value:
-                assigned_exercises = exercises_result.value
-
-            from ui.user_entry.forms import render_upload_form, upload_form_script
-
-            return Div(
-                render_upload_form(assigned_exercises),
-                upload_form_script(),
-            )
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading submit form: {e}", exc_info=True)
-            from ui.patterns.error_banner import render_error_banner
-
-            return Div(render_error_banner("Failed to load submit form", str(e)))
-
-    @rt("/api/profile/submissions/report-form")
-    async def profile_report_form(request: Request) -> Any:
-        """HTMX fragment: activity report request form for the Request Report tab."""
-        from fasthtml.common import Div
-
-        try:
-            require_authenticated_user(request)
-            from ui.patterns.generate_report import (
-                render_activity_report_request_card,
-                render_recent_reports_section,
-            )
-
-            return Div(render_activity_report_request_card(), render_recent_reports_section())
-        except Exception as e:  # safety-net: HTMX fragment error boundary
-            logger.error(f"Error loading report form: {e}", exc_info=True)
-            from ui.patterns.error_banner import render_error_banner
-
-            return Div(render_error_banner("Failed to load report form", str(e)))
 
     @rt("/api/sidebar/badges")
     async def sidebar_badges(request: Request) -> Any:
@@ -938,7 +791,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         return Div(*sections)
 
-    logger.info("✅ Profile routes registered (/profile, /profile/{domain})")
+    logger.info("✅ Profile routes registered (/profile, /profile/shared)")
     logger.info("✅ Profile chart API routes registered (/api/profile/charts/*)")
     logger.info(
         "✅ Profile HTMX intelligence endpoint registered (/api/profile/intelligence-section)"

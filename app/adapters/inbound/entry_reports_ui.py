@@ -35,7 +35,9 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from core.models.enums.pipeline import ReportSource
 from core.utils.logging import get_logger
+from core.utils.text_truncation import truncate_to_budget
 from ui.components import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
@@ -191,14 +193,25 @@ def create_entry_reports_ui_routes(
         for report in reports[:3]:
             uid = getattr(report, "uid", "") or ""
             title = getattr(report, "title", None) or uid or "Report"
-            source = getattr(report, "source", None) or ""
+            processor_type = getattr(report, "processor_type", None)
             badge = (
-                Span(source.title(), cls="text-[10px] font-medium text-muted-foreground")
-                if source
+                Span(
+                    processor_type.get_short_label(),
+                    cls="text-[10px] font-medium text-muted-foreground",
+                )
+                if isinstance(processor_type, ReportSource)
                 else None
             )
+            content = getattr(report, "processed_content", None) or ""
             href = f"/entry-reports/detail?uid={uid}" if uid else "/entry-reports"
-            cards.append(HubPreviewCard(title=title, href=href, badge=badge))
+            cards.append(
+                HubPreviewCard(
+                    title=title,
+                    href=href,
+                    badge=badge,
+                    description=truncate_to_budget(content, 160) if content else None,
+                )
+            )
         return HubPreviewGrid(cards)
 
     logger.info(

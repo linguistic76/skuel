@@ -100,7 +100,9 @@ class HubBlockData:
 def HubDomainBlock(block: HubBlockData) -> Div:
     """Colored header + HTMX lazy-loaded preview area.
 
-    When preview_url is set, the panel self-loads on page render via hx-trigger="load".
+    When preview_url is set, the panel self-loads via hx-trigger="intersect once" —
+    the fetch fires the first time the panel becomes visible, so blocks inside
+    hidden tab containers defer until their tab is shown.
     When preview_url is None, the panel renders as a passive OOB target (id set, no HTMX
     attrs) — a combined endpoint will swap its content in via hx-swap-oob.
     """
@@ -109,7 +111,27 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by hub pages (`/profile`, `/gradebook`, `/library`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards on page load. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below).
+Used by hub pages (`/groups`, `/activities`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards when the block becomes visible. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below).
+
+### HubAccordionBlock + HubAccordionBlockList (collapsible variant)
+
+```python
+def HubAccordionBlock(block: HubBlockData, open: bool = False) -> FT:
+    """Collapsible domain block — native <details>/<summary>."""
+
+def HubAccordionBlockList(blocks: list[HubBlockData], open_first: bool = True) -> Div:
+    """Vertical stack of accordion blocks; the first starts open by default."""
+```
+
+Same `HubBlockData` config as `HubDomainBlock`, rendered as a native `<details>` element: the whole summary row toggles (chevron rotates via `group-open:rotate-90`, pure CSS), the label is a plain Span, and "View all →" is the sole navigation (`@click.stop` so it doesn't toggle). Because the preview panel uses `hx-trigger="intersect once"`, a closed accordion never fetches — content inside a closed `<details>` has no layout box, so the IntersectionObserver only fires once the section is open AND its tab visible. Used by the `/profile` Curriculum and Reports tabs.
+
+**Decision guide — flat vs accordion:**
+
+| Situation | Use |
+|-----------|-----|
+| Few blocks, all previews should be visible immediately | `HubDomainBlockList` |
+| Many sections where headers alone orient the user; open on demand | `HubAccordionBlockList` |
+| Blocks populated by a combined OOB endpoint (e.g. teaching student hub) | `HubDomainBlockList` — the OOB response would populate closed panels invisibly and skew the one-combined-fetch economics |
 
 ---
 
@@ -233,8 +255,11 @@ def StudentHub(student_name, student_uid):
 ### HubPreviewCard + HubPreviewGrid + HubPreviewEmpty
 
 ```python
-def HubPreviewCard(title: str, href: str, badge: FT | None = None) -> A:
-    """Compact preview card — title + optional badge."""
+def HubPreviewCard(
+    title: str, href: str, badge: FT | None = None, description: str | None = None
+) -> A:
+    """Compact preview card — entity title first, optional description snippet
+    (line-clamp-2) and badge in a meta row below."""
 
 def HubPreviewGrid(cards: list[A]) -> Div:
     """3-column grid of preview cards."""
@@ -243,7 +268,7 @@ def HubPreviewEmpty(domain: str) -> Div:
     """Empty state for a preview block."""
 ```
 
-Returned by HTMX preview endpoints to populate `HubDomainBlock` areas.
+Returned by HTMX preview endpoints to populate `HubDomainBlock`/`HubAccordionBlock` areas. The entity title is the card's headline — don't lead with a badge that repeats the section header; reserve `badge` for genuinely informative status (submission state, media type, revision number).
 
 ### Graph-Driven Bridges
 

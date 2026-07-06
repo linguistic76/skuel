@@ -113,3 +113,12 @@ class ReportSource(StrEnum):
             ReportSource.HYBRID: "Hybrid (AI + Human)",
             ReportSource.AUTOMATIC: "Automatic",
         }[self]
+
+    def get_short_label(self) -> str:
+        """Compact provenance label for badges and preview cards."""
+        return {
+            ReportSource.HUMAN: "Teacher",
+            ReportSource.LLM: "AI",
+            ReportSource.HYBRID: "AI + Teacher",
+            ReportSource.AUTOMATIC: "Auto",
+        }[self]

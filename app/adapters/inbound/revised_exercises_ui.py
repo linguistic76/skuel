@@ -33,6 +33,7 @@ from fasthtml.common import (
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.utils.logging import get_logger
+from core.utils.text_truncation import truncate_to_budget
 from ui.components import Card
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.revised_exercise import (
@@ -201,8 +202,16 @@ def create_revised_exercises_ui_routes(
                 f"#{revision_number}",
                 cls="text-[10px] font-medium text-destructive",
             )
+            instructions = getattr(rev, "instructions", None) or ""
             href = f"/revised-exercises/detail?uid={uid}" if uid else "/revised-exercises"
-            cards.append(HubPreviewCard(title=title, href=href, badge=badge))
+            cards.append(
+                HubPreviewCard(
+                    title=title,
+                    href=href,
+                    badge=badge,
+                    description=truncate_to_budget(instructions, 160) if instructions else None,
+                )
+            )
         return HubPreviewGrid(cards)
 
     logger.info(
