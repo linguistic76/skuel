@@ -26,6 +26,7 @@ from core.services.vault.vault_descriptor import (
 
 _DEFAULT = UserUID("user_default")
 _CONTENT_OWNER = UserUID("user_admin")
+_PRIMARY_OWNER = UserUID("user_primary")
 _ACTING = UserUID("user_beta")
 
 
@@ -49,7 +50,7 @@ def _registry(content_root: Path, personal_root: Path) -> VaultRegistry:
     personal = VaultDescriptor(
         kind=VaultKind.PERSONAL,
         root=personal_root,
-        owner_uid=UserUID("user_placeholder"),
+        owner_uid=_PRIMARY_OWNER,  # owner-bound at compose time (per-user roots)
         allowlist=_wall(personal_root),
         bridge=_bridge(),
         supports_task_round_trip=True,
@@ -88,14 +89,16 @@ def test_content_path_owner_is_content_owner_hint_ignored(tmp_path: Path) -> Non
     assert owner == _CONTENT_OWNER  # acting hint discarded for content vault
 
 
-def test_personal_path_owner_is_acting_user(tmp_path: Path) -> None:
+def test_personal_path_owner_is_bound_owner_hint_ignored(tmp_path: Path) -> None:
     content_root = tmp_path / "content"
     personal_root = tmp_path / "personal"
     service = _service(registry=_registry(content_root, personal_root))
 
     owner = service._resolve_owner(personal_root / "notes" / "day.md", _ACTING)
 
-    assert owner == _ACTING  # personal vault attributes to the acting user
+    # Personal vault attributes to ITS bound owner — never the caller (per-user
+    # roots: the acting hint cannot capture another user's vault files).
+    assert owner == _PRIMARY_OWNER
 
 
 def test_no_registry_falls_back_to_hint(tmp_path: Path) -> None:

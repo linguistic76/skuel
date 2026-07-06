@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from core.config.intelligence_tier import IntelligenceTier
+from core.constants import SYSTEM_USER_UID
 from core.models.enums import EntityType
 from core.utils.logging import get_logger
 
@@ -574,6 +575,16 @@ class VaultConfig:
     # core/services/vault/vault_descriptor.py (resolve_by_path).
     content_owner_uid: str = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
 
+    # The account VAULT_ROOT (the primary personal vault) BELONGS TO. Personal
+    # sync for any other user resolves to {user_vaults_root}/{user_uid}/ instead
+    # (VaultRegistry per-user roots). Defaults to the default-user chain so a
+    # single-user install binds its one real account with no new config; the
+    # user_system terminal default binds VAULT_ROOT to nobody (fail-safe: every
+    # user then gets a derived per-user root).
+    personal_vault_owner_uid: str = os.getenv(
+        "SKUEL_PERSONAL_VAULT_OWNER", os.getenv("SKUEL_DEFAULT_USER_UID", str(SYSTEM_USER_UID))
+    )
+
     # Per-user vault uploads directory
     user_vaults_root: str = os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults")
 
@@ -603,6 +614,10 @@ class VaultConfig:
             ingestion_root=os.getenv("INGESTION_PATH", "/home/mike/0bsidian/0vault"),
             user_vaults_root=os.getenv("SKUEL_USER_VAULTS_ROOT", "data/user_vaults"),
             content_owner_uid=os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin"),
+            personal_vault_owner_uid=os.getenv(
+                "SKUEL_PERSONAL_VAULT_OWNER",
+                os.getenv("SKUEL_DEFAULT_USER_UID", str(SYSTEM_USER_UID)),
+            ),
         )
 
 
