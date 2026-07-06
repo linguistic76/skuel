@@ -53,6 +53,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.ports.vault_bridge_protocol import VaultBridgePort
     from core.services.ingestion.config import SyncAllowlist
+    from core.services.vault.mirror_sync import VaultMirrorPuller
 
 
 class VaultKind(Enum):
@@ -80,11 +81,17 @@ class VaultDescriptor:
         owner_uid: The account the vault's entries are attributed to (inbound
             ingest ``user_uid``) and whose ``vault_write_consent`` gates outbound.
         allowlist: Fail-closed folder wall scoped to this vault's own root.
-        bridge: Outbound write adapter (Stage 1 ``FilesystemVaultAdapter``),
-            ``allowed_root``-bound to this vault.
+        bridge: Outbound write adapter (``FilesystemVaultAdapter`` on the
+            filesystem transport; ``LocalAgentVaultAdapter`` on ``local_agent``),
+            bound to this vault's root.
         supports_task_round_trip: Whether outbound (🆔 injection + done-date
             writeback) runs. ``False`` for the content vault (structural no-op
             until curriculum writeback is built).
+        mirror_pull: The transport dimension (ADR-075 Decision 6). ``None`` =
+            filesystem transport (``root`` IS the vault). Set = ``local_agent``
+            transport: ``root`` is the server-side staging mirror and this
+            puller refreshes it from the user's agent before ingest. Capability
+            over ``isinstance`` sniffing (SKUEL011).
     """
 
     kind: VaultKind
@@ -93,6 +100,7 @@ class VaultDescriptor:
     allowlist: SyncAllowlist
     bridge: VaultBridgePort
     supports_task_round_trip: bool
+    mirror_pull: VaultMirrorPuller | None = None
 
 
 # Builds a PERSONAL descriptor for one user's member vault (allowlist + bridge

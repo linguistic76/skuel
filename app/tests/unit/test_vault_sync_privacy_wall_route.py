@@ -70,7 +70,7 @@ class TestConsentFormShowsLiveWall:
         registry = _RouteRegistry()
         reconciler = MagicMock()
         reconciler.sync = AsyncMock(return_value=Result.ok(VaultSyncStats(first_run_notice=True)))
-        reconciler.describe = MagicMock(return_value=Result.ok(_DOORWAYS))
+        reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
         create_vault_routes(
             app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
         )

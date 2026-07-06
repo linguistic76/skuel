@@ -1246,18 +1246,62 @@ async def compose_services(
             supports_task_round_trip=False,  # curriculum writeback: designed-for, deferred
         )
 
+        # Personal-vault transport (ADR-075 Decision 6). Fail-fast on an
+        # unknown value; "filesystem" (default) keeps Stage 1 byte-for-byte.
+        # The content vault above is server-local by definition and stays
+        # filesystem regardless.
+        _vault_transport = config.vault.validated_transport()
+
         def _build_personal_descriptor(owner_uid: UserUID, root: Path) -> VaultDescriptor:
             """One user's personal vault: per-root doorway wall + root-bound bridge.
 
             The wall is fail-closed (knowledge/ + notes doorway folders) and
             code-sourced — NOT read from the ambient SKUEL_VAULT_SYNC_ALLOWED_DIRS
             env var, which used to shadow .env and silently wall off a folder.
+
+            On the ``local_agent`` transport (ADR-075) the bridge speaks to the
+            user's connected agent instead of the local disk, and ``root``
+            becomes the server-side staging mirror the ``mirror_pull`` puller
+            keeps faithful to the device before each ingest.
             """
+            allowlist = build_sync_allowlist(root, content_root=_content_root)
+            if _vault_transport == "local_agent":
+                from adapters.inbound.agent_channel_registry import agent_channel_registry
+                from adapters.vault.local_agent_adapter import LocalAgentVaultAdapter
+                from core.services.vault.mirror_sync import VaultMirrorPuller
+
+                agent_bridge = LocalAgentVaultAdapter(
+                    registry=agent_channel_registry, mirror_root=root
+                )
+                resolved_root = root.resolve()
+                # Server-side top-level folder names scope the pull + its
+                # deletion sweep. The whole-vault-open combined-root shape
+                # cannot reach here: validated_transport() rejects any
+                # local_agent config whose mirror roots overlap INGESTION_PATH
+                # (Kody #531), so the allowlist is always the doorway set.
+                allowed_folders = frozenset(
+                    d.relative_to(resolved_root).parts[0]
+                    for d in allowlist.allowed_dirs
+                    if d != resolved_root and d.is_relative_to(resolved_root)
+                )
+                return VaultDescriptor(
+                    kind=VaultKind.PERSONAL,
+                    root=root,
+                    owner_uid=owner_uid,
+                    allowlist=allowlist,
+                    bridge=agent_bridge,
+                    supports_task_round_trip=True,
+                    mirror_pull=VaultMirrorPuller(
+                        transport=agent_bridge,
+                        mirror_root=root,
+                        allowed_folders=allowed_folders,
+                    ),
+                )
             return VaultDescriptor(
                 kind=VaultKind.PERSONAL,
                 root=root,
                 owner_uid=owner_uid,
-                allowlist=build_sync_allowlist(root, content_root=_content_root),
+                allowlist=allowlist,
                 bridge=FilesystemVaultAdapter(allowed_root=root),
                 supports_task_round_trip=True,
             )
@@ -1299,7 +1343,10 @@ async def compose_services(
         logger.info(
             "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
         )
-        logger.info("✅ VaultReconciler wired (ADR-070) — content + per-user personal descriptors")
+        logger.info(
+            "✅ VaultReconciler wired (ADR-070) — content + per-user personal "
+            f"descriptors (personal transport: {_vault_transport}, ADR-075)"
+        )
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend

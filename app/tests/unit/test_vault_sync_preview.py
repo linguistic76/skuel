@@ -357,7 +357,7 @@ class TestPreviewRoute:
         reconciler.preview = AsyncMock(
             return_value=Result.ok(VaultSyncPreview(first_run_notice=True))
         )
-        reconciler.describe = MagicMock(
+        reconciler.describe = AsyncMock(
             return_value=Result.ok(
                 VaultDescription(vault_configured=True, allowed_folders=("periodic_notes",))
             )

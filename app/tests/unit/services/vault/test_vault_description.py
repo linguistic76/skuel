@@ -50,13 +50,14 @@ def _reconciler(personal: VaultDescriptor | None) -> VaultReconciler:
     )
 
 
-def test_personal_vault_yields_relative_sorted_doorway_folders(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_personal_vault_yields_relative_sorted_doorway_folders(tmp_path: Path) -> None:
     """Default doorway wall → sorted vault-relative names, no absolute prefixes."""
     root = tmp_path / "personal"
     allowlist = build_sync_allowlist(root)  # distinct personal vault → doorway defaults
     reconciler = _reconciler(_descriptor(root, allowlist))
 
-    result = reconciler.describe(VaultKind.PERSONAL, OWNER)
+    result = await reconciler.describe(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
     description = result.value
@@ -74,7 +75,8 @@ def test_personal_vault_yields_relative_sorted_doorway_folders(tmp_path: Path) -
         assert str(tmp_path) not in folder
 
 
-def test_nested_allowed_dir_stays_vault_relative(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_nested_allowed_dir_stays_vault_relative(tmp_path: Path) -> None:
     root = tmp_path / "personal"
     allowlist = SyncAllowlist(
         governed_root=root.resolve(),
@@ -82,17 +84,18 @@ def test_nested_allowed_dir_stays_vault_relative(tmp_path: Path) -> None:
     )
     reconciler = _reconciler(_descriptor(root, allowlist))
 
-    description = reconciler.describe(VaultKind.PERSONAL, OWNER).value
+    description = (await reconciler.describe(VaultKind.PERSONAL, OWNER)).value
 
     assert description.allowed_folders == ("notes/deep",)
 
 
-def test_user_without_vault_is_unconfigured_not_error(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_user_without_vault_is_unconfigured_not_error(tmp_path: Path) -> None:
     """resolve() fails for a stranger — describe reports it as a normal state."""
     root = tmp_path / "personal"
     reconciler = _reconciler(_descriptor(root, build_sync_allowlist(root)))
 
-    result = reconciler.describe(VaultKind.PERSONAL, STRANGER)
+    result = await reconciler.describe(VaultKind.PERSONAL, STRANGER)
 
     assert result.is_ok
     assert result.value.vault_configured is False
@@ -100,26 +103,28 @@ def test_user_without_vault_is_unconfigured_not_error(tmp_path: Path) -> None:
     assert result.value.whole_vault_open is False
 
 
-def test_combined_single_vault_reports_whole_vault_open(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_combined_single_vault_reports_whole_vault_open(tmp_path: Path) -> None:
     """allowed_dirs == {governed_root} (single-vault case) → whole vault, no folder list."""
     root = tmp_path / "combined"
     allowlist = build_sync_allowlist(root, content_root=root / "0vault")
     reconciler = _reconciler(_descriptor(root, allowlist))
 
-    description = reconciler.describe(VaultKind.PERSONAL, OWNER).value
+    description = (await reconciler.describe(VaultKind.PERSONAL, OWNER)).value
 
     assert description.vault_configured is True
     assert description.whole_vault_open is True
     assert description.allowed_folders == ()
 
 
-def test_empty_allowlist_is_fail_closed_not_whole_vault(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_empty_allowlist_is_fail_closed_not_whole_vault(tmp_path: Path) -> None:
     """Empty allowed_dirs on a personal vault = wall everything — never 'everything syncs'."""
     root = tmp_path / "personal"
     allowlist = SyncAllowlist(governed_root=root.resolve(), allowed_dirs=frozenset())
     reconciler = _reconciler(_descriptor(root, allowlist))
 
-    description = reconciler.describe(VaultKind.PERSONAL, OWNER).value
+    description = (await reconciler.describe(VaultKind.PERSONAL, OWNER)).value
 
     assert description.vault_configured is True
     assert description.whole_vault_open is False

@@ -401,14 +401,14 @@ def create_vault_routes(
     """Register vault bridge routes (UI + API)."""
     get_user_service = make_service_getter(user_service)
 
-    def _describe_personal_vault(user_uid: UserUID) -> VaultDescription:
+    async def _describe_personal_vault(user_uid: UserUID) -> VaultDescription:
         """Unwrap the reconciler's read-only wall description for UI rendering.
 
         ``describe`` reports "no vault" as ``vault_configured=False`` rather
         than an error; an error here would be a wiring defect — fall back to
         the unconfigured shape instead of a 500 on a trust page.
         """
-        result = vault_reconciler.describe(VaultKind.PERSONAL, user_uid)
+        result = await vault_reconciler.describe(VaultKind.PERSONAL, user_uid)
         return result.value if result.is_ok else VaultDescription(vault_configured=False)
 
     # ------------------------------------------------------------------
@@ -420,7 +420,7 @@ def create_vault_routes(
         """Vault sync page under the Submissions MOC — shows the privacy wall."""
         user_uid = require_authenticated_user(request)
 
-        description = _describe_personal_vault(user_uid)
+        description = await _describe_personal_vault(user_uid)
         if description.vault_configured:
             sync_area: tuple[Any, ...] = (
                 _privacy_wall_panel(description),
@@ -485,7 +485,7 @@ def create_vault_routes(
 
         stats = result.value
         if stats.first_run_notice:
-            return _consent_form(_describe_personal_vault(user_uid))
+            return _consent_form(await _describe_personal_vault(user_uid))
 
         return _sync_stats_fragment(asdict(stats))
 
@@ -506,7 +506,7 @@ def create_vault_routes(
             # Consent granted from HERE continues into a PREVIEW, never a
             # real sync — the user asked to see, not to run (Kody #527).
             return _consent_form(
-                _describe_personal_vault(user_uid),
+                await _describe_personal_vault(user_uid),
                 post_to="/settings/vault/preview/consent",
                 button_label="Allow and preview",
             )

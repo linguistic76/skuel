@@ -129,5 +129,8 @@ class FilesystemVaultAdapter:
     async def list_vault_notes(
         self, user_uid: str, vault_path: str, pattern: str = "**/*.md"
     ) -> list[str]:
-        base = self._resolve(vault_path)
-        return [str(p) for p in base.glob(pattern) if p.is_file()]
+        """Vault-relative POSIX paths of matching notes (harmonized, ADR-075 B4)."""
+        base = self._resolve(vault_path) if vault_path not in ("", ".") else self._root
+        return sorted(
+            p.relative_to(self._root).as_posix() for p in base.glob(pattern) if p.is_file()
+        )
