@@ -548,8 +548,6 @@ class ExploreOrchestrator:
                     featured = {
                         "uid": current_ku["uid"],
                         "title": current_ku["title"],
-                        "thread": getattr(detail, "namespace", "") or "",
-                        "kind": getattr(detail, "ku_category", "") or "",
                         "excerpt": excerpt,
                         "reading_minutes": minutes,
                         "status_label": "Up next in your step",
@@ -573,8 +571,6 @@ class ExploreOrchestrator:
             featured = {
                 "uid": getattr(first_library_ku, "uid", ""),
                 "title": getattr(first_library_ku, "title", "") or "",
-                "thread": getattr(first_library_ku, "namespace", "") or "",
-                "kind": getattr(first_library_ku, "ku_category", "") or "",
                 "excerpt": excerpt,
                 "reading_minutes": self._estimate_reading_minutes(
                     getattr(first_library_ku, "content", None) or excerpt

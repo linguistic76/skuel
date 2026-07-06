@@ -12,9 +12,9 @@ Hierarchy:
     Entity (~29 fields)
     └── Ku(Entity) +6 fields  ← EntityType.KU (this file)
 
-UID Format: ku_{namespace}-{slug}_{random}
-    e.g., ku_attention-buzzing_a1b2c3d4
-    Namespace derived from middle segment at first hyphen.
+UID Format (flat, opaque — identity not classification, ADR-013):
+    ku_{slug}_{random} (API-generated) or ku.{ns}.{slug} (vault-authored).
+    e.g., ku_buzzing_a1b2c3d4 — never parse the UID to infer type or grouping.
 
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
@@ -57,10 +57,7 @@ class Ku(Entity):
     # =========================================================================
     # KU-SPECIFIC FIELDS
     # =========================================================================
-    namespace: str | None = None  # primary grouping (attention, emotion, body, ...)
-    ku_category: str | None = None  # state/concept/principle/intake/substance/practice/value
     aliases: tuple[str, ...] = field(default_factory=tuple)  # alternative names
-    source: str | None = None  # self_observation/research/teacher
     sel_category: SELCategory | None = None  # SEL competency this Ku belongs to
     # NOUS topic membership — which of the 11 official topic sections this Ku
     # belongs to (stories, body, self-awareness, ...). Multi-topic allowed;
@@ -99,11 +96,7 @@ class Ku(Entity):
         return domain_to_dto(self, KuDTO)
 
     def __str__(self) -> str:
-        ns = f" [{self.namespace}]" if self.namespace else ""
-        return f"Ku(uid={self.uid}, title='{self.title}'{ns})"
+        return f"Ku(uid={self.uid}, title='{self.title}')"
 
     def __repr__(self) -> str:
-        return (
-            f"Ku(uid='{self.uid}', title='{self.title}', "
-            f"namespace={self.namespace}, ku_category={self.ku_category})"
-        )
+        return f"Ku(uid='{self.uid}', title='{self.title}')"

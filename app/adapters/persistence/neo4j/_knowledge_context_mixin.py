@@ -133,8 +133,7 @@ class _KnowledgeContextMixin:
         """Get all atomic Kus used by a PathStep via USES_KU."""
         query = """
         MATCH (ps:Entity {uid: $ps_uid})-[:USES_KU]->(ku:Entity)
-        RETURN ku.uid AS uid, ku.title AS title, ku.namespace AS namespace,
-               ku.ku_category AS ku_category
+        RETURN ku.uid AS uid, ku.title AS title
         ORDER BY ku.title
         """
         result = await self.execute_query(query, {"ps_uid": ps_uid})

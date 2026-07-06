@@ -39,15 +39,6 @@ if TYPE_CHECKING:
 
 _COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
 
-_KIND_ICONS: dict[str, str] = {
-    "concept": "info",
-    "state": "circle",
-    "practice": "pencil",
-    "value": "heart",
-    "substance": "layers",
-}
-
-
 # ---------------------------------------------------------------------------
 # Public entry points
 # ---------------------------------------------------------------------------
@@ -106,8 +97,6 @@ def render_ku_detail_content(
     # initializes the swapped tree first — the global would be undefined.
     seed_json = json.dumps(seed, default=str)
 
-    kind = (getattr(ku, "ku_category", "") or "").lower()
-    namespace = getattr(ku, "namespace", "") or ""
     title = getattr(ku, "title", uid) or uid
     word_count = len((content_html or "").split())
     reading_minutes = max(1, round(word_count / 150))
@@ -124,7 +113,7 @@ def render_ku_detail_content(
     return Div(
         _back_link(),
         Article(
-            _article_header(uid, title, kind, namespace, reading_minutes, user_uid, is_pinned),
+            _article_header(uid, title, reading_minutes, user_uid, is_pinned),
             _reading_body(content_html),
             _end_of_read_marker(),
         ),
@@ -177,15 +166,10 @@ def _footer_nav() -> "FT":
 def _article_header(
     uid: str,
     title: str,
-    kind: str,
-    namespace: str,
     reading_minutes: int,
     user_uid: str | None,
     is_pinned: bool = False,
 ) -> "FT":
-    kind_icon = _KIND_ICONS.get(kind, "info")
-    kind_label = kind.title() if kind else "Knowledge"
-
     meta_items: list[FT] = [
         Span(f"{reading_minutes} min read", cls="font-mono text-[12.5px] text-muted-foreground"),
         Span("·", cls="text-muted-foreground/40"),
@@ -197,18 +181,10 @@ def _article_header(
     return Header(
         Div(
             Span(
-                Icon(kind_icon, cls="w-3 h-3"),
-                f" {kind_label}",
+                Icon("info", cls="w-3 h-3"),
+                " Knowledge",
                 cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-[0.1em] uppercase text-muted-foreground",
             ),
-            Span("·", cls="text-[11px] text-muted-foreground/70") if namespace else Div(),
-            Span(
-                "on ",
-                Span(namespace, cls="text-foreground font-medium"),
-                cls="text-[12px] text-muted-foreground",
-            )
-            if namespace
-            else Div(),
             cls="flex flex-wrap items-center gap-2.5 mb-3",
         ),
         H1(title, cls="skuel-title font-bold"),
