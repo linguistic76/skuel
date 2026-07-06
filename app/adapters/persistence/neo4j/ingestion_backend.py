@@ -223,6 +223,25 @@ class IngestionBackend:
             {"path_prefix": path_prefix},
         )
 
+    async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Owner (``user_uid``) for each USER_OWNED entity among ``uids``.
+
+        Returns rows only for :Entity nodes that CARRY a ``user_uid`` — SHARED
+        curriculum (ownerless by design) and non-Entity shapes (:Group,
+        :Expense) yield no row. Used by deletion reconciliation to refuse
+        cross-owner deletes: a tracked entity owned by a different user than
+        the syncing vault's owner is skipped, not deleted.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $uids AS uid
+            MATCH (e:Entity {uid: uid})
+            WHERE e.user_uid IS NOT NULL
+            RETURN e.uid AS uid, e.user_uid AS user_uid
+            """,
+            {"uids": uids},
+        )
+
     async def delete_entities_with_metadata(
         self, items: list[dict[str, str]]
     ) -> Result[list[dict[str, Any]]]:

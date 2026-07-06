@@ -21,6 +21,7 @@ from core.utils.result_simplified import Result
 def _tracker_with_tracked(rows: list[dict]) -> tuple[IngestionTracker, MagicMock]:
     backend = MagicMock()
     backend.get_tracked_files_under = AsyncMock(return_value=Result.ok(rows))
+    backend.get_entity_owner_uids = AsyncMock(return_value=Result.ok([]))
     backend.delete_entities_with_metadata = AsyncMock(
         side_effect=_echo_items_as_result,
     )
@@ -279,6 +280,144 @@ class TestReconcileDeletions:
         assert result.is_ok
         assert result.value.entities_deleted == 0
         backend.delete_entities_with_metadata.assert_not_called()
+
+
+class TestReconcileDeletionsOwnerScope:
+    """Owner-scoped deletion (per-user vault roots follow-up): a descriptor-
+    governed sync must never delete an entity owned by a DIFFERENT user than
+    the vault's owner — path prefix alone decided deletion before per-user
+    roots. Foreign-owned rows are skipped (entity + tracking row survive) and
+    surfaced via ownership_mismatches; ownerless SHARED entities and Edge
+    YAMLs stay path-scoped."""
+
+    @pytest.mark.asyncio
+    async def test_unscoped_run_never_queries_owners(self, tmp_path) -> None:
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone = tmp_path / "task.gone.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone), "entity_uid": "task_gone_abc"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)  # owner_uid=None
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+        backend.get_entity_owner_uids.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_vault_owner_entity_deleted(self, tmp_path) -> None:
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone = tmp_path / "task.gone.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone), "entity_uid": "task_gone_abc"},
+            ]
+        )
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.ok([{"uid": "task_gone_abc", "user_uid": "user_owner"}])
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+        assert result.value.ownership_mismatches == []
+
+    @pytest.mark.asyncio
+    async def test_foreign_owned_entity_skipped_and_surfaced(self, tmp_path) -> None:
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone = tmp_path / "task.gone.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone), "entity_uid": "task_gone_abc"},
+            ]
+        )
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.ok([{"uid": "task_gone_abc", "user_uid": "user_victim"}])
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        assert result.is_ok
+        # Entity NOT deleted, tracking row NOT removed, anomaly surfaced.
+        assert result.value.entities_deleted == 0
+        assert result.value.stale_metadata_removed == 0
+        assert len(result.value.ownership_mismatches) == 1
+        assert "task_gone_abc" in result.value.ownership_mismatches[0]
+        backend.delete_entities_with_metadata.assert_not_called()
+        backend.delete_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ownerless_shared_entity_still_deleted(self, tmp_path) -> None:
+        # SHARED curriculum carries no user_uid → no owner row → path-scoped
+        # deletion proceeds exactly as before.
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone = tmp_path / "ku.gone.md"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone), "entity_uid": "ku.gone"},
+            ]
+        )
+        backend.get_entity_owner_uids = AsyncMock(return_value=Result.ok([]))
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_admin")
+        assert result.is_ok
+        assert result.value.entities_deleted == 1
+        assert result.value.ownership_mismatches == []
+
+    @pytest.mark.asyncio
+    async def test_owner_lookup_failure_fails_closed(self, tmp_path) -> None:
+        from core.utils.result_simplified import Errors
+
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone = tmp_path / "task.gone.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone), "entity_uid": "task_gone_abc"},
+            ]
+        )
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="owners", message="boom"))
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        # The guard fails CLOSED: no unscoped delete slips through.
+        assert result.is_error
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_edge_deletion_stays_path_scoped(self, tmp_path) -> None:
+        # Relationships carry no owner — an owner-scoped run still deletes a
+        # vanished Edge YAML's relationship, and never queries owners for it.
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone_edge = tmp_path / "edge-a-b.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone_edge), "entity_uid": "edge:ku.a|RELATED_TO|ku.b"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        assert result.is_ok
+        assert result.value.edges_deleted == 1
+        backend.get_entity_owner_uids.assert_not_called()
 
 
 class TestReconcileDeletionsWall:
