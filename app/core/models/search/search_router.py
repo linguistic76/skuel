@@ -750,7 +750,9 @@ class SearchRouter:
                 "uid": getattr(entity, "uid", ""),
                 "title": getattr(entity, "title", ""),
                 "summary": getattr(entity, "summary", ""),
-                "_domain": domain_str,
+                # Stamp the EntityType value (the single _domain vocabulary),
+                # not the Services attr name in domain_str.
+                "_domain": entity_type.value,
                 "tags": getattr(entity, "tags", []),
             }
             for entity in result.value or []
@@ -864,7 +866,10 @@ class SearchRouter:
                 {
                     "uid": record.get("uid", ""),
                     "title": record.get("title", ""),
-                    "_domain": record.get("_domain", domain_str),
+                    # Records already carry _domain = EntityType value (stamped
+                    # by graph_aware_faceted_search); fall back to the same
+                    # vocabulary, never the Services attr name in domain_str.
+                    "_domain": record.get("_domain", entity_type.value),
                     "_score": 0.0,
                 }
                 for record in result.value or []

@@ -808,32 +808,6 @@ def render_search_results(response: SearchResponse) -> Any:
     )
 
 
-# SearchRouter stamps ``_domain`` in three vocabularies depending on path:
-# entity_type values ("path_step", text sweep), Services attribute names
-# ("ps", single-domain path), and lowered entity labels ("pathstep",
-# graph-aware faceted records). Normalize all three to entity_type values so
-# entity_detail_href — the ONE entity_type → detail-URL mapping — resolves.
-# Spellings already equal to an entity_type value pass through untouched.
-_SEARCH_DOMAIN_TO_ENTITY_TYPE: dict[str, str] = {
-    # Services attribute names (plural activity domains + curriculum shorthands)
-    "tasks": "task",
-    "goals": "goal",
-    "habits": "habit",
-    "events": "event",
-    "choices": "choice",
-    "principles": "principle",
-    "ps": "path_step",
-    "lp": "learning_path",
-    "exercises": "exercise",
-    "revised_exercises": "revised_exercise",
-    # Lowered entity labels (config_lookup_label.lower() on faceted records)
-    "pathstep": "path_step",
-    "learningpath": "learning_path",
-    "userentry": "user_entry",
-    "revisedexercise": "revised_exercise",
-}
-
-
 def _render_result_card(result: dict) -> Any:
     """
     Render a single search result card with calm design.
@@ -844,6 +818,9 @@ def _render_result_card(result: dict) -> Any:
     - Clear typography
     - Minimal icons
     """
+    # ``_domain`` is an EntityType value everywhere (single vocabulary stamped
+    # by every SearchRouter producer path) — feed it straight to the badge and
+    # to entity_detail_href, THE entity_type → detail-URL mapping.
     domain = result.get("_domain", "unknown")
     title = result.get("title", result.get("name", "Untitled"))
     uid = result.get("uid", "")
@@ -854,8 +831,7 @@ def _render_result_card(result: dict) -> Any:
         description = description[:200] + "..."
 
     # Minimal domain badge (no emojis in calm design)
-    entity_type_value = _SEARCH_DOMAIN_TO_ENTITY_TYPE.get(domain, domain)
-    domain_text = entity_type_value.replace("_", " ").title()
+    domain_text = domain.replace("_", " ").title()
 
     # Get graph context if available
     graph_context = result.get("_graph_context")
@@ -882,7 +858,7 @@ def _render_result_card(result: dict) -> Any:
     # entity_type → detail-URL mapping. The old f"/{domain}/{uid}" template
     # 404'd for every non-Activity domain (/ku/, /pathstep/, /exercise/ are
     # not routes). No detail page → no button, same as shared_view.
-    href = entity_detail_href(entity_type_value, uid)
+    href = entity_detail_href(domain, uid)
     if href:
         card_body_items.append(
             Div(

@@ -524,6 +524,27 @@ class BaseService(
             return SearchVisibility.OWNER_ONLY
         return config.get_search_visibility()
 
+    @cached_property
+    def entity_type_value(self) -> str:
+        """
+        Get THE EntityType value this domain configures, from DomainConfig.
+
+        THE single vocabulary for stamping search-result ``_domain`` — one
+        spelling (EntityType values: "task", "path_step", "ku") from producer
+        to consumer, replacing the three vocabularies #536 normalized at the
+        render boundary. Distinct from ``config_lookup_label`` (a registry key,
+        not an EntityType) — see memory entity-label-overload.
+
+        Returns:
+            EntityType value string. Falls back to the lowered lookup label
+            only when no DomainConfig exists (a degenerate, unconfigured
+            state — every search service carries a DomainConfig).
+        """
+        config = self._get_config_cls()
+        if config is None:
+            return self.config_lookup_label.lower()
+        return config.get_entity_type_value()
+
     # ========================================================================
     # DOMAIN-SPECIFIC CONFIGURATION (Class Attributes or DomainConfig)
     # ========================================================================
