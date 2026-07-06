@@ -180,4 +180,8 @@ Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STAND
 
 ### `/settings`
 
-User preferences page (learning, scheduling, notifications, display, goals) — top-level page with `BasePage` (no sidebar). Route in `adapters/inbound/settings_routes.py`.
+User preferences page (learning, scheduling, notifications, display, goals) — top-level page with `BasePage` (no sidebar). Links to `/settings/devices`. Route in `adapters/inbound/settings_routes.py`.
+
+### `/settings/devices`
+
+Vault-agent device management (ADR-075): list enrolled devices (name, enrolled/last-seen, revoked state), generate a one-time pairing code (shown once), and revoke devices — revocation closes the device's live `WS /ws/agent` session. `BasePage`. Route in `adapters/inbound/device_routes.py`.

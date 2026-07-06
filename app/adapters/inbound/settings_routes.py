@@ -41,10 +41,20 @@ def create_settings_routes(
     async def settings_page(request: Request) -> Any:
         """User settings page — shell renders immediately, content loads via HTMX."""
         require_authenticated_user(request)
+        from fasthtml.common import A
+
         from ui.layouts.base_page import BasePage
 
         content = Div(
             PageHeader("Settings", subtitle="Manage your preferences"),
+            Div(
+                A(
+                    "Devices — vault-agent enrollment →",
+                    href="/settings/devices",
+                    cls="link text-sm",
+                ),
+                cls="mb-4",
+            ),
             content_loading_placeholder("/settings/content", "settings-content"),
         )
         return await BasePage(

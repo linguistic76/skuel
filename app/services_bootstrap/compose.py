@@ -323,11 +323,19 @@ async def compose_services(
 
         user_context_query_executor = UserContextQueryExecutor(query_executor)
 
+        # Vault-agent device enrollment (ADR-075) — auth infrastructure, so it
+        # rides behind the UserService facade like sessions do.
+        from adapters.persistence.neo4j.device_backend import DeviceBackend
+        from core.services.user.device_service import DeviceService
+
+        device_service = DeviceService(DeviceBackend(driver))
+
         user_service = create_user_service(
             users_backend,
             user_context_query_executor,
             event_bus=event_bus,
             metrics_cache=metrics_cache,
+            device_service=device_service,
         )
         logger.info("✅ UserService created (foundation service)")
 

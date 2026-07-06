@@ -689,6 +689,11 @@ async def _wire_all_routes(
 
         create_vault_routes(app, rt, services.vault_reconciler, services.user)
 
+    if services and services.user:
+        from adapters.inbound.device_routes import create_device_routes
+
+        create_device_routes(app, rt, services.user)
+
     from adapters.inbound.home_routes import create_home_routes
 
     create_home_routes(app, rt, services)

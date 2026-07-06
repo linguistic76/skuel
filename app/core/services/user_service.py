@@ -32,8 +32,10 @@ from core.ports.infrastructure_protocols import (
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.user_context_queries import UserContextQueryExecutor
+from core.models.auth.device import Device, PairingCodeIssued
 from core.models.context_types import DailyWorkPlan
 from core.services.user import UserContext
+from core.services.user.device_service import DeviceService
 from core.services.user.intelligence import UserContextIntelligenceFactory
 from core.services.user.unified_user_context import RichUserContext
 from core.services.user.user_activity_service import UserActivityService
@@ -74,6 +76,7 @@ class UserService:
         event_bus: EventBusOperations | None = None,
         intelligence_factory: UserContextIntelligenceFactory | None = None,
         metrics_cache=None,
+        device_service: DeviceService | None = None,
     ) -> None:
         """
         Initialize facade with all sub-services.
@@ -87,6 +90,9 @@ class UserService:
             intelligence_factory: Factory for creating UserContextIntelligence instances
                                   (wired with all 9 domain relationship services)
             metrics_cache: MetricsCache for performance tracking (optional)
+            device_service: Vault-agent device enrollment/revocation (ADR-075).
+                Built at the composition root (needs the driver-backed
+                DeviceBackend); None only in tests that never touch devices.
 
         Raises:
             ValueError: If user_repo is None
@@ -113,6 +119,9 @@ class UserService:
         # Stats aggregator requires context_builder + cross_domain_backend
         # cross_domain_backend is wired post-construction via wire_cross_domain_backend()
         self.stats: UserStatsAggregator | None = None
+
+        # Vault-agent devices (ADR-075) — auth infrastructure behind this facade
+        self.devices: DeviceService | None = device_service
 
         # Intelligence factory (wired with 13 domain relationship services)
         # Note: Factory is wired post-construction via services_bootstrap.py
@@ -288,6 +297,67 @@ class UserService:
     async def authenticate(self, username: str, password: str) -> Result[User]:
         """Authenticate user with username and password."""
         return await self.core.authenticate(username, password)
+
+    # ========================================================================
+    # VAULT-AGENT DEVICES (Delegate to DeviceService — ADR-075)
+    # Devices are auth infrastructure (graph-native, like sessions), so their
+    # operations live behind UserService per ADR-075 Decision 2.
+    # ========================================================================
+
+    def _require_devices(self) -> Result[DeviceService]:
+        """Fail-fast guard: device operations need the wired DeviceService."""
+        if self.devices is None:
+            return Result.fail(
+                Errors.system(
+                    "Device service not wired — pass device_service to UserService",
+                    operation="devices",
+                )
+            )
+        return Result.ok(self.devices)
+
+    async def create_device_pairing_code(self, user_uid: UserUID) -> Result[PairingCodeIssued]:
+        """Mint a one-time device pairing code (10-min TTL, stored hashed)."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.create_pairing_code(user_uid)
+
+    async def enroll_device(
+        self, pairing_code: str, pubkey: str, device_name: str
+    ) -> Result[Device]:
+        """Enroll a vault-agent device — the pairing code is the credential."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.enroll_device(pairing_code, pubkey, device_name)
+
+    async def list_devices(self, user_uid: UserUID) -> Result[list[Device]]:
+        """A user's enrolled devices (revoked rows included — audit surface)."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.list_devices(user_uid)
+
+    async def revoke_device(self, user_uid: UserUID, device_uid: str) -> Result[bool]:
+        """Stamp ``revoked_at`` on an owned device (False = not found/owned)."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.revoke_device(user_uid, device_uid)
+
+    async def get_device_by_pubkey(self, pubkey: str) -> Result[Device | None]:
+        """Resolve an UNREVOKED device by public key (WS handshake path)."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.get_device_by_pubkey(pubkey)
+
+    async def touch_device(self, device_uid: str) -> Result[None]:
+        """Stamp ``last_seen_at`` after a successful agent handshake."""
+        devices = self._require_devices()
+        if devices.is_error:
+            return Result.fail(devices)
+        return await devices.value.touch_device(device_uid)
 
     # ========================================================================
     # ROLE MANAGEMENT (December 2025 - Admin Only)
@@ -809,6 +879,7 @@ def create_user_service(
     event_bus: Any | None = None,
     intelligence_factory: UserContextIntelligenceFactory | None = None,
     metrics_cache=None,
+    device_service: DeviceService | None = None,
 ) -> UserService:
     """
     Factory function to create a UserService instance.
@@ -821,8 +892,16 @@ def create_user_service(
         intelligence_factory: Factory for creating UserContextIntelligence instances
                               (wired with all 9 domain relationship services)
         metrics_cache: MetricsCache for performance tracking (optional)
+        device_service: Vault-agent device enrollment/revocation (ADR-075)
 
     Returns:
         UserService: Configured user service instance (facade pattern)
     """
-    return UserService(user_repo, query_executor, event_bus, intelligence_factory, metrics_cache)
+    return UserService(
+        user_repo,
+        query_executor,
+        event_bus,
+        intelligence_factory,
+        metrics_cache,
+        device_service=device_service,
+    )
