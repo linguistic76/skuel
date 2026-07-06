@@ -21,25 +21,34 @@ to make them meaningful.
 
 ### 1. Semantic Analysis
 
-**Why deferred**: Semantic analysis computes cross-KU similarity, concept clustering, and
-prerequisite inference from content. With fewer than 50 KUs, the signal-to-noise ratio is too
-low to produce useful clusters — the algorithm would find spurious patterns in thin data.
+**Search-wiring portion — ✅ SHIPPED (body-chunk layer).** The KU-count trigger
+(≥ 50) is met — the graph has 121 Kus (120 nous-assigned), 14 PathSteps, and their
+lesson **bodies** are chunked + embedded on `:ContentChunk` (~305 Ku + 244 PS chunks,
+100% coverage via ADR-074's event-driven path). `/search` now reaches that body prose:
+with the `enable_semantic_boost` checkbox on, `SearchRouter.faceted_search` folds
+lesson-BODY semantic hits into the results, surfacing the **parent** Ku/PS card
+(deduped, best-chunk score) for a query that matches only body text. Digital-layer
+enhancement (ADR-043) — fails soft on the CORE tier (no vector service → analog
+frontmatter/graph search stands alone). See `SEARCH_ARCHITECTURE.md` § "Body-Chunk
+Semantic Layer".
 
-**The problem**: Users cannot currently discover related KUs they haven't explicitly linked.
-Semantic similarity would surface "you studied X — here's Y which uses the same core concept"
-recommendations, and would feed Askesis's gap-detection logic.
+Stale prior steps this replaced: there is no stubbed `SemanticAnalysisService` to
+enable, and no `POST /api/ingest/domain/ku` embedding trigger — embeddings are
+post-persist events (ADR-074), not an ingestion side effect.
 
-**What to do**:
+**Still deferred (NOT search — separate consumers):** the remainder of semantic
+analysis is a product decision, no longer a data-volume one (the ≥ 50 KU threshold is
+already met):
 
-1. Verify KU count: `MATCH (k:Curriculum) RETURN count(k)` — proceed when ≥ 50 with rich `content` fields.
-2. Enable the `SemanticAnalysisService` in `services_bootstrap.py` (currently stubbed out).
-3. Run the embedding pipeline against existing KUs: `POST /api/ingest/domain/ku` triggers
-   embedding generation for all KUs missing embeddings.
-4. Wire `SearchRouter.semantic_search()` to the `/search` UI — it already accepts vector queries
-   but the UI toggle is disabled.
-5. See `/docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md` for full implementation steps.
+1. **Concept clustering** — cross-KU similarity graph ("you studied X — here's Y using
+   the same core concept"). Needs a clustering algorithm + a surface to show it; the
+   embeddings exist, the grouping does not.
+2. **Prerequisite inference** — deriving `PREREQUISITE_FOR` edges from content
+   similarity rather than authored Edge YAML.
+3. **Askesis gap-detection feed** — routing semantic neighbours into ZPD gap analysis.
 
-**Enable when**: KU count ≥ 50, majority with non-empty `content` fields.
+**Enable when**: a product decision to build clustering/inference — not gated on KU
+count (already satisfied).
 
 ---
 
@@ -292,7 +301,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 
 | Item | Trigger | Check |
 |------|---------|-------|
-| Semantic Analysis | KU count ≥ 50 | `MATCH (k:Curriculum) RETURN count(k)` |
+| Semantic Analysis (clustering/inference remainder) | Product decision (KU ≥ 50 already met; search-wiring shipped) | Product need (not a data threshold) |
 | Discovery Analytics | Search queries ≥ 1,000 | `MATCH (e:SearchEvent) RETURN count(e)` |
 | Real-time Intelligence | DAU ≥ 10 for 2+ weeks | Grafana `skuel_daily_active_users` |
 | Per-user intelligence tier | Billing model defined | Business decision |
