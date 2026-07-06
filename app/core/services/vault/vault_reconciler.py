@@ -12,13 +12,15 @@ Triggered by the user's "Update from my vault" button
 outbound writes; Stage 2+ swaps in ``LocalAgentVaultAdapter`` without
 changing any logic here.
 
-**First-run notice** (ADR-070 Decision 6):
-Before performing any outbound vault write, checks
-``user.preferences.vault_write_consent``.  Returns
-``Result.ok(VaultSyncStats(first_run_notice=True))`` on the first call so
-the route can render the consent modal without treating it as an error.
-After the user grants consent, ``POST /api/vault/sync/consent`` sets the
-preference flag and subsequent sync calls proceed normally.
+**First-run notice** (ADR-070 Decision 6, amended 2026-07-05):
+Before touching the vault AT ALL — inbound read included — a personal sync
+checks ``user.preferences.vault_write_consent``.  Returns
+``Result.ok(VaultSyncStats(first_run_notice=True))`` on the first call,
+without ingesting anything, so the route can render the consent modal
+without treating it as an error.  After the user grants consent,
+``POST /api/vault/sync/consent`` sets the preference flag and subsequent
+sync calls proceed normally.  The content vault is admin inbound-only and
+stays consent-free.
 
 See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 """
@@ -127,11 +129,12 @@ class VaultReconciler:
         campaigns) while keeping smart-mode semantics — the wall, metadata
         re-stamping, and deletion reconciliation all stay active.
 
-        1. Ingest the vault directory (smart mode — only changed files, unless
+        1. For personal (task-round-trip) vaults, check vault sync consent on
+           the owner (ADR-070 Decision 6 first-run gate) — BEFORE any read.
+           Not yet consented → return ``first_run_notice`` without ingesting.
+        2. Ingest the vault directory (smart mode — only changed files, unless
            ``force``), attributed to the descriptor's owner, walled by the
            descriptor's allowlist.
-        2. Check vault-write consent on the owner (ADR-070 Decision 6 first-run
-           gate).
         3. If the vault supports the task round-trip, for each ingested
            UserEntry with the EXTRACT_ACTIVITIES pipeline:
            a. inject 🆔 IDs into ID-less task lines;
@@ -175,9 +178,27 @@ class VaultReconciler:
                 )
             )
 
+        # Step 1: first-run consent gate (ADR-070 Decision 6, amended
+        # 2026-07-05) — on the vault owner, BEFORE the first inbound read.
+        # Consent covers the whole sync: SKUEL reading the allowed doorway
+        # folders as much as writing 🆔 IDs back. Only vaults that support the
+        # task round-trip belong to a consenting user, so the gate engages
+        # there; the content vault is admin inbound-only and stays
+        # consent-free. Curriculum writeback, when built, will engage the same
+        # gate without blocking inbound ingest meanwhile.
+        if descriptor.supports_task_round_trip:
+            user_result = await self._user_service.get_user(owner)
+            if user_result.is_error:
+                return Result.fail(user_result)
+            user = user_result.value
+            if user is None:
+                return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
+            if not user.preferences.vault_write_consent:
+                return Result.ok(VaultSyncStats(first_run_notice=True))
+
         stats = VaultSyncStats()
 
-        # Step 1: ingest (inbound — smart mode skips unchanged files). The
+        # Step 2: ingest (inbound — smart mode skips unchanged files). The
         # descriptor's own fail-closed allowlist scopes which folders are read;
         # entries are attributed to the descriptor's owner. Passing ``user_uid``/
         # ``allowlist`` explicitly is belt-and-suspenders: the ingestion mechanism
@@ -199,23 +220,11 @@ class VaultReconciler:
             return Result.fail(ingest_result)
         _merge_ingest_stats(stats, ingest_result.value)
 
-        # Steps 2-3: consent gate + outbound. Only vaults that support the task
-        # round-trip have anything to write back, so the consent gate engages
-        # there. Curriculum vaults are inbound-only today (structural no-op) — the
-        # uniform gate is ready to engage the moment curriculum writeback is built
-        # (designed-for, deferred), without blocking inbound ingest meanwhile.
+        # Step 3: outbound. Only vaults that support the task round-trip have
+        # anything to write back; curriculum vaults are inbound-only today
+        # (structural no-op).
         if not descriptor.supports_task_round_trip:
             return Result.ok(stats)
-
-        # First-run consent guard (ADR-070 Decision 6) — on the vault owner.
-        user_result = await self._user_service.get_user(owner)
-        if user_result.is_error:
-            return Result.fail(user_result)
-        user = user_result.value
-        if user is None:
-            return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
-        if not user.preferences.vault_write_consent:
-            return Result.ok(VaultSyncStats(first_run_notice=True))
 
         await self._run_outbound(descriptor, stats)
         return Result.ok(stats)

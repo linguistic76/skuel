@@ -249,6 +249,8 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 **4. ID injection consent:** **First-run notice.** Before SKUEL ever writes to the vault (first "Update from my vault" invocation per user), surface a one-time confirmation that explains SKUEL will inject `🆔` IDs into task lines. User must acknowledge once; subsequent syncs proceed silently. Gate stored as a user preference flag.
 
+**Amendment (2026-07-05, vault security review):** consent now gates the ENTIRE first sync — read (inbound ingest of the allowed doorway folders) AND write — not just outbound. Previously the first sync ingested the whole allowed vault tree before asking; `VaultReconciler.sync` now checks `vault_write_consent` before the first `ingest_directory` call and returns `first_run_notice` without reading anything. The content vault (admin, inbound-only) stays consent-free.
+
 ---
 
 ## Alternatives Considered
