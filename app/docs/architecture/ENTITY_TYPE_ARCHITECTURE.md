@@ -302,7 +302,7 @@ Pointers to external content (books, talks, films) that Askesis can recommend. R
 ```
 KuService (facade) — 4 sub-services via create_curriculum_sub_services()
 ├── core: KuCoreService
-├── search_service: KuSearchService
+├── search: KuSearchService
 ├── relationships: UnifiedRelationshipService
 └── intelligence: KuIntelligenceService
 

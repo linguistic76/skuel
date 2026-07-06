@@ -53,7 +53,7 @@ class TestKuServiceConstruction:
             event_bus=event_bus,
         )
         assert service.core is mock_common.core
-        assert service.search_service is mock_common.search
+        assert service.search is mock_common.search
         assert service.relationships is mock_common.relationships
         assert service.intelligence is mock_common.intelligence
         assert service.backend is backend
@@ -104,14 +104,32 @@ class TestKuServiceDelegation:
 
         common.core.get_ku.assert_awaited_once_with("ku_test_abc123")
 
-    @pytest.mark.asyncio
-    async def test_search_delegates_to_search_service(self):
+    def test_search_is_the_sub_service_not_a_method(self):
+        """`.search` must be the sub-service ATTRIBUTE (PS pattern) —
+        SearchRouter._get_search_service resolves it only when non-callable;
+        a facade method here would shadow it with a divergent signature."""
         service, common = self._make_service()
-        common.search.search.return_value = Result.ok([])
 
-        await service.search("caffeine")
+        assert service.search is common.search
 
-        common.search.search.assert_awaited_once_with("caffeine", None)
+    @pytest.mark.asyncio
+    async def test_search_by_alias_delegates_to_search_service(self):
+        service, common = self._make_service()
+        common.search.search_by_alias.return_value = Result.ok([])
+
+        await service.search_by_alias("coffee")
+
+        common.search.search_by_alias.assert_awaited_once_with("coffee")
+
+    @pytest.mark.asyncio
+    async def test_list_nous_topics_delegates_to_search_service(self):
+        service, common = self._make_service()
+        common.search.list_all_categories.return_value = Result.ok(["words", "stories"])
+
+        result = await service.list_nous_topics()
+
+        common.search.list_all_categories.assert_awaited_once_with()
+        assert result.value == ["words", "stories"]
 
 
 class TestKuServiceIntelligenceDelegation:

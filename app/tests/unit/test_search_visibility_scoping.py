@@ -393,3 +393,34 @@ class TestEnumReadBoundaryCaseFallback:
         data = {"learning_level": "GALACTIC"}
         with pytest.raises(ValueError):
             parse_enum_field(data, "learning_level", LearningLevel)
+
+    def test_authored_none_marker_means_absence(self) -> None:
+        """`sel_category: none` (NOUS anchor Kus, rawness principle) parses to
+        None instead of killing the whole Ku search sweep with ValueError."""
+        data = {"sel_category": "none"}
+        parse_enum_field(data, "sel_category", SELCategory)
+        assert data["sel_category"] is None
+
+    def test_enum_with_real_none_member_keeps_it(self) -> None:
+        """Enums that define NONE = 'none' (Pipeline, RecurrencePattern) parse
+        strictly and never hit the absence fallback."""
+        from core.models.enums.scheduling_enums import RecurrencePattern
+
+        data = {"recurrence_pattern": "none"}
+        parse_enum_field(data, "recurrence_pattern", RecurrencePattern)
+        assert data["recurrence_pattern"] is RecurrencePattern.NONE
+
+    def test_uppercase_none_on_real_none_member_enum_keeps_it(self) -> None:
+        """Persisted 'NONE' must round-trip to the enum member, not Python
+        None — the absence fallback fires only after the case-insensitive
+        parse also fails (Kody, PR #536)."""
+        from core.models.enums.scheduling_enums import RecurrencePattern
+
+        data = {"recurrence_pattern": "NONE"}
+        parse_enum_field(data, "recurrence_pattern", RecurrencePattern)
+        assert data["recurrence_pattern"] is RecurrencePattern.NONE
+
+    def test_uppercase_none_marker_means_absence(self) -> None:
+        data = {"sel_category": "NONE"}
+        parse_enum_field(data, "sel_category", SELCategory)
+        assert data["sel_category"] is None
