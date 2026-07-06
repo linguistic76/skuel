@@ -254,6 +254,36 @@ class DomainConfig:
             return self.model_class.__name__
         return "Entity"
 
+    def get_entity_type_value(self) -> str:
+        """
+        Resolve THE EntityType value this domain configures, from model_class.
+
+        THE canonical vocabulary for search-result ``_domain`` stamping: every
+        SearchRouter producer path stamps ``EntityType.value`` so consumers see
+        one spelling — not the lowered-label / Services-attr / domain-name
+        variants that #536 had to normalize at the render boundary.
+
+        Derived from ``model_class`` via ENTITY_TYPE_CLASS_MAP (the canonical
+        EntityType→class map) — never string-munged from a label, and never
+        conflated with ``config_lookup_label`` (see memory entity-label-overload:
+        the lookup label has two jobs already; do not add a third).
+
+        Returns:
+            The EntityType value (e.g., "task", "path_step", "ku").
+
+        Raises:
+            ValueError: If ``model_class`` has no EntityType in the map.
+        """
+        from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
+
+        for entity_type, model_cls in ENTITY_TYPE_CLASS_MAP.items():
+            if model_cls is self.model_class:
+                return entity_type.value
+        raise ValueError(
+            f"DomainConfig model_class {self.model_class.__name__!r} has no "
+            f"EntityType in ENTITY_TYPE_CLASS_MAP — cannot stamp search _domain."
+        )
+
 
 # ============================================================================
 # PRE-DEFINED CONFIGURATIONS

@@ -109,6 +109,18 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
     @property
     @abstractmethod
+    def entity_type_value(self) -> str:
+        """DomainConfig-resolved EntityType value (e.g. ``"task"``, ``"path_step"``,
+        ``"ku"``) — provided by composing class.
+
+        THE single vocabulary for stamping ``_domain`` on search records, so
+        every producer path agrees and consumers see one spelling. Distinct
+        from ``config_lookup_label`` (a registry key, not an EntityType).
+        """
+        ...
+
+    @property
+    @abstractmethod
     def category_field(self) -> str:
         """DomainConfig-resolved category field — provided by composing class.
 
@@ -596,7 +608,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             entity_data = record.get("entity", {})
 
             result_dict = dict(entity_data) if isinstance(entity_data, dict) else {}
-            result_dict["_domain"] = self.config_lookup_label.lower()
+            result_dict["_domain"] = self.entity_type_value
 
             graph_context: dict[str, Any] = {}
             for pattern in self._graph_enrichment_patterns:
