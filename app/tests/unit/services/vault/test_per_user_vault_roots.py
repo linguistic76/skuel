@@ -209,6 +209,26 @@ def test_scan_of_family_root_conflicts(tmp_path: Path) -> None:
     assert member_a.resolve() in conflicting
 
 
+def test_scan_inside_member_vault_skips_family_enumeration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Kody #521: nested_vault_roots must not pay the O(total users) family
+    # iterdir on every personal sync — only a scan of the family root (or an
+    # ancestor of it) can nest member vaults, so only that shape enumerates.
+    registry, primary_root, family_root = _registry(tmp_path)
+    member_a = family_root / "user_a"
+    (member_a / "notes").mkdir(parents=True)
+
+    def _fail(_self: VaultRegistry) -> list[Path]:
+        raise AssertionError("family enumeration ran for an in-member scan")
+
+    monkeypatch.setattr(VaultRegistry, "_member_vault_roots", _fail)
+
+    assert registry.nested_vault_roots(member_a) == []
+    assert registry.nested_vault_roots(member_a / "notes") == []
+    assert registry.nested_vault_roots(primary_root) == []
+
+
 def test_scan_inside_one_member_vault_is_clean(tmp_path: Path) -> None:
     registry, _, family_root = _registry(tmp_path)
     member_a = family_root / "user_a"

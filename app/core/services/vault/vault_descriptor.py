@@ -279,10 +279,16 @@ class VaultRegistry:
             root = descriptor.root.resolve()
             if root != resolved and root.is_relative_to(resolved):
                 nested.append(root)
-        for member_root in self._member_vault_roots():
-            if member_root != resolved and member_root.is_relative_to(resolved):
-                if member_root not in nested:
-                    nested.append(member_root)
+        # Member vaults are direct children of the family root, so they can sit
+        # strictly below ``directory`` only when it IS the family root or an
+        # ancestor of it — enumerate the O(users) family only then, never on a
+        # scan inside one member vault (every personal sync).
+        if self._user_vaults_root is not None:
+            family_root = self._user_vaults_root.resolve()
+            if resolved == family_root or family_root.is_relative_to(resolved):
+                for member_root in self._member_vault_roots():
+                    if member_root not in nested:
+                        nested.append(member_root)
         return nested
 
     def _member_vault_roots(self) -> list[Path]:
