@@ -46,6 +46,8 @@ from core.ports.vault_bridge_protocol import (
     VaultSyncStats,
     normalize_vault_line_hash,
 )
+from core.services.ingestion.config import collect_files
+from core.services.ingestion.ingestion_tracker import IngestionTracker
 from core.services.ingestion.types import DryRunPreview, IncrementalStats, IngestionStats
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
@@ -93,6 +95,40 @@ class VaultDescription:
     vault_configured: bool
     allowed_folders: tuple[str, ...] = ()
     whole_vault_open: bool = False
+
+
+# How many example file names a preview lists per category — enough to see
+# what a sync would touch without dumping a thousand-line vault inventory.
+PREVIEW_EXAMPLE_LIMIT = 20
+
+
+@dataclass(frozen=True)
+class VaultSyncPreview:
+    """Dry-run report of what a vault sync WOULD do — nothing is written.
+
+    Built by :meth:`VaultReconciler.preview` from read-only machinery only
+    (tracker metadata compare + ``IngestionTracker.plan_deletions``). Every
+    path in this object is vault-RELATIVE (#525 sanitization policy — absolute
+    host paths never leave the service layer). ``first_run_notice`` mirrors
+    the sync consent gate: preview reads the vault (hashing/comparing files),
+    so a not-yet-consented user gets the consent form, not a preview.
+
+    Outbound preview (would-inject 🆔 IDs / would-mark-done) is deliberately
+    deferred — this covers the inbound ingest + deletion halves only.
+    """
+
+    first_run_notice: bool = False
+    would_ingest_count: int = 0
+    would_ingest_new: int = 0
+    would_ingest_changed: int = 0
+    would_ingest_examples: tuple[str, ...] = ()
+    would_delete_entities: int = 0
+    would_delete_entity_examples: tuple[str, ...] = ()
+    would_delete_edges: int = 0
+    would_delete_edge_examples: tuple[str, ...] = ()
+    stale_cleanup_count: int = 0
+    ownership_mismatches: tuple[str, ...] = ()
+    refusal_warning: str | None = None
 
 
 def _mint_vault_id() -> str:
@@ -166,52 +202,13 @@ class VaultReconciler:
            a. inject 🆔 IDs into ID-less task lines;
            b. write ``[x]`` + ``✅ date`` for SKUEL-completed tasks.
         """
-        descriptor_result = self._registry.resolve(kind, user_uid)
+        descriptor_result = self._resolve_guarded(kind, user_uid)
         if descriptor_result.is_error:
             return Result.fail(descriptor_result)
         descriptor = descriptor_result.value
         owner = descriptor.owner_uid
 
-        # Surface-independence invariant: by-kind and by-path resolution must agree
-        # on this root, otherwise the ingestion mechanism (which resolves owner +
-        # wall by path) would attribute a different owner than this by-kind sync.
-        # Kind disagreement is the combined-root config (VAULT_ROOT == INGESTION_PATH),
-        # where the single vault resolves to PERSONAL by-path: there is no distinct
-        # content vault, so a CONTENT sync would stamp content_owner_uid onto the
-        # user's own files. Refuse it — the combined vault syncs as PERSONAL.
-        # Owner disagreement is a nested-roots misconfiguration (e.g. a member
-        # vault placed inside the primary personal root): by-path governance
-        # belongs to the enclosing vault's owner, so syncing it as anyone else
-        # would split attribution. Refuse that too.
-        by_path = self._registry.resolve_by_path(descriptor.root, owner)
-        if by_path.is_ok and by_path.value.kind is not kind:
-            return Result.fail(
-                Errors.validation(
-                    f"{kind.value} vault sync is unavailable in a combined-root "
-                    "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
-                    f"single vault resolves as {by_path.value.kind.value} — sync it "
-                    "under that kind instead.",
-                    field="kind",
-                )
-            )
-        if by_path.is_ok and by_path.value.owner_uid != owner:
-            return Result.fail(
-                Errors.validation(
-                    "vault sync refused: this vault root is governed by another "
-                    "vault's owner by path (nested vault roots misconfiguration) — "
-                    "move the vault outside the enclosing vault root.",
-                    field="kind",
-                )
-            )
-
-        # Per-root concurrency guard: two concurrent syncs of the same root
-        # would interleave ingest and outbound writes (only the per-file
-        # SHA-256 stale-read guard protects individual writes). A second sync
-        # of the SAME root simply waits its turn — it serializes, it does not
-        # error. Keyed by resolved root so distinct vault roots never block
-        # each other.
-        lock = self._root_locks.setdefault(str(descriptor.root.resolve()), asyncio.Lock())
-        async with lock:
+        async with self._root_lock(descriptor):
             # Step 1: first-run consent gate (ADR-070 Decision 6, amended
             # 2026-07-05) — on the vault owner, BEFORE the first inbound read.
             # Consent covers the whole sync: SKUEL reading the allowed doorway
@@ -220,15 +217,11 @@ class VaultReconciler:
             # engages there; the content vault is admin inbound-only and stays
             # consent-free. Curriculum writeback, when built, will engage the
             # same gate without blocking inbound ingest meanwhile.
-            if descriptor.supports_task_round_trip:
-                user_result = await self._user_service.get_user(owner)
-                if user_result.is_error:
-                    return Result.fail(user_result)
-                user = user_result.value
-                if user is None:
-                    return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
-                if not user.preferences.vault_write_consent:
-                    return Result.ok(VaultSyncStats(first_run_notice=True))
+            consent_result = await self._needs_first_run_consent(descriptor)
+            if consent_result.is_error:
+                return Result.fail(consent_result)
+            if consent_result.value:
+                return Result.ok(VaultSyncStats(first_run_notice=True))
 
             stats = VaultSyncStats()
 
@@ -263,6 +256,191 @@ class VaultReconciler:
 
             await self._run_outbound(descriptor, stats)
             return Result.ok(stats)
+
+    async def preview(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultSyncPreview]:
+        """Dry-run: report what :meth:`sync` WOULD do without writing anything.
+
+        Same descriptor resolution, surface-independence guards, per-root lock,
+        and first-run consent gate as :meth:`sync` — consent covers READING
+        (ADR-070 Decision 6 amendment), and preview hashes/compares vault
+        files, which is a read; a not-yet-consented user gets
+        ``first_run_notice`` so the routes render the same consent form.
+
+        Inbound half: the tracker's read-only compare (``collect_files`` under
+        the descriptor's allowlist → ``get_ingestion_metadata`` →
+        ``filter_files_needing_ingestion``) — never the ingest path. Deletion
+        half: ``IngestionTracker.plan_deletions`` with the descriptor's
+        allowlist + owner (the same scope ``sync``'s ingest passes when the
+        registry governs the root). Neither the graph nor the vault is
+        touched; outbound preview (would-inject 🆔 IDs / would-mark-done) is
+        deferred.
+        """
+        descriptor_result = self._resolve_guarded(kind, user_uid)
+        if descriptor_result.is_error:
+            return Result.fail(descriptor_result)
+        descriptor = descriptor_result.value
+
+        # Same per-root lock as sync(): a preview racing a live sync would
+        # compare against a half-updated tracker state and report noise.
+        async with self._root_lock(descriptor):
+            consent_result = await self._needs_first_run_consent(descriptor)
+            if consent_result.is_error:
+                return Result.fail(consent_result)
+            if consent_result.value:
+                return Result.ok(VaultSyncPreview(first_run_notice=True))
+
+            backend = self._ingestion.ingestion_backend
+            if backend is None:
+                return Result.fail(
+                    Errors.system(
+                        "vault sync preview requires the ingestion tracking backend, "
+                        "which is not wired in this composition",
+                        user_message="Preview is unavailable — sync tracking is not configured.",
+                    )
+                )
+            tracker = IngestionTracker(backend)
+
+            # Single-vault guard (Kody #527): sync() inherits this check from
+            # ingest_directory, but preview scans the root itself — without it
+            # a preview of a directory nesting ANOTHER owner's vault would
+            # list that owner's filenames and plan deletions sync would
+            # refuse. Same predicate, same refusal.
+            conflicting = self._registry.conflicting_nested_roots(
+                descriptor.root, descriptor.owner_uid
+            )
+            if conflicting:
+                return Result.fail(
+                    Errors.validation(
+                        "Directory scan would sweep a nested vault with a different "
+                        f"owner (nested vault root(s): {', '.join(str(r) for r in conflicting)}); "
+                        "scan a single vault root instead.",
+                        field="directory",
+                    )
+                )
+
+            # Inbound: which collected files would smart-mode ingest (new or
+            # changed)? Tracker-level compare only — no ingest engine, no writes.
+            files = collect_files(descriptor.root, "*", allowlist=descriptor.allowlist)
+            metadata_result = await tracker.get_ingestion_metadata(files)
+            if metadata_result.is_error:
+                return Result.fail(metadata_result)
+            to_ingest, decisions = tracker.filter_files_needing_ingestion(
+                files, metadata_result.value
+            )
+            new_count = sum(1 for d in decisions if d.needs_ingestion and d.reason == "new")
+            ingest_examples = tuple(
+                f"{display_path(d.file_path, descriptor.root)}"
+                f" ({'new' if d.reason == 'new' else 'changed'})"
+                for d in decisions
+                if d.needs_ingestion
+            )[:PREVIEW_EXAMPLE_LIMIT]
+
+            # Deletions: the read-only planning half of reconciliation, with
+            # the same owner scope a descriptor-governed sync applies.
+            plan_result = await tracker.plan_deletions(
+                descriptor.root,
+                "*",
+                allowlist=descriptor.allowlist,
+                owner_uid=descriptor.owner_uid,
+            )
+            if plan_result.is_error:
+                return Result.fail(plan_result)
+            plan = plan_result.value
+
+            return Result.ok(
+                VaultSyncPreview(
+                    would_ingest_count=len(to_ingest),
+                    would_ingest_new=new_count,
+                    would_ingest_changed=len(to_ingest) - new_count,
+                    would_ingest_examples=ingest_examples,
+                    would_delete_entities=len(plan.entity_deletions),
+                    would_delete_entity_examples=tuple(
+                        planned.display_path for planned in plan.entity_deletions
+                    )[:PREVIEW_EXAMPLE_LIMIT],
+                    would_delete_edges=len(plan.edge_deletions),
+                    would_delete_edge_examples=tuple(
+                        planned.display_path for planned in plan.edge_deletions
+                    )[:PREVIEW_EXAMPLE_LIMIT],
+                    stale_cleanup_count=len(plan.stale_file_paths)
+                    + len(plan.unparseable_edge_file_paths),
+                    ownership_mismatches=plan.ownership_mismatches,
+                    refusal_warning=plan.refusal_warning,
+                )
+            )
+
+    def _resolve_guarded(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultDescriptor]:
+        """Resolve the descriptor for ``(kind, user_uid)`` with the surface-independence guards.
+
+        By-kind and by-path resolution must agree on the root, otherwise the
+        ingestion mechanism (which resolves owner + wall by path) would
+        attribute a different owner than this by-kind sync. Kind disagreement
+        is the combined-root config (VAULT_ROOT == INGESTION_PATH), where the
+        single vault resolves to PERSONAL by-path: there is no distinct
+        content vault, so a CONTENT sync would stamp content_owner_uid onto
+        the user's own files. Refuse it — the combined vault syncs as
+        PERSONAL. Owner disagreement is a nested-roots misconfiguration (e.g.
+        a member vault placed inside the primary personal root): by-path
+        governance belongs to the enclosing vault's owner, so syncing it as
+        anyone else would split attribution. Refuse that too.
+        """
+        descriptor_result = self._registry.resolve(kind, user_uid)
+        if descriptor_result.is_error:
+            return Result.fail(descriptor_result)
+        descriptor = descriptor_result.value
+
+        by_path = self._registry.resolve_by_path(descriptor.root, descriptor.owner_uid)
+        if by_path.is_ok and by_path.value.kind is not kind:
+            return Result.fail(
+                Errors.validation(
+                    f"{kind.value} vault sync is unavailable in a combined-root "
+                    "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
+                    f"single vault resolves as {by_path.value.kind.value} — sync it "
+                    "under that kind instead.",
+                    field="kind",
+                )
+            )
+        if by_path.is_ok and by_path.value.owner_uid != descriptor.owner_uid:
+            return Result.fail(
+                Errors.validation(
+                    "vault sync refused: this vault root is governed by another "
+                    "vault's owner by path (nested vault roots misconfiguration) — "
+                    "move the vault outside the enclosing vault root.",
+                    field="kind",
+                )
+            )
+        return Result.ok(descriptor)
+
+    def _root_lock(self, descriptor: VaultDescriptor) -> asyncio.Lock:
+        """Per-root concurrency guard, shared by sync and preview.
+
+        Two concurrent syncs of the same root would interleave ingest and
+        outbound writes (only the per-file SHA-256 stale-read guard protects
+        individual writes). A second operation on the SAME root simply waits
+        its turn — it serializes, it does not error. Keyed by resolved root so
+        distinct vault roots never block each other.
+        """
+        return self._root_locks.setdefault(str(descriptor.root.resolve()), asyncio.Lock())
+
+    async def _needs_first_run_consent(self, descriptor: VaultDescriptor) -> Result[bool]:
+        """Whether the first-run consent gate blocks this vault operation.
+
+        True iff the vault supports the task round-trip (i.e. belongs to a
+        consenting user — the content vault is admin inbound-only and stays
+        consent-free) and its owner has not granted ``vault_write_consent``.
+        Post-2026-07-05 amendment, consent covers READING as much as writing,
+        so both sync and preview check it BEFORE any vault read.
+        """
+        if not descriptor.supports_task_round_trip:
+            return Result.ok(False)
+        user_result = await self._user_service.get_user(descriptor.owner_uid)
+        if user_result.is_error:
+            return Result.fail(user_result)
+        user = user_result.value
+        if user is None:
+            return Result.fail(
+                Errors.not_found(resource="User", identifier=str(descriptor.owner_uid))
+            )
+        return Result.ok(not user.preferences.vault_write_consent)
 
     async def grant_consent(self, user_uid: UserUID) -> Result[None]:
         """Record vault-write consent for the user (ADR-070 Decision 6 first-run gate)."""

@@ -11,6 +11,8 @@ Extracted from unified_ingestion_service.py for separation of concerns.
 from dataclasses import dataclass, field
 from typing import Any
 
+from core.models.relationship_names import RelationshipName
+
 
 @dataclass(frozen=True)
 class PathStepChunkSource:
@@ -237,6 +239,53 @@ class DeletionReconciliation:
     ownership_mismatches: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class PlannedEntityDeletion:
+    """One tracked entity row that deletion reconciliation would delete.
+
+    ``file_path`` is the absolute tracked path (the execute phase keys backend
+    deletes on it); ``display_path`` is the vault-relative rendering (#525
+    sanitization policy) — the ONLY form that may reach user-facing surfaces.
+    """
+
+    file_path: str
+    entity_uid: str
+    display_path: str
+
+
+@dataclass(frozen=True)
+class PlannedEdgeDeletion:
+    """One tracked Edge-YAML row whose relationship would be deleted."""
+
+    file_path: str
+    from_uid: str
+    to_uid: str
+    rel_type: RelationshipName
+    display_path: str
+
+
+@dataclass(frozen=True)
+class DeletionPlan:
+    """Read-only classification of what deletion reconciliation WOULD do.
+
+    Produced by ``IngestionTracker.plan_deletions`` (pure classification —
+    no delete is executed); consumed by ``reconcile_deletions`` (execute
+    phase) and by the vault sync preview. All five reconciliation guards
+    (pattern scope, moved/stale split, both mass-deletion valves, owner
+    scope, edge parseability) are already applied here.
+    """
+
+    entity_deletions: tuple[PlannedEntityDeletion, ...] = ()
+    edge_deletions: tuple[PlannedEdgeDeletion, ...] = ()
+    # Moved/renamed files: only the stale tracking row goes (absolute paths).
+    stale_file_paths: tuple[str, ...] = ()
+    # Unparseable edge identities: tracking row cleaned, graph untouched.
+    unparseable_edge_file_paths: tuple[str, ...] = ()
+    ownership_mismatches: tuple[str, ...] = ()
+    mass_deletion_refused: bool = False
+    refusal_warning: str | None = None
+
+
 @dataclass
 class DryRunPreview:
     """Preview of what would change during ingestion."""
@@ -307,11 +356,15 @@ class IngestionError:
 
 __all__ = [
     "BundleStats",
+    "DeletionPlan",
+    "DeletionReconciliation",
     "DirectoryValidationResult",
     "DryRunPreview",
     "EdgeIngestionResult",
     "IngestionError",
     "IngestionStats",
+    "PlannedEdgeDeletion",
+    "PlannedEntityDeletion",
     "RelationshipValidationResult",
     "IncrementalStats",
     "ValidationResult",
