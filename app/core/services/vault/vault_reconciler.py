@@ -31,6 +31,7 @@ import asyncio
 import re
 import secrets
 import string
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -73,6 +74,25 @@ _BASE36 = string.ascii_lowercase + string.digits
 # longer maintains its own je_* denylist.
 _UNCHECKED_RE = re.compile(r"^[-*]\s*\[\s*\]")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
+
+
+@dataclass(frozen=True)
+class VaultDescription:
+    """Read-only, UI-safe summary of what a vault sync may touch.
+
+    The data behind the sync page's "What SKUEL can see" panel and the consent
+    form's folder list — the wall shown to the user comes from the live
+    allowlist, never from hardcoded prose. Folder names are RELATIVE to the
+    vault root (#525 policy: absolute host paths never leave the service
+    layer). ``whole_vault_open`` marks the combined single-vault configuration
+    where ``build_sync_allowlist`` opens the entire root (the ``je_*`` staging
+    floor still applies). A user with no personal vault gets
+    ``vault_configured=False`` — a normal state, not an error.
+    """
+
+    vault_configured: bool
+    allowed_folders: tuple[str, ...] = ()
+    whole_vault_open: bool = False
 
 
 def _mint_vault_id() -> str:
@@ -252,6 +272,42 @@ class VaultReconciler:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(None)
+
+    def describe(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultDescription]:
+        """Describe the privacy wall of ``(kind, user_uid)``'s vault — read-only.
+
+        The sanctioned read door for UI surfaces (sync page, consent form):
+        routes never touch the registry directly. Reads nothing from the vault;
+        it only reports what a sync WOULD be allowed to read, derived from the
+        descriptor's fail-closed allowlist. No vault for this user →
+        ``vault_configured=False`` (not an error — the page renders a
+        "no vault configured" note).
+        """
+        descriptor_result = self._registry.resolve(kind, user_uid)
+        if descriptor_result.is_error:
+            return Result.ok(VaultDescription(vault_configured=False))
+
+        allowlist = descriptor_result.value.allowlist
+        root = allowlist.governed_root
+        folders: list[str] = []
+        whole_vault_open = False
+        for allowed in allowlist.allowed_dirs:
+            if allowed == root:
+                # build_sync_allowlist's single-vault case: the whole root is
+                # open (only the je_* staging floor applies).
+                whole_vault_open = True
+            elif allowed.is_relative_to(root):
+                folders.append(allowed.relative_to(root).as_posix())
+            # An allowed dir outside the governed root cannot come out of
+            # build_sync_allowlist (such entries are dropped there) — skip
+            # defensively rather than leak an absolute path (#525).
+        return Result.ok(
+            VaultDescription(
+                vault_configured=True,
+                allowed_folders=tuple(sorted(folders)),
+                whole_vault_open=whole_vault_open,
+            )
+        )
 
     # =========================================================================
     # OUTBOUND
