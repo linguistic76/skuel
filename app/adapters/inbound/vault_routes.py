@@ -9,6 +9,7 @@ Routes:
     GET  /settings/vault         — 301 redirect → /submissions/sync (legacy URL preserved).
     POST /settings/vault/sync    — HTMX endpoint: run sync, return HTML results fragment.
     POST /settings/vault/preview — HTMX endpoint: dry-run preview, nothing is written.
+    POST /settings/vault/preview/consent — HTMX endpoint: grant consent then re-run the PREVIEW.
     POST /settings/vault/consent — HTMX endpoint: grant write consent then run sync.
     POST /api/vault/sync         — JSON API: run PERSONAL sync (returns VaultSyncStats dict).
     POST /api/vault/preview      — JSON API: dry-run PERSONAL preview (VaultSyncPreview dict).
@@ -152,12 +153,20 @@ def _privacy_wall_panel(description: VaultDescription) -> Div:
     )
 
 
-def _consent_form(description: VaultDescription) -> Div:
+def _consent_form(
+    description: VaultDescription,
+    *,
+    post_to: str = "/settings/vault/consent",
+    button_label: str = "Allow and sync",
+) -> Div:
     """Fragment shown when first_run_notice is True.
 
     Consent covers BOTH directions of the sync (read + write) — nothing is
     ingested before the user accepts here. The folder list comes from the live
     allowlist (``VaultReconciler.describe``), never hardcoded prose.
+    ``post_to``/``button_label`` keep the requested action honest: consent
+    reached from Preview continues into a PREVIEW, never a real sync
+    (Kody #527).
     """
     return Div(
         Div(
@@ -174,11 +183,11 @@ def _consent_form(description: VaultDescription) -> Div:
             ),
             Form(
                 Button(
-                    "Allow and sync",
+                    button_label,
                     type="submit",
                 ),
                 Loading(size="sm", id="consent-spinner", cls="htmx-indicator ml-3"),
-                hx_post="/settings/vault/consent",
+                hx_post=post_to,
                 hx_target="#vault-results",
                 hx_swap="innerHTML",
                 hx_indicator="#consent-spinner",
@@ -342,15 +351,27 @@ def _preview_fragment(preview: VaultSyncPreview) -> Div:
         else Span()
     )
 
+    # A zero-count preview is only "in sync" when there are no warnings —
+    # a refused mass deletion or an ownership mismatch must never hide
+    # behind a harmless-sounding header (Kody #527).
     nothing_to_do = (
         not preview.would_ingest_count
         and not preview.would_delete_entities
         and not preview.would_delete_edges
         and not preview.stale_cleanup_count
+        and not warnings
+    )
+    header = (
+        H3("Preview — nothing has been changed", cls="text-base font-semibold mb-2")
+        if not warnings
+        else H3(
+            f"Preview — {len(warnings)} warning(s), nothing has been changed",
+            cls="text-base font-semibold text-warning mb-2",
+        )
     )
     return Div(
         Div(
-            H3("Preview — nothing has been changed", cls="text-base font-semibold mb-2"),
+            header,
             P("This vault is already in sync — a sync would do nothing.", cls="text-sm")
             if nothing_to_do
             else Ul(
@@ -482,9 +503,35 @@ def create_vault_routes(
         if preview.first_run_notice:
             # Consent covers reading too (ADR-070 Decision 6 amendment) —
             # preview compares vault files, so it engages the same gate.
-            return _consent_form(_describe_personal_vault(user_uid))
+            # Consent granted from HERE continues into a PREVIEW, never a
+            # real sync — the user asked to see, not to run (Kody #527).
+            return _consent_form(
+                _describe_personal_vault(user_uid),
+                post_to="/settings/vault/preview/consent",
+                button_label="Allow and preview",
+            )
 
         return _preview_fragment(preview)
+
+    @rt("/settings/vault/preview/consent", methods=["POST"])
+    @csrf_protected
+    async def vault_preview_consent_htmx(request: Request) -> Any:
+        """HTMX endpoint: grant sync consent then run the DRY-RUN preview.
+
+        The preview-first flow must stay a preview across the consent hop —
+        the sibling ``/settings/vault/consent`` runs a real sync (Kody #527).
+        """
+        user_uid = require_authenticated_user(request)
+
+        consent_result = await vault_reconciler.grant_consent(user_uid)
+        if consent_result.is_error:
+            return _preview_error_fragment(str(consent_result.expect_error()))
+
+        result = await vault_reconciler.preview(VaultKind.PERSONAL, user_uid)
+        if result.is_error:
+            return _preview_error_fragment(str(result.expect_error()))
+
+        return _preview_fragment(result.value)
 
     @rt("/settings/vault/consent", methods=["POST"])
     @csrf_protected

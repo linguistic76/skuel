@@ -150,6 +150,7 @@ def _preview_harness(tmp_path, *, consented: bool = True):
     registry = MagicMock()
     registry.resolve = MagicMock(return_value=Result.ok(descriptor))
     registry.resolve_by_path = MagicMock(return_value=Result.ok(descriptor))
+    registry.conflicting_nested_roots = MagicMock(return_value=[])
 
     backend = MagicMock()
     backend.get_ingestion_metadata = AsyncMock(return_value=Result.ok([]))
@@ -185,6 +186,22 @@ def _walk_strings(value) -> list[str]:
 
 
 class TestVaultPreview:
+    @pytest.mark.asyncio
+    async def test_preview_refuses_conflicting_nested_roots(self, tmp_path) -> None:
+        """Kody #527: sync() gets the single-vault guard from ingest_directory;
+        preview scans the root itself, so it must run the same guard — a
+        nested different-owner vault must not have its filenames listed."""
+        reconciler, backend, _notes = _preview_harness(tmp_path)
+        reconciler._registry.conflicting_nested_roots = MagicMock(
+            return_value=[tmp_path / "user_vaults" / "user_other"]
+        )
+
+        result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
+        assert result.is_error
+        assert "nested vault" in result.expect_error().message
+        backend.get_ingestion_metadata.assert_not_called()
+        backend.get_tracked_files_under.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_preview_requires_consent_before_any_read(self, tmp_path) -> None:
         """Consent covers READING (ADR-070 Decision 6 amendment): a
@@ -354,6 +371,61 @@ class TestPreviewRoute:
 
         assert "Allow SKUEL to sync" in html
         assert "periodic_notes/" in html
+        # Kody #527: consent reached from Preview must continue into a
+        # PREVIEW, never a real sync.
+        assert 'hx-post="/settings/vault/preview/consent"' in html
+        assert "Allow and preview" in html
+        assert 'hx-post="/settings/vault/consent"' not in html
+
+    @pytest.mark.asyncio
+    async def test_preview_consent_route_reruns_preview_not_sync(self) -> None:
+        # Kody #527: the preview-consent door grants consent then re-runs the
+        # DRY-RUN preview; the real sync is never invoked.
+        registry = _RouteRegistry()
+        reconciler = MagicMock()
+        reconciler.grant_consent = AsyncMock(return_value=Result.ok(None))
+        reconciler.preview = AsyncMock(
+            return_value=Result.ok(VaultSyncPreview(would_ingest_count=1, would_ingest_new=1))
+        )
+        reconciler.sync = AsyncMock()
+        create_vault_routes(
+            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
+        )
+
+        handler = registry.get("/settings/vault/preview/consent", "POST")
+        html = to_xml(await handler(_request()))
+
+        reconciler.grant_consent.assert_awaited_once()
+        reconciler.preview.assert_awaited_once()
+        reconciler.sync.assert_not_called()
+        assert "nothing has been changed" in html
+
+    @pytest.mark.asyncio
+    async def test_zero_count_preview_with_warnings_is_not_in_sync(self) -> None:
+        # Kody #527: a refused mass deletion must never hide behind an
+        # "already in sync" header just because every count is zero.
+        registry = _RouteRegistry()
+        reconciler = MagicMock()
+        reconciler.preview = AsyncMock(
+            return_value=Result.ok(
+                VaultSyncPreview(
+                    refusal_warning=(
+                        "Deletion reconciliation refused: 12 of 15 tracked files "
+                        "would be deleted in one sync."
+                    )
+                )
+            )
+        )
+        create_vault_routes(
+            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
+        )
+
+        handler = registry.get("/settings/vault/preview", "POST")
+        html = to_xml(await handler(_request()))
+
+        assert "already in sync" not in html
+        assert "warning" in html.lower()
+        assert "Deletion reconciliation refused" in html
 
     def test_preview_button_posts_to_preview_door(self) -> None:
         # The sync page composes _preview_button next to _sync_button; the page

@@ -300,6 +300,24 @@ class VaultReconciler:
                 )
             tracker = IngestionTracker(backend)
 
+            # Single-vault guard (Kody #527): sync() inherits this check from
+            # ingest_directory, but preview scans the root itself — without it
+            # a preview of a directory nesting ANOTHER owner's vault would
+            # list that owner's filenames and plan deletions sync would
+            # refuse. Same predicate, same refusal.
+            conflicting = self._registry.conflicting_nested_roots(
+                descriptor.root, descriptor.owner_uid
+            )
+            if conflicting:
+                return Result.fail(
+                    Errors.validation(
+                        "Directory scan would sweep a nested vault with a different "
+                        f"owner (nested vault root(s): {', '.join(str(r) for r in conflicting)}); "
+                        "scan a single vault root instead.",
+                        field="directory",
+                    )
+                )
+
             # Inbound: which collected files would smart-mode ingest (new or
             # changed)? Tracker-level compare only — no ingest engine, no writes.
             files = collect_files(descriptor.root, "*", allowlist=descriptor.allowlist)
