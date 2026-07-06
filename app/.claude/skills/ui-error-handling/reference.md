@@ -497,7 +497,7 @@ Card(
 **Applied to:**
 - Admin dashboard: system status, user stats, detail stats, KU metrics, user progress (each independent)
 - Teaching dashboard: dashboard stats banner above zero-state dashboard
-- Profile intelligence: 4 independent calls with `partial_errors` list (see Pattern 10)
+- Independent partial results: N independent calls with a `partial_errors` list (see Pattern 10)
 
 ---
 
@@ -545,7 +545,7 @@ if intel_data.get("alignment") is not None:
 # ... conditionally append each section ...
 ```
 
-**Applied to:** Profile intelligence HTMX endpoint (`/api/profile/intelligence-section`)
+**Applied to:** historically the /profile intelligence HTMX endpoint (removed 2026-07-05 with the dead overview surface); the pattern remains the reference for any multi-call fragment
 
 ---
 

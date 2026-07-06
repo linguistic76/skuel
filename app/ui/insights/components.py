@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H3, Div, NotStr, Span
+from fasthtml.common import H3, Canvas, Div, NotStr, Span
 
 from ui.components import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
@@ -217,35 +217,33 @@ def render_charts_section(insight_count: int) -> Any | None:
     return Div(
         H3("Visual Analytics", cls="text-xl font-bold mb-4"),
         Div(
-            # Impact distribution (doughnut)
-            Div(
-                **{
-                    "x-data": "chartVis('/api/insights/charts/impact-distribution', 'doughnut')",
-                    "class": "bg-background p-4 rounded-lg shadow",
-                }
-            ),
-            # Domain distribution (bar)
-            Div(
-                **{
-                    "x-data": "chartVis('/api/insights/charts/domain-distribution', 'bar')",
-                    "class": "bg-background p-4 rounded-lg shadow",
-                }
-            ),
-            # Type distribution (doughnut)
-            Div(
-                **{
-                    "x-data": "chartVis('/api/insights/charts/type-distribution', 'doughnut')",
-                    "class": "bg-background p-4 rounded-lg shadow",
-                }
-            ),
-            # Action rate (gauge)
-            Div(
-                **{
-                    "x-data": "chartVis('/api/insights/charts/action-rate', 'doughnut')",
-                    "class": "bg-background p-4 rounded-lg shadow",
-                }
-            ),
+            _chart_card("/api/insights/charts/impact-distribution", "doughnut"),
+            _chart_card("/api/insights/charts/domain-distribution", "bar"),
+            _chart_card("/api/insights/charts/type-distribution", "doughnut"),
+            _chart_card("/api/insights/charts/action-rate", "doughnut"),
             cls="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6",
         ),
         cls="mb-8",
+    )
+
+
+def _chart_card(data_url: str, chart_type: str) -> Any:
+    """Chart card — canvas + loading/error states for the chartVis component."""
+    return Div(
+        Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
+        Div(
+            "Loading chart...",
+            cls="text-center text-muted-foreground py-8",
+            **{"x-show": "loading"},
+        ),
+        Div(
+            Span("Error: ", cls="font-bold"),
+            Span(**{"x-text": "error"}),
+            cls="text-error text-center py-8",
+            **{"x-show": "error"},
+        ),
+        **{
+            "x-data": f"chartVis('{data_url}', '{chart_type}')",
+            "class": "bg-background p-4 rounded-lg shadow",
+        },
     )

@@ -12,8 +12,17 @@ LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def lifepath_sidebar_page(active_page: str, content: Any, request: Request) -> Any:
-    """Create sidebar page for LifePath routes."""
+async def lifepath_sidebar_page(
+    active_page: str,
+    content: Any,
+    request: Request,
+    extra_scripts: list[str] | None = None,
+) -> Any:
+    """Create sidebar page for LifePath routes.
+
+    Args:
+        extra_scripts: Page-specific JS (e.g. Chart.js for the alignment radar).
+    """
     return await SidebarPage(
         content=content,
         items=LIFEPATH_SIDEBAR_ITEMS,
@@ -23,4 +32,5 @@ async def lifepath_sidebar_page(active_page: str, content: Any, request: Request
         storage_key="lifepath-sidebar",
         request=request,
         active_page="lifepath",
+        extra_scripts=extra_scripts,
     )

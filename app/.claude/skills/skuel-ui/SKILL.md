@@ -468,7 +468,7 @@ When building a new SKUEL page or feature, verify:
 | `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_moc` (MOC root), submission history endpoints, journal submit/browse/download |
 | `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
-| `/ui/activities/activity_hub.py` | `ActivityHubView` — 6 Activity Domain preview blocks (embedded in `/profile`, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
+| `/ui/activities/hub.py` | `ACTIVITY_BLOCKS` + `render_domain_card_preview` — Activities tab on `/profile` (accordion blocks, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
 | `/adapters/inbound/library_ui.py` | `library_moc` (MOC root at `/library`) + sidebar sub-pages: `/library/exercises` (status-aware), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only). Exercise status helpers in `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/explore_ui.py` | Reading-first `/explore` surface + `/explore/library` catalog + `/explore/read/{uid}` alias + API routes. PS/Ku detail pages and learning loop fragments are in `learning_loop_routes.py`. |
@@ -490,7 +490,6 @@ When building a new SKUEL page or feature, verify:
 | `/ui/explore/ps_detail.py` | PathStep detail page rendering — extracted from `explore_ui.py` |
 | `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/ui/profile/curriculum_views.py` | KU, PS, LP profile views |
-| `/ui/profile/overview.py` | `OverviewView` + all intelligence helper functions |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
 | `/tests/unit/ui/test_cross_domain_consistency.py` | Cross-domain consistency tests — verifies PageHeader, EmptyState, StatsGrid, EntityRelationshipsSection used across all 6 activity domains + 4 hub pages |
 

@@ -166,50 +166,6 @@ def SkeletonSidebar(domain_count: int = 7) -> Div:
     )
 
 
-def SkeletonIntelligence() -> Div:
-    """Skeleton for intelligence section (alignment, daily plan, etc).
-
-    Returns:
-        A div with skeleton animation representing intelligence cards
-    """
-    return Div(
-        # Alignment breakdown card
-        Card(
-            Div(cls="h-5 bg-secondary rounded w-48 animate-pulse mb-4"),
-            Div(
-                *[
-                    Div(
-                        Div(cls="h-4 bg-secondary rounded w-24 animate-pulse"),
-                        Div(cls="h-8 bg-secondary rounded w-16 animate-pulse mt-2"),
-                        cls="text-center",
-                    )
-                    for _ in range(5)
-                ],
-                cls="grid grid-cols-5 gap-4",
-            ),
-            cls="bg-background shadow-sm p-6 mb-6",
-        ),
-        # Daily plan card
-        Card(
-            Div(cls="h-5 bg-secondary rounded w-40 animate-pulse mb-4"),
-            Div(
-                *[Div(cls="h-4 bg-secondary rounded w-full animate-pulse") for _ in range(4)],
-                cls="space-y-2",
-            ),
-            cls="bg-background shadow-sm p-6 mb-6",
-        ),
-        # Synergies card
-        Card(
-            Div(cls="h-5 bg-secondary rounded w-56 animate-pulse mb-4"),
-            Div(
-                *[Div(cls="h-4 bg-secondary rounded w-full animate-pulse") for _ in range(3)],
-                cls="space-y-2",
-            ),
-            cls="bg-background shadow-sm p-6",
-        ),
-    )
-
-
 def SkeletonDomainView() -> Div:
     """Skeleton for domain-specific view (stats + item list).
 
@@ -310,6 +266,5 @@ __all__ = [
     "SkeletonTable",
     "SkeletonSidebarItem",
     "SkeletonSidebar",
-    "SkeletonIntelligence",
     "SkeletonDomainView",
 ]
