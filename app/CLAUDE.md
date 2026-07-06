@@ -421,7 +421,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Three Query Systems:** UnifiedQueryBuilder (default), QueryBuilder (optimization), CypherGenerator (pure Cypher).
 
-**Searchable Domains (SearchRouter):** 11 — Task, Goal, Habit, Event, Choice, Principle, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services; KU deliberately excluded (see SEARCH_ARCHITECTURE § Searchable Entity Types).
+**Searchable Domains (SearchRouter):** 12 — Task, Goal, Habit, Event, Choice, Principle, Ku, PS, LP, Exercise, RevisedExercise, UserEntry. UserEntry search REQUIRES `user_uid` (privacy line — refused unscoped; excluded from cross-domain sweeps). Forms search via their own services (see SEARCH_ARCHITECTURE § Searchable Entity Types).
 
 **Ownership scoping:** every strategy (text/tags/graph/faceted) is scoped by the domain's `SearchVisibility` declaration on DomainConfig — `OWNER_ONLY` (Activities, UserEntry), `PUBLIC` (PS/LP/KU), `SCOPE_AWARE` (Exercise: curriculum visible to all, owned scopes via OWNS/SHARES_WITH/group membership). One Cypher composition point: `build_search_visibility_clause()`. **See:** SEARCH_ARCHITECTURE § Ownership Scoping.
 

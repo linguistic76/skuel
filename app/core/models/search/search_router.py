@@ -254,9 +254,6 @@ class SearchRouter:
     # EntityTypes that support DomainSearchOperations[T] protocol.
     # Every member MUST resolve through _SERVICE_REGISTRY to a live Services
     # field — guarded by tests/unit/models/test_search_router_registry.py.
-    # KU is deliberately absent: KuService.search has a divergent facade
-    # signature (no limit) and PathStep is THE curriculum content entity —
-    # "knowledge" searches route to PATH_STEP (see _simple_domain_search).
     _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset(
         {
             # Activity Domains (6)
@@ -266,7 +263,8 @@ class SearchRouter:
             EntityType.EVENT,
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
-            # Curriculum Domains (2) - PS, LP
+            # Curriculum Domains (3) - Ku, PS, LP
+            EntityType.KU,
             EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
             # Learning Loop (3) - Exercise, UserEntry, RevisedExercise
@@ -594,7 +592,7 @@ class SearchRouter:
         2. A single SEARCHABLE ``entity_types`` filter — the /search dropdown
            path. Maps through _SERVICE_REGISTRY so filtered searches take the
            same single-domain (ownership-aware) route as domain searches.
-           Non-searchable types (e.g. KU, which is registered for
+           Non-searchable types (e.g. LIFE_PATH, which is registered for
            ``get_service`` but excluded from ``_SEARCHABLE_DOMAINS``) fall
            through to the cross-domain sweep, keeping this path consistent
            with ``search()``'s supports_search() gate.
@@ -620,10 +618,9 @@ class SearchRouter:
 
     # Default search scope for intelligent_search when no domain is inferred from the query.
     # Covers the 6 user-owned Activity domains (routed through faceted_search with user_uid)
-    # and 2 shared Curriculum domains (no ownership filter required).
+    # and 3 shared Curriculum domains (no ownership filter required).
     # Excluded intentionally:
     #   Exercise / RevisedExercise / UserEntry — user-owned, no Domain enum mapping for routing.
-    #   EntityType.KU — not in _SEARCHABLE_DOMAINS (divergent facade search signature).
     _INTELLIGENT_SEARCH_DOMAINS: ClassVar[frozenset[EntityType]] = frozenset(
         {
             EntityType.TASK,
@@ -632,6 +629,7 @@ class SearchRouter:
             EntityType.EVENT,
             EntityType.CHOICE,
             EntityType.PRINCIPLE,
+            EntityType.KU,
             EntityType.PATH_STEP,
             EntityType.LEARNING_PATH,
         }
@@ -719,7 +717,7 @@ class SearchRouter:
         # Map domain string to EntityType
         domain_to_entity = {
             "knowledge": EntityType.PATH_STEP,
-            "ku": EntityType.PATH_STEP,
+            "ku": EntityType.KU,
             "lesson": EntityType.PATH_STEP,
             "ps": EntityType.PATH_STEP,
             "lp": EntityType.LEARNING_PATH,

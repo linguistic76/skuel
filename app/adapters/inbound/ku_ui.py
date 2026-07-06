@@ -1,14 +1,12 @@
 """
-Ku UI Routes — Redirects + Learning State API
-===============================================
+Ku UI Routes — Learning State API
+===================================
 
-GET routes redirect to /explore (merged discovery page).
-POST mutation endpoints remain here for HTMX learning state actions.
+POST mutation endpoints for HTMX learning state actions. The Ku browse and
+detail PAGES live under /explore (explore_routes.py) — no GET routes are
+registered here.
 
 Routes:
-- GET  /ku                           — 301 redirect to /explore
-- GET  /api/ku/search                — 301 redirect to /api/explore/search
-- GET  /ku/{uid}                     — 301 redirect to /explore/ku/{uid}
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
 - POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
 """

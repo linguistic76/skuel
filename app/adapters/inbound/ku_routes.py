@@ -6,10 +6,11 @@ Wires all Ku routes using DomainRouteConfig pattern.
 KuService is the only service dependency — no PsService.
 
 Routes:
-- GET  /ku                           — Knowledge index
-- GET  /ku/{uid}                     — Ku detail page
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
 - POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
+
+The Ku detail PAGE is /explore/ku/{uid} (explore_routes.py) — there is no
+/ku/{uid} route; entity_detail_href owns the entity_type → URL mapping.
 """
 
 from typing import TYPE_CHECKING, Any

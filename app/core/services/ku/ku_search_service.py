@@ -2,8 +2,10 @@
 KuSearchService - Atomic Knowledge Unit Search
 ===============================================
 
-Search operations for atomic Kus: by namespace, tags, category.
+Search operations for atomic Kus: full-text, tags, NOUS topic membership.
 Inherits search(), get_by_category(), get_by_status() from BaseService.
+Exposed on the facade as ``KuService.search`` (sub-service attribute), which
+is what SearchRouter resolves for KU domain searches.
 
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
 """

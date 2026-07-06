@@ -23,7 +23,7 @@ External Callers (One Path Forward):
 
 SearchRouter (THE Orchestrator):
 ├── EntityType/NonKuDomain → domain search service (type-safe dispatch)
-│   └── ALL 11 searchable domains
+│   └── ALL 12 searchable domains
 └── Cross-domain           → self.search_domains() (aggregation)
 ```
 
@@ -41,15 +41,15 @@ SearchRouter (THE Orchestrator):
 
 **Backend structure (April 2026):** `universal_backend.py` is a shell; all persistence operations live in 11 focused mixin files. The March split of `_relationship_mixin.py` into `_relationship_query_mixin.py` + `_relationship_crud_mixin.py` was followed by the April split of the oversized `_search_mixin.py` (~1,233 lines) along section markers: core `EntitySearchOperations[T]` stayed in `_search_mixin.py` (find_by, search, count, health_check, execute_query), while raw search primitives moved to `_search_raw_mixin.py`, temporal queries to `_temporal_mixin.py`, prerequisite/progress queries to `_prereq_progress_mixin.py`, and registry-driven context queries to `_context_query_mixin.py`. A further April pass extracted the ordered/hierarchical section of `_relationship_query_mixin.py` (~1,174 lines) into `_relationship_ordered_mixin.py`, leaving the core mixin at ~666 lines. Public API unchanged.
 
-## Searchable Domains (11 — No MOC, No KU)
+## Searchable Domains (12 — No MOC)
 
 | Group | Entities | Search Mode | Pattern |
 |-------|----------|-------------|---------|
 | **Activity (6)** | Task, Goal, Habit, Event, Choice, Principle | Graph-Aware | BaseService |
-| **Curriculum (2)** | PathStep, LearningPath | Graph-Aware | BaseService |
+| **Curriculum (3)** | Ku, PathStep, LearningPath | Graph-Aware | BaseService |
 | **Learning Loop (3)** | Exercise, RevisedExercise, UserEntry | Graph-Aware | BaseService |
 
-**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). KU is deliberately excluded from `_SEARCHABLE_DOMAINS` (divergent `KuService.search` facade signature; "knowledge" searches route to PATH_STEP). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
+**Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Ku joined `_SEARCHABLE_DOMAINS` in July 2026 (content campaigns made Kus full lessons; `KuService` now exposes `.search` as the sub-service attribute, PS pattern). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
 
 **UserEntry privacy line (July 2026):** `SearchRouter.search(USER_ENTRY, ...)` REQUIRES `user_uid` (refused unscoped). UserEntry is excluded from the default "All Types" sweep + `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped — the `/search` "My Entries" filter routes through OWNS-scoped `graph_aware_faceted_search()`, and a multi-type `entity_types` filter sweeps it owner-scoped. Registry completeness is guarded by `tests/unit/models/test_search_router_registry.py`.
 
@@ -212,7 +212,7 @@ Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enable
 1. **Always use SearchRouter** for external access — never call domain services directly from routes
 2. **Curriculum content is shared** — DomainConfig `user_ownership_relationship=None` derives `SearchVisibility.PUBLIC` (no ownership filter); the old `_user_ownership_relationship` ClassVar is gone (it bypassed DomainConfig and OWNS-scoped even shared domains)
 3. **MOC is not a searchable domain** — it's emergent identity via ORGANIZES relationships on Ku nodes
-4. **11 searchable domains** — 6 Activity + 2 Curriculum (PS, LP) + 3 Learning Loop; MOC is not an EntityType and KU is deliberately excluded
+4. **12 searchable domains** — 6 Activity + 3 Curriculum (Ku, PS, LP) + 3 Learning Loop; MOC is not an EntityType
 5. **UserEntry search requires `user_uid`** — refused unscoped; excluded from cross-domain sweeps (privacy line)
 6. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point (text/tags/graph/faceted); never add a per-strategy ownership filter. See SEARCH_ARCHITECTURE § Ownership Scoping
 7. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
