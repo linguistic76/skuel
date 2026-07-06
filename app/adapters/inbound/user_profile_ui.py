@@ -5,12 +5,12 @@ User Profile UI Routes - Profile Hub Page (MOC Pattern)
 Routes for the user profile hub page and related endpoints.
 
 Key Routes:
-- GET /profile - Profile hub (3 tabs: Curriculum / Reports / Submissions)
+- GET /profile - Profile hub (4 tabs: Curriculum / Activities / Submissions / Reports)
 - GET /profile/settings - 301 redirect to /settings
 - GET /profile/shared - Shared content view
 
 Architecture:
-- /profile is a 3-tab hub (Alpine tab bar, HTMX lazy-loaded previews; no sidebar)
+- /profile is a 4-tab hub (Alpine tab bar, HTMX lazy-loaded previews; no sidebar)
 - Uses BasePage(STANDARD) — the MOC pattern
 - Uses UserContext (~250 fields) as the authoritative source for user state
 
@@ -19,7 +19,6 @@ See: /docs/design-principles/HUB_PAGES.md
 
 __version__ = "5.0"  # Hub page (MOC pattern) — no sidebar
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Request
@@ -30,11 +29,12 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import require_authenticated_user
-from core.services.user.unified_user_context import RichUserContext, UserContext
+from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
+from ui.activities.hub import render_domain_card_preview
 from ui.components import Card, CardBody
 from ui.enum_helpers import get_submission_status_badge_class
-from ui.feedback import Badge, BadgeT
+from ui.feedback import Badge
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.patterns.page_header import PageHeader
@@ -50,7 +50,6 @@ from ui.profile.domain_stats_config import (
     path_steps_count,
     path_steps_status,
 )
-from ui.profile.overview import render_domain_card_preview
 
 logger = get_logger("skuel.routes.user_profile")
 
@@ -96,33 +95,6 @@ async def error_page(
 
 
 # ============================================================================
-# TYPED QUERY PARAMETERS
-# ============================================================================
-
-
-@dataclass
-class ProfileParams:
-    """Typed parameters for profile page deep linking."""
-
-    focus: str | None
-
-
-def parse_profile_params(request: Request) -> ProfileParams:
-    """
-    Extract profile parameters from request query params.
-
-    Args:
-        request: Starlette request object
-
-    Returns:
-        Typed ProfileParams with defaults applied
-    """
-    return ProfileParams(
-        focus=request.query_params.get("focus"),
-    )
-
-
-# ============================================================================
 # ROUTE SETUP
 # ============================================================================
 
@@ -145,7 +117,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         raise RuntimeError("ProfileOrchestrator is required for profile routes")
 
     # ========================================================================
-    # PROFILE HUB ROUTES - Sidebar Navigation with Domain Views
+    # PROFILE HUB ROUTES
     # ========================================================================
 
     async def _get_context(
@@ -170,10 +142,11 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile")
     async def profile_hub(request: Request) -> Any:
-        """Profile hub — 3 tabs (Curriculum / Reports / Submissions).
+        """Profile hub — 4 tabs (Curriculum / Activities / Submissions / Reports).
 
-        The active tab is selected by `?tab=` (curriculum | reports | submissions),
-        defaulting to "submissions" — the action tab (links to the /submissions pages).
+        The active tab is selected by `?tab=` (curriculum | activities |
+        submissions | reports), defaulting to "submissions" — the action tab
+        (links to the /submissions pages).
         """
         require_authenticated_user(request)
 
@@ -193,9 +166,9 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         """
         HTMX fragment: top 3 active items for a domain block, sorted by priority.
 
-        Called by the Activity Domain blocks on the /profile page via
-        hx-trigger="load". Returns a row of 3 cards (priority dot + title)
-        or an empty-state message.
+        Called by the Activities tab accordion blocks on /profile via
+        hx-trigger="intersect once". Returns a grid of up to 3 preview cards
+        (title + priority badge) or an empty-state message.
 
         Requires authentication.
         """
@@ -299,7 +272,6 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
         from fasthtml.common import H4, Div, P
 
         from ui.components import Button, ButtonT
-        from ui.layout import Size
         from ui.primitives import ButtonLink
 
         shared_reports = []
@@ -390,412 +362,7 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
             active_page="profile",
         )
 
-    async def _build_knowledge_view(context: UserContext, user_uid: UserUID) -> Any:
-        """Build the Knowledge domain view with all KUs and user status.
-
-        Queries Neo4j for all Entity nodes with per-user VIEWED/BOOKMARKED/MASTERED relationships.
-        """
-        from fasthtml.common import H4, A, Div, P, Span
-
-        # Query all KUs with user's relationship status via orchestrator
-        all_kus: list[dict] = []
-        result = await profile_orchestrator.get_knowledge_status(user_uid)
-        if result.is_error:
-            logger.warning(f"Failed to fetch KUs: {result.expect_error()}")
-        else:
-            all_kus = result.value or []
-
-        # Build KU cards
-        def entity_card(ku: dict) -> Any:
-            """Render a knowledge entity card with status badges."""
-            ku_title = ku.get("title") or ku.get("uid") or "Untitled"
-            ku_domain = ku.get("domain", "")
-            is_bookmarked = ku.get("bookmarked", False)
-            is_mastered = ku.get("mastered", False)
-            is_studying = ku.get("studying", False)
-
-            badges = []
-            if is_mastered:
-                badges.append(Badge("Understood", variant=BadgeT.success, size=Size.xs))
-            elif is_studying:
-                badges.append(Badge("Studying", variant=BadgeT.warning, size=Size.xs))
-            if is_bookmarked:
-                badges.append(Badge("Bookmarked", variant=BadgeT.info, size=Size.xs))
-
-            return A(
-                Card(
-                    CardBody(
-                        H4(ku_title, cls="text-sm"),
-                        (
-                            P(ku_domain, cls="text-xs text-muted-foreground mt-1")
-                            if ku_domain
-                            else None
-                        ),
-                        Div(*badges, cls="flex gap-1 mt-2") if badges else None,
-                        cls="p-4",
-                    ),
-                    cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
-                ),
-                href=f"/explore/ku/{ku['uid']}",
-            )
-
-        ku_content = (
-            Div(
-                Badge(
-                    f"{len(all_kus)} knowledge units",
-                    variant=BadgeT.ghost,
-                    cls="mb-4",
-                ),
-                Div(
-                    *[entity_card(ku) for ku in all_kus],
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-                ),
-            )
-            if all_kus
-            else Card(
-                P(
-                    "No knowledge units available yet.",
-                    cls="text-center text-muted-foreground py-12",
-                ),
-                cls="bg-muted p-8",
-            )
-        )
-
-        return Div(
-            PageHeader(
-                "Knowledge Units",
-                subtitle="All knowledge units in the curriculum. Track your learning progress.",
-            ),
-            # Quick stats row
-            Div(
-                Div(
-                    Span(
-                        str(len(context.mastered_knowledge_uids)),
-                        cls="text-xl font-bold text-success",
-                    ),
-                    Span(" mastered", cls="text-sm text-muted-foreground"),
-                    cls="flex items-baseline gap-1",
-                ),
-                Div(
-                    Span(
-                        str(len(context.in_progress_knowledge_uids)),
-                        cls="text-xl font-bold text-warning",
-                    ),
-                    Span(" in progress", cls="text-sm text-muted-foreground"),
-                    cls="flex items-baseline gap-1",
-                ),
-                Div(
-                    Span(str(len(context.ready_to_learn_uids)), cls="text-xl font-bold text-info"),
-                    Span(" ready", cls="text-sm text-muted-foreground"),
-                    cls="flex items-baseline gap-1",
-                ),
-                cls="flex gap-6 mb-6",
-            ),
-            ku_content,
-            A(
-                "Browse All Knowledge →",
-                href="/knowledge",
-                cls="inline-block mt-4 text-primary hover:text-primary-hover font-medium",
-            ),
-        )
-
-    # ========================================================================
-    # CHART API ROUTES - Intelligence Data Visualization
-    # ========================================================================
-
-    @rt("/api/profile/charts/alignment")
-    async def alignment_radar_chart(request: Request):
-        """
-        Chart.js radar chart config for life path alignment.
-
-        Returns JSON with 5 dimensions: knowledge, activity, goal, principle, momentum.
-        Scores range from 0.0 to 1.0.
-        """
-        user_uid = require_authenticated_user(request)
-
-        # Get intelligence data for alignment scores
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            from starlette.responses import JSONResponse
-
-            logger.error(f"Alignment chart error: {e}")
-            return JSONResponse({"error": "Chart data unavailable"}, status_code=500)
-
-        def _empty_alignment_chart(title_suffix: str) -> Any:
-            """Return an empty radar chart with zeroed data."""
-            from starlette.responses import JSONResponse
-
-            return JSONResponse(
-                {
-                    "type": "radar",
-                    "data": {
-                        "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
-                        "datasets": [
-                            {
-                                "label": "Life Path Alignment",
-                                "data": [0, 0, 0, 0, 0],
-                                "backgroundColor": "rgba(59, 130, 246, 0.2)",
-                                "borderColor": "rgba(59, 130, 246, 1)",
-                                "borderWidth": 2,
-                            }
-                        ],
-                    },
-                    "options": {
-                        "scales": {
-                            "r": {
-                                "min": 0,
-                                "max": 1,
-                                "ticks": {"stepSize": 0.2},
-                            }
-                        },
-                        "plugins": {
-                            "title": {
-                                "display": True,
-                                "text": f"Life Path Alignment ({title_suffix})",
-                            }
-                        },
-                    },
-                }
-            )
-
-        intel_result = await profile_orchestrator.get_intelligence_data(context)
-        if intel_result.is_error or intel_result.value is None:
-            return _empty_alignment_chart("No Data")
-
-        intel_data = intel_result.value
-        alignment = intel_data.get("alignment")
-
-        if alignment is None:
-            return _empty_alignment_chart("Unavailable")
-
-        # Extract alignment scores (0.0-1.0)
-        knowledge_score = getattr(alignment, "knowledge_score", 0.0)
-        activity_score = getattr(alignment, "activity_score", 0.0)
-        goal_score = getattr(alignment, "goal_score", 0.0)
-        principle_score = getattr(alignment, "principle_score", 0.0)
-        momentum_score = getattr(alignment, "momentum_score", 0.0)
-
-        # Build Chart.js config
-        from starlette.responses import JSONResponse
-
-        return JSONResponse(
-            {
-                "type": "radar",
-                "data": {
-                    "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
-                    "datasets": [
-                        {
-                            "label": "Your Alignment",
-                            "data": [
-                                knowledge_score,
-                                activity_score,
-                                goal_score,
-                                principle_score,
-                                momentum_score,
-                            ],
-                            "backgroundColor": "rgba(59, 130, 246, 0.2)",  # blue
-                            "borderColor": "rgba(59, 130, 246, 1)",
-                            "borderWidth": 2,
-                            "pointBackgroundColor": "rgba(59, 130, 246, 1)",
-                            "pointBorderColor": "#fff",
-                            "pointHoverBackgroundColor": "#fff",
-                            "pointHoverBorderColor": "rgba(59, 130, 246, 1)",
-                        }
-                    ],
-                },
-                "options": {
-                    "scales": {
-                        "r": {
-                            "min": 0,
-                            "max": 1,
-                            "ticks": {
-                                "stepSize": 0.2,
-                                "callback": "function(value) { return (value * 100) + '%'; }",
-                            },
-                        }
-                    },
-                    "plugins": {
-                        "title": {
-                            "display": True,
-                            "text": "Life Path Alignment - 5 Dimensions",
-                            "font": {"size": 16},
-                        },
-                        "legend": {"display": False},
-                    },
-                },
-            }
-        )
-
-    @rt("/api/profile/charts/domain-progress")
-    async def domain_progress_timeline(request: Request):
-        """
-        Chart.js line chart showing activity across domains over 30 days.
-
-        Returns completion counts for tasks, events, habits, goals.
-        """
-        user_uid = require_authenticated_user(request)
-
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            from starlette.responses import JSONResponse
-
-            logger.error(f"Domain progress chart error: {e}")
-            return JSONResponse({"error": "Chart data unavailable"}, status_code=500)
-
-        # Generate 30-day timeline (mock data for now - would come from analytics)
-        # In production, this would query completion events from Neo4j
-        from datetime import date, timedelta
-
-        today = date.today()
-        dates = [(today - timedelta(days=i)).strftime("%m/%d") for i in range(29, -1, -1)]
-
-        # Mock data - in production, query actual completion counts per day
-        # For now, use current context to generate plausible trends
-        tasks_completed_recent = min(len(context.completed_task_uids), 30)
-        habits_active = len(context.active_habit_uids)
-
-        # Generate simple mock trends (would be real data in production)
-        import random
-
-        random.seed(hash(user_uid))  # Consistent per user
-        tasks_data = [random.randint(0, min(5, tasks_completed_recent)) for _ in range(30)]
-        habits_data = [random.randint(0, min(3, habits_active)) for _ in range(30)]
-        goals_data = [1 if i % 7 == 0 else 0 for i in range(30)]  # Weekly goal updates
-
-        from starlette.responses import JSONResponse
-
-        return JSONResponse(
-            {
-                "type": "line",
-                "data": {
-                    "labels": dates,
-                    "datasets": [
-                        {
-                            "label": "Tasks Completed",
-                            "data": tasks_data,
-                            "borderColor": "rgba(34, 197, 94, 1)",  # green
-                            "backgroundColor": "rgba(34, 197, 94, 0.1)",
-                            "tension": 0.4,
-                            "fill": True,
-                        },
-                        {
-                            "label": "Habits Checked",
-                            "data": habits_data,
-                            "borderColor": "rgba(59, 130, 246, 1)",  # blue
-                            "backgroundColor": "rgba(59, 130, 246, 0.1)",
-                            "tension": 0.4,
-                            "fill": True,
-                        },
-                        {
-                            "label": "Goal Updates",
-                            "data": goals_data,
-                            "borderColor": "rgba(168, 85, 247, 1)",  # purple
-                            "backgroundColor": "rgba(168, 85, 247, 0.1)",
-                            "tension": 0.4,
-                            "fill": True,
-                        },
-                    ],
-                },
-                "options": {
-                    "responsive": True,
-                    "interaction": {"mode": "index", "intersect": False},
-                    "plugins": {
-                        "title": {
-                            "display": True,
-                            "text": "30-Day Activity Overview",
-                            "font": {"size": 16},
-                        },
-                        "legend": {"position": "bottom"},
-                    },
-                    "scales": {
-                        "y": {
-                            "beginAtZero": True,
-                            "ticks": {"stepSize": 1},
-                            "title": {"display": True, "text": "Count"},
-                        },
-                        "x": {"title": {"display": True, "text": "Date"}},
-                    },
-                },
-            }
-        )
-
-    @rt("/api/profile/intelligence-section")
-    async def intelligence_section_htmx(request: Request):
-        """
-        HTMX endpoint for loading intelligence section with skeleton loading state.
-        """
-        user_uid = require_authenticated_user(request)
-
-        # Get user and context
-        try:
-            context = await _get_context(user_uid)
-        except ValueError as e:
-            from ui.patterns.empty_state import EmptyState
-
-            return EmptyState(
-                title="Error Loading Intelligence",
-                description=str(e),
-                icon="⚠️",
-            )
-
-        # Get intelligence data - may return None for basic mode
-        intel_result = await profile_orchestrator.get_intelligence_data(context)
-        if intel_result.is_error:
-            from ui.patterns.empty_state import EmptyState
-
-            return EmptyState(
-                title="Intelligence Unavailable",
-                description="Failed to load intelligence features.",
-                icon="⚠️",
-            )
-
-        intel_data = intel_result.value
-
-        if intel_data is None:
-            # Basic mode - return unavailable card
-            from ui.profile.overview import _intelligence_unavailable_card
-
-            return _intelligence_unavailable_card()
-
-        # Full mode - return intelligence section with partial error support
-        from ui.patterns.error_banner import render_error_banner
-        from ui.profile.overview import (
-            _alignment_breakdown,
-            _chart_visualizations_section,
-            _daily_work_plan_card,
-            _path_steps_card,
-            _synergies_card,
-        )
-
-        partial_errors = intel_data.get("partial_errors", [])
-        sections: list[Any] = [_chart_visualizations_section()]
-
-        if partial_errors:
-            sections.append(
-                render_error_banner(
-                    "Some intelligence features are temporarily unavailable",
-                    severity="warning",
-                )
-            )
-
-        if intel_data.get("alignment") is not None:
-            sections.append(_alignment_breakdown(intel_data["alignment"]))
-        if intel_data.get("daily_plan") is not None:
-            sections.append(_daily_work_plan_card(intel_data["daily_plan"]))
-        if intel_data.get("synergies") is not None:
-            sections.append(_synergies_card(intel_data["synergies"]))
-        if intel_data.get("path_steps") is not None:
-            sections.append(_path_steps_card(intel_data["path_steps"]))
-
-        return Div(*sections)
-
     logger.info("✅ Profile routes registered (/profile, /profile/shared)")
-    logger.info("✅ Profile chart API routes registered (/api/profile/charts/*)")
-    logger.info(
-        "✅ Profile HTMX intelligence endpoint registered (/api/profile/intelligence-section)"
-    )
 
 
 __all__ = ["setup_user_profile_routes"]

@@ -39,12 +39,20 @@ def _group_block(group: Group) -> HubBlockData:
     )
 
 
+# Roving tabindex (WAI-ARIA tabs pattern): only the active tab is in the tab
+# order; arrow keys move activation AND focus between tabs.
+_FOCUS_ACTIVE_TAB = "$nextTick(() => document.getElementById('groups-tab-' + activeTab).focus())"
+
+
 def _tab_button(group: Group) -> Button:
     uid = group.uid
     cond = f"activeTab === '{uid}'"
     return Button(
         group.name,
         role="tab",
+        id=f"groups-tab-{uid}",
+        type="button",
+        aria_controls=f"groups-panel-{uid}",
         cls=_TAB_BASE,
         **{
             ":aria-selected": cond,
@@ -59,6 +67,9 @@ def _tab_panel(group: Group) -> Div:
     return Div(
         HubDomainBlock(_group_block(group)),
         role="tabpanel",
+        id=f"groups-panel-{group.uid}",
+        aria_labelledby=f"groups-tab-{group.uid}",
+        tabindex="0",
         **{"x-show": f"activeTab === '{group.uid}'"},
     )
 
@@ -86,6 +97,7 @@ def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
         )
 
     active = active_group_uid if any(g.uid == active_group_uid for g in groups) else groups[0].uid
+    tabs_js = "[" + ", ".join(f"'{g.uid}'" for g in groups) + "]"
 
     return Div(
         Div(
@@ -93,9 +105,25 @@ def GroupsHub(groups: list[Group], active_group_uid: str | None) -> Div:
                 *[_tab_button(g) for g in groups],
                 role="tablist",
                 style=_TAB_BAR_STYLE,
+                **{
+                    "aria-label": "Your groups",
+                    "@keydown.arrow-right.prevent": (
+                        "activeTab = tabs[(tabs.indexOf(activeTab) + 1) % tabs.length]; "
+                        + _FOCUS_ACTIVE_TAB
+                    ),
+                    "@keydown.arrow-left.prevent": (
+                        "activeTab = tabs[(tabs.indexOf(activeTab) - 1 + tabs.length) % tabs.length]; "
+                        + _FOCUS_ACTIVE_TAB
+                    ),
+                    "@keydown.home.prevent": f"activeTab = tabs[0]; {_FOCUS_ACTIVE_TAB}",
+                    "@keydown.end.prevent": f"activeTab = tabs[tabs.length - 1]; {_FOCUS_ACTIVE_TAB}",
+                },
             ),
             *[_tab_panel(g) for g in groups],
-            **{"x-data": f"{{ activeTab: '{active}' }}", "x-cloak": True},
+            **{
+                "x-data": f"{{ activeTab: '{active}', tabs: {tabs_js} }}",
+                "x-cloak": True,
+            },
         ),
     )
 

@@ -194,10 +194,10 @@ class DailyWorkPlan:
 
 **Daily-plan goal learning requirements (#255):** each `ContextualGoal` in `contextual_goals`
 carries a `learning_requirements` payload (mastery-aware, from `PrerequisiteChecker` via
-`build_learning_requirements`). The profile overview renders it per advancing goal —
-`"✓ ready to start"` or `"{mastered}/{required} mastered ({pct}%) · {n} gaps · ~{h}h to learn"`
-(`ui/profile/overview.py::_goal_focus_section`). **Goals only** by design — actionable tasks are
-pre-filtered to ready, so a task line would be inert. See
+`build_learning_requirements`). Its former UI renderer (the profile overview's
+`_goal_focus_section`) was removed 2026-07-05 with the dead overview surface; the payload
+reaches consumers via `to_dict` / programmatic access. **Goals only** by design — actionable
+tasks are pre-filtered to ready, so a task line would be inert. See
 [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md).
 
 ---

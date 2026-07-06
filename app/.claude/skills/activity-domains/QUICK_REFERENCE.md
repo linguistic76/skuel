@@ -29,7 +29,7 @@
 All 6 Activity Domains support authoring through per-domain create/edit forms (`/{domain}/create`,
 `/{domain}/edit?uid=...`). All 6 share a collapsible Activity sidebar
 (`ui/activities/nav.py`) linking back to `/profile`. Activity Domains content
-is embedded inline in `/profile` via `ActivityHubView()`.
+lives on the `/profile` Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
 
 | Domain | Routes | Form | Views | Events File |
 |--------|--------|------|-------|-------------|

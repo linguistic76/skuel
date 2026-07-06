@@ -301,17 +301,17 @@ Profile renders via `ProfileHubView(active_tab)` — no UserContext on the criti
 
 All hub pages use `HubDomainBlockList` with `HubBlockData` config. Each block loads content via HTMX from its `preview_url`. Preview endpoints typically return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)` for data blocks, or an embedded action widget (e.g. a form) for action-first blocks like the Submissions upload block.
 
-### Activity hub (inline in `/profile`)
+### Activities tab (on `/profile`)
 
 ```python
-# ui/activities/activity_hub.py
-_ACTIVITY_BLOCKS = [
+# ui/activities/hub.py
+ACTIVITY_BLOCKS = [
     HubBlockData("Tasks", "tasks", "check-square", "#3B82F6", "/tasks", "/api/profile/tasks/preview"),
     # ... 5 more Activity Domains
 ]
 
-def ActivityHubView() -> Div:
-    return Div(PageHeader(...), HubDomainBlockList(_ACTIVITY_BLOCKS))
+# ui/profile/hub.py renders it as an accordion tab panel:
+_panel("activities", HubAccordionBlockList(ACTIVITY_BLOCKS))
 ```
 
 ### MOC root pages (`/submissions`, `/gradebook`, `/library`)
@@ -340,9 +340,9 @@ section = HubSection("Contents", cards)
 
 Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.
 
-**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains are embedded inline in `/profile` via `ActivityHubView()`.
+**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains live on the `/profile` Activities tab (accordion blocks, `ACTIVITY_BLOCKS`).
 
-**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`), `ui/activities/activity_hub.py` (used inline in `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Retired Hubs
 
@@ -350,7 +350,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 |-----------|-------------|
 | `/curriculum` | `/profile` (301 redirect) |
 | `/study` | `/profile` (301 redirect) |
-| `/activities` | — (no redirect, route deleted; content lives in `/profile`) |
+| `/activities` | — (no redirect, route deleted; content lives on the `/profile` Activities tab) |
 | `HomeHub(active_tab=...)` | Three independent MOC root pages (`/submissions`, `/gradebook`, `/library`) |
 
 ## File Locations
@@ -360,7 +360,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 | Shared components | `ui/patterns/hub.py` |
 | Profile hub | `ui/profile/hub.py` |
 | Profile routes | `adapters/inbound/user_profile_ui.py` |
-| Activity hub view | `ui/activities/activity_hub.py` (embedded in `/profile`) |
+| Activity blocks + preview renderer | `ui/activities/hub.py` (Activities tab on `/profile`) |
 | Activity hub redirect | — (removed; `/activities` route no longer exists) |
 | Activity sidebar | `ui/activities/nav.py` |
 | MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`, `gradebook_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |

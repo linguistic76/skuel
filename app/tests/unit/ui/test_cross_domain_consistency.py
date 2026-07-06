@@ -193,14 +193,6 @@ class TestDetailViewConsistency:
 class TestHubPageConsistency:
     """Verify hub pages use PageHeader."""
 
-    def test_activity_hub_has_page_header(self) -> None:
-        from ui.activities.activity_hub import ActivityHubView
-
-        result = to_xml(ActivityHubView())
-        assert "text-2xl" in result, "ActivityHub missing PageHeader (text-2xl)"
-        assert "font-bold" in result, "ActivityHub missing PageHeader (font-bold)"
-        assert "mb-8" in result, "ActivityHub missing PageHeader (mb-8)"
-
     def test_student_hub_has_page_header(self) -> None:
         from ui.teaching.student_hub import StudentHub
 

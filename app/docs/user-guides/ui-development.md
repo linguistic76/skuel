@@ -602,7 +602,7 @@ render_empty_state_with_error(
 
 ```python
 from ui.patterns.skeleton import SkeletonCard, SkeletonList, SkeletonStats, SkeletonTable
-from ui.patterns.skeleton import SkeletonSidebar, SkeletonIntelligence, SkeletonDomainView
+from ui.patterns.skeleton import SkeletonSidebar, SkeletonDomainView
 
 # Use with HTMX lazy loading
 Div(
@@ -614,7 +614,6 @@ Div(
 
 # Profile hub skeletons — used for HTMX lazy-loaded sidebar sections
 SkeletonSidebar(domain_count=7)   # Sidebar with domain item placeholders
-SkeletonIntelligence()             # Alignment + daily plan + synergies cards
 SkeletonDomainView()               # Stats summary + item list for a single domain
 ```
 
