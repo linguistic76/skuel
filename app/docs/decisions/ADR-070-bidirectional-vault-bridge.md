@@ -318,6 +318,7 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 - `LocalAgentVaultAdapter` — encrypted outbound-only channel
 - Per-device keypair enrollment + short-lived session tokens
 - Relay-pattern: cloud routes ciphertext; never holds filesystem access
+- **Concrete protocol + implementation spec: ADR-075 (2026-07-05)** — resolves the relay-vs-counterparty topology tension in Decision 6 and plans the B2/B3/B4 build.
 
 **Not in scope for either stage:**
 - Recurrence expansion in SKUEL (read `🔁`; create instances in Obsidian is the plugin's job)
