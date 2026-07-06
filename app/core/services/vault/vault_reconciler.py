@@ -27,6 +27,7 @@ See: docs/decisions/ADR-070-bidirectional-vault-bridge.md
 
 from __future__ import annotations
 
+import asyncio
 import re
 import secrets
 import string
@@ -48,6 +49,7 @@ from core.services.ingestion.types import DryRunPreview, IncrementalStats, Inges
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.path_display import display_path, strip_root_prefix
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -110,6 +112,10 @@ class VaultReconciler:
         self._user_entry = user_entry_service
         self._tasks = tasks_service
         self._user_service = user_service
+        # Per-root concurrency locks, keyed by resolved vault root. Created
+        # lazily; bounded by the number of distinct vault roots. Different
+        # roots never serialize against each other.
+        self._root_locks: dict[str, asyncio.Lock] = {}
 
     # =========================================================================
     # PUBLIC API
@@ -178,56 +184,65 @@ class VaultReconciler:
                 )
             )
 
-        # Step 1: first-run consent gate (ADR-070 Decision 6, amended
-        # 2026-07-05) — on the vault owner, BEFORE the first inbound read.
-        # Consent covers the whole sync: SKUEL reading the allowed doorway
-        # folders as much as writing 🆔 IDs back. Only vaults that support the
-        # task round-trip belong to a consenting user, so the gate engages
-        # there; the content vault is admin inbound-only and stays
-        # consent-free. Curriculum writeback, when built, will engage the same
-        # gate without blocking inbound ingest meanwhile.
-        if descriptor.supports_task_round_trip:
-            user_result = await self._user_service.get_user(owner)
-            if user_result.is_error:
-                return Result.fail(user_result)
-            user = user_result.value
-            if user is None:
-                return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
-            if not user.preferences.vault_write_consent:
-                return Result.ok(VaultSyncStats(first_run_notice=True))
+        # Per-root concurrency guard: two concurrent syncs of the same root
+        # would interleave ingest and outbound writes (only the per-file
+        # SHA-256 stale-read guard protects individual writes). A second sync
+        # of the SAME root simply waits its turn — it serializes, it does not
+        # error. Keyed by resolved root so distinct vault roots never block
+        # each other.
+        lock = self._root_locks.setdefault(str(descriptor.root.resolve()), asyncio.Lock())
+        async with lock:
+            # Step 1: first-run consent gate (ADR-070 Decision 6, amended
+            # 2026-07-05) — on the vault owner, BEFORE the first inbound read.
+            # Consent covers the whole sync: SKUEL reading the allowed doorway
+            # folders as much as writing 🆔 IDs back. Only vaults that support
+            # the task round-trip belong to a consenting user, so the gate
+            # engages there; the content vault is admin inbound-only and stays
+            # consent-free. Curriculum writeback, when built, will engage the
+            # same gate without blocking inbound ingest meanwhile.
+            if descriptor.supports_task_round_trip:
+                user_result = await self._user_service.get_user(owner)
+                if user_result.is_error:
+                    return Result.fail(user_result)
+                user = user_result.value
+                if user is None:
+                    return Result.fail(Errors.not_found(resource="User", identifier=str(owner)))
+                if not user.preferences.vault_write_consent:
+                    return Result.ok(VaultSyncStats(first_run_notice=True))
 
-        stats = VaultSyncStats()
+            stats = VaultSyncStats()
 
-        # Step 2: ingest (inbound — smart mode skips unchanged files). The
-        # descriptor's own fail-closed allowlist scopes which folders are read;
-        # entries are attributed to the descriptor's owner. Passing ``user_uid``/
-        # ``allowlist`` explicitly is belt-and-suspenders: the ingestion mechanism
-        # resolves the same owner and wall by path (resolve_by_path), and the guard
-        # above enforces that by-kind and by-path agree on this root.
-        # ``validate_targets=True`` (G10): dangling relationship targets no-op
-        # inside the relationship Cypher, so real syncs must run the pre-check
-        # and surface every phantom UID as a warning — not a silent row drop,
-        # not a hard failure.
-        ingest_result = await self._ingestion.ingest_directory(
-            descriptor.root,
-            ingestion_mode="smart",
-            force=force,
-            validate_targets=True,
-            user_uid=owner,
-            allowlist=descriptor.allowlist,
-        )
-        if ingest_result.is_error:
-            return Result.fail(ingest_result)
-        _merge_ingest_stats(stats, ingest_result.value)
+            # Step 2: ingest (inbound — smart mode skips unchanged files). The
+            # descriptor's own fail-closed allowlist scopes which folders are
+            # read; entries are attributed to the descriptor's owner. Passing
+            # ``user_uid``/``allowlist`` explicitly is belt-and-suspenders: the
+            # ingestion mechanism resolves the same owner and wall by path
+            # (resolve_by_path), and the guard above enforces that by-kind and
+            # by-path agree on this root.
+            # ``validate_targets=True`` (G10): dangling relationship targets
+            # no-op inside the relationship Cypher, so real syncs must run the
+            # pre-check and surface every phantom UID as a warning — not a
+            # silent row drop, not a hard failure.
+            ingest_result = await self._ingestion.ingest_directory(
+                descriptor.root,
+                ingestion_mode="smart",
+                force=force,
+                validate_targets=True,
+                user_uid=owner,
+                allowlist=descriptor.allowlist,
+            )
+            if ingest_result.is_error:
+                return Result.fail(ingest_result)
+            _merge_ingest_stats(stats, ingest_result.value, descriptor.root)
 
-        # Step 3: outbound. Only vaults that support the task round-trip have
-        # anything to write back; curriculum vaults are inbound-only today
-        # (structural no-op).
-        if not descriptor.supports_task_round_trip:
+            # Step 3: outbound. Only vaults that support the task round-trip
+            # have anything to write back; curriculum vaults are inbound-only
+            # today (structural no-op).
+            if not descriptor.supports_task_round_trip:
+                return Result.ok(stats)
+
+            await self._run_outbound(descriptor, stats)
             return Result.ok(stats)
-
-        await self._run_outbound(descriptor, stats)
-        return Result.ok(stats)
 
     async def grant_consent(self, user_uid: UserUID) -> Result[None]:
         """Record vault-write consent for the user (ADR-070 Decision 6 first-run gate)."""
@@ -299,7 +314,13 @@ class VaultReconciler:
         try:
             snapshot = await descriptor.bridge.read_note(owner, vault_file_path)
         except FILE_IO_EXCEPTIONS as exc:
-            stats.errors.append(f"read_note failed for {vault_file_path}: {exc}")
+            # Full absolute detail in the log; user-facing stats stay
+            # vault-relative (stats reach the HTMX fragment / JSON API verbatim).
+            logger.warning("read_note failed for %s: %s", vault_file_path, exc)
+            stats.errors.append(
+                f"read_note failed for {display_path(vault_file_path, descriptor.root)}: "
+                f"{strip_root_prefix(str(exc), descriptor.root)}"
+            )
             return
 
         updates: list[TaskLineUpdate] = []
@@ -377,8 +398,12 @@ class VaultReconciler:
             expected_sha256=snapshot.sha256,
         )
         if not write_result.success:
+            logger.error(
+                "write_task_updates failed for %s: %s", vault_file_path, write_result.error
+            )
             stats.errors.append(
-                f"write_task_updates failed for {vault_file_path}: {write_result.error}"
+                f"write_task_updates failed for {display_path(vault_file_path, descriptor.root)}: "
+                f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
             )
             return
 
@@ -412,6 +437,7 @@ class VaultReconciler:
 def _merge_ingest_stats(
     stats: VaultSyncStats,
     ingest: IngestionStats | IncrementalStats | DryRunPreview | None,
+    vault_root: Path,
 ) -> None:
     """Carry the ingestion outcome into the sync stats — counts AND problems.
 
@@ -419,7 +445,9 @@ def _merge_ingest_stats(
     every sync door reported "Sync complete" over failed files, dropped
     edges, and dropped lines (G10). Errors are dict-shaped
     (``IngestionError.to_dict`` / ad-hoc ``{"message": ...}``) — flatten to
-    readable strings for the UI/API surface.
+    readable strings for the UI/API surface. Ingest errors/warnings carry
+    ABSOLUTE host paths; ``vault_root`` relativizes them before they land in
+    the user-facing stats (the fragment/JSON render these verbatim).
     """
     if not isinstance(ingest, (IngestionStats, IncrementalStats)):
         return
@@ -427,19 +455,24 @@ def _merge_ingest_stats(
     stats.files_failed = int(ingest.failed or 0)
     stats.files_walled = int(ingest.files_walled or 0)
     stats.files_unsupported = int(ingest.files_unsupported or 0)
-    stats.warnings.extend(ingest.warnings)
+    stats.warnings.extend(strip_root_prefix(warning, vault_root) for warning in ingest.warnings)
     for error in ingest.errors or []:
-        stats.errors.append(_format_ingest_error(error))
+        stats.errors.append(_format_ingest_error(error, vault_root))
     if isinstance(ingest, IncrementalStats):
         stats.entities_deleted = int(ingest.entities_deleted or 0)
         stats.edges_deleted = int(ingest.edges_deleted or 0)
 
 
-def _format_ingest_error(error: dict[str, Any]) -> str:
-    """One readable line per ingestion error dict."""
+def _format_ingest_error(error: dict[str, Any], vault_root: Path) -> str:
+    """One readable line per ingestion error dict — vault-relative paths only.
+
+    The ``file`` field is an absolute host path (``operation`` fallbacks are
+    plain words and pass through :func:`display_path` unchanged); the message
+    may embed paths too, so both are sanitized against ``vault_root``.
+    """
     file = error.get("file") or error.get("operation") or ""
     message = error.get("error") or error.get("message") or str(error)
     stage = error.get("stage")
-    prefix = f"{file}: " if file else ""
+    prefix = f"{display_path(str(file), vault_root)}: " if file else ""
     suffix = f" [{stage}]" if stage else ""
-    return f"{prefix}{message}{suffix}"
+    return f"{prefix}{strip_root_prefix(str(message), vault_root)}{suffix}"

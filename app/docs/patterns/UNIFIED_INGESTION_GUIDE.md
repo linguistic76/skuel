@@ -1045,6 +1045,9 @@ The lookup covers every shape the delete removes: `:Entity` `user_uid`, `:Group`
 `:Expense` `user_uid`.
 Ownerless SHARED curriculum and Edge YAMLs (relationships carry no owner) stay path-scoped.
 Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
+User-facing warning/error strings render paths **vault-relative** — the vault root's
+absolute host path never reaches stats (`core/utils/path_display.py`, vault security
+arc PR 5); full absolute detail stays in logs.
 
 ### Example: Human-initiated incremental vault sync
 

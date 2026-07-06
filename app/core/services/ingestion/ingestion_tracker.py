@@ -36,6 +36,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
 from core.services.ingestion.types import DeletionReconciliation
 from core.utils.logging import get_logger
+from core.utils.path_display import display_path
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -417,13 +418,15 @@ class IngestionTracker:
         # wall change that leaves files on disk still purges them.
         physically_present = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
         if not physically_present:
+            # Refusal warnings surface in the sync UI/API — say "this vault",
+            # never the absolute directory (host-path leak). The log keeps it.
             warning = (
                 f"Deletion reconciliation refused: all {len(all_tracked)} tracked "
-                f"files under {directory} are missing — looks like an unmounted "
+                "files in this vault are missing — looks like an unmounted "
                 "vault or sync wipe, not authoring. Delete explicitly via the "
                 "ingestion dashboard if intended."
             )
-            self.logger.warning(warning)
+            self.logger.warning("%s [vault root: %s]", warning, directory)
             return Result.ok(
                 DeletionReconciliation(mass_deletion_refused=True, refusal_warning=warning)
             )
@@ -473,18 +476,21 @@ class IngestionTracker:
                 entity_rows = [
                     row for row in entity_rows if str(row["entity_uid"]) not in foreign_uids
                 ]
+                # Mismatch rows surface in the sync UI/API — render paths
+                # relative to the sync root; the log below keeps absolutes.
                 for row in skipped:
                     ownership_mismatches.append(
-                        f"deletion skipped for {row['file_path']}: entity "
-                        f"{row['entity_uid']} belongs to a different user than this "
+                        f"deletion skipped for {display_path(str(row['file_path']), directory)}: "
+                        f"entity {row['entity_uid']} belongs to a different user than this "
                         "vault's owner — resolve ownership before deleting"
                     )
                 self.logger.warning(
                     "Deletion reconciliation: skipped %d entity deletion(s) under %s "
-                    "owned by a different user than the vault owner %s",
+                    "owned by a different user than the vault owner %s: %s",
                     len(skipped),
                     directory,
                     owner_uid,
+                    ", ".join(str(row["file_path"]) for row in skipped),
                 )
 
         # Split edge rows by parseability up front: an unparseable identity only
@@ -527,12 +533,12 @@ class IngestionTracker:
         ):
             warning = (
                 f"Deletion reconciliation refused: {graph_delete_count} of "
-                f"{len(all_tracked)} tracked files under {directory} would be "
+                f"{len(all_tracked)} tracked files in this vault would be "
                 "deleted in one sync — that majority wipe looks like data loss, "
                 "not authoring. Delete explicitly via the ingestion dashboard, "
                 "or sync in smaller batches."
             )
-            self.logger.warning(warning)
+            self.logger.warning("%s [vault root: %s]", warning, directory)
             return Result.ok(
                 DeletionReconciliation(
                     mass_deletion_refused=True,
