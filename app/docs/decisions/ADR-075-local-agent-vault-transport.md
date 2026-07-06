@@ -542,3 +542,4 @@ Three PRs, in dependency order. This ADR is B1 of the Stage-2 sub-arc following 
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-07-05 | Claude Code | Initial design ADR — Stage-2 transport spec (topology honesty, Ed25519 device identity, WS protocol, staging-mirror ingest bridge, invariants carried forward, B2/B3/B4 plan) | 0.1 |
+| 2026-07-06 | Claude Code | B3 shipped — `agent/skuel_vault_agent.py` (enroll/run/status, four RPC ops, agent-side wall; line mutations shared via `/core/ports/vault_bridge_protocol.py`). See `/docs/guides/VAULT_AGENT_GUIDE.md` | 0.2 |
