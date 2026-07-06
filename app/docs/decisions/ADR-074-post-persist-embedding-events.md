@@ -59,14 +59,16 @@ embedding events in CORE is a queue-with-no-listener. The ingestion step treats
 publishes. Chunking and `:Content` persistence still run in CORE — chunks are Analog
 (stored, not embedded), per the graceful-degradation contract.
 
-### 3. Chunk unification — one shared PathStep chunk step for both doors
+### 3. Chunk unification — one shared body-chunk step for both doors
 
-`UnifiedIngestionService._chunk_path_step_content(uid, content_body, file_format,
-source_path)` is THE chunk step: chunk → `store_content_with_chunks` (`:Content` +
+`UnifiedIngestionService._chunk_entity_content(uid, content_body, file_format,
+source_path)` is THE chunk step for every `chunks_body_content` ingestion config
+(PathStep since this ADR; Ku since the stubs → lessons enabler, 2026-07-06): chunk →
+`store_content_with_chunks` (`:Content` +
 `:ContentChunk` + `:ContentMetadata`) → one `ChunkEmbeddingRequested` carrying every
 persisted chunk id. The single-file door calls it directly; the batch engine pops `content`
-off each PathStep pre-upsert (setting `word_count` in its place), threads the popped body to
-`post_persist_fn` as `PathStepChunkSource`, and the callback
+off each chunked entity pre-upsert (setting `word_count` in its place), threads the popped body to
+`post_persist_fn` as `ChunkSource`, and the callback
 (`_ingest_post_persist`) runs the same step. "Content chunks are created during ingestion
 in both modes" is now true of both doors. Chunk-step failures never fail ingestion.
 

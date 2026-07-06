@@ -104,7 +104,7 @@ Current version is `EMBEDDING_VERSION = "v3"` (`core/services/embeddings_service
 
 **Service:** `EntityChunkingService` (`core/services/entity_chunking_service.py`)
 
-**When:** Post-persist, for PathStep entities — one shared step (`UnifiedIngestionService._chunk_path_step_content`) for both ingest doors (ADR-074).
+**When:** Post-persist, for `chunks_body_content` entities (PathStep, Ku) — one shared step (`UnifiedIngestionService._chunk_entity_content`) for both ingest doors (ADR-074).
 
 **What happens:**
 1. The popped content body is split into semantic chunks

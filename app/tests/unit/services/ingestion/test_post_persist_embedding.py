@@ -12,7 +12,7 @@ persisted embeddable entity through the shared chokepoint
   and strips the ``_file_path`` bookkeeping key before persistence
 - the batch door's PathStep chunk unification: ``content`` popped pre-upsert
   (never a node property), threaded to the shared chunk step
-  (``_chunk_path_step_content``) which persists :Content/:ContentChunk and
+  (``_chunk_entity_content``) which persists :Content/:ContentChunk and
   publishes ``ChunkEmbeddingRequested`` — chunks persist in CORE too, only
   the publish is tier-gated
 - the empty-body clear path (ADR-074): an emptied body reaches the shared
@@ -315,8 +315,14 @@ async def test_batch_door_strips_file_path_and_calls_post_persist(tmp_path: Path
     entity_type, entities, chunk_sources = calls[0]
     assert entity_type == EntityType.KU
     assert [e["uid"] for e in entities] == ["ku.batch-embed-test"]
-    # Ku is not a chunked type — no chunk sources threaded
-    assert chunk_sources == {}
+    # Ku is a chunks_body_content type (stubs → lessons): body popped
+    # pre-upsert and threaded to the chunk step, word_count in its place —
+    # same recipe as PathStep.
+    (persisted,) = backend.upserted["Ku"]
+    assert "content" not in persisted
+    assert persisted["word_count"] == 1
+    assert set(chunk_sources) == {"ku.batch-embed-test"}
+    assert chunk_sources["ku.batch-embed-test"].content.strip() == "Body."
 
 
 @pytest.mark.asyncio
@@ -365,7 +371,7 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
 
 
 # ---------------------------------------------------------------------------
-# _ingest_post_persist / _chunk_path_step_content — the shared chunk step
+# _ingest_post_persist / _chunk_entity_content — the shared chunk step
 # ---------------------------------------------------------------------------
 
 
@@ -408,7 +414,7 @@ async def test_ingest_post_persist_publishes_entity_event_and_chunk_event():
     """The batch callback must mirror ingest_file's post-persist sequence:
     entity *EmbeddingRequested first, then ChunkEmbeddingRequested carrying
     ALL persisted chunk ids."""
-    from core.services.ingestion.types import PathStepChunkSource
+    from core.services.ingestion.types import ChunkSource
 
     bus = _CapturingBus()
     adapter = _FakeContentAdapter()
@@ -418,7 +424,7 @@ async def test_ingest_post_persist_publishes_entity_event_and_chunk_event():
     await service._ingest_post_persist(
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Batch Chunks", "word_count": len(_PS_BODY.split())}],
-        {uid: PathStepChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
+        {uid: ChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
     )
 
     # :Content + :ContentChunk persisted through the adapter
@@ -440,7 +446,7 @@ async def test_ingest_post_persist_publishes_entity_event_and_chunk_event():
 async def test_chunk_step_core_tier_persists_chunks_without_publishing():
     """CORE tier (event_bus=None): chunks still generate and persist — the
     Analog behavior — but no embedding events publish."""
-    from core.services.ingestion.types import PathStepChunkSource
+    from core.services.ingestion.types import ChunkSource
 
     adapter = _FakeContentAdapter()
     service = _chunking_service(None, adapter)
@@ -449,7 +455,7 @@ async def test_chunk_step_core_tier_persists_chunks_without_publishing():
     await service._ingest_post_persist(
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Core Chunks"}],
-        {uid: PathStepChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
+        {uid: ChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
     )
 
     assert [u for u, _ in adapter.stored] == [uid]
@@ -464,7 +470,7 @@ async def test_chunk_step_no_chunking_service_is_noop():
     service.chunking = None
     service.content_adapter = None
 
-    generated = await service._chunk_path_step_content("ps.x", _PS_BODY, "markdown", "x.md")
+    generated = await service._chunk_entity_content("ps.x", _PS_BODY, "markdown", "x.md")
     assert generated is False
     assert bus.published == []
 
@@ -482,7 +488,7 @@ async def test_chunk_step_empty_body_clears_content_subtree():
     adapter = _FakeContentAdapter()
     service = _chunking_service(bus, adapter)
 
-    generated = await service._chunk_path_step_content("ps.cleared", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content("ps.cleared", "", "markdown", "x.md")
 
     assert generated is False
     assert adapter.cleared == ["ps.cleared"]
@@ -498,7 +504,7 @@ async def test_chunk_step_empty_body_clears_even_without_chunker():
     service = _chunking_service(None, adapter)
     service.chunking = None
 
-    generated = await service._chunk_path_step_content("ps.cleared2", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content("ps.cleared2", "", "markdown", "x.md")
 
     assert generated is False
     assert adapter.cleared == ["ps.cleared2"]
@@ -508,7 +514,7 @@ async def test_chunk_step_empty_body_clears_even_without_chunker():
 async def test_chunk_step_empty_body_without_adapter_is_noop():
     service = _chunking_service(None, None)
 
-    generated = await service._chunk_path_step_content("ps.x", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content("ps.x", "", "markdown", "x.md")
     assert generated is False
 
 
@@ -583,7 +589,7 @@ async def test_batch_door_null_content_frontmatter_is_treated_as_empty(tmp_path:
 async def test_ingest_post_persist_empty_source_clears_without_chunk_events():
     """The batch callback with an empty-body source: entity event still
     publishes (frontmatter vector), subtree cleared, no chunk events."""
-    from core.services.ingestion.types import PathStepChunkSource
+    from core.services.ingestion.types import ChunkSource
 
     bus = _CapturingBus()
     adapter = _FakeContentAdapter()
@@ -593,7 +599,7 @@ async def test_ingest_post_persist_empty_source_clears_without_chunk_events():
     await service._ingest_post_persist(
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Emptied", "word_count": 0}],
-        {uid: PathStepChunkSource(content="", file_format="markdown", source_path="x.md")},
+        {uid: ChunkSource(content="", file_format="markdown", source_path="x.md")},
     )
 
     assert adapter.cleared == [uid]

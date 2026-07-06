@@ -159,7 +159,7 @@ Also created from the `uses_kus:` list:
 
 **Relationship:** `(Entity)-[:HAS_CONTENT]->(Content)` — one-to-one. Each PathStep has at most one Content node.
 
-**When it's used:** `/path-steps/{uid}/details` — the reading page. The route calls `ps_service.get_with_content(uid)` which fetches both the Entity node and the Content body in a single query, then renders the markdown.
+**When it's used:** `/path-steps/{uid}/details` — the reading page. The route calls `ps_service.get_with_content(uid)` which fetches the Entity node, then reads the :Content body via `UniversalNeo4jBackend.get_content` (inline `content` field first, when present; a backend read failure propagates instead of rendering a body-less page), then renders the markdown.
 
 **Key code:** `adapters/persistence/neo4j/neo4j_content_adapter.py` — the `Neo4jContentAdapter` manages Content node creation, updating, and retrieval.
 
@@ -210,7 +210,7 @@ Create/MERGE Entity node             ← entity_data → bulk upsert
     ▼ POST-PERSIST (ADR-074)
 PathStepEmbeddingRequested published  ← entity vector = frontmatter fields only
     │
-    ▼ _chunk_path_step_content() — the shared step, both doors
+    ▼ _chunk_entity_content() — the shared step, both doors (all chunks_body_content types: PathStep, Ku)
     │
     ├── non-empty body: split into chunks → Content + ContentChunk persisted
     │   → ONE ChunkEmbeddingRequested with every chunk id
@@ -298,8 +298,8 @@ content: |
 | Purpose | Location |
 |---------|----------|
 | Content node Cypher (`store_content_with_chunks`, `delete_content_subtree`) | `adapters/persistence/neo4j/neo4j_content_adapter.py` |
-| Shared chunk step, both doors | `core/services/ingestion/unified_ingestion_service.py` — `_chunk_path_step_content()` |
+| Shared chunk step, both doors (PathStep + Ku) | `core/services/ingestion/unified_ingestion_service.py` — `_chunk_entity_content()` |
 | Post-persist embedding publish chokepoint | `core/events/embedding_publisher.py` |
-| Fetch PathStep + body for detail page | `core/services/ps_service.py` — `get_with_content()` (BaseService `ContextOperationsMixin`) |
+| Fetch PathStep + body for detail page | `core/services/ps_service.py` — `get_with_content()` (BaseService `ContextOperationsMixin`; :Content body read via `UniversalNeo4jBackend.get_content`) |
 | Semantic vector search on chunks | `adapters/persistence/neo4j/_adaptive_mixin.py` |
 | Sample vault PathStep | `/home/mike/0bsidian/0vault/Ps/ps_breath-awareness-basics.md` |

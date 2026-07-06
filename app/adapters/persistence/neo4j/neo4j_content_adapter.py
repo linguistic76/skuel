@@ -113,6 +113,12 @@ class Neo4jContentAdapter:
             // Match the knowledge unit
             MATCH (ku:Entity {uid: $uid})
 
+            // The :Content subtree is now THE body source of truth for this
+            // entity — drop any legacy inline body so the inline-first read
+            // (ContextOperationsMixin.get_with_content) can't serve a stale
+            // copy (`n += props` upserts never remove properties).
+            REMOVE ku.content
+
             // Create or merge Content node
             MERGE (c:Content {uid: $uid})
             SET c.body = $body
