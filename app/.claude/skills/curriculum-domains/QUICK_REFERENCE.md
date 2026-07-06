@@ -81,8 +81,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 | Exercise | `adapters/inbound/exercise_routes.py` + `exercise_ui.py` |
 
 **PathStep UI / learning-loop routes:**
-- `GET /path-steps` — PathStep list with learning-state enrollment buttons (Start / In Progress / Mastered)
-- `GET /path-steps/get?uid={uid}` — PathStep reading page (markdown content, learning objectives)
+- `GET /path-steps` — PathStep list (fragment: `/path-steps/content`); rows link to `/explore/ps/{uid}`, with an "Enrolled" badge on the session user's IN_PROGRESS steps
 - `GET /explore/ps/{uid}` — PathStep detail page in the Explore hub (reading-first, no sidebar; Alpine `pathstep` manages progress/bookmark)
 - `POST /explore/ps/{uid}/progress` — update progress state (`state=learning|read`)
 - `POST /explore/ps/{uid}/bookmark` — toggle bookmark (`on=true|false`)
