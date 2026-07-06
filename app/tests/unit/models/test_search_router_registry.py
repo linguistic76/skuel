@@ -175,11 +175,20 @@ class TestSingleEntityTypeRouting:
 
         assert router._resolve_single_domain(request) is None
 
-    def test_non_searchable_type_resolves_to_none(self) -> None:
-        """KU is registered for get_service but NOT searchable — the dropdown
-        filter must stay consistent with search()'s supports_search() gate."""
+    def test_ku_filter_resolves_to_ku_domain(self) -> None:
+        """Ku is a searchable curriculum domain — the /search 'Knowledge
+        Units' dropdown option routes to the single-domain path."""
         router = SearchRouter(services=SimpleNamespace())
         request = SearchRequest(query_text="x", entity_types=[EntityType.KU])
+
+        assert router._resolve_single_domain(request) == "ku"
+
+    def test_non_searchable_type_resolves_to_none(self) -> None:
+        """LIFE_PATH is registered for get_service but NOT searchable — the
+        dropdown filter must stay consistent with search()'s supports_search()
+        gate."""
+        router = SearchRouter(services=SimpleNamespace())
+        request = SearchRequest(query_text="x", entity_types=[EntityType.LIFE_PATH])
 
         assert router._resolve_single_domain(request) is None
 

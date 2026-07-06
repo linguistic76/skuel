@@ -4,7 +4,7 @@ KuService - Atomic Knowledge Unit Facade
 
 Facade for atomic Ku operations. Delegates to 4 sub-services via factory:
 - .core: CRUD operations (KuCoreService)
-- .search_service: Search and namespace queries (KuSearchService)
+- .search: Search and NOUS-topic queries (KuSearchService)
 - .relationships: Graph relationship operations (UnifiedRelationshipService)
 - .intelligence: Graph analytics (KuIntelligenceService)
 
@@ -108,7 +108,11 @@ class KuService:
         )
 
         self.core = common.core
-        self.search_service = common.search
+        # Sub-service ATTRIBUTE, not a delegation method — SearchRouter's
+        # _get_search_service resolves `.search` to the sub-service only when
+        # it is non-callable (same shape as PsService). A facade method here
+        # would shadow it with a divergent signature.
+        self.search = common.search
         self.relationships = common.relationships
         self.intelligence: KuIntelligenceService = common.intelligence
         self.backend: KuBackend = backend  # For get_path_steps() reverse traversal
@@ -158,16 +162,12 @@ class KuService:
         return await self.core.get_with_content(uid)
 
     # =========================================================================
-    # SEARCH (delegated to search)
+    # SEARCH (sub-service at .search; extra delegations below)
     # =========================================================================
-
-    async def search(self, query: str, user_uid: UserUID | None = None) -> Result[list[Any]]:
-        """Full-text search across Kus."""
-        return await self.search_service.search(query, user_uid)
 
     async def search_by_alias(self, alias: str) -> Result[list[dict[str, Any]]]:
         """Search Kus by alias (alternative name)."""
-        return await self.search_service.search_by_alias(alias)
+        return await self.search.search_by_alias(alias)
 
     async def list_nous_topics(self) -> Result[list[str]]:
         """List the NOUS topic vocabulary — distinct `nous` values across all Kus.
@@ -176,7 +176,7 @@ class KuService:
         their own topic, so the list is complete by construction (a topic
         exists iff its anchor Ku exists).
         """
-        return await self.search_service.list_all_categories()
+        return await self.search.list_all_categories()
 
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)

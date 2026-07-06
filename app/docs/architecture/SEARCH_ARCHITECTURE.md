@@ -50,20 +50,26 @@ SKUEL's search architecture consists of **three complementary systems** that wor
 
 **Core Principle:** "Property filters for speed, graph patterns for depth, user context for personalization, semantic relationships for relevance"
 
-## Searchable Entity Types (11 total)
+## Searchable Entity Types (12 total)
 
-All 11 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
+All 12 entity types resolve through `SearchRouter._SERVICE_REGISTRY` to a live
 `Services` field — guarded by `tests/unit/models/test_search_router_registry.py`
 (every `_SEARCHABLE_DOMAINS` member must resolve, so `supports_search()` can't lie).
 
 | Group | Entity Types | SearchVisibility | Search Mode |
 |-------|---------|-----------|-------------|
 | Activity (6) | Tasks, Goals, Habits, Events, Choices, Principles | `OWNER_ONLY` | Graph-Aware |
-| Curriculum (2) | PS, LP | `PUBLIC` (shared, no filter) | Graph-Aware |
+| Curriculum (3) | Ku, PS, LP | `PUBLIC` (shared, no filter) | Graph-Aware |
 | Learning Loop (3) | Exercise (`SCOPE_AWARE`), RevisedExercise + UserEntry (`OWNER_ONLY`) | mixed | Graph-Aware |
 
+**Ku inclusion (July 2026):** Ku joined `_SEARCHABLE_DOMAINS` once the content
+campaigns made Kus full lessons (bodies + NOUS topic membership). The old
+exclusion rationale ("divergent facade signature") was a facade-shape bug:
+`KuService` exposed `search` as a delegation *method*; it now exposes the
+sub-service as the `.search` *attribute* (same shape as `PsService`), which is
+what `_get_search_service` resolves.
+
 **Deliberate exclusions:**
-- **KU** — `KuService.search` has a divergent facade signature (no `limit`); PathStep is THE curriculum content entity, so "knowledge" searches route to PATH_STEP.
 - **FormTemplate / FormSubmission** — searchable via their own domain services, not routed through `SearchRouter`.
 - **MOC** is emergent identity (any entity with `ORGANIZES` relationships), not an `EntityType`, and is not a standalone searchable domain.
 
@@ -81,8 +87,8 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     # Activity (6)
     EntityType.TASK, EntityType.GOAL, EntityType.HABIT,
     EntityType.EVENT, EntityType.CHOICE, EntityType.PRINCIPLE,
-    # Curriculum (2)
-    EntityType.PATH_STEP, EntityType.LEARNING_PATH,
+    # Curriculum (3)
+    EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH,
     # Learning Loop (3)
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.USER_ENTRY,
 })
