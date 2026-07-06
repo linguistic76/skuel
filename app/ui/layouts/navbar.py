@@ -87,10 +87,8 @@ def _signout_button() -> A:
     )
 
 
-def _notification_button(unread_count: int = 0) -> Any:
-    """Notification bell icon button with optional unread badge."""
-    from fasthtml.common import Button
-
+def _notification_button(unread_count: int = 0) -> A:
+    """Notification bell icon link (to /notifications) with optional unread badge."""
     button_content: list[Any] = [
         Span("View notifications", cls="sr-only"),
         Icon("bell", cls="size-6", aria_hidden="true"),
@@ -105,11 +103,10 @@ def _notification_button(unread_count: int = 0) -> Any:
                 cls="absolute -top-1 -right-1 size-5 rounded-full bg-yellow-500 flex items-center justify-center",
             )
         )
-    return Button(
+    return A(
         *button_content,
-        type="button",
+        href="/notifications",
         cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground relative",
-        hx_get="/notifications",
     )
 
 
