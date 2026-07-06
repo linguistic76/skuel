@@ -11,6 +11,9 @@ Stage 1 (local Docker, same-machine vault).  Stage 2+ swaps this for
     1. ID injection: append ``🆔 <vault_id>`` to a task line that has no token.
     2. Status round-trip: toggle ``- [ ]`` → ``- [x]`` AND append ``✅ YYYY-MM-DD``.
     3. Undone round-trip (deferred v1 — not implemented).
+    The pure line mutations live in ``core/ports/vault_bridge_protocol.py``
+    (``apply_task_updates``) — shared with the user-side vault agent (ADR-075 B3)
+    so both transports mutate lines byte-identically.
 
 All writes are atomic (POSIX ``rename()``): the file is either fully replaced
 or untouched.  A stale-read guard (SHA-256 compare before write) prevents
@@ -27,31 +30,18 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import os
-import re
 import tempfile
 from pathlib import Path
 
 from core.ports.vault_bridge_protocol import (
-    VAULT_ID_RE,
     NoteSnapshot,
     TaskLineUpdate,
     WriteResult,
-    normalize_vault_line_hash,
+    apply_task_updates,
 )
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.adapters.vault.filesystem")
-
-# Checkbox detection
-_UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
-_CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
-# Done-date token: ✅ YYYY-MM-DD
-_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
-
-
-def _file_sha256(path: Path) -> str:
-    content = path.read_text(encoding="utf-8")
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 class FilesystemVaultAdapter:
@@ -112,24 +102,10 @@ class FilesystemVaultAdapter:
                 ),
             )
 
-        lines = content.splitlines(keepends=True)
-        modified = False
-
-        for update in updates:
-            if update.mark_done:
-                lines, changed = _apply_mark_done(lines, update.vault_id, update.done_date or "")
-            elif update.inject_vault_id:
-                lines, changed = _apply_inject_id(lines, update.vault_id, update.source_line_hash)
-            else:
-                changed = False
-            if changed:
-                modified = True
-
+        new_content, modified = apply_task_updates(content, updates)
         if not modified:
-            new_sha = current_sha256
-            return WriteResult(success=True, new_sha256=new_sha)
+            return WriteResult(success=True, new_sha256=current_sha256)
 
-        new_content = "".join(lines)
         new_sha256 = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
 
         # Atomic write via temp-file + rename()
@@ -155,67 +131,3 @@ class FilesystemVaultAdapter:
     ) -> list[str]:
         base = self._resolve(vault_path)
         return [str(p) for p in base.glob(pattern) if p.is_file()]
-
-
-# ============================================================================
-# LINE-LEVEL MUTATIONS (pure functions — easier to test)
-# ============================================================================
-
-
-def _apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
-    """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``.
-
-    Idempotent only when BOTH the checkbox is already ``[x]`` AND the ``✅ date`` token is
-    present.  An already-checked line that is missing the done-date (e.g. checked directly
-    in Obsidian without the tasks plugin) still receives the token so SKUEL and the vault
-    stay in sync.
-    """
-    for i, line in enumerate(lines):
-        m = VAULT_ID_RE.search(line)
-        if not m or m.group(1) != vault_id:
-            continue
-        checked = bool(_CHECKED_RE.match(line))
-        if not checked and not _UNCHECKED_RE.match(line):
-            return lines, False
-
-        # True no-op: already checked AND already has a done-date
-        if checked and _DONE_DATE_RE.search(line):
-            return lines, False
-
-        # Flip checkbox if needed
-        if not checked:
-            line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
-
-        # Append ✅ date if still absent
-        if not _DONE_DATE_RE.search(line):
-            stripped = line.rstrip("\n")
-            eol = line[len(stripped) :]
-            line = f"{stripped} ✅ {done_date}{eol}"
-
-        lines[i] = line
-        return lines, True
-    return lines, False
-
-
-def _apply_inject_id(
-    lines: list[str], vault_id: str, source_line_hash: str | None
-) -> tuple[list[str], bool]:
-    """Find the target checkbox line and append ``🆔 <vault_id>``.
-
-    When ``source_line_hash`` is provided, finds the line whose normalized hash
-    matches — guaranteeing the right line is targeted even when multiple tasks
-    in the same file lack an ID.  Falls back to the first ID-less checkbox line
-    when no hash is provided.
-    """
-    for i, line in enumerate(lines):
-        if not (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)):
-            continue
-        if VAULT_ID_RE.search(line):
-            continue  # Already has a 🆔
-        if source_line_hash is not None and normalize_vault_line_hash(line) != source_line_hash:
-            continue
-        stripped = line.rstrip("\n")
-        eol = line[len(stripped) :]
-        lines[i] = f"{stripped} 🆔 {vault_id}{eol}"
-        return lines, True
-    return lines, False

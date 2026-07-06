@@ -324,6 +324,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | **2026-03-21** | **220** |
 | **[Tasks User Guide](guides/TASKS_USER_GUIDE.md)** | **2026-06-25** | — |
 | **[Voice Journaling and Obsidian Guide](guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md)** | **2026-06-24** | **577** |
+| **[Vault Agent Guide](guides/VAULT_AGENT_GUIDE.md)** | **2026-07-06** | — |
 | **[Linter Guide](guides/LINTER_GUIDE.md)** | **2026-03-29** | **180** |
 | **[UV Package Manager Guide](guides/UV_GUIDE.md)** | **2026-03-29** | **120** |
 | **[Troubleshooting Guide](TROUBLESHOOTING.md)** | **2026-01-31** | **650** |
