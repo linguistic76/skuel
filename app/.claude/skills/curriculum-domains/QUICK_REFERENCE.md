@@ -207,7 +207,7 @@ ps_service.progress.record_completion(ps_uid, user_uid)
 
 # KU — 4 sub-services
 ku_service.core.create_ku(...)
-ku_service.search_service.search(...)
+ku_service.search.search(...)
 ku_service.intelligence.get_usage_summary(ku_uid)
 
 # LP — 5 sub-services (specialized Cypher on LpBackend)
