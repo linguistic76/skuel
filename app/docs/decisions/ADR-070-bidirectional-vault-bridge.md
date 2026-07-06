@@ -128,6 +128,9 @@ Three outbound write operations the VaultWriter performs:
 **Change detection guard (stale-read prevention):**
 Before writing, re-read the file and compute SHA-256. If it differs from the `vault_sync_hash` stored on the `UserEntry` Neo4j node (the hash at last successful sync), the file changed concurrently — abort the write and queue for re-sync. This handles Syncthing/iCloud delivery racing the write window. Hash is updated in the same Neo4j write as the task status update.
 
+**Per-root sync serialization (added 2026-07-05, vault security arc PR 5):**
+`VaultReconciler.sync` holds a lazily created `asyncio.Lock` keyed by the resolved vault root around the whole effectful body (consent gate + ingest + outbound). Two concurrent syncs of the SAME root serialize — the second waits, it never errors; distinct roots never block each other. The SHA-256 stale-read guard above remains the per-file defense against out-of-process writers; the lock removes in-process sync interleaving.
+
 **`python-frontmatter`** library for YAML frontmatter-aware reads — preserves frontmatter structure during body mutation.
 
 **NFS / network drives:** `rename()` atomicity is NOT guaranteed on NFS. If a user's vault is on a network drive, writes may appear partial to Obsidian. Document as unsupported; recommend local-disk vault.
