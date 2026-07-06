@@ -288,8 +288,9 @@ class TestReconcileDeletionsThresholdValve:
     bypassed it and wiped the graph in one sync. The threshold valve refuses
     when >= MASS_DELETION_MIN_COUNT (10) deletions exceed
     MASS_DELETION_MAX_FRACTION (0.5) of all tracked files. Evaluated AFTER the
-    moved/stale split so reorganizations (identities re-claimed by new paths)
-    never trip it."""
+    moved/stale split, metadata-only cleanup, and owner-scope filtering (Kody
+    #524): reorganizations, malformed edges, and foreign-owned skips never
+    inflate the ratio, and a refusal still leaves metadata cleanup done."""
 
     def _rows(self, tmp_path, present: int, missing: int) -> list[dict]:
         rows = []
@@ -322,6 +323,44 @@ class TestReconcileDeletionsThresholdValve:
         assert "ingestion dashboard" in result.value.refusal_warning
         backend.delete_entities_with_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refusal_still_cleans_stale_rows(self, tmp_path) -> None:
+        # Kody #524: a refusal must not skip the metadata-only paths — a moved
+        # file's stale row is cleaned even when the majority wipe is refused.
+        rows = self._rows(tmp_path, present=3, missing=12)
+        moved_new = tmp_path / "renamed" / "ku.moved.md"
+        moved_new.parent.mkdir()
+        moved_new.write_text("x")
+        rows.append({"file_path": str(tmp_path / "ku.moved.md"), "entity_uid": "ku.moved"})
+        rows.append({"file_path": str(moved_new), "entity_uid": "ku.moved"})
+        tracker, backend = _tracker_with_tracked(rows)
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.mass_deletion_refused
+        assert result.value.stale_metadata_removed == 1  # cleanup ran pre-valve
+        backend.delete_ingestion_metadata.assert_awaited_once()
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_foreign_owned_skips_dont_count_toward_threshold(self, tmp_path) -> None:
+        # Kody #524: the valve counts rows that would ACTUALLY delete graph
+        # data. 11 of 15 missing, but all 11 are foreign-owned (skipped by the
+        # owner scope) — nothing would be deleted, so the valve must not fire.
+        tracker, backend = _tracker_with_tracked(self._rows(tmp_path, present=4, missing=11))
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.ok(
+                [{"uid": f"ku.missing-{i}", "user_uid": "user_other"} for i in range(11)]
+            )
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 0
+        assert len(result.value.ownership_mismatches) == 11
+        backend.delete_entities_with_metadata.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_all_but_one_deleted_refused(self, tmp_path) -> None:

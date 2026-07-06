@@ -1030,9 +1030,11 @@ exactly that relationship (and unchanged edge files skip on later runs). Moved/r
 lose only the stale tracking row. Reconciliation honors the run's `pattern` — a `*.md`-scoped
 run never deletes tracked YAML entities. Two mass-deletion safety valves: the **GLOBAL valve**
 refuses when NO tracked file under the directory physically exists (unmounted vault, sync
-wipe); the **THRESHOLD valve** — evaluated after the moved/stale split, so vault
-reorganizations never trip it — refuses when at least `MASS_DELETION_MIN_COUNT` (10)
-entities/edges would be deleted AND they exceed `MASS_DELETION_MAX_FRACTION` (0.5) of all
+wipe); the **THRESHOLD valve** — evaluated after every metadata-only path (moved/stale
+split, unparseable-edge cleanup) and after owner-scope filtering, so vault reorganizations,
+malformed edges, and foreign-owned skips never inflate the ratio and a refusal still leaves
+that cleanup done — refuses when at least `MASS_DELETION_MIN_COUNT` (10) entities/edges
+would actually be deleted AND they exceed `MASS_DELETION_MAX_FRACTION` (0.5) of all
 tracked files (deleting all-but-one file must not wipe the graph in one sync). Refusals
 surface as `refusal_warning` → stats `warnings`; escape hatch: delete explicitly via the
 ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
