@@ -370,13 +370,14 @@ class IngestionTracker:
           the exact predicate ``collect_files`` applies — so ingestion and
           retraction never disagree.
         - **Owner scope** (``owner_uid``, descriptor-governed syncs): a tracked
-          USER_OWNED entity whose ``user_uid`` differs from the syncing vault's
-          owner is never deleted — the row and entity both survive and the
-          mismatch is reported (``ownership_mismatches``). Path prefix alone
-          decided deletion before per-user vault roots; this closes the
-          cross-owner hole for legacy rows and misconfigured roots. SHARED
-          curriculum (ownerless) and Edge YAMLs (relationships carry no owner)
-          stay path-scoped.
+          user-owned node (:Entity ``user_uid``, :Group ``owner_uid``,
+          :Expense ``user_uid`` — every shape the delete query removes) whose
+          owner differs from the syncing vault's owner is never deleted — the
+          row and node both survive and the mismatch is reported
+          (``ownership_mismatches``). Path prefix alone decided deletion before
+          per-user vault roots; this closes the cross-owner hole for legacy
+          rows and misconfigured roots. SHARED curriculum (ownerless) and Edge
+          YAMLs (relationships carry no owner) stay path-scoped.
 
         Backend: IngestionBackend.get_tracked_files_under / get_entity_owner_uids /
         delete_entities_with_metadata.

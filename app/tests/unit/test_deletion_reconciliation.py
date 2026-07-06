@@ -400,6 +400,31 @@ class TestReconcileDeletionsOwnerScope:
         backend.delete_entities_with_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_foreign_owned_group_skipped(self, tmp_path) -> None:
+        # Kody #522: :Group carries owner_uid (not user_uid) and is deleted by
+        # the same query — the owner lookup must cover it so a foreign-owned
+        # group cannot read as "ownerless" and slip past the guard.
+        alive = tmp_path / "ku.alive.md"
+        alive.write_text("x")
+        gone_group = tmp_path / "group.gone.yaml"
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(alive), "entity_uid": "ku.alive"},
+                {"file_path": str(gone_group), "entity_uid": "group_gone_abc"},
+            ]
+        )
+        backend.get_entity_owner_uids = AsyncMock(
+            return_value=Result.ok([{"uid": "group_gone_abc", "user_uid": "user_teacher"}])
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path, owner_uid="user_owner")
+        assert result.is_ok
+        assert result.value.entities_deleted == 0
+        assert len(result.value.ownership_mismatches) == 1
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_edge_deletion_stays_path_scoped(self, tmp_path) -> None:
         # Relationships carry no owner — an owner-scoped run still deletes a
         # vanished Edge YAML's relationship, and never queries owners for it.

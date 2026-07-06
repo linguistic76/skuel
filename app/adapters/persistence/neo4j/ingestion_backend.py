@@ -224,20 +224,26 @@ class IngestionBackend:
         )
 
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
-        """Owner (``user_uid``) for each USER_OWNED entity among ``uids``.
+        """Owner for each user-owned node among ``uids``.
 
-        Returns rows only for :Entity nodes that CARRY a ``user_uid`` — SHARED
-        curriculum (ownerless by design) and non-Entity shapes (:Group,
-        :Expense) yield no row. Used by deletion reconciliation to refuse
-        cross-owner deletes: a tracked entity owned by a different user than
-        the syncing vault's owner is skipped, not deleted.
+        Covers every uid-bearing shape ``delete_entities_with_metadata`` can
+        delete (Kody #522): :Entity carries ``user_uid``, :Group carries
+        ``owner_uid`` (stamped from the uploading user — see
+        ``owner_uid_from_user_uid`` in ingestion config), :Expense carries
+        ``user_uid``. Ownerless nodes (SHARED curriculum, by design) yield no
+        row. Used by deletion reconciliation to refuse cross-owner deletes: a
+        tracked node owned by a different user than the syncing vault's owner
+        is skipped, not deleted.
         """
         return await self._executor.execute_query(
             """
             UNWIND $uids AS uid
-            MATCH (e:Entity {uid: uid})
-            WHERE e.user_uid IS NOT NULL
-            RETURN e.uid AS uid, e.user_uid AS user_uid
+            OPTIONAL MATCH (e:Entity {uid: uid})
+            OPTIONAL MATCH (g:Group {uid: uid})
+            OPTIONAL MATCH (x:Expense {uid: uid})
+            WITH uid, coalesce(e.user_uid, g.owner_uid, x.user_uid) AS owner_uid
+            WHERE owner_uid IS NOT NULL
+            RETURN uid AS uid, owner_uid AS user_uid
             """,
             {"uids": uids},
         )
