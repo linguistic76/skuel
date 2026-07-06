@@ -30,6 +30,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
@@ -353,7 +354,7 @@ class IngestionTracker:
         retracts previously-synced content that has since become private, so the
         fail-closed guarantee holds retroactively, not just for new ingestion.
 
-        Four guards:
+        Five guards:
         - **Pattern scope**: only tracked files matching the run's pattern are
           DELETED — a *.md-scoped run never deletes tracked YAML entities.
         - **Moved/renamed files**: if the same entity_uid is still claimed by
@@ -366,6 +367,14 @@ class IngestionTracker:
           want to purge those rows). If none physically exist, deletion is refused
           and a warning logged. A real full-vault teardown is an explicit admin
           operation, not a watcher side effect.
+        - **Mass-deletion safety valve (THRESHOLD)**: evaluated AFTER the
+          moved/stale split so vault reorganizations (identities re-claimed by
+          new paths) never trip it. Refuses when at least
+          ``MASS_DELETION_MIN_COUNT`` entities/edges would be deleted AND they
+          exceed ``MASS_DELETION_MAX_FRACTION`` of ALL tracked files under the
+          directory — deleting all-but-one file must not wipe the graph in one
+          sync. Refusals surface via ``refusal_warning``; escape hatch: delete
+          explicitly via the ingestion dashboard, or sync in smaller batches.
         - **Wall symmetry**: "would be collected" uses ``is_ingestible_path`` —
           the exact predicate ``collect_files`` applies — so ingestion and
           retraction never disagree.
@@ -408,14 +417,16 @@ class IngestionTracker:
         # wall change that leaves files on disk still purges them.
         physically_present = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
         if not physically_present:
-            self.logger.warning(
-                "Deletion reconciliation refused: all %d tracked files under %s "
-                "are missing — looks like an unmounted vault or sync wipe, not "
-                "authoring. Delete explicitly via the ingestion dashboard if intended.",
-                len(all_tracked),
-                directory,
+            warning = (
+                f"Deletion reconciliation refused: all {len(all_tracked)} tracked "
+                f"files under {directory} are missing — looks like an unmounted "
+                "vault or sync wipe, not authoring. Delete explicitly via the "
+                "ingestion dashboard if intended."
             )
-            return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
+            self.logger.warning(warning)
+            return Result.ok(
+                DeletionReconciliation(mass_deletion_refused=True, refusal_warning=warning)
+            )
 
         # Identities still claimed by a file that would still be collected =
         # moves/renames to an allowed location (covers duplicate edge files too).
@@ -476,6 +487,61 @@ class IngestionTracker:
                     owner_uid,
                 )
 
+        # Split edge rows by parseability up front: an unparseable identity only
+        # ever gets its tracking row cleaned (metadata-only, no graph data), so
+        # it is handled BEFORE the threshold valve and never counted by it.
+        deletable_edges: list[
+            tuple[dict[str, EntityUID], tuple[str, str, str], RelationshipName]
+        ] = []
+        for row in edge_rows:
+            parsed = parse_edge_identity(str(row["entity_uid"]))
+            rel_type = RelationshipName.from_string(parsed[1]) if parsed else None
+            if parsed is None or rel_type is None:
+                # Unparseable identity — clean the tracking row, leave the graph.
+                self.logger.warning(
+                    "Edge deletion skipped (unparseable identity %r) for %s — "
+                    "removing tracking row only",
+                    row["entity_uid"],
+                    row["file_path"],
+                )
+                cleanup_result = await self.delete_ingestion_metadata([Path(str(row["file_path"]))])
+                if cleanup_result.is_error:
+                    return Result.fail(cleanup_result)
+                stale_removed += 1
+                continue
+            deletable_edges.append((row, parsed, rel_type))
+
+        # Threshold mass-deletion valve (Kody #524: placed after every
+        # metadata-only path). It counts ONLY rows that would actually delete
+        # graph data — owner-filtered entity rows plus parseable edge rows —
+        # so vault reorganizations (stale rows), foreign-owned skips, and
+        # malformed edges never inflate the ratio, and a refusal still leaves
+        # all metadata-only cleanup done. The floor keeps small vaults /
+        # small cleanups friction-free; the fraction catches a majority wipe
+        # (e.g. deleting all-but-one file, which slips past the
+        # physical-existence valve above).
+        graph_delete_count = len(entity_rows) + len(deletable_edges)
+        if (
+            graph_delete_count >= MASS_DELETION_MIN_COUNT
+            and graph_delete_count / len(all_tracked) > MASS_DELETION_MAX_FRACTION
+        ):
+            warning = (
+                f"Deletion reconciliation refused: {graph_delete_count} of "
+                f"{len(all_tracked)} tracked files under {directory} would be "
+                "deleted in one sync — that majority wipe looks like data loss, "
+                "not authoring. Delete explicitly via the ingestion dashboard, "
+                "or sync in smaller batches."
+            )
+            self.logger.warning(warning)
+            return Result.ok(
+                DeletionReconciliation(
+                    mass_deletion_refused=True,
+                    refusal_warning=warning,
+                    stale_metadata_removed=stale_removed,
+                    ownership_mismatches=ownership_mismatches,
+                )
+            )
+
         entities_deleted = 0
         if entity_rows:
             items = [
@@ -493,22 +559,7 @@ class IngestionTracker:
             )
 
         edges_deleted = 0
-        for row in edge_rows:
-            parsed = parse_edge_identity(str(row["entity_uid"]))
-            rel_type = RelationshipName.from_string(parsed[1]) if parsed else None
-            if parsed is None or rel_type is None:
-                # Unparseable identity — clean the tracking row, leave the graph.
-                self.logger.warning(
-                    "Edge deletion skipped (unparseable identity %r) for %s — "
-                    "removing tracking row only",
-                    row["entity_uid"],
-                    row["file_path"],
-                )
-                cleanup_result = await self.delete_ingestion_metadata([Path(str(row["file_path"]))])
-                if cleanup_result.is_error:
-                    return Result.fail(cleanup_result)
-                stale_removed += 1
-                continue
+        for row, parsed, rel_type in deletable_edges:
             edge_result = await self.backend.delete_edge_with_metadata(
                 str(row["file_path"]), parsed[0], parsed[2], rel_type
             )
