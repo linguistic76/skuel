@@ -24,10 +24,13 @@ from typing import Protocol
 # ============================================================================
 # VAULT-LINE NORMALIZATION CONTRACT (ADR-070 Decision 1 + Decision 4)
 # ============================================================================
-# Single definition used by all three sites that must agree on line identity:
+# Single definition used by all the sites that must agree on line identity:
 #   - obsidian_tasks_adapter  (produces source_line_hash stored on EXTRACTED_FROM)
 #   - VaultReconciler         (looks up lines by hash for ID injection)
-#   - FilesystemVaultAdapter  (targets the right line inside _apply_inject_id)
+#   - FilesystemVaultAdapter  (targets the right line inside apply_inject_id)
+#   - agent/skuel_vault_agent (applies the SAME mutations on the user's device,
+#     ADR-075 B3 — this module is deliberately importable with a stdlib-only
+#     dependency chain so the PEP 723 agent can share it)
 #
 # A divergence here silently injects IDs into the wrong lines — keep it here.
 
@@ -125,6 +128,100 @@ class VaultSyncStats:
     def is_clean(self) -> bool:
         """No failures and no surfaced warnings — the only 'Sync complete' state."""
         return not self.errors and not self.warnings and self.files_failed == 0
+
+
+# ============================================================================
+# LINE-LEVEL MUTATIONS (pure functions — ADR-070 Decision 4)
+# ============================================================================
+# The outbound write operations, shared by BOTH transports (One Path Forward):
+# FilesystemVaultAdapter (Stage 1, server-local) and the user-side vault agent
+# (ADR-075 B3, device-local) apply the exact same mutations, so 🆔 injection
+# and done-toggling behave byte-identically wherever the vault lives.
+
+# Checkbox detection
+_UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
+_CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
+# Done-date token: ✅ YYYY-MM-DD
+_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
+
+
+def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
+    """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``.
+
+    Idempotent only when BOTH the checkbox is already ``[x]`` AND the ``✅ date`` token is
+    present.  An already-checked line that is missing the done-date (e.g. checked directly
+    in Obsidian without the tasks plugin) still receives the token so SKUEL and the vault
+    stay in sync.
+    """
+    for i, line in enumerate(lines):
+        m = VAULT_ID_RE.search(line)
+        if not m or m.group(1) != vault_id:
+            continue
+        checked = bool(_CHECKED_RE.match(line))
+        if not checked and not _UNCHECKED_RE.match(line):
+            return lines, False
+
+        # True no-op: already checked AND already has a done-date
+        if checked and _DONE_DATE_RE.search(line):
+            return lines, False
+
+        # Flip checkbox if needed
+        if not checked:
+            line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
+
+        # Append ✅ date if still absent
+        if not _DONE_DATE_RE.search(line):
+            stripped = line.rstrip("\n")
+            eol = line[len(stripped) :]
+            line = f"{stripped} ✅ {done_date}{eol}"
+
+        lines[i] = line
+        return lines, True
+    return lines, False
+
+
+def apply_inject_id(
+    lines: list[str], vault_id: str, source_line_hash: str | None
+) -> tuple[list[str], bool]:
+    """Find the target checkbox line and append ``🆔 <vault_id>``.
+
+    When ``source_line_hash`` is provided, finds the line whose normalized hash
+    matches — guaranteeing the right line is targeted even when multiple tasks
+    in the same file lack an ID.  Falls back to the first ID-less checkbox line
+    when no hash is provided.
+    """
+    for i, line in enumerate(lines):
+        if not (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)):
+            continue
+        if VAULT_ID_RE.search(line):
+            continue  # Already has a 🆔
+        if source_line_hash is not None and normalize_vault_line_hash(line) != source_line_hash:
+            continue
+        stripped = line.rstrip("\n")
+        eol = line[len(stripped) :]
+        lines[i] = f"{stripped} 🆔 {vault_id}{eol}"
+        return lines, True
+    return lines, False
+
+
+def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str, bool]:
+    """Apply a batch of task-line updates to note content; pure — no I/O.
+
+    Returns ``(new_content, modified)``.  Both transports wrap this with the
+    same SHA-256 stale-read guard and atomic temp-file + ``rename()`` write.
+    """
+    lines = content.splitlines(keepends=True)
+    modified = False
+    for update in updates:
+        if update.mark_done:
+            lines, changed = apply_mark_done(lines, update.vault_id, update.done_date or "")
+        elif update.inject_vault_id:
+            lines, changed = apply_inject_id(lines, update.vault_id, update.source_line_hash)
+        else:
+            changed = False
+        if changed:
+            modified = True
+    return "".join(lines), modified
 
 
 # ============================================================================

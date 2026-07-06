@@ -48,6 +48,9 @@ dependencies = [
     "deepgram-sdk>=4.8.1,<5.0.0",
     # Security Dependencies
     "cryptography>=48.0.0",
+    # Vault-agent WS client (ADR-075 B3) — direct dep, not a transitive ride on
+    # deepgram/fastmcp; agent/skuel_vault_agent.py + its unit tests import it.
+    "websockets>=16.0",
     "python-slugify>=8.0.4",
     "bcrypt>=5.0.0",
     # GraphQL API - For complex nested queries and real-time subscriptions
@@ -178,7 +181,7 @@ show_column_numbers = true
 show_error_context = true
 
 # Files to check (gradual migration strategy)
-files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui"]
+files = ["core", "adapters", "api", "main.py", "services_bootstrap", "ui", "agent"]
 exclude = [
     "build/",
     "dist/",
