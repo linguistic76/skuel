@@ -8,14 +8,6 @@ from ui.patterns.hub import HubBlockData
 
 LIBRARY_BLOCKS: list[HubBlockData] = [
     HubBlockData(
-        "Resources",
-        "resources",
-        "bookmark",
-        "#F59E0B",
-        "/library/resources",
-        "/api/library/resources/preview",
-    ),
-    HubBlockData(
         "Ku",
         "ku",
         "brain",
@@ -38,5 +30,13 @@ LIBRARY_BLOCKS: list[HubBlockData] = [
         "#3B82F6",
         "/library/exercises",
         "/api/library/exercises/preview",
+    ),
+    HubBlockData(
+        "Resources",
+        "resources",
+        "bookmark",
+        "#F59E0B",
+        "/library/resources",
+        "/api/library/resources/preview",
     ),
 ]
