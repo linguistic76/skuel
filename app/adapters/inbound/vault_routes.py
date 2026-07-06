@@ -49,6 +49,7 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.type_hints import UserUID
 from core.models.vault_request import ContentVaultSyncRequest
 from core.services.vault.vault_descriptor import VaultKind
+from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.components import Button, Loading
@@ -82,23 +83,70 @@ def _sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spi
     )
 
 
-def _consent_form() -> Div:
+def _read_scope_phrase(description: VaultDescription) -> tuple[Any, ...]:
+    """Inline FT children stating exactly what a sync may read — from the live wall.
+
+    Shared by the consent form and the privacy panel so the two surfaces can
+    never drift apart (or from the actual allowlist). Folder names arrive
+    vault-relative (``VaultReconciler.describe``, #525 — no absolute paths).
+    """
+    if description.whole_vault_open:
+        return (
+            "SKUEL will read notes from your whole vault (a combined vault syncs "
+            "every folder), except the ",
+            Span("je_*", cls="font-mono text-sm"),
+            " pipeline staging folders, which are never read",
+        )
+    if description.allowed_folders:
+        return (
+            "SKUEL will read notes from these folders of your vault — ",
+            Span(
+                ", ".join(f"{folder}/" for folder in description.allowed_folders),
+                cls="font-mono text-sm",
+            ),
+            " — and nothing else",
+        )
+    return ("No folders are currently synced from this vault, so SKUEL will read nothing",)
+
+
+def _privacy_wall_panel(description: VaultDescription) -> Div:
+    """The visible privacy wall: exactly which folders a sync may read."""
+    if description.allowed_folders and not description.whole_vault_open:
+        scope: Any = Ul(
+            *[
+                Li(Span(f"{folder}/", cls="font-mono text-sm"))
+                for folder in description.allowed_folders
+            ],
+            cls="list-disc pl-4 space-y-1 text-sm text-base-content/80",
+        )
+    else:
+        scope = P(*_read_scope_phrase(description), ".", cls="text-sm text-base-content/80")
+    return Div(
+        H3("What SKUEL can see", cls="text-base font-semibold mb-2"),
+        scope,
+        P(
+            "Everything else in your vault is never read, never searched, "
+            "and never sent to an LLM.",
+            cls="text-xs text-base-content/60 mt-3",
+        ),
+        cls="bg-base-200 border border-base-300 rounded-lg p-5 mb-6",
+    )
+
+
+def _consent_form(description: VaultDescription) -> Div:
     """Fragment shown when first_run_notice is True.
 
     Consent covers BOTH directions of the sync (read + write) — nothing is
-    ingested before the user accepts here.
+    ingested before the user accepts here. The folder list comes from the live
+    allowlist (``VaultReconciler.describe``), never hardcoded prose.
     """
     return Div(
         Div(
             H3("Allow SKUEL to sync your Obsidian vault?", cls="text-lg font-semibold mb-2"),
             P(
-                "Syncing works in both directions. SKUEL will read notes from the "
-                "allowed doorway folders of your vault — ",
-                Span(
-                    "periodic_notes, personal_notes, activity_notes, knowledge",
-                    cls="font-mono text-sm",
-                ),
-                " — and nothing else. It will also write ",
+                "Syncing works in both directions. ",
+                *_read_scope_phrase(description),
+                ". It will also write ",
                 Span("🆔 sk_XXXXXX", cls="font-mono text-sm"),
                 " IDs back into your task lines and mark completed tasks with ",
                 Span("[x] ✅ date", cls="font-mono text-sm"),
@@ -218,14 +266,43 @@ def create_vault_routes(
     """Register vault bridge routes (UI + API)."""
     get_user_service = make_service_getter(user_service)
 
+    def _describe_personal_vault(user_uid: UserUID) -> VaultDescription:
+        """Unwrap the reconciler's read-only wall description for UI rendering.
+
+        ``describe`` reports "no vault" as ``vault_configured=False`` rather
+        than an error; an error here would be a wiring defect — fall back to
+        the unconfigured shape instead of a 500 on a trust page.
+        """
+        result = vault_reconciler.describe(VaultKind.PERSONAL, user_uid)
+        return result.value if result.is_ok else VaultDescription(vault_configured=False)
+
     # ------------------------------------------------------------------
     # UI routes
     # ------------------------------------------------------------------
 
     @rt("/submissions/sync")
     async def submissions_sync_page(request: Request) -> Any:
-        """Vault sync page under the Submissions MOC."""
-        require_authenticated_user(request)
+        """Vault sync page under the Submissions MOC — shows the privacy wall."""
+        user_uid = require_authenticated_user(request)
+
+        description = _describe_personal_vault(user_uid)
+        if description.vault_configured:
+            sync_area: tuple[Any, ...] = (
+                _privacy_wall_panel(description),
+                _sync_button(),
+                Div(id="vault-results"),
+            )
+        else:
+            sync_area = (
+                Div(
+                    P(
+                        "No personal vault is configured for your account, "
+                        "so there is nothing to sync — and nothing is read.",
+                        cls="text-sm text-base-content/70",
+                    ),
+                    cls="bg-base-200 border border-base-300 rounded-lg p-5",
+                ),
+            )
 
         content = Div(
             PageHeader(
@@ -242,8 +319,7 @@ def create_vault_routes(
                 " ID into each task line so completed tasks can be written back.",
                 cls="text-base-content/70 mb-6",
             ),
-            _sync_button(),
-            Div(id="vault-results"),
+            *sync_area,
             cls="max-w-2xl",
         )
 
@@ -270,7 +346,7 @@ def create_vault_routes(
 
         stats = result.value
         if stats.first_run_notice:
-            return _consent_form()
+            return _consent_form(_describe_personal_vault(user_uid))
 
         return _sync_stats_fragment(asdict(stats))
 
