@@ -94,6 +94,7 @@ class TestWall:
             "periodic_notes/../private_journal/secret.md",  # nested parent escape
             "periodic_notes/sneaky-link.md",  # leaf symlink out of the wall
             "periodic_notes/je_out/transcript.md",  # je_* staging floor
+            "knowledge/image.png",  # non-ingestible suffix — outside the sync surface
             "",  # empty
             ".",  # the root itself
         ],
@@ -184,6 +185,19 @@ class TestListChangedSince:
         (vault / "knowledge" / "new-note.md").write_text("# new\n")
         second = handler.handle({"id": 2, "op": "list_changed_since", "params": {}})
         assert first["result"]["state"] != second["result"]["state"]
+
+    def test_symlinked_allowed_root_folder_lists_nothing(self, tmp_path: Path, vault: Path) -> None:
+        # An allowed folder that IS a symlink would let os.walk leak metadata
+        # for out-of-vault files (followlinks=False only guards below the top).
+        outside = tmp_path / "elsewhere"
+        outside.mkdir()
+        (outside / "leaked.md").write_text("outside the vault\n")
+        (vault / "activity_notes").symlink_to(outside)
+
+        handler = VaultRPCHandler(vault, ("activity_notes",))
+        response = handler.handle({"id": 1, "op": "list_changed_since", "params": {}})
+        assert response["ok"] is True
+        assert response["result"]["files"] == []
 
 
 class TestReadNote:
@@ -532,3 +546,25 @@ class TestWsUrl:
 
     def test_http_becomes_ws(self) -> None:
         assert agent.derive_ws_url("http://localhost:8000") == "ws://localhost:8000/ws/agent"
+
+    def test_path_prefix_is_preserved(self) -> None:
+        # Reverse-proxy subpath deployments must reconnect to the same prefix.
+        assert (
+            agent.derive_ws_url("https://host.example/skuel/")
+            == "wss://host.example/skuel/ws/agent"
+        )
+
+
+class TestServerScheme:
+    def test_https_accepted(self) -> None:
+        agent.check_server_scheme("https://skuel.example")
+
+    @pytest.mark.parametrize("url", ["http://localhost:8000", "http://127.0.0.1:8000"])
+    def test_http_localhost_accepted(self, url: str) -> None:
+        agent.check_server_scheme(url)
+
+    def test_http_off_localhost_refused(self) -> None:
+        # The pairing code and vault RPCs must never cross the network
+        # unencrypted — TLS is half the channel security (ADR-075 Decision 1).
+        with pytest.raises(AgentError, match="non-HTTPS"):
+            agent.check_server_scheme("http://skuel.example")

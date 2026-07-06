@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.14"
 # dependencies = [
 #     "cryptography>=48.0.0",
 #     "websockets>=16.0",
@@ -311,6 +311,10 @@ def resolve_in_wall(vault_root: Path, allowed_folders: tuple[str, ...], relative
         raise WallError()
     if any(part in STAGING_EXCLUDED_DIRS for part in rel_parts):
         raise WallError()
+    if resolved.suffix.lower() not in INGESTIBLE_SUFFIXES:
+        # The sync surface is ingestible files only — read/write RPCs may not
+        # touch anything list_changed_since would never report (Kody #530).
+        raise WallError()
     return resolved
 
 
@@ -397,7 +401,10 @@ class VaultRPCHandler:
         files: list[dict[str, Any]] = []
         for folder in sorted(self._allowed_folders):
             folder_path = self._root / folder
-            if not folder_path.is_dir():
+            # A symlinked allowed-root folder would make os.walk leak metadata
+            # for files outside the vault (followlinks=False only guards BELOW
+            # the top) — refuse it like any other symlink (Kody #530).
+            if folder_path.is_symlink() or not folder_path.is_dir():
                 continue
             for dirpath, dirnames, filenames in os.walk(folder_path, followlinks=False):
                 dirnames[:] = sorted(d for d in dirnames if d not in STAGING_EXCLUDED_DIRS)
@@ -405,6 +412,8 @@ class VaultRPCHandler:
                     path = Path(dirpath) / filename
                     if path.suffix.lower() not in INGESTIBLE_SUFFIXES or path.is_symlink():
                         continue
+                    if not path.resolve().is_relative_to(self._root):
+                        continue  # belt-and-braces: resolved location must stay in-vault
                     try:
                         content = path.read_text(encoding="utf-8")
                         stat_result = path.stat()
@@ -523,10 +532,34 @@ class VaultRPCHandler:
 
 
 def derive_ws_url(server_url: str) -> str:
-    """http(s)://host → ws(s)://host/ws/agent."""
+    """http(s)://host[/prefix] → ws(s)://host[/prefix]/ws/agent.
+
+    A path prefix in the server URL (reverse-proxy subpath deployments) is
+    preserved — dropping it would enroll fine and then never reconnect.
+    """
     parsed = urllib.parse.urlparse(server_url)
     scheme = "wss" if parsed.scheme == "https" else "ws"
-    return f"{scheme}://{parsed.netloc}/ws/agent"
+    prefix = parsed.path.rstrip("/")
+    return f"{scheme}://{parsed.netloc}{prefix}/ws/agent"
+
+
+def check_server_scheme(server_url: str) -> None:
+    """Refuse plaintext transport off localhost (AgentError).
+
+    The pairing code, the device pubkey, and every vault RPC would otherwise
+    cross the network unencrypted — ADR-075 Decision 1 makes TLS half of the
+    channel security. ``http://`` stays allowed for localhost-only dev.
+    """
+    parsed = urllib.parse.urlparse(server_url)
+    if parsed.scheme == "https":
+        return
+    if parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1"):
+        return
+    raise AgentError(
+        f"Refusing non-HTTPS server URL {server_url!r} — the pairing code and "
+        "vault content would cross the network unencrypted. Use https:// "
+        "(plain http is allowed for localhost only)."
+    )
 
 
 async def perform_handshake(connection: Any, private_key: Ed25519PrivateKey) -> str:
@@ -644,10 +677,7 @@ def cmd_enroll(server: str, vault: str, name: str | None) -> int:
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         print(f"--server must be an http(s) URL, got: {server}")
         return 1
-    if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1", "::1"):
-        print(
-            "Warning: --server is plain http — the pairing code will cross the network unencrypted."
-        )
+    check_server_scheme(server_url)  # refuse plaintext off localhost (AgentError)
 
     device_name = name or _default_device_name()
     private_key = generate_or_load_private_key()
@@ -702,6 +732,7 @@ def cmd_enroll(server: str, vault: str, name: str | None) -> int:
 def cmd_run() -> int:
     """Connect to the server and serve vault RPCs until interrupted."""
     config = load_config()
+    check_server_scheme(config.server_url)  # a hand-edited config gets the same TLS floor
     private_key = load_private_key()
     if not config.vault_root.is_dir():
         print(f"Vault root {config.vault_root} does not exist — fix {CONFIG_PATH}.")
