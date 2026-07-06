@@ -627,8 +627,13 @@ is only an **acting-user hint**:
 | File lives in… | Owner attributed | Hint |
 |----------------|------------------|------|
 | Content vault (`INGESTION_PATH`) | `content_owner_uid` ("acts-as" account) | ignored |
-| A personal vault (`VAULT_ROOT`)  | the acting user (per-tenant)            | used |
+| Primary personal vault (`VAULT_ROOT`) | its bound owner (`SKUEL_PERSONAL_VAULT_OWNER`) | ignored |
+| A member vault (`{user_vaults_root}/{uid}/`) | `{uid}` — the directory's user | ignored |
 | Neither root                     | content acts-as (safe default)          | ignored |
+
+(Personal roots are per-user — ADR-070 Decision 5 amendment 2026-07-05. When a
+registry governs, the hint never decides ownership; it only matters as the
+fallback in registry-less minimal composes.)
 
 `VaultRegistry.resolve_by_path()` performs the resolution; `UnifiedIngestionService`
 applies it at the ingestion **mechanism** — both the per-file `ingest_file` seams *and*

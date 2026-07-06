@@ -70,6 +70,34 @@ async def test_content_sync_refused_in_combined_root(tmp_path: Path) -> None:
     ingestion.ingest_directory.assert_not_called()
 
 
+async def test_member_sync_refused_when_nested_under_primary_root(tmp_path: Path) -> None:
+    # Misconfiguration: member family INSIDE the primary personal root. By-path,
+    # the primary owner governs everything under its root, so a member's by-kind
+    # sync would split attribution (ingest → primary, round-trip → member).
+    # The owner-mismatch arm of the surface-independence guard refuses it.
+    primary_root = tmp_path / "personal"
+    family_root = primary_root / "user_vaults"
+    (family_root / "user_member").mkdir(parents=True)
+
+    def _factory(owner_uid: UserUID, root: Path) -> VaultDescriptor:
+        return _descriptor(VaultKind.PERSONAL, root, str(owner_uid))
+
+    registry = VaultRegistry(
+        content=_descriptor(VaultKind.CONTENT, tmp_path / "content", "user_admin"),
+        personal=_descriptor(VaultKind.PERSONAL, primary_root, "user_primary"),
+        user_vaults_root=family_root,
+        personal_descriptor_factory=_factory,
+    )
+    ingestion = Mock()
+    reconciler = _reconciler(registry, ingestion)
+
+    result = await reconciler.sync(VaultKind.PERSONAL, UserUID("user_member"))
+
+    assert result.is_error
+    assert "governed by another" in result.expect_error().message.lower()
+    ingestion.ingest_directory.assert_not_called()
+
+
 async def test_content_sync_allowed_in_split_root(tmp_path: Path) -> None:
     content_root = tmp_path / "content"
     personal_root = tmp_path / "personal"

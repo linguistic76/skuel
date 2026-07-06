@@ -146,10 +146,14 @@ class VaultReconciler:
         # Surface-independence invariant: by-kind and by-path resolution must agree
         # on this root, otherwise the ingestion mechanism (which resolves owner +
         # wall by path) would attribute a different owner than this by-kind sync.
-        # They disagree only in a combined-root config (VAULT_ROOT == INGESTION_PATH),
+        # Kind disagreement is the combined-root config (VAULT_ROOT == INGESTION_PATH),
         # where the single vault resolves to PERSONAL by-path: there is no distinct
         # content vault, so a CONTENT sync would stamp content_owner_uid onto the
         # user's own files. Refuse it — the combined vault syncs as PERSONAL.
+        # Owner disagreement is a nested-roots misconfiguration (e.g. a member
+        # vault placed inside the primary personal root): by-path governance
+        # belongs to the enclosing vault's owner, so syncing it as anyone else
+        # would split attribution. Refuse that too.
         by_path = self._registry.resolve_by_path(descriptor.root, owner)
         if by_path.is_ok and by_path.value.kind is not kind:
             return Result.fail(
@@ -158,6 +162,15 @@ class VaultReconciler:
                     "configuration (VAULT_ROOT coincides with INGESTION_PATH); the "
                     f"single vault resolves as {by_path.value.kind.value} — sync it "
                     "under that kind instead.",
+                    field="kind",
+                )
+            )
+        if by_path.is_ok and by_path.value.owner_uid != owner:
+            return Result.fail(
+                Errors.validation(
+                    "vault sync refused: this vault root is governed by another "
+                    "vault's owner by path (nested vault roots misconfiguration) — "
+                    "move the vault outside the enclosing vault root.",
                     field="kind",
                 )
             )

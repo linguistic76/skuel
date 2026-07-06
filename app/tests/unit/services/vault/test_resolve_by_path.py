@@ -2,9 +2,10 @@
 
 These tests pin the by-path resolution that makes ingest ownership
 surface-independent (ADR-070): the personal descriptor is only ever returned for
-a path *inside* the personal root (stamped with the acting user), the content
-descriptor owns its own root plus every path under neither vault, and a registry
-with no descriptors fails so the caller falls back to its default owner.
+a path *inside* the personal root — attributed to that vault's BOUND owner,
+never the acting caller (per-user roots) — the content descriptor owns its own
+root plus every path under neither vault, and a registry with no descriptors
+fails so the caller falls back to its default owner.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from core.services.vault.vault_descriptor import (
 
 _ACTING = UserUID("user_alpha")
 _CONTENT_OWNER = UserUID("user_admin")
-_PLACEHOLDER = UserUID("user_system")
+_PRIMARY = UserUID("user_primary")
 
 
 def _bridge() -> VaultBridgePort:
@@ -52,14 +53,14 @@ def _personal(root: Path) -> VaultDescriptor:
     return VaultDescriptor(
         kind=VaultKind.PERSONAL,
         root=root,
-        owner_uid=_PLACEHOLDER,  # template placeholder; stamped at resolve
+        owner_uid=_PRIMARY,  # owner-bound at compose time (per-user roots)
         allowlist=_wall(root),
         bridge=_bridge(),
         supports_task_round_trip=True,
     )
 
 
-def test_personal_root_stamps_acting_user(tmp_path: Path) -> None:
+def test_personal_root_attributes_bound_owner(tmp_path: Path) -> None:
     content_root = tmp_path / "content"
     personal_root = tmp_path / "personal"
     registry = VaultRegistry(content=_content(content_root), personal=_personal(personal_root))
@@ -69,7 +70,7 @@ def test_personal_root_stamps_acting_user(tmp_path: Path) -> None:
     assert result.is_ok
     descriptor = result.value
     assert descriptor.kind is VaultKind.PERSONAL
-    assert descriptor.owner_uid == _ACTING  # acting user, not the placeholder
+    assert descriptor.owner_uid == _PRIMARY  # the vault's bound owner, never the caller
 
 
 def test_content_root_ignores_acting_hint(tmp_path: Path) -> None:
@@ -101,7 +102,8 @@ def test_path_under_neither_root_falls_back_to_content(tmp_path: Path) -> None:
 
 def test_coincident_roots_personal_wins(tmp_path: Path) -> None:
     # Combined-root config (default .env before split): personal precedence means
-    # the acting user owns their own entries rather than the content acts-as owner.
+    # the vault's bound owner owns these entries rather than the content acts-as
+    # owner.
     shared_root = tmp_path / "vault"
     registry = VaultRegistry(content=_content(shared_root), personal=_personal(shared_root))
 
@@ -109,13 +111,13 @@ def test_coincident_roots_personal_wins(tmp_path: Path) -> None:
 
     assert result.is_ok
     assert result.value.kind is VaultKind.PERSONAL
-    assert result.value.owner_uid == _ACTING
+    assert result.value.owner_uid == _PRIMARY
 
 
 def test_nested_content_under_personal_is_combined_vault(tmp_path: Path) -> None:
     # INGESTION_PATH nested *under* VAULT_ROOT is a COMBINED vault (consistent with
     # build_sync_allowlist, which opens such a vault whole): everything under the
-    # personal root is the user's own. USER_OWNED files → acting user; SHARED
+    # personal root is the bound owner's own. USER_OWNED files → bound owner; SHARED
     # curriculum still drops its owner at persist regardless.
     personal_root = tmp_path / "vault"
     content_root = personal_root / "curriculum"
@@ -125,9 +127,9 @@ def test_nested_content_under_personal_is_combined_vault(tmp_path: Path) -> None
     personal_path = registry.resolve_by_path(personal_root / "notes" / "day.md", _ACTING)
 
     assert content_path.is_ok and content_path.value.kind is VaultKind.PERSONAL
-    assert content_path.value.owner_uid == _ACTING
+    assert content_path.value.owner_uid == _PRIMARY
     assert personal_path.is_ok and personal_path.value.kind is VaultKind.PERSONAL
-    assert personal_path.value.owner_uid == _ACTING
+    assert personal_path.value.owner_uid == _PRIMARY
 
 
 def test_content_only_path_when_personal_nested_under_content(tmp_path: Path) -> None:
@@ -141,7 +143,7 @@ def test_content_only_path_when_personal_nested_under_content(tmp_path: Path) ->
     content_path = registry.resolve_by_path(content_root / "ku" / "atom.md", _ACTING)
 
     assert personal_path.is_ok and personal_path.value.kind is VaultKind.PERSONAL
-    assert personal_path.value.owner_uid == _ACTING
+    assert personal_path.value.owner_uid == _PRIMARY
     assert content_path.is_ok and content_path.value.kind is VaultKind.CONTENT
     assert content_path.value.owner_uid == _CONTENT_OWNER
 
@@ -176,7 +178,7 @@ def test_personal_only_registry_walls_out_of_root(tmp_path: Path) -> None:
     inside = registry.resolve_by_path(personal_root / "in.md", _ACTING)
     outside = registry.resolve_by_path(tmp_path / "out.md", _ACTING)
 
-    assert inside.is_ok and inside.value.owner_uid == _ACTING
+    assert inside.is_ok and inside.value.owner_uid == _PRIMARY
     assert outside.is_error
 
 
