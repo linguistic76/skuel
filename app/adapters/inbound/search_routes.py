@@ -52,7 +52,11 @@ logger = get_logger("skuel.routes.search")
 
 
 def create_search_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, search_router: Any, **_kwargs: Any
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    search_router: Any,
+    ku_service: Any = None,
+    **_kwargs: Any,
 ) -> list[Any]:
     """Create search routes with SearchRouter dependency."""
 
@@ -61,7 +65,16 @@ def create_search_api_routes(
         """Main search page with unified BasePage layout."""
         require_authenticated_user(request)
 
-        return await render_search_page_with_navbar(request)
+        # NOUS topic vocabulary is derived from the graph (anchors guarantee
+        # completeness) — never hardcoded, so the facet can't drift from the
+        # vault. A fetch failure degrades to an empty dropdown, not a 500.
+        nous_topics: list[str] = []
+        if ku_service is not None:
+            topics_result = await ku_service.list_nous_topics()
+            if topics_result.is_ok and topics_result.value:
+                nous_topics = topics_result.value
+
+        return await render_search_page_with_navbar(request, nous_topics=nous_topics)
 
     @rt("/search/results")
     @boundary_handler()
@@ -93,8 +106,8 @@ def create_search_api_routes(
         applied_in_tasks: str | None = None,
         aligned_with_principles: str | None = None,
         next_logical_step: str | None = None,
-        # Nous-specific filters
-        nous_section: str | None = None,
+        # NOUS topic filter
+        nous: str | None = None,
         # Pedagogical filters
         not_yet_viewed: str | None = None,
         viewed_not_mastered: str | None = None,
@@ -143,7 +156,7 @@ def create_search_api_routes(
                 applied_in_tasks=applied_in_tasks,
                 aligned_with_principles=aligned_with_principles,
                 next_logical_step=next_logical_step,
-                nous_section=nous_section,
+                nous=nous,
                 not_yet_viewed=not_yet_viewed,
                 viewed_not_mastered=viewed_not_mastered,
                 ready_to_review=ready_to_review,
@@ -365,6 +378,8 @@ SEARCH_CONFIG = DomainRouteConfig(
     domain_name="search",
     primary_service_attr="search_router",
     api_factory=create_search_api_routes,
+    # KuService supplies the derived NOUS topic vocabulary for the filter bar
+    api_related_services={"ku_service": "ku"},
 )
 
 

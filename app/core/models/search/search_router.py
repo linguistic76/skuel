@@ -636,6 +636,27 @@ class SearchRouter:
         }
     )
 
+    def _resolve_graph_aware_service(self, domain_str: str) -> "SupportsGraphAwareSearch | None":
+        """Resolve a domain string to its graph-aware search service, if any.
+
+        Domain strings in _GRAPH_AWARE_DOMAINS are Services attribute names.
+        Facade domains expose the capability on their ``.search`` sub-service;
+        thin services (Exercise, UserEntry, etc.) implement it directly.
+        """
+        domain_service = getattr(self.services, domain_str, None)
+        if domain_service is None:
+            return None
+
+        search_service = getattr(domain_service, "search", None)
+        if search_service is not None and not callable(search_service):
+            # Facade pattern: .search property returns sub-service
+            if isinstance(search_service, SupportsGraphAwareSearch):
+                return search_service
+            return None
+        if isinstance(domain_service, SupportsGraphAwareSearch):
+            return domain_service
+        return None
+
     async def _graph_aware_domain_search(
         self,
         request: "SearchRequest",
@@ -653,21 +674,8 @@ class SearchRouter:
 
         from core.models.search_request import SearchResponse
 
-        # Domain strings in _GRAPH_AWARE_DOMAINS are Services attribute names
-        domain_service = getattr(self.services, domain_str, None)
-        if domain_service is None:
-            return None
-
-        # Try facade pattern first (.search sub-service), then check service itself
-        search_service = getattr(domain_service, "search", None)
-        if search_service is not None and not callable(search_service):
-            # Facade pattern: .search property returns sub-service
-            if not isinstance(search_service, SupportsGraphAwareSearch):
-                return None
-        elif isinstance(domain_service, SupportsGraphAwareSearch):
-            # Service itself implements graph-aware search (Exercise, Submission, etc.)
-            search_service = domain_service
-        else:
+        search_service = self._resolve_graph_aware_service(domain_str)
+        if search_service is None:
             return None
 
         self.logger.debug(f"Graph-aware domain search: {domain_str}")
@@ -782,6 +790,15 @@ class SearchRouter:
             ]
         else:
             sweep_domains = [et for et in self._SEARCHABLE_DOMAINS if et != EntityType.USER_ENTRY]
+
+        # Property facets (nous, sel_category, learning_level, ...) can't ride
+        # the plain text sweep — search_domains() drops them. Route the sweep
+        # through per-domain graph-aware faceted search instead, so a facet
+        # like "NOUS topic = body" with Type = All actually filters (the
+        # facets become WHERE clauses in each domain's query).
+        if request.to_property_filters() and user_uid:
+            return await self._faceted_sweep(request, user_uid, sweep_domains)
+
         unified_result = await self.search_domains(
             sweep_domains,
             request.query_text or "",
@@ -804,6 +821,48 @@ class SearchRouter:
 
         # Sort by score and limit
         results.sort(key=get_dict_score, reverse=True)
+        return results[: request.limit]
+
+    async def _faceted_sweep(
+        self,
+        request: "SearchRequest",
+        user_uid: UserUID,
+        sweep_domains: list[EntityType | NonKuDomain],
+    ) -> list[dict]:
+        """Cross-domain sweep with property facets applied in-query.
+
+        Each sweep domain that supports graph_aware_faceted_search runs it —
+        the request's property filters become WHERE clauses. Domains without
+        graph-aware support are SKIPPED, not text-searched: a filtered sweep
+        must never mix unfiltered results into a facet the user narrowed.
+        """
+        results: list[dict] = []
+        for entity_type in sweep_domains:
+            domain_str = self._SERVICE_REGISTRY.get(entity_type)
+            if domain_str is None or domain_str not in self._GRAPH_AWARE_DOMAINS:
+                continue
+            search_service = self._resolve_graph_aware_service(domain_str)
+            if search_service is None:
+                continue
+
+            result = await search_service.graph_aware_faceted_search(
+                request=request,
+                user_uid=user_uid,
+            )
+            if result.is_error:
+                self.logger.warning(f"Faceted sweep failed for {domain_str}: {result.error}")
+                continue
+
+            results.extend(
+                {
+                    "uid": record.get("uid", ""),
+                    "title": record.get("title", ""),
+                    "_domain": record.get("_domain", domain_str),
+                    "_score": 0.0,
+                }
+                for record in result.value or []
+            )
+
         return results[: request.limit]
 
     async def intelligent_search(

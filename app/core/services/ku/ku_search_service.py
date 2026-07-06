@@ -23,12 +23,9 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
 
     Inherits from BaseService:
     - search(query, user_uid) — full-text search
-    - get_by_category(category, user_uid) — filter by namespace
+    - get_by_category(category, user_uid) — filter by NOUS topic membership
     - get_by_status(status, user_uid) — filter by status
-    - list_categories(user_uid) — list unique namespaces
-
-    Adds:
-    - get_by_namespace(namespace) — domain-specific namespace search
+    - list_categories(user_uid) — list unique NOUS topics
     """
 
     _config = create_curriculum_domain_config(
@@ -36,27 +33,10 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         model_class=Ku,
         domain_name="ku",
         search_fields=("title", "description", "summary"),
-        category_field="namespace",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
         supports_user_progress=False,
         entity_label="Ku",
     )
-
-    async def get_by_namespace(
-        self, namespace: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields
-        """Get all Kus in a specific namespace.
-
-        Args:
-            namespace: Namespace to filter by (e.g., "attention", "emotion")
-
-        Returns:
-            Result containing list of Ku property dicts from Neo4j
-        """
-        result = await self.backend.get_by_namespace(namespace)  # type: ignore[attr-defined]
-        if result.is_error:
-            return Result.fail(result)
-
-        return Result.ok([record["ku"] for record in (result.value or [])])
 
     async def search_by_alias(
         self, alias: str

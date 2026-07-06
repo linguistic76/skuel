@@ -93,15 +93,6 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
-    async def get_by_namespace(self, namespace: str) -> Result[list[Neo4jProperties]]:
-        """Get all Kus in a specific namespace."""
-        query = """
-        MATCH (ku:Entity:Ku {namespace: $namespace})
-        RETURN ku
-        ORDER BY ku.title ASC
-        """
-        return await self.execute_query(query, {"namespace": namespace})
-
     async def search_by_alias(self, alias: str) -> Result[list[Neo4jProperties]]:
         """Search Kus by alias (case-insensitive substring)."""
         query = """

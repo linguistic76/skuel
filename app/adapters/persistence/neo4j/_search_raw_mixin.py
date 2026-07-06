@@ -376,7 +376,19 @@ class _SearchRawMixin[T: DomainModelProtocol]:
                 where_clauses.append(scope_clause)
         for field, value in property_filters.items():
             param_name = f"filter_{field}"
-            where_clauses.append(f"entity.{field} = ${param_name}")
+            if isinstance(value, list):
+                # List param: whole-value equality (unchanged semantics)
+                where_clauses.append(f"entity.{field} = ${param_name}")
+            else:
+                # Scalar param: exact match on scalar properties, element
+                # membership on array properties (e.g. the `nous` topic list
+                # on Ku/PathStep). CASE guards the IN from type errors on
+                # non-list properties.
+                where_clauses.append(
+                    f"(CASE WHEN entity.{field} IS :: LIST<ANY> "
+                    f"THEN ${param_name} IN entity.{field} "
+                    f"ELSE entity.{field} = ${param_name} END)"
+                )
             params[param_name] = value
 
         # 3. Text search on search_fields

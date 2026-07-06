@@ -37,7 +37,7 @@ class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
         model_class=Ku,
         domain_name="ku",
         search_fields=("title", "description", "summary"),
-        category_field="namespace",
+        category_field="nous",  # NOUS topic membership (array — `has` semantics)
         supports_user_progress=False,
         entity_label="Ku",
     )

@@ -31,6 +31,25 @@ from ._types import T
 logger = get_logger(__name__)
 
 
+def _is_sequence_field(entity_class: type, field_name: str) -> bool:
+    """
+    True when the model annotates ``field_name`` as list or tuple.
+
+    Frozen domain models use ``tuple[str, ...]`` (e.g. ``tags``, ``nous``),
+    DTOs use ``list[str]`` — both are array properties in Neo4j, so operators
+    that branch on shape (``contains``, ``has``) must treat them alike.
+    """
+    try:
+        type_hints = get_type_hints(entity_class)
+        field_type = type_hints.get(field_name)
+        origin = get_origin(field_type) if field_type else None
+        return origin in (list, tuple)
+    except (
+        Exception
+    ):  # skuel-lint: disable=SKUEL017 -- type introspection may raise arbitrary errors
+        return False
+
+
 def build_search_query(
     entity_class: type[T], filters: dict[str, Any], label: str | None = None
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -51,7 +70,8 @@ def build_search_query(
     Supported operators (via double underscore):
         - eq (default): Exact match
         - gt, lt, gte, lte: Comparisons
-        - contains: String matching
+        - contains: String matching (array fields: element membership)
+        - has: Exact match (array fields: element membership)
         - in: List membership
 
     Examples:
@@ -109,23 +129,24 @@ def build_search_query(
             where_clauses.append(f"n.{field_name} <= ${param_name}")
             params[param_name] = neo4j_value
         elif operator == "contains":
-            # Detect if field is a list/array type
-            try:
-                type_hints = get_type_hints(entity_class)
-                field_type = type_hints.get(field_name)
-                origin = get_origin(field_type) if field_type else None
-                is_list_field = origin is list
-            except (
-                Exception
-            ):  # skuel-lint: disable=SKUEL017 -- type introspection may raise arbitrary errors
-                is_list_field = False
-
             # For list/array fields, use IN operator (reversed: value IN array)
             # For string fields, use CONTAINS (substring matching)
-            if is_list_field:
+            if _is_sequence_field(entity_class, field_name):
                 where_clauses.append(f"${param_name} IN n.{field_name}")
             else:
                 where_clauses.append(f"n.{field_name} CONTAINS ${param_name}")
+
+            params[param_name] = neo4j_value
+        elif operator == "has":
+            # Exact-match membership: scalar fields compare with `=`, array
+            # fields check element membership (reversed: value IN array).
+            # Unlike `contains`, scalar matching is exact, not substring —
+            # the right semantics for category filtering (e.g. Ku/PS `nous`
+            # lists vs Goals' scalar `domain`).
+            if _is_sequence_field(entity_class, field_name):
+                where_clauses.append(f"${param_name} IN n.{field_name}")
+            else:
+                where_clauses.append(f"n.{field_name} = ${param_name}")
 
             params[param_name] = neo4j_value
         elif operator == "in":
@@ -840,11 +861,18 @@ def build_distinct_values_query(
 
     params: dict[str, Neo4jValue] = {}
 
+    # Array-valued fields (e.g. Ku/PS `nous` topic lists) contribute each
+    # element as its own distinct value; scalar fields pass through unchanged.
+    unwind_clause = (
+        f"UNWIND (CASE WHEN n.{field} IS :: LIST<ANY> THEN n.{field} ELSE [n.{field}] END) AS value"
+    )
+
     if user_uid:
         query = f"""
         MATCH (n:{label})
         WHERE n.user_uid = $user_uid AND n.{field} IS NOT NULL
-        RETURN DISTINCT n.{field} as value
+        {unwind_clause}
+        RETURN DISTINCT value
         ORDER BY value
         """
         params["user_uid"] = user_uid
@@ -852,7 +880,8 @@ def build_distinct_values_query(
         query = f"""
         MATCH (n:{label})
         WHERE n.{field} IS NOT NULL
-        RETURN DISTINCT n.{field} as value
+        {unwind_clause}
+        RETURN DISTINCT value
         ORDER BY value
         """
 
