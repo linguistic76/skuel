@@ -321,6 +321,9 @@ class TestReconcileDeletionsThresholdValve:
         assert result.value.refusal_warning is not None
         assert "12 of 15" in result.value.refusal_warning
         assert "ingestion dashboard" in result.value.refusal_warning
+        # User-facing refusal never leaks the absolute vault root (PR 5).
+        assert "this vault" in result.value.refusal_warning
+        assert str(tmp_path) not in result.value.refusal_warning
         backend.delete_entities_with_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 
@@ -447,6 +450,9 @@ class TestReconcileDeletionsThresholdValve:
         assert result.value.mass_deletion_refused
         assert result.value.refusal_warning is not None
         assert "unmounted vault" in result.value.refusal_warning
+        # User-facing refusal never leaks the absolute vault root (PR 5).
+        assert "this vault" in result.value.refusal_warning
+        assert str(tmp_path) not in result.value.refusal_warning
 
 
 class TestReconcileDeletionsOwnerScope:
@@ -519,6 +525,9 @@ class TestReconcileDeletionsOwnerScope:
         assert result.value.stale_metadata_removed == 0
         assert len(result.value.ownership_mismatches) == 1
         assert "task_gone_abc" in result.value.ownership_mismatches[0]
+        # Path rendered vault-relative — never the absolute host path (PR 5).
+        assert "task.gone.yaml" in result.value.ownership_mismatches[0]
+        assert str(tmp_path) not in result.value.ownership_mismatches[0]
         backend.delete_entities_with_metadata.assert_not_called()
         backend.delete_ingestion_metadata.assert_not_called()
 

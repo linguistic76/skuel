@@ -59,7 +59,7 @@ class TestMergeIngestStats:
                 {"message": "Deletion reconciliation failed: x", "operation": "reconcile"},
             ],
         )
-        _merge_ingest_stats(stats, ingest)
+        _merge_ingest_stats(stats, ingest, Path("/vault"))
 
         assert stats.entries_ingested == 4
         assert stats.files_failed == 2
@@ -76,7 +76,7 @@ class TestMergeIngestStats:
 
     def test_clean_run_is_clean(self):
         stats = VaultSyncStats()
-        _merge_ingest_stats(stats, IncrementalStats(nodes_created=2))
+        _merge_ingest_stats(stats, IncrementalStats(nodes_created=2), Path("/vault"))
         assert stats.is_clean
         assert stats.entries_ingested == 2
 
@@ -85,6 +85,7 @@ class TestMergeIngestStats:
         _merge_ingest_stats(
             stats,
             IngestionStats(nodes_created=1, failed=1, errors=[{"file": "f.md", "error": "e"}]),
+            Path("/vault"),
         )
         assert stats.files_failed == 1
         assert stats.errors == ["f.md: e"]
@@ -94,7 +95,25 @@ class TestMergeIngestStats:
         assert not stats.is_clean
 
     def test_format_ingest_error_falls_back_to_str(self):
-        assert _format_ingest_error({"weird": True}) == "{'weird': True}"
+        assert _format_ingest_error({"weird": True}, Path("/vault")) == "{'weird': True}"
+
+    def test_absolute_vault_paths_relativized(self, tmp_path: Path):
+        """Ingest errors/warnings carry absolute host paths — the merge must
+        strip the vault root before they reach the user-facing stats."""
+        stats = VaultSyncStats()
+        ingest = IncrementalStats(
+            nodes_created=0,
+            warnings=[f"deletion skipped for {tmp_path}/notes/gone.md: entity mismatch"],
+            errors=[
+                {"file": str(tmp_path / "notes" / "bad.md"), "error": "boom", "stage": "parsing"}
+            ],
+        )
+        _merge_ingest_stats(stats, ingest, tmp_path)
+
+        assert stats.errors == ["notes/bad.md: boom [parsing]"]
+        assert stats.warnings == ["deletion skipped for notes/gone.md: entity mismatch"]
+        for line in stats.errors + stats.warnings:
+            assert str(tmp_path.resolve()) not in line
 
 
 # ============================================================================
