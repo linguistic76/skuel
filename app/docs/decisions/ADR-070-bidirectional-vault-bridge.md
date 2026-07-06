@@ -152,6 +152,12 @@ The `VaultBridgePort` exposes:
 
 **Per-user from day one.** The port takes `user_uid` on every call — even though today only one user exists (Mike), the abstraction is multi-tenant. No global `INGESTION_PATH` is threaded through the port.
 
+**Per-user personal ROOTS (amendment 2026-07-05).** "Per-user" originally stopped at the port signature: `VaultRegistry` held ONE personal template whose root every authenticated user resolved to (stamped with their own `owner_uid`), so in a multi-user deployment user B's sync would have ingested — and, after granting their own consent flag, written into — user A's vault directory. Resolution is now per-user end to end:
+
+- The **primary** personal vault (`VAULT_ROOT`) is bound to one account at compose time (`SKUEL_PERSONAL_VAULT_OWNER`, defaulting to the `SKUEL_DEFAULT_USER_UID` chain; the `user_system` terminal default binds it to nobody). Its descriptor carries that real owner — the `SYSTEM_USER_UID` resolve-time stamping placeholder is gone.
+- Every **other** user resolves to their own member vault at `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/`, built on demand by a compose-injected `PersonalDescriptorFactory` (per-root fail-closed allowlist + root-bound bridge — the registry stays adapter-free, SKUEL022). A user with no member directory gets `Result.fail` — no code path serves one user another user's vault.
+- `resolve_by_path` attributes personal paths to the vault's **bound** owner (primary root → its owner; `user_vaults/{uid}/…` → `{uid}`), making by-path ownership truly caller-independent. The nested-root guards treat member vaults as real vault roots (a scan of the user-vaults umbrella conflicts), and the reconciler's surface-independence guard refuses a sync whose by-kind and by-path owners disagree (e.g. a member family misplaced inside the primary root).
+
 **ADR-044 compliance.** The port lives in `core/ports/` (SKUEL022-clean). The adapters live in `adapters/vault/` (below the hexagonal boundary). No raw filesystem calls in `core/`.
 
 ---

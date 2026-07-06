@@ -356,7 +356,9 @@ class UnifiedIngestionService:
         real owner comes from the vault descriptor governing ``path`` (via
         :meth:`VaultRegistry.resolve_by_path`), so the same file gets the same
         owner regardless of ingest surface: content-vault paths → the content
-        acts-as owner (hint ignored); personal-vault paths → the acting user.
+        acts-as owner; personal-vault paths → that vault's bound owner (the
+        primary VAULT_ROOT owner, or the ``{uid}`` of a ``user_vaults/{uid}/``
+        member vault). The hint never decides ownership when a registry governs.
         Only ``requires_user_uid`` entity types actually persist this owner;
         SHARED curriculum drops it (see ``preparer.prepare_entity_data``).
 

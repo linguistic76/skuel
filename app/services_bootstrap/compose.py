@@ -1188,11 +1188,14 @@ async def compose_services(
 
         # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync.
         # One descriptor-driven reconciler serves BOTH vaults: the admin content
-        # vault (INGESTION_PATH, curriculum) and a user's personal vault
-        # (VAULT_ROOT). Each vault is its own governed root with its own
+        # vault (INGESTION_PATH, curriculum) and per-user personal vaults — the
+        # primary one (VAULT_ROOT, bound to SKUEL_PERSONAL_VAULT_OWNER) plus a
+        # member-vault family at {SKUEL_USER_VAULTS_ROOT}/{user_uid}/ for every
+        # other user. Each vault is its own governed root with its own
         # fail-closed allowlist, owner account, and filesystem bridge.
+        from pathlib import Path
+
         from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
-        from core.constants import SYSTEM_USER_UID
         from core.models.type_hints import UserUID
         from core.services.ingestion.config import build_sync_allowlist
         from core.services.vault.vault_descriptor import (
@@ -1208,13 +1211,10 @@ async def compose_services(
         # ownership model: core/services/vault/vault_descriptor.py module docstring
         # (VaultRegistry.resolve_by_path).
         _content_owner = UserUID(config.vault.content_owner_uid)
+        # The account VAULT_ROOT belongs to; every other user's personal vault
+        # resolves to their own member directory under user_vaults_path.
+        _personal_owner = UserUID(config.vault.personal_vault_owner_uid)
 
-        # Personal vault: fail-closed doorway wall (knowledge/ + notes folders).
-        # The wall is code-sourced (doorway defaults) — NOT read from the ambient
-        # SKUEL_VAULT_SYNC_ALLOWED_DIRS env var, which used to shadow .env and
-        # silently wall off a folder. Content vault: whole-vault (single-vault
-        # branch), curriculum fully open minus the je_* staging floor.
-        _personal_allowlist = build_sync_allowlist(_personal_root, content_root=_content_root)
         # Resources/ is the raw reference library (full book texts, no `type:`
         # frontmatter) — DELIBERATELY walled, permanently (Arc D ruling
         # 2026-07-03: descriptor-only). Resource nodes are ingested from small
@@ -1229,17 +1229,6 @@ async def compose_services(
             excluded_dirs=frozenset({_content_root / "Resources"}),
         )
 
-        # Residual single-file / domain ingestion doors (/api/ingest/file, etc.)
-        # inherit the personal vault's wall; the reconciler passes each vault's
-        # own allowlist explicitly.
-        unified_ingestion.sync_allowlist = _personal_allowlist
-        logger.info(
-            "✅ Vault sync allowlists active (fail-closed): "
-            f"personal={len(_personal_allowlist.allowed_dirs)} dir(s) under {_personal_root}, "
-            f"content=whole-vault under {_content_root} "
-            f"(excluded: {len(_content_allowlist.excluded_dirs)} reference dir(s))"
-        )
-
         _content_descriptor = VaultDescriptor(
             kind=VaultKind.CONTENT,
             root=_content_root,
@@ -1248,17 +1237,46 @@ async def compose_services(
             bridge=FilesystemVaultAdapter(allowed_root=_content_root),
             supports_task_round_trip=False,  # curriculum writeback: designed-for, deferred
         )
-        # Personal descriptor is a template; owner_uid is stamped per acting user
-        # at resolve time (SYSTEM_USER_UID here is a never-used placeholder).
-        _personal_descriptor = VaultDescriptor(
-            kind=VaultKind.PERSONAL,
-            root=_personal_root,
-            owner_uid=SYSTEM_USER_UID,
-            allowlist=_personal_allowlist,
-            bridge=FilesystemVaultAdapter(allowed_root=_personal_root),
-            supports_task_round_trip=True,
+
+        def _build_personal_descriptor(owner_uid: UserUID, root: Path) -> VaultDescriptor:
+            """One user's personal vault: per-root doorway wall + root-bound bridge.
+
+            The wall is fail-closed (knowledge/ + notes doorway folders) and
+            code-sourced — NOT read from the ambient SKUEL_VAULT_SYNC_ALLOWED_DIRS
+            env var, which used to shadow .env and silently wall off a folder.
+            """
+            return VaultDescriptor(
+                kind=VaultKind.PERSONAL,
+                root=root,
+                owner_uid=owner_uid,
+                allowlist=build_sync_allowlist(root, content_root=_content_root),
+                bridge=FilesystemVaultAdapter(allowed_root=root),
+                supports_task_round_trip=True,
+            )
+
+        # Primary personal vault (VAULT_ROOT), bound to its real owner — no
+        # placeholder stamping. Other users resolve to member vaults on demand
+        # through the same factory.
+        _personal_descriptor = _build_personal_descriptor(_personal_owner, _personal_root)
+        vault_registry = VaultRegistry(
+            content=_content_descriptor,
+            personal=_personal_descriptor,
+            user_vaults_root=config.vault.user_vaults_path,
+            personal_descriptor_factory=_build_personal_descriptor,
         )
-        vault_registry = VaultRegistry(content=_content_descriptor, personal=_personal_descriptor)
+
+        # Residual single-file / domain ingestion doors (/api/ingest/file, etc.)
+        # inherit the primary personal vault's wall; the reconciler passes each
+        # vault's own allowlist explicitly.
+        unified_ingestion.sync_allowlist = _personal_descriptor.allowlist
+        logger.info(
+            "✅ Vault sync allowlists active (fail-closed): "
+            f"personal={len(_personal_descriptor.allowlist.allowed_dirs)} dir(s) "
+            f"under {_personal_root} (owner: {_personal_owner}), "
+            f"content=whole-vault under {_content_root} "
+            f"(excluded: {len(_content_allowlist.excluded_dirs)} reference dir(s)); "
+            f"member vaults under {config.vault.user_vaults_path}"
+        )
         # Give the ingestion mechanism the registry so the OWNER of USER_OWNED
         # entities is resolved from the vault a file lives in (by-path), identical
         # across every ingest surface (dashboard / reconciler / script / watcher).
@@ -1273,7 +1291,7 @@ async def compose_services(
         logger.info(
             "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
         )
-        logger.info("✅ VaultReconciler wired (ADR-070) — content + personal descriptors")
+        logger.info("✅ VaultReconciler wired (ADR-070) — content + per-user personal descriptors")
 
         # Create progress report generator and schedule service
         from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend

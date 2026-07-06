@@ -465,7 +465,8 @@ One-way pipeline: Markdown/YAML -> Neo4j. Most EntityTypes are file-ingestible. 
 
 Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; completions (`[x]` + `✅ date`) propagate back to SKUEL. The `🆔 sk_<6>` suffix is the join key — never strip it.
 
-- `VAULT_ROOT` — personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
+- `VAULT_ROOT` — the PRIMARY personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
+- **Per-user roots:** `VAULT_ROOT` is owner-bound (`SKUEL_PERSONAL_VAULT_OWNER`, defaults to the `SKUEL_DEFAULT_USER_UID` chain); any other user resolves to `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` or gets a clear not-found — no code path serves one user another user's vault
 - `VaultBridgePort` / `FilesystemVaultAdapter` / `VaultReconciler` — hexagonal port/adapter/reconciler triple
 - First-run consent gate guards outbound writes; vault-root containment guard prevents upload-entry contamination
 
