@@ -83,16 +83,26 @@ def _sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spi
 
 
 def _consent_form() -> Div:
-    """Fragment shown when first_run_notice is True."""
+    """Fragment shown when first_run_notice is True.
+
+    Consent covers BOTH directions of the sync (read + write) — nothing is
+    ingested before the user accepts here.
+    """
     return Div(
         Div(
-            H3("Allow Obsidian write access?", cls="text-lg font-semibold mb-2"),
+            H3("Allow SKUEL to sync your Obsidian vault?", cls="text-lg font-semibold mb-2"),
             P(
-                "After syncing, SKUEL will inject ",
+                "Syncing works in both directions. SKUEL will read notes from the "
+                "allowed doorway folders of your vault — ",
+                Span(
+                    "periodic_notes, personal_notes, activity_notes, knowledge",
+                    cls="font-mono text-sm",
+                ),
+                " — and nothing else. It will also write ",
                 Span("🆔 sk_XXXXXX", cls="font-mono text-sm"),
-                " IDs back into your vault files and mark completed tasks with ",
+                " IDs back into your task lines and mark completed tasks with ",
                 Span("[x] ✅ date", cls="font-mono text-sm"),
-                ". This is the round-trip that keeps Obsidian and SKUEL in step.",
+                ". Nothing is read or written until you allow it.",
                 cls="text-base-content/70 mb-4",
             ),
             Form(
