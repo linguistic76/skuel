@@ -416,32 +416,6 @@ class PsService:
     ) -> Result[list[dict[str, Any]]]:
         return await self.graph.get_learning_recommendations(user_uid, domain, limit)
 
-    async def find_time_aware_learning_path(
-        self,
-        target_uid: str,
-        user_time_budget: int,
-        max_complexity: str = "advanced",
-        min_confidence: float = 0.7,
-        limit: int = 5,
-    ) -> Result[list[dict[str, Any]]]:
-        """Metadata-aware learning paths within a time/complexity budget.
-
-        PLANNED capability (ruled 2026-07-02): the whole chain (this facade →
-        PsGraphService → build_metadata_aware_path_query) is unwired — no route
-        calls it, and its Cypher filters on ``reading_time_minutes`` /
-        ``complexity_level`` entity properties that nothing writes yet (0 live
-        entities carry them → zero paths, always). Wiring requires the
-        content-metadata unification campaign FIRST: one ContentMetadata class
-        (ps_content's rich model vs lp_intelligence's duplicate), persisted
-        onto entity nodes at ingest, then a route. Not in PLANNED_METHODS —
-        facade delegation name-aliases it live for the scanner.
-
-        Backend: PsGraphService.find_time_aware_learning_path.
-        """
-        return await self.graph.find_time_aware_learning_path(
-            target_uid, user_time_budget, max_complexity, min_confidence, limit
-        )
-
     async def update_hub_scores(self) -> Result[None]:
         return await self.graph.update_hub_scores()
 

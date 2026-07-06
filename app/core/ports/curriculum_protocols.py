@@ -886,18 +886,6 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Find entities that have this one as a prerequisite."""
         ...
 
-    async def find_time_aware_paths(
-        self,
-        target_uid: str,
-        user_time_budget: int,
-        max_complexity: str,
-        min_confidence: float,
-        depth: int,
-        limit: int,
-    ) -> Result[list[dict[str, Any]]]:  # boundary: variable-depth metadata-aware traversal
-        """Build metadata-aware learning paths respecting user constraints."""
-        ...
-
     # =========================================================================
     # ADAPTIVE    # =========================================================================
 
