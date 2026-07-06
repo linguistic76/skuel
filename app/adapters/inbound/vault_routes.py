@@ -8,8 +8,10 @@ Routes:
     GET  /submissions/sync       — Vault sync page (canonical URL, submissions MOC section).
     GET  /settings/vault         — 301 redirect → /submissions/sync (legacy URL preserved).
     POST /settings/vault/sync    — HTMX endpoint: run sync, return HTML results fragment.
+    POST /settings/vault/preview — HTMX endpoint: dry-run preview, nothing is written.
     POST /settings/vault/consent — HTMX endpoint: grant write consent then run sync.
     POST /api/vault/sync         — JSON API: run PERSONAL sync (returns VaultSyncStats dict).
+    POST /api/vault/preview      — JSON API: dry-run PERSONAL preview (VaultSyncPreview dict).
     POST /api/vault/sync/consent — JSON API: grant consent + run PERSONAL sync.
     POST /api/vault/sync/content — JSON API (admin): run CONTENT vault sync (inbound-only).
 
@@ -49,10 +51,10 @@ from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.type_hints import UserUID
 from core.models.vault_request import ContentVaultSyncRequest
 from core.services.vault.vault_descriptor import VaultKind
-from core.services.vault.vault_reconciler import VaultDescription
+from core.services.vault.vault_reconciler import VaultDescription, VaultSyncPreview
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from ui.components import Button, Loading
+from ui.components import Button, ButtonT, Loading
 from ui.patterns import PageHeader
 from ui.workbench.nav import render_submissions_sidebar_page
 
@@ -76,6 +78,23 @@ def _sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spi
         ),
         Loading(size="sm", id=spinner_id, cls="htmx-indicator ml-3"),
         hx_post="/settings/vault/sync",
+        hx_target="#vault-results",
+        hx_swap="innerHTML",
+        hx_indicator=f"#{spinner_id}",
+        cls="flex items-center gap-2",
+    )
+
+
+def _preview_button(label: str = "Preview sync", spinner_id: str = "vault-preview-spinner") -> Form:
+    """HTMX form for the dry-run preview — secondary styling, same results target."""
+    return Form(
+        Button(
+            label,
+            type="submit",
+            cls=ButtonT.secondary,
+        ),
+        Loading(size="sm", id=spinner_id, cls="htmx-indicator ml-3"),
+        hx_post="/settings/vault/preview",
         hx_target="#vault-results",
         hx_swap="innerHTML",
         hx_indicator=f"#{spinner_id}",
@@ -257,6 +276,101 @@ def _sync_error_fragment(message: str) -> Div:
     )
 
 
+def _preview_error_fragment(message: str) -> Div:
+    """Fragment shown when the dry-run preview fails."""
+    return Div(
+        P(f"Preview failed: {message}", cls="text-error text-sm"),
+        _preview_button("Try preview again"),
+        id="vault-results",
+        cls="space-y-3",
+    )
+
+
+def _example_list(examples: tuple[str, ...], total: int) -> Any:
+    """Render up to the preview's example paths, noting how many are unlisted."""
+    if not examples:
+        return Span()
+    items = [Li(Span(example, cls="font-mono text-xs")) for example in examples]
+    if total > len(examples):
+        items.append(Li(f"… and {total - len(examples)} more", cls="text-xs italic"))
+    return Ul(*items, cls="list-disc pl-6 space-y-0.5 text-base-content/70")
+
+
+def _preview_fragment(preview: VaultSyncPreview) -> Div:
+    """Dry-run report: what a sync WOULD do — nothing has been written yet."""
+    items: list[Any] = [
+        Li(
+            "ingest ",
+            Span(f"{preview.would_ingest_count}", cls="font-semibold"),
+            f" notes ({preview.would_ingest_new} new, {preview.would_ingest_changed} changed)",
+            _example_list(preview.would_ingest_examples, preview.would_ingest_count),
+        ),
+        Li(
+            "delete ",
+            Span(f"{preview.would_delete_entities}", cls="font-semibold"),
+            " entities",
+            _example_list(preview.would_delete_entity_examples, preview.would_delete_entities),
+        ),
+    ]
+    if preview.would_delete_edges:
+        items.append(
+            Li(
+                "delete ",
+                Span(f"{preview.would_delete_edges}", cls="font-semibold"),
+                " relationships (edge files)",
+                _example_list(preview.would_delete_edge_examples, preview.would_delete_edges),
+            )
+        )
+    if preview.stale_cleanup_count:
+        items.append(
+            Li(
+                "clean ",
+                Span(f"{preview.stale_cleanup_count}", cls="font-semibold"),
+                " moved-file tracking rows",
+            )
+        )
+
+    warnings = list(preview.ownership_mismatches)
+    if preview.refusal_warning:
+        warnings.append(preview.refusal_warning)
+    warning_section = (
+        Div(
+            H3("Warnings", cls="text-sm font-semibold text-warning mt-3 mb-1"),
+            Ul(*[Li(w, cls="text-xs text-warning") for w in warnings], cls="list-disc pl-4"),
+        )
+        if warnings
+        else Span()
+    )
+
+    nothing_to_do = (
+        not preview.would_ingest_count
+        and not preview.would_delete_entities
+        and not preview.would_delete_edges
+        and not preview.stale_cleanup_count
+    )
+    return Div(
+        Div(
+            H3("Preview — nothing has been changed", cls="text-base font-semibold mb-2"),
+            P("This vault is already in sync — a sync would do nothing.", cls="text-sm")
+            if nothing_to_do
+            else Ul(
+                Li("This sync would:", cls="list-none -ml-4 font-medium"),
+                *items,
+                cls="list-disc pl-4 text-sm text-base-content/80 space-y-1",
+            ),
+            warning_section,
+            cls="bg-base-200 border border-base-300 rounded-lg p-5",
+        ),
+        Div(
+            _sync_button("Run sync now"),
+            _preview_button("Preview again"),
+            cls="flex items-center gap-4",
+        ),
+        id="vault-results",
+        cls="space-y-4",
+    )
+
+
 def create_vault_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
@@ -289,7 +403,11 @@ def create_vault_routes(
         if description.vault_configured:
             sync_area: tuple[Any, ...] = (
                 _privacy_wall_panel(description),
-                _sync_button(),
+                Div(
+                    _sync_button(),
+                    _preview_button(),
+                    cls="flex items-center gap-4",
+                ),
                 Div(id="vault-results"),
             )
         else:
@@ -350,6 +468,24 @@ def create_vault_routes(
 
         return _sync_stats_fragment(asdict(stats))
 
+    @rt("/settings/vault/preview", methods=["POST"])
+    @csrf_protected
+    async def vault_preview_htmx(request: Request) -> Any:
+        """HTMX endpoint: dry-run preview — reports what a sync WOULD do, writes nothing."""
+        user_uid = require_authenticated_user(request)
+
+        result = await vault_reconciler.preview(VaultKind.PERSONAL, user_uid)
+        if result.is_error:
+            return _preview_error_fragment(str(result.expect_error()))
+
+        preview = result.value
+        if preview.first_run_notice:
+            # Consent covers reading too (ADR-070 Decision 6 amendment) —
+            # preview compares vault files, so it engages the same gate.
+            return _consent_form(_describe_personal_vault(user_uid))
+
+        return _preview_fragment(preview)
+
     @rt("/settings/vault/consent", methods=["POST"])
     @csrf_protected
     async def vault_consent_htmx(request: Request) -> Any:
@@ -390,6 +526,28 @@ def create_vault_routes(
         if stats.first_run_notice:
             return Result.ok({"first_run_notice": True})
         return Result.ok(asdict(stats))
+
+    @rt("/api/vault/preview", methods=["POST"])
+    @csrf_protected
+    @boundary_handler(success_status=200)
+    async def vault_preview(request: Request) -> Result[dict[str, Any]]:
+        """Dry-run preview of a PERSONAL vault sync — nothing is written.
+
+        Returns:
+            200 + VaultSyncPreview dict on success (vault-relative paths only).
+            200 + {"first_run_notice": true} before consent (preview reads the
+            vault, so it shares the sync consent gate).
+        """
+        user_uid = require_authenticated_user(request)
+
+        result = await vault_reconciler.preview(VaultKind.PERSONAL, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+
+        preview = result.value
+        if preview.first_run_notice:
+            return Result.ok({"first_run_notice": True})
+        return Result.ok(asdict(preview))
 
     @rt("/api/vault/sync/consent", methods=["POST"])
     @csrf_protected

@@ -1044,6 +1044,9 @@ node and tracking row both survive and the mismatch is surfaced as a warning
 The lookup covers every shape the delete removes: `:Entity` `user_uid`, `:Group` `owner_uid`,
 `:Expense` `user_uid`.
 Ownerless SHARED curriculum and Edge YAMLs (relationships carry no owner) stay path-scoped.
+Reconciliation is split plan/execute: `IngestionTracker.plan_deletions` performs the full
+classification read-only (it backs the vault sync preview — `VaultReconciler.preview` /
+`POST /api/vault/preview`), and `reconcile_deletions` executes the resulting `DeletionPlan`.
 Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
 User-facing warning/error strings render paths **vault-relative** — the vault root's
 absolute host path never reaches stats (`core/utils/path_display.py`, vault security

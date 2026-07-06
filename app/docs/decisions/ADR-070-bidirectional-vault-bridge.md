@@ -254,6 +254,8 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 **Amendment (2026-07-05, vault security review):** consent now gates the ENTIRE first sync — read (inbound ingest of the allowed doorway folders) AND write — not just outbound. Previously the first sync ingested the whole allowed vault tree before asking; `VaultReconciler.sync` now checks `vault_write_consent` before the first `ingest_directory` call and returns `first_run_notice` without reading anything. The content vault (admin, inbound-only) stays consent-free.
 
+**Amendment (2026-07-05, vault security arc PR 7):** the dry-run preview (`VaultReconciler.preview`, "Preview sync" on `/submissions/sync`) shares the same consent gate — preview hashes/compares vault files, which is a read, so a not-yet-consented user gets `first_run_notice` (the consent form), never a preview.
+
 ---
 
 ## Alternatives Considered
