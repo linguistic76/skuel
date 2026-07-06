@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
 from core.services.ingestion.types import DeletionReconciliation
 from core.utils.logging import get_logger
@@ -335,7 +335,12 @@ class IngestionTracker:
         return Result.ok(deleted_count)
 
     async def reconcile_deletions(
-        self, directory: Path, pattern: str = "*", *, allowlist: "SyncAllowlist | None" = None
+        self,
+        directory: Path,
+        pattern: str = "*",
+        *,
+        allowlist: "SyncAllowlist | None" = None,
+        owner_uid: UserUID | None = None,
     ) -> Result[DeletionReconciliation]:
         """
         Propagate vault deletions to the graph for one directory.
@@ -364,8 +369,18 @@ class IngestionTracker:
         - **Wall symmetry**: "would be collected" uses ``is_ingestible_path`` —
           the exact predicate ``collect_files`` applies — so ingestion and
           retraction never disagree.
+        - **Owner scope** (``owner_uid``, descriptor-governed syncs): a tracked
+          user-owned node (:Entity ``user_uid``, :Group ``owner_uid``,
+          :Expense ``user_uid`` — every shape the delete query removes) whose
+          owner differs from the syncing vault's owner is never deleted — the
+          row and node both survive and the mismatch is reported
+          (``ownership_mismatches``). Path prefix alone decided deletion before
+          per-user vault roots; this closes the cross-owner hole for legacy
+          rows and misconfigured roots. SHARED curriculum (ownerless) and Edge
+          YAMLs (relationships carry no owner) stay path-scoped.
 
-        Backend: IngestionBackend.get_tracked_files_under / delete_entities_with_metadata.
+        Backend: IngestionBackend.get_tracked_files_under / get_entity_owner_uids /
+        delete_entities_with_metadata.
         """
         # Trailing separator so /vault/a never matches /vault/abc.
         prefix = str(directory.resolve()).rstrip("/") + "/"
@@ -428,6 +443,39 @@ class IngestionTracker:
             row for row in delete_rows if str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
         ]
 
+        ownership_mismatches: list[str] = []
+        if owner_uid is not None and entity_rows:
+            owners_result = await self.backend.get_entity_owner_uids(
+                [str(row["entity_uid"]) for row in entity_rows]
+            )
+            if owners_result.is_error:
+                # Fail the run rather than fall through to an UNSCOPED delete —
+                # the guard must fail closed.
+                return Result.fail(owners_result)
+            foreign_uids = {
+                str(rec["uid"])
+                for rec in owners_result.value or []
+                if str(rec["user_uid"]) != str(owner_uid)
+            }
+            if foreign_uids:
+                skipped = [row for row in entity_rows if str(row["entity_uid"]) in foreign_uids]
+                entity_rows = [
+                    row for row in entity_rows if str(row["entity_uid"]) not in foreign_uids
+                ]
+                for row in skipped:
+                    ownership_mismatches.append(
+                        f"deletion skipped for {row['file_path']}: entity "
+                        f"{row['entity_uid']} belongs to a different user than this "
+                        "vault's owner — resolve ownership before deleting"
+                    )
+                self.logger.warning(
+                    "Deletion reconciliation: skipped %d entity deletion(s) under %s "
+                    "owned by a different user than the vault owner %s",
+                    len(skipped),
+                    directory,
+                    owner_uid,
+                )
+
         entities_deleted = 0
         if entity_rows:
             items = [
@@ -480,6 +528,7 @@ class IngestionTracker:
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_removed,
+                ownership_mismatches=ownership_mismatches,
             )
         )
 

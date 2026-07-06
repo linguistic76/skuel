@@ -224,6 +224,11 @@ class DeletionReconciliation:
     # Safety valve: every tracked file under the directory vanished at once
     # (unmounted vault, sync wipe). Deletion is refused; counts stay zero.
     mass_deletion_refused: bool = False
+    # Owner-scoped deletion (descriptor-governed syncs): tracked entities whose
+    # user_uid differs from the syncing vault's owner are SKIPPED (entity and
+    # tracking row both survive) and reported here — one message per file —
+    # so the anomaly is surfaced instead of another user's data being deleted.
+    ownership_mismatches: list[str] = field(default_factory=list)
 
 
 @dataclass

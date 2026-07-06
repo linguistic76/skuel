@@ -1031,8 +1031,14 @@ lose only the stale tracking row. Reconciliation honors the run's `pattern` — 
 run never deletes tracked YAML entities. The mass-deletion safety valve is GLOBAL: deletion is
 refused only when NO tracked file under the directory exists at all (unmounted vault, sync
 wipe); if any tracked file survives — in or out of scope — the vault is demonstrably mounted
-and in-scope deletions propagate. Response fields: `entities_deleted`, `edges_deleted`,
-`stale_metadata_removed`.
+and in-scope deletions propagate. **Owner scope (descriptor-governed syncs):** a tracked
+user-owned node whose owner differs from the syncing vault's owner is never deleted —
+node and tracking row both survive and the mismatch is surfaced as a warning
+(`ownership_mismatches` → stats `warnings`); the owner lookup failing fails the run closed.
+The lookup covers every shape the delete removes: `:Entity` `user_uid`, `:Group` `owner_uid`,
+`:Expense` `user_uid`.
+Ownerless SHARED curriculum and Edge YAMLs (relationships carry no owner) stay path-scoped.
+Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
 
 ### Example: Human-initiated incremental vault sync
 

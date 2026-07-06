@@ -223,6 +223,31 @@ class IngestionBackend:
             {"path_prefix": path_prefix},
         )
 
+    async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Owner for each user-owned node among ``uids``.
+
+        Covers every uid-bearing shape ``delete_entities_with_metadata`` can
+        delete (Kody #522): :Entity carries ``user_uid``, :Group carries
+        ``owner_uid`` (stamped from the uploading user — see
+        ``owner_uid_from_user_uid`` in ingestion config), :Expense carries
+        ``user_uid``. Ownerless nodes (SHARED curriculum, by design) yield no
+        row. Used by deletion reconciliation to refuse cross-owner deletes: a
+        tracked node owned by a different user than the syncing vault's owner
+        is skipped, not deleted.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $uids AS uid
+            OPTIONAL MATCH (e:Entity {uid: uid})
+            OPTIONAL MATCH (g:Group {uid: uid})
+            OPTIONAL MATCH (x:Expense {uid: uid})
+            WITH uid, coalesce(e.user_uid, g.owner_uid, x.user_uid) AS owner_uid
+            WHERE owner_uid IS NOT NULL
+            RETURN uid AS uid, owner_uid AS user_uid
+            """,
+            {"uids": uids},
+        )
+
     async def delete_entities_with_metadata(
         self, items: list[dict[str, str]]
     ) -> Result[list[dict[str, Any]]]:
