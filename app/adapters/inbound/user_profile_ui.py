@@ -7,7 +7,7 @@ Routes for the user profile hub page and related endpoints.
 Key Routes:
 - GET /profile - Profile hub (4 tabs: Curriculum / Activities / Submissions / Reports)
 - GET /profile/settings - 301 redirect to /settings
-- GET /profile/shared - Shared content view
+- GET /profile/shared - Shared With Me inbox (SHARES_WITH entities, type-aware cards)
 
 Architecture:
 - /profile is a 4-tab hub (Alpine tab bar, HTMX lazy-loaded previews; no sidebar)
@@ -32,12 +32,7 @@ from adapters.inbound.auth import require_authenticated_user
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
 from ui.activities.hub import render_domain_card_preview
-from ui.components import Card, CardBody
-from ui.enum_helpers import get_submission_status_badge_class
-from ui.feedback import Badge
-from ui.layout import Size
 from ui.layouts.base_page import BasePage
-from ui.patterns.page_header import PageHeader
 from ui.profile.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     knowledge_active,
@@ -261,105 +256,29 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
     @rt("/profile/shared")
     async def profile_shared(request: Request) -> Any:
-        """
-        Shared With Me tab - shows assignments and events shared with current user.
+        """Shared With Me — entities shared with the current user via SHARES_WITH.
 
-        Assignments only. Will include events.
+        Type-aware inbox: ADR-040 auto-shared feedback (EntryReports,
+        RevisedExercises) and manually shared FormSubmissions render the same
+        card shape. Group shares surface on /groups, not here.
         """
         user_uid = require_authenticated_user(request)
 
-        # Fetch shared reports
-        from fasthtml.common import H4, Div, P
+        from ui.profile.shared_view import SharedWithMeView
 
-        from ui.components import Button, ButtonT
-        from ui.primitives import ButtonLink
-
-        shared_reports = []
-        reports_result = await profile_orchestrator.get_shared_with_me_items(
+        shared_items: list[dict[str, Any]] = []
+        items_result = await profile_orchestrator.get_shared_with_me_items(
             user_uid=user_uid,
             limit=50,
         )
-        if not reports_result.is_error:
-            shared_reports = reports_result.value
-
-        # Build shared content view
-        def shared_content_card(report: Any) -> Any:
-            """Render a shared report card."""
-            return Card(
-                CardBody(
-                    # Header with filename and status
-                    Div(
-                        H4(report.original_filename, cls="text-sm"),
-                        Badge(
-                            report.status,
-                            variant=None,
-                            size=Size.sm,
-                            cls=get_submission_status_badge_class(report.status),
-                        ),
-                        cls="flex items-center justify-between",
-                    ),
-                    # Metadata
-                    Div(
-                        P(
-                            f"Shared by: {report.user_uid}",
-                            cls="text-xs text-muted-foreground mb-1",
-                        ),
-                        P(
-                            f"Type: {report.report_type}",
-                            cls="text-xs text-muted-foreground mb-0",
-                        ),
-                        cls="mt-2",
-                    ),
-                    # Actions
-                    Div(
-                        ButtonLink(
-                            "View",
-                            href=f"/gradebook/{report.uid}",
-                            cls=ButtonT.primary,
-                            size="xs",
-                        ),
-                        cls="mt-3",
-                    ),
-                    cls="p-4",
-                ),
-                cls="bg-muted shadow-sm hover:shadow-md transition-shadow",
-            )
-
-        # Content view
-        content = Div(
-            PageHeader(
-                "📥 Shared With Me",
-                subtitle="Reports and events shared with you by teachers, peers, and mentors.",
-            ),
-            # Filter tabs
-            Div(
-                Button("All", cls=ButtonT.ghost, size="sm", disabled=True),
-                Button("Reports", cls=ButtonT.primary, size="sm"),
-                Button("Events", cls=ButtonT.ghost, size="sm", disabled=True),
-                cls="flex gap-2 mb-6",
-            ),
-            # Shared content grid
-            (
-                Div(
-                    *[shared_content_card(a) for a in shared_reports],
-                    cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-                )
-                if shared_reports
-                else Card(
-                    P(
-                        "No content shared with you yet.",
-                        cls="text-center text-muted-foreground py-12",
-                    ),
-                    cls="bg-muted p-8",
-                )
-            ),
-        )
+        if not items_result.is_error:
+            shared_items = items_result.value
 
         return await BasePage(
-            content=content,
+            content=SharedWithMeView(shared_items),
             title="Shared With Me",
             request=request,
-            active_page="profile",
+            active_page="shared",
         )
 
     logger.info("✅ Profile routes registered (/profile, /profile/shared)")

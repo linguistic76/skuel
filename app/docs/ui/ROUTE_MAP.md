@@ -71,6 +71,10 @@ Both live in `ui/patterns/personal_header.py`.
 
 Four tabs selected by `?tab=` (default `submissions`), mirroring the loop (study / live it / submit / grade): **Curriculum** (former Library blocks), **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Exercises, Journals, Sync, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/events/calendar` + calendar views, `/choices`, `/principles`, `/journals`) links back to `/profile`.
 
+### `/profile/shared` — Shared With Me
+
+Type-aware inbox of entities shared with the viewer via `SHARES_WITH` — today that means ADR-040 auto-shared feedback (EntryReports, RevisedExercises) and manually shared FormSubmissions. Cards show title, entity-type badge, sharer, and share date; detail links resolve per-type via `entity_detail_href()`. Reached from the inbox icon in the top navbar (next to the bell). Group shares surface on `/groups`, not here. View in `ui/profile/shared_view.py`; route in `adapters/inbound/user_profile_ui.py`.
+
 ### `/ku` — Knowledge Index
 
 Flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking).

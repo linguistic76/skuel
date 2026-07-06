@@ -269,16 +269,28 @@ class UnifiedSharingService:
         self,
         user_uid: UserUID,
         limit: int = 50,
-    ) -> Result[list[EntityDTO]]:
-        """Get entities shared with a specific user."""
+    ) -> Result[list[dict[str, Any]]]:
+        """Get entities shared with a specific user, with share-edge metadata.
+
+        Each item carries the entity DTO plus who shared it and when — the
+        Shared With Me page renders type-aware cards from this shape.
+
+        Backend: SharingBackend.query_shared_with_me
+        """
         result = await self.backend.query_shared_with_me(user_uid=user_uid, limit=limit)
         if result.is_error:
             return Result.fail(result)
-        entities = [
-            EntityDTO.from_dict(cast("dict[str, Any]", record["ku"]))
+        items: list[dict[str, Any]] = [
+            {
+                "entity": EntityDTO.from_dict(dict(cast("dict[str, Any]", record["entity"]))),
+                "role": record["role"],
+                "shared_at": record["shared_at"],
+                "shared_by": record["shared_by"],
+                "share_version": record["share_version"],
+            }
             for record in (result.value or [])
         ]
-        return Result.ok(entities)
+        return Result.ok(items)
 
     # =========================================================================
     # GROUP SHARING

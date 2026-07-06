@@ -275,32 +275,39 @@ async def test_get_shared_with_empty(mock_backend, sharing_service):
 
 @pytest.mark.asyncio
 async def test_get_shared_with_me_success(mock_backend, sharing_service):
-    """Test getting entities shared with a user."""
+    """Test getting entities shared with a user, with share-edge metadata."""
     entity_data = {
-        "uid": "report_123",
+        "uid": "er_abc123",
         "user_uid": "user_student",
-        "entity_type": "user_entry",
+        "entity_type": "entry_report",
         "status": "completed",
-        "title": "My Report",
-        "original_filename": "report.pdf",
+        "title": "Feedback: ue_xyz",
+        "created_by": "user_teacher",
     }
     mock_backend.query_shared_with_me = AsyncMock(
         return_value=Result.ok(
             [
                 {
-                    "ku": entity_data,
-                    "role": "teacher",
+                    "entity": entity_data,
+                    "role": "student",
                     "shared_at": "2026-02-02T12:00:00",
-                    "share_version": "original",
+                    "shared_by": "Teacher Name",
+                    "share_version": None,
                 }
             ]
         )
     )
 
-    result = await sharing_service.get_shared_with_me(user_uid="user_teacher", limit=50)
+    result = await sharing_service.get_shared_with_me(user_uid="user_student", limit=50)
 
     assert not result.is_error
     assert len(result.value) == 1
+    item = result.value[0]
+    assert item["entity"].uid == "er_abc123"
+    assert item["entity"].title == "Feedback: ue_xyz"
+    assert item["shared_by"] == "Teacher Name"
+    assert item["shared_at"] == "2026-02-02T12:00:00"
+    assert item["role"] == "student"
 
 
 @pytest.mark.asyncio

@@ -198,14 +198,23 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         user_uid: UserUID,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entities shared with a user via direct SHARES_WITH."""
+        """Get entities shared with a user via direct SHARES_WITH.
+
+        ``shared_by`` resolves the entity creator's display name — the sharer
+        is not recorded on the edge, but every current writer (ADR-040
+        auto-share, form-submission share) shares the entity its creator made.
+        ``toString`` normalizes ``shared_at`` (temporal on all writers) to an
+        ISO string.
+        """
         result = await self.execute_query(
             """
-            MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(ku:Entity)
-            RETURN ku,
+            MATCH (user:User {uid: $user_uid})-[r:SHARES_WITH]->(entity:Entity)
+            OPTIONAL MATCH (sharer:User {uid: entity.created_by})
+            RETURN entity,
                    r.role as role,
-                   r.shared_at as shared_at,
-                   r.share_version as share_version
+                   toString(r.shared_at) as shared_at,
+                   r.share_version as share_version,
+                   coalesce(sharer.display_name, sharer.title, entity.created_by) as shared_by
             ORDER BY r.shared_at DESC
             LIMIT $limit
             """,

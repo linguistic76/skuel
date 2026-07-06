@@ -8,56 +8,18 @@ entry title and an attribution line ("by <author> · <relative-when>").
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
-
-def _format_shared_at(shared_at: Any) -> str:
-    """Render shared_at (ISO string or Neo4j DateTime) as a relative-ish label."""
-    if shared_at is None:
-        return ""
-    to_native = getattr(shared_at, "to_native", None)
-    try:
-        if callable(to_native):
-            dt = to_native()
-        elif isinstance(shared_at, str):
-            dt = datetime.fromisoformat(shared_at)
-        else:
-            dt = shared_at  # already datetime
-    except (ValueError, TypeError):  # fmt: skip
-        return ""
-
-    if not isinstance(dt, datetime):
-        return ""
-
-    now = datetime.now(dt.tzinfo or UTC)
-    try:
-        delta = now - dt
-    except TypeError:
-        return dt.strftime("%b %d")
-
-    seconds = int(delta.total_seconds())
-    if seconds < 60:
-        return "just now"
-    minutes = seconds // 60
-    if minutes < 60:
-        return f"{minutes}m ago"
-    hours = minutes // 60
-    if hours < 24:
-        return f"{hours}h ago"
-    days = hours // 24
-    if days < 7:
-        return f"{days}d ago"
-    return dt.strftime("%b %d")
+from ui.patterns.relative_time import format_relative_time
 
 
 def _preview_tile(record: dict[str, Any], group_uid: str) -> A:
     entity = record.get("entity") or {}
     title = entity.get("title") or "Untitled entry"
     author = record.get("author_name") or ""
-    when = _format_shared_at(record.get("shared_at"))
+    when = format_relative_time(record.get("shared_at"))
     entry_uid = entity.get("uid") or ""
 
     meta_bits: list[str] = []

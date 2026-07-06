@@ -145,6 +145,19 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
     )
 
 
+def _shared_inbox_button(active_page: str) -> A:
+    """Inbox icon linking to /profile/shared — content shared directly with you."""
+    is_active = active_page == "shared"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    return A(
+        Span("Shared with me", cls="sr-only"),
+        Icon("inbox", cls="size-6", aria_hidden="true"),
+        href="/profile/shared",
+        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
 def _askesis_button(active_page: str) -> A:
     """Flame icon linking to /askesis — the ZPD-aware practice companion."""
     is_active = active_page == "askesis"
@@ -310,6 +323,7 @@ def create_navbar(
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
             _askesis_button(active_page),
+            _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
             _profile_button(current_user or "", active_page),
             _signout_button(),

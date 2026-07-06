@@ -96,6 +96,8 @@ share_result = await sharing_service.share(
 )
 
 # Step 3: Teacher fetches shared entities
+# Each item: {"entity": EntityDTO, "shared_by", "shared_at", "role", "share_version"}
+# — the /profile/shared inbox renders type-aware cards from this shape.
 shared = await sharing_service.get_shared_with_me(
     user_uid=teacher_uid,
     limit=50,
@@ -492,7 +494,7 @@ class UnifiedSharingService:
     async def share(entity_uid, owner_uid, recipient_uid, role, share_version) -> Result[bool]
     async def unshare(entity_uid, owner_uid, recipient_uid) -> Result[bool]
     async def get_shared_with(entity_uid) -> Result[list[dict]]
-    async def get_shared_with_me(user_uid, limit=50) -> Result[list[Any]]
+    async def get_shared_with_me(user_uid, limit=50) -> Result[list[dict]]  # entity DTO + share-edge metadata
     async def set_visibility(entity_uid, owner_uid, visibility) -> Result[bool]
     async def check_access(entity_uid, user_uid) -> Result[bool]
     async def verify_shareable(entity_uid) -> Result[bool]
