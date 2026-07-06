@@ -165,6 +165,14 @@ class VectorSearchConfig:
     event_min_score: float = 0.65  # Events similar to tasks
     lpstep_min_score: float = 0.75  # Learning steps like knowledge
 
+    # Lesson-BODY chunk search (SearchRouter body-chunk augmentation).
+    # Short body-phrase queries score below the strict 0.7 ContentChunk default
+    # (a matched passage inside a long chunk lands ~0.70), while off-topic /
+    # nonsense queries floor at ~0.66 against this corpus. 0.68 is the empirically
+    # measured gap: admits real body matches, rejects the noise ceiling so the
+    # /search empty-state still holds for gibberish. See SEARCH_ARCHITECTURE.md.
+    body_chunk_search_min_score: float = 0.68
+
     # Hybrid search weights (0.0-1.0)
     vector_weight: float = 0.5  # 50% vector similarity
     text_weight: float = 0.5  # 50% full-text match

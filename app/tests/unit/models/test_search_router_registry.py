@@ -226,3 +226,80 @@ class TestSingleEntityTypeRouting:
         assert result.is_ok
         assert captured["domain"] == "user_entry"
         assert captured["user_uid"] == "user_a"
+
+
+class TestBodyChunkAggregation:
+    """Parent-dedup + best-chunk-score aggregation for lesson-BODY search.
+
+    DB-free: exercises SearchRouter._aggregate_body_chunk_parents directly with
+    fabricated :ContentChunk hit dicts. Guards the merge/dedup contract that the
+    body-chunk augmentation relies on — max score per parent, scope filtering,
+    and dedupe against parents already in the base results.
+    """
+
+    @staticmethod
+    def _hit(parent_uid: str, parent_type: str, score: float, text: str = "body prose") -> dict:
+        return {
+            "chunk_uid": f"chunk_{parent_uid}_{score}",
+            "chunk_type": "CONCEPT",
+            "text": text,
+            "context_window": None,
+            "similarity_score": score,
+            "parent_uid": parent_uid,
+            "parent_title": parent_uid.split(".")[-1].title(),
+            "parent_entity_type": parent_type,
+        }
+
+    def test_best_score_per_parent(self) -> None:
+        """Multiple chunks of one parent collapse to a single card at MAX score."""
+        hits = [
+            self._hit("ku.discipline.visualization", "ku", 0.71, "first passage"),
+            self._hit("ku.discipline.visualization", "ku", 0.88, "best passage"),
+            self._hit("ku.discipline.visualization", "ku", 0.75, "third passage"),
+        ]
+        results = SearchRouter._aggregate_body_chunk_parents(
+            hits, frozenset({"ku"}), existing_uids=set()
+        )
+        assert len(results) == 1
+        card = results[0]
+        assert card["uid"] == "ku.discipline.visualization"
+        assert card["_domain"] == "ku"
+        assert card["_score"] == 0.88
+        assert card["description"] == "best passage"
+
+    def test_dedupes_against_existing_parents(self) -> None:
+        """A parent already in the base results is not re-listed as a body hit."""
+        hits = [self._hit("ku.discipline.visualization", "ku", 0.9)]
+        results = SearchRouter._aggregate_body_chunk_parents(
+            hits, frozenset({"ku"}), existing_uids={"ku.discipline.visualization"}
+        )
+        assert results == []
+
+    def test_scope_filters_out_of_target_types(self) -> None:
+        """Parents outside the in-scope curriculum types are dropped."""
+        hits = [
+            self._hit("ku.a", "ku", 0.9),
+            self._hit("ps.b", "path_step", 0.95),
+        ]
+        # Single-domain Ku search: only Ku parents survive.
+        results = SearchRouter._aggregate_body_chunk_parents(
+            hits, frozenset({"ku"}), existing_uids=set()
+        )
+        assert [r["uid"] for r in results] == ["ku.a"]
+
+    def test_cross_domain_ranks_both_types_by_score(self) -> None:
+        """Cross-domain scope keeps Ku and PS, ranked by best-chunk score desc."""
+        hits = [
+            self._hit("ku.a", "ku", 0.80),
+            self._hit("ps.b", "path_step", 0.92),
+            self._hit("ku.c", "ku", 0.85),
+        ]
+        results = SearchRouter._aggregate_body_chunk_parents(
+            hits, frozenset({"ku", "path_step"}), existing_uids=set()
+        )
+        assert [r["uid"] for r in results] == ["ps.b", "ku.c", "ku.a"]
+        assert [r["_domain"] for r in results] == ["path_step", "ku", "ku"]
+
+    def test_empty_hits_returns_empty(self) -> None:
+        """No chunk hits → no body cards."""
+        assert SearchRouter._aggregate_body_chunk_parents([], frozenset({"ku"}), set()) == []

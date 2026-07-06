@@ -83,6 +83,7 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
+    from core.ports.query_types import SemanticSearchChunkResult
     from core.services.user import UserContext
     from services_bootstrap import Services
 
@@ -505,6 +506,7 @@ class SearchRouter:
             # Route 1: Single domain specified — either request.domain or a
             # single entity-type filter (the /search dropdown path)
             domain_str = self._resolve_single_domain(request)
+            response: Result["SearchResponse"] | None = None
             if domain_str:
                 # Privacy line: refuse loudly rather than fall through to the
                 # sweep and return an empty success for a misprogrammed caller
@@ -519,31 +521,44 @@ class SearchRouter:
                 # Graph-aware domains with user → graph_aware_faceted_search
                 # January 2026: Unified search for Activity Domains + Curriculum Domains
                 if domain_str in self._GRAPH_AWARE_DOMAINS and user_uid:
-                    result = await self._graph_aware_domain_search(request, user_uid, domain_str)
-                    if result is not None:
-                        return result
+                    response = await self._graph_aware_domain_search(request, user_uid, domain_str)
 
                 # Curriculum or other domains → simple text search
-                result = await self._simple_domain_search(request, domain_str)
-                if result is not None:
-                    return result
+                if response is None:
+                    response = await self._simple_domain_search(request, domain_str)
 
             # Route 2: Cross-domain search (no single domain resolvable)
-            cross_results = await self._cross_domain_search(request, user_uid)
-            search_time = (datetime.now() - start_time).total_seconds() * 1000
-            return Result.ok(
-                SearchResponse(
-                    results=cross_results,
-                    total=len(cross_results),
-                    limit=request.limit,
-                    offset=request.offset,
-                    query_text=request.query_text,
-                    domain=None,
-                    facet_counts={},
-                    applied_filters=request.to_property_filters(),
-                    search_time_ms=search_time,
+            if response is None:
+                cross_results = await self._cross_domain_search(request, user_uid)
+                search_time = (datetime.now() - start_time).total_seconds() * 1000
+                response = Result.ok(
+                    SearchResponse(
+                        results=cross_results,
+                        total=len(cross_results),
+                        limit=request.limit,
+                        offset=request.offset,
+                        query_text=request.query_text,
+                        domain=None,
+                        facet_counts={},
+                        applied_filters=request.to_property_filters(),
+                        search_time_ms=search_time,
+                    )
                 )
-            )
+
+            # Digital-layer enhancement (ADR-043): when the semantic-boost
+            # toggle is on, fold lesson-BODY hits (Ku/PS :ContentChunk) into the
+            # results so body prose surfaces its parent card. Fails soft — the
+            # frontmatter/graph results above stand alone on the CORE tier.
+            # Gate on the raw flag, not has_semantic_boost() — the latter also
+            # requires context_uids (the advanced_search relationship-boost
+            # path), which the /search UI never supplies. The checkbox alone
+            # makes /search body-aware.
+            if response.is_ok and request.enable_semantic_boost:
+                augmented = await self._augment_with_body_chunks(
+                    request, domain_str, response.value
+                )
+                response = Result.ok(augmented)
+            return response
 
         except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.error(f"Faceted search failed: {e}")
@@ -571,6 +586,131 @@ class SearchRouter:
             "user_entry",
         }
     )
+
+    # Curriculum EntityType values whose lesson BODIES are chunked + embedded
+    # (the `chunks_body_content` ingestion configs, #535). Body prose lives on
+    # :ContentChunk nodes, invisible to frontmatter text search — the body-chunk
+    # augmentation is the only /search path that reaches it. Mapped by Services
+    # attr name (domain_str) → the parent EntityType value stamped as `_domain`.
+    _BODY_CHUNK_DOMAIN_VALUE: ClassVar[dict[str, str]] = {
+        "ku": EntityType.KU.value,  # "ku"
+        "ps": EntityType.PATH_STEP.value,  # "path_step"
+    }
+
+    async def _augment_with_body_chunks(
+        self,
+        request: "SearchRequest",
+        domain_str: str | None,
+        response: "SearchResponse",
+    ) -> "SearchResponse":
+        """Fold lesson-BODY semantic hits (Ku/PS :ContentChunk) into results.
+
+        Digital-layer enhancement (ADR-043). Embeds the query, finds similar
+        content chunks, maps each to its owning Ku/PS Entity, dedupes to the
+        best-scoring chunk per parent, and appends the PARENT as a normal result
+        card (never a raw chunk) — deduped against parents already present.
+
+        Fails SOFT and NEVER raises: no vector service (CORE tier), no query, or
+        a search error all return ``response`` unchanged so /search stays fully
+        functional without the Digital layer.
+
+        Backend: VectorSearchBackend.semantic_search_chunks (via
+        Neo4jVectorSearchService.find_similar_chunks_by_text).
+        """
+        # Scope: single Ku/PS domain → that type only; cross-domain → both.
+        if domain_str is None:
+            target_values = frozenset(self._BODY_CHUNK_DOMAIN_VALUE.values())
+        elif domain_str in self._BODY_CHUNK_DOMAIN_VALUE:
+            target_values = frozenset({self._BODY_CHUNK_DOMAIN_VALUE[domain_str]})
+        else:
+            return response  # non-curriculum single domain — no bodies to add
+
+        if not request.query_text:
+            return response
+
+        vector_search = getattr(self.services, "vector_search_service", None)
+        if vector_search is None:
+            self.logger.debug("Body-chunk search skipped: vector search unavailable (CORE tier)")
+            return response
+
+        try:
+            chunk_result = await vector_search.find_similar_chunks_by_text(
+                text=request.query_text,
+                limit=request.limit,
+                min_score=vector_search.config.body_chunk_search_min_score,
+            )
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
+            self.logger.warning(f"Body-chunk search errored, returning base results: {e}")
+            return response
+        except Exception as e:  # safety-net: body chunks must never break search
+            self.logger.warning(f"Body-chunk search errored (unexpected): {e}")
+            return response
+
+        if chunk_result.is_error:
+            self.logger.warning(f"Body-chunk search failed: {chunk_result.expect_error()}")
+            return response
+
+        existing_uids = {str(r.get("uid", "")) for r in response.results}
+        body_results = self._aggregate_body_chunk_parents(
+            list(chunk_result.value), target_values, existing_uids
+        )
+        if not body_results:
+            return response
+
+        merged = list(response.results) + body_results
+        self.logger.info(
+            f"Body-chunk augmentation added {len(body_results)} Ku/PS lesson-body result(s)"
+        )
+        return response.model_copy(update={"results": merged, "total": len(merged)})
+
+    @staticmethod
+    def _aggregate_body_chunk_parents(
+        hits: list["SemanticSearchChunkResult"],
+        target_values: frozenset[str],
+        existing_uids: set[str],
+    ) -> list[dict[str, Any]]:
+        """Dedupe body-chunk hits to one best-scoring parent card each.
+
+        Pure / DB-free. Groups hits by ``parent_uid``, keeps the MAX
+        ``similarity_score`` per parent (a lesson is as relevant as its single
+        most on-point passage), drops parents already in the base results or
+        outside the in-scope curriculum ``target_values``, and returns parent
+        result dicts ranked by best-chunk score (descending).
+        """
+
+        def _score(hit: "SemanticSearchChunkResult") -> float:
+            return hit.get("similarity_score", 0.0)
+
+        best_by_parent: dict[str, SemanticSearchChunkResult] = {}
+        for hit in hits:
+            parent_uid = hit.get("parent_uid", "")
+            if hit.get("parent_entity_type", "") not in target_values or not parent_uid:
+                continue
+            if parent_uid in existing_uids:
+                continue
+            current = best_by_parent.get(parent_uid)
+            if current is None or _score(hit) > _score(current):
+                best_by_parent[parent_uid] = hit
+
+        ranked = sorted(best_by_parent.values(), key=_score, reverse=True)
+        return [SearchRouter._chunk_hit_to_result(hit) for hit in ranked]
+
+    @staticmethod
+    def _chunk_hit_to_result(hit: "SemanticSearchChunkResult") -> dict[str, Any]:
+        """Build a parent-entity result card dict from a body-chunk hit.
+
+        The matched passage becomes the card ``description`` so the learner sees
+        WHY the lesson surfaced; ``_domain`` is the parent's EntityType value
+        (single vocabulary, #537) so the card links via entity_detail_href.
+        """
+        return {
+            "uid": hit.get("parent_uid", ""),
+            "title": hit.get("parent_title") or "Untitled",
+            "description": hit.get("text", "") or "",
+            "_domain": hit.get("parent_entity_type", ""),
+            "_score": hit.get("similarity_score", 0.0),
+            "_match_reason": "Matched lesson body",
+        }
 
     @staticmethod
     def _parse_entity_type(raw: object) -> EntityType | NonKuDomain | None:

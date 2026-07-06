@@ -2348,9 +2348,11 @@ class LearningRecommendationResult(TypedDict):
 class SemanticSearchChunkResult(TypedDict):
     """Return shape for semantic_search_chunks().
 
-    `parent_uid` / `parent_title` refer to the owning Entity, which for the
-    automatic chunking pipeline is a PathStep (not a Ku — chunking is keyed
-    off EntityType.PATH_STEP in UnifiedIngestionService).
+    `parent_uid` / `parent_title` / `parent_entity_type` refer to the owning
+    Entity. Both PathStep and Ku lesson bodies are chunked (the
+    `chunks_body_content` ingestion configs, #535), so `parent_entity_type` is
+    `"path_step"` or `"ku"` — callers stamp it as the result `_domain` to route
+    the parent card through entity_detail_href.
     """
 
     chunk_uid: str
@@ -2360,6 +2362,7 @@ class SemanticSearchChunkResult(TypedDict):
     similarity_score: float
     parent_uid: str
     parent_title: str
+    parent_entity_type: str
 
 
 class RequiredKnowledgeResult(TypedDict):
