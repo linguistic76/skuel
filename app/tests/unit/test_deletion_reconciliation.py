@@ -282,6 +282,134 @@ class TestReconcileDeletions:
         backend.delete_entities_with_metadata.assert_not_called()
 
 
+class TestReconcileDeletionsThresholdValve:
+    """Threshold mass-deletion valve (2026-07-05 vault security review): the
+    GLOBAL valve only catches everything-vanished — deleting all-but-one file
+    bypassed it and wiped the graph in one sync. The threshold valve refuses
+    when >= MASS_DELETION_MIN_COUNT (10) deletions exceed
+    MASS_DELETION_MAX_FRACTION (0.5) of all tracked files. Evaluated AFTER the
+    moved/stale split so reorganizations (identities re-claimed by new paths)
+    never trip it."""
+
+    def _rows(self, tmp_path, present: int, missing: int) -> list[dict]:
+        rows = []
+        for i in range(present):
+            f = tmp_path / f"ku.present-{i}.md"
+            f.write_text("x")
+            rows.append({"file_path": str(f), "entity_uid": f"ku.present-{i}"})
+        rows.extend(
+            {
+                "file_path": str(tmp_path / f"ku.missing-{i}.md"),
+                "entity_uid": f"ku.missing-{i}",
+            }
+            for i in range(missing)
+        )
+        return rows
+
+    @pytest.mark.asyncio
+    async def test_majority_wipe_refused_and_surfaced(self, tmp_path) -> None:
+        # 12 of 15 missing (80% > 50%, 12 >= floor) but one file present, so the
+        # global valve does NOT fire — the threshold valve must.
+        tracker, backend = _tracker_with_tracked(self._rows(tmp_path, present=3, missing=12))
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 0
+        assert result.value.stale_metadata_removed == 0
+        assert result.value.refusal_warning is not None
+        assert "12 of 15" in result.value.refusal_warning
+        assert "ingestion dashboard" in result.value.refusal_warning
+        backend.delete_entities_with_metadata.assert_not_called()
+        backend.delete_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_all_but_one_deleted_refused(self, tmp_path) -> None:
+        # The exact bypass from the security review: delete all-but-one file.
+        tracker, backend = _tracker_with_tracked(self._rows(tmp_path, present=1, missing=14))
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.mass_deletion_refused
+        assert result.value.refusal_warning is not None
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_small_cleanup_below_floor_proceeds(self, tmp_path) -> None:
+        # 3 of 5 missing = 60% but below the 10-deletion floor — small vaults
+        # and small cleanups never trip the valve.
+        tracker, _backend = _tracker_with_tracked(self._rows(tmp_path, present=2, missing=3))
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 3
+        assert result.value.refusal_warning is None
+
+    @pytest.mark.asyncio
+    async def test_minority_deletion_proceeds(self, tmp_path) -> None:
+        # 20 of 100 missing = 20% — over the floor but well under the fraction.
+        tracker, _backend = _tracker_with_tracked(self._rows(tmp_path, present=80, missing=20))
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 20
+
+    @pytest.mark.asyncio
+    async def test_exactly_half_proceeds(self, tmp_path) -> None:
+        # Fraction must EXCEED the ceiling: 10 of 20 = exactly 0.5 → proceeds.
+        tracker, _backend = _tracker_with_tracked(self._rows(tmp_path, present=10, missing=10))
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 10
+
+    @pytest.mark.asyncio
+    async def test_big_reorg_does_not_trip_valve(self, tmp_path) -> None:
+        # 12 identities all moved to new paths: 12 old rows missing, but every
+        # identity is re-claimed by an existing new-path row → all stale_rows,
+        # zero delete_rows. The threshold valve must not fire; only stale
+        # metadata is removed.
+        (tmp_path / "new").mkdir()
+        rows = []
+        for i in range(12):
+            new_path = tmp_path / "new" / f"ku.thing-{i}.md"
+            new_path.write_text("x")
+            rows.append(
+                {"file_path": str(tmp_path / f"ku.thing-{i}.md"), "entity_uid": f"ku.thing-{i}"}
+            )
+            rows.append({"file_path": str(new_path), "entity_uid": f"ku.thing-{i}"})
+
+        tracker, backend = _tracker_with_tracked(rows)
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 0
+        assert result.value.stale_metadata_removed >= 1
+        assert result.value.refusal_warning is None
+        backend.delete_entities_with_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_global_valve_also_surfaces_warning(self, tmp_path) -> None:
+        # The unmount valve was refusal-by-log-line only; it now surfaces the
+        # same refusal_warning shape so callers merge it into stats warnings.
+        tracker, _backend = _tracker_with_tracked(
+            [
+                {"file_path": str(tmp_path / "a.md"), "entity_uid": "ku.a"},
+                {"file_path": str(tmp_path / "b.md"), "entity_uid": "ku.b"},
+            ]
+        )
+
+        result = await tracker.reconcile_deletions(tmp_path)
+        assert result.is_ok
+        assert result.value.mass_deletion_refused
+        assert result.value.refusal_warning is not None
+        assert "unmounted vault" in result.value.refusal_warning
+
+
 class TestReconcileDeletionsOwnerScope:
     """Owner-scoped deletion (per-user vault roots follow-up): a descriptor-
     governed sync must never delete an entity owned by a DIFFERENT user than

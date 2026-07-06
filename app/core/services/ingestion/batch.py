@@ -658,6 +658,8 @@ async def ingest_directory(
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
                 empty_warnings.extend(reconcile_result.value.ownership_mismatches)
+                if reconcile_result.value.refusal_warning:
+                    empty_warnings.append(reconcile_result.value.refusal_warning)
             else:
                 empty_errors.append(
                     {
@@ -748,6 +750,8 @@ async def ingest_directory(
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
                 reconcile_warnings.extend(reconcile_result.value.ownership_mismatches)
+                if reconcile_result.value.refusal_warning:
+                    reconcile_warnings.append(reconcile_result.value.refusal_warning)
             else:
                 # Same error surface as the non-empty processing path — a
                 # silently-skipped reconciliation would report a clean sync
@@ -1216,6 +1220,8 @@ async def ingest_directory(
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
             validation_warnings.extend(reconcile_result.value.ownership_mismatches)
+            if reconcile_result.value.refusal_warning:
+                validation_warnings.append(reconcile_result.value.refusal_warning)
         else:
             errors.append(
                 {

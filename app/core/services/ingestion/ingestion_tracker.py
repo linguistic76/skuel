@@ -30,6 +30,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
@@ -353,7 +354,7 @@ class IngestionTracker:
         retracts previously-synced content that has since become private, so the
         fail-closed guarantee holds retroactively, not just for new ingestion.
 
-        Four guards:
+        Five guards:
         - **Pattern scope**: only tracked files matching the run's pattern are
           DELETED — a *.md-scoped run never deletes tracked YAML entities.
         - **Moved/renamed files**: if the same entity_uid is still claimed by
@@ -366,6 +367,14 @@ class IngestionTracker:
           want to purge those rows). If none physically exist, deletion is refused
           and a warning logged. A real full-vault teardown is an explicit admin
           operation, not a watcher side effect.
+        - **Mass-deletion safety valve (THRESHOLD)**: evaluated AFTER the
+          moved/stale split so vault reorganizations (identities re-claimed by
+          new paths) never trip it. Refuses when at least
+          ``MASS_DELETION_MIN_COUNT`` entities/edges would be deleted AND they
+          exceed ``MASS_DELETION_MAX_FRACTION`` of ALL tracked files under the
+          directory — deleting all-but-one file must not wipe the graph in one
+          sync. Refusals surface via ``refusal_warning``; escape hatch: delete
+          explicitly via the ingestion dashboard, or sync in smaller batches.
         - **Wall symmetry**: "would be collected" uses ``is_ingestible_path`` —
           the exact predicate ``collect_files`` applies — so ingestion and
           retraction never disagree.
@@ -408,14 +417,16 @@ class IngestionTracker:
         # wall change that leaves files on disk still purges them.
         physically_present = [row for row in all_tracked if Path(str(row["file_path"])).exists()]
         if not physically_present:
-            self.logger.warning(
-                "Deletion reconciliation refused: all %d tracked files under %s "
-                "are missing — looks like an unmounted vault or sync wipe, not "
-                "authoring. Delete explicitly via the ingestion dashboard if intended.",
-                len(all_tracked),
-                directory,
+            warning = (
+                f"Deletion reconciliation refused: all {len(all_tracked)} tracked "
+                f"files under {directory} are missing — looks like an unmounted "
+                "vault or sync wipe, not authoring. Delete explicitly via the "
+                "ingestion dashboard if intended."
             )
-            return Result.ok(DeletionReconciliation(mass_deletion_refused=True))
+            self.logger.warning(warning)
+            return Result.ok(
+                DeletionReconciliation(mass_deletion_refused=True, refusal_warning=warning)
+            )
 
         # Identities still claimed by a file that would still be collected =
         # moves/renames to an allowed location (covers duplicate edge files too).
@@ -424,6 +435,28 @@ class IngestionTracker:
         live_uids = {row["entity_uid"] for row in all_tracked if _collectible(row)}
         stale_rows = [row for row in gone if row["entity_uid"] in live_uids]
         delete_rows = [row for row in gone if row["entity_uid"] not in live_uids]
+
+        # Threshold mass-deletion valve — targets actual data loss, so it runs
+        # AFTER the moved/stale split (a vault reorganization re-claims every
+        # identity at a new path and lands in stale_rows, never here). The
+        # floor keeps small vaults / small cleanups friction-free; the fraction
+        # catches a majority wipe (e.g. deleting all-but-one file, which slips
+        # past the physical-existence valve above).
+        if (
+            len(delete_rows) >= MASS_DELETION_MIN_COUNT
+            and len(delete_rows) / len(all_tracked) > MASS_DELETION_MAX_FRACTION
+        ):
+            warning = (
+                f"Deletion reconciliation refused: {len(delete_rows)} of "
+                f"{len(all_tracked)} tracked files under {directory} would be "
+                "deleted in one sync — that majority wipe looks like data loss, "
+                "not authoring. Delete explicitly via the ingestion dashboard, "
+                "or sync in smaller batches."
+            )
+            self.logger.warning(warning)
+            return Result.ok(
+                DeletionReconciliation(mass_deletion_refused=True, refusal_warning=warning)
+            )
 
         stale_removed = 0
         if stale_rows:
