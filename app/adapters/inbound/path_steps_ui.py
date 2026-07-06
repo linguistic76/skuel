@@ -12,7 +12,7 @@ from typing import Any, cast
 from fasthtml.common import A, Div, P, Request, Span
 from starlette.datastructures import FormData
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
@@ -182,12 +182,21 @@ def create_path_steps_ui_routes(
 
     @rt("/path-steps/content")
     async def path_steps_content_fragment(request: Request) -> Any:
-        """HTMX fragment: PathStep list."""
+        """HTMX fragment: PathStep list, with enrollment badges for the current user."""
         result = await ps_service.list_steps(limit=50)
         items: list[Any] = []
         if not result.is_error and result.value:
             items = list(result.value)
-        return Div(_path_step_list(items), id="path-steps-content")
+
+        # Curriculum lists are anonymous-readable; badges only when logged in.
+        enrolled_uids: set[str] = set()
+        user_uid = get_current_user(request)
+        if user_uid:
+            enrolled_result = await ps_service.mastery.get_in_progress_step_uids(user_uid)
+            if not enrolled_result.is_error and enrolled_result.value:
+                enrolled_uids = set(enrolled_result.value)
+
+        return Div(_path_step_list(items, enrolled_uids), id="path-steps-content")
 
     # ========================================================================
     # LEARNING STATE HTMX ACTIONS
@@ -614,11 +623,12 @@ def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
     )
 
 
-def _path_step_list(items: list[Any]) -> Any:
+def _path_step_list(items: list[Any], enrolled_uids: set[str]) -> Any:
     """Render PathSteps with a teal 'Path Step' badge per row.
 
-    Mirrors the visual treatment in library_ui.py so PathStep rows look
-    consistent everywhere.
+    Rows whose uid is in ``enrolled_uids`` (the user's IN_PROGRESS edges)
+    additionally get an 'Enrolled' badge. Mirrors the visual treatment in
+    library_ui.py so PathStep rows look consistent everywhere.
     """
     if not items:
         return EmptyState(title="No path steps found")
@@ -649,6 +659,9 @@ def _path_step_list(items: list[Any]) -> Any:
                         href=f"/explore/ps/{uid}" if uid else "#",
                         cls="text-sm font-medium text-foreground hover:text-primary hover:underline ml-2",
                     ),
+                    Badge("Enrolled", variant=BadgeT.secondary, size=Size.sm, cls="ml-2")
+                    if uid in enrolled_uids
+                    else None,
                     cls="flex items-center",
                 ),
                 P(truncated, cls="text-xs text-muted-foreground mt-0.5") if description else None,
