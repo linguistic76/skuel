@@ -110,11 +110,11 @@ See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap
 
 Activity Domains support authoring through per-domain create/edit forms and Obsidian vault sync (`/submissions/sync`). All 6 domains share a collapsible
 Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`)
-linking back to `/profile`. Activity Domains content is embedded inline in
-`/profile` via `ActivityHubView()`.
+linking back to `/profile`. Activity Domains content lives on the `/profile`
+Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
 
 ```
-/profile                   # Activity Domains embedded inline (6 HTMX lazy-loaded blocks)
+/profile?tab=activities    # Activities tab — 6 accordion blocks, HTMX lazy-loaded previews
 /domain                    # Main page — stats, filters, list (with Activity sidebar)
 /domain/list-fragment      # HTMX fragment for filter updates
 /domain/detail?uid=...     # Detail page with EntityRelationshipsSection (with Activity sidebar)

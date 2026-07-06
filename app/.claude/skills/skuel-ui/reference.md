@@ -384,7 +384,7 @@ Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. F
 - **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 3 items (Entry Reports, Activity Reports, Revisions). Used on child pages: `/entry-reports`, `/activity-reports`, `/submit-activity-report`, `/activity-reports/detail`, `/revised-exercises`, `/revised-exercises/detail`. Root `/gradebook` is a sidebar-free MOC page with 3 cards; `title_href="/gradebook"`. Block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) still serve HTMX preview endpoints.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. Root `/library` is a sidebar-free MOC page with 4 cards; `title_href="/library"`. Block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`) still serve HTMX preview endpoints.
 
-`/profile` is a **personal overview hub** using `BasePage` directly — Focus/Velocity, Activity Domains (6 HTMX blocks inline via `ActivityHubView()`), Nous placeholder, Settings. See `ui/profile/hub.py`.
+`/profile` is a **4-tab personal hub** using `BasePage` directly — Curriculum / Activities / Submissions / Reports tabs mirroring the loop (study / live it / submit / grade); accordion blocks with HTMX lazy-loaded previews. See `ui/profile/hub.py`.
 
 ### SidebarItem
 

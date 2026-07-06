@@ -439,6 +439,7 @@ async def SidebarPage(
     title_icon: str = "",
     sidebar_width: str = "w-64",
     extra_css: list[str] | None = None,
+    extra_scripts: list[str] | None = None,
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -501,6 +502,7 @@ async def SidebarPage(
         request=request,
         active_page=active_page,
         extra_css=extra_css,
+        extra_scripts=extra_scripts,
     )
 
 

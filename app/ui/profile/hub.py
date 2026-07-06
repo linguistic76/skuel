@@ -1,23 +1,25 @@
-"""Profile hub page — 3-tab personal space.
+"""Profile hub page — 4-tab personal space.
 
-/profile is the student's home: three tabs sharing the /library colored-header
-block style. Curriculum (study) and Reports (grade) show collapsible domain
-accordions (first section open, previews lazy-load on reveal); Submissions
-(submit) is a simple button panel mirroring the /submissions sidebar
-categories. Default is "submissions".
+/profile is the student's home: four tabs sharing the /library colored-header
+block style, mirroring the loop: Curriculum (study), Activities (live it),
+Submissions (submit), Reports (grade). Curriculum, Activities, and Reports
+show collapsible domain accordions (first section open, previews lazy-load on
+reveal); Submissions is a simple button panel mirroring the /submissions
+sidebar categories. Default is "submissions".
 """
 
 from __future__ import annotations
 
 from fasthtml.common import Button, Div
 
+from ui.activities.hub import ACTIVITY_BLOCKS
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubAccordionBlockList
 from ui.workbench.hub import SubmissionsTabPanel
 
 _DEFAULT_TAB_SLUG = "submissions"
-_VALID_TABS = frozenset({"curriculum", "reports", "submissions"})
+_VALID_TABS = frozenset({"curriculum", "activities", "reports", "submissions"})
 
 
 def normalize_tab(slug: str | None) -> str:
@@ -26,7 +28,7 @@ def normalize_tab(slug: str | None) -> str:
 
 
 def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
-    """Profile hub — 3 tabs (Curriculum / Reports / Submissions)."""
+    """Profile hub — 4 tabs (Curriculum / Activities / Submissions / Reports)."""
     active_tab = normalize_tab(active_tab)
     tabs_js = "[" + ", ".join(f"'{slug}'" for slug, _ in _TAB_SPEC) + "]"
     return Div(
@@ -44,8 +46,9 @@ _TAB_BASE = "px-4 py-2.5 text-[14px] font-medium cursor-pointer transition-color
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
     ("curriculum", "Curriculum"),
-    ("reports", "Reports"),
+    ("activities", "Activities"),
     ("submissions", "Submissions"),
+    ("reports", "Reports"),
 )
 
 
@@ -105,8 +108,9 @@ def _tab_panels() -> Div:
 
     return Div(
         _panel("curriculum", HubAccordionBlockList(LIBRARY_BLOCKS)),
-        _panel("reports", HubAccordionBlockList(GRADEBOOK_BLOCKS)),
+        _panel("activities", HubAccordionBlockList(ACTIVITY_BLOCKS)),
         _panel("submissions", SubmissionsTabPanel()),
+        _panel("reports", HubAccordionBlockList(GRADEBOOK_BLOCKS)),
     )
 
 

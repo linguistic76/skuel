@@ -1027,7 +1027,6 @@ Animate-pulse shimmer placeholders that mirror the visual shape of the content b
 | `SkeletonTable(rows=5)` | Table loading state |
 | `SkeletonSidebar(domain_count=7)` | Sidebar with domain item rows |
 | `SkeletonDomainView()` | Domain stats summary + item list |
-| `SkeletonIntelligence()` | Intelligence section (alignment, daily plan, synergies) |
 
 **SVG graph skeleton** — the `ExploreGraphView` component (`ui/explore/graph.py`) embeds a static SVG inside `explore-graph-container`: 5 shimmer circles (hub + 4 satellites) with connecting lines. JS removes it by id (`#explore-graph-skeleton`) just before `new vis.Network()` paints. Not a reusable function — it is baked into the component.
 

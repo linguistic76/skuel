@@ -22,6 +22,12 @@ In SKUEL, Chart.js visualizes the 6 activity domains (Tasks, Goals, Habits, Even
 
 **The Rule:** All chart rendering goes through Alpine.js components. No inline JavaScript.
 
+**Loading Chart.js:** `BasePage` builds its own `<head>` (`build_head`), so fast_app-level
+`chartjs_headers()` never reach real pages. Chart pages must pass
+`extra_scripts=["/static/vendor/chart.js/chart.umd.js"]` to `BasePage` / `SidebarPage`
+(live examples: `/insights`, `/lifepath/alignment`). Without it, `chartVis` fails with
+"Chart is not defined" — silently, into its error state.
+
 ## Quick Start
 
 ### Example 1: Task Completion Rate (Line Chart)

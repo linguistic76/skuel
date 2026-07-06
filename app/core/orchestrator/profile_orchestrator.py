@@ -1,16 +1,14 @@
 """Profile Orchestrator Facade.
 
 Acts as a dedicated Read-Model Orchestrator for the User Profile Hub.
-Aggregates logic for domain previews, recent reports, shared content, and
-intelligence data — keeping the routing layer clean of orchestration
-dependencies.
+Aggregates logic for domain previews and shared content — keeping the
+routing layer clean of orchestration dependencies.
 """
 
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import Priority
 from core.models.type_hints import UserUID
-from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -20,13 +18,7 @@ if TYPE_CHECKING:
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
     from core.services.principles_service import PrinciplesService
-    from core.services.ps_service import PsService
     from core.services.tasks_service import TasksService
-    from core.services.user.intelligence.factory import UserContextIntelligenceFactory
-    from core.services.user.unified_user_context import RichUserContext
-
-
-logger = get_logger("skuel.orchestrators.profile")
 
 
 _PREVIEW_PRIORITY_ORDER = {
@@ -62,11 +54,6 @@ class ProfileOrchestrator:
     Abstracts cross-domain reads so the UI routing layer depends only on this
     orchestrator. All service dependencies are required — bootstrap raises if
     any are missing (Fail-Fast Dependency Philosophy).
-
-    ``context_intelligence`` is post-wired by compose_services after
-    ``_create_intelligence_hub`` runs (the factory does not exist at
-    construction time). The ``None`` guard in ``get_intelligence_data`` is a
-    defensive backstop for tests/misuse, not the expected production path.
     """
 
     def __init__(
@@ -78,8 +65,6 @@ class ProfileOrchestrator:
         choices_service: "ChoicesService",
         principles_service: "PrinciplesService",
         sharing_service: "SharingOperations",
-        ps_service: "PsService",
-        context_intelligence: "UserContextIntelligenceFactory | None",
     ) -> None:
         self._tasks_service = tasks_service
         self._goals_service = goals_service
@@ -88,10 +73,6 @@ class ProfileOrchestrator:
         self._choices_service = choices_service
         self._principles_service = principles_service
         self._sharing_service = sharing_service
-        self._ps_service = ps_service
-        # Public so compose_services can post-wire it after the intelligence hub
-        # is built (mirrors progress_generator.analytics_service post-wiring).
-        self.context_intelligence = context_intelligence
 
     async def get_domain_preview_items(self, user_uid: UserUID, slug: str) -> Result[list[Any]]:
         """Get the top 3 active items for a domain, sorted by priority."""
@@ -130,94 +111,3 @@ class ProfileOrchestrator:
     ) -> Result[list[Any]]:
         """Get content shared with the user."""
         return await self._sharing_service.get_shared_with_me(user_uid=user_uid, limit=limit)
-
-    async def get_knowledge_status(self, user_uid: UserUID) -> Result[list[Any]]:
-        """Get user's knowledge unit relationship statuses."""
-        return await self._ps_service.get_all_user_knowledge_status(user_uid)
-
-    async def get_intelligence_data(
-        self, context: "RichUserContext"
-    ) -> "Result[dict[str, Any] | None]":
-        """Gather cross-domain intelligence for the Profile Hub.
-
-        Calls UserContextIntelligence methods independently so a failure in one
-        does not block the others. Partial failures are collected in
-        ``partial_errors`` so the UI can show a warning banner while still
-        rendering the sections that succeeded.
-
-        Returns:
-            - ``Result.ok(dict)`` — intelligence data (some values may be ``None``
-              on partial failure)
-            - ``Result.ok(None)`` — intelligence factory not wired (defensive
-              backstop; compose_services post-wires this so production should
-              never hit it)
-            - ``Result.fail()`` — all intelligence calls failed
-        """
-        if not self.context_intelligence:
-            logger.info("Intelligence factory not configured — using basic mode")
-            return Result.ok(None)
-
-        try:
-            intelligence = self.context_intelligence.create(context)
-        except (AttributeError, TypeError, KeyError) as e:
-            logger.warning(
-                "Intelligence services not properly configured — using basic mode",
-                extra={"error_type": type(e).__name__, "error_message": str(e)},
-            )
-            return Result.ok(None)
-
-        daily_plan = alignment = synergies = path_steps = None
-        partial_errors: list[str] = []
-
-        try:
-            plan_result = await intelligence.get_ready_to_work_on_today()
-            if plan_result.is_error:
-                partial_errors.append("Daily plan unavailable")
-            else:
-                daily_plan = plan_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Daily plan call failed: {e}")
-            partial_errors.append("Daily plan unavailable")
-
-        try:
-            alignment_result = await intelligence.calculate_life_path_alignment()
-            if alignment_result.is_error:
-                partial_errors.append("Life path alignment unavailable")
-            else:
-                alignment = alignment_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Alignment call failed: {e}")
-            partial_errors.append("Life path alignment unavailable")
-
-        try:
-            synergies_result = await intelligence.get_cross_domain_synergies()
-            if synergies_result.is_error:
-                partial_errors.append("Cross-domain synergies unavailable")
-            else:
-                synergies = synergies_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Synergies call failed: {e}")
-            partial_errors.append("Cross-domain synergies unavailable")
-
-        try:
-            steps_result = await intelligence.get_optimal_next_path_steps()
-            if steps_result.is_error:
-                partial_errors.append("Learning step recommendations unavailable")
-            else:
-                path_steps = steps_result.value
-        except Exception as e:  # safety-net: individual intelligence call
-            logger.warning(f"Learning steps call failed: {e}")
-            partial_errors.append("Learning step recommendations unavailable")
-
-        if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
-            return Result.fail(Errors.system("All intelligence calls failed"))
-
-        return Result.ok(
-            {
-                "daily_plan": daily_plan,
-                "alignment": alignment,
-                "synergies": synergies,
-                "path_steps": path_steps,
-                "partial_errors": partial_errors,
-            }
-        )

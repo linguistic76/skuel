@@ -10,12 +10,13 @@ UI Routes:
 - POST /lifepath/vision - Process vision capture
 - POST /lifepath/designate - Designate an LP as life path
 - GET /lifepath/alignment - Alignment dashboard
+- GET /api/lifepath/alignment/chart - Chart.js radar config (5 dimensions)
 """
 
 from typing import Any
 
 from fasthtml.common import Div
-from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -169,7 +170,12 @@ def create_lifepath_ui_routes(
         content = content_loading_placeholder(
             "/lifepath/alignment/content", "lifepath-alignment-content"
         )
-        return await lifepath_sidebar_page("alignment", content, request)
+        return await lifepath_sidebar_page(
+            "alignment",
+            content,
+            request,
+            extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
+        )
 
     @rt("/lifepath/alignment/content")
     async def alignment_dashboard_content(request: Request) -> Any:
@@ -188,7 +194,51 @@ def create_lifepath_ui_routes(
             return HTMLResponse("", status_code=200, headers={"HX-Redirect": "/lifepath/vision"})
         return Div(render_alignment_dashboard(status, user_uid), id="lifepath-alignment-content")
 
-    logger.info("LifePath UI routes registered (5 routes)")
+    @rt("/api/lifepath/alignment/chart")
+    async def alignment_radar_chart(request: Request) -> Any:
+        """Chart.js radar config for the 5 alignment dimensions.
+
+        Fetched by the chartVis Alpine component on the /lifepath/alignment
+        dashboard. Zeroed data on error/no designation so the chart still
+        renders a frame.
+        """
+        user_uid = require_authenticated_user(request)
+
+        dimensions: dict[str, float] = {}
+        if lifepath_service:
+            alignment_result = await lifepath_service.get_alignment(user_uid)
+            if alignment_result.is_ok:
+                dimensions = alignment_result.value.get("dimensions") or {}
+
+        labels = ["Knowledge", "Activity", "Goals", "Principles", "Momentum"]
+        keys = ["knowledge", "activity", "goal", "principle", "momentum"]
+        data = [float(dimensions.get(key, 0.0)) for key in keys]
+
+        return JSONResponse(
+            {
+                "type": "radar",
+                "data": {
+                    "labels": labels,
+                    "datasets": [
+                        {
+                            "label": "Your Alignment",
+                            "data": data,
+                            "backgroundColor": "rgba(59, 130, 246, 0.2)",
+                            "borderColor": "rgba(59, 130, 246, 1)",
+                            "borderWidth": 2,
+                            "pointBackgroundColor": "rgba(59, 130, 246, 1)",
+                            "pointBorderColor": "#fff",
+                        }
+                    ],
+                },
+                "options": {
+                    "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
+                    "plugins": {"legend": {"display": False}},
+                },
+            }
+        )
+
+    logger.info("LifePath UI routes registered (6 routes)")
 
     return [
         lifepath_dashboard,
@@ -198,4 +248,5 @@ def create_lifepath_ui_routes(
         designate_life_path,
         alignment_dashboard,
         alignment_dashboard_content,
+        alignment_radar_chart,
     ]

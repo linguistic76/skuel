@@ -1198,99 +1198,22 @@ def create_test_intelligence(context: UserContext) -> UserContextIntelligence:
 
 ---
 
-## Profile Integration
-*Last updated: March 2026 (partial failure support)*
+## Consumers
 
-### Independent Partial Results
+UserContextIntelligence has no dedicated dashboard UI. Its flagship outputs are
+consumed by:
 
-The Profile intelligence section makes 4 independent async calls. Each call is isolated — a failure in one does not block the others. Partial failures are collected and surfaced as a warning banner while successful sections render normally.
+- **Askesis** (`core/services/askesis_service.py` + `adapters/inbound/askesis_api.py`) — daily-plan, synergies, path-steps, life-path-alignment endpoints
+- **UserService.get_daily_work_plan** (`core/services/user_service.py`) — daily plan for programmatic consumers
+- **ZPD assessment** (`core/models/zpd/zpd_assessment.py`) — `get_optimal_next_path_steps()` is the primary ranking signal
+- **`build_rich()` capstone** (`core/services/user/unified_user_context.py`)
 
-**Key Distinction:**
-- **Bootstrap dependency** (factory exists): Fail-fast at startup
-- **Configuration errors** (AttributeError, TypeError, KeyError): Degrade to basic mode (no intelligence)
-- **Runtime operations** (methods return `Result[T]`): Independent, partial failure collection
-- **All calls fail**: `Result.fail()` — full error state
-- **UI components**: Conditionally rendered per section (skip `None` values)
-
-### Integration Pattern
-
-**Route Implementation** (`/adapters/inbound/user_profile_ui.py`):
-
-```python
-async def _get_intelligence_data(context: UserContext) -> Result[dict[str, Any] | None]:
-    """Get intelligence data with independent partial results."""
-    if not services.context_intelligence:
-        return Result.ok(None)  # Basic mode
-
-    try:
-        intelligence = services.context_intelligence.create(context)
-    except (AttributeError, TypeError, KeyError):
-        return Result.ok(None)  # Configuration error → basic mode
-
-    # Independent calls — partial failures tracked, not propagated
-    daily_plan = alignment = synergies = path_steps = None
-    partial_errors: list[str] = []
-
-    plan_result = await intelligence.get_ready_to_work_on_today()
-    if plan_result.is_error:
-        partial_errors.append("Daily plan unavailable")
-    else:
-        daily_plan = plan_result.value
-
-    # ... same pattern for alignment, synergies, path_steps ...
-
-    if all(v is None for v in [daily_plan, alignment, synergies, path_steps]):
-        return Result.fail(Errors.system("All intelligence calls failed"))
-
-    return Result.ok({
-        "daily_plan": daily_plan, "alignment": alignment,
-        "synergies": synergies, "path_steps": path_steps,
-        "partial_errors": partial_errors,
-    })
-```
-
-**HTMX Consumer** (`/api/profile/intelligence-section`):
-
-```python
-intel_data = intel_result.value
-partial_errors = intel_data.get("partial_errors", [])
-sections = [_chart_visualizations_section()]
-
-if partial_errors:
-    sections.append(render_error_banner(
-        "Some intelligence features are temporarily unavailable",
-        severity="warning",
-    ))
-
-# Only render sections that succeeded
-if intel_data.get("alignment") is not None:
-    sections.append(_alignment_breakdown(intel_data["alignment"]))
-if intel_data.get("daily_plan") is not None:
-    sections.append(_daily_work_plan_card(intel_data["daily_plan"]))
-# ... etc for synergies, path_steps
-```
-
-**Key Distinction:** `None` means "call failed" — distinct from empty list `[]` which is valid data (user has no synergies).
-
-### Three Intelligence Modes
-
-| Mode | Condition | Behavior |
-|------|-----------|----------|
-| **Basic** | Factory missing or config error | `Result.ok(None)` — no intelligence UI |
-| **Partial** | Some calls fail | Warning banner + render successful sections |
-| **Full** | All 4 calls succeed | Complete intelligence section |
-
-### Files
-
-| File | Purpose |
-|------|---------|
-| `/adapters/inbound/user_profile_ui.py` | Routes with partial failure support |
-| `/ui/profile/overview.py` | Section rendering functions |
-| `/ui/patterns/error_banner.py` | Warning banner component |
-
-**See:** `/docs/patterns/ERROR_HANDLING.md`, skill `@ui-error-handling` § Pattern 10
+(The former /profile overview intelligence section — partial-failure cards at
+`/api/profile/intelligence-section` — was removed 2026-07-05 as an unreachable
+surface; Askesis is the intelligence UI paradigm.)
 
 ---
+
 
 ## See Also
 

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fasthtml.common import H3, Div, P, Span
+from fasthtml.common import H3, Canvas, Div, P, Span
 
 from core.models.type_hints import UserUID
 from ui.components import ButtonT, Card
@@ -66,10 +66,11 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
             ),
             cls="mb-8",
         ),
-        # Dimension breakdown
+        # Dimension breakdown — radar chart + per-dimension bars
         Card(
             Div(
                 H3("5-Dimension Breakdown", cls="font-semibold text-lg mb-4"),
+                _alignment_radar(),
                 *dimension_cards,
                 cls="p-6",
             ),
@@ -86,4 +87,31 @@ def render_alignment_dashboard(status: dict, user_uid: UserUID) -> Any:
         ),
         ButtonLink("Back to Dashboard", href="/lifepath", cls=ButtonT.secondary),
         cls=f"container mx-auto px-4 py-8 {Container.NARROW}",
+    )
+
+
+def _alignment_radar() -> Div:
+    """Radar chart of the 5 alignment dimensions (chartVis Alpine component)."""
+    return Div(
+        Canvas(
+            **{
+                "x-ref": "canvas",
+                "width": "360",
+                "height": "360",
+                "class": "max-w-full mx-auto",
+            }
+        ),
+        Div(
+            "Loading chart...",
+            cls="text-center text-muted-foreground py-8",
+            **{"x-show": "loading"},
+        ),
+        Div(
+            Span("Error: ", cls="font-bold"),
+            Span(**{"x-text": "error"}),
+            cls="text-error text-center py-8",
+            **{"x-show": "error"},
+        ),
+        cls="mb-6",
+        **{"x-data": "chartVis('/api/lifepath/alignment/chart', 'radar')"},
     )

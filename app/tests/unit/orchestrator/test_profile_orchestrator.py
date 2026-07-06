@@ -1,7 +1,6 @@
 """Tests for the ProfileOrchestrator."""
 
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,9 +14,7 @@ def _item(priority: Priority | str = Priority.MEDIUM, status: str = "active") ->
     return SimpleNamespace(priority=priority, status=status)
 
 
-def _build(
-    context_intelligence: MagicMock | None = None,
-) -> tuple[ProfileOrchestrator, dict[str, MagicMock]]:
+def _build() -> tuple[ProfileOrchestrator, dict[str, MagicMock]]:
     mocks = {
         "tasks_service": MagicMock(),
         "goals_service": MagicMock(),
@@ -26,7 +23,6 @@ def _build(
         "choices_service": MagicMock(),
         "principles_service": MagicMock(),
         "sharing_service": MagicMock(),
-        "ps_service": MagicMock(),
     }
     mocks["tasks_service"].get_user_tasks = AsyncMock()
     mocks["goals_service"].get_user_goals = AsyncMock()
@@ -35,7 +31,6 @@ def _build(
     mocks["choices_service"].get_user_choices = AsyncMock()
     mocks["principles_service"].get_user_principles = AsyncMock()
     mocks["sharing_service"].get_shared_with_me = AsyncMock()
-    mocks["ps_service"].get_all_user_knowledge_status = AsyncMock()
 
     orch = ProfileOrchestrator(
         tasks_service=mocks["tasks_service"],
@@ -45,23 +40,8 @@ def _build(
         choices_service=mocks["choices_service"],
         principles_service=mocks["principles_service"],
         sharing_service=mocks["sharing_service"],
-        ps_service=mocks["ps_service"],
-        context_intelligence=context_intelligence,
     )
     return orch, mocks
-
-
-@pytest.fixture
-def full_built() -> tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock]:
-    intel = MagicMock()
-    intel.get_ready_to_work_on_today = AsyncMock()
-    intel.calculate_life_path_alignment = AsyncMock()
-    intel.get_cross_domain_synergies = AsyncMock()
-    intel.get_optimal_next_path_steps = AsyncMock()
-    factory = MagicMock()
-    factory.create.return_value = intel
-    orch, mocks = _build(context_intelligence=factory)
-    return orch, mocks, factory, intel
 
 
 # --- get_domain_preview_items ---
@@ -189,114 +169,6 @@ async def test_get_domain_preview_items_service_error_propagates() -> None:
     assert result.expect_error().category == ErrorCategory.DATABASE
 
 
-# --- get_intelligence_data ---
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_core_tier_returns_none() -> None:
-    orch, _ = _build(context_intelligence=None)
-    context = MagicMock()
-
-    result = await orch.get_intelligence_data(context)
-
-    assert result.is_ok
-    assert result.value is None
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_all_calls_succeed(
-    full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
-) -> None:
-    orch, _, _, intel = full_built
-    intel.get_ready_to_work_on_today.return_value = Result.ok({"plan": "x"})
-    intel.calculate_life_path_alignment.return_value = Result.ok({"align": "y"})
-    intel.get_cross_domain_synergies.return_value = Result.ok({"syn": "z"})
-    intel.get_optimal_next_path_steps.return_value = Result.ok([{"ps": "1"}])
-
-    result = await orch.get_intelligence_data(MagicMock())
-
-    assert result.is_ok
-    data = result.value
-    assert data is not None
-    assert data["daily_plan"] == {"plan": "x"}
-    assert data["alignment"] == {"align": "y"}
-    assert data["synergies"] == {"syn": "z"}
-    assert data["path_steps"] == [{"ps": "1"}]
-    assert data["partial_errors"] == []
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_partial_failure_still_returns_ok(
-    full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
-) -> None:
-    orch, _, _, intel = full_built
-    intel.get_ready_to_work_on_today.return_value = Result.ok({"plan": "x"})
-    intel.calculate_life_path_alignment.return_value = Result.fail(Errors.database("read", "boom"))
-    intel.get_cross_domain_synergies.return_value = Result.ok({"syn": "z"})
-    intel.get_optimal_next_path_steps.return_value = Result.fail(Errors.database("read", "boom"))
-
-    result = await orch.get_intelligence_data(MagicMock())
-
-    assert result.is_ok
-    data = result.value
-    assert data is not None
-    assert data["daily_plan"] == {"plan": "x"}
-    assert data["alignment"] is None
-    assert data["synergies"] == {"syn": "z"}
-    assert data["path_steps"] is None
-    assert len(data["partial_errors"]) == 2
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_all_calls_fail_returns_error(
-    full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
-) -> None:
-    orch, _, _, intel = full_built
-    err: Result[Any] = Result.fail(Errors.database("read", "boom"))
-    intel.get_ready_to_work_on_today.return_value = err
-    intel.calculate_life_path_alignment.return_value = err
-    intel.get_cross_domain_synergies.return_value = err
-    intel.get_optimal_next_path_steps.return_value = err
-
-    result = await orch.get_intelligence_data(MagicMock())
-
-    assert result.is_error
-    assert result.expect_error().category == ErrorCategory.SYSTEM
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_exception_caught_as_partial_error(
-    full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
-) -> None:
-    orch, _, _, intel = full_built
-    intel.get_ready_to_work_on_today.side_effect = RuntimeError("kaboom")
-    intel.calculate_life_path_alignment.return_value = Result.ok({"align": "y"})
-    intel.get_cross_domain_synergies.return_value = Result.ok({"syn": "z"})
-    intel.get_optimal_next_path_steps.return_value = Result.ok([])
-
-    result = await orch.get_intelligence_data(MagicMock())
-
-    assert result.is_ok
-    data = result.value
-    assert data is not None
-    assert data["daily_plan"] is None
-    assert data["alignment"] == {"align": "y"}
-    assert "Daily plan unavailable" in data["partial_errors"]
-
-
-@pytest.mark.asyncio
-async def test_get_intelligence_data_factory_misconfigured_returns_none(
-    full_built: tuple[ProfileOrchestrator, dict[str, MagicMock], MagicMock, MagicMock],
-) -> None:
-    orch, _, factory, _ = full_built
-    factory.create.side_effect = AttributeError("missing dep")
-
-    result = await orch.get_intelligence_data(MagicMock())
-
-    assert result.is_ok
-    assert result.value is None
-
-
 # --- Smoke delegation tests ---
 
 
@@ -306,11 +178,3 @@ async def test_get_shared_with_me_items_delegates() -> None:
     mocks["sharing_service"].get_shared_with_me.return_value = Result.ok([])
     await orch.get_shared_with_me_items("user_1", limit=25)
     mocks["sharing_service"].get_shared_with_me.assert_called_once_with(user_uid="user_1", limit=25)
-
-
-@pytest.mark.asyncio
-async def test_get_knowledge_status_delegates() -> None:
-    orch, mocks = _build()
-    mocks["ps_service"].get_all_user_knowledge_status.return_value = Result.ok([])
-    await orch.get_knowledge_status("user_1")
-    mocks["ps_service"].get_all_user_knowledge_status.assert_called_once_with("user_1")

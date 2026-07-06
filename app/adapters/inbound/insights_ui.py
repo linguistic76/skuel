@@ -170,6 +170,9 @@ def create_insights_ui_routes(
             page_type=PageType.STANDARD,
             request=request,
             active_page="insights",
+            # BasePage builds its own <head>, so fast_app-level chartjs_headers
+            # never reach this page — the charts section needs Chart.js here.
+            extra_scripts=["/static/vendor/chart.js/chart.umd.js"],
         )
 
     @rt("/insights/stats")
