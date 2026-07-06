@@ -102,7 +102,7 @@ await ps_service.progress.record_completion(ps_uid, user_uid)
 - **Lightweight** — extends Entity directly, not Curriculum.
 - **Composed into PathSteps** — `(PathStep)-[:USES_KU]->(Ku)` relationship.
 - **Trained by PathSteps** — `(PathStep)-[:TRAINS_KU]->(Ku)` relationship.
-- **Namespace + category** — `ku_category` (KuCategory enum), `namespace`, `aliases`, `source`.
+- **Aliases + NOUS topics** — `aliases` (alternative names), `nous` (NOUS topic membership — the category vocabulary), `sel_category` (SELCategory enum). The former `namespace`/`ku_category`/`source` fields were retired 2026-07-06.
 - **SEL organization** — `sel_category` (SELCategory enum) classifies Kus by SEL competency. The `/ku` page shows a flat listing with bookmarks + latest sidebar.
 - **Reference node** — ontology/reference, not a unit for learning.
 
