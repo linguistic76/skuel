@@ -170,7 +170,7 @@ Read-focused views with cross-domain connections, detail pages, and `EntityRelat
 
 ### `/path-steps`
 
-Lists all PathSteps with learning-state-aware enrollment buttons (Start / In Progress / Mastered). Clicking a PathStep navigates to `/path-steps/get?uid={uid}` — a reading page with markdown content, learning objectives, and action buttons using `BasePage(CUSTOM)`.
+Lists all PathSteps as badge-labeled rows (HTMX fragment at `/path-steps/content`). Rows the session user is enrolled in (`IN_PROGRESS` edge) carry an additional "Enrolled" badge; the list itself is anonymous-readable. Clicking a PathStep navigates to `/explore/ps/{uid}` — the merged discovery/detail page with learning-state actions and the engagement flow.
 
 Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STANDARD)`.
 
