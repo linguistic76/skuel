@@ -14,11 +14,12 @@ Two vaults (``--vault``):
     (curriculum has no checkbox round-trip).
 
 What it does (VaultReconciler.sync, ADR-070):
-  1. Inbound: ingest the vault in ``smart`` mode, scoped by that vault's own
+  1. Consent gate (personal vaults): if the vault owner has not granted
+     ``vault_write_consent``, stops BEFORE any read and reports
+     ``first_run_notice`` (nothing ingested, nothing written).
+  2. Inbound: ingest the vault in ``smart`` mode, scoped by that vault's own
      fail-closed allowlist.
-  2. Consent gate: if the vault owner has not granted ``vault_write_consent``,
-     stops after inbound and reports ``first_run_notice`` (no outbound writes).
-  3. Outbound (personal + consented only): inject ``🆔 sk_`` IDs into periodic-note
+  3. Outbound (personal only): inject ``🆔 sk_`` IDs into periodic-note
      tasks that lack them and write ``[x]``/``✅`` for SKUEL-completed ones.
 
 ``--force`` re-processes unchanged files too (re-chunk/migration campaigns) while
@@ -109,7 +110,7 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             print(f"  {key}: {value}")
         if stats.first_run_notice:
             print("\nNOTE: first_run_notice — the vault owner has not granted")
-            print("      vault_write_consent; inbound ingest ran, outbound was skipped.")
+            print("      vault_write_consent; nothing was ingested or written.")
         return 0
     finally:
         await adapter.close()
