@@ -221,9 +221,15 @@ class DeletionReconciliation:
     entities_deleted: int = 0
     edges_deleted: int = 0
     stale_metadata_removed: int = 0
-    # Safety valve: every tracked file under the directory vanished at once
-    # (unmounted vault, sync wipe). Deletion is refused; counts stay zero.
+    # Safety valves: every tracked file under the directory vanished at once
+    # (unmounted vault, sync wipe), OR a majority of tracked files would be
+    # deleted in one sync (threshold valve). Deletion is refused; counts stay
+    # zero.
     mass_deletion_refused: bool = False
+    # Human-readable refusal message (set iff mass_deletion_refused) — merged
+    # into IncrementalStats.warnings by callers so the refusal reaches the
+    # vault sync UI/API instead of hiding in a log line.
+    refusal_warning: str | None = None
     # Owner-scoped deletion (descriptor-governed syncs): tracked entities whose
     # user_uid differs from the syncing vault's owner are SKIPPED (entity and
     # tracking row both survive) and reported here — one message per file —

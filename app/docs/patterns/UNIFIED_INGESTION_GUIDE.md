@@ -1028,10 +1028,16 @@ entity + content subtree (Content/ContentChunk/ContentMetadata) + IngestionMetad
 relationship identity (`edge:{from}|{REL}|{to}`) in the uid slot, so deleting the file deletes
 exactly that relationship (and unchanged edge files skip on later runs). Moved/renamed files
 lose only the stale tracking row. Reconciliation honors the run's `pattern` — a `*.md`-scoped
-run never deletes tracked YAML entities. The mass-deletion safety valve is GLOBAL: deletion is
-refused only when NO tracked file under the directory exists at all (unmounted vault, sync
-wipe); if any tracked file survives — in or out of scope — the vault is demonstrably mounted
-and in-scope deletions propagate. **Owner scope (descriptor-governed syncs):** a tracked
+run never deletes tracked YAML entities. Two mass-deletion safety valves: the **GLOBAL valve**
+refuses when NO tracked file under the directory physically exists (unmounted vault, sync
+wipe); the **THRESHOLD valve** — evaluated after every metadata-only path (moved/stale
+split, unparseable-edge cleanup) and after owner-scope filtering, so vault reorganizations,
+malformed edges, and foreign-owned skips never inflate the ratio and a refusal still leaves
+that cleanup done — refuses when at least `MASS_DELETION_MIN_COUNT` (10) entities/edges
+would actually be deleted AND they exceed `MASS_DELETION_MAX_FRACTION` (0.5) of all
+tracked files (deleting all-but-one file must not wipe the graph in one sync). Refusals
+surface as `refusal_warning` → stats `warnings`; escape hatch: delete explicitly via the
+ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
 user-owned node whose owner differs from the syncing vault's owner is never deleted —
 node and tracking row both survive and the mismatch is surfaced as a warning
 (`ownership_mismatches` → stats `warnings`); the owner lookup failing fails the run closed.

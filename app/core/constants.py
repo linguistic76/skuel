@@ -804,6 +804,23 @@ class DualTrackCheckin:
     TREND_WINDOW: Final = 5
 
 
+# ============================================================================
+# INGESTION MASS-DELETION VALVE (ingestion_tracker.py)
+# ============================================================================
+
+# Floor for the threshold mass-deletion valve: below this many pending entity/
+# edge deletions the valve never fires, so small vaults and small cleanups
+# (deleting a handful of files) always propagate without friction.
+MASS_DELETION_MIN_COUNT: Final = 10
+
+# Fraction ceiling for the threshold mass-deletion valve: refusing when MORE
+# than this share of ALL tracked files under the directory would be deleted in
+# one sync — a majority wipe looks like accidental data loss (bulk vault
+# deletion, misconfigured root), not authoring. Escape hatch: delete explicitly
+# via the ingestion dashboard, or sync in smaller batches.
+MASS_DELETION_MAX_FRACTION: Final = 0.5
+
+
 KU_NAMESPACES: Final[frozenset[str]] = frozenset(
     {
         "attention",
