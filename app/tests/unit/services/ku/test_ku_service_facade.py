@@ -113,15 +113,6 @@ class TestKuServiceDelegation:
 
         common.search.search.assert_awaited_once_with("caffeine", None)
 
-    @pytest.mark.asyncio
-    async def test_get_by_namespace_delegates_to_search_service(self):
-        service, common = self._make_service()
-        common.search.get_by_namespace.return_value = Result.ok([])
-
-        await service.get_by_namespace("attention")
-
-        common.search.get_by_namespace.assert_awaited_once_with("attention")
-
 
 class TestKuServiceIntelligenceDelegation:
     """Verify intelligence delegation works correctly."""

@@ -509,7 +509,7 @@ Curriculum Domains use domain backend subclasses where relationship-specific Cyp
 
 | Domain | Backend | Domain-specific methods | Architecture |
 |--------|---------|------------------------|--------------|
-| KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 23 methods: ORGANIZES, namespace/alias search, substance, relationships, prereqs, learning state | Flat (appropriate for atomic domain) |
+| KU | `KuBackend` (extends `UniversalNeo4jBackend[Ku]`) | 22 methods: ORGANIZES, alias search, substance, relationships, prereqs, learning state | Flat (appropriate for atomic domain) |
 | PS | `PsBackend` (extends `UniversalNeo4jBackend[PathStep]`) | 71+ methods via 5 mixins: organizes, learning state, semantic, knowledge context, adaptive + 4 search queries | 5 domain-specific mixins |
 | LP | `LpBackend` (extends `UniversalNeo4jBackend[LearningPath]`) | 28 methods via 3 mixins: step CRUD (14), progress + search (6), intelligence + adaptive (8) | 3 domain-specific mixins |
 | Exercise | `ExerciseBackend` (extends `UniversalNeo4jBackend[Exercise]`) | `link_to_curriculum`, `unlink_from_curriculum`, `get_required_knowledge` | Flat |

@@ -156,13 +156,18 @@ class KuService:
         """Full-text search across Kus."""
         return await self.search_service.search(query, user_uid)
 
-    async def get_by_namespace(self, namespace: str) -> Result[list[dict[str, Any]]]:
-        """Get all Kus in a specific namespace."""
-        return await self.search_service.get_by_namespace(namespace)
-
     async def search_by_alias(self, alias: str) -> Result[list[dict[str, Any]]]:
         """Search Kus by alias (alternative name)."""
         return await self.search_service.search_by_alias(alias)
+
+    async def list_nous_topics(self) -> Result[list[str]]:
+        """List the NOUS topic vocabulary — distinct `nous` values across all Kus.
+
+        Derived from the graph, not hardcoded: the 11 anchor Kus self-assign
+        their own topic, so the list is complete by construction (a topic
+        exists iff its anchor Ku exists).
+        """
+        return await self.search_service.list_all_categories()
 
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)

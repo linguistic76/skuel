@@ -87,18 +87,20 @@ class KuIntelligenceService(
         all_kus = ku_result.value or []
         total = len(all_kus)
 
-        # Count by namespace
-        namespaces: dict[str, int] = {}
+        # Count by NOUS topic (multi-topic: a Ku counts once per topic;
+        # empty nous = deliberately unassigned, rawness principle)
+        topics: dict[str, int] = {}
         for ku in all_kus:
-            ns = getattr(ku, "namespace", None) or "unassigned"
-            namespaces[ns] = namespaces.get(ns, 0) + 1
+            ku_topics = getattr(ku, "nous", ()) or ("unassigned",)
+            for topic in ku_topics:
+                topics[topic] = topics.get(topic, 0) + 1
 
         return Result.ok(
             {
                 "user_uid": user_uid,
                 "period_days": period_days,
                 "total_kus": total,
-                "by_namespace": namespaces,
+                "by_nous": topics,
                 "analytics": {
                     "total": total,
                     "note": "Kus are shared curriculum content",

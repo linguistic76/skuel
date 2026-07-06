@@ -8,8 +8,9 @@ learning content and sits within a LearningPath.
 
 3-level hierarchy: LearningPath -> PathStep -> Ku
 
-Inherits common fields from Entity via Curriculum. Adds 8 path-step-specific fields:
+Inherits common fields from Entity via Curriculum. Adds 9 path-step-specific fields:
 - Intent (1): intent
+- NOUS membership (1): nous
 - Knowledge references (1): knowledge_uids (graph-native, reconstructed from CONTAINS_KNOWLEDGE)
 - Path relationship (2): learning_path_uid, sequence
 - Mastery (4): mastery_threshold, current_mastery, estimated_hours, step_difficulty
@@ -43,7 +44,7 @@ class PathStep(Curriculum):
     THE curriculum content entity (EntityType.PATH_STEP).
 
     A PathStep composes atomic Kus into coherent learning content and sits
-    within a LearningPath. Inherits ~50 fields from Curriculum. Adds 8 fields
+    within a LearningPath. Inherits ~50 fields from Curriculum. Adds 9 fields
     for intent, knowledge references, path relationship, and mastery tracking.
     """
 
@@ -58,12 +59,24 @@ class PathStep(Curriculum):
                 f"PathStep constructed with entity_type={self.entity_type!r} "
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
+        # Normalize list-authored nous to tuple (frozen dataclass — mirrors Ku)
+        if isinstance(self.nous, list):
+            object.__setattr__(self, "nous", tuple(self.nous))
         super().__post_init__()
 
     # =========================================================================
     # INTENT
     # =========================================================================
     intent: str | None = None  # Learning intent for this step
+
+    # =========================================================================
+    # NOUS TOPIC MEMBERSHIP
+    # =========================================================================
+    # Which of the 11 official NOUS topic sections this PathStep belongs to
+    # (stories, body, self-awareness, ...). Multi-topic allowed; empty =
+    # deliberately unassigned (rawness principle). Authored in vault YAML
+    # as `nous:`.
+    nous: tuple[str, ...] = ()
 
     # =========================================================================
     # KNOWLEDGE REFERENCES (graph-native: reconstructed from CONTAINS_KNOWLEDGE)

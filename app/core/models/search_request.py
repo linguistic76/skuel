@@ -230,10 +230,12 @@ class SearchRequest(BaseModel):
     # NOUS-SPECIFIC FACETS (For worldview content)
     # ========================================================================
 
-    # Nous section filter
-    nous_section: str | None = Field(
+    # NOUS topic filter — matches membership in the `nous` array property on
+    # Ku/PathStep (the 11 official topic sections; vocabulary derived from the
+    # graph, anchors guarantee completeness)
+    nous: str | None = Field(
         default=None,
-        description="Filter by nous section slug (stories, environment, intelligence, investment, words, relationships, social, body, exercises, self_management, self_awareness)",
+        description="Filter by NOUS topic slug (stories, environment, intelligence, investment, words, relationships, social, body, exercises, self-management, self-awareness)",
     )
 
     # Content source filter
@@ -384,7 +386,7 @@ class SearchRequest(BaseModel):
                     info.data.get("educational_level") is not None,
                     info.data.get("status") is not None,
                     info.data.get("priority") is not None,
-                    info.data.get("nous_section") is not None,
+                    info.data.get("nous") is not None,
                     info.data.get("source") is not None,
                     info.data.get("extended_facets"),
                 ]
@@ -434,9 +436,10 @@ class SearchRequest(BaseModel):
                 self.priority if isinstance(self.priority, str) else self.priority.value
             )
 
-        # Nous-specific facets
-        if self.nous_section:
-            filters["nous_section"] = self.nous_section
+        # NOUS topic facet — `nous` is the real array property on Ku/PathStep;
+        # faceted_search_raw renders scalar-vs-array membership type-agnostically
+        if self.nous:
+            filters["nous"] = self.nous
         if self.source:
             filters["source"] = self.source
 
@@ -599,8 +602,8 @@ class SearchRequest(BaseModel):
         applied_in_tasks: str | None = None,
         aligned_with_principles: str | None = None,
         next_logical_step: str | None = None,
-        # Nous-specific
-        nous_section: str | None = None,
+        # NOUS topic
+        nous: str | None = None,
         # Pedagogical filters (checkbox strings)
         not_yet_viewed: str | None = None,
         viewed_not_mastered: str | None = None,
@@ -633,7 +636,7 @@ class SearchRequest(BaseModel):
         learning_level = _none_if_empty(learning_level)
         content_type = _none_if_empty(content_type)
         educational_level = _none_if_empty(educational_level)
-        nous_section = _none_if_empty(nous_section)
+        nous = _none_if_empty(nous)
         entity_type = _none_if_empty(entity_type)
 
         # Parse entity type to enum
@@ -673,7 +676,7 @@ class SearchRequest(BaseModel):
             applied_in_tasks=_checkbox_to_bool(applied_in_tasks),
             aligned_with_principles=_checkbox_to_bool(aligned_with_principles),
             next_logical_step=_checkbox_to_bool(next_logical_step),
-            nous_section=nous_section,
+            nous=nous,
             not_yet_viewed=_checkbox_to_bool(not_yet_viewed),
             viewed_not_mastered=_checkbox_to_bool(viewed_not_mastered),
             ready_to_review=_checkbox_to_bool(ready_to_review),

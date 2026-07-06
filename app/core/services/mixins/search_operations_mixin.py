@@ -680,7 +680,9 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
         dto_class, model_class = config_result.value
 
-        filters: dict[str, Any] = {self.category_field: category, "limit": limit}
+        # `has` = exact match on scalar category fields (Goals `domain`),
+        # element membership on array fields (Ku/PS `nous` topic lists).
+        filters: dict[str, Any] = {f"{self.category_field}__has": category, "limit": limit}
         if user_uid:
             filters["user_uid"] = user_uid
 
