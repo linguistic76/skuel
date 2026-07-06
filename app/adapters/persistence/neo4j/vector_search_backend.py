@@ -133,7 +133,8 @@ class VectorSearchBackend:
             chunk.context_window as context_window,
             score as similarity_score,
             parent.uid as parent_uid,
-            parent.title as parent_title
+            parent.title as parent_title,
+            parent.entity_type as parent_entity_type
         ORDER BY score DESC
         LIMIT $limit"""
         )

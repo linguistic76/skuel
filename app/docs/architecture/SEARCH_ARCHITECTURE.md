@@ -386,6 +386,47 @@ request = SearchRequest(
 
 **Note:** Learning-aware search currently supports the KU label only (learning state relationships only exist for Knowledge Units).
 
+**Entry point:** both modes above run through `SearchRouter.advanced_search()` — the
+`/api/search/unified` JSON endpoint — and `has_semantic_boost()` requires
+`context_uids` (a relationship anchor the HTML `/search` form never supplies).
+
+### Body-Chunk Semantic Layer (`/search` UI)
+
+**What it reaches:** Ku/PS ENTITY vectors are frontmatter-only by design (ADR-074 —
+title/summary/description); a lesson's **body prose** lives on `:ContentChunk` nodes
+(the `chunks_body_content` ingestion configs, ~305 Ku + 244 PS chunks, 100% embedded).
+Frontmatter text/faceted search cannot see that prose. The body-chunk layer is the one
+`/search` path that does.
+
+**How it works:** `SearchRouter.faceted_search` (THE `/search` HTML entry point) runs
+its normal frontmatter/graph/faceted search, then — when the `enable_semantic_boost`
+checkbox is on — folds in lesson-BODY hits:
+
+1. Embed the query, search `:ContentChunk` via `find_similar_chunks_by_text`
+   (`min_score = body_chunk_search_min_score`, default **0.68** — admits a matched
+   passage inside a long chunk (~0.70) while the off-topic noise ceiling floors ~0.66,
+   so the empty state still holds for gibberish).
+2. Map each chunk to its owning Ku/PS Entity, **dedupe to the best-scoring chunk per
+   parent** (a lesson is as relevant as its single most on-point passage), and drop
+   parents already in the base results or outside the in-scope curriculum type.
+3. Append the **PARENT** as a normal result card (never a raw chunk) — the matched
+   passage becomes the card description; `_domain` is the parent's EntityType value so
+   the card links through `entity_detail_href`.
+
+Gated on the **raw** `enable_semantic_boost` flag (not `has_semantic_boost()`, which
+also requires `context_uids`). Scope: a single Ku/PS domain search adds that type's
+bodies; a cross-domain (Type=All) search adds both.
+
+**Tier discipline (ADR-043):** Digital-layer enhancement. `INTELLIGENCE_TIER=core` has
+no vector service — the augmentation **fails soft** (skips silently, never raises), so
+the Analog frontmatter/faceted search stands alone as a complete search, not a degraded
+one. `find_similar_chunks_by_text` unavailable / erroring / empty all return the base
+results unchanged.
+
+**Code:** `SearchRouter._augment_with_body_chunks` /
+`_aggregate_body_chunk_parents` (pure, DB-free dedup) /
+`_chunk_hit_to_result` in `core/models/search/search_router.py`.
+
 ### `SearchRequest` Semantic Fields
 
 ```python
