@@ -16,7 +16,7 @@ import pytest
 from core.models.enums.entity_enums import EntityType
 from core.services.ingestion.config import ENTITY_CONFIGS, EntityIngestionConfig
 from core.services.mixins.context_operations_mixin import ContextOperationsMixin
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 # ---------------------------------------------------------------------------
 # Ingestion config gate
@@ -134,3 +134,20 @@ async def test_reference_only_entity_returns_none_content():
     entity, content = result.value
     assert entity.uid == "ku.values.stories"
     assert content is None
+
+
+@dataclass
+class _FailingBackend:
+    async def get_content(self, uid: str) -> Result[str | None]:
+        return Result.fail(Errors.database(operation="get_content", message="neo4j down"))
+
+
+@pytest.mark.asyncio
+async def test_content_read_failure_propagates_not_degrades():
+    """A backend read error must fail the Result — never silently render a
+    body-less page (Kody finding, PR #535)."""
+    host = _Host(_Entity(uid="ku.discipline.regret"), _FailingBackend())
+
+    result = await host.get_with_content("ku.discipline.regret")
+
+    assert result.is_error

@@ -159,7 +159,7 @@ Also created from the `uses_kus:` list:
 
 **Relationship:** `(Entity)-[:HAS_CONTENT]->(Content)` — one-to-one. Each PathStep has at most one Content node.
 
-**When it's used:** `/path-steps/{uid}/details` — the reading page. The route calls `ps_service.get_with_content(uid)` which fetches both the Entity node and the Content body in a single query, then renders the markdown.
+**When it's used:** `/path-steps/{uid}/details` — the reading page. The route calls `ps_service.get_with_content(uid)` which fetches the Entity node, then reads the :Content body via `UniversalNeo4jBackend.get_content` (inline `content` field first, when present; a backend read failure propagates instead of rendering a body-less page), then renders the markdown.
 
 **Key code:** `adapters/persistence/neo4j/neo4j_content_adapter.py` — the `Neo4jContentAdapter` manages Content node creation, updating, and retrieval.
 

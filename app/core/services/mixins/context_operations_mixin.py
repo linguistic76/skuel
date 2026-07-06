@@ -117,13 +117,16 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # Check if content is already populated in entity
         content: str | None = getattr(entity, self._content_field, None)
 
-        # If no inline content, try to fetch from content storage
+        # If no inline content, fetch from the :Content subtree. A read
+        # failure propagates — silently degrading to (entity, None) would
+        # render a body-less page and mask a real database error.
         if not content:
             content_method = getattr(self.backend, "get_content", None)
             if content_method:
                 content_result = await content_method(uid)
-                if content_result.is_ok:
-                    content = content_result.value
+                if content_result.is_error:
+                    return Result.fail(content_result)
+                content = content_result.value
 
         return Result.ok((entity, content))
 
