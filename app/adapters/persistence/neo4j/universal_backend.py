@@ -61,7 +61,8 @@ METHOD INDEX (by mixin)
 -----------------------
 
 _crud_mixin.py:
-    create, get, get_many, update, delete, list, create_user_relationship
+    create, get, get_many, get_content, update, delete, list,
+    create_user_relationship
 
 _search_mixin.py:
     search, find_by, find_by_date_range, count, health_check,

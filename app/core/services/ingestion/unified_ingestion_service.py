@@ -15,7 +15,7 @@ Architecture:
 - The orchestrator delegates parsing/validation/persistence to the modules
   above and owns the cross-cutting seams: vault-descriptor ownership + walls
   (ADR-070), the post-persist embedding step (ADR-074), and the shared
-  PathStep chunk step
+  body-chunk step for ``chunks_body_content`` types (PathStep, Ku)
 - Each module has ONE job (separation of concerns)
 - Clear data flow: Parse → Detect → Validate → Prepare → Ingest
 
@@ -71,11 +71,11 @@ from .preparer import (
 )
 from .types import (
     BundleStats,
+    ChunkSource,
     DirectoryValidationResult,
     DryRunPreview,
     IncrementalStats,
     IngestionStats,
-    PathStepChunkSource,
     ValidationResult,
 )
 from .user_entry_ingestion import ingest_user_entry
@@ -222,11 +222,12 @@ class UnifiedIngestionService:
         # Log chunking availability
         if self.chunking:
             self.logger.info(
-                "✅ Chunking service available - will generate chunks during PathStep ingestion"
+                "✅ Chunking service available - will generate chunks during "
+                "PathStep/Ku body ingestion"
             )
         else:
             self.logger.warning(
-                "⚠️ Chunking service not available - PathStep ingestion will work without chunks"
+                "⚠️ Chunking service not available - PathStep/Ku ingestion will work without chunks"
             )
 
         # Chunks reach Neo4j only when both the chunker and the content adapter are wired.
@@ -429,7 +430,7 @@ class UnifiedIngestionService:
         for entity_data in entities:
             await publish_embedding_requested(self.event_bus, entity_type, entity_data, self.logger)
 
-    async def _chunk_path_step_content(
+    async def _chunk_entity_content(
         self,
         uid: str,
         content_body: str,
@@ -437,7 +438,8 @@ class UnifiedIngestionService:
         source_path: str,
     ) -> bool:
         """
-        The shared PathStep chunk step — both ingest doors.
+        The shared body-chunk step — both ingest doors, all
+        ``chunks_body_content`` entity types (PathStep, Ku).
 
         Chunk the popped content body, persist it as :Content + :ContentChunk
         nodes, and publish ``ChunkEmbeddingRequested`` for the background
@@ -448,8 +450,8 @@ class UnifiedIngestionService:
         Chunking and persistence run in CORE too (Analog behavior); only the
         embedding publish is tier-gated (``event_bus`` None → no publish).
 
-        An empty body takes the explicit clear path instead (ADR-074): a
-        PathStep re-ingested with its body emptied must not keep the previous
+        An empty body takes the explicit clear path instead (ADR-074): an
+        entity re-ingested with its body emptied must not keep the previous
         body's :Content/:ContentChunk subtree serving stale chunk vectors.
         Clearing needs only the content adapter, so it runs chunker or not.
 
@@ -514,20 +516,21 @@ class UnifiedIngestionService:
         self,
         entity_type: EntityType | NonKuDomain,
         entities: list[dict[str, Any]],
-        chunk_sources: dict[str, PathStepChunkSource],
+        chunk_sources: dict[str, ChunkSource],
     ) -> None:
         """
-        Batch-door post-persist step: embedding publishes + PathStep chunking.
+        Batch-door post-persist step: embedding publishes + body chunking.
 
         Passed to ``batch.ingest_directory`` as ``post_persist_fn``, invoked
         per successful per-type upsert. Mirrors ``ingest_file``'s post-persist
         sequence: entity ``*EmbeddingRequested`` publishes first, then the
-        shared chunk step for each PathStep whose content the engine popped
-        pre-upsert (``chunk_sources`` is empty for every other type).
+        shared chunk step for each ``chunks_body_content`` entity whose
+        content the engine popped pre-upsert (``chunk_sources`` is empty for
+        every other type).
         """
         await self._publish_embedding_requests(entity_type, entities)
         for uid, source in chunk_sources.items():
-            await self._chunk_path_step_content(
+            await self._chunk_entity_content(
                 uid, source.content, source.file_format, source.source_path
             )
 
@@ -779,15 +782,16 @@ class UnifiedIngestionService:
         # apply after (the plain ``moc`` field itself stays, inert).
         moc_link_suffixes: list[str] | None = entity_data.pop("_moc_links", None)
 
-        # For PathStep: pop content before Neo4j storage — content lives on :Content node, not :Entity node.
-        # word_count is written unconditionally: the bulk upsert (`n += props`)
-        # never removes omitted keys, so an emptied body must overwrite the
-        # previous ingest's count with 0 (ADR-074 clear path).
-        ku_content_body = ""
-        if entity_type == EntityType.PATH_STEP:
+        # For chunks_body_content types (PathStep, Ku): pop content before
+        # Neo4j storage — content lives on the :Content node, not the :Entity
+        # node. word_count is written unconditionally: the bulk upsert
+        # (`n += props`) never removes omitted keys, so an emptied body must
+        # overwrite the previous ingest's count with 0 (ADR-074 clear path).
+        chunk_content_body = ""
+        if config.chunks_body_content:
             # `or ""` — frontmatter `content:` with no value parses to None
-            ku_content_body = entity_data.pop("content", "") or ""
-            entity_data["word_count"] = len(ku_content_body.split())
+            chunk_content_body = entity_data.pop("content", "") or ""
+            entity_data["word_count"] = len(chunk_content_body.split())
 
         # Ensure constraints once per entity type, not per file.
         await self._ensure_constraints(entity_type)
@@ -820,20 +824,20 @@ class UnifiedIngestionService:
                     )
 
         # Post-persist embedding step (ADR-074): publish the entity's
-        # *EmbeddingRequested event for the background worker. For PathStep the
-        # content body was popped above and is deliberately NOT re-attached:
-        # the entity vector covers frontmatter fields; body-content semantics
-        # live in CHUNK embeddings (below) — one consistent recipe across
-        # ingest, in-app update, and backfill triggers.
+        # *EmbeddingRequested event for the background worker. For chunked
+        # types the content body was popped above and is deliberately NOT
+        # re-attached: the entity vector covers frontmatter fields;
+        # body-content semantics live in CHUNK embeddings (below) — one
+        # consistent recipe across ingest, in-app update, and backfill triggers.
         await self._publish_embedding_requests(entity_type, [entity_data])
 
-        # Chunk the popped PathStep content — the same shared step the batch
+        # Chunk the popped content body — the same shared step the batch
         # door runs (chunk → :Content/:ContentChunk persist → chunk-embedding
         # publish), so both doors produce the same content shape.
         chunks_generated = False
-        if entity_type == EntityType.PATH_STEP:
-            chunks_generated = await self._chunk_path_step_content(
-                entity_data["uid"], ku_content_body, file_format, str(file_path)
+        if config.chunks_body_content:
+            chunks_generated = await self._chunk_entity_content(
+                entity_data["uid"], chunk_content_body, file_format, str(file_path)
             )
 
         # MOC edge pass (inline for the direct single-file door; the batch

@@ -354,6 +354,37 @@ class _CrudMixin[T: DomainModelProtocol]:
             )
             return Result.ok(entities)
 
+    @safe_backend_operation("get_content")
+    async def get_content(self, uid: str) -> Result[str | None]:
+        """
+        Get an entity's body content from its :Content node.
+
+        Body content for chunked entity types (PathStep, Ku) lives on a
+        separate ``(:Entity)-[:HAS_CONTENT]->(:Content)`` node, never as an
+        entity property — ingestion pops the body pre-upsert (ADR-074). This
+        is the read counterpart consumed by the
+        ``ContextOperationsMixin.get_with_content`` inline-first fallback.
+
+        Args:
+            uid: Unique identifier of the entity
+
+        Returns:
+            Result[str | None]: the :Content node's body, or None when the
+            entity has no content subtree (not an error).
+        """
+        query = f"""
+        MATCH (n:{self.label} {{uid: $uid}})-[:HAS_CONTENT]->(c:Content)
+        RETURN c.body AS body
+        """
+
+        async with self.driver.session() as session:
+            result = await session.run(query, {"uid": uid})
+            record = await result.single()
+
+            if not record:
+                return Result.ok(None)
+            return Result.ok(record["body"])
+
     @safe_backend_operation("update")
     async def update(self, uid: str, updates: dict[str, Any]) -> Result[T]:
         """

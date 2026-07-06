@@ -148,6 +148,15 @@ class KuService:
         """Get a Knowledge Unit by UID."""
         return await self.core.get_ku(uid)
 
+    async def get_with_content(self, uid: str) -> Result[tuple[Ku, str | None]]:
+        """Get a Ku with its lesson body loaded from the :Content subtree.
+
+        Backend: ``UniversalNeo4jBackend.get_content`` via the
+        ``ContextOperationsMixin`` inline-first fallback — same recipe as
+        PathStep (lesson bodies live on :Content nodes, ADR-074).
+        """
+        return await self.core.get_with_content(uid)
+
     # =========================================================================
     # SEARCH (delegated to search)
     # =========================================================================

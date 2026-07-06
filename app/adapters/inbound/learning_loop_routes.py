@@ -159,11 +159,11 @@ def create_learning_loop_detail_routes(
         """HTMX fragment: Ku reading content with status and mastery check-in."""
         user_uid = get_current_user(request)
 
-        ku_result = await orchestrator.get_ku(uid)
+        ku_result = await orchestrator.get_ku_with_content(uid)
         if not ku_result or ku_result.is_error or not ku_result.value:
             return render_ku_not_found(uid)
 
-        ku = ku_result.value
+        ku, ku_body = ku_result.value
 
         learning_state: dict[str, bool] = {"is_studying": False, "is_understood": False}
         is_pinned = False
@@ -177,7 +177,9 @@ def create_learning_loop_detail_routes(
                 is_pinned = uid in set(pins_result.value)
             mastery_checkins = await _load_ku_mastery_checkins(user_service, user_uid, uid)
 
-        content_html, _ = render_markdown_with_toc(ku.description or "")
+        # Lesson body (:Content subtree) when the Ku has one; the frontmatter
+        # description remains the fallback for reference-only Kus.
+        content_html, _ = render_markdown_with_toc(ku_body or ku.description or "")
 
         return render_ku_detail_content(
             ku=ku,

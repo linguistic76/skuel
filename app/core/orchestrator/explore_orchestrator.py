@@ -65,6 +65,10 @@ class ExploreOrchestrator:
         """Fetch a Knowledge Unit by UID."""
         return await self._ku.get_ku(uid)
 
+    async def get_ku_with_content(self, uid: str) -> Result[Any]:
+        """Fetch a Ku with its lesson body (:Content subtree, ADR-074)."""
+        return await self._ku.get_with_content(uid)
+
     async def get_ku_learning_state(self, user_uid: UserUID, ku_uid: str) -> Result[dict]:
         """Get a user's learning state for a specific KU."""
         return await self._ku.get_ku_learning_state(user_uid, ku_uid)

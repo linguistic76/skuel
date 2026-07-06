@@ -55,11 +55,11 @@ from .parser import check_file_size, parse_markdown, parse_yaml
 from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
 from .types import (
     BundleStats,
+    ChunkSource,
     DryRunPreview,
     IncrementalStats,
     IngestionError,
     IngestionStats,
-    PathStepChunkSource,
 )
 from .validator import (
     validate_edge_data,
@@ -509,7 +509,7 @@ async def ingest_directory(
     allowlist: SyncAllowlist | None = None,
     owner_is_authoritative: bool = False,
     post_persist_fn: Callable[
-        [EntityType | NonKuDomain, list[dict[str, Any]], dict[str, PathStepChunkSource]],
+        [EntityType | NonKuDomain, list[dict[str, Any]], dict[str, ChunkSource]],
         Awaitable[None],
     ]
     | None = None,
@@ -560,11 +560,11 @@ async def ingest_directory(
             Applied in ``collect_files`` so every caller inherits the same wall.
         post_persist_fn: Optional per-type-batch callback invoked AFTER a
             successful bulk upsert with the persisted entity dicts plus the
-            PATH_STEP content the engine popped pre-upsert (keyed by uid;
-            empty for every other type) — the batch door's half of the shared
-            post-persist step (ADR-074:
+            ``chunks_body_content`` (PathStep, Ku) content the engine popped
+            pre-upsert (keyed by uid; empty for every other type) — the batch
+            door's half of the shared post-persist step (ADR-074:
             ``UnifiedIngestionService._ingest_post_persist``, embedding
-            publishes + PathStep chunking). Never called for failed batches
+            publishes + body chunking). Never called for failed batches
             or in dry-run mode.
         moc_pass_fn: Optional MOC edge-pass callback
             (``UnifiedIngestionService._apply_moc_links``). Files with
@@ -1072,11 +1072,12 @@ async def ingest_directory(
         # Strip the engine's private bookkeeping key before persistence — the
         # bulk backend stores every remaining key as a node property, so leaving
         # _file_path on would (and historically did) leak it into the graph.
-        # PATH_STEP content is popped for the same reason: it lives on the
-        # :Content node (chunked, post-upsert), never the :Entity node — the
-        # same shape ingest_file produces. The popped body is threaded to
-        # post_persist_fn keyed by uid so the shared chunk step can run.
-        chunk_sources: dict[str, PathStepChunkSource] = {}
+        # chunks_body_content (PathStep, Ku) content is popped for the same
+        # reason: it lives on the :Content node (chunked, post-upsert), never
+        # the :Entity node — the same shape ingest_file produces. The popped
+        # body is threaded to post_persist_fn keyed by uid so the shared
+        # chunk step can run.
+        chunk_sources: dict[str, ChunkSource] = {}
         batch_moc_items: list[tuple[str, list[str], Path, list[str]]] = []
         for entity in entities:
             source_path = entity.pop("_file_path", None)
@@ -1093,7 +1094,7 @@ async def ingest_directory(
                         frontmatter_organizes_targets(entity),
                     )
                 )
-            if entity_type == EntityType.PATH_STEP:
+            if config.chunks_body_content:
                 # `or ""` — frontmatter `content:` with no value parses to None
                 content_body = entity.pop("content", "") or ""
                 # Unconditional on purpose: an emptied body must overwrite the
@@ -1102,7 +1103,7 @@ async def ingest_directory(
                 # empty-body branch clears the stale :Content subtree
                 # (ADR-074 clear path — same behavior as the single-file door).
                 entity["word_count"] = len(content_body.split())
-                chunk_sources[entity["uid"]] = PathStepChunkSource(
+                chunk_sources[entity["uid"]] = ChunkSource(
                     content=content_body,
                     file_format=detect_format(Path(source_path)) if source_path else "markdown",
                     source_path=source_path or "",
