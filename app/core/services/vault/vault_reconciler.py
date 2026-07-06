@@ -194,10 +194,16 @@ class VaultReconciler:
         1. For personal (task-round-trip) vaults, check vault sync consent on
            the owner (ADR-070 Decision 6 first-run gate) — BEFORE any read.
            Not yet consented → return ``first_run_notice`` without ingesting.
-        2. Ingest the vault directory (smart mode — only changed files, unless
+        2. For a ``local_agent``-transport vault (``descriptor.mirror_pull``
+           set, ADR-075 Decision 4), refresh the server-side staging mirror
+           from the user's agent — fetch changed/new allowed files, delete
+           mirror files absent from the agent's listing. No connected agent →
+           the sync fails fast with a clear integration error, mirror
+           untouched. Everything downstream sees the mirror as the vault.
+        3. Ingest the vault directory (smart mode — only changed files, unless
            ``force``), attributed to the descriptor's owner, walled by the
            descriptor's allowlist.
-        3. If the vault supports the task round-trip, for each ingested
+        4. If the vault supports the task round-trip, for each ingested
            UserEntry with the EXTRACT_ACTIVITIES pipeline:
            a. inject 🆔 IDs into ID-less task lines;
            b. write ``[x]`` + ``✅ date`` for SKUEL-completed tasks.
@@ -225,7 +231,19 @@ class VaultReconciler:
 
             stats = VaultSyncStats()
 
-            # Step 2: ingest (inbound — smart mode skips unchanged files). The
+            # Step 2: mirror refresh (ADR-075 Decision 4) — local_agent
+            # transport only. Runs INSIDE the per-root lock (a preview can
+            # never race a half-refreshed mirror) and AFTER the consent gate
+            # (consent covers the first list/read RPC as much as a local read).
+            # Pull warnings survive into the sync stats (G10): a torn read or
+            # walled row is a real "your sync did not cover this" signal.
+            if descriptor.mirror_pull is not None:
+                pull_result = await descriptor.mirror_pull.refresh(owner)
+                if pull_result.is_error:
+                    return Result.fail(pull_result)
+                stats.warnings.extend(pull_result.value.warnings)
+
+            # Step 3: ingest (inbound — smart mode skips unchanged files). The
             # descriptor's own fail-closed allowlist scopes which folders are
             # read; entries are attributed to the descriptor's owner. Passing
             # ``user_uid``/``allowlist`` explicitly is belt-and-suspenders: the
@@ -248,7 +266,7 @@ class VaultReconciler:
                 return Result.fail(ingest_result)
             _merge_ingest_stats(stats, ingest_result.value, descriptor.root)
 
-            # Step 3: outbound. Only vaults that support the task round-trip
+            # Step 4: outbound. Only vaults that support the task round-trip
             # have anything to write back; curriculum vaults are inbound-only
             # today (structural no-op).
             if not descriptor.supports_task_round_trip:
@@ -274,6 +292,11 @@ class VaultReconciler:
         registry governs the root). Neither the graph nor the vault is
         touched; outbound preview (would-inject 🆔 IDs / would-mark-done) is
         deferred.
+
+        A preview never dials the agent (ADR-075 Decision 4): for a
+        ``local_agent``-transport vault it reports the MIRROR's state as of
+        the last refresh — read-only against server-local files, like every
+        other preview.
         """
         descriptor_result = self._resolve_guarded(kind, user_uid)
         if descriptor_result.is_error:
@@ -451,7 +474,7 @@ class VaultReconciler:
             return Result.fail(result)
         return Result.ok(None)
 
-    def describe(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultDescription]:
+    async def describe(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultDescription]:
         """Describe the privacy wall of ``(kind, user_uid)``'s vault — read-only.
 
         The sanctioned read door for UI surfaces (sync page, consent form):
@@ -460,12 +483,21 @@ class VaultReconciler:
         descriptor's fail-closed allowlist. No vault for this user →
         ``vault_configured=False`` (not an error — the page renders a
         "no vault configured" note).
+
+        For a ``local_agent``-transport vault with a live agent, the wall is
+        additionally sourced from the agent's ``describe_wall`` (ADR-075 B4):
+        the shown folders are the INTERSECTION of server allowlist and
+        agent-side wall — what a sync can actually reach. Folder names are the
+        pre-consent maximum (ADR-075 Decision 5), so this read is
+        consent-free; no connected agent → the server-side wall is shown
+        unchanged.
         """
         descriptor_result = self._registry.resolve(kind, user_uid)
         if descriptor_result.is_error:
             return Result.ok(VaultDescription(vault_configured=False))
 
-        allowlist = descriptor_result.value.allowlist
+        descriptor = descriptor_result.value
+        allowlist = descriptor.allowlist
         root = allowlist.governed_root
         folders: list[str] = []
         whole_vault_open = False
@@ -479,6 +511,16 @@ class VaultReconciler:
             # An allowed dir outside the governed root cannot come out of
             # build_sync_allowlist (such entries are dropped there) — skip
             # defensively rather than leak an absolute path (#525).
+
+        if descriptor.mirror_pull is not None:
+            wall_result = await descriptor.mirror_pull.describe_wall(descriptor.owner_uid)
+            if wall_result.is_ok:
+                agent_folders = set(wall_result.value.allowed_folders)
+                folders = sorted(
+                    agent_folders if whole_vault_open else set(folders) & agent_folders
+                )
+                whole_vault_open = False
+
         return Result.ok(
             VaultDescription(
                 vault_configured=True,

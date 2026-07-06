@@ -19,7 +19,12 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    # Annotation-only (this module keeps a stdlib-only RUNTIME dependency chain
+    # so the PEP 723 vault agent can import the line-mutation contract).
+    from core.utils.result_simplified import Result
 
 # ============================================================================
 # VAULT-LINE NORMALIZATION CONTRACT (ADR-070 Decision 1 + Decision 4)
@@ -100,6 +105,45 @@ class WriteResult:
     success: bool
     new_sha256: str | None = None
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class VaultFileStat:
+    """One row of a remote vault listing (ADR-075 ``list_changed_since``).
+
+    ``relative_path`` is vault-relative POSIX (the only path shape that crosses
+    the wire); ``sha256`` is the bare hex content hash (wire ``content_hash``
+    with its ``sha256:`` prefix stripped).
+    """
+
+    relative_path: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class VaultListing:
+    """A full remote-vault listing: presence + content hashes (ADR-075 Decision 3).
+
+    ``state`` is the agent's opaque cursor — unused in v1 (deletion
+    reconciliation needs the full-presence listing), carried so a future
+    delta-plus-tombstones optimization is a protocol no-op.
+    """
+
+    files: tuple[VaultFileStat, ...]
+    state: str
+
+
+@dataclass(frozen=True)
+class AgentWall:
+    """The agent's self-reported privacy wall (ADR-075 ``describe_wall``).
+
+    Keeps the server-side "What SKUEL can see" panel honest about what a sync
+    can actually reach — the effective wall is the intersection of this and
+    the server-side descriptor allowlist (ADR-075 Decision 5).
+    """
+
+    allowed_folders: tuple[str, ...]
+    agent_version: str
 
 
 @dataclass
@@ -261,5 +305,44 @@ class VaultBridgePort(Protocol):
     async def list_vault_notes(
         self, user_uid: str, vault_path: str, pattern: str = "**/*.md"
     ) -> list[str]:
-        """Return absolute paths of markdown notes in the vault matching the pattern."""
+        """Return vault-RELATIVE POSIX paths of notes matching ``pattern``.
+
+        ``vault_path`` scopes the listing to a subdirectory (``""``/``"."`` for
+        the whole vault); returned paths are relative to the VAULT ROOT, not to
+        ``vault_path``. Harmonized to vault-relative for all adapters in
+        ADR-075 B4 (One Path Forward — #525 made relative the only path shape
+        that leaves the service layer, and wire paths are structurally
+        relative).
+        """
+        ...
+
+
+class RemoteVaultBridgePort(VaultBridgePort, Protocol):
+    """A ``VaultBridgePort`` whose vault lives on a remote device (ADR-075).
+
+    Adds the two sync-metadata operations the server-side mirror pull needs
+    (`VaultMirrorPuller`, ADR-075 Decision 4). The filesystem transport
+    deliberately does NOT implement this: it has no self-reported wall (the
+    server-side allowlist IS its wall) and the ingest engine walks its root
+    directly — a filesystem ``describe_wall`` would fabricate honesty.
+    """
+
+    async def list_changed_since(
+        self, user_uid: str, since_state: str | None = None
+    ) -> Result[VaultListing]:
+        """Full listing of the remote vault's allowed files (presence + hashes).
+
+        ``since_state=None`` (always, in v1) requests the complete listing —
+        absence from it is the mirror's deletion signal. Fails with an
+        integration error when no agent is connected for ``user_uid``.
+        """
+        ...
+
+    async def describe_wall(self, user_uid: str) -> Result[AgentWall]:
+        """The agent's self-reported allowed folders + version (honesty check).
+
+        Exchanges no vault content — folder names are the pre-consent maximum
+        (ADR-075 Decision 5). Fails with an integration error when no agent is
+        connected.
+        """
         ...
