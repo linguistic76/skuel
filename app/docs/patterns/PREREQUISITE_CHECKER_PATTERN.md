@@ -80,12 +80,12 @@ behaviour exactly, so context-free callers are unchanged.
   `readiness_override`) — not `check.is_ready`.
 - `GoalsIntelligenceService.get_goal_learning_requirements(uid, ..., user_context=None)` returns the
   three blocks for a single goal.
-- **Daily plan / profile overview** (`ui/profile/overview.py`): `_goal_focus_section` renders each
-  advancing **goal**'s requirements via `_goal_learning_requirements_line` — `"✓ ready to start"`
-  or `"{mastered}/{required} mastered ({pct}%) · {n} gaps · ~{h}h to learn"`; goals requiring no
-  knowledge render nothing. **Goals only** by design — actionable tasks are pre-filtered to ready in
-  the planning service, so a task line would be inert. The Task field is still populated (for
-  non-prefiltered consumers + `to_dict`).
+- **UI note:** the former profile-overview renderer (`_goal_focus_section` in
+  `ui/profile/overview.py`) was removed 2026-07-05 with the dead overview surface — the
+  `learning_requirements` payload currently has no UI renderer; it reaches consumers via
+  `to_dict` / programmatic access. **Goals only** by design — actionable tasks are pre-filtered
+  to ready in the planning service, so a task line would be inert. The Task field is still
+  populated (for non-prefiltered consumers + `to_dict`).
 
 **See:** [GOALS_INTELLIGENCE.md](/docs/intelligence/GOALS_INTELLIGENCE.md),
 [TASKS_INTELLIGENCE.md](/docs/intelligence/TASKS_INTELLIGENCE.md),
