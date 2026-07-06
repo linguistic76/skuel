@@ -448,7 +448,7 @@ The largest single migration — 35 inline Cypher queries from 8 PathStep servic
 | **Application Discovery (3)** | `find_connected_activities`, `find_path_steps_containing_ku`, `find_learning_paths_teaching_ku` | `_KnowledgeContextMixin` |
 | **Context (3)** | `find_ready_to_learn`, `find_learning_gaps`, `find_reinforcement_candidates` | `_KnowledgeContextMixin` |
 | **Semantic (6)** | `create_semantic_relationship`, `query_semantic_neighborhood`, `delete_semantic_relationship`, `query_relationships_by_type`, `discover_semantic_bridges`, `infer_transitive_relationships` | `_SemanticMixin` |
-| **Graph (9)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps`, `find_time_aware_paths` | `_SemanticMixin` + `_KnowledgeContextMixin` |
+| **Graph (8)** | `link_prerequisite`, `link_parent_child`, `query_user_mastery_for_prereqs`, `find_learning_recommendations`, `compute_hub_scores`, `query_foundational_knowledge`, `find_prerequisite_chain`, `find_next_steps` | `_SemanticMixin` + `_KnowledgeContextMixin` |
 | **Adaptive (5)** | `track_mastery_completion`, `query_user_masteries`, `query_active_learning_paths`, `query_completed_learning_paths`, `query_learning_preferences` | `_AdaptiveMixin` |
 
 **Protocol:** 31 new methods added to the curriculum protocol (then named `LessonOperations`, now `PsOperations`) in `curriculum_protocols.py`.
