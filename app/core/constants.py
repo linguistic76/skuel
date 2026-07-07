@@ -819,27 +819,3 @@ MASS_DELETION_MIN_COUNT: Final = 10
 # deletion, misconfigured root), not authoring. Escape hatch: delete explicitly
 # via the ingestion dashboard, or sync in smaller batches.
 MASS_DELETION_MAX_FRACTION: Final = 0.5
-
-
-KU_NAMESPACES: Final[frozenset[str]] = frozenset(
-    {
-        "attention",
-        "behavior",
-        "body",
-        "breath",
-        "curriculum",
-        "emotion",
-        "environment",
-        "identity",
-        "meta",
-        "method",
-        "mind",
-        "movement",
-        "nervous_system",
-        "nutrition",
-        "practice",
-        "relationship",
-        "sleep",
-        "spirit",
-    }
-)

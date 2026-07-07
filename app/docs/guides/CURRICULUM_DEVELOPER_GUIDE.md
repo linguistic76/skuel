@@ -132,13 +132,13 @@ type: Ku
 
 uid: ku:sel:empathy
 title: Empathy
-namespace: sel
-ku_category: concept
 aliases:
   - perspective-taking
   - emotional attunement
   - understanding others
-source: sel_framework
+nous:
+  - social
+  - relationships
 sel_category: social_awareness
 description: >
   The ability to understand and share the feelings of another person.
@@ -155,20 +155,21 @@ tags:
 
 | Field | Purpose | Required? |
 |-------|---------|-----------|
-| `uid` | Unique identifier (`ku:{namespace}:{slug}`) | Yes |
+| `uid` | Unique identifier (`ku:{group}:{slug}` — the middle token is an opaque grouping label, not a stored field) | Yes |
 | `title` | Display name | Yes |
-| `namespace` | Grouping (e.g., `sel`, `attention`, `nutrition`) | No, but recommended |
-| `ku_category` | What kind of thing this is (concept, practice, value, state, substance, principle, intake) | No |
+| `nous` | Topic-section membership — zero or more of the 11 official sections | No (empty is valid) |
 | `sel_category` | Which SEL competency it belongs to | No (only for SEL content) |
 | `aliases` | Alternative names for search | No |
 | `description` | One-paragraph summary | No, but strongly recommended |
 | `tags` | For filtering and search | No |
 
+The 11 `nous` sections: `stories`, `environment`, `intelligence`, `investment`, `words`, `relationships`, `social`, `body`, `exercises`, `self-management`, `self-awareness`. The vocabulary is derived from the graph, not enum-validated — use the exact slugs.
+
 **Guidelines:**
 
 - **One concept per Ku.** If you're writing "and" in the title, you probably have two Kus.
 - **Describe, don't teach.** The description should define the concept, not explain how to develop it. Teaching belongs in PathSteps.
-- **Choose `ku_category` carefully.** A *concept* is an abstract idea (empathy, neuroplasticity). A *practice* is something you do (active listening, meditation). A *value* is something you aspire to (compassion, honesty). A *state* is something you observe (buzzing, calm).
+- **Assign `nous` deliberately.** Place the Ku in the topic sections a learner would browse to find it. Leaving it empty is fine — a Ku can exist before it belongs to a section.
 - **Use `aliases` generously.** Learners search with different words. If your Ku is "Impulse Control," aliases like "self-regulation" and "pause before acting" help the system surface it.
 
 ### Writing a PathStep
