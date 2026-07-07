@@ -566,7 +566,15 @@ the UNWIND row), so this pre-check is the only place a phantom UID becomes
 visible. Real reconciler syncs (`VaultReconciler.sync` — both vault doors and
 `./dev vault-sync`) always pass `validate_targets=True` (Arc E, G10); every
 missing (source, target) pair lands in the stats `warnings` list and surfaces
-through the sync UI/API:
+through the sync UI/API.
+
+The pre-check is **payload-aware**: a target that resolves to another entity
+being ingested in the *same* sync is valid even though it isn't in the graph
+yet. The two-phase ingest persists ALL nodes before ANY relationships (Phase 1
+then Phase 2), so same-sync forward references resolve on the single pass — a
+wave of new, mutually-referencing entities links completely on one sync with no
+warning and no `--force` follow-up. Only targets missing from BOTH the graph and
+the sync payload (typos, cross-vault references) warn:
 
 ```python
 stats = await service.ingest_directory(
@@ -586,7 +594,10 @@ from core.services.ingestion import validate_relationship_targets
 result = await validate_relationship_targets(
     entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
     relationship_config=ENTITY_CONFIGS[EntityType.CURRICULUM].relationship_config,
-    driver=driver,
+    write_backend=write_backend,
+    # Optional: UIDs being ingested in this sync — a target in this set counts
+    # as valid before it lands in the graph (same-sync forward reference).
+    known_uids={"ku.test", "ku.prereq"},
 )
 
 if not result.value.valid:
