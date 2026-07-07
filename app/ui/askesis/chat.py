@@ -414,9 +414,12 @@ def _composer_form(
         nous_attrs["value"] = initial_nous
 
     form_extras: dict[str, Any] = {
+        # Clear the textarea explicitly (not just reset()): in the handoff case
+        # the question is the textarea's server-rendered default, so reset() would
+        # RESTORE it after the auto-run answer. ta.value='' clears it either way.
         "hx-on::after-request": (
             "this.reset();"
-            " var ta=this.querySelector('textarea'); if(ta){ta.style.height='auto';}"
+            " var ta=this.querySelector('textarea'); if(ta){ta.value='';ta.style.height='auto';}"
             " var s=document.getElementById('thread-scroll'); if(s){s.scrollTop=s.scrollHeight;}"
         ),
     }
