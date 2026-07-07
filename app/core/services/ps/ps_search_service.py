@@ -19,11 +19,12 @@ Architecture (January 2026 Unified):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
+from core.ports.query_types import NousSubtopicPair, to_nous_subtopic_pairs
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.logging import get_logger
@@ -87,20 +88,21 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     # PS-SPECIFIC METHODS
     # =========================================================================
 
-    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
         """This PathStep label's contribution of (nous, nous_subtopic) pairs.
 
         Scoped to `:PathStep` — mirror of `KuSearchService.nous_subtopic_pairs`.
         `SearchRouter.nous_subtopic_map` merges both domains' pairs into the
         dependent /search dropdown's map, keeping cross-domain aggregation in the
-        service layer. Rows carry ``nous`` + ``subtopic`` string keys.
+        service layer. Raw Neo4j property unions are narrowed to typed string
+        pairs at the domain boundary.
 
         Backend: ``PsBackend.nous_subtopic_pairs``.
         """
         result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record) for record in (result.value or [])])
+        return Result.ok(to_nous_subtopic_pairs(result.value or []))
 
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """

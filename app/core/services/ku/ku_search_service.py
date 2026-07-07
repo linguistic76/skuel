@@ -15,6 +15,7 @@ from typing import Any, cast
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.ports.curriculum_protocols import KuOperations
+from core.ports.query_types import NousSubtopicPair, to_nous_subtopic_pairs
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.result_simplified import Result
@@ -40,21 +41,21 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         entity_label="Ku",
     )
 
-    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
         """This Ku label's contribution of (nous, nous_subtopic) co-occurrence pairs.
 
         Scoped to `:Ku` — `SearchRouter.nous_subtopic_map` folds this together
         with the PathStep contribution (`PsSearchService.nous_subtopic_pairs`)
-        into the dependent /search dropdown's map. Kept as raw pairs here so the
-        cross-domain merge stays in the service layer, not this per-domain sub-
-        service. Rows carry ``nous`` + ``subtopic`` string keys.
+        into the dependent /search dropdown's map. The cross-domain merge stays in
+        the service layer, not this per-domain sub-service. Raw Neo4j property
+        unions are narrowed to typed string pairs here at the domain boundary.
 
         Backend: ``KuBackend.nous_subtopic_pairs``.
         """
         result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record) for record in (result.value or [])])
+        return Result.ok(to_nous_subtopic_pairs(result.value or []))
 
     async def search_by_alias(
         self, alias: str

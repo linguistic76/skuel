@@ -83,7 +83,7 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
-    from core.ports.query_types import SemanticSearchChunkResult
+    from core.ports.query_types import NousSubtopicPair, SemanticSearchChunkResult
     from core.services.user import UserContext
     from services_bootstrap import Services
 
@@ -307,7 +307,7 @@ class SearchRouter:
 
         return service
 
-    async def _nous_subtopic_pairs(self) -> list[dict[str, Any]]:
+    async def _nous_subtopic_pairs(self) -> list[NousSubtopicPair]:
         """Gather (nous, nous_subtopic) co-occurrence pairs across curriculum domains.
 
         The cross-domain aggregation point (SearchRouter is THE cross-domain
@@ -320,7 +320,7 @@ class SearchRouter:
         Fails soft per domain: a missing service or an errored call contributes
         nothing rather than failing the whole vocabulary.
         """
-        pairs: list[dict[str, Any]] = []
+        pairs: list[NousSubtopicPair] = []
         for entity_type in (EntityType.KU, EntityType.PATH_STEP):
             service = self.get_service(entity_type)
             if service is None:
@@ -341,12 +341,8 @@ class SearchRouter:
         deduped + sorted. Fail-soft/empty until `nous_subtopic:` data is authored.
         """
         mapping: dict[str, set[str]] = {}
-        for record in await self._nous_subtopic_pairs():
-            nous = record.get("nous")
-            subtopic = record.get("subtopic")
-            if not isinstance(nous, str) or not isinstance(subtopic, str):
-                continue
-            mapping.setdefault(nous, set()).add(subtopic)
+        for pair in await self._nous_subtopic_pairs():
+            mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
         return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
 
     async def list_nous_subtopics(self) -> Result[list[str]]:
@@ -358,11 +354,7 @@ class SearchRouter:
         dependent HTMX target — renders whenever the map has any entry, even in a
         corpus whose sub-topics live only on PathSteps. Fail-soft/empty.
         """
-        subtopics = {
-            sub
-            for record in await self._nous_subtopic_pairs()
-            if isinstance(sub := record.get("subtopic"), str)
-        }
+        subtopics = {pair["subtopic"] for pair in await self._nous_subtopic_pairs()}
         return Result.ok(sorted(subtopics))
 
     def supports_search(self, entity_type: EntityType | NonKuDomain) -> bool:

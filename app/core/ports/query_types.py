@@ -606,6 +606,37 @@ class GraphContextResult(TypedDict, total=False):
     total_relationships: int
 
 
+class NousSubtopicPair(TypedDict):
+    """A single (NOUS topic, sub-topic) co-occurrence pair.
+
+    The typed record each curriculum domain contributes from its own label
+    (`KuSearchService`/`PsSearchService.nous_subtopic_pairs`), which
+    `SearchRouter.nous_subtopic_map` merges into the dependent /search dropdown's
+    vocabulary. Both fields are always present strings (narrowed from the raw
+    Neo4j property union at the domain boundary).
+    """
+
+    nous: str
+    subtopic: str
+
+
+def to_nous_subtopic_pairs(records: list[Neo4jProperties]) -> list[NousSubtopicPair]:
+    """Narrow raw Neo4j `(nous, subtopic)` rows to typed `NousSubtopicPair`s.
+
+    The domain-boundary converter for both `KuSearchService` and
+    `PsSearchService.nous_subtopic_pairs`: it drops any row whose `nous` or
+    `subtopic` is missing or non-string, so only well-formed pairs reach the
+    router merge (no arbitrary record shapes flow into the UI vocabulary).
+    """
+    pairs: list[NousSubtopicPair] = []
+    for record in records:
+        nous = record.get("nous")
+        subtopic = record.get("subtopic")
+        if isinstance(nous, str) and isinstance(subtopic, str):
+            pairs.append(NousSubtopicPair(nous=nous, subtopic=subtopic))
+    return pairs
+
+
 class ProgressResult(TypedDict, total=False):
     """
     Result structure for progress tracking operations.

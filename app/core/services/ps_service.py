@@ -34,6 +34,7 @@ from core.models.update_contracts import RawChanges
 from core.ports.base_protocols import HasUID
 from core.ports.query_types import (
     ListContext,
+    NousSubtopicPair,
     OrganizerResult,
     RootOrganizerResult,
     StepApplicationsResult,
@@ -332,7 +333,7 @@ class PsService:
         """Search path steps by text query."""
         return await self.search.search(query=query, limit=limit)
 
-    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
         """This PathStep label's (nous, nous_subtopic) co-occurrence pairs.
 
         The PathStep contribution to the dependent /search sub-topic dropdown;

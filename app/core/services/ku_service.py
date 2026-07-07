@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
     from core.models.shared.dual_track import DualTrackResult
-    from core.ports.query_types import KuUserSubstanceResult
+    from core.ports.query_types import KuUserSubstanceResult, NousSubtopicPair
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
 
@@ -141,7 +141,7 @@ class KuService:
         """
         return await self.search.list_all_categories()
 
-    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
         """This Ku label's (nous, nous_subtopic) co-occurrence pairs.
 
         The Ku contribution to the dependent /search sub-topic dropdown;
