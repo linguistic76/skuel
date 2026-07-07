@@ -121,6 +121,7 @@ def _normalize_type(raw: str) -> str:
     ``user_entry`` → ``userentry``, ``path_step`` → ``pathstep``)."""
     return raw.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
 
+
 _FRONTMATTER = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Captures spaced display-names too ("Path Step", "Learning Path") — ingestion's
 # EntityType.from_string() normalizes spaces/hyphens, so the guard must as well.
