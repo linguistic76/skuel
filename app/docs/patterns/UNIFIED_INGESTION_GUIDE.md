@@ -595,9 +595,10 @@ result = await validate_relationship_targets(
     entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
     relationship_config=ENTITY_CONFIGS[EntityType.CURRICULUM].relationship_config,
     write_backend=write_backend,
-    # Optional: UIDs being ingested in this sync — a target in this set counts
-    # as valid before it lands in the graph (same-sync forward reference).
-    known_uids={"ku.test", "ku.prereq"},
+    # Optional: same-sync UIDs grouped by the labels each node will carry — a
+    # target counts as valid before it lands in the graph only under the label
+    # the relationship's target_label (and Phase-2 MATCH) will look for.
+    known_uids_by_label={"Ku": {"ku.test", "ku.prereq"}, "Entity": {"ku.test", "ku.prereq"}},
 )
 
 if not result.value.valid:
