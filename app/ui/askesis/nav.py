@@ -16,22 +16,27 @@ async def render_askesis_page(
     username: str = "User",
     learning_scope_label: str = "Your learning",
     nous_topics: list[str] | None = None,
+    nous_subtopics: list[str] | None = None,
     initial_question: str = "",
     initial_nous: str = "",
+    initial_nous_subtopic: str = "",
 ) -> Any:
     """Render the Askesis chat surface within the SKUEL BasePage shell.
 
-    ``initial_question`` / ``initial_nous`` carry the /search "Ask" handoff — they
-    prefill the composer and seed the scope (chip shown); the user clicks Send
-    (no auto-submit — a crafted GET must not run a prompt in the session).
+    ``initial_question`` / ``initial_nous`` / ``initial_nous_subtopic`` carry the
+    /search "Ask" handoff — they prefill the composer and seed the scope (chip
+    shown); the user clicks Send (no auto-submit — a crafted GET must not run a
+    prompt in the session).
     """
     return await BasePage(
         content=render_askesis_shell(
             username=username,
             learning_scope_label=learning_scope_label,
             nous_topics=nous_topics,
+            nous_subtopics=nous_subtopics,
             initial_question=initial_question,
             initial_nous=initial_nous,
+            initial_nous_subtopic=initial_nous_subtopic,
         ),
         title="Askesis",
         page_type=PageType.CUSTOM,

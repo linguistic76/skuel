@@ -53,6 +53,21 @@ def create_askesis_ui_routes(
             return []
         return sorted(result.value)
 
+    async def _load_nous_subtopics() -> list[str]:
+        """Fetch the NOUS sub-topic vocabulary (2nd level) for the composer scope.
+
+        Mirrors ``_load_nous_topics`` and fails soft the same way. Empty until the
+        vault carries `nous_subtopic:` data, so the sub-topic selector renders
+        nothing (mechanism ships ahead of content).
+        """
+        if ku_service is None:
+            return []
+        result = await ku_service.list_nous_subtopics()
+        if result.is_error:
+            logger.warning(f"Could not load NOUS sub-topics for Askesis composer: {result.error}")
+            return []
+        return sorted(result.value)
+
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
         """Full Askesis chat surface.
@@ -64,11 +79,14 @@ def create_askesis_ui_routes(
         """
         question = request.query_params.get("question", "")
         nous = request.query_params.get("nous", "")
+        nous_subtopic = request.query_params.get("nous_subtopic", "")
         return await render_askesis_page(
             request,
             nous_topics=await _load_nous_topics(),
+            nous_subtopics=await _load_nous_subtopics(),
             initial_question=question,
             initial_nous=nous,
+            initial_nous_subtopic=nous_subtopic,
         )
 
     routes.append(askesis_home)
@@ -139,10 +157,17 @@ def create_askesis_ui_routes(
             GuidanceMode(mode_str) if mode_str in GuidanceMode._value2member_map_ else None
         )
 
-        # Optional NOUS topic scope from the composer — narrows the answer's
-        # retrieved passages to that topic (Scoped Ask). Empty = no scope.
+        # Optional NOUS topic + sub-topic scope from the composer — narrows the
+        # answer's retrieved passages to that topic/sub-topic (Scoped Ask). Both
+        # empty = no scope; either present builds the scope. The sub-topic facet
+        # reaches retrieval for free via SearchRequest.to_property_filters().
         nous = safe_form_string(form_data.get("nous", ""))
-        scope: SearchRequest | None = SearchRequest(nous=nous) if nous else None
+        nous_subtopic = safe_form_string(form_data.get("nous_subtopic", ""))
+        scope: SearchRequest | None = (
+            SearchRequest(nous=nous or None, nous_subtopic=nous_subtopic or None)
+            if (nous or nous_subtopic)
+            else None
+        )
 
         ai_response: str
         try:

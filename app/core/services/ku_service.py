@@ -141,6 +141,17 @@ class KuService:
         """
         return await self.search.list_all_categories()
 
+    async def list_nous_subtopics(self) -> Result[list[str]]:
+        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+
+        The 2nd taxonomy level beneath the NOUS topics. Derived from the graph,
+        never hardcoded. Fail-soft/empty until the vault carries authored
+        `nous_subtopic:` frontmatter (the mechanism ships ahead of the data).
+
+        Backend: KuBackend.distinct_values_raw via KuSearchService.
+        """
+        return await self.search.list_nous_subtopics()
+
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)
     # =========================================================================

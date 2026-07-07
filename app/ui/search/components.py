@@ -54,6 +54,7 @@ from ui.tokens import Container
 async def render_search_page_with_navbar(
     request: Any = None,
     nous_topics: list[str] | None = None,
+    nous_subtopics: list[str] | None = None,
     ask_enabled: bool = False,
 ) -> Any:
     """
@@ -68,13 +69,17 @@ async def render_search_page_with_navbar(
         request: Starlette request for auto-detection of auth/admin
         nous_topics: NOUS topic vocabulary derived from the graph
             (route fetches via KuService.list_nous_topics)
+        nous_subtopics: NOUS sub-topic vocabulary (2nd level) derived from the
+            graph (route fetches via KuService.list_nous_subtopics). Empty until
+            the vault carries `nous_subtopic:` data — the control fails soft to
+            nothing on an empty list.
         ask_enabled: FULL-tier gate for the "Ask" button (hands the query +
             nous facet to scoped Askesis). Hidden in CORE tier.
 
     Returns:
         Complete HTML page using unified BasePage layout
     """
-    content = _render_horizontal_layout(nous_topics or [], ask_enabled)
+    content = _render_horizontal_layout(nous_topics or [], nous_subtopics or [], ask_enabled)
 
     return await BasePage(
         content=content,
@@ -86,7 +91,9 @@ async def render_search_page_with_navbar(
     )
 
 
-def _render_horizontal_layout(nous_topics: list[str], ask_enabled: bool = False) -> Div:
+def _render_horizontal_layout(
+    nous_topics: list[str], nous_subtopics: list[str], ask_enabled: bool = False
+) -> Div:
     """
     Horizontal filter layout for search.
 
@@ -96,7 +103,7 @@ def _render_horizontal_layout(nous_topics: list[str], ask_enabled: bool = False)
     return Div(
         Div(
             # Filter Bar (Tier 1 - All filters always visible)
-            NotStr(_render_filter_bar(nous_topics)),
+            NotStr(_render_filter_bar(nous_topics, nous_subtopics)),
             # Context Filters (Tier 2 - Expandable based on entity type)
             NotStr(_render_context_filters()),
             # Active Filter Badges
@@ -150,6 +157,8 @@ ALL_FILTER_NAMES = [
     "educational_level",
     # NOUS topic
     "nous",
+    # NOUS sub-topic (2nd taxonomy level)
+    "nous_subtopic",
     # Learning progress
     "not_yet_viewed",
     "viewed_not_mastered",
@@ -172,7 +181,7 @@ def _get_hx_include(exclude: str = "") -> str:
     return ", ".join(f"[name='{n}']" for n in names)
 
 
-def _render_filter_bar(nous_topics: list[str]) -> str:
+def _render_filter_bar(nous_topics: list[str], nous_subtopics: list[str]) -> str:
     """
     Render Tier 1: Primary filters always visible.
 
@@ -197,6 +206,8 @@ def _render_filter_bar(nous_topics: list[str]) -> str:
                 </label>
                 {_render_nous_select(nous_topics)}
             </div>
+
+            {_render_nous_subtopic_select(nous_subtopics)}
 
             <!-- Sort Order -->
             <div class="space-y-2 flex-1 min-w-[150px]">
@@ -287,6 +298,41 @@ def _render_nous_select(nous_topics: list[str]) -> str:
             hx-include="{_get_hx_include("nous")}">
         {options}
     </select>
+    """
+
+
+def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
+    """NOUS sub-topic dropdown (2nd taxonomy level) for the Tier 1 filter bar.
+
+    Options are DERIVED from the graph (KuService.list_nous_subtopics), never
+    hardcoded. Fails soft: with no authored `nous_subtopic` data the vocabulary
+    is empty, so the whole column renders NOTHING (no orphan "All" dropdown) —
+    the mechanism ships ahead of the vault content.
+
+    FLAT for now: the ideal is nous → sub-options populate, but that needs a
+    nous→subtopics MAP which can't exist without data. Dependent-on-nous
+    filtering is a follow-up once the vault carries the data (do NOT fake it).
+    """
+    if not nous_subtopics:
+        return ""
+    sections = [("", "All Sub-topics")] + [
+        (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
+    ]
+    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
+    return f"""
+    <!-- Nous Sub-topic -->
+    <div class="space-y-2 flex-1 min-w-[150px]">
+        <label class="label py-1">
+            <span class="text-xs font-semibold uppercase tracking-wide">Sub-topic</span>
+        </label>
+        <select name="nous_subtopic" class="select select-bordered select-sm w-full"
+                hx-get="/search/results"
+                hx-trigger="change"
+                hx-target="#search-results"
+                hx-include="{_get_hx_include("nous_subtopic")}">
+            {options}
+        </select>
+    </div>
     """
 
 
