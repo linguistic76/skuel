@@ -62,7 +62,11 @@ query_text: str | None = None  # Search query text (optional if filters provided
                                # Min: 1, Max: 500 characters
 ```
 
-**Validation:** At least `query_text` OR one filter must be provided.
+**Validation:** `query_text`, when present, must be non-whitespace; a `None`
+query is valid. The model is otherwise permissive — it does NOT reject a fully
+blank request. "At least a query OR one filter" is a **route-level UX gate**
+(`SearchRequest.has_any_criteria()`), not model validation: the blank initial
+state shows a prompt rather than raising, and a filter alone is a real search.
 
 #### Core Facets (Fundamental to SKUEL)
 
