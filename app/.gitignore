@@ -75,6 +75,15 @@ data/*.png
 # Generated report output (written by analytics_service.py at runtime)
 data/reports/
 
+# PRIVATE vault content — NEVER commit (this repo is PUBLIC). Per-user vault mirrors
+# (SKUEL_USER_VAULTS_ROOT defaults to data/user_vaults) and the ADR-075 local-agent
+# staging mirror hold personal/proprietary content. The repo-root .gitignore already
+# blanket-ignores app/data/; these are called out explicitly for local visibility, and
+# scripts/audit_content_boundary.py enforces that no content/vault path is ever tracked
+# (also a unit test → CI gate), which catches force-adds and content pasted elsewhere.
+data/user_vaults/
+data/staging/
+
 # Node
 node_modules/
 npm-debug.log*

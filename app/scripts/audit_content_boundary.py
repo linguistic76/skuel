@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Content-boundary guard — keep proprietary vault content out of the PUBLIC repo.
+
+SKUEL's principle: **the repo carries the machinery and the mechanism; the vault
+carries the content and the ontology.** Code, ADRs, and technical patterns are public;
+Kus, PathSteps, taxonomies, and per-user vault mirrors are private and live under
+``~/0bsidian`` (or the gitignored ``data/user_vaults`` staging mirror), never on GitHub.
+
+This is the enforced backstop to that discipline (``.gitignore`` is the first line).
+It fails if any *tracked* file:
+
+1. sits under a forbidden path prefix (``docs/content/``, ``data/user_vaults/``,
+   ``data/staging/``, ``yaml_templates/``), or
+2. IS a vault entity — a Markdown/YAML file whose leading frontmatter declares a
+   content ``type:`` (Ku, PathStep, Exercise, LearningPath, Resource, *Template).
+   Structural, not heuristic: the frontmatter must be at file start, so fenced
+   ``yaml`` examples inside docs never match.
+
+Run: ``uv run python scripts/audit_content_boundary.py`` (also wired into
+``./dev quality`` and asserted by ``tests/unit/test_content_boundary.py`` so the CI
+gate enforces it). Exit 0 = clean, 1 = violations.
+"""
+
+from __future__ import annotations
+
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# Tracked paths (relative to app/) that must never hold committed content.
+FORBIDDEN_PREFIXES: tuple[str, ...] = (
+    "docs/content/",
+    "data/user_vaults/",
+    "data/staging/",
+    "yaml_templates/",
+)
+
+# Frontmatter ``type:`` values that mark a file as an ingestible vault entity.
+CONTENT_TYPES: frozenset[str] = frozenset(
+    {
+        "ku",
+        "pathstep",
+        "learningpath",
+        "exercise",
+        "resource",
+        "tasktemplate",
+        "goaltemplate",
+        "habittemplate",
+        "eventtemplate",
+        "choicetemplate",
+        "principletemplate",
+    }
+)
+
+_FRONTMATTER = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z_]+)", re.MULTILINE | re.IGNORECASE)
+
+
+def _tracked_files() -> list[str]:
+    out = subprocess.check_output(["git", "ls-files"], cwd=REPO_ROOT, text=True)
+    return out.splitlines()
+
+
+def _looks_like_vault_entity(path: Path) -> str | None:
+    """Return the offending ``type`` value if the file's leading frontmatter is a
+    content entity, else None."""
+    if path.suffix.lower() not in (".md", ".yaml", ".yml"):
+        return None
+    try:
+        head = path.read_text(encoding="utf-8", errors="ignore")[:4000]
+    except OSError:
+        return None
+    fm = _FRONTMATTER.match(head)
+    if not fm:
+        return None
+    tm = _TYPE_FIELD.search(fm.group(1))
+    if tm and tm.group(1).strip().lower() in CONTENT_TYPES:
+        return tm.group(1).strip()
+    return None
+
+
+def find_violations() -> list[str]:
+    """Return human-readable violation lines (empty = clean)."""
+    violations: list[str] = []
+    for rel in _tracked_files():
+        if rel.startswith(FORBIDDEN_PREFIXES):
+            violations.append(f"{rel}: under a forbidden content path prefix")
+            continue
+        entity_type = _looks_like_vault_entity(REPO_ROOT / rel)
+        if entity_type:
+            violations.append(
+                f"{rel}: leading frontmatter declares content type '{entity_type}' "
+                f"— vault content does not belong in this repo"
+            )
+    return violations
+
+
+def main() -> int:
+    violations = find_violations()
+    if violations:
+        print("❌ Content-boundary guard FAILED — proprietary content in the repo:\n")
+        for v in violations:
+            print(f"  • {v}")
+        print(
+            "\nThe repo is PUBLIC. Move vault content/ontology into the private vault "
+            "(~/0bsidian) and keep only mechanism-level docs here.\n"
+            "See docs/patterns/NOUS_SUBTOPIC_FACET.md for the pattern."
+        )
+        return 1
+    print("✅ Content-boundary guard passed — no vault content tracked in the repo.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

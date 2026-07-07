@@ -150,6 +150,14 @@ def main():
     ):
         all_passed = False
 
+    # 7b. Content-boundary guard (no proprietary vault content tracked in this PUBLIC repo)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_content_boundary.py"],
+        "Content-Boundary Guard",
+        check=False,
+    ):
+        all_passed = False
+
     # 7. Dead-code gate (PLANNED tier is the escape hatch for staged work)
     if not run_command(
         ["uv", "run", "python", "scripts/detect_bloat.py", "--check"],
