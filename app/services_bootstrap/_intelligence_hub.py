@@ -180,14 +180,14 @@ async def _create_intelligence_hub(
             backend=learning_services["ps"].core.backend,
         )
 
-        # Askesis grounds answers in :ContentChunk vectors. Without vector_search_service
-        # it silently degrades to graph-only context (Gap #6). FULL tier promises both
-        # services; missing vector_search_service here means embedding bootstrap was
-        # swallowed somewhere upstream.
+        # Askesis grounds answers in :ContentChunk vectors, reached via
+        # SearchRouter.retrieve_scoped_chunks (which reads services.vector_search_service).
+        # FULL tier promises vector search; a None here means embedding bootstrap was
+        # swallowed upstream and the router would have nothing to retrieve from.
         if vector_search_service is None:
             raise RuntimeError(
                 "Askesis cannot be created without vector_search_service in FULL tier — "
-                "chunk retrieval would silently fall back to graph-only context. "
+                "SearchRouter chunk retrieval would have no vector backend. "
                 "Check embedding bootstrap (_learning_services.py)."
             )
 

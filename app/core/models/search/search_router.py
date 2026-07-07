@@ -567,6 +567,49 @@ class SearchRouter:
             self.logger.error(f"Faceted search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
+    async def retrieve_scoped_chunks(
+        self,
+        request: "SearchRequest",
+        *,
+        chunk_types: list[str] | None = None,
+        min_score: float | None = None,
+        user_uid: UserUID | None = None,
+    ) -> Result[list["SemanticSearchChunkResult"]]:
+        """Retrieve lesson-BODY passages (:ContentChunk) scoped to the request's facets.
+
+        The chunk-level (RAG) counterpart to ``faceted_search``: where that method
+        returns entity cards, this returns the passages that ground an answer.
+        Both take the SAME SearchRequest, so Ask (Askesis) and Find (/search) share
+        ONE facet→scope path — a ``nous`` topic on the request narrows the retrieved
+        passages to that topic's owning Ku/PS entities (via
+        ``request.to_property_filters()``), exactly as it narrows the entity results.
+
+        Returns an ``unavailable`` error on the CORE tier (no vector search), so the
+        caller can fail soft rather than crash — the Digital layer is optional.
+
+        Backend: Neo4jVectorSearchService.find_similar_chunks_by_text →
+        VectorSearchBackend.semantic_search_chunks.
+        """
+        del user_uid  # reserved: future owner-scoped chunk visibility (parity with faceted_search)
+
+        vector_search = getattr(self.services, "vector_search_service", None)
+        if vector_search is None:
+            return Result.fail(
+                Errors.unavailable(
+                    feature="scoped_chunk_search",
+                    reason="vector search unavailable (CORE tier)",
+                    operation="retrieve_scoped_chunks",
+                )
+            )
+
+        return await vector_search.find_similar_chunks_by_text(
+            text=request.query_text or "",
+            chunk_types=chunk_types,
+            limit=request.limit,
+            min_score=min_score,
+            parent_filters=request.to_property_filters(),
+        )
+
     # Domains that support graph_aware_faceted_search (January 2026 - Unified Search)
     # Includes Activity Domains (6) + Curriculum Domains (3) + Learning Loop (3)
     # One Path Forward: All domains use the same search pattern

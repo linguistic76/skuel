@@ -53,6 +53,7 @@ if TYPE_CHECKING:
         ScheduleAwareRecommendation,
     )
     from core.models.enums import GuidanceMode
+    from core.models.search_request import SearchRequest
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.types import (
         AskesisAnalysis,
@@ -98,8 +99,6 @@ class AskesisDeps:
     ps_engagement_service: Any  # boundary: PsEngagementService
     # Citation service — formats graph citations for Askesis responses
     citation_service: Any | None = None
-    # Vector search service — Neo4j native vector indexes for semantic search
-    vector_search_service: Any | None = None  # boundary: Neo4jVectorSearchService
     # PS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
     lp_service: Any | None = None
@@ -197,7 +196,7 @@ class AskesisService:
         self.context_retriever = ContextRetriever(
             graph_intel=deps.graph_intel,
             embeddings_service=deps.embeddings_service,
-            vector_search_service=deps.vector_search_service,
+            # search_router is post-wired in compose (built after Askesis)
             # PS bundle dependencies
             ps_service=deps.knowledge_service,
             ku_service=deps.ku_service,
@@ -323,10 +322,15 @@ class AskesisService:
         question: str,
         session_id: str | None = None,
         preferred_mode: "GuidanceMode | None" = None,
+        scope: "SearchRequest | None" = None,
     ) -> Result[dict[str, Any]]:
-        """Answer user question via RAG pipeline. Delegated to query_processor."""
+        """Answer user question via RAG pipeline. Delegated to query_processor.
+
+        ``scope`` carries an optional facet (e.g. a ``nous`` topic from the
+        Askesis composer) that narrows the retrieved passages to that topic.
+        """
         return await self.query_processor.answer_user_question(
-            user_uid, question, session_id, preferred_mode
+            user_uid, question, session_id, preferred_mode, scope
         )
 
     async def process_query_with_context(

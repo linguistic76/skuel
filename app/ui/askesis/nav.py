@@ -15,12 +15,14 @@ async def render_askesis_page(
     *,
     username: str = "User",
     learning_scope_label: str = "Your learning",
+    nous_topics: list[str] | None = None,
 ) -> Any:
     """Render the Askesis chat surface within the SKUEL BasePage shell."""
     return await BasePage(
         content=render_askesis_shell(
             username=username,
             learning_scope_label=learning_scope_label,
+            nous_topics=nous_topics,
         ),
         title="Askesis",
         page_type=PageType.CUSTOM,

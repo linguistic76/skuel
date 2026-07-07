@@ -51,6 +51,7 @@ if TYPE_CHECKING:
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
     from core.models.resource.resource import Resource
+    from core.models.search_request import SearchRequest
     from core.ports.query_types import RichPathStepItem
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
@@ -125,18 +126,20 @@ class ContextRetriever:
 
     Architecture:
     - Requires GraphIntelligenceService for graph queries
-    - Requires EmbeddingsService for semantic search
+    - Chunk (RAG) retrieval flows through SearchRouter.retrieve_scoped_chunks —
+      the single path for external search access, so a facet scope narrows Ask's
+      passages exactly as it narrows Find's cards.
     - Returns frozen dataclasses (LearningContext)
 
     March 2026: Both services required — no graceful degradation.
     March 2026: Absorbed LSContextLoader — all retrieval in one service.
+    July 2026: Chunk retrieval routed through SearchRouter (PR2 — Scoped Ask).
     """
 
     def __init__(
         self,
         graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
-        vector_search_service: Any,  # boundary: Neo4jVectorSearchService
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: EntityLookup | None = None,
         ku_service: KuLookup | None = None,
@@ -164,7 +167,6 @@ class ContextRetriever:
         Args:
             graph_intel: GraphIntelligenceService for graph intelligence queries
             embeddings_service: EmbeddingsService for semantic search
-            vector_search_service: Neo4jVectorSearchService for native vector index search
             ps_service: For fetching full PathStep content (PS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (PS bundle)
             habits_service: For fetching full Habit objects from graph_context (PS bundle)
@@ -177,7 +179,11 @@ class ContextRetriever:
         """
         self.graph_intel = graph_intel
         self.embeddings_service = embeddings_service
-        self.vector_search_service = vector_search_service
+
+        # SearchRouter — THE single path for external chunk (RAG) retrieval.
+        # Post-wired in compose after the router is built (it is constructed
+        # after Askesis in bootstrap), never a constructor param.
+        self.search_router: Any = None  # boundary: SearchRouter — post-wired in compose
 
         # PS bundle dependencies
         self.ps_service = ps_service
@@ -202,7 +208,11 @@ class ContextRetriever:
     # ========================================================================
 
     async def retrieve_relevant_context(
-        self, user_context: UserContext, query: str, intent: QueryIntent
+        self,
+        user_context: UserContext,
+        query: str,
+        intent: QueryIntent,
+        scope: SearchRequest | None = None,
     ) -> dict[str, Any]:
         """
         Retrieve relevant context using both graph queries AND semantic search.
@@ -214,6 +224,9 @@ class ContextRetriever:
             user_context: Complete user context
             query: User's question
             intent: Detected query intent
+            scope: Optional facet scope (e.g. a ``nous`` topic from the Askesis
+                composer). When set, its facets scope the retrieved passages so
+                the answer draws only from that topic's lesson bodies.
 
         Returns:
             Dict of relevant entities and metadata
@@ -275,7 +288,7 @@ class ContextRetriever:
         # chunk → content → entity join for citation.
         chunk_types = _intent_to_chunk_types(intent)
         relevant_chunks = await self._find_similar_chunks(
-            query, user_context.user_uid, chunk_types=chunk_types
+            query, user_context.user_uid, chunk_types=chunk_types, scope=scope
         )
         if relevant_chunks:
             context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
@@ -824,9 +837,14 @@ class ContextRetriever:
         query: str,
         _user_uid: UserUID,
         chunk_types: list[str] | None = None,
+        scope: SearchRequest | None = None,
     ) -> list[dict[str, Any]]:
         """
         Find the most relevant :ContentChunk nodes for the user's question.
+
+        Routes through SearchRouter.retrieve_scoped_chunks (the single path for
+        external search access) so a facet ``scope`` narrows the passages to that
+        topic — Ask and Find share one facet→scope path.
 
         Returns the chunk_uid, chunk_type, text, context_window (the 100-word
         pre/post buffer designed for LLM grounding), similarity score, and the
@@ -835,18 +853,29 @@ class ContextRetriever:
 
         Args:
             query: User's question
-            _user_uid: User identifier (unused — reserved for future personalization)
+            _user_uid: User identifier (forwarded to the router; reserved for
+                future owner-scoped chunk visibility).
             chunk_types: Optional filter (e.g. ["DEFINITION", "EXAMPLE"]) derived
                 from the classified intent.
+            scope: Optional facet scope; its facets (e.g. ``nous``) scope the
+                :ContentChunk hits to the owning entities. When None, an
+                unscoped SearchRequest is built from the query alone.
 
         Returns:
             List of dicts shaped like SemanticSearchChunkResult; empty on search error.
         """
-        result = await self.vector_search_service.find_similar_chunks_by_text(
-            text=query,
+        from core.models.search_request import SearchRequest
+
+        request = (
+            scope.model_copy(update={"query_text": query, "limit": 5})
+            if scope is not None
+            else SearchRequest(query_text=query, limit=5)
+        )
+        result = await self.search_router.retrieve_scoped_chunks(
+            request,
             chunk_types=chunk_types,
-            limit=5,
             min_score=0.6,
+            user_uid=_user_uid,
         )
 
         if result.is_error:
