@@ -39,7 +39,7 @@ def render_askesis_shell(
     """
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(nous_topics or [], initial_question, initial_nous),
+        _center_panel(nous_topics or [], initial_question),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
@@ -307,9 +307,7 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _center_panel(
-    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
-) -> Any:
+def _center_panel(nous_topics: list[str], initial_question: str = "") -> Any:
     return Div(
         _top_bar(),
         Div(
@@ -320,7 +318,7 @@ def _center_panel(
             cls="flex-1 overflow-y-auto max-w-[768px] mx-auto w-full",
             id="thread-scroll",
         ),
-        _composer_area(nous_topics, initial_question, initial_nous),
+        _composer_area(nous_topics, initial_question),
         cls="flex-1 flex flex-col overflow-hidden",
     )
 
@@ -341,13 +339,11 @@ def _top_bar() -> Any:
     )
 
 
-def _composer_area(
-    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
-) -> Any:
+def _composer_area(nous_topics: list[str], initial_question: str = "") -> Any:
     return Div(
         Div(
             _nous_scope_chip(),
-            _composer_form(nous_topics, initial_question, initial_nous),
+            _composer_form(nous_topics, initial_question),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
@@ -400,15 +396,12 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     )
 
 
-def _composer_form(
-    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
-) -> Any:
-    # Scope hidden field is Alpine-bound (:value) so it tracks the chip. In the
-    # handoff case we ALSO render a server-side `value` so the scope is present
-    # even before Alpine applies the binding.
+def _composer_form(nous_topics: list[str], initial_question: str = "") -> Any:
+    # Scope hidden field is Alpine-bound (:value="selectedNous") — the single
+    # source of truth, always in sync with the chip/selector at submit time.
+    # (No server-side `value`: it would become reset()'s default; and there is no
+    # auto-run race to guard against — see the after-request note below.)
     nous_attrs: dict[str, Any] = {":value": "selectedNous"}
-    if initial_nous:
-        nous_attrs["value"] = initial_nous
 
     # SECURITY: the /search "Ask" handoff PREFILLS the question + seeds the scope
     # but NEVER auto-submits. A crafted GET /askesis?question=... must not run a
@@ -416,12 +409,13 @@ def _composer_form(
     # knowledge base). The user reviews the prefilled question (scope chip shown)
     # and clicks Send — the default form submit, no `load` trigger. (Kody #545.)
     form_extras: dict[str, Any] = {
-        # Clear the textarea (not just reset()): the handoff prefills it via the
-        # textarea's server-rendered default, so reset() would RESTORE it after a
-        # send. ta.value='' clears it either way.
+        # Clear ONLY the message textarea after a send — NOT this.reset(). reset()
+        # restores every field to its server default, desyncing the Alpine-bound
+        # hidden fields (mode/nous): e.g. after clearing the scope chip, reset()
+        # would restore the handoff nous and silently re-scope the next message
+        # (Codex #545 P2). Leaving the :value bindings authoritative avoids that.
         "hx-on::after-request": (
-            "this.reset();"
-            " var ta=this.querySelector('textarea'); if(ta){ta.value='';ta.style.height='auto';}"
+            "var ta=this.querySelector('textarea'); if(ta){ta.value='';ta.style.height='auto';}"
             " var s=document.getElementById('thread-scroll'); if(s){s.scrollTop=s.scrollHeight;}"
         ),
     }

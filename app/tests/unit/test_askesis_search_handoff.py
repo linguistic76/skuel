@@ -28,10 +28,12 @@ def test_handoff_seeds_scope_and_prefills_question_without_auto_submit() -> None
     assert 'selectedNous: "self-awareness"' in xml
     # Question prefilled into the composer textarea.
     assert "what is breath awareness" in xml
-    # Hidden nous field carries a server-side value so a manual send is scoped
-    # even before Alpine applies :value.
+    # Hidden nous field is Alpine-bound to selectedNous (the single source of
+    # truth). NO server-side `value` that reset() could later restore stale and
+    # silently re-scope a message after the chip is cleared (Codex #545 P2).
     assert 'name="nous"' in xml
-    assert 'value="self-awareness"' in xml
+    assert ':value="selectedNous"' in xml
+    assert 'value="self-awareness"' not in xml
     # SECURITY (Kody #545): prefill only — NO load trigger, so a crafted GET
     # /askesis?question=... can never auto-submit a prompt in the session.
     assert "load, submit" not in xml
