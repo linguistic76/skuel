@@ -379,7 +379,6 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     options.extend(Option(topic, value=topic) for topic in nous_topics)
     return Select(
         *options,
-        name="nous_select",
         aria_label="Scope answer to a NOUS topic",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
