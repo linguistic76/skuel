@@ -97,7 +97,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
@@ -128,7 +127,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -158,7 +156,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -183,7 +180,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
             habits_service=_failing_service("habits down"),
@@ -211,7 +207,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -237,7 +232,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
@@ -278,7 +272,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -307,7 +300,6 @@ class TestLoadLsBundlePartialFailure:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -380,7 +372,6 @@ class TestFetchKusEdgeDerived:
         return ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=ku_service,
             habits_service=MagicMock(),
@@ -478,7 +469,6 @@ class TestFetchRelatedPathStepsTypeFilter:
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
             embeddings_service=MagicMock(),
-            vector_search_service=MagicMock(),
             ps_service=ps_service,
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -501,3 +491,92 @@ class TestFetchRelatedPathStepsTypeFilter:
 
         assert fetched == ["ps.mindfulness.posture-basics"]
         assert len(steps) == 1
+
+
+def _make_context_retriever_with_router(router: Any) -> ContextRetriever:
+    """Build a minimal ContextRetriever with a post-wired search_router."""
+    retriever = ContextRetriever(
+        graph_intel=_make_graph_intel(),
+        embeddings_service=MagicMock(),
+        ps_service=MagicMock(),
+        ku_service=MagicMock(),
+        habits_service=MagicMock(),
+        tasks_service=MagicMock(),
+        events_service=MagicMock(),
+        principles_service=MagicMock(),
+        lp_service=MagicMock(),
+    )
+    retriever.search_router = router
+    return retriever
+
+
+class TestFindSimilarChunksRouting:
+    """_find_similar_chunks routes through SearchRouter and preserves the mapping."""
+
+    @pytest.mark.anyio
+    async def test_maps_chunk_hits_to_askesis_dicts(self) -> None:
+        """SemanticSearchChunkResult hits map to Askesis dicts (similarity_score→similarity)."""
+        hits = [
+            {
+                "chunk_uid": "chunk_1",
+                "chunk_type": "DEFINITION",
+                "text": "The body is the seat of awareness.",
+                "context_window": "…context…",
+                "similarity_score": 0.87,
+                "parent_uid": "ku.body.awareness",
+                "parent_title": "Body Awareness",
+            }
+        ]
+        router = MagicMock()
+        router.retrieve_scoped_chunks = AsyncMock(return_value=Result.ok(hits))
+        retriever = _make_context_retriever_with_router(router)
+
+        mapped = await retriever._find_similar_chunks("what is body awareness?", "user_1")
+
+        assert len(mapped) == 1
+        row = mapped[0]
+        assert row["chunk_uid"] == "chunk_1"
+        assert row["similarity"] == 0.87  # similarity_score → similarity
+        assert row["parent_uid"] == "ku.body.awareness"
+        assert row["parent_title"] == "Body Awareness"
+        assert row["context_window"] == "…context…"
+
+    @pytest.mark.anyio
+    async def test_search_error_returns_empty(self) -> None:
+        """A router error yields an empty list (fail-soft), not a raise."""
+        router = MagicMock()
+        router.retrieve_scoped_chunks = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="x", message="boom"))
+        )
+        retriever = _make_context_retriever_with_router(router)
+
+        mapped = await retriever._find_similar_chunks("q", "user_1")
+
+        assert mapped == []
+
+    @pytest.mark.anyio
+    async def test_scope_threads_nous_facet_into_request(self) -> None:
+        """retrieve_relevant_context(scope=SearchRequest(nous=...)) reaches the router."""
+        from core.models.query_types import QueryIntent
+        from core.models.search_request import SearchRequest
+
+        router = MagicMock()
+        router.retrieve_scoped_chunks = AsyncMock(return_value=Result.ok([]))
+        retriever = _make_context_retriever_with_router(router)
+
+        ctx = MagicMock()
+        ctx.user_uid = "user_1"
+        ctx.prerequisites_needed = {}
+        ctx.active_moc_uids = []
+        ctx.overdue_task_uids = []
+        ctx.at_risk_habits_or_empty = MagicMock(return_value=[])
+
+        await retriever.retrieve_relevant_context(
+            ctx, "what is the body?", QueryIntent.EXPLORATORY, scope=SearchRequest(nous="body")
+        )
+
+        router.retrieve_scoped_chunks.assert_awaited_once()
+        sent_request = router.retrieve_scoped_chunks.await_args.args[0]
+        assert sent_request.to_property_filters().get("nous") == "body"
+        assert sent_request.query_text == "what is the body?"
+        assert sent_request.limit == 5

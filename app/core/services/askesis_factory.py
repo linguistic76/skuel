@@ -62,7 +62,6 @@ def create_askesis_service(
         zpd_service=zpd_service,
         ps_engagement_service=ps_engagement_service,
         citation_service=citation_service,
-        vector_search_service=learning_services.get("vector_search_service"),
         # PS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),

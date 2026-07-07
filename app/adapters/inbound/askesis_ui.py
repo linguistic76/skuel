@@ -16,6 +16,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import GuidanceMode
+from core.models.search_request import SearchRequest
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from ui.askesis import render_askesis_page, render_assistant_message, render_user_message
@@ -32,15 +33,30 @@ def create_askesis_ui_routes(
     _askesis_service: Any,
     intelligence_tier: IntelligenceTier | None = None,
     user_service: "UserService | None" = None,
+    ku_service: Any = None,
 ) -> list[Any]:
     """Create UI routes for Askesis AI assistant."""
 
     routes = []
 
+    async def _load_nous_topics() -> list[str]:
+        """Fetch the NOUS topic vocabulary for the composer scope control.
+
+        Fails soft — a missing ku_service or a query error yields an empty list,
+        so the composer renders without the scope selector rather than 500ing.
+        """
+        if ku_service is None:
+            return []
+        result = await ku_service.list_nous_topics()
+        if result.is_error:
+            logger.warning(f"Could not load NOUS topics for Askesis composer: {result.error}")
+            return []
+        return sorted(result.value)
+
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
         """Full Askesis chat surface."""
-        return await render_askesis_page(request)
+        return await render_askesis_page(request, nous_topics=await _load_nous_topics())
 
     routes.append(askesis_home)
 
@@ -110,10 +126,15 @@ def create_askesis_ui_routes(
             GuidanceMode(mode_str) if mode_str in GuidanceMode._value2member_map_ else None
         )
 
+        # Optional NOUS topic scope from the composer — narrows the answer's
+        # retrieved passages to that topic (Scoped Ask). Empty = no scope.
+        nous = safe_form_string(form_data.get("nous", ""))
+        scope: SearchRequest | None = SearchRequest(nous=nous) if nous else None
+
         ai_response: str
         try:
             result = await _askesis_service.answer_user_question(
-                user_uid, message, preferred_mode=preferred_mode
+                user_uid, message, preferred_mode=preferred_mode, scope=scope
             )
             if result.is_error:
                 logger.error(f"Askesis service error: {result.error}")
