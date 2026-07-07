@@ -53,6 +53,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
 
 if TYPE_CHECKING:
+    from core.models.search_request import SearchRequest
     from core.ports.zpd_protocols import ZPDOperations
     from core.services.askesis.context_retriever import ContextRetriever
     from core.services.askesis.entity_extractor import EntityExtractor
@@ -171,6 +172,7 @@ class QueryProcessor:
         question: str,
         session_id: str | None = None,
         preferred_mode: GuidanceMode | None = None,
+        scope: SearchRequest | None = None,
     ) -> Result[dict[str, Any]]:
         """
         Complete RAG pipeline - retrieval + generation.
@@ -198,7 +200,9 @@ class QueryProcessor:
         """
         try:
             return await asyncio.wait_for(
-                self._answer_user_question_pipeline(user_uid, question, session_id, preferred_mode),
+                self._answer_user_question_pipeline(
+                    user_uid, question, session_id, preferred_mode, scope
+                ),
                 timeout=AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS,
             )
         except TimeoutError:
@@ -221,6 +225,7 @@ class QueryProcessor:
         question: str,
         session_id: str | None = None,
         preferred_mode: GuidanceMode | None = None,
+        scope: SearchRequest | None = None,
     ) -> Result[dict[str, Any]]:
         """Inner pipeline for answer_user_question, wrapped with timeout."""
         # Step 1: Get full user context
@@ -287,15 +292,22 @@ class QueryProcessor:
 
         # Step 6: Retrieve relevant context
         relevant_context = await self.context_retriever.retrieve_relevant_context(
-            user_context, question, intent
+            user_context, question, intent, scope
         )
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
-        # Step 7: Run guided pipeline (ZPD + guidance mode)
-        guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
-            user_uid, question, user_context, preferred_mode
-        )
+        # Step 7: Run guided pipeline (ZPD + guidance mode) — UNLESS the user set an
+        # explicit facet scope. An explicit scope OVERRIDES auto-guidance (Codex #544):
+        # answer from the scoped passages via the context-aware branch below, not the
+        # current PS bundle — which would otherwise re-introduce unscoped curriculum
+        # context and make the topic selection a silent no-op for guided users.
+        if scope is not None and scope.to_property_filters():
+            guided_system_prompt, guidance_mode, ps_bundle = None, None, None
+        else:
+            guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
+                user_uid, question, user_context, preferred_mode
+            )
 
         # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:

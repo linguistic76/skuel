@@ -69,7 +69,6 @@ def _retriever(engagement_service: Any | None) -> ContextRetriever:
     return ContextRetriever(
         graph_intel=MagicMock(),
         embeddings_service=MagicMock(),
-        vector_search_service=MagicMock(),
         ps_engagement_service=engagement_service,
     )
 

@@ -7,7 +7,7 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 
 from typing import Any
 
-from fasthtml.common import Button, Div, Form, Input, P, Span, Textarea
+from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Textarea
 
 from ui.components import Icon
 
@@ -19,22 +19,26 @@ from ui.components import Icon
 def render_askesis_shell(
     username: str = "User",
     learning_scope_label: str = "Your learning",
+    nous_topics: list[str] | None = None,
 ) -> Any:
     """
     Full-height 3-column chat surface for /askesis.
 
     Height calc(100vh - 3.5rem) aligns with the SKUEL top navbar (h-14 = 3.5rem).
-    Alpine root state: { sidebarOpen: true }
+    Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous }.
+    ``selectedNous`` lives on the root so it persists across composer submits
+    (the composer isn't re-rendered on send) — each submit carries the scope.
     """
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(),
+        _center_panel(nous_topics or []),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
             "x-data": (
                 "{ sidebarOpen: true, settingsOpen: false,"
-                " responseMode: localStorage.getItem('askesis_mode') || 'direct' }"
+                " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
+                " selectedNous: '' }"
             )
         },
     )
@@ -295,7 +299,7 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _center_panel() -> Any:
+def _center_panel(nous_topics: list[str]) -> Any:
     return Div(
         _top_bar(),
         Div(
@@ -306,7 +310,7 @@ def _center_panel() -> Any:
             cls="flex-1 overflow-y-auto max-w-[768px] mx-auto w-full",
             id="thread-scroll",
         ),
-        _composer_area(),
+        _composer_area(nous_topics),
         cls="flex-1 flex flex-col overflow-hidden",
     )
 
@@ -327,10 +331,11 @@ def _top_bar() -> Any:
     )
 
 
-def _composer_area() -> Any:
+def _composer_area(nous_topics: list[str]) -> Any:
     return Div(
         Div(
-            _composer_form(),
+            _nous_scope_chip(),
+            _composer_form(nous_topics),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
@@ -341,9 +346,53 @@ def _composer_area() -> Any:
     )
 
 
-def _composer_form() -> Any:
+def _nous_scope_chip() -> Any:
+    """Visible chip showing the active NOUS scope — bound to root ``selectedNous``.
+
+    Hidden (x-show) until a topic is picked. The × clears the scope.
+    """
+    return Div(
+        Span("Scoped to", cls="text-muted-foreground"),
+        Span("", cls="font-semibold text-strength-core", **{"x-text": "selectedNous"}),
+        Button(
+            Icon("x", size=12),
+            type="button",
+            aria_label="Clear topic scope",
+            cls="ml-0.5 text-muted-foreground hover:text-foreground",
+            **{"@click": "selectedNous = ''"},
+        ),
+        cls="flex items-center gap-1.5 w-fit mx-auto mb-2 px-3 py-1 rounded-[18px] text-[12px]",
+        style="background:#f4f1fc; border:1px solid #e0d9f4;",
+        **{"x-show": "selectedNous", "x-cloak": True},
+    )
+
+
+def _nous_scope_select(nous_topics: list[str]) -> Any:
+    """Native NOUS topic picker bound to root ``selectedNous`` via x-model.
+
+    Empty option = no scope (answer draws from all topics). Rendered only when
+    the vocabulary is available (fails soft to no control on an empty list).
+    """
+    if not nous_topics:
+        return None
+    options = [Option("All topics", value="")]
+    options.extend(Option(topic, value=topic) for topic in nous_topics)
+    return Select(
+        *options,
+        aria_label="Scope answer to a NOUS topic",
+        cls=(
+            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            " rounded-[18px] px-2.5 py-1.5 outline-none cursor-pointer max-w-[160px]"
+        ),
+        **{"x-model": "selectedNous"},
+    )
+
+
+def _composer_form(nous_topics: list[str]) -> Any:
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
+        # Hidden field carries the active scope with every submit (bound to root state).
+        Input(type="hidden", name="nous", **{":value": "selectedNous"}),
         Textarea(
             placeholder="Ask about your learning…",
             name="message",
@@ -357,6 +406,7 @@ def _composer_form() -> Any:
             Div(
                 _circle_btn("plus", "Attach", bordered=True),
                 _kb_pill(),
+                _nous_scope_select(nous_topics),
                 cls="flex items-center gap-2",
             ),
             Div(

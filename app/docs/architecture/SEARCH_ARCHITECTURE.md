@@ -430,6 +430,16 @@ results unchanged.
 `_aggregate_body_chunk_parents` (pure, DB-free dedup) /
 `_chunk_hit_to_result` in `core/models/search/search_router.py`.
 
+**Scoped Ask (RAG counterpart):** `SearchRouter.retrieve_scoped_chunks(request, …)`
+is the chunk-level sibling of `faceted_search` — where the latter returns entity
+cards, this returns the passages that ground an Askesis answer. Both take the same
+`SearchRequest` and apply `to_property_filters()`, so **Ask and Find share one
+facet→scope path**: a `nous` topic on the Askesis composer narrows the retrieved
+passages exactly as it narrows `/search` cards. Askesis's `ContextRetriever` routes
+`_find_similar_chunks` through this method (search_router post-wired in compose);
+returns an `unavailable` error on the CORE tier (no vector service) so the caller
+fails soft.
+
 ### `SearchRequest` Semantic Fields
 
 ```python

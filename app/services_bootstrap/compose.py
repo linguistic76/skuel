@@ -1769,6 +1769,17 @@ async def compose_services(
         services.search_router = search_router  # type: ignore[assignment]  # SearchRouter implements SearchOperations
         logger.info("✅ SearchRouter created (One Path Forward)")
 
+        # Post-wire SearchRouter onto Askesis's ContextRetriever — chunk (RAG)
+        # retrieval flows through the router (Scoped Ask, PR2). Askesis is built
+        # before the router (FULL tier only), so this is a post-construction wire.
+        # services.askesis is protocol-typed (AskesisOperations); narrow to the
+        # concrete facade to reach its internal context_retriever.
+        from core.services.askesis_service import AskesisService
+
+        if isinstance(services.askesis, AskesisService):
+            services.askesis.context_retriever.search_router = search_router
+            logger.info("✅ SearchRouter wired to Askesis ContextRetriever (Scoped Ask)")
+
         # ========================================================================
         # VALIDATE POST-CONSTRUCTION WIRING (fail-fast if any was missed)
         # ========================================================================
@@ -1782,6 +1793,11 @@ async def compose_services(
             "form_submission_service.sharing_service": form_submission_service.sharing_service,
             # habits.goal_analytics shelved (2026-03-28)
         }
+        # Askesis is FULL-tier only (None in CORE) — only assert its wiring when present.
+        if isinstance(services.askesis, AskesisService):
+            post_wiring_checks["askesis.context_retriever.search_router"] = (
+                services.askesis.context_retriever.search_router
+            )
         missing = [name for name, value in post_wiring_checks.items() if value is None]
         if missing:
             raise ValueError(

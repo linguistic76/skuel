@@ -392,6 +392,8 @@ AskesisService (Facade — zero business logic)
 
 Both `answer_user_question()` and `process_query_with_context()` run the same LP-scoped, ZPD-informed, GuidanceMode-aware pipeline. When an PS bundle is available, the pipeline loads ZPD evidence for target KUs, determines the GuidanceMode via `IntentClassifier.determine_guidance_mode()`, and builds a guided system prompt via `ResponseGenerator.build_guided_system_prompt()`. The guided pipeline activates even when no specific KUs are extracted from the question — `classify_pedagogical_intent()` handles this (returning OUT_OF_SCOPE or ENCOURAGE_PRACTICE). When no PS bundle is available (no active path step), both methods fall back to standard global RAG.
 
+**Scope override (Scoped Ask):** when the caller passes an explicit facet `scope` (e.g. a `nous` topic from the Askesis composer), the guided pipeline is bypassed for that turn — the answer comes from the context-aware branch over the facet-scoped `:ContentChunk` passages, with no PS-bundle context. An explicit topic selection is treated as clear user intent that overrides auto-guidance.
+
 See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
 ---
