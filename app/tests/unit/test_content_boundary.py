@@ -66,3 +66,19 @@ def test_guard_detects_content_frontmatter(tmp_path: Path) -> None:
 
     assert guard._normalize_type("user_entry") == "userentry"
     assert guard._normalize_type("path-step") == "pathstep"
+    assert guard._normalize_type("Path Step") == "pathstep"
+
+    # Spaced display-name type (ingestion's from_string normalizes spaces).
+    spaced = tmp_path / "spaced.yaml"
+    spaced.write_text("type: Learning Path\nuid: lp:x\n")
+    assert guard._looks_like_vault_entity(spaced) == "Learning Path"
+
+    # MOC markdown: classified as PathStep by ingestion via `moc: true`, no type:.
+    moc = tmp_path / "moc_doc.md"
+    moc.write_text("---\nmoc: true\ntitle: Map\n---\n\n[[link-a]] [[link-b]]\n")
+    assert guard._looks_like_vault_entity(moc) == "PathStep (moc: true)"
+
+    # A plain markdown doc (no frontmatter, mentions moc in prose) is not content.
+    plain = tmp_path / "readme.md"
+    plain.write_text("# Readme\n\nWe support moc: true files in the vault.\n")
+    assert guard._looks_like_vault_entity(plain) is None

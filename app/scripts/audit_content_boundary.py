@@ -95,10 +95,15 @@ def _normalize_type(raw: str) -> str:
     """Normalize a ``type:`` value to the concatenated form used in CONTENT_TYPES,
     so snake_case / kebab / alias spellings all collapse to one key (e.g.
     ``user_entry`` → ``userentry``, ``path_step`` → ``pathstep``)."""
-    return raw.strip().lower().replace("_", "").replace("-", "")
+    return raw.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
 
 _FRONTMATTER = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z_-]+)", re.MULTILINE | re.IGNORECASE)
+# Captures spaced display-names too ("Path Step", "Learning Path") — ingestion's
+# EntityType.from_string() normalizes spaces/hyphens, so the guard must as well.
+_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z][A-Za-z _-]*)", re.MULTILINE | re.IGNORECASE)
+# A markdown file with `moc: true` is classified as a PathStep by the ingestion
+# detector even without a `type:` field — so it is vault content too.
+_MOC_FLAG = re.compile(r"^moc:\s*true\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 def _tracked_files() -> list[str]:
@@ -135,6 +140,10 @@ def _looks_like_vault_entity(path: Path) -> str | None:
     tm = _TYPE_FIELD.search(scope)
     if tm and _normalize_type(tm.group(1)) in CONTENT_TYPES:
         return tm.group(1).strip()
+    # MOC markdown: ingestion classifies `moc: true` frontmatter as a PathStep
+    # even with no `type:` field, so it is vault content in its own right.
+    if suffix == ".md" and _MOC_FLAG.search(scope):
+        return "PathStep (moc: true)"
     return None
 
 
