@@ -1,6 +1,6 @@
 # YAML to Graph — A Creator's Guide to SKUEL Content
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-07-06*
 
 ## Overview
 
@@ -27,23 +27,15 @@ A Ku is the smallest nameable concept in SKUEL. It's an atomic reference node �
 
 **Granularity decision:** "One sentence = Ku. Paragraphs = PathStep."
 
-### ku_category Values
+### NOUS — Topic Membership
 
-| Category | What it captures | Example |
-|----------|-----------------|---------|
-| `state` | Mental/physical state | Buzzing, Flow, Fatigue |
-| `concept` | Abstract idea | Attention, Metacognition |
-| `principle` | Guiding rule | Non-judgment, Impermanence |
-| `intake` | Something consumed | Caffeine, Alcohol |
-| `substance` | Physical substance | Cortisol, Dopamine |
-| `practice` | Something you do | Breath awareness, Body scan |
-| `value` | Something you hold | Compassion, Curiosity |
+The `nous` field places a Ku in one or more of SKUEL's official topic sections. It's a list — a Ku can belong to several sections, or to none (an empty `nous` is valid; content may exist before it's assigned a section).
 
-### Namespace Design
+The eleven sections are: `stories`, `environment`, `intelligence`, `investment`, `words`, `relationships`, `social`, `body`, `exercises`, `self-management`, `self-awareness`.
 
-The `namespace` field groups related Kus without imposing hierarchy. UIDs are flat — hierarchy lives in ORGANIZES relationships, not in the UID itself.
+`nous` powers topic-scoped search (e.g. `SearchRequest(nous="body")`). The vocabulary is *derived from the graph*, not enum-validated at ingestion — so spelling matters: use the exact section slugs above.
 
-Choose namespaces that reflect domains of knowledge: `mindfulness`, `nutrition`, `attention`, `emotion`. A Ku can belong to one namespace but be ORGANIZED by Kus from any namespace.
+> **The UID's middle segment is not a field.** A Ku UID like `ku:mindfulness:breath` carries a middle grouping token (`mindfulness`), but it is opaque — nothing parses or validates it, and no field stores it (UIDs are opaque identity, ADR-013). Choose it for human readability; express real topic membership with `nous:`.
 
 ### Aliases
 
@@ -59,13 +51,12 @@ type: Ku
 
 uid: ku:mindfulness:breath
 title: Breath
-namespace: mindfulness
-ku_category: practice
 aliases:
   - breathing
   - breath awareness
   - mindful breathing
-source: research
+nous:
+  - body
 description: >-
   The natural rhythm of inhalation and exhalation, used as the
   primary anchor for attention in mindfulness practice.
@@ -75,7 +66,7 @@ tags:
   - foundational
 ```
 
-**Python** — `Ku` dataclass (`core/models/ku/ku.py`) extends `Entity` directly (not Curriculum). Four Ku-specific fields: `namespace`, `ku_category`, `aliases` (tuple), `source`.
+**Python** — `Ku` dataclass (`core/models/ku/ku.py`) extends `Entity` directly (not Curriculum). Three Ku-specific fields: `aliases` (tuple), `nous` (tuple — topic sections), `sel_category` (optional SEL competency, SEL content only).
 
 **Neo4j** — The ingestion engine generates:
 
@@ -83,10 +74,8 @@ tags:
 MERGE (n:Ku {uid: "ku.mindfulness.breath"})
   ON CREATE SET
     n.title = "Breath",
-    n.namespace = "mindfulness",
-    n.ku_category = "practice",
     n.aliases = ["breathing", "breath awareness", "mindful breathing"],
-    n.source = "research",
+    n.nous = ["body"],
     n.description = "The natural rhythm of ...",
     n.tags = ["mindfulness", "practice", "foundational"],
     n.entity_type = "KU",
@@ -518,7 +507,7 @@ Relationships power the most sophisticated discovery. The graph answers question
 | `content` | Yes | Yes | — |
 | `tags` | Yes | — | — |
 | `aliases` (Ku) | Yes | Yes | — |
-| `namespace` | Filter | — | — |
+| `nous` (Ku/PS) | Filter | — | — |
 | `uses_kus` | — | — | `USES_KU` edge |
 | `connections.*` | — | — | Named edges |
 | `*_uids` fields | — | — | Named edges |
