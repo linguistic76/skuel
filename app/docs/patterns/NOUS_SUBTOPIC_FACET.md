@@ -16,10 +16,11 @@ scope on the curriculum corpus.
   multi-valued, kebab-case, empty = deliberately unassigned. Authored in vault YAML
   directly under the `nous:` block.
 - **Vocabulary is graph-derived, never hardcoded.** A sub-topic exists (and renders as
-  a faucet option) only once ≥1 entity carries it; deleting the last carrier removes
-  it. Backed by `distinct_values_raw("nous_subtopic")`
-  (`adapters/persistence/neo4j/_search_raw_mixin.py`) via
-  `KuService.list_nous_subtopics()`.
+  a faucet option) only once ≥1 entity carries it (with a parent `nous`); deleting the
+  last carrier removes it. Backed by `KuBackend.nous_subtopic_pairs` (co-occurring
+  `nous` + `nous_subtopic` across `:Ku` + `:PathStep`) via
+  `KuService.list_nous_subtopics()` — the SAME source as the dependent map below, so the
+  flat list and the map can never disagree.
 - **Fail-soft:** with no authored data the vocabulary is empty, so the search `<select>`
   (`ui/search/components.py::_render_nous_subtopic_select`) and the Askesis scope
   selector (`ui/askesis/chat.py`) render nothing rather than an empty control.
