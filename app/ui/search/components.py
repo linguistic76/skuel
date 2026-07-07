@@ -176,9 +176,10 @@ ALL_FILTER_NAMES = [
 ]
 
 
-def _get_hx_include(exclude: str = "") -> str:
-    """Build hx-include string for HTMX, excluding specified filter."""
-    names = [n for n in ALL_FILTER_NAMES if n != exclude]
+def _get_hx_include(*exclude: str) -> str:
+    """Build hx-include string for HTMX, excluding the named filter(s)."""
+    excluded = set(exclude)
+    names = [n for n in ALL_FILTER_NAMES if n not in excluded]
     return ", ".join(f"[name='{n}']" for n in names)
 
 
@@ -289,6 +290,13 @@ def _render_nous_select(nous_topics: list[str]) -> str:
 
     Options are DERIVED from the graph (KuService.list_nous_topics), never
     hardcoded — the facet cannot drift from the vault vocabulary.
+
+    Changing NOUS fires TWO concurrent HTMX requests: this select re-runs
+    ``/search/results`` (below) AND the dependent sub-topic column re-fetches
+    ``/search/subtopics`` (via ``change from:[name='nous']``). This request
+    EXCLUDES ``nous_subtopic`` from its include set on purpose — a new NOUS
+    topic invalidates the old sub-topic, so results must re-scope by NOUS alone
+    rather than carry a now-orphaned sub-topic value while the column resets.
     """
     sections = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
     options = "\n".join(
@@ -300,26 +308,27 @@ def _render_nous_select(nous_topics: list[str]) -> str:
             hx-get="/search/results"
             hx-trigger="change"
             hx-target="#search-results"
-            hx-include="{_get_hx_include("nous")}">
+            hx-include="{_get_hx_include("nous", "nous_subtopic")}">
         {options}
     </select>
     """
 
 
-def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
-    """NOUS sub-topic dropdown (2nd taxonomy level) for the Tier 1 filter bar.
+NOUS_SUBTOPIC_COLUMN_ID = "nous-subtopic-column"
 
-    Options are DERIVED from the graph (KuService.list_nous_subtopics), never
-    hardcoded. Fails soft: with no authored `nous_subtopic` data the vocabulary
-    is empty, so the whole column renders NOTHING (no orphan "All" dropdown) —
-    the mechanism ships ahead of the vault content.
 
-    FLAT for now: the ideal is nous → sub-options populate, but that needs a
-    nous→subtopics MAP which can't exist without data. Dependent-on-nous
-    filtering is a follow-up once the vault carries the data (do NOT fake it).
+def render_nous_subtopic_inner(nous_subtopics: list[str]) -> str:
+    """Inner label + select for the sub-topic column (the HTMX-swapped fragment).
+
+    Options are DERIVED from the graph, never hardcoded (content boundary). The
+    ``/search/subtopics`` endpoint re-renders THIS fragment scoped to the chosen
+    NOUS topic; the initial page render passes the full flat vocabulary.
+
+    Fail-soft: an empty ``nous_subtopics`` (a NOUS topic with no authored
+    sub-topics, or none authored at all) yields just the "All Sub-topics" option
+    — the column stays present and stable so the dependent HTMX target never
+    vanishes mid-interaction, it simply has nothing to narrow by.
     """
-    if not nous_subtopics:
-        return ""
     sections = [("", "All Sub-topics")] + [
         (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
     ]
@@ -328,8 +337,6 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
         for value, label in sections
     )
     return f"""
-    <!-- Nous Sub-topic -->
-    <div class="space-y-2 flex-1 min-w-[150px]">
         <label class="label py-1">
             <span class="text-xs font-semibold uppercase tracking-wide">Sub-topic</span>
         </label>
@@ -340,6 +347,34 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
                 hx-include="{_get_hx_include("nous_subtopic")}">
             {options}
         </select>
+    """
+
+
+def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
+    """NOUS sub-topic column (2nd taxonomy level), dependent on the NOUS topic.
+
+    DERIVED from the graph (KuService.list_nous_subtopics / nous_subtopic_map),
+    never hardcoded. Fails soft: with no authored `nous_subtopic` data at all the
+    column renders NOTHING (no orphan control) — the mechanism ships ahead of
+    the vault content.
+
+    Dependent wiring: the stable container listens for changes on the NOUS
+    select (``change from:[name='nous']``) and re-fetches ``/search/subtopics``,
+    swapping its own innerHTML with the sub-topics scoped to the chosen topic.
+    Pure HTMX — no Alpine window-global seeding (see the fragment-seed timing
+    trap). ``hx-include`` carries only ``nous`` so the endpoint can scope.
+    """
+    if not nous_subtopics:
+        return ""
+    return f"""
+    <!-- Nous Sub-topic (dependent on Nous topic) -->
+    <div id="{NOUS_SUBTOPIC_COLUMN_ID}" class="space-y-2 flex-1 min-w-[150px]"
+         hx-get="/search/subtopics"
+         hx-trigger="change from:[name='nous']"
+         hx-target="#{NOUS_SUBTOPIC_COLUMN_ID}"
+         hx-swap="innerHTML"
+         hx-include="[name='nous']">
+        {render_nous_subtopic_inner(nous_subtopics)}
     </div>
     """
 

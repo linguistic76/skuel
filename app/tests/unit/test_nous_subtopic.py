@@ -23,7 +23,11 @@ from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Result
 from ui.askesis.chat import render_askesis_shell
-from ui.search.components import _render_nous_subtopic_select
+from ui.search.components import (
+    _render_nous_select,
+    _render_nous_subtopic_select,
+    render_nous_subtopic_inner,
+)
 
 
 class TestKuNousSubtopicField:
@@ -154,3 +158,92 @@ def test_nous_subtopic_select_escapes_option_values() -> None:
 
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+    # The re-rendered fragment (HTMX swap target of /search/subtopics) escapes too.
+    inner = render_nous_subtopic_inner(['"><script>alert(1)</script>'])
+    assert "<script>" not in inner
+    assert "&lt;script&gt;" in inner
+
+
+class TestNousSubtopicDependentDropdown:
+    """#547 item 1: selecting a NOUS topic narrows the sub-topic options.
+
+    The column re-fetches ``/search/subtopics`` on ``change from:[name='nous']``
+    (pure HTMX, no Alpine window-global seeding), and the NOUS select drops the
+    now-orphaned ``nous_subtopic`` from its results request so a topic switch
+    re-scopes cleanly instead of carrying a stale sub-topic.
+    """
+
+    def test_subtopic_column_wires_dependent_htmx(self) -> None:
+        html = _render_nous_subtopic_select(["nervous-system"])
+
+        assert 'id="nous-subtopic-column"' in html
+        assert 'hx-get="/search/subtopics"' in html
+        assert "change from:[name='nous']" in html
+        assert 'hx-target="#nous-subtopic-column"' in html
+        assert "[name='nous']" in html  # hx-include scopes the fetch by nous
+
+    def test_nous_select_excludes_subtopic_from_results_include(self) -> None:
+        # Switching NOUS invalidates the old sub-topic — results must re-scope by
+        # NOUS alone while the column concurrently resets its options.
+        html = _render_nous_select(["body", "investment"])
+
+        assert "[name='nous_subtopic']" not in html
+
+    def test_inner_fragment_omits_column_wrapper(self) -> None:
+        # /search/subtopics returns ONLY the inner label+select (innerHTML swap);
+        # the container wrapper with its HTMX trigger must persist, not nest.
+        inner = render_nous_subtopic_inner(["breath"])
+
+        assert 'name="nous_subtopic"' in inner
+        assert "nous-subtopic-column" not in inner
+
+    def test_inner_fragment_fail_soft_empty_keeps_all_option(self) -> None:
+        # A NOUS topic with no authored sub-topics → just "All Sub-topics" (the
+        # column stays present so the HTMX target never vanishes mid-interaction).
+        inner = render_nous_subtopic_inner([])
+
+        assert "All Sub-topics" in inner
+        assert 'name="nous_subtopic"' in inner
+
+
+class TestNousSubtopicMapService:
+    """`KuSearchService.nous_subtopic_map` groups graph-derived co-occurrence
+    pairs into ``{nous: [subtopics]}`` — the source of the dependent dropdown."""
+
+    @pytest.mark.asyncio
+    async def test_groups_pairs_by_nous(self) -> None:
+        from core.services.ku.ku_search_service import KuSearchService
+
+        service = KuSearchService.__new__(KuSearchService)
+        service.backend = MagicMock()  # type: ignore[misc]
+        service.backend.nous_subtopic_pairs = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {"nous": "body", "subtopic": "breath"},
+                    {"nous": "body", "subtopic": "movement"},
+                    {"nous": "investment", "subtopic": "compounding"},
+                ]
+            )
+        )
+
+        result = await service.nous_subtopic_map()
+
+        assert result.is_ok
+        assert result.value == {
+            "body": ["breath", "movement"],
+            "investment": ["compounding"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_empty_pairs_yield_empty_map(self) -> None:
+        from core.services.ku.ku_search_service import KuSearchService
+
+        service = KuSearchService.__new__(KuSearchService)
+        service.backend = MagicMock()  # type: ignore[misc]
+        service.backend.nous_subtopic_pairs = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.nous_subtopic_map()
+
+        assert result.is_ok
+        assert result.value == {}

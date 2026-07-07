@@ -18,6 +18,8 @@ Philosophy: "Users can handle complexity, but they need visual calm to process i
 
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from fasthtml.common import NotStr
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -35,6 +37,7 @@ from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.result_simplified import Errors, Result
 from ui.search.components import (
     render_empty_search_prompt,
+    render_nous_subtopic_inner,
     render_search_error,
     render_search_page_with_navbar,
     render_search_results,
@@ -106,6 +109,34 @@ def create_search_api_routes(
             nous_subtopics=nous_subtopics,
             ask_enabled=ask_enabled,
         )
+
+    @rt("/search/subtopics")
+    @boundary_handler()
+    async def search_subtopics(request: Request, nous: str | None = None) -> Any:
+        """Re-render the sub-topic select scoped to the chosen NOUS topic.
+
+        Powers the dependent nous→sub-topic dropdown: when the NOUS select
+        changes it fires ``change from:[name='nous']`` at the sub-topic column,
+        which fetches this fragment. With no ``nous`` (the "All Nous" option) the
+        full flat vocabulary is returned; with a topic selected, only the
+        sub-topics authored ALONGSIDE it (graph-derived co-occurrence map — the
+        taxonomy never leaves the vault). Fail-soft: an unknown/empty topic
+        yields just "All Sub-topics".
+        """
+        require_authenticated_user(request)
+
+        subtopics: list[str] = []
+        if ku_service is not None:
+            if nous:
+                map_result = await ku_service.nous_subtopic_map()
+                if map_result.is_ok and map_result.value:
+                    subtopics = map_result.value.get(nous, [])
+            else:
+                flat_result = await ku_service.list_nous_subtopics()
+                if flat_result.is_ok and flat_result.value:
+                    subtopics = flat_result.value
+
+        return NotStr(render_nous_subtopic_inner(subtopics))
 
     @rt("/search/results")
     @boundary_handler()
@@ -408,7 +439,13 @@ def create_search_api_routes(
             }
         )
 
-    return [search_page, search_results, unified_search_api, intelligent_search_api]
+    return [
+        search_page,
+        search_subtopics,
+        search_results,
+        unified_search_api,
+        intelligent_search_api,
+    ]
 
 
 SEARCH_CONFIG = DomainRouteConfig(

@@ -103,6 +103,34 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"alias": alias})
 
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs across curriculum nodes.
+
+        Feeds the dependent nous→sub-topic /search dropdown: selecting a NOUS
+        topic narrows the sub-topic options to those authored ALONGSIDE it. The
+        map is derived from the graph so it can never drift from the vault
+        vocabulary (content boundary — the taxonomy lives in the vault, never in
+        the repo).
+
+        Spans BOTH `:Ku` and `:PathStep` because either can carry `nous` +
+        `nous_subtopic`, and PathSteps contribute pairs Kus don't (e.g.
+        body→attention). Both fields are arrays, so each element combination is
+        UNWOUND to its own row.
+
+        Returns rows with ``nous`` + ``subtopic`` keys; the service groups them
+        into ``{nous: [subtopics]}``.
+        """
+        query = """
+        MATCH (n:Entity)
+        WHERE (n:Ku OR n:PathStep)
+          AND n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
+        UNWIND n.nous AS nous
+        UNWIND n.nous_subtopic AS subtopic
+        RETURN DISTINCT nous, subtopic
+        ORDER BY nous, subtopic
+        """
+        return await self.execute_query(query, {})
+
     # ========================================================================
     # SUBSTANCE METRICS
     # ========================================================================

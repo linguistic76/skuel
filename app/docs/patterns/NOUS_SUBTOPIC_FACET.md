@@ -25,18 +25,22 @@ scope on the curriculum corpus.
   selector (`ui/askesis/chat.py`) render nothing rather than an empty control.
 - **Search filter:** `SearchRequest.nous_subtopic` → property filter (array membership)
   in `core/models/search_request.py`.
+- **Dependent dropdown (/search):** picking a NOUS topic narrows the sub-topic options
+  to those authored alongside it. The `nous → subtopics` map is graph-derived
+  (`KuBackend.nous_subtopic_pairs` → `KuService.nous_subtopic_map`, distinct co-occurring
+  pairs across `:Ku` + `:PathStep`). Wiring is pure HTMX: the sub-topic column
+  (`_render_nous_subtopic_select`) listens for `change from:[name='nous']` and re-fetches
+  `GET /search/subtopics?nous=…`, swapping its innerHTML with the scoped
+  `render_nous_subtopic_inner` fragment — no Alpine window-global seeding. The NOUS
+  `<select>` drops `nous_subtopic` from its results include so a topic switch re-scopes
+  cleanly instead of carrying a now-orphaned sub-topic. Fail-soft: a topic with no
+  sub-topics yields just "All Sub-topics".
 
 ## Authoring & changing the ontology
 
 Edit `nous_subtopic:` frontmatter in the content vault, then re-sync
 (`./dev vault-sync --vault content`). The faucets follow the graph. The taxonomy
 reference lives with the content (vault), not here.
-
-## Follow-up
-
-The dependent `nous → nous_subtopic` dropdown (pick a topic → only its sub-topics
-appear) is not modeled yet — tracked in issue #547. It needs a `nous → subtopics` map
-built from the graph once the corpus carries the data (it now does).
 
 **See:** `docs/architecture/SEARCH_ARCHITECTURE.md`,
 `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`

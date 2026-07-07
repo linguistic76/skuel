@@ -60,6 +60,32 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         subtopics = [record["value"] for record in (result.value or []) if record.get("value")]
         return Result.ok(subtopics)
 
+    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
+        """Map each NOUS topic to the sub-topics authored alongside it.
+
+        Derived from the graph (distinct co-occurring `nous` + `nous_subtopic`
+        pairs across `:Ku` + `:PathStep`), never hardcoded — the dependent
+        /search dropdown narrows sub-topic options to the selected NOUS topic
+        without the taxonomy ever leaving the vault (content boundary).
+
+        Fail-soft: with no authored `nous_subtopic` data the map is empty, so the
+        dependent control degrades to the same fail-soft-empty behaviour as the
+        flat vocabulary (`list_nous_subtopics`).
+
+        Backend: ``KuBackend.nous_subtopic_pairs``.
+        """
+        result = await self.backend.nous_subtopic_pairs()  # type: ignore[attr-defined]
+        if result.is_error:
+            return Result.fail(result)
+        mapping: dict[str, list[str]] = {}
+        for record in result.value or []:
+            nous = record.get("nous")
+            subtopic = record.get("subtopic")
+            if not nous or not subtopic:
+                continue
+            mapping.setdefault(nous, []).append(subtopic)
+        return Result.ok(mapping)
+
     async def search_by_alias(
         self, alias: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields

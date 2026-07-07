@@ -152,6 +152,18 @@ class KuService:
         """
         return await self.search.list_nous_subtopics()
 
+    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
+        """Map each NOUS topic to the sub-topics authored alongside it.
+
+        Powers the dependent /search dropdown (selecting a NOUS topic narrows the
+        sub-topic options). Graph-derived, never hardcoded — the taxonomy stays
+        in the vault (content boundary). Fail-soft/empty until `nous_subtopic:`
+        data is authored.
+
+        Backend: KuBackend.nous_subtopic_pairs via KuSearchService.
+        """
+        return await self.search.nous_subtopic_map()
+
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)
     # =========================================================================
