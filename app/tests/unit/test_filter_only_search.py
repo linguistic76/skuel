@@ -14,6 +14,10 @@ while a filter-only request runs. These tests pin that contract:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from core.models.enums import (
     ContentType,
     Domain,
@@ -22,6 +26,7 @@ from core.models.enums import (
     Priority,
     SELCategory,
 )
+from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 
 
@@ -97,3 +102,34 @@ class TestFromFormParamsEmptyQuery:
         assert request.learning_level == LearningLevel.BEGINNER
         assert request.content_type == ContentType.PRACTICE
         assert request.has_any_criteria() is True
+
+
+class TestCrossDomainRoutesRelationshipOnly:
+    """A relationship-only, empty-query, Type=All request must reach the
+    faceted sweep — not the plain text sweep, which drops the filter (PR #549).
+    """
+
+    @pytest.mark.anyio
+    async def test_relationship_only_routes_to_faceted_sweep(self) -> None:
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
+        router.search_domains = AsyncMock()  # type: ignore[method-assign]
+
+        request = SearchRequest(ready_to_learn=True)  # no query, no property facet
+        await router._cross_domain_search(request, user_uid="user_x")
+
+        router._faceted_sweep.assert_awaited_once()
+        router.search_domains.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_blank_request_uses_plain_text_sweep(self) -> None:
+        # Sanity control: with no filters at all, the property/relationship gate
+        # is False, so the plain sweep runs (the route gates blank away earlier).
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock()  # type: ignore[method-assign]
+        router.search_domains = AsyncMock(return_value=MagicMock(results_by_domain={}))  # type: ignore[method-assign]
+
+        await router._cross_domain_search(SearchRequest(), user_uid="user_x")
+
+        router._faceted_sweep.assert_not_awaited()
+        router.search_domains.assert_awaited_once()
