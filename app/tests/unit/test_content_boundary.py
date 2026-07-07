@@ -44,3 +44,13 @@ def test_guard_detects_content_frontmatter(tmp_path: Path) -> None:
     doc = tmp_path / "guide.md"
     doc.write_text("# Guide\n\nExample:\n\n```yaml\ntype: Ku\n```\n")
     assert guard._looks_like_vault_entity(doc) is None
+
+    # Plain-YAML vault entity (no --- fence; SKUEL authors Kus/LP as bare YAML).
+    yaml_entity = tmp_path / "ku_example.yaml"
+    yaml_entity.write_text("# Ku: Example\nversion: 1.0\ntype: Ku\nuid: ku:demo:x\n")
+    assert guard._looks_like_vault_entity(yaml_entity) == "Ku"
+
+    # Benign YAML (config/workflow) must not trip it.
+    benign = tmp_path / "config.yaml"
+    benign.write_text("name: CI\non:\n  push:\n    branches: [main]\ntype: object\n")
+    assert guard._looks_like_vault_entity(benign) is None

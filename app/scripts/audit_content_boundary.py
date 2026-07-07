@@ -38,20 +38,44 @@ FORBIDDEN_PREFIXES: tuple[str, ...] = (
     "yaml_templates/",
 )
 
-# Frontmatter ``type:`` values that mark a file as an ingestible vault entity.
+# ``type:`` values that mark a file as an ingestible vault entity — the full vault
+# surface, not just curriculum, so no authoring shape slips through. Lowercased for
+# comparison. Kept as a curated literal (this guard runs on bare Python in CI, so it
+# must not import the EntityType enum); extend it when a new authorable type appears.
 CONTENT_TYPES: frozenset[str] = frozenset(
     {
+        # Curriculum
         "ku",
+        "knowledgeunit",
+        "knowledgecluster",
         "pathstep",
         "learningpath",
         "exercise",
+        "revisedexercise",
         "resource",
+        # Activity domains
+        "task",
+        "goal",
+        "habit",
+        "event",
+        "choice",
+        "principle",
+        # Activity templates
         "tasktemplate",
         "goaltemplate",
         "habittemplate",
         "eventtemplate",
         "choicetemplate",
         "principletemplate",
+        # Learning loop / other authorable entities
+        "userentry",
+        "entryreport",
+        "activityreport",
+        "interaction",
+        "lifepath",
+        "formtemplate",
+        "formsubmission",
+        "conversation",
     }
 )
 
@@ -65,18 +89,32 @@ def _tracked_files() -> list[str]:
 
 
 def _looks_like_vault_entity(path: Path) -> str | None:
-    """Return the offending ``type`` value if the file's leading frontmatter is a
-    content entity, else None."""
-    if path.suffix.lower() not in (".md", ".yaml", ".yml"):
+    """Return the offending ``type`` value if the file is a content entity, else None.
+
+    Covers both authoring shapes SKUEL ingests:
+    - Markdown (``.md``): a leading ``---`` frontmatter block (PathSteps, MD Kus).
+      Requiring the fence avoids false positives from ```yaml examples in doc prose.
+    - Plain YAML (``.yaml``/``.yml``): the whole file IS the document (YAML Kus, LP,
+      edges), so a top-level ``type:`` is inspected directly — no fence exists.
+    """
+    suffix = path.suffix.lower()
+    if suffix not in (".md", ".yaml", ".yml"):
         return None
     try:
         head = path.read_text(encoding="utf-8", errors="ignore")[:4000]
     except OSError:
         return None
-    fm = _FRONTMATTER.match(head)
-    if not fm:
+
+    if suffix == ".md":
+        fm = _FRONTMATTER.match(head)
+        scope = fm.group(1) if fm else None
+    else:
+        # A whole YAML file is the document; top-level `type:` may follow comments.
+        scope = head
+
+    if scope is None:
         return None
-    tm = _TYPE_FIELD.search(fm.group(1))
+    tm = _TYPE_FIELD.search(scope)
     if tm and tm.group(1).strip().lower() in CONTENT_TYPES:
         return tm.group(1).strip()
     return None
