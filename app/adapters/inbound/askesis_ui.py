@@ -58,8 +58,9 @@ def create_askesis_ui_routes(
         """Full Askesis chat surface.
 
         Optional ``?question=`` / ``?nous=`` carry the /search "Ask" handoff:
-        the composer is prefilled + scope-seeded and the first turn auto-runs
-        scoped via the composer's native HTMX ``load`` trigger.
+        the composer is prefilled + scope-seeded (chip shown) and the user clicks
+        Send. It never auto-submits — a crafted GET must not run a prompt in a
+        logged-in victim's session (Kody #545).
         """
         question = request.query_params.get("question", "")
         nous = request.query_params.get("nous", "")

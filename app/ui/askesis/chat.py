@@ -34,8 +34,8 @@ def render_askesis_shell(
 
     Handoff (from /search "Ask"): ``initial_question`` prefills the composer and
     ``initial_nous`` seeds ``selectedNous`` INLINE into x-data (never from a
-    window global — the settle-phase race would lose it), so the scope chip shows
-    and the first turn auto-runs scoped. See ``_composer_form`` for the load trigger.
+    window global — the settle-phase race would lose it), so the scope chip shows.
+    It prefills only — never auto-submits (see ``_composer_form``, Kody #545).
     """
     return Div(
         _sidebar(username, learning_scope_label),
@@ -403,30 +403,28 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
 def _composer_form(
     nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
 ) -> Any:
-    auto_run = bool(initial_question)
-
     # Scope hidden field is Alpine-bound (:value) so it tracks the chip. In the
-    # handoff case we ALSO render a server-side `value` so the auto-run's first
-    # submit carries the scope even if HTMX's load trigger fires before Alpine
-    # applies the binding (no JS timing hack — the static value wins the race).
+    # handoff case we ALSO render a server-side `value` so the scope is present
+    # even before Alpine applies the binding.
     nous_attrs: dict[str, Any] = {":value": "selectedNous"}
     if initial_nous:
         nous_attrs["value"] = initial_nous
 
+    # SECURITY: the /search "Ask" handoff PREFILLS the question + seeds the scope
+    # but NEVER auto-submits. A crafted GET /askesis?question=... must not run a
+    # prompt in a logged-in victim's session (quota burn / prompt against their
+    # knowledge base). The user reviews the prefilled question (scope chip shown)
+    # and clicks Send — the default form submit, no `load` trigger. (Kody #545.)
     form_extras: dict[str, Any] = {
-        # Clear the textarea explicitly (not just reset()): in the handoff case
-        # the question is the textarea's server-rendered default, so reset() would
-        # RESTORE it after the auto-run answer. ta.value='' clears it either way.
+        # Clear the textarea (not just reset()): the handoff prefills it via the
+        # textarea's server-rendered default, so reset() would RESTORE it after a
+        # send. ta.value='' clears it either way.
         "hx-on::after-request": (
             "this.reset();"
             " var ta=this.querySelector('textarea'); if(ta){ta.value='';ta.style.height='auto';}"
             " var s=document.getElementById('thread-scroll'); if(s){s.scrollTop=s.scrollHeight;}"
         ),
     }
-    if auto_run:
-        # Native HTMX auto-run of the handoff question: `load` fires once when the
-        # full page mounts; `submit` preserves normal send for every later message.
-        form_extras["hx-trigger"] = "load, submit"
 
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),

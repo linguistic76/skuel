@@ -22,7 +22,8 @@ async def render_askesis_page(
     """Render the Askesis chat surface within the SKUEL BasePage shell.
 
     ``initial_question`` / ``initial_nous`` carry the /search "Ask" handoff — they
-    prefill the composer and seed the scope so the first turn auto-runs scoped.
+    prefill the composer and seed the scope (chip shown); the user clicks Send
+    (no auto-submit — a crafted GET must not run a prompt in the session).
     """
     return await BasePage(
         content=render_askesis_shell(
