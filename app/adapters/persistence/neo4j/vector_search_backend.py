@@ -101,17 +101,30 @@ class VectorSearchBackend:
         threshold: float,
         chunk_types: list[str] | None = None,
         parent_uid: str | None = None,
+        parent_filters: dict[str, Any] | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across :ContentChunk nodes for precise RAG retrieval.
 
         Targets `contentchunk_embedding_idx` and joins back through
         :HAS_CHUNK / :HAS_CONTENT to surface the owning Entity (typically a
         PathStep) so callers can cite the parent in responses.
+
+        ``parent_filters`` scopes results to chunks whose owning Entity matches
+        the active facets (e.g. ``{"nous": "body", "learning_level": "beginner"}``)
+        — the same facet→property mapping faceted search applies to entities, now
+        applied to the chunk's parent so body hits honor the facets instead of
+        leaking across topics. List-vs-scalar membership matches `_search_raw_mixin`.
         """
+        # Over-fetch candidates from the vector index, then narrow. Facet-scoped
+        # queries filter on the parent AFTER ranking (the index ranks by score,
+        # not facet), so most top-similarity chunks can fall outside scope —
+        # widen the candidate pool when scoping. Tune the multiplier if a narrow
+        # facet starves results (score-then-filter approximation, PR watch-item).
+        candidate_multiplier = 10 if parent_filters else 2
         parts = [
             """CALL db.index.vector.queryNodes(
             'contentchunk_embedding_idx',
-            $limit * 2,
+            $candidate_limit,
             $query_embedding
         ) YIELD node AS chunk, score
         WHERE score >= $threshold"""
@@ -125,8 +138,35 @@ class VectorSearchBackend:
             }"""
             )
         parts.append(
-            """MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(parent:Entity)
-        RETURN
+            """MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)<-[:HAS_CONTENT]-(parent:Entity)"""
+        )
+        params: dict[str, Any] = {
+            "query_embedding": query_embedding,
+            "limit": limit,
+            "candidate_limit": limit * candidate_multiplier,
+            "threshold": threshold,
+            "chunk_types": chunk_types,
+            "parent_uid": parent_uid,
+        }
+        # Parent-facet scope on the owning Entity — mirrors the list-vs-scalar
+        # membership `_search_raw_mixin` applies to entity property filters, so
+        # `nous` (array) and scalar facets behave identically across both paths.
+        if parent_filters:
+            scope_clauses = []
+            for field, value in parent_filters.items():
+                pname = f"pf_{field}"
+                if isinstance(value, list):
+                    scope_clauses.append(f"parent.{field} = ${pname}")
+                else:
+                    scope_clauses.append(
+                        f"(CASE WHEN parent.{field} IS :: LIST<ANY> "
+                        f"THEN ${pname} IN parent.{field} "
+                        f"ELSE parent.{field} = ${pname} END)"
+                    )
+                params[pname] = value
+            parts.append("WHERE " + " AND ".join(scope_clauses))
+        parts.append(
+            """RETURN
             chunk.uid as chunk_uid,
             chunk.chunk_type as chunk_type,
             chunk.text as text,
@@ -139,13 +179,6 @@ class VectorSearchBackend:
         LIMIT $limit"""
         )
         cypher = "\n".join(parts)
-        params: dict[str, Any] = {
-            "query_embedding": query_embedding,
-            "limit": limit,
-            "threshold": threshold,
-            "chunk_types": chunk_types,
-            "parent_uid": parent_uid,
-        }
         # boundary: query_executor returns dict rows; the Cypher's RETURN
         # clause matches SemanticSearchChunkResult by construction.
         raw = await self._executor.execute_query(cypher, params)

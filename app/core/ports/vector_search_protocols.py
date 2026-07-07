@@ -51,6 +51,11 @@ class VectorSearchBackendOperations(Protocol):
         threshold: float,
         chunk_types: list[str] | None = None,
         parent_uid: str | None = None,
+        parent_filters: dict[str, Any] | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
-        """Vector search across :ContentChunk nodes for precise RAG retrieval."""
+        """Vector search across :ContentChunk nodes for precise RAG retrieval.
+
+        ``parent_filters`` scopes results to chunks whose owning Entity matches
+        the active facets (nous, learning_level, ...).
+        """
         ...
