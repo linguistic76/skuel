@@ -22,6 +22,33 @@ def _load_guard():
     return module
 
 
+def _load_by_path(rel: str):
+    """Load a module by file path, bypassing the package __init__ import chain
+    (the guard runs on bare Python in CI and must not pull in heavy deps)."""
+    path = Path(__file__).resolve().parents[2] / rel
+    spec = importlib.util.spec_from_file_location(path.stem + "_boundary", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_guard_covers_ingestion_aliases() -> None:
+    """The guard's CONTENT_TYPES must be a superset of ingestion's accepted type
+    vocabulary (EntityType.from_string aliases). This is the anti-drift backstop:
+    if ingestion gains a new alias the guard doesn't cover, this fails so the set
+    is kept in sync rather than silently going blind to a new ingestible format."""
+    guard = _load_guard()
+    ee = _load_by_path("core/models/enums/entity_enums.py")
+    uncovered = sorted(
+        a for a in ee._ENTITY_TYPE_ALIASES if guard._normalize_type(a) not in guard.CONTENT_TYPES
+    )
+    assert not uncovered, (
+        "Ingestion accepts type aliases the content-boundary guard does not cover — "
+        "add them to CONTENT_TYPES in scripts/audit_content_boundary.py:\n  " + ", ".join(uncovered)
+    )
+
+
 def test_no_vault_content_tracked_in_repo() -> None:
     guard = _load_guard()
     violations = guard.find_violations()

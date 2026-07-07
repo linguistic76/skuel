@@ -87,6 +87,21 @@ CONTENT_TYPES: frozenset[str] = frozenset(
         "expense",
         "finance",
         "group",
+        # Remaining EntityType.from_string() aliases (entity_enums._ENTITY_TYPE_ALIASES)
+        # so the guard is a superset of the ingestion vocabulary. Completeness is
+        # enforced by test_guard_covers_ingestion_aliases (fails if ingestion drifts).
+        "book",
+        "film",
+        "talk",
+        "form",
+        "path",
+        "step",
+        "ue",
+        # Legacy USER_ENTRY aliases: ingestion REJECTS these, but a tracked file
+        # carrying one is unambiguously vault content, so flag it anyway.
+        "jeinput",
+        "jeoutput",
+        "exercisesubmission",
     }
 )
 
