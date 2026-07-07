@@ -64,6 +64,11 @@ class Ku(Entity):
     # empty = deliberately unassigned (rawness principle — content may exist
     # without a section). Authored in vault YAML as `nous:`.
     nous: tuple[str, ...] = field(default_factory=tuple)
+    # NOUS sub-topic membership — the 2nd taxonomy level beneath `nous` (e.g.
+    # body → nervous-system, sleep, movement). Mirrors `nous` exactly: multi-
+    # valued, empty = deliberately unassigned. Authored in vault YAML as
+    # `nous_subtopic:`. Flat for now — a nous→subtopic dependency awaits data.
+    nous_subtopic: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         """Validate entity_type=KU, then delegate to Entity."""
@@ -77,6 +82,8 @@ class Ku(Entity):
             object.__setattr__(self, "aliases", tuple(self.aliases))
         if isinstance(self.nous, list):
             object.__setattr__(self, "nous", tuple(self.nous))
+        if isinstance(self.nous_subtopic, list):
+            object.__setattr__(self, "nous_subtopic", tuple(self.nous_subtopic))
         super().__post_init__()
 
     # =========================================================================

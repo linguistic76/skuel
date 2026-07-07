@@ -370,18 +370,22 @@
                     return value;
                 },
 
-                // Hand the current query + retrieval-scoping facet (nous) to
-                // Askesis as a scoped Ask. Reads the live inputs (they carry the
-                // truth via their `name` attrs) and builds /askesis?question=&nous=.
+                // Hand the current query + retrieval-scoping facets (nous +
+                // nous_subtopic) to Askesis as a scoped Ask. Reads the live inputs
+                // (they carry the truth via their `name` attrs) and builds
+                // /askesis?question=&nous=&nous_subtopic=.
                 askHref: function() {
                     var root = this.$el;
                     var qEl = root.querySelector('[name="query"]');
                     var nousEl = root.querySelector('[name="nous"]');
+                    var subEl = root.querySelector('[name="nous_subtopic"]');
                     var q = (qEl && qEl.value || '').trim();
                     var nous = (nousEl && nousEl.value || '').trim();
+                    var nousSubtopic = (subEl && subEl.value || '').trim();
                     var params = new URLSearchParams();
                     if (q) params.set('question', q);
                     if (nous) params.set('nous', nous);
+                    if (nousSubtopic) params.set('nous_subtopic', nousSubtopic);
                     var qs = params.toString();
                     return '/askesis' + (qs ? '?' + qs : '');
                 },

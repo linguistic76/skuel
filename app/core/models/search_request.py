@@ -238,6 +238,15 @@ class SearchRequest(BaseModel):
         description="Filter by NOUS topic slug (stories, environment, intelligence, investment, words, relationships, social, body, exercises, self-management, self-awareness)",
     )
 
+    # NOUS sub-topic filter — the 2nd taxonomy level beneath `nous` (e.g.
+    # nervous-system under body). Matches membership in the `nous_subtopic`
+    # array property on Ku. Flat for now — a nous→subtopic dependency awaits
+    # authored data.
+    nous_subtopic: str | None = Field(
+        default=None,
+        description="Filter by NOUS sub-topic slug (2nd level, e.g. nervous-system, sleep, education)",
+    )
+
     # Content source filter
     source: str | None = Field(
         default=None,
@@ -387,6 +396,7 @@ class SearchRequest(BaseModel):
                     info.data.get("status") is not None,
                     info.data.get("priority") is not None,
                     info.data.get("nous") is not None,
+                    info.data.get("nous_subtopic") is not None,
                     info.data.get("source") is not None,
                     info.data.get("extended_facets"),
                 ]
@@ -440,6 +450,11 @@ class SearchRequest(BaseModel):
         # faceted_search_raw renders scalar-vs-array membership type-agnostically
         if self.nous:
             filters["nous"] = self.nous
+        # NOUS sub-topic facet — same array-membership property as `nous`, one
+        # level down. Feeds chunk `parent_filters` too, so scoped RAG retrieval
+        # honors the sub-topic for free (see SearchRouter.retrieve_scoped_chunks).
+        if self.nous_subtopic:
+            filters["nous_subtopic"] = self.nous_subtopic
         if self.source:
             filters["source"] = self.source
 
@@ -604,6 +619,8 @@ class SearchRequest(BaseModel):
         next_logical_step: str | None = None,
         # NOUS topic
         nous: str | None = None,
+        # NOUS sub-topic (2nd taxonomy level)
+        nous_subtopic: str | None = None,
         # Pedagogical filters (checkbox strings)
         not_yet_viewed: str | None = None,
         viewed_not_mastered: str | None = None,
@@ -637,6 +654,7 @@ class SearchRequest(BaseModel):
         content_type = _none_if_empty(content_type)
         educational_level = _none_if_empty(educational_level)
         nous = _none_if_empty(nous)
+        nous_subtopic = _none_if_empty(nous_subtopic)
         entity_type = _none_if_empty(entity_type)
 
         # Parse entity type to enum
@@ -677,6 +695,7 @@ class SearchRequest(BaseModel):
             aligned_with_principles=_checkbox_to_bool(aligned_with_principles),
             next_logical_step=_checkbox_to_bool(next_logical_step),
             nous=nous,
+            nous_subtopic=nous_subtopic,
             not_yet_viewed=_checkbox_to_bool(not_yet_viewed),
             viewed_not_mastered=_checkbox_to_bool(viewed_not_mastered),
             ready_to_review=_checkbox_to_bool(ready_to_review),

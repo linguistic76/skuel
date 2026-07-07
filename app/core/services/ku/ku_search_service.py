@@ -40,6 +40,26 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         entity_label="Ku",
     )
 
+    async def list_nous_subtopics(self) -> Result[list[str]]:
+        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+
+        The 2nd taxonomy level beneath `nous`. Derived from the graph exactly
+        like `list_all_categories()` (the NOUS-topic vocabulary), but reads the
+        `nous_subtopic` array property rather than the configured `category_field`.
+        Array-valued: `distinct_values_raw` UNWINDs each element to its own value.
+
+        Fail-soft: with no authored `nous_subtopic` data the list is empty, so
+        the faucet renders nothing (no data yet — the mechanism ships ahead of
+        the vault content).
+
+        Backend: ``UniversalNeo4jBackend.distinct_values_raw("nous_subtopic")``.
+        """
+        result = await self.backend.distinct_values_raw("nous_subtopic", user_uid=None)
+        if result.is_error:
+            return Result.fail(result)
+        subtopics = [record["value"] for record in (result.value or []) if record.get("value")]
+        return Result.ok(subtopics)
+
     async def search_by_alias(
         self, alias: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: Neo4j node properties — Ku fields

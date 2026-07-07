@@ -21,32 +21,41 @@ def render_askesis_shell(
     username: str = "User",
     learning_scope_label: str = "Your learning",
     nous_topics: list[str] | None = None,
+    nous_subtopics: list[str] | None = None,
     initial_question: str = "",
     initial_nous: str = "",
+    initial_nous_subtopic: str = "",
 ) -> Any:
     """
     Full-height 3-column chat surface for /askesis.
 
     Height calc(100vh - 3.5rem) aligns with the SKUEL top navbar (h-14 = 3.5rem).
-    Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous }.
-    ``selectedNous`` lives on the root so it persists across composer submits
-    (the composer isn't re-rendered on send) — each submit carries the scope.
+    Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous,
+    selectedNousSubtopic }. The ``selected*`` scope fields live on the root so
+    they persist across composer submits (the composer isn't re-rendered on
+    send) — each submit carries the scope.
+
+    ``nous_subtopics`` is the 2nd-level vocabulary; empty until the vault carries
+    `nous_subtopic:` data, so its selector fails soft to nothing (mechanism ships
+    ahead of content).
 
     Handoff (from /search "Ask"): ``initial_question`` prefills the composer and
-    ``initial_nous`` seeds ``selectedNous`` INLINE into x-data (never from a
-    window global — the settle-phase race would lose it), so the scope chip shows.
-    It prefills only — never auto-submits (see ``_composer_form``, Kody #545).
+    ``initial_nous`` / ``initial_nous_subtopic`` seed the scope INLINE into
+    x-data (never from a window global — the settle-phase race would lose it),
+    so the scope chip shows. It prefills only — never auto-submits (see
+    ``_composer_form``, Kody #545).
     """
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(nous_topics or [], initial_question),
+        _center_panel(nous_topics or [], nous_subtopics or [], initial_question),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
             "x-data": (
                 "{ sidebarOpen: true, settingsOpen: false,"
                 " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
-                " selectedNous: " + json.dumps(initial_nous) + " }"
+                " selectedNous: " + json.dumps(initial_nous) + ","
+                " selectedNousSubtopic: " + json.dumps(initial_nous_subtopic) + " }"
             )
         },
     )
@@ -307,7 +316,9 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _center_panel(nous_topics: list[str], initial_question: str = "") -> Any:
+def _center_panel(
+    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+) -> Any:
     return Div(
         _top_bar(),
         Div(
@@ -318,7 +329,7 @@ def _center_panel(nous_topics: list[str], initial_question: str = "") -> Any:
             cls="flex-1 overflow-y-auto max-w-[768px] mx-auto w-full",
             id="thread-scroll",
         ),
-        _composer_area(nous_topics, initial_question),
+        _composer_area(nous_topics, nous_subtopics, initial_question),
         cls="flex-1 flex flex-col overflow-hidden",
     )
 
@@ -339,11 +350,13 @@ def _top_bar() -> Any:
     )
 
 
-def _composer_area(nous_topics: list[str], initial_question: str = "") -> Any:
+def _composer_area(
+    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+) -> Any:
     return Div(
         Div(
             _nous_scope_chip(),
-            _composer_form(nous_topics, initial_question),
+            _composer_form(nous_topics, nous_subtopics, initial_question),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
@@ -396,7 +409,32 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     )
 
 
-def _composer_form(nous_topics: list[str], initial_question: str = "") -> Any:
+def _nous_subtopic_scope_select(nous_subtopics: list[str]) -> Any:
+    """Native NOUS sub-topic picker (2nd level) bound to root ``selectedNousSubtopic``.
+
+    Empty option = no sub-scope. Rendered only when the vocabulary is available —
+    fails soft to no control on an empty list, exactly like ``_nous_scope_select``.
+    FLAT for now (not dependent on the chosen topic): a nous→subtopic MAP can't
+    exist without authored data, so dependent filtering is a follow-up (don't fake it).
+    """
+    if not nous_subtopics:
+        return None
+    options = [Option("All sub-topics", value="")]
+    options.extend(Option(sub, value=sub) for sub in nous_subtopics)
+    return Select(
+        *options,
+        aria_label="Scope answer to a NOUS sub-topic",
+        cls=(
+            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            " rounded-[18px] px-2.5 py-1.5 outline-none cursor-pointer max-w-[160px]"
+        ),
+        **{"x-model": "selectedNousSubtopic"},
+    )
+
+
+def _composer_form(
+    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+) -> Any:
     # Scope hidden field is Alpine-bound (:value="selectedNous") — the single
     # source of truth, always in sync with the chip/selector at submit time.
     # (No server-side `value`: it would become reset()'s default; and there is no
@@ -422,8 +460,9 @@ def _composer_form(nous_topics: list[str], initial_question: str = "") -> Any:
 
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
-        # Hidden field carries the active scope with every submit (bound to root state).
+        # Hidden fields carry the active scope with every submit (bound to root state).
         Input(type="hidden", name="nous", **nous_attrs),
+        Input(type="hidden", name="nous_subtopic", **{":value": "selectedNousSubtopic"}),
         Textarea(
             # Server-rendered prefill for the handoff question (empty otherwise).
             initial_question,
@@ -440,6 +479,7 @@ def _composer_form(nous_topics: list[str], initial_question: str = "") -> Any:
                 _circle_btn("plus", "Attach", bordered=True),
                 _kb_pill(),
                 _nous_scope_select(nous_topics),
+                _nous_subtopic_scope_select(nous_subtopics),
                 cls="flex items-center gap-2",
             ),
             Div(

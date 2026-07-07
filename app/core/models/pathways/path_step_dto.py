@@ -51,6 +51,8 @@ class PathStepDTO(CurriculumDTO):
     # =========================================================================
     # Multi-topic; empty = deliberately unassigned (rawness principle)
     nous: list[str] = field(default_factory=list)
+    # NOUS sub-topic membership (2nd taxonomy level — mirrors Ku + `nous`)
+    nous_subtopic: list[str] = field(default_factory=list)
 
     # =========================================================================
     # KNOWLEDGE REFERENCES
@@ -133,6 +135,7 @@ class PathStepDTO(CurriculumDTO):
                 "learning_objectives",
                 "knowledge_uids",
                 "nous",
+                "nous_subtopic",
             ],
             dict_fields=["metadata"],
         )
@@ -172,6 +175,7 @@ class PathStepDTO(CurriculumDTO):
                 # PathStep-specific fields
                 "intent",
                 "nous",
+                "nous_subtopic",
                 "knowledge_uids",
                 "learning_path_uid",
                 "sequence",

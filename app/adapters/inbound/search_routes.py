@@ -86,15 +86,25 @@ def create_search_api_routes(
         # completeness) — never hardcoded, so the facet can't drift from the
         # vault. A fetch failure degrades to an empty dropdown, not a 500.
         nous_topics: list[str] = []
+        # NOUS sub-topic (2nd taxonomy level) vocabulary — same derivation as
+        # topics. Empty until the vault carries `nous_subtopic:` data, so the
+        # faucet fails soft to no control (mechanism ships ahead of content).
+        nous_subtopics: list[str] = []
         if ku_service is not None:
             topics_result = await ku_service.list_nous_topics()
             if topics_result.is_ok and topics_result.value:
                 nous_topics = topics_result.value
+            subtopics_result = await ku_service.list_nous_subtopics()
+            if subtopics_result.is_ok and subtopics_result.value:
+                nous_subtopics = subtopics_result.value
 
         ask_enabled = await _caller_ai_enabled(user_uid)
 
         return await render_search_page_with_navbar(
-            request, nous_topics=nous_topics, ask_enabled=ask_enabled
+            request,
+            nous_topics=nous_topics,
+            nous_subtopics=nous_subtopics,
+            ask_enabled=ask_enabled,
         )
 
     @rt("/search/results")
@@ -129,6 +139,8 @@ def create_search_api_routes(
         next_logical_step: str | None = None,
         # NOUS topic filter
         nous: str | None = None,
+        # NOUS sub-topic filter (2nd taxonomy level)
+        nous_subtopic: str | None = None,
         # Pedagogical filters
         not_yet_viewed: str | None = None,
         viewed_not_mastered: str | None = None,
@@ -178,6 +190,7 @@ def create_search_api_routes(
                 aligned_with_principles=aligned_with_principles,
                 next_logical_step=next_logical_step,
                 nous=nous,
+                nous_subtopic=nous_subtopic,
                 not_yet_viewed=not_yet_viewed,
                 viewed_not_mastered=viewed_not_mastered,
                 ready_to_review=ready_to_review,

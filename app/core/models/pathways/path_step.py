@@ -59,9 +59,11 @@ class PathStep(Curriculum):
                 f"PathStep constructed with entity_type={self.entity_type!r} "
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
-        # Normalize list-authored nous to tuple (frozen dataclass — mirrors Ku)
+        # Normalize list-authored nous/nous_subtopic to tuple (frozen — mirrors Ku)
         if isinstance(self.nous, list):
             object.__setattr__(self, "nous", tuple(self.nous))
+        if isinstance(self.nous_subtopic, list):
+            object.__setattr__(self, "nous_subtopic", tuple(self.nous_subtopic))
         super().__post_init__()
 
     # =========================================================================
@@ -77,6 +79,11 @@ class PathStep(Curriculum):
     # deliberately unassigned (rawness principle). Authored in vault YAML
     # as `nous:`.
     nous: tuple[str, ...] = ()
+    # NOUS sub-topic membership — 2nd taxonomy level beneath `nous` (mirrors Ku).
+    # Multi-valued; empty = unassigned. Authored in vault YAML as `nous_subtopic:`.
+    # Symmetric with `nous` so subtopic-scoped search/RAG includes PathStep content
+    # (else the subtopic predicate would drop every PathStep card + body chunk).
+    nous_subtopic: tuple[str, ...] = ()
 
     # =========================================================================
     # KNOWLEDGE REFERENCES (graph-native: reconstructed from CONTAINS_KNOWLEDGE)
