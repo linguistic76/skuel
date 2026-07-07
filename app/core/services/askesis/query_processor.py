@@ -297,10 +297,17 @@ class QueryProcessor:
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
-        # Step 7: Run guided pipeline (ZPD + guidance mode)
-        guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
-            user_uid, question, user_context, preferred_mode
-        )
+        # Step 7: Run guided pipeline (ZPD + guidance mode) — UNLESS the user set an
+        # explicit facet scope. An explicit scope OVERRIDES auto-guidance (Codex #544):
+        # answer from the scoped passages via the context-aware branch below, not the
+        # current PS bundle — which would otherwise re-introduce unscoped curriculum
+        # context and make the topic selection a silent no-op for guided users.
+        if scope is not None and scope.to_property_filters():
+            guided_system_prompt, guidance_mode, ps_bundle = None, None, None
+        else:
+            guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
+                user_uid, question, user_context, preferred_mode
+            )
 
         # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:
