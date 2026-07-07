@@ -116,6 +116,7 @@ def test_archive_carriers_flagged_except_served_assets() -> None:
     rejected as content carriers unless they are served assets under static/."""
     guard = _load_guard()
     assert "vault_export.zip".endswith(guard.ARCHIVE_SUFFIXES)
-    # A served template archive is exempt; a stray tracked archive elsewhere is not.
-    assert "static/templates/x.zip".startswith(guard.ALLOWED_ARCHIVE_PREFIXES)
-    assert not "core/leaked_bundle.zip".startswith(guard.ALLOWED_ARCHIVE_PREFIXES)
+    # Only the exact reviewed template path is exempt — not the whole static/ tree.
+    assert "static/templates/activity-vault-template.zip" in guard.ALLOWED_ARCHIVES
+    assert "static/leaked_vault.zip" not in guard.ALLOWED_ARCHIVES
+    assert "core/leaked_bundle.zip" not in guard.ALLOWED_ARCHIVES

@@ -41,9 +41,11 @@ FORBIDDEN_PREFIXES: tuple[str, ...] = (
 # Binary archives can smuggle a whole vault export past the text-based type checks
 # (a .zip isn't Markdown/YAML), so tracked archives are rejected as content carriers.
 ARCHIVE_SUFFIXES: tuple[str, ...] = (".zip", ".tar", ".gz", ".tgz", ".bz2", ".7z", ".rar")
-# Served public web assets are intentional distributables (e.g. the empty vault
-# template users download), not proprietary content — exempt from the archive ban.
-ALLOWED_ARCHIVE_PREFIXES: tuple[str, ...] = ("static/",)
+# Exact-path allowlist for the one intentional public archive (the empty vault
+# template users download). Deliberately NOT a prefix: a new archive anywhere else,
+# including elsewhere under static/, is flagged. Add a path here only for a reviewed,
+# genuinely-public bundle.
+ALLOWED_ARCHIVES: frozenset[str] = frozenset({"static/templates/activity-vault-template.zip"})
 
 # ``type:`` values that mark a file as an ingestible vault entity — the full vault
 # surface, not just curriculum, so no authoring shape slips through. Lowercased for
@@ -176,10 +178,10 @@ def find_violations() -> list[str]:
         if rel.startswith(FORBIDDEN_PREFIXES):
             violations.append(f"{rel}: under a forbidden content path prefix")
             continue
-        if rel.lower().endswith(ARCHIVE_SUFFIXES) and not rel.startswith(ALLOWED_ARCHIVE_PREFIXES):
+        if rel.lower().endswith(ARCHIVE_SUFFIXES) and rel not in ALLOWED_ARCHIVES:
             violations.append(
                 f"{rel}: tracked archive may carry a vault export past the text checks "
-                f"— only served assets under static/ are exempt"
+                f"— add to ALLOWED_ARCHIVES only if it is a reviewed public bundle"
             )
             continue
         entity_type = _looks_like_vault_entity(REPO_ROOT / rel)
