@@ -469,12 +469,32 @@ jobs:
         working-directory: app
         run: uv run python scripts/smoke_test.py
 
+  # Deliberately NOT gated by the `changes` path filter: a content-only PR (e.g.
+  # a force-added app/docs/content/*.md or app/data/user_vaults/*.md, with no
+  # Python change) would skip the py-gated jobs, so the boundary must be checked
+  # unconditionally on every PR. Stdlib + git only — no venv/uv install needed.
+  content_boundary:
+    name: Content Boundary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Content boundary guard
+        working-directory: app
+        run: python scripts/audit_content_boundary.py
+
   # Always-on aggregator. This is the single status to mark required in branch
   # protection. Passes when required jobs succeeded OR were legitimately skipped
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, validate_documentation, unit_tests, smoke]
+    needs: [changes, mypy, validate_documentation, unit_tests, smoke, content_boundary]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -485,9 +505,10 @@ jobs:
           docs_result="${{ needs.validate_documentation.result }}"
           unit_tests_result="${{ needs.unit_tests.result }}"
           smoke_result="${{ needs.smoke.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result"
+          content_boundary_result="${{ needs.content_boundary.result }}"
+          echo "changes=$changes_result  mypy=$mypy_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$docs_result" "$unit_tests_result" "$smoke_result"; do
+          for r in "$changes_result" "$mypy_result" "$docs_result" "$unit_tests_result" "$smoke_result" "$content_boundary_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1
