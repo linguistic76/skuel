@@ -19,7 +19,6 @@ Module Organization:
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
-- ku_enums: KuCategory
 - askesis_enums: QueryComplexity, IntegrationSuccess
 - transcription_enums: TranscriptionStatus
 
@@ -69,9 +68,6 @@ from .goal_enums import GoalTimeframe, GoalType, HabitEssentiality, MeasurementT
 
 # Habit enums
 from .habit_enums import CompletionStatus, HabitCategory, HabitDifficulty, HabitPolarity
-
-# Ku enums
-from .ku_enums import KuCategory
 
 # Learning enums - education, knowledge, and mastery tracking
 from .learning_enums import (
@@ -207,7 +203,6 @@ __all__ = [
     "JournalTier",
     "KnowledgeStatus",
     "KnowledgeType",
-    "KuCategory",
     "KuComplexity",
     "LearningLevel",
     "LearningModality",

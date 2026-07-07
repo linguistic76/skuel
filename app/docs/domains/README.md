@@ -128,7 +128,7 @@ Each activity domain has domain-specific enums beyond the shared `Priority` and 
 | **Choices** | ChoiceType |
 | **Principles** | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | **Curriculum** | LpType, StepDifficulty, LearningLevel, KuComplexity, SELCategory |
-| **KU** | KuCategory, SELCategory |
+| **KU** | SELCategory |
 
 **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete catalog with values and dynamic patterns.
 

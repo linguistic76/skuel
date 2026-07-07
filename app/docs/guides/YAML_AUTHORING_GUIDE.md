@@ -67,11 +67,11 @@ type: Ku
 
 uid: ku:self-reflection:self-observation
 title: Self-Observation
-namespace: self_reflection
-ku_category: practice
 aliases:
   - introspection
   - self-watching
+nous:
+  - self-awareness
 description: The practice of watching your own thoughts, emotions, and behavioral patterns without immediately reacting.
 tags:
   - self-reflection
@@ -173,7 +173,6 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 | `source` (principle) | `PrincipleSource` | `philosophical`, `religious`, `cultural`, `personal`, `scientific`, `mentor`, `literature` |
 | `strength` | `PrincipleStrength` | `core`, `strong`, `moderate`, `developing`, `exploring` |
 | `recurrence_pattern` | `RecurrencePattern` | `none`, `daily`, `weekdays`, `weekends`, `weekly`, `biweekly`, `monthly`, `quarterly`, `yearly`, `custom` |
-| `ku_category` | `KuCategory` | `state`, `concept`, `principle`, `intake`, `substance`, `practice`, `value` |
 | `sel_category` | `SELCategory` | `self_awareness`, `self_management`, `social_awareness`, `relationship_skills`, `responsible_decision_making` |
 
 All enum classes live in `core/models/enums/`. For the complete enum catalog and the field-to-enum mapping, see [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md).

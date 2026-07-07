@@ -28,7 +28,6 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `learning_enums.py` | Education, knowledge, mastery, assessment, feedback | MasteryImpact, AssessmentOutcome, FeedbackCategory, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
 | `user_enums.py` | User roles, health scoring, and journal config | UserRole, ContextHealthScore, JournalTier, JournalMode |
-| `ku_enums.py` | Ku domain classification | KuCategory |
 | `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory (`get_icon()`), BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `neo_labels.py` | Neo4j node labels | NeoLabel (44 labels) |
@@ -349,9 +348,6 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `SystemConstants` (class with thresholds: MASTERY_THRESHOLD=0.8, etc.)
 - Plus: ResponseTone, Personality, GuidanceMode, LearningModality, SearchScope, FacetType, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, BridgeType, ErrorSeverity, ExtractionMethod
 
-**Ku** (`ku_enums.py`):
-- KuCategory (7): STATE, CONCEPT, PRINCIPLE, INTAKE, SUBSTANCE, PRACTICE, VALUE
-
 **Finance** (`finance_enums.py`):
 - ExpenseStatus (7), PaymentMethod (8+), ExpenseCategory (3), RecurrencePattern (7), BudgetPeriod (4)
 
@@ -564,9 +560,8 @@ These YAML fields are constrained by Python enums. Using an invalid value fails 
 | `source` (principle) | `PrincipleSource` | Principle | `philosophical`, `religious`, `personal` |
 | `strength` | `PrincipleStrength` | Principle | `core`, `strong`, `moderate`, `developing` |
 | `recurrence_pattern` | `RecurrencePattern` | Habit, Event | `daily`, `weekly`, `monthly` |
-| `ku_category` | `KuCategory` | Ku | `state`, `concept`, `principle`, `practice` |
 | `sel_category` | `SELCategory` | Ku, PathStep | `self_awareness`, `self_management` |
-| `complexity` | `KuComplexity` | PathStep, Ku | `basic`, `medium`, `advanced` |
+| `complexity` | `KuComplexity` | PathStep | `basic`, `medium`, `advanced` |
 
 ### Annotated Example
 

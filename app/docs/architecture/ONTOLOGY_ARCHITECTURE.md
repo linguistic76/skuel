@@ -58,7 +58,6 @@ includes the `domains:` frontmatter field:
 ---
 uid: ku_attention-buzzing_a1b2
 title: Attention Buzzing
-namespace: attention
 domains:
   - kd.self_awareness
   - kd.nervous_system
