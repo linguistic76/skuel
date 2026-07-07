@@ -124,10 +124,12 @@ def _normalize_type(raw: str) -> str:
 _FRONTMATTER = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Captures spaced display-names too ("Path Step", "Learning Path") — ingestion's
 # EntityType.from_string() normalizes spaces/hyphens, so the guard must as well.
-_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z][A-Za-z _-]*)", re.MULTILINE | re.IGNORECASE)
+# ``\s*`` before the colon: PyYAML accepts ``type : Ku`` / ``moc : true``, so the
+# guard must too, or that spacing would bypass it.
+_TYPE_FIELD = re.compile(r"^type\s*:\s*[\"']?([A-Za-z][A-Za-z _-]*)", re.MULTILINE | re.IGNORECASE)
 # A markdown file with `moc: true` is classified as a PathStep by the ingestion
 # detector even without a `type:` field — so it is vault content too.
-_MOC_FLAG = re.compile(r"^moc:\s*true\s*$", re.MULTILINE | re.IGNORECASE)
+_MOC_FLAG = re.compile(r"^moc\s*:\s*true\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 def _tracked_files() -> list[str]:

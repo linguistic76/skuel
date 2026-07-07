@@ -95,6 +95,14 @@ def test_guard_detects_content_frontmatter(tmp_path: Path) -> None:
     assert guard._normalize_type("path-step") == "pathstep"
     assert guard._normalize_type("Path Step") == "pathstep"
 
+    # YAML permits whitespace before the colon; the guard must match the parser.
+    spaced_key = tmp_path / "spaced_key.yaml"
+    spaced_key.write_text("type : Ku\nuid: ku:x\n")
+    assert guard._looks_like_vault_entity(spaced_key) == "Ku"
+    moc_spaced = tmp_path / "moc_spaced.md"
+    moc_spaced.write_text("---\nmoc : true\n---\n\n[[a]]\n")
+    assert guard._looks_like_vault_entity(moc_spaced) == "PathStep (moc: true)"
+
     # Spaced display-name type (ingestion's from_string normalizes spaces).
     spaced = tmp_path / "spaced.yaml"
     spaced.write_text("type: Learning Path\nuid: lp:x\n")
