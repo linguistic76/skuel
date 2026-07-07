@@ -307,7 +307,7 @@ class SearchRouter:
 
         return service
 
-    async def _nous_subtopic_pairs(self) -> list[NousSubtopicPair]:
+    async def _nous_subtopic_pairs(self) -> "list[NousSubtopicPair]":
         """Gather (nous, nous_subtopic) co-occurrence pairs across curriculum domains.
 
         The cross-domain aggregation point (SearchRouter is THE cross-domain
@@ -320,7 +320,7 @@ class SearchRouter:
         Fails soft per domain: a missing service or an errored call contributes
         nothing rather than failing the whole vocabulary.
         """
-        pairs: list[NousSubtopicPair] = []
+        pairs: "list[NousSubtopicPair]" = []
         for entity_type in (EntityType.KU, EntityType.PATH_STEP):
             service = self.get_service(entity_type)
             if service is None:
