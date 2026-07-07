@@ -606,7 +606,7 @@ Search is a meta-service (orchestrates domain search services), so it uses expli
 
 **For complete field documentation, see:** [SEARCH_MODELS.md](../reference/models/SEARCH_MODELS.md)
 
-Key design: **query text is OPTIONAL** — filter-only search is valid.
+Key design: **query text is OPTIONAL** — filter-only search is valid, end to end. A facet alone (NOUS topic, entity-type scope, priority, relationship flag, ...) runs a real search; `/search/results` shows the blank-state prompt only when there is neither a query nor any filter (`has_any_criteria()` is False). The underlying Cypher wraps its text match in `if query_text`, so it is well-formed without a query and orders by the DomainConfig default; no embeddings/chunk path is involved (semantic boost stays independently gated and no-ops without query text).
 
 | Field Group | Fields |
 |-------------|--------|
@@ -622,6 +622,7 @@ Key design: **query text is OPTIONAL** — filter-only search is valid.
 - `from_form_params()` — classmethod that builds a `SearchRequest` from raw HTML form strings (handles empty→None, checkbox→bool, entity type parsing, extended_facets assembly)
 - `to_property_filters()` — property → WHERE clauses
 - `to_relationship_filters()` — captures the active relationship-filter flags as a frozen `RelationshipFilters` intent. The flag→Cypher mapping is authored **below the boundary** (ADR-044) in `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py::build_relationship_filter_fragments` — `core/` holds no Cypher (SKUEL021)
+- `has_any_criteria()` — blank-state gate: True when the request carries query text OR any result-defining filter (property facets, relationship/pedagogical flags, entity-type scope, tags, graph traversal); False for a truly blank request or a bare enhancement toggle. The route shows the prompt iff this is False.
 - `has_relationship_filters()` — mode routing (Simple vs Graph-Aware)
 - `has_semantic_boost()` — semantic vector search routing
 - `has_learning_aware()` — learning-aware vector search routing

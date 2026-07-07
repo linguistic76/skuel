@@ -1130,8 +1130,8 @@ def _render_pagination(response: SearchResponse) -> Any:
 def render_empty_search_prompt() -> Div:
     """Render the empty state prompt for search."""
     return EmptyState(
-        "Enter a search query to begin",
-        description="Use the filters above to refine your results",
+        "Search or pick a filter to begin",
+        description="Type a query, or use the filters above to browse — a filter alone is enough.",
         icon="🔍",
         id="search-results",
         cls="py-16",

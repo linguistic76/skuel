@@ -155,9 +155,6 @@ def create_search_api_routes(
         """Execute search and return HTML results. Requires authentication."""
         user_uid = require_authenticated_user(request)
 
-        if not query.strip():
-            return render_empty_search_prompt()
-
         logger.info(
             f"Search params: query={query}, entity_type={entity_type!r}, "
             f"status={status!r}, priority={priority!r}"
@@ -203,6 +200,12 @@ def create_search_api_routes(
         except ValueError as e:
             logger.error(f"Invalid filter value: {e}")
             return render_search_error("Invalid filter selection. Please try again.", "warning")
+
+        # Blank initial state (no query AND no filters) → prompt, not a search.
+        # A filter alone IS a valid search (filter-only faceted search), so this
+        # branch lives on the built request, not on the raw query string.
+        if not search_request.has_any_criteria():
+            return render_empty_search_prompt()
 
         # Execute search via SearchRouter (One Path Forward)
         # SearchRouter.faceted_search handles strategy selection internally

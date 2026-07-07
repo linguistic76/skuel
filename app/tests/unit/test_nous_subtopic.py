@@ -70,10 +70,12 @@ class TestSearchRequestNousSubtopicFacet:
         assert request.to_property_filters()["nous_subtopic"] == "sleep"
 
     def test_filter_only_search_with_nous_subtopic_is_valid(self) -> None:
-        # No query_text, but nous_subtopic alone must satisfy the validator.
+        # No query_text, but nous_subtopic alone is a valid filter-only search:
+        # the model is permissive and has_any_criteria() reports the filter.
         request = SearchRequest(nous_subtopic="movement")
 
         assert request.nous_subtopic == "movement"
+        assert request.has_any_criteria() is True
 
 
 class TestScopedChunkRetrievalHonorsSubtopic:
