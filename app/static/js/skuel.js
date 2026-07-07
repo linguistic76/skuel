@@ -36,6 +36,25 @@
         return m ? decodeURIComponent(m[1]) : '';
     };
 
+    // -------------------------------------------------------------------------
+    // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
+    // Registered on `document` at script-parse time (NOT inside DOMContentLoaded)
+    // so it is ready before HTMX processes any `hx-trigger="load"` element —
+    // otherwise a load-fired POST (e.g. the /search→Askesis auto-run) can race
+    // ahead of listener registration and 403. The event bubbles to document.
+    // Paired with adapters/inbound/csrf.py (cookie is readable, HttpOnly=False).
+    // -------------------------------------------------------------------------
+    document.addEventListener('htmx:configRequest', function(event) {
+        var method = (event.detail.verb || '').toUpperCase();
+        if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+            return;
+        }
+        var token = window.SKUEL.csrf();
+        if (token) {
+            event.detail.headers['X-CSRF-Token'] = token;
+        }
+    });
+
     /**
      * Live Region Announcer - Task 10: HTMX + Screen Reader Integration
      * Announces dynamic content changes to screen readers via ARIA live regions.
@@ -75,22 +94,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         var body = document.body;
 
-        // -------------------------------------------------------------------
-        // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
-        // Paired with adapters/inbound/csrf.py (the cookie is set by
-        // CSRFMiddleware and readable because HttpOnly=False). The cookie read
-        // is centralized in window.SKUEL.csrf().
-        // -------------------------------------------------------------------
-        body.addEventListener('htmx:configRequest', function(event) {
-            var method = (event.detail.verb || '').toUpperCase();
-            if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
-                return;
-            }
-            var token = window.SKUEL.csrf();
-            if (token) {
-                event.detail.headers['X-CSRF-Token'] = token;
-            }
-        });
+        // HTMX CSRF header is wired at script-parse time above (races ahead of
+        // any load-triggered POST). Native (non-HTMX) form CSRF is handled here.
 
         // Native form submissions (non-HTMX) — guarantee the hidden csrf_token
         // input exists and carries the current cookie value. Fires on capture
@@ -363,6 +368,22 @@
                         return this.entityTypeLabels[value] || value;
                     }
                     return value;
+                },
+
+                // Hand the current query + retrieval-scoping facet (nous) to
+                // Askesis as a scoped Ask. Reads the live inputs (they carry the
+                // truth via their `name` attrs) and builds /askesis?question=&nous=.
+                askHref: function() {
+                    var root = this.$el;
+                    var qEl = root.querySelector('[name="query"]');
+                    var nousEl = root.querySelector('[name="nous"]');
+                    var q = (qEl && qEl.value || '').trim();
+                    var nous = (nousEl && nousEl.value || '').trim();
+                    var params = new URLSearchParams();
+                    if (q) params.set('question', q);
+                    if (nous) params.set('nous', nous);
+                    var qs = params.toString();
+                    return '/askesis' + (qs ? '?' + qs : '');
                 },
 
                 clearFilter: function(filterName) {
