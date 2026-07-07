@@ -553,9 +553,10 @@ class SearchRequest(BaseModel):
         """
         return bool(
             self.query_text
+            or self.domain  # programmatic domain-only scope (_resolve_single_domain routes it)
             or self.to_property_filters()
             or self.has_relationship_filters()
-            or self.has_entity_type_filter()
+            or self.has_entity_type_filter()  # the /search dropdown's entity_types path
             or self.has_tag_filter()
             or self.has_graph_traversal_filter()
         )

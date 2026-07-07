@@ -47,6 +47,11 @@ class TestHasAnyCriteria:
         # "Browse all my Tasks" — a domain scope with no query is a real search.
         assert SearchRequest(entity_types=[EntityType.TASK]).has_any_criteria() is True
 
+    def test_domain_scope_alone_has_criteria(self) -> None:
+        # Programmatic domain-only path (not the UI's entity_types) — still a
+        # real search, since _resolve_single_domain routes request.domain.
+        assert SearchRequest(domain=Domain.TASKS).has_any_criteria() is True
+
     def test_relationship_flag_alone_has_criteria(self) -> None:
         assert SearchRequest(ready_to_learn=True).has_any_criteria() is True
 
