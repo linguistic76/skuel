@@ -209,5 +209,42 @@ async def test_genuinely_missing_target_still_warns(
     )
 
 
+@pytest.mark.asyncio
+async def test_same_sync_target_with_wrong_label_still_warns(
+    neo4j_driver, forward_ref_service, tmp_path: Path
+) -> None:
+    """Payload membership is label-scoped: a same-sync UID that carries the WRONG
+    label for the relationship still warns.
+
+    ``uses_kus`` expects a ``:Ku`` target, but here it points at a same-sync
+    PathStep. Phase 2's ``MATCH (target:Ku {uid})`` would find nothing and drop
+    the edge — so a flat payload-UID check would hide a genuine break. The
+    pre-check must still warn (and the edge must genuinely be absent)."""
+    vault = tmp_path / "wrong_label_vault"
+    vault.mkdir()
+    # PathStep one's uses_kus points at ps:zzzitest:two (a PathStep, not a Ku),
+    # and that PathStep IS in this same sync.
+    mislabelled = _PS_ONE_FIXTURE.replace("  - ku:zzzitest:alpha", "  - ps:zzzitest:two").replace(
+        "  enables:\n    - ps:zzzitest:two", "  enables: []"
+    )
+    (vault / "ps_one.md").write_text(mislabelled, encoding="utf-8")
+    (vault / "ps_two.md").write_text(_PS_TWO_FIXTURE, encoding="utf-8")
+
+    result = await forward_ref_service.ingest_directory(
+        vault, ingestion_mode="smart", validate_targets=True
+    )
+    assert result.is_ok, f"ingest failed: {result}"
+    stats = cast("IncrementalStats", result.value)
+    # The mis-labelled target is in the payload (as a PathStep) but NOT under the
+    # :Ku label the edge needs — it must still warn.
+    assert any("ps.zzzitest.two" in w for w in stats.warnings), (
+        f"a same-sync target with the wrong label must still warn; got: {stats.warnings}"
+    )
+    # And the edge genuinely does not exist (the warning is truthful, not noise).
+    assert not await _edge_exists(neo4j_driver, _PS_ONE, "USES_KU", _PS_TWO), (
+        "a wrong-label USES_KU edge must not be created"
+    )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

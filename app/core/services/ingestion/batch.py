@@ -838,27 +838,44 @@ async def ingest_directory(
     # Payload-aware: a target that resolves to another entity in THIS sync is
     # valid even though it isn't in the graph yet — the two-phase ingest below
     # persists ALL nodes (Phase 1) before ANY relationships (Phase 2), so
-    # same-sync forward references resolve on this pass. The set spans every
-    # type batch (a PathStep's uses_kus target is a Ku in a different batch), so
-    # it is built once across entities_by_type and passed to every per-type
-    # check. Without it the pre-check false-alarms on any wave of new,
+    # same-sync forward references resolve on this pass. The map spans every type
+    # batch (a PathStep's uses_kus target is a Ku in a different batch), so it is
+    # built once across entities_by_type and passed to every per-type check.
+    # Without it the pre-check false-alarms on any wave of new,
     # mutually-referencing entities ("edge not created") even though Phase 2
-    # creates the edge — a cosmetic warning that historically prompted a
-    # needless second --force pass. Only truly-missing targets (typos,
-    # cross-vault refs) still warn.
+    # creates the edge — a cosmetic warning that historically prompted a needless
+    # second --force pass. Only truly-missing targets (typos, cross-vault refs)
+    # still warn.
+    #
+    # Keyed by label (not a flat set): each node is registered under its domain
+    # label AND the base Entity label — the multi-label reality Phase 2's
+    # MATCH (target:{target_label}) queries. A same-sync UID therefore validates
+    # only under the label the edge will look for, so a mis-labelled reference
+    # (uses_kus pointing at a same-sync PathStep) still warns rather than silently
+    # dropping.
     validation_warnings: list[str] = []
     if validate_targets and write_backend is not None:
-        known_uids: set[str] = {
-            str(entity["uid"])
-            for entities in entities_by_type.values()
-            for entity in entities
-            if entity.get("uid")
-        }
+        known_uids_by_label: dict[str, set[str]] = {}
+        for etype, ents in entities_by_type.items():
+            cfg = ENTITY_CONFIGS.get(etype)
+            if not cfg:
+                continue
+            for ent in ents:
+                uid = ent.get("uid")
+                if not uid:
+                    continue
+                uid = str(uid)
+                known_uids_by_label.setdefault(cfg.entity_label, set()).add(uid)
+                if cfg.base_label is not None:
+                    known_uids_by_label.setdefault(cfg.base_label, set()).add(uid)
         for entity_type, entities in entities_by_type.items():
             config = ENTITY_CONFIGS.get(entity_type)
             if config and config.relationship_config:
                 validation_result = await validate_relationship_targets(
-                    entities, config.relationship_config, write_backend, known_uids=known_uids
+                    entities,
+                    config.relationship_config,
+                    write_backend,
+                    known_uids_by_label=known_uids_by_label,
                 )
                 if validation_result.is_ok and not validation_result.value.valid:
                     for source_uid, targets in sorted(
