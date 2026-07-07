@@ -109,3 +109,13 @@ def test_guard_detects_content_frontmatter(tmp_path: Path) -> None:
     plain = tmp_path / "readme.md"
     plain.write_text("# Readme\n\nWe support moc: true files in the vault.\n")
     assert guard._looks_like_vault_entity(plain) is None
+
+
+def test_archive_carriers_flagged_except_served_assets() -> None:
+    """Binary archives can smuggle a vault export past the text checks; they are
+    rejected as content carriers unless they are served assets under static/."""
+    guard = _load_guard()
+    assert "vault_export.zip".endswith(guard.ARCHIVE_SUFFIXES)
+    # A served template archive is exempt; a stray tracked archive elsewhere is not.
+    assert "static/templates/x.zip".startswith(guard.ALLOWED_ARCHIVE_PREFIXES)
+    assert not "core/leaked_bundle.zip".startswith(guard.ALLOWED_ARCHIVE_PREFIXES)

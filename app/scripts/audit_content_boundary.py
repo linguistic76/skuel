@@ -38,6 +38,13 @@ FORBIDDEN_PREFIXES: tuple[str, ...] = (
     "yaml_templates/",
 )
 
+# Binary archives can smuggle a whole vault export past the text-based type checks
+# (a .zip isn't Markdown/YAML), so tracked archives are rejected as content carriers.
+ARCHIVE_SUFFIXES: tuple[str, ...] = (".zip", ".tar", ".gz", ".tgz", ".bz2", ".7z", ".rar")
+# Served public web assets are intentional distributables (e.g. the empty vault
+# template users download), not proprietary content — exempt from the archive ban.
+ALLOWED_ARCHIVE_PREFIXES: tuple[str, ...] = ("static/",)
+
 # ``type:`` values that mark a file as an ingestible vault entity — the full vault
 # surface, not just curriculum, so no authoring shape slips through. Lowercased for
 # comparison. Kept as a curated literal (this guard runs on bare Python in CI, so it
@@ -168,6 +175,12 @@ def find_violations() -> list[str]:
     for rel in _tracked_files():
         if rel.startswith(FORBIDDEN_PREFIXES):
             violations.append(f"{rel}: under a forbidden content path prefix")
+            continue
+        if rel.lower().endswith(ARCHIVE_SUFFIXES) and not rel.startswith(ALLOWED_ARCHIVE_PREFIXES):
+            violations.append(
+                f"{rel}: tracked archive may carry a vault export past the text checks "
+                f"— only served assets under static/ are exempt"
+            )
             continue
         entity_type = _looks_like_vault_entity(REPO_ROOT / rel)
         if entity_type:
