@@ -27,9 +27,11 @@ from adapters.inbound.route_factories import (
     register_domain_routes,
     split_csv,
 )
+from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
+from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.result_simplified import Errors, Result
 from ui.search.components import (
     render_empty_search_prompt,
@@ -56,14 +58,29 @@ def create_search_api_routes(
     rt: RouteDecorator,
     search_router: Any,
     ku_service: Any = None,
+    intelligence_tier: IntelligenceTier | None = None,
+    user_service: Any = None,
     **_kwargs: Any,
 ) -> list[Any]:
     """Create search routes with SearchRouter dependency."""
 
+    async def _caller_ai_enabled(user_uid: str) -> bool:
+        """Per-user AI tier gate (ADR-043) for the "Ask" affordance.
+
+        Fail-secure: missing deps or an unresolvable caller mean the Ask button
+        does not render. ``/askesis`` re-enforces the same gate at submit time.
+        """
+        if user_service is None or intelligence_tier is None:
+            return False
+        caller = await user_service.get_user(user_uid)
+        if caller.is_error or caller.value is None:
+            return False
+        return bool(get_user_intelligence_tier(intelligence_tier, caller.value.role).ai_enabled)
+
     @rt("/search")
     async def search_page(request: Request) -> Any:
         """Main search page with unified BasePage layout."""
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         # NOUS topic vocabulary is derived from the graph (anchors guarantee
         # completeness) — never hardcoded, so the facet can't drift from the
@@ -74,7 +91,11 @@ def create_search_api_routes(
             if topics_result.is_ok and topics_result.value:
                 nous_topics = topics_result.value
 
-        return await render_search_page_with_navbar(request, nous_topics=nous_topics)
+        ask_enabled = await _caller_ai_enabled(user_uid)
+
+        return await render_search_page_with_navbar(
+            request, nous_topics=nous_topics, ask_enabled=ask_enabled
+        )
 
     @rt("/search/results")
     @boundary_handler()
@@ -378,8 +399,13 @@ SEARCH_CONFIG = DomainRouteConfig(
     domain_name="search",
     primary_service_attr="search_router",
     api_factory=create_search_api_routes,
-    # KuService supplies the derived NOUS topic vocabulary for the filter bar
-    api_related_services={"ku_service": "ku"},
+    # KuService supplies the derived NOUS topic vocabulary for the filter bar;
+    # intelligence_tier + user_service gate the FULL-tier "Ask" (Askesis) button.
+    api_related_services={
+        "ku_service": "ku",
+        "intelligence_tier": "intelligence_tier",
+        "user_service": "user",
+    },
 )
 
 
