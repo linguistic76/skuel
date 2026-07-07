@@ -834,13 +834,31 @@ async def ingest_directory(
     # UNWIND row), so this pre-check is the ONLY place a phantom UID becomes
     # visible — every missing (source, target) pair gets its own warning (G10),
     # not just the aggregate repeat-count summary.
+    #
+    # Payload-aware: a target that resolves to another entity in THIS sync is
+    # valid even though it isn't in the graph yet — the two-phase ingest below
+    # persists ALL nodes (Phase 1) before ANY relationships (Phase 2), so
+    # same-sync forward references resolve on this pass. The set spans every
+    # type batch (a PathStep's uses_kus target is a Ku in a different batch), so
+    # it is built once across entities_by_type and passed to every per-type
+    # check. Without it the pre-check false-alarms on any wave of new,
+    # mutually-referencing entities ("edge not created") even though Phase 2
+    # creates the edge — a cosmetic warning that historically prompted a
+    # needless second --force pass. Only truly-missing targets (typos,
+    # cross-vault refs) still warn.
     validation_warnings: list[str] = []
     if validate_targets and write_backend is not None:
+        known_uids: set[str] = {
+            str(entity["uid"])
+            for entities in entities_by_type.values()
+            for entity in entities
+            if entity.get("uid")
+        }
         for entity_type, entities in entities_by_type.items():
             config = ENTITY_CONFIGS.get(entity_type)
             if config and config.relationship_config:
                 validation_result = await validate_relationship_targets(
-                    entities, config.relationship_config, write_backend
+                    entities, config.relationship_config, write_backend, known_uids=known_uids
                 )
                 if validation_result.is_ok and not validation_result.value.valid:
                     for source_uid, targets in sorted(

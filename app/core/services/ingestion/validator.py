@@ -520,18 +520,28 @@ async def validate_relationship_targets(
     entities: list[dict[str, Any]],
     relationship_config: dict[str, Any],
     write_backend: IngestionWriteOperations,
+    known_uids: set[str] | None = None,
 ) -> Result[RelationshipValidationResult]:
     """
-    Validate that all UIDs referenced in relationships actually exist in Neo4j.
+    Validate that every relationship target resolves — either it already exists
+    in Neo4j, or it is another entity being ingested in THIS same sync.
 
-    Call this before ingestion to catch missing targets early. Missing targets
-    would otherwise create orphan edges or silently fail.
+    Call this before ingestion to catch genuinely-missing targets early (typos,
+    cross-vault references). A target that points at a same-sync sibling is NOT
+    missing: the two-phase ingest persists ALL nodes before ANY relationships, so
+    a same-sync forward reference resolves on this pass. Pass ``known_uids`` (the
+    payload's own UID set) so the pre-check stays truthful and never false-alarms
+    on that ordering.
 
     Args:
         entities: List of prepared entity dicts (with connections.* keys)
         relationship_config: Relationship configuration from ENTITY_CONFIGS
         write_backend: Ingestion write backend (existence Cypher lives below the
             boundary, ADR-044)
+        known_uids: UIDs of every entity being upserted in this sync. A target in
+            this set is valid even before it lands in the graph — the caller
+            persists all nodes before any relationships. ``None`` = validate
+            against the graph only (legacy behaviour).
 
     Returns:
         Result[RelationshipValidationResult] with validation details
@@ -541,6 +551,7 @@ async def validate_relationship_targets(
             entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
             relationship_config=ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config,
             write_backend=write_backend,
+            known_uids={"ku.test", "ku.prereq"},
         )
         if not result.value.valid:
             logger.warning(f"Missing targets: {result.value.missing_uids}")
@@ -602,9 +613,12 @@ async def validate_relationship_targets(
             )
         )
 
-    # Check each reference against existing UIDs
+    # Check each reference against the graph AND this sync's own payload — a
+    # same-sync sibling counts as present because all nodes persist before any
+    # relationship (two-phase ingest), so the forward reference resolves.
+    payload_uids = known_uids or set()
     for source_uid, target_uid, _target_label in references:
-        if target_uid in existing_uids:
+        if target_uid in existing_uids or target_uid in payload_uids:
             validation.valid_references += 1
         else:
             validation.add_missing(source_uid, target_uid)
