@@ -21,6 +21,7 @@ Version: 3.0.0 - Horizontal filters layout
 
 __version__ = "3.0"
 
+from html import escape
 from typing import Any
 
 from fasthtml.common import H3, H4, A, Div, NotStr, P, Span
@@ -267,7 +268,8 @@ def _render_entity_type_select() -> str:
     ]
 
     options = "\n".join(
-        f'<option value="{value}">{label}</option>' for value, label in entity_types
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in entity_types
     )
 
     return f"""
@@ -289,7 +291,10 @@ def _render_nous_select(nous_topics: list[str]) -> str:
     hardcoded — the facet cannot drift from the vault vocabulary.
     """
     sections = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in sections
+    )
     return f"""
     <select name="nous" class="select select-bordered select-sm w-full"
             hx-get="/search/results"
@@ -318,7 +323,10 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
     sections = [("", "All Sub-topics")] + [
         (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in sections)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in sections
+    )
     return f"""
     <!-- Nous Sub-topic -->
     <div class="space-y-2 flex-1 min-w-[150px]">
@@ -350,7 +358,8 @@ def _render_sort_select() -> str:
     ]
 
     options = "\n".join(
-        f'<option value="{value}">{label}</option>' for value, label in sort_options
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in sort_options
     )
 
     return f"""
@@ -473,7 +482,10 @@ def _render_status_select() -> str:
         ("completed", "Completed"),
         ("cancelled", "Cancelled"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in statuses)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in statuses
+    )
     return f"""
     <select name="status" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
@@ -492,7 +504,10 @@ def _render_priority_select() -> str:
         ("high", "High"),
         ("critical", "Critical"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in priorities)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in priorities
+    )
     return f"""
     <select name="priority" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
@@ -512,7 +527,10 @@ def _render_frequency_select() -> str:
         ("bi_weekly", "Bi-weekly"),
         ("monthly", "Monthly"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in frequencies)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in frequencies
+    )
     return f"""
     <select name="frequency" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
@@ -532,7 +550,10 @@ def _render_event_type_select() -> str:
         ("practice", "Practice"),
         ("review", "Review"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in event_types)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in event_types
+    )
     return f"""
     <select name="event_type" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
@@ -551,7 +572,10 @@ def _render_urgency_select() -> str:
         ("high", "High"),
         ("critical", "Critical"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in urgencies)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in urgencies
+    )
     return f"""
     <select name="urgency" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
@@ -570,7 +594,10 @@ def _render_strength_select() -> str:
         ("strong", "Strong"),
         ("core", "Core"),
     ]
-    options = "\n".join(f'<option value="{value}">{label}</option>' for value, label in strengths)
+    options = "\n".join(
+        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
+        for value, label in strengths
+    )
     return f"""
     <select name="strength" class="select select-bordered select-sm w-full"
             hx-get="/search/results" hx-trigger="change" hx-target="#search-results"

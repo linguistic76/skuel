@@ -125,3 +125,30 @@ class TestFaucetFailsSoft:
         assert "Scope answer to a NOUS sub-topic" not in xml
         assert 'name="nous_subtopic"' in xml
         assert 'selectedNousSubtopic: ""' in xml
+
+
+class TestPathStepNousSubtopicField:
+    """PathStep mirrors `nous_subtopic` symmetrically with Ku (and with its own
+    `nous`) — else a subtopic-scoped search/RAG would drop every PathStep card and
+    body chunk, since the predicate is applied to PathStep parents too (Kody #546)."""
+
+    def test_list_authored_nous_subtopic_normalizes_to_tuple(self) -> None:
+        from core.models.pathways.path_step import PathStep
+
+        ps = PathStep(uid="ps.body.breath", title="Breath", nous_subtopic=["nervous-system"])
+        assert ps.nous_subtopic == ("nervous-system",)
+
+    def test_default_nous_subtopic_is_empty(self) -> None:
+        from core.models.pathways.path_step import PathStep
+
+        ps = PathStep(uid="ps.x.y", title="Unassigned")
+        assert ps.nous_subtopic == ()
+
+
+def test_nous_subtopic_select_escapes_option_values() -> None:
+    """Graph-derived sub-topic strings are HTML-escaped before interpolation — a
+    malicious authored value can't inject stored XSS on /search (Kody #546)."""
+    html = _render_nous_subtopic_select(['"><script>alert(1)</script>'])
+
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
