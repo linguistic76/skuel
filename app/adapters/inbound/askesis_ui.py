@@ -78,12 +78,24 @@ def create_askesis_ui_routes(
         logged-in victim's session (Kody #545).
         """
         question = request.query_params.get("question", "")
+        nous_topics = await _load_nous_topics()
+        nous_subtopics = await _load_nous_subtopics()
+        # Only honor a seeded scope when the live vocabulary actually contains it.
+        # In the no-data fail-soft path the sub-topic selector + chip don't render,
+        # so a crafted ?nous_subtopic= would be an INVISIBLE scope silently
+        # constraining every answer with no way to see or clear it (Codex #546).
+        # Validate BOTH facets against their vocab — a valid /search handoff always
+        # passes; only crafted or stale values are dropped.
         nous = request.query_params.get("nous", "")
+        if nous not in nous_topics:
+            nous = ""
         nous_subtopic = request.query_params.get("nous_subtopic", "")
+        if nous_subtopic not in nous_subtopics:
+            nous_subtopic = ""
         return await render_askesis_page(
             request,
-            nous_topics=await _load_nous_topics(),
-            nous_subtopics=await _load_nous_subtopics(),
+            nous_topics=nous_topics,
+            nous_subtopics=nous_subtopics,
             initial_question=question,
             initial_nous=nous,
             initial_nous_subtopic=nous_subtopic,
