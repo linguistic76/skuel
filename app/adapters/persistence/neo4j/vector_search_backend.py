@@ -19,6 +19,7 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.type_hints import FilterParams
     from core.ports.query_types import SemanticSearchChunkResult
 
 
@@ -110,7 +111,7 @@ class VectorSearchBackend:
         threshold: float,
         chunk_types: list[str] | None = None,
         parent_uid: str | None = None,
-        parent_filters: dict[str, Any] | None = None,
+        parent_filters: FilterParams | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across :ContentChunk nodes for precise RAG retrieval.
 

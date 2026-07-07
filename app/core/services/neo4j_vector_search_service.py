@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.models.semantic import SearchMetrics
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, FilterParams, UserUID
 from core.ports.query_types import SemanticSearchChunkResult
 
 if TYPE_CHECKING:
@@ -306,7 +306,7 @@ class Neo4jVectorSearchService:
         parent_uid: str | None = None,
         limit: int | None = None,
         min_score: float | None = None,
-        parent_filters: dict[str, Any] | None = None,
+        parent_filters: FilterParams | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Find similar :ContentChunk nodes by embedding the query text.
 
