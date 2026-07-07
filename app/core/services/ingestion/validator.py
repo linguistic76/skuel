@@ -520,18 +520,37 @@ async def validate_relationship_targets(
     entities: list[dict[str, Any]],
     relationship_config: dict[str, Any],
     write_backend: IngestionWriteOperations,
+    known_uids_by_label: dict[str, set[str]] | None = None,
 ) -> Result[RelationshipValidationResult]:
     """
-    Validate that all UIDs referenced in relationships actually exist in Neo4j.
+    Validate that every relationship target resolves — either it already exists
+    in Neo4j, or it is another entity being ingested in THIS same sync.
 
-    Call this before ingestion to catch missing targets early. Missing targets
-    would otherwise create orphan edges or silently fail.
+    Call this before ingestion to catch genuinely-missing targets early (typos,
+    cross-vault references). A target that points at a same-sync sibling is NOT
+    missing: the two-phase ingest persists ALL nodes before ANY relationships, so
+    a same-sync forward reference resolves on this pass. Pass
+    ``known_uids_by_label`` (the payload's own UIDs, grouped by the labels each
+    node will carry) so the pre-check stays truthful and never false-alarms on
+    that ordering.
+
+    The payload check is **label-scoped**, mirroring both the existing-graph
+    query (``find_existing_uids_for_label``) and the Phase-2 relationship Cypher,
+    which does ``MATCH (target:{target_label} {uid})``. A same-sync UID counts
+    only under the label Phase 2 will actually match — so a mis-labelled
+    reference (e.g. ``uses_kus: [ps.some-step]`` targeting a same-sync PathStep,
+    label ``Ku``) still warns instead of silently dropping the edge.
 
     Args:
         entities: List of prepared entity dicts (with connections.* keys)
         relationship_config: Relationship configuration from ENTITY_CONFIGS
         write_backend: Ingestion write backend (existence Cypher lives below the
             boundary, ADR-044)
+        known_uids_by_label: For each Neo4j label, the UIDs of same-sync entities
+            that will carry it (each node lands under its domain label AND the
+            base ``Entity`` label). A target is valid before it hits the graph
+            only if it appears under the relationship's ``target_label``.
+            ``None`` = validate against the graph only (legacy behaviour).
 
     Returns:
         Result[RelationshipValidationResult] with validation details
@@ -541,6 +560,7 @@ async def validate_relationship_targets(
             entities=[{"uid": "ku.test", "connections.requires": ["ku.prereq"]}],
             relationship_config=ENTITY_CONFIGS[EntityType.PATH_STEP].relationship_config,
             write_backend=write_backend,
+            known_uids_by_label={"Ku": {"ku.test", "ku.prereq"}, "Entity": {"ku.test", "ku.prereq"}},
         )
         if not result.value.valid:
             logger.warning(f"Missing targets: {result.value.missing_uids}")
@@ -602,9 +622,17 @@ async def validate_relationship_targets(
             )
         )
 
-    # Check each reference against existing UIDs
-    for source_uid, target_uid, _target_label in references:
-        if target_uid in existing_uids:
+    # Check each reference against the graph AND this sync's own payload — a
+    # same-sync sibling counts as present because all nodes persist before any
+    # relationship (two-phase ingest), so the forward reference resolves. The
+    # payload check is label-scoped to match Phase-2's MATCH (target:{label}):
+    # a same-sync UID validates only under the label the edge Cypher will look
+    # for, so a mis-labelled reference still warns.
+    payload_by_label = known_uids_by_label or {}
+    empty: set[str] = set()
+    for source_uid, target_uid, target_label in references:
+        same_sync_targets = payload_by_label.get(target_label, empty)
+        if target_uid in existing_uids or target_uid in same_sync_targets:
             validation.valid_references += 1
         else:
             validation.add_missing(source_uid, target_uid)
