@@ -499,6 +499,10 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """Aggregate count and UIDs of knowledge in this step."""
         ...
 
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs on :PathStep."""
+        ...
+
     # =========================================================================
     # PRACTICE INTEGRATION
     # =========================================================================

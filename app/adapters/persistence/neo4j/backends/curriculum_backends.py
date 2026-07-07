@@ -104,26 +104,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"alias": alias})
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
-        """Distinct co-occurring (nous, nous_subtopic) pairs across curriculum nodes.
+        """Distinct co-occurring (nous, nous_subtopic) pairs on this Ku's own label.
 
-        Feeds the dependent nous→sub-topic /search dropdown: selecting a NOUS
-        topic narrows the sub-topic options to those authored ALONGSIDE it. The
-        map is derived from the graph so it can never drift from the vault
-        vocabulary (content boundary — the taxonomy lives in the vault, never in
-        the repo).
+        The Ku contribution to the dependent nous→sub-topic /search dropdown.
+        Scoped to `:Ku` only — cross-domain aggregation (folding in the PathStep
+        contribution) belongs in the service layer, NOT the persistence layer
+        (`SearchRouter.nous_subtopic_map` merges this with `PsBackend`'s pairs).
+        Graph-derived so it can't drift from the vault vocabulary (content
+        boundary — the taxonomy lives in the vault, never in the repo).
 
-        Spans BOTH `:Ku` and `:PathStep` because either can carry `nous` +
-        `nous_subtopic`, and PathSteps contribute pairs Kus don't (e.g.
-        body→attention). Both fields are arrays, so each element combination is
-        UNWOUND to its own row.
-
-        Returns rows with ``nous`` + ``subtopic`` keys; the service groups them
-        into ``{nous: [subtopics]}``.
+        Both fields are arrays, so each element combination is UNWOUND to its own
+        row. Returns rows with ``nous`` + ``subtopic`` keys.
         """
         query = """
-        MATCH (n:Entity)
-        WHERE (n:Ku OR n:PathStep)
-          AND n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
+        MATCH (n:Ku)
+        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
         UNWIND n.nous AS nous
         UNWIND n.nous_subtopic AS subtopic
         RETURN DISTINCT nous, subtopic
@@ -416,6 +411,25 @@ class PsBackend(
     - ``_KnowledgeContextMixin`` — context, discovery, readiness (13 methods)
     - ``_AdaptiveMixin`` — practice, search, adaptive mastery tracking (10 methods)
     """
+
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs on this PathStep label.
+
+        The PathStep contribution to the dependent nous→sub-topic /search
+        dropdown. Scoped to `:PathStep` only — mirror of `KuBackend.nous_subtopic_pairs`;
+        the cross-domain merge lives in `SearchRouter.nous_subtopic_map`, not
+        here. Graph-derived (content boundary). Both fields are arrays, UNWOUND
+        to one row per element combination.
+        """
+        query = """
+        MATCH (n:PathStep)
+        WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
+        UNWIND n.nous AS nous
+        UNWIND n.nous_subtopic AS subtopic
+        RETURN DISTINCT nous, subtopic
+        ORDER BY nous, subtopic
+        """
+        return await self.execute_query(query, {})
 
     # ========================================================================
     # STEP SEQUENCE (for attach_step_to_path)

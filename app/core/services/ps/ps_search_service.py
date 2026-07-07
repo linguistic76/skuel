@@ -19,7 +19,7 @@ Architecture (January 2026 Unified):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
@@ -86,6 +86,21 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
     # =========================================================================
     # PS-SPECIFIC METHODS
     # =========================================================================
+
+    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+        """This PathStep label's contribution of (nous, nous_subtopic) pairs.
+
+        Scoped to `:PathStep` — mirror of `KuSearchService.nous_subtopic_pairs`.
+        `SearchRouter.nous_subtopic_map` merges both domains' pairs into the
+        dependent /search dropdown's map, keeping cross-domain aggregation in the
+        service layer. Rows carry ``nous`` + ``subtopic`` string keys.
+
+        Backend: ``PsBackend.nous_subtopic_pairs``.
+        """
+        result = await self.backend.nous_subtopic_pairs()
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(record) for record in (result.value or [])])
 
     async def get_standalone_steps(self, limit: int = 50) -> Result[list[PathStep]]:
         """

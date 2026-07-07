@@ -89,17 +89,20 @@ def create_search_api_routes(
         # completeness) — never hardcoded, so the facet can't drift from the
         # vault. A fetch failure degrades to an empty dropdown, not a 500.
         nous_topics: list[str] = []
-        # NOUS sub-topic (2nd taxonomy level) vocabulary — same derivation as
-        # topics. Empty until the vault carries `nous_subtopic:` data, so the
-        # faucet fails soft to no control (mechanism ships ahead of content).
-        nous_subtopics: list[str] = []
         if ku_service is not None:
             topics_result = await ku_service.list_nous_topics()
             if topics_result.is_ok and topics_result.value:
                 nous_topics = topics_result.value
-            subtopics_result = await ku_service.list_nous_subtopics()
-            if subtopics_result.is_ok and subtopics_result.value:
-                nous_subtopics = subtopics_result.value
+
+        # NOUS sub-topic (2nd taxonomy level) vocabulary spans BOTH :Ku and
+        # :PathStep — SearchRouter merges each curriculum domain's own-label
+        # pairs (cross-domain aggregation stays in the service, not a backend).
+        # Empty until the vault carries `nous_subtopic:` data, so the faucet
+        # fails soft to no control (mechanism ships ahead of content).
+        nous_subtopics: list[str] = []
+        subtopics_result = await search_router.list_nous_subtopics()
+        if subtopics_result.is_ok and subtopics_result.value:
+            nous_subtopics = subtopics_result.value
 
         ask_enabled = await _caller_ai_enabled(user_uid)
 
@@ -126,15 +129,14 @@ def create_search_api_routes(
         require_authenticated_user(request)
 
         subtopics: list[str] = []
-        if ku_service is not None:
-            if nous:
-                map_result = await ku_service.nous_subtopic_map()
-                if map_result.is_ok and map_result.value:
-                    subtopics = map_result.value.get(nous, [])
-            else:
-                flat_result = await ku_service.list_nous_subtopics()
-                if flat_result.is_ok and flat_result.value:
-                    subtopics = flat_result.value
+        if nous:
+            map_result = await search_router.nous_subtopic_map()
+            if map_result.is_ok and map_result.value:
+                subtopics = map_result.value.get(nous, [])
+        else:
+            flat_result = await search_router.list_nous_subtopics()
+            if flat_result.is_ok and flat_result.value:
+                subtopics = flat_result.value
 
         return NotStr(render_nous_subtopic_inner(subtopics))
 

@@ -40,65 +40,21 @@ class KuSearchService(BaseService[KuOperations, Ku]):
         entity_label="Ku",
     )
 
-    async def list_nous_subtopics(self) -> Result[list[str]]:
-        """List the flat NOUS sub-topic vocabulary — the 2nd taxonomy level.
+    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+        """This Ku label's contribution of (nous, nous_subtopic) co-occurrence pairs.
 
-        Derived from the SAME graph source as `nous_subtopic_map` (the co-occurring
-        `nous` + `nous_subtopic` pairs across `:Ku` + `:PathStep`), flattened to
-        the distinct sub-topics. Sharing the source is deliberate: the flat list
-        gates whether the /search sub-topic column renders at all, and the map
-        drives its dependent narrowing — if they disagreed (e.g. flat read Ku
-        only while the map spanned PathStep too), a corpus with PathStep-only
-        sub-topics would omit the whole column, leaving those options unreachable
-        (Codex #551). One source keeps the flat list a superset of every scoped
-        map, so the column (and its HTMX target) renders whenever the map has any
-        entry.
-
-        Sub-topics authored without a parent `nous` are intentionally out: they
-        can't be reached via the dependent dropdown anyway (no topic to pick).
-
-        Fail-soft: with no authored `nous_subtopic` data the list is empty, so
-        the faucet renders nothing (the mechanism ships ahead of the content).
+        Scoped to `:Ku` — `SearchRouter.nous_subtopic_map` folds this together
+        with the PathStep contribution (`PsSearchService.nous_subtopic_pairs`)
+        into the dependent /search dropdown's map. Kept as raw pairs here so the
+        cross-domain merge stays in the service layer, not this per-domain sub-
+        service. Rows carry ``nous`` + ``subtopic`` string keys.
 
         Backend: ``KuBackend.nous_subtopic_pairs``.
         """
         result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
-        subtopics = sorted(
-            {
-                sub
-                for record in (result.value or [])
-                if isinstance(sub := record.get("subtopic"), str)
-            }
-        )
-        return Result.ok(subtopics)
-
-    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
-        """Map each NOUS topic to the sub-topics authored alongside it.
-
-        Derived from the graph (distinct co-occurring `nous` + `nous_subtopic`
-        pairs across `:Ku` + `:PathStep`), never hardcoded — the dependent
-        /search dropdown narrows sub-topic options to the selected NOUS topic
-        without the taxonomy ever leaving the vault (content boundary).
-
-        Fail-soft: with no authored `nous_subtopic` data the map is empty, so the
-        dependent control degrades to the same fail-soft-empty behaviour as the
-        flat vocabulary (`list_nous_subtopics`).
-
-        Backend: ``KuBackend.nous_subtopic_pairs``.
-        """
-        result = await self.backend.nous_subtopic_pairs()
-        if result.is_error:
-            return Result.fail(result)
-        mapping: dict[str, list[str]] = {}
-        for record in result.value or []:
-            nous = record.get("nous")
-            subtopic = record.get("subtopic")
-            if not isinstance(nous, str) or not isinstance(subtopic, str):
-                continue
-            mapping.setdefault(nous, []).append(subtopic)
-        return Result.ok(mapping)
+        return Result.ok([dict(record) for record in (result.value or [])])
 
     async def search_by_alias(
         self, alias: str

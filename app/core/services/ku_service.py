@@ -141,29 +141,17 @@ class KuService:
         """
         return await self.search.list_all_categories()
 
-    async def list_nous_subtopics(self) -> Result[list[str]]:
-        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+        """This Ku label's (nous, nous_subtopic) co-occurrence pairs.
 
-        The 2nd taxonomy level beneath the NOUS topics. Derived from the graph
-        (same Ku+PathStep source as `nous_subtopic_map`, flattened), never
-        hardcoded. Fail-soft/empty until the vault carries authored
-        `nous_subtopic:` frontmatter (the mechanism ships ahead of the data).
-
-        Backend: KuBackend.nous_subtopic_pairs via KuSearchService.
-        """
-        return await self.search.list_nous_subtopics()
-
-    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
-        """Map each NOUS topic to the sub-topics authored alongside it.
-
-        Powers the dependent /search dropdown (selecting a NOUS topic narrows the
-        sub-topic options). Graph-derived, never hardcoded — the taxonomy stays
-        in the vault (content boundary). Fail-soft/empty until `nous_subtopic:`
-        data is authored.
+        The Ku contribution to the dependent /search sub-topic dropdown;
+        `SearchRouter.nous_subtopic_map` merges it with the PathStep contribution
+        (cross-domain aggregation stays in the search service, not a backend).
+        Graph-derived (content boundary). Rows carry `nous` + `subtopic`.
 
         Backend: KuBackend.nous_subtopic_pairs via KuSearchService.
         """
-        return await self.search.nous_subtopic_map()
+        return await self.search.nous_subtopic_pairs()
 
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)

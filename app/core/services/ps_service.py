@@ -332,6 +332,17 @@ class PsService:
         """Search path steps by text query."""
         return await self.search.search(query=query, limit=limit)
 
+    async def nous_subtopic_pairs(self) -> Result[list[dict[str, Any]]]:
+        """This PathStep label's (nous, nous_subtopic) co-occurrence pairs.
+
+        The PathStep contribution to the dependent /search sub-topic dropdown;
+        `SearchRouter.nous_subtopic_map` merges it with the Ku contribution.
+        Graph-derived (content boundary). Rows carry `nous` + `subtopic`.
+
+        Backend: PsBackend.nous_subtopic_pairs via PsSearchService.
+        """
+        return await self.search.nous_subtopic_pairs()
+
     async def search_by_semantic_query(
         self, query_text: str, limit: int = 20, min_score: float = 0.5
     ) -> Result[list[Any]]:

@@ -34,6 +34,7 @@ def create_askesis_ui_routes(
     intelligence_tier: IntelligenceTier | None = None,
     user_service: "UserService | None" = None,
     ku_service: Any = None,
+    search_router: Any = None,
 ) -> list[Any]:
     """Create UI routes for Askesis AI assistant."""
 
@@ -56,13 +57,15 @@ def create_askesis_ui_routes(
     async def _load_nous_subtopics() -> list[str]:
         """Fetch the NOUS sub-topic vocabulary (2nd level) for the composer scope.
 
-        Mirrors ``_load_nous_topics`` and fails soft the same way. Empty until the
-        vault carries `nous_subtopic:` data, so the sub-topic selector renders
-        nothing (mechanism ships ahead of content).
+        Spans BOTH :Ku and :PathStep via SearchRouter (which merges each
+        curriculum domain's own-label pairs — cross-domain aggregation in the
+        service layer, not a backend). Fails soft the same way as topics. Empty
+        until the vault carries `nous_subtopic:` data, so the sub-topic selector
+        renders nothing (mechanism ships ahead of content).
         """
-        if ku_service is None:
+        if search_router is None:
             return []
-        result = await ku_service.list_nous_subtopics()
+        result = await search_router.list_nous_subtopics()
         if result.is_error:
             logger.warning(f"Could not load NOUS sub-topics for Askesis composer: {result.error}")
             return []
