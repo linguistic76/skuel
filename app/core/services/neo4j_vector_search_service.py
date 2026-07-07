@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.models.semantic import SearchMetrics
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import EntityUID, FilterParams, UserUID
 from core.ports.query_types import SemanticSearchChunkResult
 
 if TYPE_CHECKING:
@@ -306,6 +306,7 @@ class Neo4jVectorSearchService:
         parent_uid: str | None = None,
         limit: int | None = None,
         min_score: float | None = None,
+        parent_filters: FilterParams | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Find similar :ContentChunk nodes by embedding the query text.
 
@@ -320,6 +321,10 @@ class Neo4jVectorSearchService:
             parent_uid: Optional filter restricting chunks to a single parent.
             limit: Max results (uses config default if None).
             min_score: Similarity threshold (uses ContentChunk threshold if None).
+            parent_filters: Optional facet scope on the chunk's owning Entity
+                (e.g. ``{"nous": "body"}``) — the same facet→property mapping
+                faceted search applies to entities, so body hits stay inside the
+                active facets instead of leaking across topics.
         """
         if not self.embeddings:
             return Result.fail(
@@ -345,6 +350,7 @@ class Neo4jVectorSearchService:
             threshold=min_score,
             chunk_types=chunk_types,
             parent_uid=parent_uid,
+            parent_filters=parent_filters,
         )
 
         if result.is_error:

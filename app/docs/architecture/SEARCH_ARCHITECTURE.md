@@ -405,7 +405,10 @@ checkbox is on — folds in lesson-BODY hits:
 1. Embed the query, search `:ContentChunk` via `find_similar_chunks_by_text`
    (`min_score = body_chunk_search_min_score`, default **0.68** — admits a matched
    passage inside a long chunk (~0.70) while the off-topic noise ceiling floors ~0.66,
-   so the empty state still holds for gibberish).
+   so the empty state still holds for gibberish). The search is **scoped to the active
+   facets** — `parent_filters = request.to_property_filters()` applies the same
+   nous/level/… membership to the chunk's owning Entity that the frontmatter path applies,
+   so a filtered `/search` (e.g. `nous=body`) never leaks lesson bodies from other topics.
 2. Map each chunk to its owning Ku/PS Entity, **dedupe to the best-scoring chunk per
    parent** (a lesson is as relevant as its single most on-point passage), and drop
    parents already in the base results or outside the in-scope curriculum type.

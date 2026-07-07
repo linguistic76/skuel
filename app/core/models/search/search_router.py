@@ -606,9 +606,11 @@ class SearchRouter:
         """Fold lesson-BODY semantic hits (Ku/PS :ContentChunk) into results.
 
         Digital-layer enhancement (ADR-043). Embeds the query, finds similar
-        content chunks, maps each to its owning Ku/PS Entity, dedupes to the
-        best-scoring chunk per parent, and appends the PARENT as a normal result
-        card (never a raw chunk) — deduped against parents already present.
+        content chunks SCOPED to the active facets (nous/level/... via
+        ``request.to_property_filters()``, so a filtered /search never leaks
+        bodies from other topics), maps each to its owning Ku/PS Entity, dedupes
+        to the best-scoring chunk per parent, and appends the PARENT as a normal
+        result card (never a raw chunk) — deduped against parents already present.
 
         Fails SOFT and NEVER raises: no vector service (CORE tier), no query, or
         a search error all return ``response`` unchanged so /search stays fully
@@ -638,6 +640,10 @@ class SearchRouter:
                 text=request.query_text,
                 limit=request.limit,
                 min_score=vector_search.config.body_chunk_search_min_score,
+                # Scope body hits to the active facets (nous/level/...) so a
+                # filtered /search doesn't leak lesson bodies from other topics —
+                # matches how the frontmatter results above are already scoped.
+                parent_filters=request.to_property_filters(),
             )
         except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.warning(f"Body-chunk search errored, returning base results: {e}")
