@@ -76,11 +76,29 @@ CONTENT_TYPES: frozenset[str] = frozenset(
         "formtemplate",
         "formsubmission",
         "conversation",
+        # Ingestion aliases (core/services/ingestion/detector.py TYPE_MAPPING),
+        # relationship configs, and non-Ku domains — all normalized (see below).
+        "lesson",
+        "learningstep",
+        "lp",
+        "ps",
+        "ia",
+        "edge",
+        "expense",
+        "finance",
+        "group",
     }
 )
 
+
+def _normalize_type(raw: str) -> str:
+    """Normalize a ``type:`` value to the concatenated form used in CONTENT_TYPES,
+    so snake_case / kebab / alias spellings all collapse to one key (e.g.
+    ``user_entry`` → ``userentry``, ``path_step`` → ``pathstep``)."""
+    return raw.strip().lower().replace("_", "").replace("-", "")
+
 _FRONTMATTER = re.compile(r"^﻿?---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z_]+)", re.MULTILINE | re.IGNORECASE)
+_TYPE_FIELD = re.compile(r"^type:\s*[\"']?([A-Za-z_-]+)", re.MULTILINE | re.IGNORECASE)
 
 
 def _tracked_files() -> list[str]:
@@ -115,7 +133,7 @@ def _looks_like_vault_entity(path: Path) -> str | None:
     if scope is None:
         return None
     tm = _TYPE_FIELD.search(scope)
-    if tm and tm.group(1).strip().lower() in CONTENT_TYPES:
+    if tm and _normalize_type(tm.group(1)) in CONTENT_TYPES:
         return tm.group(1).strip()
     return None
 

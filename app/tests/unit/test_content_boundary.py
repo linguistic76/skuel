@@ -54,3 +54,15 @@ def test_guard_detects_content_frontmatter(tmp_path: Path) -> None:
     benign = tmp_path / "config.yaml"
     benign.write_text("name: CI\non:\n  push:\n    branches: [main]\ntype: object\n")
     assert guard._looks_like_vault_entity(benign) is None
+
+    # Canonical snake_case / alias / edge type strings normalize and are caught.
+    ue = tmp_path / "ue.yaml"
+    ue.write_text("type: user_entry\npipeline: extract_activities\n")
+    assert guard._looks_like_vault_entity(ue) == "user_entry"
+
+    edge = tmp_path / "edge.yaml"
+    edge.write_text("type: Edge\nfrom: ku:a\nto: ku:b\n")
+    assert guard._looks_like_vault_entity(edge) == "Edge"
+
+    assert guard._normalize_type("user_entry") == "userentry"
+    assert guard._normalize_type("path-step") == "pathstep"
