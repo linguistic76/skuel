@@ -144,11 +144,12 @@ class KuService:
     async def list_nous_subtopics(self) -> Result[list[str]]:
         """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
 
-        The 2nd taxonomy level beneath the NOUS topics. Derived from the graph,
-        never hardcoded. Fail-soft/empty until the vault carries authored
+        The 2nd taxonomy level beneath the NOUS topics. Derived from the graph
+        (same Ku+PathStep source as `nous_subtopic_map`, flattened), never
+        hardcoded. Fail-soft/empty until the vault carries authored
         `nous_subtopic:` frontmatter (the mechanism ships ahead of the data).
 
-        Backend: KuBackend.distinct_values_raw via KuSearchService.
+        Backend: KuBackend.nous_subtopic_pairs via KuSearchService.
         """
         return await self.search.list_nous_subtopics()
 

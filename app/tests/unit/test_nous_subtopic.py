@@ -247,3 +247,28 @@ class TestNousSubtopicMapService:
 
         assert result.is_ok
         assert result.value == {}
+
+    @pytest.mark.asyncio
+    async def test_flat_list_shares_map_source_and_dedupes(self) -> None:
+        # The flat vocabulary (which gates whether the /search column renders)
+        # MUST derive from the same Ku+PathStep pairs as the map, or a
+        # PathStep-only sub-topic corpus would omit the column and orphan those
+        # options (Codex #551). Flattened, deduped, sorted.
+        from core.services.ku.ku_search_service import KuSearchService
+
+        service = KuSearchService.__new__(KuSearchService)
+        service.backend = MagicMock()  # type: ignore[misc]
+        service.backend.nous_subtopic_pairs = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {"nous": "body", "subtopic": "movement"},
+                    {"nous": "self-awareness", "subtopic": "breath"},
+                    {"nous": "body", "subtopic": "breath"},  # PathStep-only pair
+                ]
+            )
+        )
+
+        result = await service.list_nous_subtopics()
+
+        assert result.is_ok
+        assert result.value == ["breath", "movement"]

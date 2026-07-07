@@ -41,23 +41,33 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
     )
 
     async def list_nous_subtopics(self) -> Result[list[str]]:
-        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+        """List the flat NOUS sub-topic vocabulary — the 2nd taxonomy level.
 
-        The 2nd taxonomy level beneath `nous`. Derived from the graph exactly
-        like `list_all_categories()` (the NOUS-topic vocabulary), but reads the
-        `nous_subtopic` array property rather than the configured `category_field`.
-        Array-valued: `distinct_values_raw` UNWINDs each element to its own value.
+        Derived from the SAME graph source as `nous_subtopic_map` (the co-occurring
+        `nous` + `nous_subtopic` pairs across `:Ku` + `:PathStep`), flattened to
+        the distinct sub-topics. Sharing the source is deliberate: the flat list
+        gates whether the /search sub-topic column renders at all, and the map
+        drives its dependent narrowing — if they disagreed (e.g. flat read Ku
+        only while the map spanned PathStep too), a corpus with PathStep-only
+        sub-topics would omit the whole column, leaving those options unreachable
+        (Codex #551). One source keeps the flat list a superset of every scoped
+        map, so the column (and its HTMX target) renders whenever the map has any
+        entry.
+
+        Sub-topics authored without a parent `nous` are intentionally out: they
+        can't be reached via the dependent dropdown anyway (no topic to pick).
 
         Fail-soft: with no authored `nous_subtopic` data the list is empty, so
-        the faucet renders nothing (no data yet — the mechanism ships ahead of
-        the vault content).
+        the faucet renders nothing (the mechanism ships ahead of the content).
 
-        Backend: ``UniversalNeo4jBackend.distinct_values_raw("nous_subtopic")``.
+        Backend: ``KuBackend.nous_subtopic_pairs``.
         """
-        result = await self.backend.distinct_values_raw("nous_subtopic", user_uid=None)
+        result = await self.backend.nous_subtopic_pairs()  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
-        subtopics = [record["value"] for record in (result.value or []) if record.get("value")]
+        subtopics = sorted(
+            {record["subtopic"] for record in (result.value or []) if record.get("subtopic")}
+        )
         return Result.ok(subtopics)
 
     async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
