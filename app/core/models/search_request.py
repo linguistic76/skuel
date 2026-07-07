@@ -59,7 +59,7 @@ One Path Forward (January 2026):
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.models.enums import (
     ContentType,
@@ -373,39 +373,15 @@ class SearchRequest(BaseModel):
     @field_validator("query_text")
     @classmethod
     def validate_query_text(cls, v) -> Any:
-        """Ensure query text is not empty when provided"""
+        """Ensure query text is not empty when provided.
+
+        A ``None`` query is valid — filter-only search is a first-class mode
+        (see ``has_any_criteria``). Only an all-whitespace string is rejected,
+        because that is a malformed query rather than a deliberate omission.
+        """
         if v is not None and not v.strip():
             raise ValueError("Query text cannot be empty or whitespace")
         return v.strip() if v else None
-
-    @field_validator("domain")
-    @classmethod
-    def validate_has_query_or_filters(cls, v, info: ValidationInfo) -> Any:
-        """Ensure at least query_text OR facet filters are provided"""
-        query_text = info.data.get("query_text")
-
-        # If no query text, must have at least one filter
-        if not query_text:
-            has_filter = any(
-                [
-                    v is not None,  # domain itself
-                    info.data.get("sel_category") is not None,
-                    info.data.get("learning_level") is not None,
-                    info.data.get("content_type") is not None,
-                    info.data.get("educational_level") is not None,
-                    info.data.get("status") is not None,
-                    info.data.get("priority") is not None,
-                    info.data.get("nous") is not None,
-                    info.data.get("nous_subtopic") is not None,
-                    info.data.get("source") is not None,
-                    info.data.get("extended_facets"),
-                ]
-            )
-
-            if not has_filter:
-                raise ValueError("Must provide either query_text or at least one filter")
-
-        return v
 
     def to_property_filters(self) -> dict[str, Any]:
         """
@@ -561,6 +537,30 @@ class SearchRequest(BaseModel):
         """Check if learning-aware personalization is enabled."""
         return self.enable_learning_aware
 
+    def has_any_criteria(self) -> bool:
+        """True if this request defines a result set at all.
+
+        A request has criteria when it carries query text OR any result-defining
+        filter: property facets (nous, status, priority, ...), relationship /
+        pedagogical flags, an entity-type scope, tags, or a graph traversal.
+        The pure enhancement toggles (semantic boost, learning-aware) are
+        deliberately excluded — they re-rank a result set, they do not define
+        one, so they cannot stand alone.
+
+        The /search route uses this to distinguish the blank initial state
+        (show the prompt) from a real filter-only search (run it). Emptiness is
+        UX, not a validation error — hence a query is genuinely optional.
+        """
+        return bool(
+            self.query_text
+            or self.domain  # programmatic domain-only scope (_resolve_single_domain routes it)
+            or self.to_property_filters()
+            or self.has_relationship_filters()
+            or self.has_entity_type_filter()  # the /search dropdown's entity_types path
+            or self.has_tag_filter()
+            or self.has_graph_traversal_filter()
+        )
+
     def get_search_strategy(self) -> str:
         """
         Determine the optimal search strategy based on filters.
@@ -677,7 +677,9 @@ class SearchRequest(BaseModel):
         }
 
         return cls(
-            query_text=query,
+            # Empty/whitespace query → None: filter-only search is valid, and a
+            # bare "" would otherwise trip validate_query_text.
+            query_text=_none_if_empty(query),
             entity_types=parsed_entity_types,
             status=EntityStatus(status) if status else None,
             priority=Priority(priority) if priority else None,

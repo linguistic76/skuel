@@ -984,12 +984,15 @@ class SearchRouter:
         else:
             sweep_domains = [et for et in self._SEARCHABLE_DOMAINS if et != EntityType.USER_ENTRY]
 
-        # Property facets (nous, sel_category, learning_level, ...) can't ride
-        # the plain text sweep — search_domains() drops them. Route the sweep
-        # through per-domain graph-aware faceted search instead, so a facet
-        # like "NOUS topic = body" with Type = All actually filters (the
-        # facets become WHERE clauses in each domain's query).
-        if request.to_property_filters() and user_uid:
+        # Property facets (nous, sel_category, ...) AND relationship/pedagogical
+        # flags (ready_to_learn, not_yet_viewed, ...) can't ride the plain text
+        # sweep — search_domains() drops both. Route through per-domain
+        # graph-aware faceted search instead, so a facet like "NOUS topic = body"
+        # or "ready to learn" with Type = All actually filters (they become
+        # WHERE clauses in each domain's query). Without the relationship check a
+        # relationship-only, empty-query request would silently fall through to
+        # the unfiltered text sweep and drop the filter (Codex, PR #549).
+        if (request.to_property_filters() or request.has_relationship_filters()) and user_uid:
             return await self._faceted_sweep(request, user_uid, sweep_domains)
 
         unified_result = await self.search_domains(
