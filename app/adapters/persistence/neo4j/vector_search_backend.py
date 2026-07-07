@@ -22,6 +22,15 @@ if TYPE_CHECKING:
     from core.ports.query_types import SemanticSearchChunkResult
 
 
+# Facet-scoped chunk search post-filters AFTER the vector index ranks by score
+# (Neo4j 5.26 has no pre-filtered vector search), so higher-scoring off-facet
+# chunks can crowd out valid in-scope ones. Widen the candidate pool through
+# this schedule until `limit` in-scope chunks survive — early-exit for
+# well-populated facets, ceiling (last step) for narrow ones. Unscoped search
+# keeps a single 2x over-fetch. Superseded by pre-filtered vector search at scale.
+_SCOPED_CANDIDATE_SCHEDULE: tuple[int, ...] = (10, 40, 160)
+
+
 class VectorSearchBackend:
     """Backend for vector search persistence operations."""
 
@@ -115,12 +124,6 @@ class VectorSearchBackend:
         applied to the chunk's parent so body hits honor the facets instead of
         leaking across topics. List-vs-scalar membership matches `_search_raw_mixin`.
         """
-        # Over-fetch candidates from the vector index, then narrow. Facet-scoped
-        # queries filter on the parent AFTER ranking (the index ranks by score,
-        # not facet), so most top-similarity chunks can fall outside scope —
-        # widen the candidate pool when scoping. Tune the multiplier if a narrow
-        # facet starves results (score-then-filter approximation, PR watch-item).
-        candidate_multiplier = 10 if parent_filters else 2
         parts = [
             """CALL db.index.vector.queryNodes(
             'contentchunk_embedding_idx',
@@ -143,7 +146,6 @@ class VectorSearchBackend:
         params: dict[str, Any] = {
             "query_embedding": query_embedding,
             "limit": limit,
-            "candidate_limit": limit * candidate_multiplier,
             "threshold": threshold,
             "chunk_types": chunk_types,
             "parent_uid": parent_uid,
@@ -179,10 +181,20 @@ class VectorSearchBackend:
         LIMIT $limit"""
         )
         cypher = "\n".join(parts)
+
+        # Escalate the candidate pool until `limit` in-scope chunks survive the
+        # parent-facet filter (unscoped → single 2x pass, unchanged). Each pass
+        # is a strict superset of the last, so the final result stands alone.
+        schedule = _SCOPED_CANDIDATE_SCHEDULE if parent_filters else (2,)
         # boundary: query_executor returns dict rows; the Cypher's RETURN
         # clause matches SemanticSearchChunkResult by construction.
-        raw = await self._executor.execute_query(cypher, params)
-        return cast("Result[list[SemanticSearchChunkResult]]", raw)
+        last: Result[list[Any]] = Result.ok([])
+        for multiplier in schedule:
+            params["candidate_limit"] = limit * multiplier
+            last = await self._executor.execute_query(cypher, params)
+            if last.is_error or len(last.value) >= limit:
+                break
+        return cast("Result[list[SemanticSearchChunkResult]]", last)
 
     async def get_learning_states_batch(
         self, user_uid: str, ku_uids: list[str]

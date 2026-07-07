@@ -5,9 +5,11 @@ PR1 of the Search+Askesis merge: chunk retrieval honors the active facets
 list-vs-scalar membership so `nous` (an array property) and scalar facets
 behave identically across the frontmatter and body-chunk paths.
 
-The backend is Cypher-heavy; these tests capture the emitted query/params
-through a fake executor and assert the load-bearing scope clauses — no Neo4j
-required (in the style of test_content_adapter_chunk_persistence.py).
+The vector index ranks by score, not facet, so a scoped query post-filters and
+escalates its candidate pool until `limit` in-scope chunks survive. These tests
+capture the emitted query/params through a fake executor and assert the
+load-bearing scope clauses + escalation — no Neo4j required (in the style of
+test_content_adapter_chunk_persistence.py).
 """
 
 from typing import Any
@@ -19,31 +21,32 @@ from core.utils.result_simplified import Result
 
 
 class _FakeExecutor:
-    """Captures (query, params) and returns an empty Result — the backend only
-    threads scope into the query, so canned-empty rows are enough."""
+    """Captures (query, params) and returns a fixed count of stub rows.
 
-    def __init__(self) -> None:
+    ``rows`` controls how many in-scope chunks each call yields — enough to
+    satisfy ``limit`` (early exit) or too few (drives the escalation schedule).
+    """
+
+    def __init__(self, rows: int = 0) -> None:
+        self.rows = rows
         self.queries: list[tuple[str, dict[str, Any]]] = []
 
     async def execute_query(
         self, query: str, params: dict[str, Any] | None = None
     ) -> Result[list[dict[str, Any]]]:
-        self.queries.append((query, params or {}))
-        return Result.ok([])
-
-
-@pytest.fixture
-def executor() -> _FakeExecutor:
-    return _FakeExecutor()
+        self.queries.append((query, dict(params or {})))
+        return Result.ok([{"chunk_uid": f"c{i}"} for i in range(self.rows)])
 
 
 @pytest.mark.asyncio
-async def test_no_parent_filters_leaves_query_unscoped(executor: _FakeExecutor) -> None:
-    # The pre-facet behavior must be preserved byte-for-byte: 2x candidate
-    # over-fetch, no parent WHERE, no pf_ params. (Empty facets → this path.)
+async def test_unscoped_query_is_single_pass_and_unchanged() -> None:
+    # Pre-facet behavior preserved byte-for-byte: one query, 2x over-fetch,
+    # no parent WHERE, no pf_ params.
+    executor = _FakeExecutor(rows=0)
     backend = VectorSearchBackend(executor)
     await backend.semantic_search_chunks(query_embedding=[0.1, 0.2], limit=5, threshold=0.6)
 
+    assert len(executor.queries) == 1
     cypher, params = executor.queries[-1]
     assert params["candidate_limit"] == 10  # 5 * 2
     assert "pf_" not in cypher
@@ -51,15 +54,17 @@ async def test_no_parent_filters_leaves_query_unscoped(executor: _FakeExecutor) 
 
 
 @pytest.mark.asyncio
-async def test_nous_facet_scopes_parent_with_membership(executor: _FakeExecutor) -> None:
+async def test_nous_facet_scopes_parent_with_membership() -> None:
+    # Facet well-populated (executor yields >= limit) → early exit on first pass.
+    executor = _FakeExecutor(rows=5)
     backend = VectorSearchBackend(executor)
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=5, threshold=0.6, parent_filters={"nous": "body"}
     )
 
+    assert len(executor.queries) == 1  # filled on the first candidate tier
     cypher, params = executor.queries[-1]
-    # Candidate pool widened when scoping (score-then-filter needs headroom).
-    assert params["candidate_limit"] == 50  # 5 * 10
+    assert params["candidate_limit"] == 50  # 5 * 10 (first schedule tier)
     assert params["pf_nous"] == "body"
     # nous is an array property → element membership, same as _search_raw_mixin.
     assert "CASE WHEN parent.nous IS :: LIST<ANY>" in cypher
@@ -67,8 +72,22 @@ async def test_nous_facet_scopes_parent_with_membership(executor: _FakeExecutor)
 
 
 @pytest.mark.asyncio
-async def test_list_valued_filter_uses_whole_value_equality(executor: _FakeExecutor) -> None:
-    # A list-valued facet matches whole-value equality (mirrors _search_raw_mixin).
+async def test_underfilled_scope_escalates_candidate_pool() -> None:
+    # Narrow facet (executor yields nothing) → widen through the full schedule.
+    executor = _FakeExecutor(rows=0)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(
+        query_embedding=[0.1], limit=5, threshold=0.6, parent_filters={"nous": "obscure"}
+    )
+
+    # Schedule (10, 40, 160) x limit 5 -- exhausted because scope never fills.
+    candidate_limits = [p["candidate_limit"] for _, p in executor.queries]
+    assert candidate_limits == [50, 200, 800]
+
+
+@pytest.mark.asyncio
+async def test_list_valued_filter_uses_whole_value_equality() -> None:
+    executor = _FakeExecutor(rows=5)
     backend = VectorSearchBackend(executor)
     await backend.semantic_search_chunks(
         query_embedding=[0.1], limit=3, threshold=0.6, parent_filters={"tags": ["a", "b"]}
@@ -81,7 +100,8 @@ async def test_list_valued_filter_uses_whole_value_equality(executor: _FakeExecu
 
 
 @pytest.mark.asyncio
-async def test_multiple_facets_are_anded(executor: _FakeExecutor) -> None:
+async def test_multiple_facets_are_anded() -> None:
+    executor = _FakeExecutor(rows=5)
     backend = VectorSearchBackend(executor)
     await backend.semantic_search_chunks(
         query_embedding=[0.1],
