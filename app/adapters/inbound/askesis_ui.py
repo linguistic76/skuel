@@ -55,8 +55,20 @@ def create_askesis_ui_routes(
 
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
-        """Full Askesis chat surface."""
-        return await render_askesis_page(request, nous_topics=await _load_nous_topics())
+        """Full Askesis chat surface.
+
+        Optional ``?question=`` / ``?nous=`` carry the /search "Ask" handoff:
+        the composer is prefilled + scope-seeded and the first turn auto-runs
+        scoped via the composer's native HTMX ``load`` trigger.
+        """
+        question = request.query_params.get("question", "")
+        nous = request.query_params.get("nous", "")
+        return await render_askesis_page(
+            request,
+            nous_topics=await _load_nous_topics(),
+            initial_question=question,
+            initial_nous=nous,
+        )
 
     routes.append(askesis_home)
 

@@ -52,7 +52,9 @@ from ui.tokens import Container
 
 
 async def render_search_page_with_navbar(
-    request: Any = None, nous_topics: list[str] | None = None
+    request: Any = None,
+    nous_topics: list[str] | None = None,
+    ask_enabled: bool = False,
 ) -> Any:
     """
     Main search page with horizontal filters above the search bar.
@@ -66,11 +68,13 @@ async def render_search_page_with_navbar(
         request: Starlette request for auto-detection of auth/admin
         nous_topics: NOUS topic vocabulary derived from the graph
             (route fetches via KuService.list_nous_topics)
+        ask_enabled: FULL-tier gate for the "Ask" button (hands the query +
+            nous facet to scoped Askesis). Hidden in CORE tier.
 
     Returns:
         Complete HTML page using unified BasePage layout
     """
-    content = _render_horizontal_layout(nous_topics or [])
+    content = _render_horizontal_layout(nous_topics or [], ask_enabled)
 
     return await BasePage(
         content=content,
@@ -82,7 +86,7 @@ async def render_search_page_with_navbar(
     )
 
 
-def _render_horizontal_layout(nous_topics: list[str]) -> Div:
+def _render_horizontal_layout(nous_topics: list[str], ask_enabled: bool = False) -> Div:
     """
     Horizontal filter layout for search.
 
@@ -97,8 +101,8 @@ def _render_horizontal_layout(nous_topics: list[str]) -> Div:
             NotStr(_render_context_filters()),
             # Active Filter Badges
             NotStr(_render_active_filter_badges()),
-            # Search Input
-            NotStr(_render_search_input()),
+            # Search Input (+ Ask verb when FULL tier)
+            NotStr(_render_search_input(ask_enabled)),
             # Results Container
             Div(
                 Div(
@@ -697,27 +701,46 @@ def _render_active_filter_badges() -> str:
     """
 
 
-def _render_search_input() -> str:
+def _render_search_input(ask_enabled: bool = False) -> str:
     """
-    Render the main search input.
+    Render the main search input, with an optional "Ask" verb beside "Find".
+
+    "Find" stays the live faceted search (the input searches on keyup). "Ask"
+    (FULL tier only) hands the current query + nous facet to scoped Askesis via a
+    full-page navigation to /askesis?question=&nous= — see ``searchFilters.askHref``.
     """
     hx_include = _get_hx_include("query")
+
+    ask_button = ""
+    if ask_enabled:
+        ask_button = f"""
+            <button type="button"
+                    class="btn btn-primary gap-2 shrink-0"
+                    x-on:click="window.location.href = askHref()"
+                    title="Ask Askesis with your query and topic scope">
+                {Icon("sparkles", size=18, cls="inline-block")}
+                <span>Ask</span>
+            </button>
+        """
 
     return f"""
     <!-- Search Input -->
     <div class="search-input-container panel-surface p-4">
-        <div class="relative">
-            <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
-                {Icon("search", size=20, cls="inline-block")}
-            </span>
-            <input type="text"
-                   name="query"
-                   placeholder="Search across all your knowledge..."
-                   class="input input-bordered w-full pl-10 pr-4"
-                   hx-get="/search/results"
-                   hx-trigger="keyup changed delay:500ms"
-                   hx-target="#search-results"
-                   hx-include="{hx_include}">
+        <div class="flex items-center gap-2">
+            <div class="relative flex-1">
+                <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
+                    {Icon("search", size=20, cls="inline-block")}
+                </span>
+                <input type="text"
+                       name="query"
+                       placeholder="Search across all your knowledge..."
+                       class="input input-bordered w-full pl-10 pr-4"
+                       hx-get="/search/results"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#search-results"
+                       hx-include="{hx_include}">
+            </div>
+            {ask_button}
         </div>
     </div>
     """

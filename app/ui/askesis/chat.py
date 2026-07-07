@@ -5,6 +5,7 @@ POST /askesis/api/submit → HTMX appends (user_bubble, ai_bubble) to #thread-me
 Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 """
 
+import json
 from typing import Any
 
 from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Textarea
@@ -20,6 +21,8 @@ def render_askesis_shell(
     username: str = "User",
     learning_scope_label: str = "Your learning",
     nous_topics: list[str] | None = None,
+    initial_question: str = "",
+    initial_nous: str = "",
 ) -> Any:
     """
     Full-height 3-column chat surface for /askesis.
@@ -28,17 +31,22 @@ def render_askesis_shell(
     Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous }.
     ``selectedNous`` lives on the root so it persists across composer submits
     (the composer isn't re-rendered on send) — each submit carries the scope.
+
+    Handoff (from /search "Ask"): ``initial_question`` prefills the composer and
+    ``initial_nous`` seeds ``selectedNous`` INLINE into x-data (never from a
+    window global — the settle-phase race would lose it), so the scope chip shows
+    and the first turn auto-runs scoped. See ``_composer_form`` for the load trigger.
     """
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(nous_topics or []),
+        _center_panel(nous_topics or [], initial_question, initial_nous),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
             "x-data": (
                 "{ sidebarOpen: true, settingsOpen: false,"
                 " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
-                " selectedNous: '' }"
+                " selectedNous: " + json.dumps(initial_nous) + " }"
             )
         },
     )
@@ -299,7 +307,9 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _center_panel(nous_topics: list[str]) -> Any:
+def _center_panel(
+    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
+) -> Any:
     return Div(
         _top_bar(),
         Div(
@@ -310,7 +320,7 @@ def _center_panel(nous_topics: list[str]) -> Any:
             cls="flex-1 overflow-y-auto max-w-[768px] mx-auto w-full",
             id="thread-scroll",
         ),
-        _composer_area(nous_topics),
+        _composer_area(nous_topics, initial_question, initial_nous),
         cls="flex-1 flex flex-col overflow-hidden",
     )
 
@@ -331,11 +341,13 @@ def _top_bar() -> Any:
     )
 
 
-def _composer_area(nous_topics: list[str]) -> Any:
+def _composer_area(
+    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
+) -> Any:
     return Div(
         Div(
             _nous_scope_chip(),
-            _composer_form(nous_topics),
+            _composer_form(nous_topics, initial_question, initial_nous),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
@@ -388,12 +400,38 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     )
 
 
-def _composer_form(nous_topics: list[str]) -> Any:
+def _composer_form(
+    nous_topics: list[str], initial_question: str = "", initial_nous: str = ""
+) -> Any:
+    auto_run = bool(initial_question)
+
+    # Scope hidden field is Alpine-bound (:value) so it tracks the chip. In the
+    # handoff case we ALSO render a server-side `value` so the auto-run's first
+    # submit carries the scope even if HTMX's load trigger fires before Alpine
+    # applies the binding (no JS timing hack — the static value wins the race).
+    nous_attrs: dict[str, Any] = {":value": "selectedNous"}
+    if initial_nous:
+        nous_attrs["value"] = initial_nous
+
+    form_extras: dict[str, Any] = {
+        "hx-on::after-request": (
+            "this.reset();"
+            " var ta=this.querySelector('textarea'); if(ta){ta.style.height='auto';}"
+            " var s=document.getElementById('thread-scroll'); if(s){s.scrollTop=s.scrollHeight;}"
+        ),
+    }
+    if auto_run:
+        # Native HTMX auto-run of the handoff question: `load` fires once when the
+        # full page mounts; `submit` preserves normal send for every later message.
+        form_extras["hx-trigger"] = "load, submit"
+
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
         # Hidden field carries the active scope with every submit (bound to root state).
-        Input(type="hidden", name="nous", **{":value": "selectedNous"}),
+        Input(type="hidden", name="nous", **nous_attrs),
         Textarea(
+            # Server-rendered prefill for the handoff question (empty otherwise).
+            initial_question,
             placeholder="Ask about your learning…",
             name="message",
             rows=1,
@@ -420,13 +458,7 @@ def _composer_form(nous_topics: list[str]) -> Any:
         hx_post="/askesis/api/submit",
         hx_target="#thread-messages",
         hx_swap="beforeend",
-        **{
-            "hx-on::after-request": (
-                "this.reset();"
-                " var ta=this.querySelector('textarea'); if(ta){ta.style.height='auto';}"
-                " var s=document.getElementById('thread-scroll'); if(s){s.scrollTop=s.scrollHeight;}"
-            ),
-        },
+        **form_extras,
     )
 
 
