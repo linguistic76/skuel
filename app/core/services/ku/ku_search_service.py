@@ -10,17 +10,17 @@ is what SearchRouter resolves for KU domain searches.
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
 """
 
-from typing import Any
+from typing import Any, cast
 
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.ports.backend_operations_typing import BackendOperations
+from core.ports.curriculum_protocols import KuOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.result_simplified import Result
 
 
-class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
+class KuSearchService(BaseService[KuOperations, Ku]):
     """Search for atomic Knowledge Units.
 
     Inherits from BaseService:
@@ -62,11 +62,15 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
 
         Backend: ``KuBackend.nous_subtopic_pairs``.
         """
-        result = await self.backend.nous_subtopic_pairs()  # type: ignore[attr-defined]
+        result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
         subtopics = sorted(
-            {record["subtopic"] for record in (result.value or []) if record.get("subtopic")}
+            {
+                sub
+                for record in (result.value or [])
+                if isinstance(sub := record.get("subtopic"), str)
+            }
         )
         return Result.ok(subtopics)
 
@@ -84,14 +88,14 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
 
         Backend: ``KuBackend.nous_subtopic_pairs``.
         """
-        result = await self.backend.nous_subtopic_pairs()  # type: ignore[attr-defined]
+        result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
         mapping: dict[str, list[str]] = {}
         for record in result.value or []:
             nous = record.get("nous")
             subtopic = record.get("subtopic")
-            if not nous or not subtopic:
+            if not isinstance(nous, str) or not isinstance(subtopic, str):
                 continue
             mapping.setdefault(nous, []).append(subtopic)
         return Result.ok(mapping)
@@ -107,8 +111,9 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of matching Ku property dicts from Neo4j
         """
-        result = await self.backend.search_by_alias(alias)  # type: ignore[attr-defined]
+        result = await self.backend.search_by_alias(alias)
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([record["ku"] for record in (result.value or [])])
+        # Each row's "ku" is a Neo4j node projected to a property dict.
+        return Result.ok([cast("dict[str, Any]", record["ku"]) for record in (result.value or [])])

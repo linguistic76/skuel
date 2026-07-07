@@ -350,6 +350,10 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         """Search Kus by alias (case-insensitive substring)."""
         ...
 
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs across :Ku + :PathStep."""
+        ...
+
     # =========================================================================
     # SUBSTANCE METRICS
     # =========================================================================

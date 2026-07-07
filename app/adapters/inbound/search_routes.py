@@ -112,7 +112,7 @@ def create_search_api_routes(
 
     @rt("/search/subtopics")
     @boundary_handler()
-    async def search_subtopics(request: Request, nous: str | None = None) -> Any:
+    async def search_subtopics(request: Request, nous: str | None = None) -> NotStr:
         """Re-render the sub-topic select scoped to the chosen NOUS topic.
 
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
