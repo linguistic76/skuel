@@ -99,44 +99,38 @@ def _render_search_layout(
     nous_topics: list[str], nous_subtopics: list[str], ask_enabled: bool = False
 ) -> Div:
     """
-    Two-column search layout: a left rail of faucets beside the results.
+    Horizontal search layout: query box, a compact filter bar, then full-width results.
 
-    The query box (+ Ask verb) and active-filter badges span the top; below them a
-    responsive grid places the filter faucets (Tier 1 filter bar + Tier 2 context
-    filters) in a sticky left rail and the results in the main column. Collapses to
-    a single stacked column on narrow viewports (see search.css `.search-layout`).
-    Faucet markup and every hx-get/hx-include are unchanged — this is layout only.
-    Alpine.js still drives filter visibility and expand/collapse.
+    The query box (+ Ask verb) spans the top. Below it sits a horizontal filter bar —
+    the everyday dropdowns (Type / Nous / Sub-topic / Sort) inline, with the advanced
+    facets (learning progress, graph relationships, semantic search, Tier 2 context
+    filters) behind a "More filters" toggle. On narrow viewports that whole filter set
+    collapses into an off-canvas drawer opened by a "Filters" button (see search.css
+    `.search-filters`). Faucet markup and every hx-get/hx-include are unchanged — this
+    is layout only. Alpine.js (`searchFilters`) drives the toggle, drawer, and filter
+    visibility.
     """
     return Div(
         Div(
             # Search Input (+ Ask verb when FULL tier) — spans the top
             NotStr(_render_search_input(ask_enabled)),
-            # Active Filter Badges — below the query, above the rail/results
+            # Filter bar (desktop) / mobile trigger + drawer
+            NotStr(_render_filter_panel(nous_topics, nous_subtopics)),
+            # Active Filter Badges — below the bar, above the results
             NotStr(_render_active_filter_badges()),
-            # Two-column grid: left rail (faucets) + results
+            # Results — full width
             Div(
-                # Left rail — Tier 1 filter bar + Tier 2 context filters
                 Div(
-                    NotStr(_render_filter_bar(nous_topics, nous_subtopics)),
-                    NotStr(_render_context_filters()),
-                    cls="search-rail",
-                ),
-                # Results column
-                Div(
-                    Div(
-                        P("🔍", cls="text-5xl mb-4"),
-                        P("Enter a search query to begin", cls="text-xl"),
-                        P(
-                            "Use the filters on the left to refine your results",
-                            cls="text-sm mt-2 text-muted-foreground",
-                        ),
-                        cls="text-center text-muted-foreground py-16",
+                    P("🔍", cls="text-5xl mb-4"),
+                    P("Enter a search query to begin", cls="text-xl"),
+                    P(
+                        "Use the filters above to refine your results",
+                        cls="text-sm mt-2 text-muted-foreground",
                     ),
-                    id="search-results",
-                    cls="search-results-col min-w-0",
+                    cls="text-center text-muted-foreground py-16",
                 ),
-                cls="search-layout",
+                id="search-results",
+                cls="min-w-0",
             ),
             cls=f"search-main {Container.WIDE} px-4 py-8",
         ),
@@ -202,26 +196,62 @@ def _get_hx_include(*exclude: str) -> str:
     return ", ".join(f"[name='{n}']" for n in names)
 
 
-def _render_filter_bar(nous_topics: list[str], nous_subtopics: list[str]) -> str:
+def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> str:
     """
-    Render Tier 1: Primary filters always visible.
+    Render the horizontal filter bar (desktop) / off-canvas filter drawer (mobile).
 
-    Contains: Type, Nous, Sort dropdowns + Learning Progress and Graph Relationships checkboxes.
+    One set of filter inputs — never duplicated — so ``hx-include``'s ``[name='…']``
+    selectors match each control exactly once (a duplicate would double-submit params).
+    CSS reshapes the same markup: a static inline bar at ≥1024px, a slide-in drawer
+    below that (see search.css). Alpine (`searchFilters`) drives the mobile ``Filters``
+    trigger (``filtersOpen``), the desktop ``More filters`` disclosure (``moreFilters``),
+    and the live active-filter count on the trigger badge (``filterCount``).
+
+    Layers:
+      * Primary row — Type / Nous / Sub-topic / Sort, always visible.
+      * Advanced — learning-progress + graph-relationship + semantic checkboxes and the
+        Tier 2 context filters; toggled by ``More filters`` on desktop, always shown
+        inside the mobile drawer.
     """
+    trigger_icon = Icon("filter", size=16, cls="inline-block")
+    toggle_icon = Icon("sliders-horizontal", size=16, cls="inline-block")
     return f"""
-    <div class="filter-bar panel-surface p-4 mb-4">
-        <!-- Dropdowns Row -->
-        <div class="flex flex-wrap gap-4 items-end mb-4">
-            <!-- Entity Type -->
-            <div class="space-y-2 flex-1 min-w-[150px]">
+    <!-- Mobile: open-filters trigger (hidden on desktop, where the bar is inline) -->
+    <div class="lg:hidden mb-4">
+        <button type="button" class="btn btn-outline btn-sm gap-2" x-on:click="filtersOpen = true">
+            {trigger_icon}
+            <span>Filters</span>
+            <span class="badge badge-primary badge-sm" x-show="filterCount > 0" x-text="filterCount" style="display:none"></span>
+        </button>
+    </div>
+
+    <!-- Mobile drawer backdrop -->
+    <div class="filters-backdrop lg:hidden" x-show="filtersOpen" x-on:click="filtersOpen = false"
+         x-transition:enter="transition-opacity ease-out duration-200"
+         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-150"
+         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         style="display:none"></div>
+
+    <!-- Filter panel: inline bar on desktop, off-canvas drawer on mobile.
+         x-on:change recomputes the active-filter count as any control changes. -->
+    <div class="search-filters" :class="{{ 'is-open': filtersOpen }}" x-on:change="updateFilterCount()">
+        <!-- Drawer header (mobile only) -->
+        <div class="search-filters-header lg:hidden">
+            <span class="text-sm font-semibold uppercase tracking-wide">Filters</span>
+            <button type="button" class="btn btn-ghost btn-sm btn-circle" x-on:click="filtersOpen = false" aria-label="Close filters">✕</button>
+        </div>
+
+        <!-- Primary dropdowns -->
+        <div class="filter-primary">
+            <div class="space-y-1 flex-1 min-w-[150px]">
                 <label class="label py-1">
                     <span class="text-xs font-semibold uppercase tracking-wide">Type</span>
                 </label>
                 {_render_entity_type_select()}
             </div>
 
-            <!-- Nous -->
-            <div class="space-y-2 flex-1 min-w-[150px]">
+            <div class="space-y-1 flex-1 min-w-[150px]">
                 <label class="label py-1">
                     <span class="text-xs font-semibold uppercase tracking-wide">Nous</span>
                 </label>
@@ -230,42 +260,61 @@ def _render_filter_bar(nous_topics: list[str], nous_subtopics: list[str]) -> str
 
             {_render_nous_subtopic_select(nous_subtopics)}
 
-            <!-- Sort Order -->
-            <div class="space-y-2 flex-1 min-w-[150px]">
+            <div class="space-y-1 flex-1 min-w-[150px]">
                 <label class="label py-1">
                     <span class="text-xs font-semibold uppercase tracking-wide">Sort</span>
                 </label>
                 {_render_sort_select()}
             </div>
+
+            <!-- Desktop: reveal/hide the advanced facets (mobile drawer always shows them) -->
+            <button type="button" class="more-filters-toggle btn btn-ghost btn-sm gap-2 shrink-0"
+                    x-show="isDesktop" x-on:click="moreFilters = !moreFilters" style="display:none">
+                {toggle_icon}
+                <span x-text="moreFilters ? 'Fewer filters' : 'More filters'">More filters</span>
+            </button>
         </div>
 
-        <!-- Checkbox Groups Row -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-3 border-t border-border">
-            <!-- Learning Progress -->
-            <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Learning Progress</div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1">
-                    {_render_learning_progress_checkboxes()}
+        <!-- Advanced facets: desktop toggles via moreFilters; mobile drawer always shows. -->
+        <div class="filter-advanced" x-show="isDesktop ? moreFilters : true" style="display:none"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Learning Progress -->
+                <div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Learning Progress</div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1">
+                        {_render_learning_progress_checkboxes()}
+                    </div>
+                </div>
+
+                <!-- Graph Relationships -->
+                <div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Graph Relationships</div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1">
+                        {_render_relationship_checkboxes()}
+                    </div>
+                </div>
+
+                <!-- Semantic Search -->
+                <div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Semantic Search
+                        <span class="inline-flex items-center rounded-full border font-medium text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 ml-1">NEW</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1">
+                        {_render_semantic_search_checkboxes()}
+                    </div>
                 </div>
             </div>
 
-            <!-- Graph Relationships -->
-            <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Graph Relationships</div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1">
-                    {_render_relationship_checkboxes()}
-                </div>
-            </div>
+            {_render_context_filters()}
+        </div>
 
-            <!-- Semantic Search -->
-            <div>
-                <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Semantic Search
-                    <span class="inline-flex items-center rounded-full border font-medium text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 ml-1">NEW</span>
-                </div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1">
-                    {_render_semantic_search_checkboxes()}
-                </div>
-            </div>
+        <!-- Drawer footer (mobile only) -->
+        <div class="search-filters-footer lg:hidden">
+            <button type="button" class="btn btn-ghost btn-sm text-error" x-on:click="clearAllFilters()">Clear all</button>
+            <button type="button" class="btn btn-primary btn-sm flex-1" x-on:click="filtersOpen = false">Show results</button>
         </div>
     </div>
     """
@@ -434,8 +483,8 @@ def _render_context_filters() -> str:
     Shows different filters depending on whether Activity or Curriculum domain.
     """
     return f"""
-    <!-- Context Filters (shown based on entity type) -->
-    <div class="context-filters panel-surface p-4 mb-4"
+    <!-- Context Filters (shown based on entity type) — nested inside .filter-advanced -->
+    <div class="context-filters mt-6 pt-4 border-t border-border"
          x-show="showContextFilters"
          x-transition:enter="transition ease-out duration-200"
          x-transition:enter-start="opacity-0 -translate-y-2"
@@ -1174,7 +1223,7 @@ def render_empty_search_prompt() -> Div:
     """Render the empty state prompt for search."""
     return EmptyState(
         "Search or pick a filter to begin",
-        description="Type a query, or use the filters on the left to browse — a filter alone is enough.",
+        description="Type a query, or use the filters above to browse — a filter alone is enough.",
         icon="🔍",
         id="search-results",
         cls="py-16",

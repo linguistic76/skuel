@@ -2,10 +2,11 @@
  * Search Page Styles
  * ==================
  *
- * Left-rail filter layout for the search page: the query box + active-filter
- * badges span the top, then a two-column grid places the filter faucets in a
- * sticky left rail beside the results. Collapses to a single stacked column on
- * narrow viewports.
+ * Horizontal filter layout: the query box + a compact filter bar span the top,
+ * with results full-width below. Everyday dropdowns (Type / Nous / Sub-topic /
+ * Sort) sit inline; advanced facets tuck behind a "More filters" toggle on
+ * desktop. On narrow viewports the whole filter set becomes an off-canvas drawer
+ * opened by a "Filters" button, keeping the small screen focused on results.
  */
 
 /* Main container - full width, tinted backdrop */
@@ -15,72 +16,145 @@
     background: oklch(var(--b2));
 }
 
-/* Main content area */
-.search-main {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
-
-/* Shared panel surface — used by .filter-bar, .context-filters, .search-input-container */
+/* Shared panel surface — used by .search-input-container (and .search-filters on desktop) */
 .panel-surface {
     background: oklch(var(--b1));
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.search-input-container {
+    margin-bottom: 1rem;
+}
+
+.search-input-container input {
+    font-size: 1rem;
+}
+
 /* ==========================================================================
-   Two-column layout: left rail (faucets) + results
+   Filter panel — desktop: inline horizontal bar; mobile: off-canvas drawer
    ========================================================================== */
 
-.search-layout {
-    display: grid;
-    grid-template-columns: 1fr; /* mobile: rail stacks above results */
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    align-items: start;
-}
-
-@media (min-width: 1024px) {
-    .search-layout {
-        grid-template-columns: 18rem minmax(0, 1fr);
-    }
-
-    /* Rail follows the scroll on desktop; scrolls internally if taller than the
-       viewport so long filter sets never trap the results column. */
-    .search-rail {
-        position: sticky;
-        top: 80px;
-        max-height: calc(100vh - 96px);
-        overflow-y: auto;
-    }
-}
-
-/* The rail is narrow (~18rem) at every viewport, so its faucet controls always
-   stack vertically — override the horizontal flex / md:grid-cols-3 the filter
-   bar uses when laid out wide. Markup + hx-* are untouched; this is CSS only. */
-.search-rail .filter-bar > .flex {
+/* Mobile-first: the panel is an off-canvas drawer sliding in from the right.
+   It sits BETWEEN the app chrome — below the sticky top navbar (57px incl.
+   border) and above the fixed bottom nav (h-16 = 64px) — so the drawer and its
+   header/footer never collide with either bar, and no z-index stacking games
+   are needed. Desktop resets these to a static inline bar below. */
+.search-filters {
+    position: fixed;
+    top: 57px;
+    right: 0;
+    bottom: 64px;
+    width: min(22rem, 88vw);
+    z-index: 45;
+    display: flex;
     flex-direction: column;
-    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+    background: oklch(var(--b1));
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.18);
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
 }
 
-.search-rail .filter-bar > .grid {
-    grid-template-columns: 1fr;
+.search-filters.is-open {
+    transform: translateX(0);
+}
+
+/* Drawer chrome (mobile only — hidden on desktop via the desktop media query).
+   Both are sticky within the scrolling drawer so the ✕ and the "Show results"
+   action stay reachable no matter how far the filter list is scrolled. */
+.search-filters-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.75rem;
+    background: oklch(var(--b1));
+    border-bottom: 1px solid oklch(var(--bc) / 0.1);
+}
+
+.search-filters-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    background: oklch(var(--b1));
+    border-top: 1px solid oklch(var(--bc) / 0.1);
+}
+
+/* Backdrop behind the mobile drawer — dims the content area between the chrome
+   bars (matching the drawer inset) so the navbar and bottom nav stay bright. */
+.filters-backdrop {
+    position: fixed;
+    top: 57px;
+    bottom: 64px;
+    left: 0;
+    right: 0;
+    z-index: 44;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+/* Primary dropdown row — stacks in the mobile drawer */
+.filter-primary {
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
 }
 
-.search-rail .context-filters > .flex {
-    flex-direction: column;
-    align-items: stretch;
+.filter-advanced {
+    padding-top: 1rem;
+    border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
-/* Let min-w-[150px]/min-w-[140px] faucet wrappers shrink to the rail width. */
-.search-rail [class*="min-w-"] {
-    min-width: 0 !important;
+/* Desktop: dissolve the drawer into a static, inline horizontal bar. */
+@media (min-width: 1024px) {
+    .search-filters {
+        position: static;
+        width: auto;
+        transform: none;
+        overflow: visible;
+        gap: 0;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-primary {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 1rem;
+    }
+
+    .filter-advanced {
+        margin-top: 1rem;
+    }
+
+    .more-filters-toggle {
+        margin-left: auto;
+    }
+
+    /* Drawer-only chrome — hidden on desktop. These win over Tailwind's
+       `lg:hidden` because search.css loads after the Tailwind bundle and the
+       base rules above set an explicit `display`, so the class alone can't. */
+    .search-filters-header,
+    .search-filters-footer {
+        display: none;
+    }
 }
 
 /* Active filter badges */
 .active-filters {
-    padding: 0.5rem 0;
+    padding: 0.25rem 0 0.75rem;
 }
 
 .active-filters .badge {
@@ -99,12 +173,8 @@
     opacity: 1;
 }
 
-.search-input-container input {
-    font-size: 1rem;
-}
-
 /* Filter dropdowns */
-.filter-bar select,
+.filter-primary select,
 .context-filters select {
     font-size: 0.875rem;
 }
@@ -121,17 +191,6 @@
 /* Graph context badges */
 .badge {
     font-weight: 500;
-}
-
-/* Mobile: tighter page padding; rail already stacks via .search-layout. */
-@media (max-width: 768px) {
-    .search-main {
-        padding: 1rem;
-    }
-
-    .active-filters .flex {
-        flex-wrap: wrap;
-    }
 }
 
 /* Smooth transitions for filter visibility */

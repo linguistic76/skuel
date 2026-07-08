@@ -115,19 +115,27 @@ ui/
 
 All components are defined in `/static/js/skuel.js` using `Alpine.data()`:
 
-### searchSidebar()
+### searchFilters()
 
-Collapsible sidebar with entity-type-aware filter visibility.
+Drives the `/search` facet bar: a horizontal filter bar on desktop (with a
+"More filters" disclosure) that becomes an off-canvas drawer on mobile.
 
 **State:**
-- `collapsed`: boolean - Sidebar collapsed state (persisted in localStorage)
-- `isMobile`: boolean - Viewport width detection
-- `entityType`: string - Current entity type for filter filtering
+- `entityType`: string - Current entity type (drives context-filter visibility)
+- `filtersOpen`: boolean - Mobile: off-canvas filter drawer open?
+- `moreFilters`: boolean - Desktop: advanced facets revealed?
+- `isDesktop`: boolean - ≥1024px, set from `matchMedia` in `init()`
+- `filterCount`: number - Active facets, shown on the mobile trigger badge
+
+**Computed (getters):**
+- `showContextFilters` / `contextFilterLabel` - Tier 2 (entity-type) filters
+- `hasActiveFilters` - any facet or entity type active
 
 **Methods:**
-- `toggle()` - Toggle collapsed state
-- `isFilterVisible(group)` - Check if filter group should show
-- `setEntityType(type)` - Update entity type
+- `isFilterVisible(group)` - Check if a Tier 2 filter group should show
+- `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`)
+- `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
+- `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
 
 ### calendarPage()
 

@@ -312,6 +312,12 @@
                 entityType: '',
                 showAdvanced: false,
 
+                // Layout state (horizontal bar + mobile drawer)
+                filtersOpen: false,   // mobile: off-canvas filter drawer open?
+                moreFilters: false,   // desktop: advanced facets revealed?
+                isDesktop: true,      // ≥1024px — set from matchMedia in init()
+                filterCount: 0,       // active facets, shown on the mobile trigger badge
+
                 // Entity type to filter group mapping
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],
@@ -354,7 +360,22 @@
 
                 // Computed: has any active filters
                 get hasActiveFilters() {
-                    return this.entityType !== '';
+                    return this.filterCount > 0 || this.entityType !== '';
+                },
+
+                // Count active facets: non-empty selects (Sort's 'relevance' default
+                // excluded) + checked checkboxes, scoped to the filter panel. Driven
+                // by x-on:change on .search-filters, so it re-tallies as controls move.
+                updateFilterCount: function() {
+                    var root = this.$root;
+                    var count = 0;
+                    root.querySelectorAll('.search-filters select').forEach(function(sel) {
+                        if (sel.value && sel.value !== 'relevance') count++;
+                    });
+                    root.querySelectorAll('.search-filters input[type="checkbox"]').forEach(function(cb) {
+                        if (cb.checked) count++;
+                    });
+                    this.filterCount = count;
                 },
 
                 isFilterVisible: function(group) {
@@ -421,6 +442,8 @@
                         cb.checked = false;
                     });
 
+                    this.filterCount = 0;
+
                     // Trigger search update
                     var firstSelect = document.querySelector('[name="entity_type"]');
                     if (firstSelect) {
@@ -429,7 +452,19 @@
                 },
 
                 init: function() {
-                    // Nothing special needed for horizontal layout
+                    // Track viewport so the advanced facets can be desktop-collapsible
+                    // yet always shown inside the mobile drawer. Close a stray-open
+                    // drawer when the viewport grows to desktop.
+                    var self = this;
+                    var mq = window.matchMedia('(min-width: 1024px)');
+                    this.isDesktop = mq.matches;
+                    mq.addEventListener('change', function(e) {
+                        self.isDesktop = e.matches;
+                        if (e.matches) self.filtersOpen = false;
+                    });
+
+                    // Seed the active-filter count (filters may be pre-checked on load)
+                    this.updateFilterCount();
                 }
             };
         });

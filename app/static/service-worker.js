@@ -5,6 +5,9 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v5 -> v6 to purge the stale static cache holding the pre-redesign
+// search.css + skuel.js (the /search facets moved from a left rail back to a
+// horizontal bar with a "More filters" disclosure + mobile filter drawer).
 // Bumped v4 -> v5 to purge the stale static cache holding the pre-fix skuel.js
 // (the /search "Ask" verb read facets off $el instead of $root — PR #556). The
 // `activate` handler below deletes any cache whose key != the current versioned
@@ -16,7 +19,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v5';
+const CACHE_VERSION = 'skuel-v6';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
