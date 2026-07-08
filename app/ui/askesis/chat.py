@@ -462,9 +462,12 @@ def _composer_form(
     # fires a real submit event so HTMX's hx-post handles it AND `required`
     # validation still runs. This is a USER keystroke, not an auto-run, so it
     # keeps the "never auto-submit a handoff" guarantee above intact.
-    textarea_extras: dict[str, Any] = {
+    # isComposing / keyCode 229 guard: with a CJK IME, Enter COMMITS the active
+    # composition — never treat that Enter as a send, or the box is unusable for
+    # Japanese/Chinese/Korean input.
+    textarea_extras: dict[str, str | bool] = {
         "onkeydown": (
-            "if(event.key==='Enter'&&!event.shiftKey)"
+            "if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229)"
             "{event.preventDefault();this.form.requestSubmit();}"
         ),
     }
