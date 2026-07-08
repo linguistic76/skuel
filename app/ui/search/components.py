@@ -80,7 +80,7 @@ async def render_search_page_with_navbar(
     Returns:
         Complete HTML page using unified BasePage layout
     """
-    content = _render_horizontal_layout(nous_topics or [], nous_subtopics or [], ask_enabled)
+    content = _render_search_layout(nous_topics or [], nous_subtopics or [], ask_enabled)
 
     return await BasePage(
         content=content,
@@ -92,40 +92,50 @@ async def render_search_page_with_navbar(
     )
 
 
-def _render_horizontal_layout(
+def _render_search_layout(
     nous_topics: list[str], nous_subtopics: list[str], ask_enabled: bool = False
 ) -> Div:
     """
-    Horizontal filter layout for search.
+    Two-column search layout: a left rail of faucets beside the results.
 
-    Returns the container structure with filters above search bar.
-    Uses Alpine.js for filter visibility and expand/collapse.
+    The query box (+ Ask verb) and active-filter badges span the top; below them a
+    responsive grid places the filter faucets (Tier 1 filter bar + Tier 2 context
+    filters) in a sticky left rail and the results in the main column. Collapses to
+    a single stacked column on narrow viewports (see search.css `.search-layout`).
+    Faucet markup and every hx-get/hx-include are unchanged — this is layout only.
+    Alpine.js still drives filter visibility and expand/collapse.
     """
     return Div(
         Div(
-            # Filter Bar (Tier 1 - All filters always visible)
-            NotStr(_render_filter_bar(nous_topics, nous_subtopics)),
-            # Context Filters (Tier 2 - Expandable based on entity type)
-            NotStr(_render_context_filters()),
-            # Active Filter Badges
-            NotStr(_render_active_filter_badges()),
-            # Search Input (+ Ask verb when FULL tier)
+            # Search Input (+ Ask verb when FULL tier) — spans the top
             NotStr(_render_search_input(ask_enabled)),
-            # Results Container
+            # Active Filter Badges — below the query, above the rail/results
+            NotStr(_render_active_filter_badges()),
+            # Two-column grid: left rail (faucets) + results
             Div(
+                # Left rail — Tier 1 filter bar + Tier 2 context filters
                 Div(
-                    P("🔍", cls="text-5xl mb-4"),
-                    P("Enter a search query to begin", cls="text-xl"),
-                    P(
-                        "Use the filters above to refine your results",
-                        cls="text-sm mt-2 text-muted-foreground",
-                    ),
-                    cls="text-center text-muted-foreground py-16",
+                    NotStr(_render_filter_bar(nous_topics, nous_subtopics)),
+                    NotStr(_render_context_filters()),
+                    cls="search-rail",
                 ),
-                id="search-results",
-                cls="mt-6",
+                # Results column
+                Div(
+                    Div(
+                        P("🔍", cls="text-5xl mb-4"),
+                        P("Enter a search query to begin", cls="text-xl"),
+                        P(
+                            "Use the filters on the left to refine your results",
+                            cls="text-sm mt-2 text-muted-foreground",
+                        ),
+                        cls="text-center text-muted-foreground py-16",
+                    ),
+                    id="search-results",
+                    cls="search-results-col min-w-0",
+                ),
+                cls="search-layout",
             ),
-            cls=f"search-main {Container.STANDARD} px-4 py-8",
+            cls=f"search-main {Container.WIDE} px-4 py-8",
         ),
         cls="search-container",
         **{"x-data": "searchFilters()"},
@@ -1166,7 +1176,7 @@ def render_empty_search_prompt() -> Div:
     """Render the empty state prompt for search."""
     return EmptyState(
         "Search or pick a filter to begin",
-        description="Type a query, or use the filters above to browse — a filter alone is enough.",
+        description="Type a query, or use the filters on the left to browse — a filter alone is enough.",
         icon="🔍",
         id="search-results",
         cls="py-16",
