@@ -374,8 +374,12 @@
                 // nous_subtopic) to Askesis as a scoped Ask. Reads the live inputs
                 // (they carry the truth via their `name` attrs) and builds
                 // /askesis?question=&nous=&nous_subtopic=.
+                // $root, NOT $el: invoked from the Ask button's x-on:click, where
+                // $el is the BUTTON (Alpine 3 binds $el to the element evaluating
+                // the expression) — button.querySelector found nothing, so every
+                // param read empty and Ask navigated to a bare /askesis.
                 askHref: function() {
-                    var root = this.$el;
+                    var root = this.$root;
                     var qEl = root.querySelector('[name="query"]');
                     var nousEl = root.querySelector('[name="nous"]');
                     var subEl = root.querySelector('[name="nous_subtopic"]');
