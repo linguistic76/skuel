@@ -869,34 +869,6 @@ def _render_search_input(ask_enabled: bool = False) -> str:
 # ============================================================================
 
 
-def _render_results_sort_dropdown() -> Any:
-    """Render sort dropdown for the results header area."""
-    sort_options = [
-        ("relevance", "Relevance"),
-        ("created_desc", "Newest First"),
-        ("created_asc", "Oldest First"),
-        ("updated_desc", "Recently Updated"),
-        ("priority_desc", "Highest Priority"),
-        ("due_date_asc", "Due Date (Soonest)"),
-        ("progress_desc", "Most Progress"),
-        ("streak_desc", "Longest Streak"),
-    ]
-
-    return Div(
-        Span("Sort:", cls="text-sm text-muted-foreground mr-2"),
-        NotStr(f"""
-        <select name="sort_order" id="sort-order-results" class="select select-bordered select-sm"
-                hx-get="/search/results"
-                hx-trigger="change"
-                hx-target="#search-results"
-                hx-include="{_get_hx_include("sort_order")}">
-            {"".join(f'<option value="{v}">{label}</option>' for v, label in sort_options)}
-        </select>
-        """),
-        cls="flex items-center",
-    )
-
-
 def render_search_results(response: SearchResponse) -> Any:
     """Render search results with calm design."""
     if not response.has_results():
@@ -919,31 +891,31 @@ def render_search_results(response: SearchResponse) -> Any:
     page_info = response.get_page_info()
 
     return Div(
-        # Results header with sort dropdown
+        # Results header — count summary only. Sort lives in the persistent left
+        # rail (_render_sort_select): a second sort_order <select> here would sit
+        # INSIDE #search-results — resetting to its default on every swap and
+        # colliding with the rail's control on hx-include (duplicate sort_order
+        # param, first-wins in Starlette). One control, outside the swap target.
         Div(
-            # Left side: Results count
-            Div(
-                H3(f"Found {response.total} results", cls="text-xl font-bold"),
-                P(
-                    f"Showing {page_info['showing_from']}-{page_info['showing_to']} of {page_info['total_results']}",
-                    cls="text-muted-foreground text-sm",
-                ),
-                P(
-                    f"Search completed in {response.search_time_ms:.0f}ms",
-                    cls="text-muted-foreground text-xs",
-                ),
+            H3(f"Found {response.total} results", cls="text-xl font-bold"),
+            P(
+                f"Showing {page_info['showing_from']}-{page_info['showing_to']} of {page_info['total_results']}",
+                cls="text-muted-foreground text-sm",
             ),
-            # Right side: Sort dropdown
-            _render_results_sort_dropdown(),
-            cls="flex justify-between items-start mb-6",
+            P(
+                f"Search completed in {response.search_time_ms:.0f}ms",
+                cls="text-muted-foreground text-xs",
+            ),
+            cls="mb-6",
         ),
         # Results grid with generous spacing
         Div(
             *[_render_result_card(result) for result in response.results],
             cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
         ),
-        # Pagination
-        _render_pagination(response) if response.has_more_pages() else None,
+        # Pagination — shown whenever the result set spans more than one page, so
+        # the LAST page still offers Previous (has_more_pages() is False there).
+        _render_pagination(response) if response.get_page_info()["total_pages"] > 1 else None,
         id="search-results",
         cls="mt-4",
     )
@@ -1119,10 +1091,21 @@ def _render_graph_context(context: dict) -> Any | None:
 
 
 def _render_pagination(response: SearchResponse) -> Any:
-    """Render pagination controls with calm design."""
+    """Render pagination controls with calm design.
+
+    Each control re-runs ``/search/results`` for the target page's offset,
+    passed via ``hx-vals`` (reliably included on GET) plus EVERY active filter
+    via ``hx-include`` — so paging preserves the query and all facets.
+
+    The previous version was inert: it put the offset in an ``href`` that
+    ``hx-get`` ignores (so the page never advanced), named a non-existent
+    ``domain`` field in ``hx-include`` while dropping most real filters, and the
+    numbered page links carried no ``hx-get`` at all.
+    """
     page_info = response.get_page_info()
     current_page = page_info["current_page"]
     total_pages = page_info["total_pages"]
+    include = _get_hx_include()  # all filters — pagination must carry every facet
 
     # SKUEL button class strings (mirror ui.components.Button + ButtonT, size="sm").
     btn_sm = (
@@ -1133,33 +1116,37 @@ def _render_pagination(response: SearchResponse) -> Any:
     btn_primary = "bg-primary text-primary-foreground hover:bg-primary/90"
     btn_disabled = "pointer-events-none opacity-50"
 
+    def page_link(label: str, offset: int, *, disabled: bool = False, current: bool = False) -> Any:
+        """One pagination control. Current page and disabled ends are inert Spans;
+        the rest are HTMX links that swap #search-results for the target offset."""
+        if current:
+            return Span(label, cls=f"{btn_sm} {btn_primary}")
+        if disabled:
+            return Span(label, cls=f"{btn_sm} {btn_disabled}")
+        return A(
+            label,
+            hx_get="/search/results",
+            hx_vals=f'{{"offset": {offset}}}',
+            hx_include=include,
+            hx_target="#search-results",
+            cls=f"{btn_sm} {btn_outline}",
+        )
+
     return Div(
         Div(
-            # Previous button
-            A(
+            page_link(
                 "« Previous",
-                href=f"?offset={max(0, response.offset - response.limit)}",
-                hx_get="/search/results",
-                hx_target="#search-results",
-                hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"{btn_sm} {btn_disabled if current_page <= 1 else btn_outline}",
+                max(0, response.offset - response.limit),
+                disabled=current_page <= 1,
             ),
-            # Page numbers (show current and surrounding pages)
             *[
-                A(
-                    str(page),
-                    cls=f"{btn_sm} {btn_primary if page == current_page else btn_outline}",
-                )
+                page_link(str(page), (page - 1) * response.limit, current=(page == current_page))
                 for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3))
             ],
-            # Next button
-            A(
+            page_link(
                 "Next »",
-                href=f"?offset={response.offset + response.limit}",
-                hx_get="/search/results",
-                hx_target="#search-results",
-                hx_include="[name='query'], [name='domain'], [name='sel_category'], [name='learning_level'], [name='content_type'], [name='educational_level']",
-                cls=f"{btn_sm} {btn_disabled if not response.has_more_pages() else btn_outline}",
+                response.offset + response.limit,
+                disabled=not response.has_more_pages(),
             ),
             cls="flex justify-center gap-1",
         ),
