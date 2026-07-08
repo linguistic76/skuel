@@ -11,6 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from typing import Any
 
 from core.models.resource.resource import Resource
+from core.models.type_hints import Neo4jProperties
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -50,11 +51,12 @@ class ResourceService:
         """
         return await self.backend.get(uid)
 
-    async def get_citing_entities(self, uid: str) -> Result[list[dict[str, Any]]]:
+    async def get_citing_entities(self, uid: str) -> Result[list[Neo4jProperties]]:
         """The citers behind the Resource detail page's "Cited by" section.
 
         Reverse CITES_RESOURCE traversal — the Kus / PathSteps that point at this
-        Resource, each with its citation locator. Backend: ResourceBackend.get_citing_entities.
+        Resource, each row carrying uid/title/entity_type/locator. Backend:
+        ResourceBackend.get_citing_entities.
         """
         result = await self.backend.get_citing_entities(uid)
         if result.is_error:

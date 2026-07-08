@@ -11,7 +11,7 @@ All service dependencies are required — bootstrap raises if any are missing
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class LibraryOrchestrator:
         """
         return await self._resource.get(uid)
 
-    async def get_citing_entities(self, uid: str) -> Result[list[Any]]:
+    async def get_citing_entities(self, uid: str) -> Result[list[Neo4jProperties]]:
         """Fetch the Kus / PathSteps that cite this Resource ("Cited by" section).
 
         Reverse CITES_RESOURCE traversal for the detail page's citation
