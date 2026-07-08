@@ -21,6 +21,7 @@ from fasthtml.common import H2, A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.result_helpers import require_found
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
@@ -31,12 +32,15 @@ from ui.components import ButtonT, Icon
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.learning_loop.exercise_status import (
     exercise_status_badge,
     exercise_status_key,
     render_exercise_list,
 )
+from ui.library.media_badge import media_badge
 from ui.library.nav import render_library_sidebar_page
+from ui.library.resource_detail import render_resource_detail, render_resource_not_found
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
@@ -45,27 +49,6 @@ from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 logger = get_logger("skuel.routes.library")
-
-
-# ============================================================================
-# TYPE BADGE HELPERS
-# ============================================================================
-
-_MEDIA_BADGE_MAP: dict[str, tuple[BadgeT | None, str]] = {
-    "book": (BadgeT.success, ""),
-    "talk": (BadgeT.info, ""),
-    "film": (None, "bg-purple-100 text-purple-800 border-purple-200"),
-    "podcast": (None, "bg-orange-100 text-orange-800 border-orange-200"),
-    "article": (BadgeT.warning, ""),
-    "music": (None, "bg-pink-100 text-pink-800 border-pink-200"),
-}
-
-
-def _media_badge(media_type: str | None) -> Any:
-    """Colored pill badge showing resource media type."""
-    label = (media_type or "content").title()
-    variant, custom_cls = _MEDIA_BADGE_MAP.get(media_type or "", (BadgeT.neutral, ""))
-    return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
 # ============================================================================
@@ -176,7 +159,7 @@ def render_resource_list(resources: list[Any]) -> Div:
 
         row = Div(
             Div(
-                _media_badge(r.media_type),
+                media_badge(r.media_type),
                 Span(
                     r.title or r.uid,
                     cls="text-sm font-medium text-foreground ml-2",
@@ -353,6 +336,36 @@ def create_library_ui_routes(
             return fragment
         return await render_library_sidebar_page(
             content=Div(fragment), active="resources", request=request
+        )
+
+    # ========================================================================
+    # RESOURCE DETAIL — the citation click destination
+    # ========================================================================
+
+    @rt("/library/resources/get")
+    async def library_resource_detail(request: Request, uid: str = "") -> Any:
+        """Per-Resource descriptor page — the citation click destination.
+
+        PUBLIC read: Resource is SHARED/CURATED content, so this matches the
+        /library/resources list (no auth gate). The chips that link here live on
+        public PathStep/Ku pages, so the destination must be public too.
+
+        Full-page navigation (the chip is a plain <a href>), not an HTMX
+        fragment — reading-first BasePage matching /explore/ku and /explore/ps.
+        """
+        found = require_found(await orchestrator.get_resource(uid), "Resource", uid)
+        if found.is_error:
+            logger.info("Library: resource detail miss for uid=%s", uid)
+            content: Any = render_resource_not_found(uid)
+        else:
+            content = render_resource_detail(found.value)
+
+        return await BasePage(
+            content=content,
+            title="Resource",
+            page_type=PageType.CUSTOM,
+            request=request,
+            active_page="library",
         )
 
     # ========================================================================
@@ -536,7 +549,7 @@ def create_library_ui_routes(
         cards = []
         for res in resources:
             media_type = getattr(res, "media_type", None)
-            badge = _media_badge(media_type) if media_type else None
+            badge = media_badge(media_type) if media_type else None
             cards.append(
                 HubPreviewCard(
                     title=getattr(res, "title", res.uid) or res.uid,

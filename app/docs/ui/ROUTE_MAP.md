@@ -99,6 +99,7 @@ MOC root page (no sidebar) — four cards linking to the four Library sub-pages.
 
 - `/library/exercises` — exercises assigned via group membership, with submission and feedback status.
 - `/library/resources` — admin-curated content (books, talks, films, podcasts, articles).
+- `/library/resources/get?uid=…` — per-Resource descriptor page (reading-first BasePage, no sidebar). **Public** (Resource is SHARED/CURATED) — the citation click destination for the CITES_RESOURCE chips on PathStep/Ku detail pages; carries the external "Open source →" link.
 - `/library/ku` — user's bookmarked atomic knowledge units.
 - `/library/path-steps` — user's enrolled path steps.
 
