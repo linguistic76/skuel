@@ -368,6 +368,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [SKUEL Intelligence Roadmap](intelligence/INTELLIGENCE_ROADMAP.md) | 2025-11-27 | 214 |
 | [Semantic Analysis Implementation Roadmap](intelligence/SEMANTIC_ANALYSIS_ROADMAP.md) | 2025-11-27 | 153 |
 | [Ultimate Search Intelligence - Aspirational Vision](intelligence/ULTIMATE_VISION.md) | 2025-11-27 | 226 |
+| [Resources/ Reference Library — Ingestion Roadmap](roadmap/resources-reference-library.md) | 2026-07-08 | 100 |
 
 ## Features
 
