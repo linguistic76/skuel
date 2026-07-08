@@ -73,6 +73,14 @@ class ExploreOrchestrator:
         """Get a user's learning state for a specific KU."""
         return await self._ku.get_ku_learning_state(user_uid, ku_uid)
 
+    async def get_ku_cited_resources(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get the curated Resources a Ku cites (CITES_RESOURCE edges).
+
+        Named distinctly from the PathStep ``get_cited_resources`` so the two
+        entity paths stay unambiguous.
+        """
+        return await self._ku.get_cited_resources(ku_uid)
+
     async def assess_ku_mastery(
         self,
         user_uid: UserUID,

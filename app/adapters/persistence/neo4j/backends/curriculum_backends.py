@@ -56,6 +56,24 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
+    async def get_cited_resources(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
+        """Get the curated Resources this Ku cites via CITES_RESOURCE.
+
+        Focused traversal on the Ku backend (the entity-agnostic
+        ``_KnowledgeContextMixin.get_cited_resources`` is PS-oriented and not
+        mixed into this lightweight backend). Rows are ``{"resource": {...}}``;
+        the service flattens them for the shared resource chip.
+        """
+        query = """
+        MATCH (source:Entity {uid: $ku_uid})-[:CITES_RESOURCE]->(r:Resource)
+        RETURN r {.*} AS resource
+        ORDER BY r.title
+        """
+        result = await self.execute_query(query, {"ku_uid": ku_uid})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     async def get_usage_summary(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Count path steps using (USES_KU), training (TRAINS_KU), and organized children."""
         query = """

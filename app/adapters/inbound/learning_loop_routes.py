@@ -177,6 +177,14 @@ def create_learning_loop_detail_routes(
                 is_pinned = uid in set(pins_result.value)
             mastery_checkins = await _load_ku_mastery_checkins(user_service, user_uid, uid)
 
+        # Curated Resources this Ku cites (CITES_RESOURCE) — reference chips.
+        # Fetched regardless of auth: Resources are public and the chip links to
+        # a public detail page (parity with the PathStep Resources section).
+        resources: list[dict] = []
+        resources_result = await orchestrator.get_ku_cited_resources(uid)
+        if resources_result.is_ok and resources_result.value:
+            resources = list(resources_result.value)
+
         # Lesson body (:Content subtree) when the Ku has one; the frontmatter
         # description remains the fallback for reference-only Kus.
         content_html, _ = render_markdown_with_toc(ku_body or ku.description or "")
@@ -189,6 +197,7 @@ def create_learning_loop_detail_routes(
             is_pinned=is_pinned,
             user_uid=user_uid,
             mastery_checkins=mastery_checkins,
+            resources=resources,
         )
 
     # -----------------------------------------------------------------

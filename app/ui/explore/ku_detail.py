@@ -31,6 +31,7 @@ from fasthtml.common import (
 from core.models.type_hints import EntityUID
 from ui.components import Icon
 from ui.explore.ku_mastery import render_ku_mastery_section
+from ui.library.resource_chip import resource_chip
 from ui.patterns.pin_button import PinButton
 from ui.patterns.relationships import EntityRelationshipsSection
 
@@ -77,12 +78,18 @@ def render_ku_detail_content(
     is_pinned: bool,
     user_uid: str | None,
     mastery_checkins: list[dict] | None = None,
+    resources: list[dict] | None = None,
 ) -> Div:
     """Reading-first Ku detail content fragment.
 
     Serves as the HTMX fragment for GET /explore/ku/{uid}/content.
     The Alpine component (kuReading) is registered in ku-reading.js,
     loaded in the shell before the fragment arrives.
+
+    Args:
+        resources: Curated Resources this Ku cites (CITES_RESOURCE) — rendered
+            as reference chips in a bottom-of-page "Resources" section, mirroring
+            the PathStep detail page. SKUEL points at the source; the human reads it.
     """
     status = (
         "understood"
@@ -109,6 +116,8 @@ def render_ku_detail_content(
         if user_uid
         else [_relationships_section(uid)]
     )
+    if resources:
+        post_read.append(_resources_section(resources))
 
     return Div(
         _back_link(),
@@ -253,6 +262,34 @@ def _relationships_section(uid: str) -> "FT":
         cls="mb-9",
         role="region",
         **{"aria-labelledby": "rel-heading"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Resources section
+# ---------------------------------------------------------------------------
+
+
+def _resources_section(resources: list[dict]) -> "FT":
+    """Curated Resources this Ku cites (CITES_RESOURCE edges).
+
+    Each chip links to the in-app Resource detail page (the citation click
+    destination); the external source link lives there. Parity with the
+    PathStep "Resources" section. See ui/library/resource_chip.
+    """
+    return Section(
+        Div(
+            "Resources",
+            id="res-heading",
+            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+        ),
+        Div(
+            *[resource_chip(r) for r in resources if r.get("uid")],
+            cls="flex flex-wrap gap-2",
+        ),
+        cls="mb-9",
+        role="region",
+        **{"aria-labelledby": "res-heading"},
     )
 
 
