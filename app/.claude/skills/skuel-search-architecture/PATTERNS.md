@@ -53,7 +53,7 @@ top_10 = all_results.value.top_results  # Combined score: relevance 60% + priori
 
 **Problem**: Search with filters (status, priority, domain, learning level) plus graph patterns.
 
-**Context**: The search page with sidebar filters. User combines text query with enum-typed facets.
+**Context**: The search page with a horizontal filter bar (off-canvas drawer on mobile). User combines text query with enum-typed facets.
 
 **Solution**:
 ```python
