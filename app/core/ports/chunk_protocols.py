@@ -27,15 +27,19 @@ class BatchChunkingCandidate(TypedDict):
     """One :Content row needing chunk regeneration.
 
     Shape returned by the candidate-discovery Cypher in
-    ``BatchChunkingBackend.fetch_regeneration_candidates`` — three Neo4j
-    columns: ``c.uid``, ``c.body``, ``c.format``. The query guards ``body``
-    against null/empty, but ``format`` is returned as-is, so it may be
-    ``None`` for legacy content that predates the format field.
+    ``BatchChunkingBackend.fetch_regeneration_candidates`` — four Neo4j
+    columns: ``c.uid``, ``c.body``, ``c.format``, and the parent's domain
+    ``entity_label``. The query guards ``body`` against null/empty, but
+    ``format`` is returned as-is, so it may be ``None`` for legacy content that
+    predates the format field. ``entity_label`` is the parent Entity's domain
+    label (e.g. ``"Ku"``, ``"PathStep"``) — used to resolve per-domain chunking
+    params; ``None`` when no parent Entity is linked (falls back to defaults).
     """
 
     uid: str
     body: str
     format: str | None
+    entity_label: str | None
 
 
 @runtime_checkable

@@ -23,6 +23,7 @@ Architecture:
 from typing import TypedDict
 
 from core.models.ps_content.content import CurriculumContent
+from core.models.ps_content.content_chunks import DEFAULT_CHUNKING_PARAMS, ChunkingParams
 from core.models.ps_content.content_metadata import ContentMetadata
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -94,6 +95,7 @@ class EntityChunkingService:
         content_body: str,
         format: str = "markdown",
         source_path: str | None = None,
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
     ) -> Result[tuple[CurriculumContent, ContentMetadata]]:
         """
         Process knowledge content during ingestion (simplified interface).
@@ -107,6 +109,7 @@ class EntityChunkingService:
             content_body: The raw content text
             format: Content format (markdown/html/text)
             source_path: Original file path if imported
+            params: Per-domain chunk-size knobs (defaults to DEFAULT_CHUNKING_PARAMS)
 
         Returns:
             Result containing tuple of (CurriculumContent, ContentMetadata)
@@ -114,7 +117,11 @@ class EntityChunkingService:
         try:
             # Create CurriculumContent with automatic chunking
             content = CurriculumContent.create(
-                unit_uid=parent_uid, body=content_body, format=format, source_path=source_path
+                unit_uid=parent_uid,
+                body=content_body,
+                format=format,
+                source_path=source_path,
+                chunking_params=params,
             )
 
             # Generate metadata from content

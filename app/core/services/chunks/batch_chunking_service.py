@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
+from core.services.ingestion.config import resolve_chunking_params_for_label
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -177,10 +178,15 @@ class BatchChunkingService:
 
         stats.processed += 1
 
+        # Honor the same per-domain chunk-size knobs the ingest door uses, so a
+        # diverged domain re-chunks under its own params (not the defaults).
+        params = resolve_chunking_params_for_label(candidate.get("entity_label"))
+
         chunk_result = await self.chunking_service.process_content_for_ingestion(
             parent_uid=parent_uid,
             content_body=body,
             format=fmt,
+            params=params,
         )
 
         if chunk_result.is_error:

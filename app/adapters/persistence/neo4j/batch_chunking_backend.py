@@ -61,7 +61,9 @@ class BatchChunkingBackend:
         WHERE c.body IS NOT NULL AND c.body <> ''
         {uid_filter}
         {where_clause}
-        RETURN c.uid AS uid, c.body AS body, c.format AS format
+        OPTIONAL MATCH (parent:Entity)-[:HAS_CONTENT]->(c)
+        RETURN c.uid AS uid, c.body AS body, c.format AS format,
+               [l IN labels(parent) WHERE l <> 'Entity'][0] AS entity_label
         """
 
         params: dict[str, Any] = {"current_version": current_version}
