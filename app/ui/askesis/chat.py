@@ -458,6 +458,30 @@ def _composer_form(
         ),
     }
 
+    # Composer affordances. Enter sends (Shift+Enter = newline) — requestSubmit()
+    # fires a real submit event so HTMX's hx-post handles it AND `required`
+    # validation still runs. This is a USER keystroke, not an auto-run, so it
+    # keeps the "never auto-submit a handoff" guarantee above intact.
+    # isComposing / keyCode 229 guard: with a CJK IME, Enter COMMITS the active
+    # composition — never treat that Enter as a send, or the box is unusable for
+    # Japanese/Chinese/Korean input.
+    textarea_extras: dict[str, str | bool] = {
+        "onkeydown": (
+            "if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229)"
+            "{event.preventDefault();this.form.requestSubmit();}"
+        ),
+    }
+    # Handoff arrival (/search "Ask"): focus the prefilled question, size the box
+    # to its content, and drop the cursor at the end so a single Enter sends it.
+    if initial_question:
+        textarea_extras["autofocus"] = True
+        textarea_extras["x-init"] = (
+            "$el.style.height='auto';"
+            "$el.style.height=Math.min($el.scrollHeight,200)+'px';"
+            "$el.focus();"
+            "$el.setSelectionRange($el.value.length,$el.value.length)"
+        )
+
     return Form(
         Input(type="hidden", name="mode", **{":value": "responseMode"}),
         # Hidden fields carry the active scope with every submit (bound to root state).
@@ -473,6 +497,7 @@ def _composer_form(
             style="max-height:200px; overflow:hidden;",
             oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,200)+'px'",
             required=True,
+            **textarea_extras,
         ),
         Div(
             Div(
@@ -513,6 +538,7 @@ def _send_btn() -> Any:
         cls="w-[34px] h-[34px] rounded-full flex items-center justify-center bg-foreground hover:bg-foreground/80 transition-colors",
         type="submit",
         aria_label="Send message",
+        title="Send (Enter)",
     )
 
 
