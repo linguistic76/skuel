@@ -21,6 +21,7 @@ import pytest
 from core.models.enums import (
     ContentType,
     Domain,
+    EntityStatus,
     EntityType,
     LearningLevel,
     Priority,
@@ -107,6 +108,56 @@ class TestFromFormParamsEmptyQuery:
         assert request.learning_level == LearningLevel.BEGINNER
         assert request.content_type == ContentType.PRACTICE
         assert request.has_any_criteria() is True
+
+
+class TestFromFormParamsTolerantFacets:
+    """An unrecognized enum facet value drops to None (no filter) — it must not
+    abort the whole search.
+
+    Facet values arrive from the client and can be stale: a service-worker- or
+    bfcache-cached older page after a deploy, a hand-edited URL, a replayed
+    request. Before this, ``from_form_params`` fed each facet straight into its
+    enum constructor, so one junk value (observed live: ``priority='u=4'`` from a
+    stale client) raised ``ValueError`` and the route rendered "Invalid filter
+    selection", killing an otherwise-valid search.
+    """
+
+    def test_unknown_priority_is_dropped(self) -> None:
+        request = SearchRequest.from_form_params(query="test", priority="u=4")
+        assert request.priority is None
+        assert request.query_text == "test"
+
+    def test_valid_priority_is_preserved(self) -> None:
+        request = SearchRequest.from_form_params(query="test", priority="high")
+        assert request.priority == Priority.HIGH
+
+    def test_bad_facet_does_not_drop_sibling_valid_facets(self) -> None:
+        # A junk priority must not take down the whole request — the valid
+        # status facet survives and the search still runs.
+        request = SearchRequest.from_form_params(
+            query="", priority="u=4", status="draft", learning_level="bogus"
+        )
+        assert request.priority is None
+        assert request.learning_level is None
+        assert request.status == EntityStatus.DRAFT
+        assert request.has_any_criteria() is True
+
+    def test_all_enum_facets_tolerate_junk(self) -> None:
+        request = SearchRequest.from_form_params(
+            query="test",
+            status="nope",
+            priority="nope",
+            sel_category="nope",
+            learning_level="nope",
+            content_type="nope",
+            educational_level="nope",
+        )
+        assert request.status is None
+        assert request.priority is None
+        assert request.sel_category is None
+        assert request.learning_level is None
+        assert request.content_type is None
+        assert request.educational_level is None
 
 
 class TestCrossDomainRoutesRelationshipOnly:

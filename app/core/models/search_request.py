@@ -57,7 +57,8 @@ One Path Forward (January 2026):
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from enum import StrEnum
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -73,6 +74,30 @@ from core.models.enums import (
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_filters import RelationshipFilters
 from core.models.type_hints import UserUID
+from core.utils.logging import get_logger
+
+logger = get_logger("skuel.models.search_request")
+
+_StrEnumT = TypeVar("_StrEnumT", bound=StrEnum)
+
+
+def _facet_enum_or_none(enum_cls: type[_StrEnumT], value: str | None) -> _StrEnumT | None:
+    """Coerce a raw facet string to an enum member, or None if unrecognized.
+
+    Facet values arrive from the client and can be stale — a service-worker- or
+    bfcache-cached older page after a deploy, a hand-edited URL, a replayed
+    request. A garbage value must degrade to "no filter", never abort the whole
+    search: dropping one unknown facet is the graceful path and matches
+    filter-only faceted search (a filter alone is a valid search).
+    """
+    if not value:
+        return None
+    try:
+        return enum_cls(value)
+    except ValueError:
+        logger.warning("Ignoring unrecognized %s search facet value: %r", enum_cls.__name__, value)
+        return None
+
 
 # ============================================================================
 # FACET MODELS
@@ -681,13 +706,13 @@ class SearchRequest(BaseModel):
             # bare "" would otherwise trip validate_query_text.
             query_text=_none_if_empty(query),
             entity_types=parsed_entity_types,
-            status=EntityStatus(status) if status else None,
-            priority=Priority(priority) if priority else None,
+            status=_facet_enum_or_none(EntityStatus, status),
+            priority=_facet_enum_or_none(Priority, priority),
             extended_facets=extended_facets if extended_facets else None,
-            sel_category=SELCategory(sel_category) if sel_category else None,
-            learning_level=LearningLevel(learning_level) if learning_level else None,
-            content_type=ContentType(content_type) if content_type else None,
-            educational_level=EducationalLevel(educational_level) if educational_level else None,
+            sel_category=_facet_enum_or_none(SELCategory, sel_category),
+            learning_level=_facet_enum_or_none(LearningLevel, learning_level),
+            content_type=_facet_enum_or_none(ContentType, content_type),
+            educational_level=_facet_enum_or_none(EducationalLevel, educational_level),
             ready_to_learn=_checkbox_to_bool(ready_to_learn),
             builds_on_mastered=_checkbox_to_bool(builds_on_mastered),
             in_active_path=_checkbox_to_bool(in_active_path),
