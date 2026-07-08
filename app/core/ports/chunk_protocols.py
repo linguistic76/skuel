@@ -58,6 +58,7 @@ class BatchChunkingOperations(Protocol):
         parent_uids: list[str] | None,
         force: bool,
         current_version: str,
+        expected_by_label: dict[str, str] | None = None,
     ) -> list[BatchChunkingCandidate]:
         """Return :Content rows needing regeneration.
 
@@ -67,9 +68,14 @@ class BatchChunkingOperations(Protocol):
             force: When ``True``, return every parent with a non-empty body —
                 no version-staleness predicate. When ``False``, return only
                 parents with no chunks or whose chunks carry a
-                ``chunking_version`` other than ``current_version``.
-            current_version: The chunking algorithm version. Used only as a
-                filter when ``force`` is ``False``; ignored otherwise.
+                ``chunking_version`` other than the unit's *expected* tag.
+            current_version: Fallback expected tag for any parent whose domain
+                label is not in ``expected_by_label``. Used only when ``force``
+                is ``False``; ignored otherwise.
+            expected_by_label: Parent domain label → expected chunk-version tag,
+                for domains whose ``ChunkingParams`` diverge from the default.
+                Absent/empty (every domain on defaults) → all units compare
+                against ``current_version``.
 
         Returns:
             Candidate rows shaped by ``BatchChunkingCandidate``. Empty when
