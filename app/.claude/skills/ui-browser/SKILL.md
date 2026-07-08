@@ -174,12 +174,15 @@ Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js", defer=True)
 
 | Property | Purpose |
 |----------|---------|
-| `$el` | Current element |
+| `$el` | Element evaluating the CURRENT expression — in a method called from a descendant's `x-on:click`, `$el` is that descendant, NOT the component root |
+| `$root` | The `x-data` root element — use this to `querySelector` within the component |
 | `$refs` | Named element references |
 | `$store` | Global Alpine store |
 | `$watch` | Watch data changes |
 | `$dispatch` | Dispatch custom event |
 | `$nextTick` | Run after DOM update |
+
+**`$el` vs `$root` gotcha:** a component method that does `this.$el.querySelector(...)` works when invoked during `init()` (there `$el` IS the root) but silently scopes to the triggering element when invoked from a descendant's event handler — queries return null and reads come back empty. Bug class caught live on /search's Ask button (`askHref`, 2026-07-07). Rule: `this.$root` for component-scoped queries; `this.$el` only when you mean "the element this expression is on."
 
 ### x-show vs x-if
 
