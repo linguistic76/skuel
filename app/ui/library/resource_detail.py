@@ -53,13 +53,16 @@ def render_resource_not_found(uid: str) -> Div:
     )
 
 
-def render_resource_detail(resource: Any) -> Div:
+def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
     """Rich descriptor card for one curated Resource — the citation destination.
 
     Args:
         resource: A ``Resource`` entity (title, media_type, author, publisher,
             publication_year, isbn, resource_duration_minutes, description, tags,
             source_url).
+        cited_by: Flat rows (uid, title, entity_type, locator) for the Kus /
+            PathSteps that cite this Resource — the reciprocal of the citation
+            chip. Empty renders no "Cited by" section.
     """
     title = getattr(resource, "title", "") or resource.uid
     media_type = getattr(resource, "media_type", None)
@@ -98,6 +101,7 @@ def render_resource_detail(resource: Any) -> Div:
             **{"aria-labelledby": "resource-title"},
         ),
         _annotation_section(annotation),
+        _cited_by_section(cited_by),
         _tags_section(tags),
         _footer_nav(),
         cls=_COLUMN_CLS,
@@ -201,6 +205,69 @@ def _annotation_section(description: str) -> "FT":
         role="region",
         **{"aria-labelledby": "resource-about-h"},
     )
+
+
+# entity_type → (detail-page url prefix, display label). Only Ku/PathStep cite
+# today, but the reverse traversal can in principle hit any :Entity — an unknown
+# type falls back to a plain non-linked label (never a broken href).
+_CITER_ROUTES: dict[str, tuple[str, str]] = {
+    "ku": ("/explore/ku/", "Ku"),
+    "path_step": ("/explore/ps/", "PathStep"),
+}
+
+
+def _cited_by_section(cited_by: tuple | list) -> "FT":
+    """Reciprocal of the citation chip — the Kus / PathSteps that cite this Resource.
+
+    Each row links to the citer's detail page and shows the citation locator
+    ("· ch. 4") when the edge carries one. Empty renders no section.
+    """
+    rows = list(cited_by)
+    if not rows:
+        return Div()
+    return Section(
+        H2(
+            "Cited by",
+            id="resource-cited-by-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        Div(
+            *[_cited_by_row(row) for row in rows],
+            cls="flex flex-col gap-2",
+        ),
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "resource-cited-by-h"},
+    )
+
+
+def _cited_by_row(row: dict) -> "FT":
+    """One citer as a reference row — links to its detail page, shows the locator."""
+    uid = row.get("uid") or ""
+    title = row.get("title") or uid
+    entity_type = row.get("entity_type") or ""
+    locator = row.get("locator")
+    route = _CITER_ROUTES.get(entity_type)
+
+    inner = [
+        Icon("book-open", cls="w-3.5 h-3.5 shrink-0"),
+        Span(title, cls="font-medium"),
+        Span(f"· {route[1]}", cls="text-muted-foreground") if route else None,
+        Span(f"· {locator}", cls="text-muted-foreground") if locator else None,
+    ]
+    chip_cls = (
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
+        "border-border bg-muted/40 text-[13px] text-foreground"
+    )
+    if route:
+        return A(
+            *inner,
+            Icon("arrow-right", cls="w-3 h-3 shrink-0 text-muted-foreground"),
+            href=f"{route[0]}{uid}",
+            cls=f"{chip_cls} hover:bg-accent hover:text-accent-foreground",
+        )
+    # Unknown citer type — render a plain, non-linked label (never a broken href).
+    return Span(*inner, cls=chip_cls)
 
 
 def _tags_section(tags: tuple | list) -> "FT":
