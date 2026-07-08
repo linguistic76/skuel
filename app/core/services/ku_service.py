@@ -13,7 +13,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -211,6 +211,25 @@ class KuService:
                 Errors.system("KuService backend not configured for graph operations")
             )
         return await self.backend.get_path_steps_using(ku_uid)
+
+    async def get_cited_resources(self, ku_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get the curated Resources this Ku cites via CITES_RESOURCE.
+
+        Surfaces the citation "Resources" section on the Ku detail page,
+        mirroring the PathStep side. Flattens the backend's ``{"resource": {...}}``
+        rows to plain property dicts for the shared resource chip.
+        """
+        if self.backend is None:
+            return Result.fail(
+                Errors.system("KuService backend not configured for graph operations")
+            )
+        result = await self.backend.get_cited_resources(ku_uid)
+        if result.is_error:
+            return Result.fail(result)
+        # Each row's "resource" is a nested Neo4j map (r {.*}) — a dict, which the
+        # scalar Neo4jProperties value union can't express. cast at this boundary.
+        rows = [row["resource"] for row in (result.value or []) if row.get("resource")]
+        return Result.ok(cast("list[dict[str, Any]]", rows))
 
     # =========================================================================
     # LEARNING STATE (Ku-native — two-tier: Studying + Understood)
