@@ -216,8 +216,9 @@ class KuService:
         """Get the curated Resources this Ku cites via CITES_RESOURCE.
 
         Surfaces the citation "Resources" section on the Ku detail page,
-        mirroring the PathStep side. Flattens the backend's ``{"resource": {...}}``
-        rows to plain property dicts for the shared resource chip.
+        mirroring the PathStep side. Flattens the backend's ``{"resource": {...},
+        "locator": ...}`` rows to plain property dicts for the shared resource
+        chip, merging the edge's ``locator`` free-string anchor when present.
         """
         if self.backend is None:
             return Result.fail(
@@ -228,8 +229,17 @@ class KuService:
             return Result.fail(result)
         # Each row's "resource" is a nested Neo4j map (r {.*}) — a dict, which the
         # scalar Neo4jProperties value union can't express. cast at this boundary.
-        rows = [row["resource"] for row in (result.value or []) if row.get("resource")]
-        return Result.ok(cast("list[dict[str, Any]]", rows))
+        out: list[dict[str, Any]] = []
+        for row in result.value or []:
+            res = row.get("resource")
+            if not res:
+                continue
+            merged = dict(cast("dict[str, Any]", res))
+            loc = row.get("locator")
+            if loc:
+                merged["locator"] = loc
+            out.append(merged)
+        return Result.ok(out)
 
     # =========================================================================
     # LEARNING STATE (Ku-native — two-tier: Studying + Understood)

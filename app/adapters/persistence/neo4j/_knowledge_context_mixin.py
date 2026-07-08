@@ -483,15 +483,18 @@ class _KnowledgeContextMixin:
             limit: Maximum number of resources to return.
 
         Returns:
-            List of records with 'resource' key containing resource properties.
+            List of records with a 'resource' key (resource properties) and a
+            'locator' key (the CITES_RESOURCE edge's free-string anchor, or null
+            for a whole-work citation).
         """
         query = """
-        MATCH (source:Entity)-[:CITES_RESOURCE]->(r:Resource)
+        MATCH (source:Entity)-[cite:CITES_RESOURCE]->(r:Resource)
         WHERE source.uid IN $source_uids
-        WITH r, min([i IN range(0, size($source_uids) - 1)
-                     WHERE $source_uids[i] = source.uid][0]) AS source_rank
+        WITH r, cite.locator AS locator,
+             min([i IN range(0, size($source_uids) - 1)
+                  WHERE $source_uids[i] = source.uid][0]) AS source_rank
         ORDER BY source_rank
-        RETURN r {.*} AS resource
+        RETURN r {.*} AS resource, locator
         LIMIT $limit
         """
         return await self.execute_query(query, {"source_uids": source_uids, "limit": limit})

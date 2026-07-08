@@ -772,12 +772,24 @@ class PsService:
         (Askesis traverses whole bundles); this facade scopes it to one step
         and flattens the ``{"resource": {...}}`` rows to plain property dicts.
         The explicit limit overrides the backend's bundle-oriented default of
-        20 so a heavily-cited step never silently drops citations.
+        20 so a heavily-cited step never silently drops citations. When a
+        citation carries a ``locator`` (free-string anchor on the edge), it is
+        merged into the resource dict so the shared chip can render it.
         """
         result = await self.core.backend.get_cited_resources([ps_uid], limit=100)  # type: ignore[attr-defined]
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([row["resource"] for row in (result.value or []) if row.get("resource")])
+        out: list[dict[str, Any]] = []
+        for row in result.value or []:
+            res = row.get("resource")
+            if not res:
+                continue
+            merged = {**res}
+            loc = row.get("locator")
+            if loc:
+                merged["locator"] = loc
+            out.append(merged)
+        return Result.ok(out)
 
     # ============================================================================
     # CONTENT AND TAG MANAGEMENT
