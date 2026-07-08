@@ -90,7 +90,10 @@ from core.events.choice_events import (
 )
 
 # Chunk embedding events (async background generation for RAG)
-from core.events.chunk_events import ChunkEmbeddingRequested
+from core.events.chunk_events import (
+    ChunkEmbeddingRequested,
+    ReferenceChunkEmbeddingRequested,
+)
 
 # Curriculum events (PS)
 # NOTE: MOC events removed January 2026 - MOC is now KU-based
@@ -236,6 +239,7 @@ __all__ = [
     "CalendarEventCompleted",
     # Chunk embedding events (async background generation for RAG)
     "ChunkEmbeddingRequested",
+    "ReferenceChunkEmbeddingRequested",
     # Embedding events (async background generation)
     "ChoiceEmbeddingRequested",
     "EmbeddingRequested",
@@ -354,6 +358,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "revised_exercise.created": RevisedExerciseCreated,
     # Chunk embedding events (async background generation for RAG)
     "chunk.embedding_requested": ChunkEmbeddingRequested,
+    "reference_chunk.embedding_requested": ReferenceChunkEmbeddingRequested,
     # Embedding events (async background generation)
     "embedding.requested": EmbeddingRequested,
     "task.embedding_requested": TaskEmbeddingRequested,

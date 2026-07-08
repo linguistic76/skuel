@@ -55,6 +55,21 @@ DEFAULT_MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 DEFAULT_MAX_CONCURRENT_PARSING = 20
 
 # ============================================================================
+# REFERENCE CHUNKING (canon reference-book ingest door)
+# ============================================================================
+
+# Prose-tuned grain for canon reference books (:ReferenceChunk), distinct from
+# the curriculum default (DEFAULT_CHUNKING_PARAMS). Larger windows suit
+# long-form prose over lesson bodies. chunk_version_tag() fingerprints only
+# max_chunk_size + context_size, so this yields "v1:1000-150" — isolating
+# reference-chunk staleness from curriculum chunks ("v1"). Passed explicitly by
+# the reference-ingest door; the RESOURCE EntityIngestionConfig stays
+# chunk-free (descriptor ingest is not chunked).
+REFERENCE_CHUNKING_PARAMS = ChunkingParams(
+    min_chunk_size=100, max_chunk_size=1000, context_size=150
+)
+
+# ============================================================================
 # USER CONFIGURATION
 # ============================================================================
 
@@ -759,6 +774,7 @@ __all__ = [
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
     "FileCollectionSkips",
+    "REFERENCE_CHUNKING_PARAMS",
     "STAGING_EXCLUDED_DIRS",
     "SyncAllowlist",
     "build_sync_allowlist",

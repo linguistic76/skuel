@@ -1,6 +1,6 @@
 # Canon — Book-as-Journaling-Companion
 
-**Status:** **Phase 1 (canon text prep) = DONE 2026-07-08.** Phases 2–3 = designed, not yet built.
+**Status:** **Phases 1–2 = DONE 2026-07-08.** Phase 3 (retrieval + journal wiring) = designed, not yet built.
 
 **Core Principle:** *"A curated shelf of books that reasons alongside you as you journal — infused into the companion's voice, always walkable back to the raw."*
 
@@ -92,16 +92,22 @@ This **splits** the arc; it does not extend it.
   dropped, headings flattened) on hierarchy, completeness, and code fences.
 - **Adding a future book to the canon = run the script on its EPUB**, then Phase 2 ingest.
 
-### Phase 2 — Canon ingest → `:ReferenceChunk` (designed, not built)
+### Phase 2 — Canon ingest → `:ReferenceChunk` ✅ DONE (2026-07-08)
 
 - A **separate ingest** that intentionally reads the walled `0vault/Resources/` `.md` files,
-  chunks them (reuse #560 per-domain chunking params, tuned larger for prose), embeds via the
-  existing post-persist embedding worker (ADR-074), and writes `:ReferenceChunk` nodes linked
-  to their `Resource` entity.
-- **`:ReferenceChunk` must be invisible to `SearchRouter`** — distinct from `:ContentChunk`,
-  its own vector index, queried only by the canon-retrieval capability.
+  chunks them (reuse #560 per-domain chunking params, tuned larger for prose —
+  `REFERENCE_CHUNKING_PARAMS`, `100/1000/150`), embeds via the existing post-persist embedding
+  worker (ADR-074) through a `ReferenceChunkEmbeddingRequested` event, and writes
+  `:ReferenceChunk` nodes linked to their `Resource` via `HAS_REFERENCE_CHUNK`.
+- **`:ReferenceChunk` is invisible to `SearchRouter`** — distinct from `:ContentChunk`, its own
+  vector index `referencechunk_embedding_idx`, queried only by the (future) canon-retrieval
+  capability. A static isolation test (`tests/unit/adapters/test_reference_chunk_isolation.py`)
+  freezes the invariant.
 - Membership follows automatically: a `Resource` is "on the shelf" iff it has `:ReferenceChunk`
   nodes.
+- **Delivered:** `Neo4jReferenceChunkAdapter` (all Cypher), `ReferenceIngestionService`
+  (core, `Result[T]`), admin CLI `scripts/ingest_canon_book.py`. FULL tier embeds; CORE writes
+  chunks only (fail-soft).
 
 ### Phase 3 — Journal retrieval wiring (designed, not built)
 

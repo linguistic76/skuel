@@ -39,3 +39,27 @@ class ChunkEmbeddingRequested(BaseEvent):
     @property
     def event_type(self) -> str:
         return "chunk.embedding_requested"
+
+
+@dataclass(frozen=True)
+class ReferenceChunkEmbeddingRequested(BaseEvent):
+    """
+    Published when a canon reference book's chunks need embeddings.
+
+    The reference-ingest door's parallel to ChunkEmbeddingRequested: same
+    shape, distinct event_type, routed by the shared background worker to the
+    reference adapter (a one-object swap) so canon vectors land on their OWN
+    index (referencechunk_embedding_idx) — never on the curriculum
+    :ContentChunk index that SearchRouter reads. Fail-soft: dropped in CORE
+    tier (no worker), where chunks-without-embeddings still hold shelf
+    membership.
+    """
+
+    parent_uid: str  # The Resource uid whose reference chunks need embedding
+    chunk_uids: tuple[str, ...]  # ["resource.foo:chunk:0", ...]
+    chunk_texts: tuple[str, ...]  # Context window for each chunk
+    requested_at: datetime
+
+    @property
+    def event_type(self) -> str:
+        return "reference_chunk.embedding_requested"

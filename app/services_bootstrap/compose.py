@@ -185,6 +185,7 @@ async def compose_services(
             vector_labels = [
                 "Entity",  # Base label — covers all entity types via multi-label
                 "ContentChunk",  # RAG chunks
+                "ReferenceChunk",  # Canon reference-book chunks (own index, SearchRouter-invisible)
             ]
             vector_result = await schema_manager.sync_vector_indexes(
                 entity_labels=vector_labels, dimension=1024, similarity="cosine"
@@ -552,6 +553,9 @@ async def compose_services(
         # UnifiedIngestionService so chunks persist to Neo4j at ingest time.
         from adapters.persistence.neo4j.neo4j_connection import get_connection
         from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
+        from adapters.persistence.neo4j.neo4j_reference_chunk_adapter import (
+            Neo4jReferenceChunkAdapter,
+        )
         from core.services.entity_chunking_service import EntityChunkingService
 
         chunking_service = EntityChunkingService()
@@ -561,6 +565,13 @@ async def compose_services(
         # re-chunking, and the embedding worker (store_chunk_embeddings).
         connection = await get_connection()
         content_adapter = Neo4jContentAdapter(connection)
+
+        # Reference-chunk adapter — the canon ingest door's parallel to
+        # content_adapter. Wired into the worker so an in-process
+        # ReferenceChunkEmbeddingRequested embeds onto :ReferenceChunk. NOT
+        # wired into vector_search / SearchRouter — that omission IS the
+        # isolation guarantee (canon invisible to /search).
+        reference_chunk_adapter = Neo4jReferenceChunkAdapter(connection)
 
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
         # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
@@ -712,6 +723,7 @@ async def compose_services(
                 event_bus=event_bus,
                 embeddings_service=embeddings_service,
                 content_adapter=content_adapter,  # Unlocks _process_chunk_batch
+                reference_chunk_adapter=reference_chunk_adapter,  # Canon chunks (own index)
                 prometheus_metrics=prometheus_metrics,  # Real-time metrics exposure
                 batch_size=25,  # Process 25 entities per batch (cost-optimized)
                 batch_interval_seconds=30,  # Run every 30 seconds

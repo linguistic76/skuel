@@ -678,6 +678,13 @@ PLANNED_METHODS: dict[str, str] = {
         "scanner's production roots by design; registry entry keeps the gate honest instead "
         "of widening the roots for one method"
     ),
+    "core/services/ingestion/reference_ingestion.py::ingest_book": (
+        "NOT staged — LIVE, but its only caller is scripts/ingest_canon_book.py "
+        "(the canon Phase-2 admin ingest door), and scripts/ sits outside the scanner's "
+        "production roots by design; registry entry keeps the gate honest instead of "
+        "widening the roots for one method. Becomes an in-app caller when a canon "
+        "management route/UI is built (Phase 3+)"
+    ),
     "core/services/entity_inference_service.py::_infer_from_content": (
         "private helper for the inference pipeline — becomes live when "
         "get_inference_statistics / analyze_inference_confidence are wired"
