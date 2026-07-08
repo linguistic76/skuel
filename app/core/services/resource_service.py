@@ -49,3 +49,14 @@ class ResourceService:
         Backing the per-Resource detail page (the citation click destination).
         """
         return await self.backend.get(uid)
+
+    async def get_citing_entities(self, uid: str) -> Result[list[dict[str, Any]]]:
+        """The citers behind the Resource detail page's "Cited by" section.
+
+        Reverse CITES_RESOURCE traversal — the Kus / PathSteps that point at this
+        Resource, each with its citation locator. Backend: ResourceBackend.get_citing_entities.
+        """
+        result = await self.backend.get_citing_entities(uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([dict(row) for row in (result.value or [])])

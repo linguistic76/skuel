@@ -83,6 +83,15 @@ class LibraryOrchestrator:
         """
         return await self._resource.get(uid)
 
+    async def get_citing_entities(self, uid: str) -> Result[list[Any]]:
+        """Fetch the Kus / PathSteps that cite this Resource ("Cited by" section).
+
+        Reverse CITES_RESOURCE traversal for the detail page's citation
+        provenance — each row carries the citer's uid, title, entity_type, and
+        the citation locator.
+        """
+        return await self._resource.get_citing_entities(uid)
+
     # ------------------------------------------------------------------
     # UserEntry — teacher-review pipeline (ADR-054)
     # ------------------------------------------------------------------

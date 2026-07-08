@@ -358,7 +358,13 @@ def create_library_ui_routes(
             logger.info("Library: resource detail miss for uid=%s", uid)
             content: Any = render_resource_not_found(uid)
         else:
-            content = render_resource_detail(found.value)
+            # Reverse-traverse CITES_RESOURCE for the "Cited by" section. A citer
+            # fetch error must not 500 the page — degrade to no section.
+            cited = await orchestrator.get_citing_entities(uid)
+            if cited.is_error:
+                logger.info("Library: cited-by fetch failed for uid=%s", uid)
+            cited_by = cited.value if not cited.is_error else []
+            content = render_resource_detail(found.value, cited_by=cited_by)
 
         return await BasePage(
             content=content,

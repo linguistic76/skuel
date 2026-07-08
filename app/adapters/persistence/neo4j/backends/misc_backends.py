@@ -153,6 +153,23 @@ class ResourceBackend(UniversalNeo4jBackend["Resource"]):
     for basic library browsing. Query via NeoLabel.RESOURCE label.
     """
 
+    async def get_citing_entities(self, resource_uid: str) -> Result[list[Neo4jProperties]]:
+        """Find the Kus / PathSteps that cite this Resource (reverse CITES_RESOURCE).
+
+        Reciprocal of the forward citation surface: powers the "Cited by" section
+        on the Resource detail page. Each row carries the citing entity's uid,
+        title, entity_type, and the citation edge's free-string locator (null for
+        a whole-work citation). One row per citation edge — parallel edges from the
+        same source (distinct locators) surface as distinct rows.
+        """
+        query = f"""
+        MATCH (r:Resource {{uid: $resource_uid}})<-[cite:{RelationshipName.CITES_RESOURCE.value}]-(source:Entity)
+        RETURN source.uid AS uid, source.title AS title,
+               source.entity_type AS entity_type, cite.locator AS locator
+        ORDER BY source.title
+        """
+        return await self.execute_query(query, {"resource_uid": resource_uid})
+
 
 class InteractionBackend(UniversalNeo4jBackend["Interaction"]):
     """
