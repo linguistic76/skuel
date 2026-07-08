@@ -216,3 +216,122 @@ class TestRegenerateChunks:
         result = await service.regenerate_chunks()
         assert result.is_ok
         # No assertion on event_bus — it's None, can't be called.
+
+
+class TestBatchDoorHonorsPerDomainParams:
+    """The batch door must resolve per-domain chunking params from the parent
+    label the candidate Cypher now returns — the same params the ingest door uses.
+    """
+
+    @pytest.mark.anyio
+    async def test_absent_label_falls_back_to_default_params(self) -> None:
+        # Legacy candidate with no entity_label (parentless :Content) → defaults.
+        from core.models.ps_content.content_chunks import DEFAULT_CHUNKING_PARAMS
+
+        rows = [{"uid": "ps:test:1", "body": "content", "format": "markdown"}]
+        chunking_service = _make_chunking_service(success=True)
+        service = BatchChunkingService(
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            chunking_service=chunking_service,
+            content_adapter=_make_adapter(success=True),
+        )
+
+        result = await service.regenerate_chunks()
+        assert result.is_ok
+        _, kwargs = chunking_service.process_content_for_ingestion.call_args
+        assert kwargs["params"] == DEFAULT_CHUNKING_PARAMS
+
+    @pytest.mark.anyio
+    async def test_labelled_candidate_resolves_that_domains_params(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Temporarily diverge Ku's config (NOT shipped) and assert the batch door
+        # threads those params through to the chunker for a Ku-labelled candidate.
+        from core.models.enums.entity_enums import EntityType
+        from core.models.ps_content.content_chunks import ChunkingParams
+        from core.services.ingestion import config as ingestion_config
+
+        ku_params = ChunkingParams(max_chunk_size=250, context_size=40)
+        monkeypatch.setattr(
+            ingestion_config.ENTITY_CONFIGS[EntityType.KU],
+            "chunking_params",
+            ku_params,
+        )
+
+        rows = [
+            {
+                "uid": "ku:test:1",
+                "body": "content",
+                "format": "markdown",
+                "entity_label": "Ku",
+            }
+        ]
+        chunking_service = _make_chunking_service(success=True)
+        service = BatchChunkingService(
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            chunking_service=chunking_service,
+            content_adapter=_make_adapter(success=True),
+        )
+
+        result = await service.regenerate_chunks()
+        assert result.is_ok
+        _, kwargs = chunking_service.process_content_for_ingestion.call_args
+        assert kwargs["params"] == ku_params
+
+
+class TestBatchDoorStalenessIsPerDomain:
+    """Candidate *selection* (not just re-chunking) must compare each unit against
+    its own domain's expected tag. Otherwise a diverged domain's default-tagged
+    chunks never re-chunk, and its own-tagged chunks re-chunk on every run.
+    """
+
+    def test_diverged_map_empty_when_all_domains_default(self) -> None:
+        # Shipped state: nothing diverges → empty map → backend falls back to the
+        # bare version for every unit → zero churn.
+        from core.services.ingestion.config import diverged_chunk_version_by_label
+
+        assert diverged_chunk_version_by_label() == {}
+
+    def test_diverged_map_uses_the_same_tag_the_ingest_door_stamps(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from core.models.enums.entity_enums import EntityType
+        from core.models.ps_content.content_chunks import ChunkingParams, chunk_version_tag
+        from core.services.ingestion import config as ingestion_config
+        from core.services.ingestion.config import diverged_chunk_version_by_label
+
+        ku_params = ChunkingParams(max_chunk_size=250, context_size=40)
+        monkeypatch.setattr(
+            ingestion_config.ENTITY_CONFIGS[EntityType.KU], "chunking_params", ku_params
+        )
+
+        mapping = diverged_chunk_version_by_label()
+        assert mapping == {"Ku": chunk_version_tag(ku_params)}
+        assert mapping["Ku"] == "v1:250-40"  # suffixed, not the bare "v1"
+
+    @pytest.mark.anyio
+    async def test_service_threads_expected_map_into_candidate_query(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from core.models.enums.entity_enums import EntityType
+        from core.models.ps_content.content_chunks import ChunkingParams, chunk_version_tag
+        from core.services.ingestion import config as ingestion_config
+
+        ku_params = ChunkingParams(max_chunk_size=250, context_size=40)
+        monkeypatch.setattr(
+            ingestion_config.ENTITY_CONFIGS[EntityType.KU], "chunking_params", ku_params
+        )
+
+        backend = MagicMock()
+        backend.fetch_regeneration_candidates = AsyncMock(return_value=[])
+        service = BatchChunkingService(
+            backend=backend,
+            chunking_service=_make_chunking_service(success=True),
+            content_adapter=_make_adapter(success=True),
+        )
+
+        await service.regenerate_chunks()
+
+        args, _ = backend.fetch_regeneration_candidates.call_args
+        # (parent_uids, force, current_version, expected_by_label)
+        assert args[3] == {"Ku": chunk_version_tag(ku_params)}

@@ -23,6 +23,11 @@ from typing import Any
 from core.constants import SYSTEM_USER_UID
 from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
+from core.models.ps_content.content_chunks import (
+    DEFAULT_CHUNKING_PARAMS,
+    ChunkingParams,
+    chunk_version_tag,
+)
 from core.models.relationship_registry import (
     ENTITY_TYPE_TO_LABEL,
     LABEL_CONFIGS,
@@ -144,6 +149,11 @@ class EntityIngestionConfig:
     # extracts_body_content. False → the body stays wherever
     # extracts_body_content put it (e.g. Resource's inline `content`).
     chunks_body_content: bool = False
+    # Per-domain chunk-size knobs for the chunking strategy. None → the shared
+    # DEFAULT_CHUNKING_PARAMS (ships zero behavior change). A domain that later
+    # needs a different grain sets this; chunk_version_tag then isolates its
+    # staleness so only that domain re-chunks. Resolved via resolve_chunking_params.
+    chunking_params: ChunkingParams | None = None
     primary_name_field: str = "title"
     uid_normalization_fields: tuple[str, ...] = ()
     uid_singular_to_plural_fields: tuple[tuple[str, str], ...] = ()
@@ -365,6 +375,54 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         required_fields=("user_uid",),
     ),
 }
+
+
+# ============================================================================
+# CHUNKING PARAMETER RESOLUTION
+# ============================================================================
+
+
+def resolve_chunking_params(entity_type: EntityType | NonKuDomain) -> ChunkingParams:
+    """Per-domain chunk-size knobs for ``entity_type`` (ingest door).
+
+    Reads the domain's ``EntityIngestionConfig.chunking_params``; falls back to
+    the shared ``DEFAULT_CHUNKING_PARAMS`` when the type is unknown or has not
+    diverged. Single source of truth so both ingest doors resolve identically.
+    """
+    cfg = ENTITY_CONFIGS.get(entity_type)
+    return cfg.chunking_params if cfg and cfg.chunking_params else DEFAULT_CHUNKING_PARAMS
+
+
+def resolve_chunking_params_for_label(label: str | None) -> ChunkingParams:
+    """Per-domain chunk-size knobs for a Neo4j domain ``label`` (batch door).
+
+    Maps the label to its default EntityType via the relationship registry, then
+    defers to ``resolve_chunking_params``. Keeps the registry dependency here so
+    the batch-chunking service needs no registry import. Unknown/absent label →
+    ``DEFAULT_CHUNKING_PARAMS``.
+    """
+    entity_type = LABEL_TO_DEFAULT_ENTITY_TYPE.get(label) if label else None
+    return resolve_chunking_params(entity_type) if entity_type else DEFAULT_CHUNKING_PARAMS
+
+
+def diverged_chunk_version_by_label() -> dict[str, str]:
+    """Neo4j domain label → expected chunk-version tag, for domains whose
+    ``ChunkingParams`` diverge from the default.
+
+    Feeds the batch-door staleness predicate so candidate *selection* honors the
+    same per-domain tag the ingest door stamps. Domains on default params are
+    omitted — the backend falls back to the bare ``CHUNKING_ALGORITHM_VERSION``
+    for any label not in the map — so today this is empty and batch staleness
+    detection is byte-for-byte unchanged (zero churn). When a domain diverges,
+    its label maps to the suffixed tag ``chunk_version_tag`` would stamp, so its
+    default-tagged chunks read as stale (re-chunk once) and its own-tagged chunks
+    read as current (no infinite re-chunk). See [[chunk_version_tag]].
+    """
+    return {
+        cfg.entity_label: chunk_version_tag(cfg.chunking_params)
+        for cfg in ENTITY_CONFIGS.values()
+        if cfg.chunks_body_content and cfg.chunking_params is not None
+    }
 
 
 # ============================================================================
@@ -709,4 +767,7 @@ __all__ = [
     "generate_ingestion_relationship_config",
     "is_ingestible_path",
     "is_staging_path",
+    "diverged_chunk_version_by_label",
+    "resolve_chunking_params",
+    "resolve_chunking_params_for_label",
 ]

@@ -39,6 +39,7 @@ from core.events.embedding_publisher import (
     publish_embedding_requested,
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.ps_content.content_chunks import DEFAULT_CHUNKING_PARAMS
 from core.services.ingestion.config import ENTITY_CONFIGS
 from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.utils.logging import get_logger
@@ -470,7 +471,9 @@ async def test_chunk_step_no_chunking_service_is_noop():
     service.chunking = None
     service.content_adapter = None
 
-    generated = await service._chunk_entity_content("ps.x", _PS_BODY, "markdown", "x.md")
+    generated = await service._chunk_entity_content(
+        "ps.x", _PS_BODY, "markdown", "x.md", DEFAULT_CHUNKING_PARAMS
+    )
     assert generated is False
     assert bus.published == []
 
@@ -488,7 +491,9 @@ async def test_chunk_step_empty_body_clears_content_subtree():
     adapter = _FakeContentAdapter()
     service = _chunking_service(bus, adapter)
 
-    generated = await service._chunk_entity_content("ps.cleared", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content(
+        "ps.cleared", "", "markdown", "x.md", DEFAULT_CHUNKING_PARAMS
+    )
 
     assert generated is False
     assert adapter.cleared == ["ps.cleared"]
@@ -504,7 +509,9 @@ async def test_chunk_step_empty_body_clears_even_without_chunker():
     service = _chunking_service(None, adapter)
     service.chunking = None
 
-    generated = await service._chunk_entity_content("ps.cleared2", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content(
+        "ps.cleared2", "", "markdown", "x.md", DEFAULT_CHUNKING_PARAMS
+    )
 
     assert generated is False
     assert adapter.cleared == ["ps.cleared2"]
@@ -514,7 +521,9 @@ async def test_chunk_step_empty_body_clears_even_without_chunker():
 async def test_chunk_step_empty_body_without_adapter_is_noop():
     service = _chunking_service(None, None)
 
-    generated = await service._chunk_entity_content("ps.x", "", "markdown", "x.md")
+    generated = await service._chunk_entity_content(
+        "ps.x", "", "markdown", "x.md", DEFAULT_CHUNKING_PARAMS
+    )
     assert generated is False
 
 

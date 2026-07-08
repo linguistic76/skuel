@@ -27,15 +27,19 @@ class BatchChunkingCandidate(TypedDict):
     """One :Content row needing chunk regeneration.
 
     Shape returned by the candidate-discovery Cypher in
-    ``BatchChunkingBackend.fetch_regeneration_candidates`` — three Neo4j
-    columns: ``c.uid``, ``c.body``, ``c.format``. The query guards ``body``
-    against null/empty, but ``format`` is returned as-is, so it may be
-    ``None`` for legacy content that predates the format field.
+    ``BatchChunkingBackend.fetch_regeneration_candidates`` — four Neo4j
+    columns: ``c.uid``, ``c.body``, ``c.format``, and the parent's domain
+    ``entity_label``. The query guards ``body`` against null/empty, but
+    ``format`` is returned as-is, so it may be ``None`` for legacy content that
+    predates the format field. ``entity_label`` is the parent Entity's domain
+    label (e.g. ``"Ku"``, ``"PathStep"``) — used to resolve per-domain chunking
+    params; ``None`` when no parent Entity is linked (falls back to defaults).
     """
 
     uid: str
     body: str
     format: str | None
+    entity_label: str | None
 
 
 @runtime_checkable
@@ -54,6 +58,7 @@ class BatchChunkingOperations(Protocol):
         parent_uids: list[str] | None,
         force: bool,
         current_version: str,
+        expected_by_label: dict[str, str] | None = None,
     ) -> list[BatchChunkingCandidate]:
         """Return :Content rows needing regeneration.
 
@@ -63,9 +68,14 @@ class BatchChunkingOperations(Protocol):
             force: When ``True``, return every parent with a non-empty body —
                 no version-staleness predicate. When ``False``, return only
                 parents with no chunks or whose chunks carry a
-                ``chunking_version`` other than ``current_version``.
-            current_version: The chunking algorithm version. Used only as a
-                filter when ``force`` is ``False``; ignored otherwise.
+                ``chunking_version`` other than the unit's *expected* tag.
+            current_version: Fallback expected tag for any parent whose domain
+                label is not in ``expected_by_label``. Used only when ``force``
+                is ``False``; ignored otherwise.
+            expected_by_label: Parent domain label → expected chunk-version tag,
+                for domains whose ``ChunkingParams`` diverge from the default.
+                Absent/empty (every domain on defaults) → all units compare
+                against ``current_version``.
 
         Returns:
             Candidate rows shaped by ``BatchChunkingCandidate``. Empty when

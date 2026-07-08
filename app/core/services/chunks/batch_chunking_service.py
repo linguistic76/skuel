@@ -25,6 +25,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
+from core.services.ingestion.config import (
+    diverged_chunk_version_by_label,
+    resolve_chunking_params_for_label,
+)
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -158,9 +162,15 @@ class BatchChunkingService:
         pre-versioning" case).
         """
         # Candidate-discovery Cypher lives in BatchChunkingBackend below the
-        # boundary (ADR-044).
+        # boundary (ADR-044). The staleness predicate is per-domain: each
+        # content unit is compared against its own domain's expected tag
+        # (diverged_chunk_version_by_label), falling back to the bare version
+        # for domains on default params. Today the map is empty → unchanged.
         return await self._backend.fetch_regeneration_candidates(
-            parent_uids, force, CHUNKING_ALGORITHM_VERSION
+            parent_uids,
+            force,
+            CHUNKING_ALGORITHM_VERSION,
+            diverged_chunk_version_by_label(),
         )
 
     async def _regenerate_one(
@@ -177,10 +187,15 @@ class BatchChunkingService:
 
         stats.processed += 1
 
+        # Honor the same per-domain chunk-size knobs the ingest door uses, so a
+        # diverged domain re-chunks under its own params (not the defaults).
+        params = resolve_chunking_params_for_label(candidate.get("entity_label"))
+
         chunk_result = await self.chunking_service.process_content_for_ingestion(
             parent_uid=parent_uid,
             content_body=body,
             format=fmt,
+            params=params,
         )
 
         if chunk_result.is_error:

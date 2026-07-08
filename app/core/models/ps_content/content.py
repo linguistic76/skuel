@@ -14,7 +14,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .content_chunks import ContentChunk, ContentChunkType, chunk_content
+from .content_chunks import (
+    DEFAULT_CHUNKING_PARAMS,
+    ChunkingParams,
+    ContentChunk,
+    ContentChunkType,
+    chunk_content,
+)
 
 
 @dataclass(frozen=True)
@@ -46,6 +52,10 @@ class CurriculumContent:
     # Chunks - automatically created, not optional
     chunks: tuple[ContentChunk, ...] = ()  # Immutable tuple of chunks
 
+    # Per-domain chunk-size knobs (ingest-time production input, not persisted).
+    # Drives __post_init__ chunking; defaults keep every domain on the shared grain.
+    chunking_params: ChunkingParams = DEFAULT_CHUNKING_PARAMS
+
     def __post_init__(self) -> None:
         """Validate, calculate content hash, and create chunks"""
         # Validation
@@ -62,7 +72,10 @@ class CurriculumContent:
         # Always create chunks - this is not optional
         if not self.chunks:
             chunk_list = chunk_content(
-                content=self.body, parent_uid=self.unit_uid, format=self.format
+                content=self.body,
+                parent_uid=self.unit_uid,
+                format=self.format,
+                params=self.chunking_params,
             )
             # Convert to immutable tuple
             object.__setattr__(self, "chunks", tuple(chunk_list))
@@ -259,6 +272,7 @@ class CurriculumContent:
         format: str = "markdown",
         language: str = "en",
         source_path: str | None = None,
+        chunking_params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
     ) -> "CurriculumContent":
         """
         Factory method to create new CurriculumContent with automatic chunking.
@@ -268,13 +282,19 @@ class CurriculumContent:
             body: The content text,
             format: Content format (markdown/html/text),
             language: ISO language code,
-            source_path: Original file path if imported
+            source_path: Original file path if imported,
+            chunking_params: Per-domain chunk-size knobs (defaults to DEFAULT_CHUNKING_PARAMS)
 
         Returns:
             New CurriculumContent instance with chunks
         """
         return cls(
-            unit_uid=unit_uid, body=body, format=format, language=language, source_path=source_path
+            unit_uid=unit_uid,
+            body=body,
+            format=format,
+            language=language,
+            source_path=source_path,
+            chunking_params=chunking_params,
         )
 
     def __str__(self) -> str:

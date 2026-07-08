@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from core.services.vault.vault_descriptor import VaultRegistry
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.services.vault.vault_descriptor import VaultKind
@@ -61,6 +62,7 @@ from .config import (
     ENTITY_CONFIGS,
     SyncAllowlist,
     is_ingestible_path,
+    resolve_chunking_params,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .moc_links import extract_moc_link_suffixes, frontmatter_organizes_targets
@@ -436,6 +438,7 @@ class UnifiedIngestionService:
         content_body: str,
         file_format: str,
         source_path: str,
+        params: ChunkingParams,
     ) -> bool:
         """
         The shared body-chunk step — both ingest doors, all
@@ -470,6 +473,7 @@ class UnifiedIngestionService:
             content_body=content_body,
             format=file_format,
             source_path=source_path,
+            params=params,
         )
 
         if chunk_result.is_error:
@@ -529,9 +533,10 @@ class UnifiedIngestionService:
         every other type).
         """
         await self._publish_embedding_requests(entity_type, entities)
+        params = resolve_chunking_params(entity_type)
         for uid, source in chunk_sources.items():
             await self._chunk_entity_content(
-                uid, source.content, source.file_format, source.source_path
+                uid, source.content, source.file_format, source.source_path, params
             )
 
     # ========================================================================
@@ -837,7 +842,11 @@ class UnifiedIngestionService:
         chunks_generated = False
         if config.chunks_body_content:
             chunks_generated = await self._chunk_entity_content(
-                entity_data["uid"], chunk_content_body, file_format, str(file_path)
+                entity_data["uid"],
+                chunk_content_body,
+                file_format,
+                str(file_path),
+                resolve_chunking_params(entity_type),
             )
 
         # MOC edge pass (inline for the direct single-file door; the batch

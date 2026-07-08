@@ -20,6 +20,42 @@ from typing import Any
 CHUNKING_ALGORITHM_VERSION = "v1"
 
 
+@dataclass(frozen=True)
+class ChunkingParams:
+    """Per-domain chunk-size knobs for the chunking strategy.
+
+    Ingest-time production parameters (NOT retrieval-side). Carried on
+    ``EntityIngestionConfig`` so a domain (Ku, PathStep) can later diverge its
+    grain without a code change; the default is shared by every domain today so
+    this ships zero behavior change. See ``chunk_version_tag`` for how a diverged
+    domain gets an isolated staleness tag.
+    """
+
+    min_chunk_size: int = (
+        50  # Minimum words per chunk — 0 refs in the strategy today; carried for future use
+    )
+    max_chunk_size: int = 500  # Maximum words per chunk before a large paragraph is split
+    context_size: int = 100  # Chars of neighbouring text preserved as chunk context
+
+
+DEFAULT_CHUNKING_PARAMS = ChunkingParams()
+
+
+def chunk_version_tag(params: ChunkingParams) -> str:
+    """Staleness tag stamped on chunks produced with ``params``.
+
+    Default params → the bare ``CHUNKING_ALGORITHM_VERSION`` (zero churn: existing
+    chunks and every ``== CHUNKING_ALGORITHM_VERSION`` test keep matching). A
+    diverged domain → a ``"<version>:<max>-<context>"`` suffix so its chunks read
+    as stale only against *their own* params, never against the default corpus.
+    Only the two boundary-affecting knobs go in the fingerprint; ``min_chunk_size``
+    is inert (unused by the strategy) and excluded.
+    """
+    if params == DEFAULT_CHUNKING_PARAMS:
+        return CHUNKING_ALGORITHM_VERSION
+    return f"{CHUNKING_ALGORITHM_VERSION}:{params.max_chunk_size}-{params.context_size}"
+
+
 class ContentChunkType(Enum):
     """Types of content chunks for semantic categorization"""
 
@@ -133,13 +169,13 @@ class ContentChunkingStrategy:
     This is THE chunking strategy - designed for optimal RAG retrieval.
     """
 
-    # Configuration
-    MIN_CHUNK_SIZE = 50  # Minimum words per chunk
-    MAX_CHUNK_SIZE = 500  # Maximum words per chunk
-    CONTEXT_SIZE = 100  # Words of context to preserve
-
     @classmethod
-    def chunk_markdown(cls, content: str, parent_uid: str) -> list[ContentChunk]:
+    def chunk_markdown(
+        cls,
+        content: str,
+        parent_uid: str,
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+    ) -> list[ContentChunk]:
         """
         Chunk markdown content semantically.
 
@@ -151,6 +187,7 @@ class ContentChunkingStrategy:
         """
         chunks: list[ContentChunk] = []
         chunk_index = 0
+        version = chunk_version_tag(params)
 
         # Split by headers while preserving them
         sections = cls._split_by_headers(content)
@@ -163,7 +200,7 @@ class ContentChunkingStrategy:
                 continue
 
             # Further split large sections
-            sub_chunks = cls._split_section(text, heading)
+            sub_chunks = cls._split_section(text, heading, params)
 
             for i, sub_chunk in enumerate(sub_chunks):
                 # Determine context
@@ -172,11 +209,11 @@ class ContentChunkingStrategy:
 
                 # Get context from previous chunk
                 if chunks:
-                    context_before = chunks[-1].text[-cls.CONTEXT_SIZE :]
+                    context_before = chunks[-1].text[-params.context_size :]
 
                 # Get context from next sub-chunk (if available)
                 if i < len(sub_chunks) - 1:
-                    context_after = sub_chunks[i + 1]["text"][: cls.CONTEXT_SIZE]
+                    context_after = sub_chunks[i + 1]["text"][: params.context_size]
 
                 chunk = ContentChunk(
                     parent_uid=parent_uid,
@@ -187,34 +224,41 @@ class ContentChunkingStrategy:
                     context_after=context_after,
                     heading=heading,
                     metadata=sub_chunk.get("metadata", {}),
+                    chunking_version=version,
                 )
 
                 chunks.append(chunk)
                 chunk_index += 1
 
         # Update context_after for the last chunk of each group
-        cls._update_chunk_contexts(chunks)
+        cls._update_chunk_contexts(chunks, params)
 
         return chunks
 
     @classmethod
-    def chunk_plain_text(cls, content: str, parent_uid: str) -> list[ContentChunk]:
+    def chunk_plain_text(
+        cls,
+        content: str,
+        parent_uid: str,
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+    ) -> list[ContentChunk]:
         """
         Chunk plain text by paragraphs and size limits.
         """
         chunks: list[ContentChunk] = []
         paragraphs = content.split("\n\n")
         chunk_index = 0
+        version = chunk_version_tag(params)
 
         for i, para in enumerate(paragraphs):
             if not para.strip():
                 continue
 
             # Split large paragraphs
-            if len(para.split()) > cls.MAX_CHUNK_SIZE:
-                sub_paras = cls._split_large_text(para)
+            if len(para.split()) > params.max_chunk_size:
+                sub_paras = cls._split_large_text(para, params)
                 for sub_para in sub_paras:
-                    context_before = chunks[-1].text[-cls.CONTEXT_SIZE :] if chunks else ""
+                    context_before = chunks[-1].text[-params.context_size :] if chunks else ""
                     context_after = ""  # Will be updated
 
                     chunk = ContentChunk(
@@ -225,13 +269,14 @@ class ContentChunkingStrategy:
                         context_before=context_before,
                         context_after=context_after,
                         heading=None,
+                        chunking_version=version,
                     )
                     chunks.append(chunk)
                     chunk_index += 1
             else:
-                context_before = chunks[-1].text[-cls.CONTEXT_SIZE :] if chunks else ""
+                context_before = chunks[-1].text[-params.context_size :] if chunks else ""
                 context_after = (
-                    paragraphs[i + 1][: cls.CONTEXT_SIZE] if i < len(paragraphs) - 1 else ""
+                    paragraphs[i + 1][: params.context_size] if i < len(paragraphs) - 1 else ""
                 )
 
                 chunk = ContentChunk(
@@ -242,6 +287,7 @@ class ContentChunkingStrategy:
                     context_before=context_before,
                     context_after=context_after,
                     heading=None,
+                    chunking_version=version,
                 )
                 chunks.append(chunk)
                 chunk_index += 1
@@ -291,7 +337,12 @@ class ContentChunkingStrategy:
         return sections
 
     @classmethod
-    def _split_section(cls, text: str, heading: str | None) -> list[dict[str, Any]]:
+    def _split_section(
+        cls,
+        text: str,
+        heading: str | None,
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+    ) -> list[dict[str, Any]]:
         """Split a section into semantic sub-chunks"""
         sub_chunks = []
 
@@ -330,8 +381,8 @@ class ContentChunkingStrategy:
                 chunk_type = cls._detect_chunk_type(para, heading)
 
                 # Split large paragraphs if needed
-                if len(para.split()) > cls.MAX_CHUNK_SIZE:
-                    splits = cls._split_large_text(para)
+                if len(para.split()) > params.max_chunk_size:
+                    splits = cls._split_large_text(para, params)
                     sub_chunks.extend(
                         [
                             {
@@ -383,7 +434,11 @@ class ContentChunkingStrategy:
             return ContentChunkType.EXPLANATION
 
     @classmethod
-    def _split_large_text(cls, text: str) -> list[str]:
+    def _split_large_text(
+        cls,
+        text: str,
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+    ) -> list[str]:
         """Split large text into smaller chunks at sentence boundaries"""
         sentences = re.split(r"(?<=[.!?])\s+", text)
         chunks: list[str] = []
@@ -393,7 +448,7 @@ class ContentChunkingStrategy:
         for sentence in sentences:
             sentence_size = len(sentence.split())
 
-            if current_size + sentence_size > cls.MAX_CHUNK_SIZE and current_chunk:
+            if current_size + sentence_size > params.max_chunk_size and current_chunk:
                 chunks.append(" ".join(current_chunk))
                 current_chunk = [sentence]
                 current_size = sentence_size
@@ -407,7 +462,11 @@ class ContentChunkingStrategy:
         return chunks
 
     @classmethod
-    def _update_chunk_contexts(cls, chunks: list[ContentChunk]) -> None:
+    def _update_chunk_contexts(
+        cls,
+        chunks: list[ContentChunk],
+        params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+    ) -> None:
         """Update context_after for all chunks based on their neighbors"""
         for i in range(len(chunks) - 1):
             current_chunk = chunks[i]
@@ -416,26 +475,32 @@ class ContentChunkingStrategy:
             # Update context_after to point to next chunk
             if not current_chunk.context_after and next_chunk:
                 object.__setattr__(
-                    current_chunk, "context_after", next_chunk.text[: cls.CONTEXT_SIZE]
+                    current_chunk, "context_after", next_chunk.text[: params.context_size]
                 )
 
 
-def chunk_content(content: str, parent_uid: str, format: str = "markdown") -> list[ContentChunk]:
+def chunk_content(
+    content: str,
+    parent_uid: str,
+    format: str = "markdown",
+    params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
+) -> list[ContentChunk]:
     """
     Main entry point for content chunking.
 
     Args:
         content: The text content to chunk,
         parent_uid: UID of the parent curriculum entity,
-        format: Content format (markdown or plain)
+        format: Content format (markdown or plain),
+        params: Per-domain chunk-size knobs (defaults to DEFAULT_CHUNKING_PARAMS)
 
     Returns:
         List of ContentChunk objects
     """
     if format.lower() == "markdown":
-        return ContentChunkingStrategy.chunk_markdown(content, parent_uid)
+        return ContentChunkingStrategy.chunk_markdown(content, parent_uid, params)
     else:
-        return ContentChunkingStrategy.chunk_plain_text(content, parent_uid)
+        return ContentChunkingStrategy.chunk_plain_text(content, parent_uid, params)
 
 
 def get_chunks_by_type(
