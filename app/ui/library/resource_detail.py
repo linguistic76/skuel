@@ -63,7 +63,15 @@ def render_resource_detail(resource: Any) -> Div:
     """
     title = getattr(resource, "title", "") or resource.uid
     media_type = getattr(resource, "media_type", None)
-    description = getattr(resource, "description", "") or ""
+    # Annotation falls back description → content → summary, mirroring
+    # Resource.get_summary(): ingestion only requires `title` and puts descriptor
+    # bodies into `content`, so a body-backed annotation must still surface here.
+    annotation = (
+        getattr(resource, "description", None)
+        or getattr(resource, "content", None)
+        or getattr(resource, "summary", None)
+        or ""
+    )
     tags = getattr(resource, "tags", ()) or ()
     # Scheme-allowlisted: a javascript:/data: source_url renders as no button.
     source_url = safe_external_url(getattr(resource, "source_url", None))
@@ -89,7 +97,7 @@ def render_resource_detail(resource: Any) -> Div:
             role="region",
             **{"aria-labelledby": "resource-title"},
         ),
-        _annotation_section(description),
+        _annotation_section(annotation),
         _tags_section(tags),
         _footer_nav(),
         cls=_COLUMN_CLS,
