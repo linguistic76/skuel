@@ -5,16 +5,18 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
-// Bumped v3 -> v4 to purge the old static cache, which may hold the broken,
-// infinite-looping skuel.js (see fix in this change). The `activate` handler
-// below deletes any cache whose key != the current versioned names, so any
-// client that had registered the service worker drops the stale skuel.js on the
-// next activation and re-precaches the fixed file.
-// NOTE: this cache-first strategy hides ALL app-asset updates between version
-// bumps, and the SW currently fails to register anyway (/service-worker.js is
-// shadowed by FastHTML's static catch-all → 404). Both are tracked as
-// TECHNICAL_DEBT.md item 11.
-const CACHE_VERSION = 'skuel-v4';
+// Bumped v4 -> v5 to purge the stale static cache holding the pre-fix skuel.js
+// (the /search "Ask" verb read facets off $el instead of $root — PR #556). The
+// `activate` handler below deletes any cache whose key != the current versioned
+// names, so any client that had registered the service worker drops the stale
+// skuel.js on the next activation and re-precaches the fixed file.
+// CRITICAL: this cache-first strategy hides ALL app-asset (JS/CSS) updates
+// between version bumps — EVERY change to a PRECACHE_URLS file must bump
+// CACHE_VERSION here, or clients keep serving the stale asset indefinitely.
+// (The SW now registers correctly via the dedicated /service-worker.js route in
+// adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
+// TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
+const CACHE_VERSION = 'skuel-v5';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
