@@ -22,9 +22,12 @@ Version: 3.0.0 - Horizontal filters layout
 __version__ = "3.0"
 
 from html import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, A, Div, NotStr, P, Span
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
 from core.models.enums import (
     ContentType,
@@ -183,6 +186,12 @@ ALL_FILTER_NAMES = [
     "applied_in_tasks",
     "aligned_with_principles",
     "next_logical_step",
+    # Semantic enhancement toggles — part of the request like any other facet, so
+    # they must ride along on every re-fire (filter change OR pagination). Omitting
+    # them here silently dropped them whenever any other control triggered a search.
+    "enable_semantic_boost",
+    "enable_learning_aware",
+    "prefer_unmastered",
 ]
 
 
@@ -1116,7 +1125,9 @@ def _render_pagination(response: SearchResponse) -> Any:
     btn_primary = "bg-primary text-primary-foreground hover:bg-primary/90"
     btn_disabled = "pointer-events-none opacity-50"
 
-    def page_link(label: str, offset: int, *, disabled: bool = False, current: bool = False) -> Any:
+    def page_link(
+        label: str, offset: int, *, disabled: bool = False, current: bool = False
+    ) -> "FT":
         """One pagination control. Current page and disabled ends are inert Spans;
         the rest are HTMX links that swap #search-results for the target offset."""
         if current:
