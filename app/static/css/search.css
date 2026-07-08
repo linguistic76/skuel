@@ -2,10 +2,13 @@
  * Search Page Styles
  * ==================
  *
- * Horizontal filter layout CSS for the search page.
+ * Left-rail filter layout for the search page: the query box + active-filter
+ * badges span the top, then a two-column grid places the filter faucets in a
+ * sticky left rail beside the results. Collapses to a single stacked column on
+ * narrow viewports.
  */
 
-/* Main container - full width, centered content */
+/* Main container - full width, tinted backdrop */
 .search-container {
     min-height: calc(100vh - 64px);
     margin-top: 64px;
@@ -23,6 +26,56 @@
     background: oklch(var(--b1));
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   Two-column layout: left rail (faucets) + results
+   ========================================================================== */
+
+.search-layout {
+    display: grid;
+    grid-template-columns: 1fr; /* mobile: rail stacks above results */
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    align-items: start;
+}
+
+@media (min-width: 1024px) {
+    .search-layout {
+        grid-template-columns: 18rem minmax(0, 1fr);
+    }
+
+    /* Rail follows the scroll on desktop; scrolls internally if taller than the
+       viewport so long filter sets never trap the results column. */
+    .search-rail {
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 96px);
+        overflow-y: auto;
+    }
+}
+
+/* The rail is narrow (~18rem) at every viewport, so its faucet controls always
+   stack vertically — override the horizontal flex / md:grid-cols-3 the filter
+   bar uses when laid out wide. Markup + hx-* are untouched; this is CSS only. */
+.search-rail .filter-bar > .flex {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.search-rail .filter-bar > .grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.search-rail .context-filters > .flex {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Let min-w-[150px]/min-w-[140px] faucet wrappers shrink to the rail width. */
+.search-rail [class*="min-w-"] {
+    min-width: 0 !important;
 }
 
 /* Active filter badges */
@@ -56,11 +109,6 @@
     font-size: 0.875rem;
 }
 
-/* Results area */
-#search-results {
-    margin-top: 1.5rem;
-}
-
 /* Result cards */
 #search-results .card {
     transition: box-shadow 0.2s ease;
@@ -75,65 +123,20 @@
     font-weight: 500;
 }
 
-/* Mobile responsiveness */
+/* Mobile: tighter page padding; rail already stacks via .search-layout. */
 @media (max-width: 768px) {
     .search-main {
         padding: 1rem;
     }
 
-    .filter-bar .flex {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .filter-bar .form-control {
-        width: 100%;
-        min-width: 100% !important;
-    }
-
-    .context-filters .flex {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .context-filters .form-control {
-        width: 100%;
-        min-width: 100% !important;
-    }
-
-    /* Make dropdowns full width on mobile */
-    .filter-bar select,
-    .context-filters select {
-        width: 100%;
-    }
-
-    /* Stack active filter badges */
     .active-filters .flex {
         flex-wrap: wrap;
-    }
-}
-
-/* Tablet responsiveness */
-@media (min-width: 769px) and (max-width: 1024px) {
-    .filter-bar .form-control {
-        min-width: 120px;
-    }
-
-    .context-filters .form-control {
-        min-width: 120px;
     }
 }
 
 /* Smooth transitions for filter visibility */
 [x-show] {
     transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* More Filters button active state */
-.filter-bar button.btn-primary {
-    background: oklch(var(--p));
-    color: oklch(var(--pc));
-    border-color: oklch(var(--p));
 }
 
 /* Filter labels */
