@@ -61,12 +61,13 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
 
         Focused traversal on the Ku backend (the entity-agnostic
         ``_KnowledgeContextMixin.get_cited_resources`` is PS-oriented and not
-        mixed into this lightweight backend). Rows are ``{"resource": {...}}``;
-        the service flattens them for the shared resource chip.
+        mixed into this lightweight backend). Rows carry a ``resource`` map plus
+        the edge's ``locator`` free-string anchor (null for whole-work
+        citations); the service flattens them for the shared resource chip.
         """
         query = """
-        MATCH (source:Entity {uid: $ku_uid})-[:CITES_RESOURCE]->(r:Resource)
-        RETURN r {.*} AS resource
+        MATCH (source:Entity {uid: $ku_uid})-[cite:CITES_RESOURCE]->(r:Resource)
+        RETURN r {.*} AS resource, cite.locator AS locator
         ORDER BY r.title
         """
         result = await self.execute_query(query, {"ku_uid": ku_uid})

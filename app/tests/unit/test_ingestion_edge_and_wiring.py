@@ -182,6 +182,16 @@ class TestEdgePreparer:
         assert props["source"] == "self_observation"
         assert props["observed_at"] == "2026-03-01"
 
+    def test_locator_property_extracted(self):
+        data = {
+            "from": "ku:values:tao-te-ching-v1",
+            "to": "resource:tao-of-pooh",
+            "relationship": "CITES_RESOURCE",
+            "locator": "ch. 4",
+        }
+        result = prepare_edge_data(data)
+        assert result["properties"]["locator"] == "ch. 4"
+
     def test_tags_extracted(self):
         data = {
             "from": "ku:a",

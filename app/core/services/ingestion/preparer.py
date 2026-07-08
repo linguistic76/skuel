@@ -287,8 +287,17 @@ def prepare_edge_data(
         "updated_at": now,
     }
 
-    # Optional evidence fields
-    for field in ("evidence", "confidence", "polarity", "temporality", "source", "observed_at"):
+    # Optional evidence fields (+ locator: free-string citation anchor on
+    # CITES_RESOURCE, e.g. "ch. 4", "pp. 210-214", "12:30", "sailboat metaphor")
+    for field in (
+        "evidence",
+        "confidence",
+        "polarity",
+        "temporality",
+        "source",
+        "observed_at",
+        "locator",
+    ):
         if field in data and data[field] is not None:
             props[field] = data[field]
 
