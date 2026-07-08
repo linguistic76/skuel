@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from core.models.graph_context import GraphContext
     from core.models.ku.ku import Ku
     from core.models.shared.dual_track import DualTrackResult
-    from core.ports.query_types import KuUserSubstanceResult
+    from core.ports.query_types import KuUserSubstanceResult, NousSubtopicPair
     from core.services.ku.ku_intelligence_service import KuIntelligenceService
     from core.services.user import UserContext
 
@@ -141,16 +141,17 @@ class KuService:
         """
         return await self.search.list_all_categories()
 
-    async def list_nous_subtopics(self) -> Result[list[str]]:
-        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
+        """This Ku label's (nous, nous_subtopic) co-occurrence pairs.
 
-        The 2nd taxonomy level beneath the NOUS topics. Derived from the graph,
-        never hardcoded. Fail-soft/empty until the vault carries authored
-        `nous_subtopic:` frontmatter (the mechanism ships ahead of the data).
+        The Ku contribution to the dependent /search sub-topic dropdown;
+        `SearchRouter.nous_subtopic_map` merges it with the PathStep contribution
+        (cross-domain aggregation stays in the search service, not a backend).
+        Graph-derived (content boundary). Rows carry `nous` + `subtopic`.
 
-        Backend: KuBackend.distinct_values_raw via KuSearchService.
+        Backend: KuBackend.nous_subtopic_pairs via KuSearchService.
         """
-        return await self.search.list_nous_subtopics()
+        return await self.search.nous_subtopic_pairs()
 
     # =========================================================================
     # INTELLIGENCE (delegated to intelligence)

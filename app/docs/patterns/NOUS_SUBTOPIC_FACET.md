@@ -16,27 +16,37 @@ scope on the curriculum corpus.
   multi-valued, kebab-case, empty = deliberately unassigned. Authored in vault YAML
   directly under the `nous:` block.
 - **Vocabulary is graph-derived, never hardcoded.** A sub-topic exists (and renders as
-  a faucet option) only once ≥1 entity carries it; deleting the last carrier removes
-  it. Backed by `distinct_values_raw("nous_subtopic")`
-  (`adapters/persistence/neo4j/_search_raw_mixin.py`) via
-  `KuService.list_nous_subtopics()`.
+  a faucet option) only once ≥1 entity carries it (with a parent `nous`); deleting the
+  last carrier removes it.
+- **Cross-domain merge in the service layer.** Both `:Ku` and `:PathStep` author
+  `nous_subtopic` independently, so a PathStep can contribute a pair no Ku carries. Each
+  domain backend yields only its OWN label's pairs (`KuBackend`/`PsBackend.nous_subtopic_pairs`,
+  scoped `:Ku` / `:PathStep`); `SearchRouter.nous_subtopic_map` +
+  `SearchRouter.list_nous_subtopics` merge them. Aggregation lives in the service
+  (SearchRouter is THE cross-domain search service), never in a single-domain backend.
+  The flat list and the map share this one source, so they can't disagree — the flat
+  list stays a superset of every scoped map, and the /search column renders whenever the
+  map has any entry (even a PathStep-only sub-topic corpus).
 - **Fail-soft:** with no authored data the vocabulary is empty, so the search `<select>`
   (`ui/search/components.py::_render_nous_subtopic_select`) and the Askesis scope
-  selector (`ui/askesis/chat.py`) render nothing rather than an empty control.
+  selector (`ui/askesis/chat.py`) render nothing rather than an empty control. A failing
+  domain contributes nothing rather than erroring the whole vocabulary.
 - **Search filter:** `SearchRequest.nous_subtopic` → property filter (array membership)
   in `core/models/search_request.py`.
+- **Dependent dropdown (/search):** picking a NOUS topic narrows the sub-topic options
+  to those authored alongside it, via `SearchRouter.nous_subtopic_map`. Wiring is pure
+  HTMX: the sub-topic column (`_render_nous_subtopic_select`) listens for
+  `change from:[name='nous']` and re-fetches `GET /search/subtopics?nous=…`, swapping its
+  innerHTML with the scoped `render_nous_subtopic_inner` fragment — no Alpine
+  window-global seeding. The NOUS `<select>` drops `nous_subtopic` from its results
+  include so a topic switch re-scopes cleanly instead of carrying a now-orphaned
+  sub-topic. Fail-soft: a topic with no sub-topics yields just "All Sub-topics".
 
 ## Authoring & changing the ontology
 
 Edit `nous_subtopic:` frontmatter in the content vault, then re-sync
 (`./dev vault-sync --vault content`). The faucets follow the graph. The taxonomy
 reference lives with the content (vault), not here.
-
-## Follow-up
-
-The dependent `nous → nous_subtopic` dropdown (pick a topic → only its sub-topics
-appear) is not modeled yet — tracked in issue #547. It needs a `nous → subtopics` map
-built from the graph once the corpus carries the data (it now does).
 
 **See:** `docs/architecture/SEARCH_ARCHITECTURE.md`,
 `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`

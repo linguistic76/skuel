@@ -83,7 +83,7 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
-    from core.ports.query_types import SemanticSearchChunkResult
+    from core.ports.query_types import NousSubtopicPair, SemanticSearchChunkResult
     from core.services.user import UserContext
     from services_bootstrap import Services
 
@@ -306,6 +306,56 @@ class SearchRouter:
             self.logger.debug(f"Service '{attr_name}' not initialized for {entity_type}")
 
         return service
+
+    async def _nous_subtopic_pairs(self) -> "list[NousSubtopicPair]":
+        """Gather (nous, nous_subtopic) co-occurrence pairs across curriculum domains.
+
+        The cross-domain aggregation point (SearchRouter is THE cross-domain
+        search service): each curriculum domain backend contributes pairs scoped
+        to its OWN label (`KuBackend`/`PsBackend.nous_subtopic_pairs`) — the merge
+        lives here in the service layer, never in a single-domain backend. Both
+        Ku and PathStep author `nous_subtopic` independently, so a PathStep can
+        contribute a pair no Ku carries; folding both keeps the facet complete.
+
+        Fails soft per domain: a missing service or an errored call contributes
+        nothing rather than failing the whole vocabulary.
+        """
+        pairs: "list[NousSubtopicPair]" = []
+        for entity_type in (EntityType.KU, EntityType.PATH_STEP):
+            service = self.get_service(entity_type)
+            if service is None:
+                continue
+            result = await service.nous_subtopic_pairs()
+            if result.is_error:
+                self.logger.warning(f"nous_subtopic_pairs failed for {entity_type}: {result.error}")
+                continue
+            pairs.extend(result.value or [])
+        return pairs
+
+    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
+        """Map each NOUS topic to the sub-topics authored alongside it.
+
+        Powers the dependent /search dropdown (pick a NOUS topic → its sub-topics).
+        Derived from the graph across `:Ku` + `:PathStep` (never hardcoded — the
+        taxonomy stays in the vault, content boundary). Sub-topics per topic are
+        deduped + sorted. Fail-soft/empty until `nous_subtopic:` data is authored.
+        """
+        mapping: dict[str, set[str]] = {}
+        for pair in await self._nous_subtopic_pairs():
+            mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
+        return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
+
+    async def list_nous_subtopics(self) -> Result[list[str]]:
+        """Flat NOUS sub-topic vocabulary — every distinct sub-topic, deduped + sorted.
+
+        Same `:Ku` + `:PathStep` source as `nous_subtopic_map`, flattened. Sharing
+        the source keeps the flat list (which gates whether the /search sub-topic
+        column renders) a superset of every scoped map, so the column — and its
+        dependent HTMX target — renders whenever the map has any entry, even in a
+        corpus whose sub-topics live only on PathSteps. Fail-soft/empty.
+        """
+        subtopics = {pair["subtopic"] for pair in await self._nous_subtopic_pairs()}
+        return Result.ok(sorted(subtopics))
 
     def supports_search(self, entity_type: EntityType | NonKuDomain) -> bool:
         """

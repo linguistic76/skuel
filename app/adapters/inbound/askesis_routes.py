@@ -38,6 +38,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
         "intelligence_tier": "intelligence_tier",
         "user_service": "user",
         "ku_service": "ku",  # NOUS topic vocabulary for the composer scope control
+        "search_router": "search_router",  # NOUS sub-topic vocabulary (Ku+PS merge)
     },
 )
 

@@ -10,17 +10,18 @@ is what SearchRouter resolves for KU domain searches.
 See: /docs/architecture/SEARCH_ARCHITECTURE.md
 """
 
-from typing import Any
+from typing import Any, cast
 
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
-from core.ports.backend_operations_typing import BackendOperations
+from core.ports.curriculum_protocols import KuOperations
+from core.ports.query_types import NousSubtopicPair, to_nous_subtopic_pairs
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.result_simplified import Result
 
 
-class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
+class KuSearchService(BaseService[KuOperations, Ku]):
     """Search for atomic Knowledge Units.
 
     Inherits from BaseService:
@@ -40,25 +41,21 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         entity_label="Ku",
     )
 
-    async def list_nous_subtopics(self) -> Result[list[str]]:
-        """List the NOUS sub-topic vocabulary — distinct `nous_subtopic` values.
+    async def nous_subtopic_pairs(self) -> Result[list[NousSubtopicPair]]:
+        """This Ku label's contribution of (nous, nous_subtopic) co-occurrence pairs.
 
-        The 2nd taxonomy level beneath `nous`. Derived from the graph exactly
-        like `list_all_categories()` (the NOUS-topic vocabulary), but reads the
-        `nous_subtopic` array property rather than the configured `category_field`.
-        Array-valued: `distinct_values_raw` UNWINDs each element to its own value.
+        Scoped to `:Ku` — `SearchRouter.nous_subtopic_map` folds this together
+        with the PathStep contribution (`PsSearchService.nous_subtopic_pairs`)
+        into the dependent /search dropdown's map. The cross-domain merge stays in
+        the service layer, not this per-domain sub-service. Raw Neo4j property
+        unions are narrowed to typed string pairs here at the domain boundary.
 
-        Fail-soft: with no authored `nous_subtopic` data the list is empty, so
-        the faucet renders nothing (no data yet — the mechanism ships ahead of
-        the vault content).
-
-        Backend: ``UniversalNeo4jBackend.distinct_values_raw("nous_subtopic")``.
+        Backend: ``KuBackend.nous_subtopic_pairs``.
         """
-        result = await self.backend.distinct_values_raw("nous_subtopic", user_uid=None)
+        result = await self.backend.nous_subtopic_pairs()
         if result.is_error:
             return Result.fail(result)
-        subtopics = [record["value"] for record in (result.value or []) if record.get("value")]
-        return Result.ok(subtopics)
+        return Result.ok(to_nous_subtopic_pairs(result.value or []))
 
     async def search_by_alias(
         self, alias: str
@@ -71,8 +68,9 @@ class KuSearchService(BaseService[BackendOperations[Ku], Ku]):
         Returns:
             Result containing list of matching Ku property dicts from Neo4j
         """
-        result = await self.backend.search_by_alias(alias)  # type: ignore[attr-defined]
+        result = await self.backend.search_by_alias(alias)
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([record["ku"] for record in (result.value or [])])
+        # Each row's "ku" is a Neo4j node projected to a property dict.
+        return Result.ok([cast("dict[str, Any]", record["ku"]) for record in (result.value or [])])

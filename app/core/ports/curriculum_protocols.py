@@ -350,6 +350,10 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         """Search Kus by alias (case-insensitive substring)."""
         ...
 
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs across :Ku + :PathStep."""
+        ...
+
     # =========================================================================
     # SUBSTANCE METRICS
     # =========================================================================
@@ -493,6 +497,10 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
 
     async def get_knowledge_summary(self, ps_uid: str) -> Result[PsKnowledgeSummaryResult]:
         """Aggregate count and UIDs of knowledge in this step."""
+        ...
+
+    async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
+        """Distinct co-occurring (nous, nous_subtopic) pairs on :PathStep."""
         ...
 
     # =========================================================================
