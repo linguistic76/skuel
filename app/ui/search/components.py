@@ -234,8 +234,13 @@ def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> s
          style="display:none"></div>
 
     <!-- Filter panel: inline bar on desktop, off-canvas drawer on mobile.
-         x-on:change recomputes the active-filter count as any control changes. -->
-    <div class="search-filters" :class="{{ 'is-open': filtersOpen }}" x-on:change="updateFilterCount()">
+         x-on:change recomputes the active-filter count as any control changes;
+         x-on:htmx:after-swap re-tallies after the dependent sub-topic column is
+         swapped (changing NOUS resets nous_subtopic via an HTMX innerHTML swap,
+         which emits no `change` — without this the count would stay stale). -->
+    <div class="search-filters" :class="{{ 'is-open': filtersOpen }}"
+         x-on:change="updateFilterCount()"
+         x-on:htmx:after-swap="updateFilterCount()">
         <!-- Drawer header (mobile only) -->
         <div class="search-filters-header lg:hidden">
             <span class="text-sm font-semibold uppercase tracking-wide">Filters</span>
