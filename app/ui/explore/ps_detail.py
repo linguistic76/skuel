@@ -33,6 +33,7 @@ from fasthtml.common import (
 
 from core.models.enums import UserRole
 from ui.components import Icon
+from ui.library.resource_chip import resource_chip
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -456,42 +457,12 @@ def _kus_section(kus: list[dict]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _resource_chip(resource: dict) -> "FT":
-    """One cited Resource as a reference chip: media icon, title, author/year,
-    external source link when the descriptor carries one."""
-    from ui.primitives import safe_external_url
-
-    author = resource.get("author") or ""
-    year = resource.get("publication_year")
-    attribution = f"{author}{f' ({year})' if year else ''}".strip()
-    # Scheme-allowlisted: a javascript:/data: source_url renders as plain text.
-    source_url = safe_external_url(resource.get("source_url"))
-
-    inner = (
-        Icon("book-open", cls="w-3.5 h-3.5 shrink-0"),
-        Span(resource.get("title") or resource["uid"], cls="font-medium"),
-        Span(f"— {attribution}", cls="text-muted-foreground") if attribution else None,
-        Icon("arrow-up-right", cls="w-3 h-3 shrink-0 text-muted-foreground")
-        if source_url
-        else None,
-    )
-    chip_cls = (
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
-        "border-border bg-muted/40 text-[13px] text-foreground"
-    )
-    if source_url:
-        return A(
-            *inner,
-            href=source_url,
-            target="_blank",
-            rel="noopener noreferrer",
-            cls=f"{chip_cls} hover:bg-accent hover:text-accent-foreground",
-        )
-    return Span(*inner, cls=chip_cls)
-
-
 def _resources_section(resources: list[dict]) -> "FT":
-    """Curated Resources this PathStep cites (CITES_RESOURCE edges)."""
+    """Curated Resources this PathStep cites (CITES_RESOURCE edges).
+
+    Each chip links to the in-app Resource detail page (the citation click
+    destination); the external source link lives there. See ui/library/resource_chip.
+    """
     return Section(
         H2(
             "Resources",
@@ -499,7 +470,7 @@ def _resources_section(resources: list[dict]) -> "FT":
             cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
         ),
         Div(
-            *[_resource_chip(r) for r in resources if r.get("uid")],
+            *[resource_chip(r) for r in resources if r.get("uid")],
             cls="flex flex-wrap gap-2",
         ),
         cls="mt-[24px]",

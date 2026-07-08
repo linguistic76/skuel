@@ -75,6 +75,14 @@ class LibraryOrchestrator:
         """
         return await self._resource.list_all(limit=limit)
 
+    async def get_resource(self, uid: str) -> Result[Any]:
+        """Fetch one curated Resource by UID for the detail page.
+
+        Returns ``Result.ok(None)`` when the UID has no match — the route
+        applies the ``require_found`` guard.
+        """
+        return await self._resource.get(uid)
+
     # ------------------------------------------------------------------
     # UserEntry — teacher-review pipeline (ADR-054)
     # ------------------------------------------------------------------

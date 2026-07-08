@@ -42,3 +42,10 @@ class ResourceService:
             return Result.fail(result)
         resources, _total = result.value
         return Result.ok(resources)
+
+    async def get(self, uid: str) -> Result[Resource | None]:
+        """Fetch one Resource by UID (None when absent — not an error).
+
+        Backing the per-Resource detail page (the citation click destination).
+        """
+        return await self.backend.get(uid)
