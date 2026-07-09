@@ -110,10 +110,14 @@ async def type_contract_test_data(neo4j_driver, clean_neo4j, ensure_test_users):
             else:
                 ku_params["metadata"] = None
 
+            # entity_type is REQUIRED on EntityDTO (no silent default — G6);
+            # seed schema-conformant :Entity:Ku nodes like ingestion writes.
             await session.run(
                 """
                 MERGE (k:Entity {uid: $uid})
-                SET k.title = $title,
+                SET k:Ku,
+                    k.entity_type = 'ku',
+                    k.title = $title,
                     k.summary = $summary,
                     k.content = $content,
                     k.domain = $domain,
