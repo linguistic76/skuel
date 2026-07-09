@@ -204,27 +204,28 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
-| `navbar()` | Mobile menu + profile dropdown | `mobileMenuOpen`, `profileMenuOpen` |
-| `searchSidebar()` | Search sidebar toggle | `collapsed`, `entityType` |
-| `searchFilters()` | Filter bar | `entityType`, `showAdvanced` |
+| `searchFilters()` | Search filter bar (nous/subtopic faucets, Ask href) | `entityType`, `showAdvanced` |
 | `calendarPage()` | Modal + drag-drop | `open`, `datetime`, `draggedItemId` |
-| `timelineViewer(src)` | Timeline filtering | `loading`, `source`, `stats` |
-| `swipeHandler(total)` | Touch swipe | `swipeIndex` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
-| `loadingButton()` | Loading state | `loading` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |
 | `timelineVis(url)` | Vis.js Timeline | `timeline`, `loading`, `error` |
-| `ganttVis(url)` | Frappe Gantt | `gantt`, `loading`, `viewMode` |
 | `collapsibleSidebar(key)` | Sidebar collapse + localStorage | reads `Alpine.store(key)` |
 | `relationshipGraph(uid, type)` | Vis.js lateral relationships | `network`, `loading` |
 | `exploreGraph(mode, uid, type)` | Explore sidebar Vis.js graph | `network`, `filter`, `expanded` |
 | `offlineIndicator` | PWA offline status banner | `isOffline` |
+| `toastManager()` | Toast notifications | queue, auto-dismiss |
+| `entityPicker()` | Entity UID picker with search | query, results |
+| `formValidator()` | Client-side form validation | field errors |
+| `hierarchyTree()` | Tree view: expand/collapse, keyboard nav, drag-drop | node state |
+| `ingestionProgress()` | Vault-ingestion progress (WebSocket) | progress, phase |
+
+Table is non-exhaustive — `skuel.js` also registers `domainFilter`, `bulkInsightManager`, `insightDetailModal`, `intelligenceCache`, `profileFocusHandler`, `insightFiltersDebounced`, `exploreSearch`, `revisionForm`, `batchTranscribe`, `userFolderTranscribe`, `submit`. Grep `Alpine.data('` in `/static/js/skuel.js` for the authoritative list.
 
 **Usage in FastHTML:**
 ```python
 Div(
     content,
-    **{"x-data": "searchSidebar()"},  # Reference centralized component
+    **{"x-data": "searchFilters()"},  # Reference centralized component
 )
 ```
 
@@ -341,6 +342,14 @@ HTMX enhances HTML — use semantic elements, not div soup:
 <!-- ❌ Alpine inline component (use skuel.js instead) -->
 <script>Alpine.data('myWidget', ...)</script>  <!-- In template -->
 <!-- ✅ Add to skuel.js -->
+
+<!-- ❌ Re-processing swapped content from an htmx:load listener: HTMX already
+     processes hx-* attributes on swap, and Alpine 3's MutationObserver
+     initializes new x-data trees automatically. Calling htmx.process() (or
+     Alpine.initTree()) from htmx:load re-fires every hx-trigger="load"
+     request — every fragment fetched twice (PR #510) -->
+<script>document.body.addEventListener('htmx:load', () => htmx.process(document.body))</script>
+<!-- ✅ No glue code: let HTMX and Alpine handle their own initialization -->
 
 <!-- ❌ Seeding x-data from a window global set by a sibling inline script
      in an HTMX fragment: htmx defers inline-script evaluation to the settle

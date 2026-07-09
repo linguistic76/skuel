@@ -163,6 +163,21 @@ DELETED: dict[str, str] = {
 }
 
 
+def _boundary_pattern(key: str) -> re.Pattern[str]:
+    """Compile a key with word boundaries on identifier-like ends.
+
+    Prevents `PageHead` matching inside `PageHeader` while keeping
+    prefix-style keys like `core.models.ku.` matching `core.models.ku.foo`.
+    """
+    prefix = r"(?<![A-Za-z0-9_])" if key[0].isalnum() or key[0] == "_" else ""
+    suffix = r"(?![A-Za-z0-9_])" if key[-1].isalnum() or key[-1] == "_" else ""
+    return re.compile(prefix + re.escape(key) + suffix)
+
+
+_RENAMED_PATTERNS = {old: _boundary_pattern(old) for old in RENAMED}
+_DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
+
+
 def get_scan_targets() -> list[Path]:
     """Collect all .md files from SCAN_DIRS."""
     result: list[Path] = []
@@ -240,11 +255,11 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
             lineno = block_start + j
 
             for old, new in RENAMED.items():
-                if old in seg_line:
+                if _RENAMED_PATTERNS[old].search(seg_line):
                     issues.append((lineno, old, new, "renamed"))
 
             for deleted, reason in DELETED.items():
-                if deleted in seg_line:
+                if _DELETED_PATTERNS[deleted].search(seg_line):
                     issues.append((lineno, deleted, reason, "deleted"))
 
     return issues

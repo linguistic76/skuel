@@ -639,52 +639,32 @@ async def goals_view_calendar(request):
 ---
 
 ### Example 3: Form Validation (Choices)
-**File:** `/adapters/inbound/choice_ui.py:300-350`
+**File:** `/adapters/inbound/choices_ui.py` (create handler)
+
+Bespoke `validate_*_form_data()` functions are gone. Form validation is
+`parse_form_body(request, PydanticRequestModel)` — field rules live on the
+Pydantic request model (`core/models/choice/choice_request.py`), and the
+handler re-renders the form with an error banner on failure:
 
 ```python
-def validate_choice_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """Validate choice form data early."""
+from adapters.inbound.form_helpers import parse_form_body
+from core.models.choice.choice_request import ChoiceCreateRequest
+from ui.patterns.error_banner import render_error_banner
 
-    title = safe_form_string(form_data.get("title"))
-    if not title:
-        return Errors.validation("Choice title is required")
-
-    if len(title) > 200:
-        return Errors.validation("Title must be 200 characters or less")
-
-    # Options validation (choices need at least 2 options)
-    option1 = safe_form_string(form_data.get("option1"))
-    option2 = safe_form_string(form_data.get("option2"))
-
-    if not option1 or not option2:
-        return Errors.validation("At least two options are required")
-
-    # Decision date validation
-    decision_date_str = form_data.get("decision_date", "")
-    if decision_date_str:
-        try:
-            decision_date = date.fromisoformat(decision_date_str)
-            if decision_date < date.today():
-                return Errors.validation("Decision date cannot be in the past")
-        except ValueError:
-            return Errors.validation("Invalid date format")
-
-    return Result.ok(None)
-
-
-async def create_choice_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Choice]:
-    """Create choice with early validation."""
-
-    # Validate early
-    validation_result = validate_choice_form_data(form_data)
-    if validation_result.is_error:
-        return validation_result
-
-    # Continue with form processing
-    # ... build request, call service
+parsed = await parse_form_body(request, ChoiceCreateRequest)
+if parsed.is_error:
+    err = parsed.expect_error()
+    content = Div(
+        PageHeader("New Choice"),
+        render_error_banner(err.display_message),
+        ChoiceCreateForm(),
+        cls="space-y-6",
+    )
+    return await render_activity_sidebar_page(content, active="choices", request=request)
+req = parsed.value  # validated ChoiceCreateRequest
 ```
 
-**Pattern:** Domain-specific validation (choices need 2+ options)
+**Pattern:** Pydantic request model owns the field rules; the route owns the error rendering
 
 ---
 

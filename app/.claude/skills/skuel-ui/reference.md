@@ -348,7 +348,7 @@ Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. Items with
 
 ### Mobile Navigation
 
-The navbar Alpine component (`navbar()` in `skuel.js`) handles the mobile hamburger menu. On mobile, activity domains (from avatar dropdown) and icon nav items are expanded into individual links. All current icon nav items are direct links (no dropdowns):
+The navbar handles the mobile hamburger menu with inline Alpine state (`x-data="{ mobileMenuOpen: false }"` in `ui/layouts/navbar.py` — simple enough that no `skuel.js` component is registered). On mobile, activity domains (from avatar dropdown) and icon nav items are expanded into individual links. All current icon nav items are direct links (no dropdowns):
 
 ```python
 # Mobile: activity domains first, then icon nav items, then Sign out
@@ -920,6 +920,6 @@ Div(
 )
 
 # Reference centralized components (always prefer over inline x-data)
-Div(content, **{"x-data": "loadingButton()"})
+Div(content, **{"x-data": "toastManager()"})
 Div(content, **{"x-data": "collapsible(false)"})
 ```

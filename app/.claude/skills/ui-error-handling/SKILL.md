@@ -9,7 +9,7 @@ related_skills:
 
 # SKUEL UI Error Handling
 
-*Last updated: 2026-03-20*
+*Last updated: 2026-07-09*
 
 **When to use this skill:** When building UI routes, handling `Result[T]` at boundaries, implementing error banners, creating form validation, or understanding how SKUEL propagates errors from services to UI.
 
@@ -32,7 +32,7 @@ This pattern has three key components:
 - Type safety (dataclasses prevent param extraction errors)
 - Consistency (all domains follow same pattern)
 
-**Applied to:** All 6 Activity domains + Teaching, Study, KU, Admin, Insights, UserEntry, Exercises, Calendar, Form Submissions, LifePath, Analytics, Activity Review (standardized 2026-03-19)
+**Applied to:** All 6 Activity domains + Teaching, KU, Admin, Insights, UserEntry, Exercises, Calendar, Form Submissions, LifePath, Analytics, Activity Review, Learning Loop (standardized 2026-03-19; the former Study domain was decomposed into entity-typed routes)
 
 ---
 
@@ -326,7 +326,7 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant, `render_error_banner()` for full-page + `render_inline_error()` for gantt
 - `/adapters/inbound/choices_ui.py` - Form validation example
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
-- `/adapters/inbound/study_ui.py` - HTMX fragments with `render_inline_error()` preserving target IDs
+- `/adapters/inbound/learning_loop_routes.py` - HTMX fragments with `render_inline_error()` preserving target IDs
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
@@ -351,7 +351,7 @@ def test_validate_task_form_data_missing_title():
 - `/ui/patterns/__init__.py` - Package-level exports
 
 ### Documentation
-- `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Complete UI patterns (lines 751-1199)
+- `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Complete UI patterns (see the Error Handling section)
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] pattern details
 - `/CLAUDE.md` - Error handling section
 
@@ -374,7 +374,7 @@ def test_validate_task_form_data_missing_title():
 
 **Non-Activity Domains** (render_error_banner standardized, 2026-03-18; render_inline_error for HTMX, 2026-03-19):
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
-- ✅ Study (`study_ui.py`) — `render_inline_error()` for HTMX fragments preserving target IDs
+- ✅ Learning Loop (`learning_loop_routes.py`) — `render_inline_error()` for HTMX fragments preserving target IDs (absorbed the former `study_ui.py` when Study was decomposed into entity-typed routes)
 - ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
