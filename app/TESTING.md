@@ -503,7 +503,7 @@ test:
   runs-on: ubuntu-latest
   services:
     neo4j:
-      image: neo4j:5.15.0
+      image: neo4j:2026.05.0
       ports:
         - 7687:7687
   steps:

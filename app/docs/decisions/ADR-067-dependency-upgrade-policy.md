@@ -64,11 +64,45 @@ This ADR records the policy and the structure that enforces it.
 Two dependencies are **deliberately capped**. They are NOT stale floors and must not be bumped in a
 routine upgrade pass:
 
-- **`neo4j==5.26.0`** — the driver major must match the server/APOC line (ADR-044: Neo4j is a
-  committed architectural choice, not a swappable adapter). Moving to the 6.x driver is a deliberate
-  server migration with its own ADR + version-matrix update, not a `uv lock --upgrade`.
+- **`neo4j==5.26.0`** — pinned conservatively (ADR-044: Neo4j is a committed architectural choice,
+  not a swappable adapter). The driver's version does **not** track the server's: the server runs the
+  calendar line (see § 3a) while the driver stays on the last 5.x driver, which the Bolt protocol
+  keeps forward-compatible with 2026.x servers (verified live). Bumping the driver is a normal
+  latest-stable upgrade under § 4 (test it against the pinned server); moving to the 6.x driver is a
+  deliberate migration with its own ADR. Not a silent `uv lock --upgrade`.
 - **`deepgram-sdk>=4.8.1,<5.0.0`** — 5.x+ is a breaking SDK rewrite. Stay on 4.x until a deliberate
   migration.
+
+### 3a. Neo4j **server** version policy — latest calendar monthly, hotfix-tracked
+
+The server (Docker image, testcontainers, k8s, all environments) tracks Neo4j's **calendar-versioned
+line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.05.0`**.
+
+- **Track the latest monthly, don't soak.** Neo4j hotfixes each monthly release **only until the next
+  monthly ships** — e.g. `2026.04.0` stopped receiving fixes the moment `2026.05` released. So on this
+  line "wait until it's proven stable for a cycle" is self-defeating: by the time a monthly has soaked,
+  it is already EOL for hotfixes. The supported posture is to run the **current** monthly and take its
+  `.1`/`.2` hotfixes as they land. (Reversing this trade — trading newest features for a long, no-
+  treadmill support window — is what the 5.26 **LTS** is for; adopting it would be a separate ADR and a
+  store *downgrade*.)
+- **"Latest monthly" = latest with a published Docker image.** We pin Docker *images*, and the
+  official `library/neo4j` image lags Neo4j's release notes / deployment center by days. A monthly that
+  is announced but whose `neo4j:<tag>` image is not yet on Docker Hub is **not** pinnable — pinning it
+  would break `docker compose pull` and CI testcontainers. So "current monthly" means the newest one
+  whose image is actually pullable; bump when the image lands, not when the release notes drop.
+- **Bump cadence ≈ monthly, always deliberate.** When a new monthly's image publishes, bump to it (it
+  supersedes the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor
+  tag — so every environment is reproducible; the bump is a conscious PR, not an auto-pull.
+- **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.05.0` → a
+  later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
+- **Downgrades are not supported** — a store written by a newer server will not open on an older one.
+  Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
+- **Where the tag lives:** primary source `infrastructure/docker-compose.yml`; mirrors in
+  `k8s-manifests.yml`, `docker-compose.production.yml` (template), and the integration testcontainer
+  in `tests/integration/conftest.py`. Bump them together; the `test_apoc_canary` version canary fails
+  loudly when they drift from the running server.
+- **Driver ↔ server:** kept decoupled on purpose (see § 3). The `5.26.0` driver is Bolt-forward-
+  compatible with the `2026.x` server; they need not share a version.
 
 Each pin carries an inline `# INTENTIONAL PIN/CAP` comment in `pyproject.toml` pointing here. The
 test for "is this a pin or a stale floor?" is: a pin says **why** and references this ADR.

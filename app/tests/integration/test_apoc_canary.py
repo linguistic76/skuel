@@ -326,14 +326,17 @@ class TestNeo4jVersionCanary:
     """
     Canary tests for Neo4j version verification.
 
-    Validates that Neo4j is running the expected version (5.26.0).
+    The server tracks the calendar line (2026.05.0); the driver stays on the
+    last 5.x release (5.26.0). The two are DECOUPLED — Bolt keeps the 5.26
+    driver forward-compatible with 2026.x servers. See ADR-067 §§ 3, 3a.
     """
 
-    async def test_neo4j_version_is_5_26_0(self, neo4j_driver: AsyncDriver):
+    async def test_neo4j_server_version_matches_calendar_pin(self, neo4j_driver: AsyncDriver):
         """
-        Canary: Verify Neo4j version is exactly 5.26.0.
+        Canary: Verify the Neo4j server is the pinned calendar release (2026.05.0).
 
-        pinned Neo4j driver to 5.26.0 - server must match.
+        Pinned in infrastructure/docker-compose.yml + tests/integration/conftest.py
+        (ADR-067 § 3a). Bump both together when the calendar pin moves.
         """
         async with neo4j_driver.session() as session:
             result = await session.run(
@@ -347,10 +350,11 @@ class TestNeo4jVersionCanary:
             version = record["version"]
             edition = record["edition"]
 
-            # Verify version
-            assert version.startswith("5.26"), (
-                f"Expected Neo4j 5.26.x, got {version}. "
-                "Update pyproject.toml if intentionally upgraded."
+            # Verify version matches the pinned calendar release
+            assert version.startswith("2026.05"), (
+                f"Expected Neo4j 2026.05.x, got {version}. "
+                "Update the pin in infrastructure/docker-compose.yml + "
+                "tests/integration/conftest.py if intentionally upgraded (ADR-067 § 3a)."
             )
 
             # Log edition for reference
@@ -360,7 +364,8 @@ class TestNeo4jVersionCanary:
         """
         Canary: Verify Python driver version is 5.26.0.
 
-        Driver version must match server version.
+        The driver is pinned to the last 5.x release, decoupled from the server
+        version (ADR-067 § 3) — Bolt keeps it forward-compatible with 2026.x.
         """
         import neo4j
 
