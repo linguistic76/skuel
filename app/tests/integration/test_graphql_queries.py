@@ -6,24 +6,25 @@ Tests the new GraphQL queries to verify they work correctly.
 
 NOTE: These tests require:
 1. Running Neo4j instance
-2. OPENAI_API_KEY environment variable (for full app bootstrap)
+2. OPENAI_API_KEY credential (for full app bootstrap)
 3. GraphQL routes registered
 
 Run with integration tests:
     uv run pytest tests/integration/test_graphql_queries.py -v
 """
 
-import os
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
-# Skip if OPENAI_API_KEY not set (required for full app bootstrap)
-_has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+from core.config.credential_store import get_credential
+
+# Skip if OPENAI_API_KEY not available (required for full app bootstrap)
+_has_openai_key = bool(get_credential("OPENAI_API_KEY"))
 pytestmark = pytest.mark.skipif(
     not _has_openai_key,
-    reason="Requires OPENAI_API_KEY environment variable for full app bootstrap",
+    reason="Requires OPENAI_API_KEY credential for full app bootstrap",
 )
 
 
