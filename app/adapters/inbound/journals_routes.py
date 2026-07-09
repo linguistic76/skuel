@@ -126,15 +126,17 @@ async def _compile_text(
     is_founder: bool,
     journal_service: Any,
     processing_service: Any,
+    summon_canon: bool = False,
 ) -> Any:
     """Compile raw text to processed output — statelessly. Returns ``Result[str]``.
 
     FOUNDER runs the full DNWF compile (``run_compiled``); everyone else runs a
     single LLM pass over the text with the supplied instructions. Neither path
-    touches Neo4j.
+    touches Neo4j. ``summon_canon`` reaches the FOUNDER compile only (canon-free
+    single passes have no stages to infuse).
     """
     if is_founder and journal_service is not None:
-        return await journal_service.run_compiled(text, user_uid)
+        return await journal_service.run_compiled(text, user_uid, summon_canon=summon_canon)
     return await _call_llm_with_instructions(text, instructions, processing_service)
 
 
@@ -248,6 +250,7 @@ async def _process_single_upload(
     journal_service: Any,
     batch_transcription_service: Any,
     processing_service: Any,
+    summon_canon: bool = False,
 ) -> Any:
     """Process one uploaded file to ``je_out/`` and return an inline fragment.
 
@@ -296,6 +299,7 @@ async def _process_single_upload(
             is_founder=is_founder,
             journal_service=journal_service,
             processing_service=processing_service,
+            summon_canon=summon_canon,
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
@@ -733,6 +737,11 @@ def create_journals_routes(
             # keeps its result in #upload-status (Codex #478).
             retarget_workspace = bool(form.get("workspace_target"))
 
+            # Canon "summon" dial for the file path (FOUNDER instructions_only):
+            # the compile has no review gate to check, so the intent rides the
+            # upload form. Absent/anything-but-"true" → canon-free (default).
+            summon_canon = str(form.get("summon_canon", "")).strip().lower() == "true"
+
             if len(uploaded_files) == 1:
                 uploaded_file = uploaded_files[0]
                 file_content = await uploaded_file.read()
@@ -750,6 +759,7 @@ def create_journals_routes(
                     journal_service=journal_service,
                     batch_transcription_service=batch_transcription_service,
                     processing_service=processing_service,
+                    summon_canon=summon_canon,
                 )
 
             # Multiple files — write to a temp dir and run the shared batch engine

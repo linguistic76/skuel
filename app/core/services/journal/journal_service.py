@@ -362,12 +362,19 @@ class JournalService:
     # Compiled output
     # ------------------------------------------------------------------
 
-    async def run_compiled(self, raw_entry: str, user_uid: UserUID) -> Result[str]:
+    async def run_compiled(
+        self, raw_entry: str, user_uid: UserUID, summon_canon: bool = False
+    ) -> Result[str]:
         """Run all three DNWF stages in sequence and return a single compiled document.
 
         Used for file-based (batch) processing where interactive review between
         stages is not possible. Produces Stage 1 → Stage 2 → Stage 3 output with no
         review notes between stages.
+
+        ``summon_canon`` (FULL tier) draws curated book passages into Stages 2 and
+        3 — the file path's parallel to the interactive "summon" dial, since there
+        is no review gate to check. Fail-soft: no canon degrades to a normal
+        compile.
         """
         stage1 = await self.run_stage1(raw_entry, user_uid)
         if stage1.is_error:
@@ -379,6 +386,7 @@ class JournalService:
             scribe_output=scribe_output,
             review_notes="",
             user_uid=user_uid,
+            summon_canon=summon_canon,
         )
         if stage2.is_error:
             return stage2
@@ -389,6 +397,7 @@ class JournalService:
             thought_partner_output=thought_partner_output,
             review_notes="",
             user_uid=user_uid,
+            summon_canon=summon_canon,
         )
         if stage3.is_error:
             return stage3

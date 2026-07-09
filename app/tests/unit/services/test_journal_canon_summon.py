@@ -139,6 +139,44 @@ class TestStageCanonWiring:
         assert result.value.endswith("*Drawing on:* *Hyper Media Systems*")
 
     @pytest.mark.asyncio
+    async def test_run_compiled_threads_summon_to_both_stages(self):
+        # The file path has no review gate, so run_compiled carries the dial.
+        # Every stage output is footered → the compiled doc names the book, and
+        # summoned Stage 2/3 prompts carry the canon block.
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("Stage body."))
+        service = _make_service(llm=llm, canon=_canon_service(Result.ok(_populated_context())))
+
+        result = await service.run_compiled(
+            raw_entry="hypermedia thoughts", user_uid="user_mike", summon_canon=True
+        )
+
+        assert result.is_ok
+        assert "*Drawing on:* *Hyper Media Systems*" in result.value
+        summoned_prompts = [
+            call.kwargs["system_prompt"]
+            for call in llm.generate.await_args_list
+            if "Wisdom to Draw On" in call.kwargs["system_prompt"]
+        ]
+        # Stage 2 and Stage 3 both summoned (Stage 1 Scribe never does).
+        assert len(summoned_prompts) == 2
+
+    @pytest.mark.asyncio
+    async def test_run_compiled_default_is_canon_free(self):
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("Stage body."))
+        service = _make_service(llm=llm, canon=_canon_service(Result.ok(_populated_context())))
+
+        result = await service.run_compiled(raw_entry="thoughts", user_uid="user_mike")
+
+        assert result.is_ok
+        assert "Drawing on" not in result.value
+        for call in llm.generate.await_args_list:
+            assert "Wisdom to Draw On" not in call.kwargs["system_prompt"]
+
+    @pytest.mark.asyncio
     async def test_no_passages_no_footer_even_when_summoned(self):
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)
