@@ -5,7 +5,7 @@ Domain-agnostic capability that voice-infuses LLM reasoning with a curated canon
 Askesis-ready later.
 """
 
-from core.services.canon.canon_models import CanonContext, CanonPassage
+from core.services.canon.canon_models import CanonContext, CanonPassage, CanonSource
 from core.services.canon.canon_retrieval_service import CanonRetrievalService
 
-__all__ = ["CanonContext", "CanonPassage", "CanonRetrievalService"]
+__all__ = ["CanonContext", "CanonPassage", "CanonRetrievalService", "CanonSource"]

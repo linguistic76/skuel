@@ -9,9 +9,11 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    Li,
     P,
     Span,
     Textarea,
+    Ul,
 )
 
 from ui.components import Button as StyledButton
@@ -19,6 +21,7 @@ from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
+    from core.services.canon import CanonSource
     from core.services.journal.suggestion import SuggestedActivity
 
 # ------------------------------------------------------------------
@@ -119,11 +122,17 @@ def _Composer(
     ai_response: str,
     title: str,
     mode_value: str,
+    is_founder: bool = False,
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
     Hidden inputs carry IDs so the follow-up route can update them via
     HTMX out-of-band swaps without resetting the textarea.
+
+    ``is_founder`` renders the "Summon the canon shelf" dial — the quote-on-demand
+    surface (ADR-076). Because the composer form is never reset between turns
+    (only the textarea is cleared), a checked box persists across follow-ups, so
+    a summoned conversation stays summoned without any OOB re-render.
     """
     from ui.components import Icon
 
@@ -155,21 +164,45 @@ def _Composer(
                 ),
             ),
             Div(
-                P(
-                    "Thinking…",
-                    id="journal-reply-loading",
-                    cls="text-sm text-muted-foreground htmx-indicator",
+                # FOUNDER canon dial (ADR-076): checked → this follow-up may quote
+                # + cite the shelf; unchecked/absent → FastHTML binds
+                # summon_canon=False (a normal follow-up). A plain Span placeholder
+                # when not FOUNDER keeps the send button right-aligned.
+                (
+                    Label(
+                        Input(
+                            type="checkbox",
+                            name="summon_canon",
+                            value="true",
+                            cls="mr-1.5 align-middle",
+                        ),
+                        "Summon the canon shelf",
+                        cls=(
+                            "flex items-center text-[13px] text-muted-foreground"
+                            " cursor-pointer select-none"
+                        ),
+                    )
+                    if is_founder
+                    else Span()
                 ),
-                Button(
-                    Icon("arrow-up", size=16, cls="text-white"),
-                    type="submit",
-                    aria_label="Send follow-up",
-                    cls=(
-                        "w-[34px] h-[34px] rounded-full flex items-center justify-center"
-                        " bg-foreground hover:bg-foreground/80 transition-colors"
+                Div(
+                    P(
+                        "Thinking…",
+                        id="journal-reply-loading",
+                        cls="text-sm text-muted-foreground htmx-indicator",
                     ),
+                    Button(
+                        Icon("arrow-up", size=16, cls="text-white"),
+                        type="submit",
+                        aria_label="Send follow-up",
+                        cls=(
+                            "w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                            " bg-foreground hover:bg-foreground/80 transition-colors"
+                        ),
+                    ),
+                    cls="flex items-center gap-3",
                 ),
-                cls="flex items-center justify-end gap-3 mt-2",
+                cls="flex items-center justify-between gap-3 mt-2",
             ),
             cls=("border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-sm"),
         ),
@@ -298,11 +331,13 @@ def Stage3Fragment(
     raw_entry: str,
     title: str,
     related_output: str,
+    is_founder: bool = False,
 ) -> Any:
     """Fragment returned after Stage 3 — What Is Related completes.
 
     Now includes a follow-up composer so the user can continue the conversation
     after the DNWF completes. Context: original entry + Stage 3 output.
+    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -324,7 +359,7 @@ def Stage3Fragment(
                     " transition-colors no-underline"
                 ),
             ),
-            _Composer(raw_entry, related_output, title, resolved.value),
+            _Composer(raw_entry, related_output, title, resolved.value, is_founder=is_founder),
             cls="flex-shrink-0",
         ),
         id="journal-workspace",
@@ -337,12 +372,14 @@ def StandardResponseFragment(
     title: str,
     response_output: str,
     mode: "JournalMode | None" = None,
+    is_founder: bool = False,
 ) -> Any:
     """Growing chat thread — initial AI response with sticky composer.
 
     Replaces the single-swap pattern: the workspace is now a flex column with
     a scrollable #journal-thread and a sticky #journal-composer. Follow-ups
     append new bubbles via hx-swap="beforeend" on #journal-thread.
+    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -358,7 +395,7 @@ def StandardResponseFragment(
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
-        _Composer(raw_entry, response_output, title, resolved.value),
+        _Composer(raw_entry, response_output, title, resolved.value, is_founder=is_founder),
         id="journal-workspace",
         cls="flex flex-col h-full",
     )
@@ -368,6 +405,7 @@ def FileOutputFragment(
     title: str,
     output_filename: str,
     response_output: str,
+    is_founder: bool = False,
 ) -> Any:
     """Shown after a compiled journal file is processed and saved to je_out/.
 
@@ -465,9 +503,44 @@ def FileOutputFragment(
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6",
         ),
-        _Composer(title, response_output, title, resolved_mode.value),
+        _Composer(title, response_output, title, resolved_mode.value, is_founder=is_founder),
         id="journal-workspace",
         cls="flex flex-col h-full",
+    )
+
+
+def _CanonSourcesBlock(sources: "tuple[CanonSource, ...]") -> Any:
+    """Clickable "Sources" block under a canon-summoned follow-up (ADR-076).
+
+    The journal bubble renders plain text, so a markdown link would show as
+    literal `[text](url)`. This renders a real anchor per book to its Resource
+    page — the citation's "point to the raw" destination — with the in-book
+    locations the quotes came from. Aligned under the AI response (past the avatar).
+    """
+    from ui.components import Icon
+
+    items = []
+    for s in sources:
+        where = f" — {'; '.join(s.locators)}" if s.locators else ""
+        items.append(
+            Li(
+                A(
+                    Icon("book-open", size=13, cls="inline-block mr-1 align-[-2px]"),
+                    s.book_title,
+                    href=f"/library/resources/get?uid={s.resource_uid}",
+                    cls="text-primary hover:underline font-medium no-underline",
+                ),
+                Span(where, cls="text-muted-foreground"),
+                cls="text-[13px] leading-relaxed",
+            )
+        )
+    return Div(
+        Span(
+            "Sources",
+            cls="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+        ),
+        Ul(*items, cls="mt-1 space-y-1 list-none pl-0"),
+        cls="ml-[46px] mt-1 mb-3 border-l-2 border-border pl-3",
     )
 
 
@@ -477,16 +550,19 @@ def FollowUpFragment(
     combined: str,
     title: str,
     mode: "JournalMode",
+    sources: "tuple[CanonSource, ...] | None" = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
 
-    Returns a tuple: two chat bubbles (main swap) plus two OOB inputs that update
+    Returns a tuple: the chat bubbles (main swap) plus two OOB inputs that update
     the hidden context fields in #journal-composer without a full replacement.
+    ``sources`` (canon draws) render as a clickable citation block after the reply.
     """
     label = f"Journal Response — {mode.display_label()}"
     return (
         _UserBubble(user_reply),
         _AiBubble(label, ai_text),
+        *((_CanonSourcesBlock(sources),) if sources else ()),
         # OOB: update accumulated conversation context in the sticky composer
         Input(
             id="journal-original-entry",

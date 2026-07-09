@@ -12,6 +12,7 @@ not by this service. See: /docs/decisions/ (ADR forthcoming)
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.models.enums.user_enums import JournalMode
@@ -31,7 +32,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.services.canon import CanonContext, CanonRetrievalService
+    from core.services.canon import CanonContext, CanonRetrievalService, CanonSource
     from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
@@ -40,6 +41,22 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.services.journal")
+
+
+@dataclass(frozen=True)
+class JournalFollowUp:
+    """A follow-up turn's result — the reply text plus structured canon sources.
+
+    ``text`` is the conversational reply (with the model's inline quotes/citations
+    when the canon was summoned). ``sources`` are the shelf books it drew on, kept
+    structured so the plain-text journal bubble can render a real, clickable link
+    to each book's Resource page (ADR-076; Codex #572 P2) rather than literal
+    markdown. Empty ``sources`` on a canon-free follow-up.
+    """
+
+    text: str
+    sources: tuple[CanonSource, ...]
+
 
 _MODEL_CLAUDE = "claude-sonnet-4-6"
 _MODEL_GPT = "gpt-4o-mini"
@@ -422,25 +439,35 @@ class JournalService:
         user_reply: str,
         user_uid: UserUID,
         mode: JournalMode | None = None,
-    ) -> Result[str]:
+        summon_canon: bool = False,
+    ) -> Result[JournalFollowUp]:
         """Respond to the user's follow-up without re-running the full analysis template.
 
         Uses follow_up_system_prompt() which adds a continuation directive on top of
         the mode's base instructions, preventing the LLM from re-producing headings
         like '# What is Emerging' for a conversational reply.
 
+        The follow-up is the **quote-on-demand** surface (ADR-076): when
+        ``summon_canon`` is set (FULL tier), canon passages resonant with the
+        user's *question* (``user_reply``, not the raw entry) are injected via
+        ``to_discussion_block()`` so the model may name + quote the shelf. Returns a
+        ``JournalFollowUp`` — the reply text plus structured ``sources`` the route
+        renders as clickable links (not a markdown footer, which a plain-text
+        bubble would show literally). Fail-soft: no canon → empty ``sources``.
+
         Backend: GoalsService, TasksService, HabitsService (context summary);
-                 LLMCaller (response generation).
+                 CanonRetrievalService (shelf); LLMCaller (response generation).
         """
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = follow_up_system_prompt(context_summary, mode)
+        canon = await self._maybe_summon_canon(user_reply, summon_canon)
+        system_prompt = follow_up_system_prompt(context_summary, mode, canon.to_discussion_block())
         user_message = (
             f"# Original Note\n\n{original_entry}\n\n"
             f"# Previous Response\n\n{ai_response}\n\n"
             f"# Follow-up\n\n{user_reply}"
         )
         try:
-            return await self._llm.generate(
+            result = await self._llm.generate(
                 prompt=user_message,
                 model=self._resolve_model(),
                 system_prompt=system_prompt,
@@ -449,3 +476,6 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal follow-up LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Follow-up failed: {exc}"))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(JournalFollowUp(text=result.value, sources=canon.sources()))

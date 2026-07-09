@@ -48,6 +48,23 @@ def _populated_context() -> CanonContext:
     )
 
 
+def _located_context() -> CanonContext:
+    """A passage carrying its in-book location — for the discussion/sources path."""
+    return CanonContext(
+        passages=(
+            CanonPassage(
+                text="Hypermedia is a system of links.",
+                book_title="Hypermedia Systems",
+                resource_uid="resource_hms",
+                similarity_score=0.9,
+                heading="A Reintroduction",
+                section_path="Hypermedia Concepts",
+                sequence=7,
+            ),
+        )
+    )
+
+
 class TestMaybeSummonCanon:
     @pytest.mark.asyncio
     async def test_dial_off_returns_empty(self):
@@ -193,3 +210,75 @@ class TestStageCanonWiring:
 
         assert result.is_ok
         assert result.value == "Response body."
+
+
+class TestFollowUpCanonWiring:
+    """The follow-up is the quote-on-demand surface (ADR-076)."""
+
+    @pytest.mark.asyncio
+    async def test_summon_injects_discussion_block_and_sources_footer(self):
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("Yes, the book says so."))
+        canon = _canon_service(Result.ok(_located_context()))
+        service = _make_service(llm=llm, canon=canon)
+
+        result = await service.run_follow_up(
+            original_entry="my note",
+            ai_response="prior response",
+            user_reply="What does Hypermedia Systems say about links?",
+            user_uid="user_mike",
+            summon_canon=True,
+        )
+
+        assert result.is_ok
+        # Discussion block (quote-permitting), NOT the silent-infusion block.
+        system_prompt = llm.generate.await_args.kwargs["system_prompt"]
+        assert "The Canon Shelf" in system_prompt
+        assert "verbatim" in system_prompt
+        assert "Wisdom to Draw On" not in system_prompt
+        # Structured sources returned for clickable rendering (not markdown in text).
+        turn = result.value
+        assert turn.text == "Yes, the book says so."
+        assert len(turn.sources) == 1
+        assert turn.sources[0].resource_uid == "resource_hms"
+        assert turn.sources[0].locators == ("Hypermedia Concepts > A Reintroduction",)
+
+    @pytest.mark.asyncio
+    async def test_retrieval_keys_on_the_user_question_not_the_entry(self):
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("ok"))
+        canon = _canon_service(Result.ok(_located_context()))
+        service = _make_service(llm=llm, canon=canon)
+
+        await service.run_follow_up(
+            original_entry="THE ORIGINAL ENTRY",
+            ai_response="prior",
+            user_reply="THE QUESTION",
+            user_uid="user_mike",
+            summon_canon=True,
+        )
+
+        # Canon is retrieved for the user's question, not the raw entry.
+        assert canon.retrieve.await_args.args[0] == "THE QUESTION"
+
+    @pytest.mark.asyncio
+    async def test_no_summon_is_canon_free(self):
+        llm = MagicMock()
+        llm.is_model_supported = MagicMock(return_value=True)
+        llm.generate = AsyncMock(return_value=Result.ok("Plain reply."))
+        service = _make_service(llm=llm, canon=_canon_service(Result.ok(_located_context())))
+
+        result = await service.run_follow_up(
+            original_entry="my note",
+            ai_response="prior",
+            user_reply="tell me more",
+            user_uid="user_mike",
+            summon_canon=False,
+        )
+
+        assert result.is_ok
+        assert result.value.text == "Plain reply."
+        assert result.value.sources == ()
+        assert "The Canon Shelf" not in llm.generate.await_args.kwargs["system_prompt"]

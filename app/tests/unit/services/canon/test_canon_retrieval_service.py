@@ -9,11 +9,23 @@ from core.services.canon import CanonRetrievalService
 from core.utils.result_simplified import Errors, Result
 
 
-def _hit(text: str, book: str, uid: str = "resource_hms", score: float = 0.8) -> ReferenceChunkHit:
+def _hit(
+    text: str,
+    book: str,
+    uid: str = "resource_hms",
+    score: float = 0.8,
+    *,
+    heading: str | None = None,
+    section_path: str | None = None,
+    sequence: int | None = None,
+) -> ReferenceChunkHit:
     return ReferenceChunkHit(
         chunk_uid="rc_1",
         text=text,
         context_window=None,
+        heading=heading,
+        section_path=section_path,
+        sequence=sequence,
         similarity_score=score,
         resource_uid=uid,
         book_title=book,
@@ -85,6 +97,32 @@ class TestRetrieveHappyPath:
         assert ctx.has_passages is True
         assert ctx.books() == ["Hyper Media Systems", "Book B"]
         assert "Linked knowledge endures." in ctx.to_prompt_block()
+
+    @pytest.mark.asyncio
+    async def test_maps_location_fields_into_passages(self):
+        embeddings = MagicMock()
+        embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1]))
+        search = MagicMock()
+        search.search_reference_chunks = AsyncMock(
+            return_value=[
+                _hit(
+                    "HTML is a hypermedia.",
+                    "Hypermedia Systems",
+                    heading="A Reintroduction",
+                    section_path="Hypermedia Concepts",
+                    sequence=3,
+                )
+            ]
+        )
+        service = CanonRetrievalService(reference_search=search, embeddings_service=embeddings)
+
+        result = await service.retrieve("hypermedia")
+
+        passage = result.value.passages[0]
+        assert passage.heading == "A Reintroduction"
+        assert passage.section_path == "Hypermedia Concepts"
+        assert passage.sequence == 3
+        assert passage.locator == "Hypermedia Concepts > A Reintroduction"
 
     @pytest.mark.asyncio
     async def test_passes_constants_through_to_search(self):

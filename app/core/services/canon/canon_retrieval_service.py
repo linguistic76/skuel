@@ -101,6 +101,9 @@ class CanonRetrievalService:
                 book_title=hit["book_title"],
                 resource_uid=hit["resource_uid"],
                 similarity_score=hit["similarity_score"],
+                heading=hit.get("heading"),
+                section_path=hit.get("section_path"),
+                sequence=hit.get("sequence"),
             )
             for hit in hits
         )

@@ -2409,6 +2409,9 @@ class ReferenceChunkHit(TypedDict):
     chunk_uid: str
     text: str
     context_window: str | None
+    heading: str | None  # immediate section heading of the passage
+    section_path: str | None  # ancestor-heading breadcrumb ("Part > Chapter > Section")
+    sequence: int | None  # 0-based position of the chunk within the book
     similarity_score: float
     resource_uid: str
     book_title: str

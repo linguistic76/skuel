@@ -34,7 +34,12 @@ class _RecordingAdapter:
         return True
 
 
-def _frag(index: int, text: str, heading: str | None = None) -> ContentChunk:
+def _frag(
+    index: int,
+    text: str,
+    heading: str | None = None,
+    section_path: str | None = None,
+) -> ContentChunk:
     return ContentChunk(
         parent_uid=_UID,
         chunk_index=index,
@@ -43,6 +48,7 @@ def _frag(index: int, text: str, heading: str | None = None) -> ContentChunk:
         context_before="",
         context_after="",
         heading=heading,
+        section_path=section_path,
     )
 
 
@@ -103,6 +109,73 @@ def test_oversized_single_fragment_stands_alone() -> None:
 
 def test_empty_input_yields_empty() -> None:
     assert _consolidate_chunks([], _UID, REFERENCE_CHUNKING_PARAMS) == []
+
+
+def test_location_is_the_section_when_fragments_share_it() -> None:
+    # A group wholly inside one section is cited by that full section trail.
+    frags = [
+        _frag(0, "one", heading="Section A", section_path="Part > Chapter"),
+        _frag(1, "two", heading="Section A", section_path="Part > Chapter"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading == "Section A"
+    assert merged[0].section_path == "Part > Chapter"
+
+
+def test_location_backs_off_to_common_ancestor_across_sibling_sections() -> None:
+    # A group crossing sibling subsections is cited by their common parent — never
+    # by one subsection's heading, so a quote from the other isn't mis-attributed
+    # (Codex #572 P2). frag 0 in "Section A", frag 1 in "Section B" → cite "Chapter".
+    frags = [
+        _frag(0, "one", heading="Section A", section_path="Part > Chapter"),
+        _frag(1, "two", heading="Section B", section_path="Part > Chapter"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading == "Chapter"
+    assert merged[0].section_path == "Part"
+
+
+def test_location_is_book_level_when_fragments_span_unrelated_parts() -> None:
+    # No shared ancestor → cite the book only (heading + path both None), rather
+    # than pretend the whole passage lives in one Part.
+    frags = [
+        _frag(0, "one", heading="Ch A", section_path="Part One"),
+        _frag(1, "two", heading="Ch B", section_path="Part Two"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading is None
+    assert merged[0].section_path is None
+
+
+def test_location_common_ancestor_when_first_fragment_is_headingless() -> None:
+    # A chapter-intro paragraph (no own heading) + a subsection under it → the
+    # common ancestor is the chapter, cited without borrowing the subsection head.
+    frags = [
+        _frag(0, "intro para", heading=None, section_path="Part > Chapter"),
+        _frag(1, "sub body", heading="Section A", section_path="Part > Chapter"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading == "Chapter"
+    assert merged[0].section_path == "Part"
+
+
+def test_chunk_markdown_captures_ancestor_breadcrumb() -> None:
+    # End-to-end: the shared chunker records each chunk's ancestor-heading trail
+    # (excluding the chunk's own heading), and a same-level Part heading pops the
+    # book title so it never pollutes every breadcrumb.
+    from core.models.ps_content.content_chunks import ContentChunkingStrategy
+
+    md = (
+        "# Book Title\n\nfront matter text here that is long enough to keep\n\n"
+        "# Part One\n\n## A Chapter\n\n### A Section\n\n"
+        "body text of the section long enough to survive chunking cleanly\n"
+    )
+    chunks = ContentChunkingStrategy.chunk_markdown(md, _UID)
+    by_heading = {c.heading: c.section_path for c in chunks}
+    # Front matter under the title has no ancestors.
+    assert by_heading.get("Book Title") is None
+    # The deep section's trail is Part > Chapter — the title was popped by "Part One".
+    assert by_heading.get("A Section") == "Part One > A Chapter"
 
 
 async def test_zero_chunk_ingest_refuses_without_touching_the_shelf() -> None:

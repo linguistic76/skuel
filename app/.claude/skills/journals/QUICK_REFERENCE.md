@@ -9,7 +9,7 @@
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
 | Compiled (file upload) | `run_compiled(raw_entry, user_uid, summon_canon=False)` | Chains stage1→stage2→stage3; single markdown output. `summon_canon` = canon dial (no review gate here) | — |
 | Standard | `run_standard(raw_entry, user_uid, mode=None)` | Inline strings in `instruction_loader.py` (no file dependency) | 4000 |
-| Follow-up | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode=None)` | `follow_up_system_prompt()` — mode base + continuation directive (no re-analysis) | 4000 |
+| Follow-up | `run_follow_up(...) -> Result[JournalFollowUp]` (`original_entry, ai_response, user_reply, user_uid, mode=None, summon_canon=False`) | `follow_up_system_prompt()` — mode base + continuation directive (no re-analysis). **Canon quote-on-demand surface (ADR-076):** `summon_canon` (FOUNDER-gated in the route) retrieves on `user_reply`, injects `to_discussion_block()` (may name + quote the shelf verbatim). Returns `JournalFollowUp(text, sources)` — `sources` (`CanonContext.sources()`) render as clickable Resource links in `FollowUpFragment`, not a markdown footer | 4000 |
 | Suggested activities | `suggest_activities(content, user_uid)` | LLM bridge → canonical `@context()` lines (inert; panel only) | — |
 
 Stage 1 receives no UserContext (sparse by design). Stages 2 and 3 receive `_build_context_summary()` digest.

@@ -1,9 +1,12 @@
 # Canon — Book-as-Journaling-Companion
 
-**Status:** **Phases 1–3 = DONE 2026-07-08.** The arc is functionally complete: canon prep →
-`:ReferenceChunk` ingest → journal retrieval wiring all shipped. Remaining work is content
-(authoring more books onto the shelf) and the optional future rungs below (auto-summon,
-Askesis).
+**Status:** **Phases 1–3 = DONE 2026-07-08** (silent voice-infusion). **Quote-and-cite
+upgrade DONE 2026-07-09** — the companion now names, quotes verbatim, and cites the shelf on
+the journal follow-up path (chapter/section structural anchors + Resource link), governed by
+[ADR-076](../decisions/ADR-076-canon-quotation-and-citation-policy.md) /
+[CANON_CITATION_DESIGN.md](../architecture/CANON_CITATION_DESIGN.md), which supersede the
+original "voice-infused, not quoted" ruling. Remaining work is content (more books) and the
+future rungs below (auto-summon, Askesis, clickable in-app citations).
 
 **Core Principle:** *"A curated shelf of books that reasons alongside you as you journal — infused into the companion's voice, always walkable back to the raw."*
 
@@ -25,10 +28,18 @@ The first book on the shelf is *Hyper Media Systems* (`0vault/Resources/0 Hyper 
 
 ### Design decisions (settled 2026-07-08, with Mike)
 
+> **⚠️ Superseded 2026-07-09 — see [ADR-076](../decisions/ADR-076-canon-quotation-and-citation-policy.md)
+> and [CANON_CITATION_DESIGN.md](../architecture/CANON_CITATION_DESIGN.md).** The
+> "Infusion vs quotation → voice-infused, not quoted back" ruling below was a **prompt
+> default over-recorded as a decision**. The companion **may quote and cite the shelf**
+> (hybrid: infuse by default, quote-on-demand, always cite with a structural anchor +
+> link to the raw). The two rows below are kept struck-through for history; all other rows
+> in this table still stand.
+
 | Decision | Ruling |
 |---|---|
-| **Infusion vs quotation** | **Voice-infused** — passages feed the LLM's reasoning, not quoted back. |
-| **Attribution** | A **light "Drawing on: *book*" footer** — the *shape* of the Askesis "Sources & Evidence" footer, but sourced from retrieved passages, not graph edges. Keeps infusion honest with "point to the raw." |
+| ~~**Infusion vs quotation**~~ | ~~**Voice-infused** — passages feed the LLM's reasoning, not quoted back.~~ → **Superseded (ADR-076): quote-on-demand + cite.** |
+| ~~**Attribution**~~ | ~~A **light "Drawing on: *book*" footer**~~ → **Superseded (ADR-076): a Sources block with per-quote chapter/section anchor + link to the Resource page** (still the Askesis "Sources & Evidence" footer *shape*, still "point to the raw"). |
 | **Trigger** | A **dial, starting at "summoned"** (a toggle on the FOUNDER journal workspace). Architected as a request parameter so it can graduate toward automatic with use — not a hardcoded branch. |
 | **Which stages** | **Stage 2 (Thought Partner) + Stage 3 (What Is Related).** Both already build `_build_context_summary`; canon retrieval is a sibling of that. |
 | **Shelf scope** | The **whole shelf is always available** for retrieval. |

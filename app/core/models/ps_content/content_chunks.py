@@ -91,6 +91,10 @@ class ContentChunk:
 
     # Metadata
     heading: str | None = None  # Section heading if applicable
+    # Ancestor-heading breadcrumb (shallow→deep, excluding this chunk's own
+    # heading) — the chapter/section trail above the chunk, used for citation
+    # ("Part > Chapter > Section"). None when the chunk has no heading ancestors.
+    section_path: str | None = None
     word_count: int = 0  # Word count of chunk
     metadata: dict[str, Any] = field(default_factory=dict)  # Additional metadata
     embedding: tuple[float, ...] | None = None  # Vector embedding (immutable tuple)
@@ -195,6 +199,8 @@ class ContentChunkingStrategy:
         for section in sections:
             heading = section.get("heading")
             text = section.get("text", "").strip()
+            breadcrumb = section.get("breadcrumb") or []
+            section_path = " > ".join(breadcrumb) or None
 
             if not text:
                 continue
@@ -223,6 +229,7 @@ class ContentChunkingStrategy:
                     context_before=context_before,
                     context_after=context_after,
                     heading=heading,
+                    section_path=section_path,
                     metadata=sub_chunk.get("metadata", {}),
                     chunking_version=version,
                 )
@@ -296,7 +303,15 @@ class ContentChunkingStrategy:
 
     @classmethod
     def _split_by_headers(cls, content: str) -> list[dict[str, Any]]:
-        """Split markdown by headers while preserving structure"""
+        """Split markdown by headers while preserving structure.
+
+        Each section carries a ``breadcrumb`` — the chain of shallower headings
+        in scope (shallow→deep, excluding the section's own heading) — so a
+        chunk can cite its location (chapter/section trail). The trail is tracked
+        across ALL heading lines, including headings whose body is empty (e.g. a
+        Part divider immediately followed by its first chapter), so no ancestor
+        is dropped.
+        """
         sections = []
 
         # Pattern for markdown headers
@@ -304,7 +319,14 @@ class ContentChunkingStrategy:
 
         # Split content by headers
         lines = content.split("\n")
-        current_section = {"heading": None, "text": "", "level": 0}
+        current_section: dict[str, Any] = {
+            "heading": None,
+            "text": "",
+            "level": 0,
+            "breadcrumb": [],
+        }
+        # Ancestor stack (level, heading), shallow→deep — the headings in scope.
+        trail: list[tuple[int, str]] = []
 
         for line in lines:
             header_match = re.match(header_pattern, line)
@@ -314,10 +336,19 @@ class ContentChunkingStrategy:
                 if isinstance(text, str) and text.strip():
                     sections.append(current_section)
 
-                # Start new section
+                # Start new section — pop siblings/deeper, capture ancestors.
                 level = len(header_match.group(1))
                 heading = header_match.group(2)
-                current_section = {"heading": heading, "text": "", "level": level}
+                while trail and trail[-1][0] >= level:
+                    trail.pop()
+                breadcrumb = [h for _, h in trail]
+                trail.append((level, heading))
+                current_section = {
+                    "heading": heading,
+                    "text": "",
+                    "level": level,
+                    "breadcrumb": breadcrumb,
+                }
             else:
                 # Append line to current section text
                 text = current_section.get("text", "")
@@ -332,7 +363,7 @@ class ContentChunkingStrategy:
 
         # If no headers found, treat entire content as one section
         if not sections:
-            sections.append({"heading": None, "text": content, "level": 0})
+            sections.append({"heading": None, "text": content, "level": 0, "breadcrumb": []})
 
         return sections
 
