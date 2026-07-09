@@ -129,9 +129,11 @@ This **splits** the arc; it does not extend it.
 - FULL-tier only; fail-soft to a normal canon-free journal on CORE or any retrieval miss.
   ADR-073 clean — passages are ephemeral prompt context, nothing persisted.
 - File path parity: `run_compiled` (the FOUNDER upload/batch compile, which has no
-  review gate) takes the same `summon_canon` flag, carried on the upload form
-  (`/journals/upload`) and threaded to both stages. Default off — the dial stays
-  explicit.
+  review gate) takes the same `summon_canon` flag, threaded to both stages. A
+  FOUNDER-only "Summon the canon shelf" checkbox rides the upload form
+  (`render_upload_form` / `render_right_panel`), Alpine-shown only in
+  `instructions_only` mode — the sole upload path that reaches `run_compiled`.
+  Default off — the dial stays explicit.
 
 ### Future rungs (not scheduled)
 

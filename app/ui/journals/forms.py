@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fasthtml.common import Button as RawButton
-from fasthtml.common import Div, Form, Input, NotStr, P, Script, Span
+from fasthtml.common import Div, Form, Input, Label, NotStr, P, Script, Span
 
 from ui.components import Icon
 from ui.primitives import dropdown_menu, primary_btn, section_label
@@ -239,16 +239,43 @@ def _build_footer() -> Any:
     )
 
 
+def _build_canon_toggle(*, compact: bool = False) -> Any:
+    """FOUNDER-only "Summon the canon shelf" checkbox for the file compile.
+
+    The file path has no per-stage review gate, so the canon dial rides the
+    upload form here. Shown only in ``instructions_only`` mode — the sole upload
+    path that reaches the FOUNDER DNWF compile (``run_compiled``); ``x-show``
+    keeps it hidden for the transcribe modes. Unchecked → the ``summon_canon``
+    field is omitted and the compile is canon-free (default). Rendered ONLY when
+    the caller is FOUNDER, so a non-FOUNDER never sees a control the server would
+    ignore. Mirrors the review-gate checkbox on the interactive stages.
+    """
+    return Label(
+        Input(type="checkbox", name="summon_canon", value="true", cls="mr-2 align-middle"),
+        "Summon the canon shelf",
+        cls=(
+            "flex items-center text-sm text-muted-foreground cursor-pointer "
+            + ("mt-3" if compact else "mb-1")
+        ),
+        **{
+            "x-show": "processingMode === 'instructions_only'",
+            "x-cloak": True,  # boundary: fasthtml-elements
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Main render function
 # ---------------------------------------------------------------------------
 
 
-def render_upload_form(exercises: list[Any] | None = None) -> Any:
+def render_upload_form(exercises: list[Any] | None = None, *, is_founder: bool = False) -> Any:
     """Render journal capture form — Processing → Source → Browse → Process.
 
     Args:
         exercises: Unused — kept for call-site compatibility.
+        is_founder: Whether the caller is a FOUNDER — gates the canon "summon"
+            checkbox (file-path parity with the interactive stage dial).
     """
     alpine_data = """{
         source: 'files',
@@ -315,6 +342,7 @@ def render_upload_form(exercises: list[Any] | None = None) -> Any:
                 _build_processing_section(),
                 _build_source_section(),
                 _build_browse_area(),
+                *([_build_canon_toggle()] if is_founder else []),
                 _build_footer(),
                 hx_post="/journals/upload",
                 hx_target="#upload-status",
@@ -514,12 +542,16 @@ def _build_compact_process_btn() -> Any:
     return primary_btn("Process", icon="send", type="submit", cls="w-full justify-center")
 
 
-def render_right_panel() -> Any:
+def render_right_panel(*, is_founder: bool = False) -> Any:
     """Compact upload panel for the 320px right column on /journals landing.
 
     Shares DOM IDs (upload-form, upload-status, file-input, folder-input) with
     render_upload_form() so upload_form_script() works without changes. Only one
     of these two forms will be present on any given page.
+
+    Args:
+        is_founder: Whether the caller is a FOUNDER — gates the canon "summon"
+            checkbox (shown only in ``instructions_only`` mode).
     """
     alpine_data = """{
         source: 'files',
@@ -581,6 +613,7 @@ def render_right_panel() -> Any:
             _build_compact_processing_section(),
             _build_compact_source_section(),
             _build_compact_browse_area(),
+            *([_build_canon_toggle(compact=True)] if is_founder else []),
             _build_compact_process_btn(),
             # Signals that this layout has a #journal-workspace (landing centre
             # column), so a successful single-file upload should retarget its
