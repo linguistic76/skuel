@@ -3,9 +3,10 @@
 The whole point of resolving ingest ownership from the vault descriptor of the
 target path (ADR-070) is *surface-independence*: whoever triggers the ingest, a
 USER_OWNED entity that lives in the content vault is owned by the content acts-as
-account, and a curriculum entity is owned by no one. These tests drive one
-registry-wired ingestion service through three surfaces and assert the graph
-agrees.
+account, a personal-vault entity by that vault's compose-time BOUND owner (#521 —
+the acting-user hint never decides ownership when a registry governs), and a
+curriculum entity is owned by no one. These tests drive one registry-wired
+ingestion service through three surfaces and assert the graph agrees.
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -82,10 +83,12 @@ async def owner_env(neo4j_driver, tmp_path: Path):
         bridge=_bridge(),
         supports_task_round_trip=False,
     )
+    # Personal roots are owner-bound at compose time (#521) — the descriptor
+    # carries the vault's real owner, never a resolve-time-stamped placeholder.
     personal_desc = VaultDescriptor(
         kind=VaultKind.PERSONAL,
         root=personal_root,
-        owner_uid=UserUID("user_placeholder"),
+        owner_uid=_ALICE,
         allowlist=build_sync_allowlist(personal_root, content_root=content_root),
         bridge=_bridge(),
         supports_task_round_trip=True,
@@ -175,8 +178,14 @@ async def test_content_curriculum_has_no_owner(owner_env) -> None:
     assert await _owner_of(driver, "ku.atom") is None
 
 
-async def test_personal_task_owned_by_acting_user(owner_env) -> None:
-    """A task in the personal vault → the acting user (per-tenant ownership)."""
+async def test_personal_task_owned_by_vault_bound_owner(owner_env) -> None:
+    """A task in the personal vault → the vault's bound owner (per-tenant ownership).
+
+    Since #521 the personal descriptor is bound to one account at compose time;
+    in production the acting user syncing their own vault IS that bound owner.
+    The acting-user hint never decides ownership — a different hint still
+    attributes the vault's owner (by-path ownership is caller-independent).
+    """
     service = owner_env["service"]
     personal_root: Path = owner_env["personal_root"]
     driver = owner_env["driver"]
@@ -189,12 +198,22 @@ async def test_personal_task_owned_by_acting_user(owner_env) -> None:
     owner_env["created_uids"].append("task.alice-task")
     assert await _owner_of(driver, "task.alice-task") == _ALICE
 
+    # Caller-independence: acting as user_beta on alice's vault still
+    # attributes alice — the descriptor's bound owner, not the hint.
+    _task_file(personal_root / "knowledge" / "second-task.md", "Second Task")
+    result = await service.ingest_directory(personal_root, user_uid="user_beta")
+    assert result.is_ok, result
+
+    owner_env["created_uids"].append("task.second-task")
+    assert await _owner_of(driver, "task.second-task") == _ALICE
+
 
 async def test_file_supplied_user_uid_cannot_spoof_owner(owner_env) -> None:
     """A file claiming ``user_uid: victim`` is overridden by the vault descriptor.
 
-    Under descriptor-governed ingestion the resolved owner is authoritative, so a
-    personal-vault task file cannot spoof ownership onto another user.
+    Under descriptor-governed ingestion the descriptor's bound owner is
+    authoritative, so a personal-vault task file cannot spoof ownership onto
+    another user.
     """
     service = owner_env["service"]
     personal_root: Path = owner_env["personal_root"]
@@ -207,7 +226,7 @@ async def test_file_supplied_user_uid_cannot_spoof_owner(owner_env) -> None:
     assert result.is_ok, result
 
     owner_env["created_uids"].append("task.spoof-task")
-    # Descriptor owner (alice) wins over the file's claimed user_victim.
+    # Descriptor bound owner (alice) wins over the file's claimed user_victim.
     assert await _owner_of(driver, "task.spoof-task") == _ALICE
 
 
