@@ -85,9 +85,14 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
   `.1`/`.2` hotfixes as they land. (Reversing this trade — trading newest features for a long, no-
   treadmill support window — is what the 5.26 **LTS** is for; adopting it would be a separate ADR and a
   store *downgrade*.)
-- **Bump cadence ≈ monthly, always deliberate.** When a new monthly ships, bump to it (it supersedes
-  the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor tag — so
-  every environment is reproducible; the bump is a conscious PR, not an auto-pull.
+- **"Latest monthly" = latest with a published Docker image.** We pin Docker *images*, and the
+  official `library/neo4j` image lags Neo4j's release notes / deployment center by days. A monthly that
+  is announced but whose `neo4j:<tag>` image is not yet on Docker Hub is **not** pinnable — pinning it
+  would break `docker compose pull` and CI testcontainers. So "current monthly" means the newest one
+  whose image is actually pullable; bump when the image lands, not when the release notes drop.
+- **Bump cadence ≈ monthly, always deliberate.** When a new monthly's image publishes, bump to it (it
+  supersedes the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor
+  tag — so every environment is reproducible; the bump is a conscious PR, not an auto-pull.
 - **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.05.0` → a
   later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
