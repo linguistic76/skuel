@@ -61,6 +61,7 @@ from core.events import (
     LearningPathEmbeddingRequested,
     PathStepEmbeddingRequested,
     PrincipleEmbeddingRequested,
+    ReferenceChunkEmbeddingRequested,
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
@@ -90,9 +91,14 @@ class _PendingRequest:
 
 @dataclass
 class _PendingChunkRequest:
-    """A queued chunk-embedding request with its retry budget."""
+    """A queued chunk-embedding request with its retry budget.
 
-    event: ChunkEmbeddingRequested
+    Carries either a curriculum ``ChunkEmbeddingRequested`` or a canon
+    ``ReferenceChunkEmbeddingRequested`` — the batch selects the matching
+    adapter per request by the event's concrete type.
+    """
+
+    event: ChunkEmbeddingRequested | ReferenceChunkEmbeddingRequested
     attempts: int = field(default=0)
 
 
@@ -114,6 +120,7 @@ class EmbeddingBackgroundWorker:
         event_bus: EventBusOperations,
         embeddings_service: "EmbeddingsService",
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
+        reference_chunk_adapter: Any | None = None,  # Neo4jReferenceChunkAdapter for canon chunks
         batch_size: int = 25,
         batch_interval_seconds: int = 30,
         prometheus_metrics: Any | None = None,  # PrometheusMetrics for real-time instrumentation
@@ -126,6 +133,9 @@ class EmbeddingBackgroundWorker:
             embeddings_service: EmbeddingsService for generating + storing embeddings
                 (owns version/model metadata — the worker never writes those itself)
             content_adapter: Neo4jContentAdapter for chunk embedding storage (optional)
+            reference_chunk_adapter: Neo4jReferenceChunkAdapter for canon
+                reference-chunk embedding storage (optional; parallel to
+                content_adapter, selected by event type)
             batch_size: Number of entities to process per batch
             batch_interval_seconds: Seconds between batch processing runs
             prometheus_metrics: PrometheusMetrics for exposing metrics
@@ -133,6 +143,7 @@ class EmbeddingBackgroundWorker:
         self.event_bus = event_bus
         self.embeddings_service = embeddings_service
         self.content_adapter = content_adapter
+        self.reference_chunk_adapter = reference_chunk_adapter
         self.batch_size = batch_size
         self.batch_interval = batch_interval_seconds
         self.prometheus_metrics = prometheus_metrics
@@ -175,8 +186,12 @@ class EmbeddingBackgroundWorker:
         self.event_bus.subscribe(LearningPathEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(RevisedExerciseEmbeddingRequested, self._queue_request)
 
-        # Subscribe to chunk embedding requests (separate queue)
+        # Subscribe to chunk embedding requests (separate queue). Both the
+        # curriculum and canon reference variants share the queue and the
+        # _PendingChunkRequest wrapper — the batch routes each to its adapter
+        # by event type.
         self.event_bus.subscribe(ChunkEmbeddingRequested, self._queue_chunk_request)
+        self.event_bus.subscribe(ReferenceChunkEmbeddingRequested, self._queue_chunk_request)
 
     async def start(self) -> Result[None]:
         """
@@ -247,12 +262,16 @@ class EmbeddingBackgroundWorker:
             f"(queue size: {len(self._pending_requests)})"
         )
 
-    async def _queue_chunk_request(self, event: ChunkEmbeddingRequested) -> None:
+    async def _queue_chunk_request(
+        self, event: ChunkEmbeddingRequested | ReferenceChunkEmbeddingRequested
+    ) -> None:
         """
         Add chunk embedding request to pending queue.
 
         Args:
-            event: ChunkEmbeddingRequested event from ingestion or regeneration
+            event: ChunkEmbeddingRequested (curriculum) or
+                ReferenceChunkEmbeddingRequested (canon) event from ingestion or
+                regeneration
         """
         async with self._queue_lock:
             self._pending_chunk_requests.append(_PendingChunkRequest(event))
@@ -576,10 +595,6 @@ class EmbeddingBackgroundWorker:
         """
         import time
 
-        if not self.content_adapter:
-            self.logger.warning("Content adapter not configured - chunk embeddings not stored")
-            return
-
         batch_start = time.time()
         total_chunks = sum(len(p.event.chunk_uids) for p in batch)
         self.logger.info(f"Processing {total_chunks} chunks from {len(batch)} parents")
@@ -589,13 +604,29 @@ class EmbeddingBackgroundWorker:
         for pending in batch:
             event = pending.event
             try:
+                # Route to the adapter matching the event kind: canon reference
+                # chunks land on :ReferenceChunk (own index), curriculum chunks
+                # on :ContentChunk. Both adapters expose the same method names,
+                # so this is a one-object swap. A missing adapter (tier/wiring)
+                # skips just this parent, not the batch.
+                adapter = (
+                    self.reference_chunk_adapter
+                    if isinstance(event, ReferenceChunkEmbeddingRequested)
+                    else self.content_adapter
+                )
+                if adapter is None:
+                    self.logger.warning(
+                        f"No chunk adapter configured for {type(event).__name__} — "
+                        f"skipping parent {event.parent_uid}"
+                    )
+                    continue
+
                 # Content idempotency: a force re-chunk of an unchanged body
                 # recreates identical chunks with their embeddings preserved
-                # (store_content_with_chunks) but still publishes an event —
-                # skip the chunks whose stored source text matches BEFORE
-                # generation.
+                # (store_*_chunks) but still publishes an event — skip the
+                # chunks whose stored source text matches BEFORE generation.
                 pairs = list(zip(event.chunk_uids, event.chunk_texts, strict=True))
-                fresh = await self._fresh_chunk_uids(pairs)
+                fresh = await self._fresh_chunk_uids(pairs, adapter)
                 todo = [(uid, text) for uid, text in pairs if uid not in fresh]
                 if fresh:
                     skipped_chunks += len(fresh)
@@ -618,7 +649,7 @@ class EmbeddingBackgroundWorker:
                     self._retry_or_drop_chunks(pending)
                     continue
 
-                stored = await self.content_adapter.store_chunk_embeddings(
+                stored = await adapter.store_chunk_embeddings(
                     chunk_uids=[uid for uid, _ in todo],
                     embeddings=embeddings_result.value,
                     version=EMBEDDING_VERSION,
@@ -645,7 +676,7 @@ class EmbeddingBackgroundWorker:
             f"({skipped_chunks} skipped: text unchanged; took {batch_duration:.2f}s)"
         )
 
-    async def _fresh_chunk_uids(self, pairs: list[tuple[str, str]]) -> set[str]:
+    async def _fresh_chunk_uids(self, pairs: list[tuple[str, str]], adapter: Any) -> set[str]:
         """
         Chunk uids whose stored embedding already covers the event's text.
 
@@ -655,9 +686,13 @@ class EmbeddingBackgroundWorker:
         hash field needed. Version outranks the text match, so a model
         migration re-embeds every chunk. Fails OPEN: the adapter returns no
         rows on a read failure, so nothing is skipped.
+
+        Args:
+            pairs: (chunk_uid, context_window_text) pairs from the event
+            adapter: the chunk adapter selected for this event kind
+                (content or reference) — same freshness contract on both
         """
-        adapter = self.content_adapter
-        if adapter is None:  # _process_chunk_batch already bailed; belt for direct callers
+        if adapter is None:  # _process_chunk_batch already skipped; belt for direct callers
             return set()
         rows = await adapter.get_chunk_embedding_freshness([uid for uid, _ in pairs])
         by_uid = {row["uid"]: row for row in rows}

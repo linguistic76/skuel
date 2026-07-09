@@ -1,0 +1,297 @@
+"""
+Neo4j Reference Chunk Adapter
+=============================
+
+Persists the (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) subtree — the
+canon reference-book ingest door's SECOND, walled chunk pipeline (Phase 2 of
+the canon journaling companion). Distinct from the curriculum
+:ContentChunk subtree so canon vectors land on their OWN index
+(``referencechunk_embedding_idx``) and stay structurally invisible to
+SearchRouter, which reads only ``contentchunk_embedding_idx``.
+
+There is NO intermediate :Content node: the book body's source of truth is the
+vault ``.md`` file; only retrieval chunks are stored here. Shelf membership is
+emergent — a Resource is "on the shelf" iff it has :ReferenceChunk nodes.
+
+The chunk-embedding methods (``get_chunk_embedding_freshness``,
+``store_chunk_embeddings``) deliberately mirror ``Neo4jContentAdapter``'s
+names/shapes so the shared ``EmbeddingBackgroundWorker`` routes to this adapter
+by a one-object swap.
+"""
+
+__version__ = "1.0"
+
+
+from typing import Any
+
+from core.models.ps_content.content_chunks import ContentChunk
+from core.utils.exception_types import NEO4J_EXCEPTIONS
+from core.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+
+class Neo4jReferenceChunkAdapter:
+    """
+    Neo4j adapter for the Resource/ReferenceChunk subtree.
+
+    Same constructor contract as ``Neo4jContentAdapter`` (single Neo4j
+    connection). Holds ALL Cypher for the reference-chunk pipeline (SKUEL021 —
+    ``core/`` stays Cypher-free).
+    """
+
+    def __init__(self, neo4j_connection) -> None:
+        """
+        Initialize with Neo4j connection.
+
+        Args:
+            neo4j_connection: Neo4j database connection
+        """
+        self.neo4j = neo4j_connection
+
+    async def store_reference_chunks(self, resource_uid: str, chunks: list[ContentChunk]) -> bool:
+        """
+        Store a canon book's reference chunks under its Resource.
+
+        Delete-then-create in ONE transaction (mirrors
+        ``Neo4jContentAdapter.store_content_with_chunks`` atomicity): a failure
+        anywhere rolls the delete back, so a re-ingest can never leave the
+        shelf half-populated. Embedding idempotency (ADR-074 §8) is preserved
+        by carry-over, not node reuse: before deleting, the old chunks'
+        embedding fields are read, and a new chunk whose ``context_window``
+        matches an old chunk's ``embedding_source_text`` inherits that
+        embedding — the worker's freshness pre-check then skips re-embedding it.
+
+        The Resource is MATCHed (not MERGEd): a missing Resource matches
+        nothing, so 0 chunks are created and this returns False. The ingest
+        service fails fast on not-found before reaching here; this is a
+        belt-and-braces guard, not the primary existence check.
+
+        Args:
+            resource_uid: The pre-existing Resource UID (canon book)
+            chunks: Prose-tuned reference chunks to persist
+
+        Returns:
+            True if all chunks were created, False on mismatch or error
+        """
+        try:
+            # Embedding carry-over map: source_text -> embedding fields of the
+            # outgoing chunk set. Read BEFORE the delete below.
+            carry_over: dict[str, dict[str, Any]] = {}
+            old_rows = await self.neo4j.execute_query(
+                """
+                MATCH (r:Resource {uid: $uid})-[:HAS_REFERENCE_CHUNK]->(c:ReferenceChunk)
+                WHERE c.embedding IS NOT NULL
+                RETURN c.embedding_source_text AS source_text,
+                       c.embedding AS embedding,
+                       c.embedding_version AS version,
+                       c.embedding_model AS model,
+                       c.embedding_updated_at AS updated_at
+                """,
+                {"uid": resource_uid},
+            )
+            for row in old_rows or []:
+                source_text = row.get("source_text")
+                if source_text and source_text not in carry_over:
+                    carry_over[source_text] = dict(row)
+
+            chunk_rows = []
+            for i, chunk in enumerate(chunks):
+                inherited = carry_over.get(chunk.context_window)
+                chunk_rows.append(
+                    {
+                        "chunk_uid": chunk.chunk_id,
+                        "chunk_type": chunk.chunk_type.value,
+                        "text": chunk.text,
+                        "context_window": chunk.context_window,
+                        "heading": chunk.heading,
+                        "chunking_version": chunk.chunking_version,
+                        "sequence": i,
+                        "embedding": inherited["embedding"] if inherited else None,
+                        "embedding_version": inherited["version"] if inherited else None,
+                        "embedding_model": inherited["model"] if inherited else None,
+                        "embedding_updated_at": (inherited["updated_at"] if inherited else None),
+                        "embedding_source_text": (chunk.context_window if inherited else None),
+                    }
+                )
+
+            # Delete + recreate in ONE statement = one transaction. MATCH (not
+            # MERGE) on the Resource: a missing Resource yields no rows, so
+            # UNWIND creates nothing and `created` is 0 (treated as not-found).
+            chunk_result = await self.neo4j.execute_query(
+                """
+                MATCH (r:Resource {uid: $resource_uid})
+                OPTIONAL MATCH (r)-[:HAS_REFERENCE_CHUNK]->(old:ReferenceChunk)
+                DETACH DELETE old
+                WITH DISTINCT r
+                UNWIND $chunks AS row
+                CREATE (c:ReferenceChunk {uid: row.chunk_uid})
+                SET c.created_at = datetime(),
+                    c.chunk_type = row.chunk_type,
+                    c.text = row.text,
+                    c.context_window = row.context_window,
+                    c.heading = row.heading,
+                    c.chunking_version = row.chunking_version,
+                    c.embedding = row.embedding,
+                    c.embedding_version = row.embedding_version,
+                    c.embedding_model = row.embedding_model,
+                    c.embedding_updated_at = row.embedding_updated_at,
+                    c.embedding_source_text = row.embedding_source_text
+                CREATE (r)-[rel:HAS_REFERENCE_CHUNK]->(c)
+                SET rel.sequence = row.sequence
+                RETURN count(c) AS created
+                """,
+                {"resource_uid": resource_uid, "chunks": chunk_rows},
+            )
+            created = int(chunk_result[0]["created"]) if chunk_result else 0
+            if created != len(chunks):
+                logger.error(
+                    f"Reference chunk create mismatch for {resource_uid}: expected "
+                    f"{len(chunks)}, created {created} (Resource missing?)"
+                )
+                return False
+            if chunks:
+                kept = sum(1 for row in chunk_rows if row["embedding"] is not None)
+                logger.info(
+                    f"Stored {created} reference chunks for {resource_uid} "
+                    f"({kept} embeddings carried over)"
+                )
+            return True
+
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to store reference chunks for {resource_uid}: {e}")
+            return False
+
+    async def get_chunk_embedding_freshness(self, chunk_uids: list[str]) -> list[dict[str, Any]]:
+        """
+        Read the freshness triple (has_embedding, version, source_text) per chunk.
+
+        Same name/shape as ``Neo4jContentAdapter.get_chunk_embedding_freshness``
+        so the shared worker's freshness skip works unchanged — only the label
+        differs (:ReferenceChunk). Fails OPEN (empty list on read error) so the
+        caller skips nothing.
+
+        Args:
+            chunk_uids: Chunk UIDs to check
+
+        Returns:
+            One dict per existing chunk: uid, has_embedding, version, source_text
+        """
+        query = """
+        MATCH (c:ReferenceChunk)
+        WHERE c.uid IN $uids
+        RETURN c.uid as uid,
+               c.embedding IS NOT NULL as has_embedding,
+               c.embedding_version as version,
+               c.embedding_source_text as source_text
+        """
+        try:
+            result = await self.neo4j.execute_query(query, {"uids": chunk_uids})
+            return [dict(record) for record in result] if result else []
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to read reference chunk embedding freshness: {e}")
+            return []
+
+    async def store_chunk_embeddings(
+        self,
+        chunk_uids: list[str],
+        embeddings: list[list[float]],
+        version: str,
+        model: str,
+        texts: list[str],
+    ) -> bool:
+        """
+        Store pre-generated embeddings on existing ReferenceChunk nodes.
+
+        Same name/signature as ``Neo4jContentAdapter.store_chunk_embeddings``
+        (the worker calls it identically after batch generation) — only the
+        label differs. ``embedding_source_text`` is stamped from ``texts`` (the
+        exact text each vector was generated from), matching the truthful-
+        provenance design that lets a conflicting re-chunk self-heal.
+
+        Args:
+            chunk_uids: Chunk UIDs to update
+            embeddings: Embedding vectors (same length as chunk_uids)
+            version: Embedding version (EMBEDDING_VERSION from callers)
+            model: Model name (e.g., "text-embedding-3-small")
+            texts: Source text each embedding was generated from (same
+                length/order as embeddings)
+
+        Returns:
+            True if every chunk was updated, False otherwise
+        """
+        try:
+            if len(chunk_uids) != len(embeddings):
+                logger.error(
+                    f"Mismatch: {len(chunk_uids)} chunk UIDs but {len(embeddings)} embeddings"
+                )
+                return False
+
+            query = """
+            UNWIND $chunks as chunk_data
+            MATCH (c:ReferenceChunk {uid: chunk_data.uid})
+            SET c.embedding = chunk_data.embedding,
+                c.embedding_version = $version,
+                c.embedding_model = $model,
+                c.embedding_updated_at = datetime(),
+                c.embedding_source_text = chunk_data.source_text
+            RETURN count(c) as updated_count
+            """
+
+            chunks_param = [
+                {"uid": uid, "embedding": emb, "source_text": text}
+                for uid, emb, text in zip(chunk_uids, embeddings, texts, strict=True)
+            ]
+
+            result = await self.neo4j.execute_query(
+                query,
+                {"chunks": chunks_param, "version": version, "model": model},
+            )
+
+            if result and len(result) > 0:
+                updated_count: int = result[0]["updated_count"]
+                logger.info(
+                    f"✅ Stored embeddings for {updated_count}/{len(chunk_uids)} reference chunks "
+                    f"(version={version}, model={model})"
+                )
+                return updated_count == len(chunk_uids)
+
+            logger.warning("No reference chunks updated - chunks may not exist")
+            return False
+
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to store reference chunk embeddings: {e}")
+            return False
+
+    async def delete_reference_chunks(self, resource_uid: str) -> bool:
+        """
+        Un-shelf a book: delete its whole reference-chunk subtree.
+
+        Removes every :ReferenceChunk under the Resource (and its
+        HAS_REFERENCE_CHUNK edges), dropping the emergent shelf membership. The
+        Resource node itself is untouched (Resource lifecycle is a governed
+        curriculum-ingestion concern).
+
+        Args:
+            resource_uid: The Resource UID to un-shelf
+
+        Returns:
+            True if any chunks were deleted, False if none existed or on error
+        """
+        query = """
+        MATCH (r:Resource {uid: $uid})-[:HAS_REFERENCE_CHUNK]->(c:ReferenceChunk)
+        DETACH DELETE c
+        RETURN count(c) as deleted
+        """
+        try:
+            result = await self.neo4j.execute_query(query, {"uid": resource_uid})
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to delete reference chunks for {resource_uid}: {e}")
+            return False
+
+        if result and len(result) > 0 and result[0]["deleted"] > 0:
+            logger.info(f"Deleted reference chunk subtree for resource: {resource_uid}")
+            return True
+
+        logger.debug(f"No reference chunks to delete for: {resource_uid}")
+        return False

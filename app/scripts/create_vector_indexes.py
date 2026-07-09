@@ -53,10 +53,12 @@ logger = get_logger("skuel.scripts.create_vector_indexes")
 
 # Labels carrying vector indexes. `Entity` covers every domain node via the
 # multi-label architecture; Task/Goal are per-label query optimizations;
-# ContentChunk powers RAG retrieval.
+# ContentChunk powers RAG retrieval; ReferenceChunk powers canon reference
+# retrieval on its own index (SearchRouter-invisible).
 PRIORITY_ENTITIES = [
     "Entity",
     "ContentChunk",
+    "ReferenceChunk",
     "Task",
     "Goal",
 ]

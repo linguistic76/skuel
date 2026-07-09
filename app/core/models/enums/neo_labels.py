@@ -132,6 +132,7 @@ class NeoLabel(StrEnum):
     # Content/Processing Infrastructure
     # =========================================================================
     CONTENT_CHUNK = "ContentChunk"  # RAG chunks for semantic retrieval
+    REFERENCE_CHUNK = "ReferenceChunk"  # Canon reference-book chunks (own vector index, invisible to SearchRouter)
     REPORT_PROJECT = "ReportProject"  # Legacy — pre-Exercise report project nodes
     REPORT_SCHEDULE = "ReportSchedule"
     TRANSCRIPTION = "Transcription"

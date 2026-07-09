@@ -69,6 +69,9 @@ from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_en
 # Progress tracking
 from .progress_tracker import ProgressTracker
 
+# Reference-book ingest door (canon journaling companion, Phase 2)
+from .reference_ingestion import ReferenceIngestionService, ReferenceIngestReport
+
 # Data types
 from .types import (
     BundleStats,
@@ -123,6 +126,9 @@ __all__ = [
     "IngestionHistoryService",
     # Primary service
     "UnifiedIngestionService",
+    # Reference-book ingest door
+    "ReferenceIngestionService",
+    "ReferenceIngestReport",
     # Detector
     "detect_entity_type",
     "detect_format",

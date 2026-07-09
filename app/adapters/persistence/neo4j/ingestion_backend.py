@@ -260,8 +260,13 @@ class IngestionBackend:
         (Content)-[:HAS_METADATA]->(ContentMetadata) — all of it is deleted
         leaf-first (DETACH DELETE on the entity alone would orphan the content
         side, leaving deleted material in chunk regeneration scans and the
-        vector index). Missing entities (already deleted by hand) still get
-        their metadata row cleaned up.
+        vector index). A canon-shelved Resource additionally hangs
+        (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) directly off the
+        entity — deleted here too so reconciling a book away can't orphan its
+        reference chunks + vectors in the referencechunk vector index (their
+        own store's delete-then-create only covers a re-ingest, not entity
+        removal). Missing entities (already deleted by hand) still get their
+        metadata row cleaned up.
         """
         return await self._executor.execute_query(
             """
@@ -273,7 +278,8 @@ class IngestionBackend:
             OPTIONAL MATCH (e)-[:HAS_CONTENT]->(content:Content)
             OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
             OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
-            DETACH DELETE chunk, meta
+            OPTIONAL MATCH (e)-[:HAS_REFERENCE_CHUNK]->(refchunk:ReferenceChunk)
+            DETACH DELETE chunk, meta, refchunk
             WITH DISTINCT item, s, e, g, x, content
             DETACH DELETE content
             WITH DISTINCT item, s, e, g, x

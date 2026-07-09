@@ -166,8 +166,13 @@ def main() -> int:
 
     # Minimal provenance frontmatter. No `type:` field -> stays non-ingestible
     # (the Resources/ wall excludes this dir from curriculum ingestion anyway).
+    # `resource_uid:` maps this book to its pre-existing Resource for the canon
+    # ingest door (scripts/ingest_canon_book.py) — author fills the value (an
+    # explicit UID, never slug-matched from the filename).
     frontmatter = (
-        f'---\nsource_epub: "{source.name}"\ngenerated_by: scripts/clean_reference_book.py\n---\n\n'
+        f'---\nsource_epub: "{source.name}"\n'
+        f"generated_by: scripts/clean_reference_book.py\n"
+        f'resource_uid: ""\n---\n\n'
     )
     output.write_text(frontmatter + markdown, encoding="utf-8")
 
