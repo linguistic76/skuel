@@ -119,7 +119,7 @@ Broken References — 1360 dead links:
 
 ### 3. `stale_names.py` — Deprecated Identifiers in Doc Code Blocks
 
-Scans **code blocks only** (fenced ` ``` ` blocks and inline backtick spans) in all docs for identifiers that have been renamed or deleted.
+Scans **code blocks only** (fenced ` ``` ` blocks and inline backtick spans) in all docs for identifiers that have been renamed or deleted. This file itself is excluded (`SKIP_FILES` in the script) — documenting the scanner requires naming tracked identifiers as examples.
 
 ```
 Stale Name Scanner

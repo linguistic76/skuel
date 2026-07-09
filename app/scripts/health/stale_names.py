@@ -180,15 +180,21 @@ _RENAMED_PATTERNS = {old: _boundary_pattern(old) for old in RENAMED}
 _DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
 
 
+# The scanner's own documentation necessarily names tracked identifiers as
+# examples (sample output, the "What's tracked" table) — skip it to avoid
+# permanent self-flagging noise.
+SKIP_FILES = {ROOT / "docs" / "tools" / "HEALTH_CHECKS.md"}
+
+
 def get_scan_targets() -> list[Path]:
-    """Collect all .md files from SCAN_DIRS."""
+    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES."""
     result: list[Path] = []
     for target in SCAN_DIRS:
         if target.is_file() and target.suffix == ".md":
             result.append(target)
         elif target.is_dir():
             result.extend(sorted(target.rglob("*.md")))
-    return result
+    return [p for p in result if p not in SKIP_FILES]
 
 
 def extract_code_segments(content: str) -> list[tuple[int, str]]:
