@@ -26,7 +26,7 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
-| Compiled (file upload) | `run_compiled(raw_entry, user_uid)` | Chains stage1 → stage2 → stage3; returns single markdown doc | — |
+| Compiled (file upload) | `run_compiled(raw_entry, user_uid, summon_canon=False)` | Chains stage1 → stage2 → stage3; returns single markdown doc. `summon_canon` carries the canon dial (no review gate on this path) | — |
 | Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
 | Follow-up (conversation continuation) | `run_follow_up(original_entry, ai_response, user_reply, user_uid, mode)` | `follow_up_system_prompt()` — mode base + continuation directive | 4000 |
 | Suggested activities (panel) | `suggest_activities(content, user_uid)` | LLM bridge (`transform_with_context`) → `@context()` lines re-rendered to checkbox DSL via `suggestion.py` (bridge tags preserved verbatim) | — |

@@ -34,7 +34,7 @@ def JournalsLandingPage(user: "User") -> Any:
         journal_sidebar(user),
         _landing_center_column(),
         Div(
-            render_right_panel(),
+            render_right_panel(is_founder=user.journal_tier.is_founder()),
             upload_form_script(),
             cls=(
                 "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"

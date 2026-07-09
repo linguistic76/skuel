@@ -354,17 +354,28 @@ def create_user_entry_ui_routes(
     @rt("/submissions/journal")
     async def submissions_journal_page(request: Request) -> Any:
         """Journal file-upload UX — alternative entry point to /journals."""
-        require_authenticated_user(request)
+        user_uid = require_authenticated_user(request)
 
         from ui.journals.forms import render_upload_form as render_journal_form
         from ui.journals.forms import upload_form_script as journal_script
+
+        # FOUNDER gates the canon "summon" checkbox on the compile path. A lookup
+        # failure degrades to hidden (canon-free) — never a visible no-op control.
+        is_founder = False
+        if user_service is not None:
+            user_result = await user_service.get_user(user_uid)
+            is_founder = (
+                user_result.is_ok
+                and user_result.value is not None
+                and user_result.value.journal_tier.is_founder()
+            )
 
         content = Div(
             PageHeader(
                 "New Journal Entry",
                 subtitle="Upload a file to be processed by AI",
             ),
-            render_journal_form(),
+            render_journal_form(is_founder=is_founder),
             journal_script(),
         )
         return await render_submissions_sidebar_page(

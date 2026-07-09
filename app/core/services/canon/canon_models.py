@@ -53,14 +53,20 @@ class CanonContext:
         return bool(self.passages)
 
     def books(self) -> list[str]:
-        """Distinct book titles, in first-seen (best-scoring) order.
+        """Distinct book titles that actually infused, in first-seen (best) order.
 
         Order-preserving de-dupe: several passages from the same book collapse to
         one attribution, ranked by where that book first appears in the results.
+
+        A passage with blank text is skipped here just as ``to_prompt_block``
+        skips it: only books that genuinely shaped the reasoning are named, so
+        the "Drawing on" footer can never attribute a book that contributed no
+        infused text ("point to the raw" honesty — the attribution and the
+        infusion share one truth).
         """
         seen: dict[str, None] = {}
         for passage in self.passages:
-            if passage.book_title and passage.book_title not in seen:
+            if passage.book_title and passage.text.strip() and passage.book_title not in seen:
                 seen[passage.book_title] = None
         return list(seen.keys())
 

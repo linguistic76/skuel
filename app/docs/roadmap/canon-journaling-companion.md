@@ -128,12 +128,33 @@ This **splits** the arc; it does not extend it.
   (`attribution_footer()`).
 - FULL-tier only; fail-soft to a normal canon-free journal on CORE or any retrieval miss.
   ADR-073 clean — passages are ephemeral prompt context, nothing persisted.
+- File path parity: `run_compiled` (the FOUNDER upload/batch compile, which has no
+  review gate) takes the same `summon_canon` flag, threaded to both stages. A
+  FOUNDER-only "Summon the canon shelf" checkbox rides the upload form
+  (`render_upload_form` / `render_right_panel`), Alpine-shown (and enabled) only
+  for a single-file `instructions_only` upload — the sole upload shape that
+  reaches `run_compiled`. A multi-file/folder upload takes the batch path
+  (`_run_batch_over_dir`, no canon), so the toggle hides + disables itself there
+  rather than submit an ignored flag. Default off — the dial stays explicit.
 
 ### Future rungs (not scheduled)
 
 - **Auto-summon** — replace the checkbox with prefs/heuristics inside `_maybe_summon_canon`.
 - **Askesis** — call `CanonRetrievalService` from the Askesis path (capability already reusable).
 - **More books** — content authoring only (Phase 1 EPUB→pandoc→clean → Phase 2 ingest).
+- **"What's on the shelf" view** — a read-only surface listing shelved books so you
+  can see the canon and jump to a book/Resource to interact with it. **Confirmed
+  reachable today, unbuilt by choice:** shelf membership is emergent, so one Cypher
+  read exposes it —
+  `MATCH (r:Resource)-[:HAS_REFERENCE_CHUNK]->(c) RETURN r.uid, r.title, count(c)`.
+  That belongs on `Neo4jReferenceChunkAdapter` (keeps the wall) behind a
+  `list_shelved_resources()` port method, surfaced on an admin/canon page and
+  linking to the existing Resource detail (`/explore/resource/{uid}`, Tier-1). No
+  schema change; purely additive when picked up.
+- **Tune retrieval** — calibrate `CANON_RETRIEVAL_MIN_SCORE` (0.3) / `CANON_RETRIEVAL_LIMIT`
+  (4) from real draws. `CanonRetrievalService.retrieve()` now logs each draw
+  (count · books · score range · min_score) — that log is the measurement input;
+  nothing to change until there's data to read.
 
 ---
 

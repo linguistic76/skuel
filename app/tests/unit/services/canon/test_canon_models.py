@@ -81,3 +81,11 @@ class TestAttributionFooter:
             )
         )
         assert ctx.attribution_footer() == "\n\n---\n*Drawing on:* *HMS*"
+
+    def test_footer_empty_when_all_text_blank(self):
+        # A blank-text passage is dropped from the prompt block, so it must not
+        # be attributed either — the footer and the infusion share one truth.
+        ctx = CanonContext(passages=(_passage("   ", "HMS"),))
+        assert ctx.to_prompt_block() == ""
+        assert ctx.books() == []
+        assert ctx.attribution_footer() == ""
