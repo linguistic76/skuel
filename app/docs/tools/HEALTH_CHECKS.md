@@ -194,6 +194,8 @@ Cross-Reference Validation Report
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
 
+**Matching semantics:** keys match on word boundaries at identifier-like ends — `PageHead` does NOT fire on `PageHeader`. Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) still prefix-match, so deleted-package paths work as before. No need to worry about substring collisions when picking a key.
+
 ### When to add a RENAMED entry
 
 ```python
