@@ -73,25 +73,29 @@ routine upgrade pass:
 - **`deepgram-sdk>=4.8.1,<5.0.0`** — 5.x+ is a breaking SDK rewrite. Stay on 4.x until a deliberate
   migration.
 
-### 3a. Neo4j **server** version policy — current calendar line, proven-stable
+### 3a. Neo4j **server** version policy — latest calendar monthly, hotfix-tracked
 
 The server (Docker image, testcontainers, k8s, all environments) tracks Neo4j's **calendar-versioned
-line** (`YYYY.MM.patch`), pinned to the latest release that has **been out and stable for a release
-cycle** — today **`neo4j:2026.04.0`**.
+line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.05.0`**.
 
-- **"Current stable, once it's been stable for a bit."** Pin the latest calendar release that has
-  been GA long enough to prove out (and has not needed an immediate `.1` bug-fix patch) — never the
-  day-one release, and never a floating `latest`/major tag. Exact pins keep environments reproducible.
-- **We run the rolling line, not the 5.26 LTS.** The trade is deliberate: newest features and fixes
-  over the longer LTS support window. (An earlier `2025.12.1` had drifted in; this ADR formalizes the
-  posture and re-pins to a proven `2026.04.0`.)
-- **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.04.0` → a
-  later `2026.x` is: back up → swap the tag everywhere it is pinned → restart → run integration.
+- **Track the latest monthly, don't soak.** Neo4j hotfixes each monthly release **only until the next
+  monthly ships** — e.g. `2026.04.0` stopped receiving fixes the moment `2026.05` released. So on this
+  line "wait until it's proven stable for a cycle" is self-defeating: by the time a monthly has soaked,
+  it is already EOL for hotfixes. The supported posture is to run the **current** monthly and take its
+  `.1`/`.2` hotfixes as they land. (Reversing this trade — trading newest features for a long, no-
+  treadmill support window — is what the 5.26 **LTS** is for; adopting it would be a separate ADR and a
+  store *downgrade*.)
+- **Bump cadence ≈ monthly, always deliberate.** When a new monthly ships, bump to it (it supersedes
+  the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor tag — so
+  every environment is reproducible; the bump is a conscious PR, not an auto-pull.
+- **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.05.0` → a
+  later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
   Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
 - **Where the tag lives:** primary source `infrastructure/docker-compose.yml`; mirrors in
   `k8s-manifests.yml`, `docker-compose.production.yml` (template), and the integration testcontainer
-  in `tests/integration/conftest.py`. Bump them together.
+  in `tests/integration/conftest.py`. Bump them together; the `test_apoc_canary` version canary fails
+  loudly when they drift from the running server.
 - **Driver ↔ server:** kept decoupled on purpose (see § 3). The `5.26.0` driver is Bolt-forward-
   compatible with the `2026.x` server; they need not share a version.
 
