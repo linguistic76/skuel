@@ -1,6 +1,9 @@
 # Canon — Book-as-Journaling-Companion
 
-**Status:** **Phases 1–2 = DONE 2026-07-08.** Phase 3 (retrieval + journal wiring) = designed, not yet built.
+**Status:** **Phases 1–3 = DONE 2026-07-08.** The arc is functionally complete: canon prep →
+`:ReferenceChunk` ingest → journal retrieval wiring all shipped. Remaining work is content
+(authoring more books onto the shelf) and the optional future rungs below (auto-summon,
+Askesis).
 
 **Core Principle:** *"A curated shelf of books that reasons alongside you as you journal — infused into the companion's voice, always walkable back to the raw."*
 
@@ -109,13 +112,28 @@ This **splits** the arc; it does not extend it.
   (core, `Result[T]`), admin CLI `scripts/ingest_canon_book.py`. FULL tier embeds; CORE writes
   chunks only (fail-soft).
 
-### Phase 3 — Journal retrieval wiring (designed, not built)
+### Phase 3 — Journal retrieval wiring ✅ DONE (2026-07-08)
 
-- A **domain-agnostic capability** — retrieve top passages from the canon for a query, and
-  return an attribution of what it drew on. Journals is the first consumer; Askesis-ready.
-- Wire into `JournalService` Stage 2 + Stage 3 alongside `_build_context_summary`, gated by
-  the summon dial. Append the light "Drawing on: *book*" attribution to the stage output.
-- FULL-tier only; fail-soft on CORE.
+- **Domain-agnostic capability** shipped: `core/services/canon/` — `CanonRetrievalService`
+  retrieves top canon passages for a query and returns a `CanonContext` (passages + the books
+  they came from). Reads the walled `referencechunk_embedding_idx` via
+  `Neo4jReferenceChunkAdapter.search_reference_chunks` behind the
+  `ReferenceChunkSearchOperations` port — SearchRouter never sees it (isolation test green).
+  Journals is the first consumer; **Askesis-ready** (nothing journal-specific in the service).
+- Wired into `JournalService` Stage 2 + Stage 3 alongside `_build_context_summary`, gated by the
+  summon dial. The dial is one seam — `_maybe_summon_canon` — so graduating it from a request
+  checkbox to automatic (prefs/heuristics) is a one-method change, not a call-site sweep.
+  Passages voice-infuse the system prompt (`CanonContext.to_prompt_block()`, "not a source to
+  quote"); the visible output gets a light `*Drawing on:* *book*` footer
+  (`attribution_footer()`).
+- FULL-tier only; fail-soft to a normal canon-free journal on CORE or any retrieval miss.
+  ADR-073 clean — passages are ephemeral prompt context, nothing persisted.
+
+### Future rungs (not scheduled)
+
+- **Auto-summon** — replace the checkbox with prefs/heuristics inside `_maybe_summon_canon`.
+- **Askesis** — call `CanonRetrievalService` from the Askesis path (capability already reusable).
+- **More books** — content authoring only (Phase 1 EPUB→pandoc→clean → Phase 2 ingest).
 
 ---
 
