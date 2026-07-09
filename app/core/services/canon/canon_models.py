@@ -12,20 +12,52 @@ context that lives for one stage call and is dropped.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
 class CanonPassage:
-    """One retrieved canon passage, tagged with the book it came from.
+    """One retrieved canon passage, tagged with the book and its in-book location.
 
-    ``text`` is the chunk body fed to the model as reasoning material;
-    ``book_title`` drives the "Drawing on" attribution.
+    ``text`` is the exact chunk body — quotable verbatim (ADR-076). ``book_title``
+    drives attribution; ``heading`` / ``section_path`` / ``sequence`` give the
+    structural anchor a citation points to (chapter/section trail + position).
+    An EPUB is reflowable, so there is no page number — ``locator`` is the honest
+    best-practice anchor.
     """
 
     text: str
     book_title: str
     resource_uid: str
     similarity_score: float
+    heading: str | None = None
+    section_path: str | None = None
+    sequence: int | None = None
+
+    @property
+    def locator(self) -> str:
+        """Human location trail: ``section_path`` + immediate ``heading``.
+
+        E.g. ``"Hypermedia Concepts > Hypermedia: A Reintroduction > A Brief
+        History of Hypermedia"``. Empty when the passage has no heading context
+        (front matter / unstructured) — the caller then cites the book + position
+        only. ``section_path`` already excludes the immediate heading, so the two
+        never duplicate.
+        """
+        return " > ".join(p for p in (self.section_path, self.heading) if p)
+
+    def citation_line(self) -> str:
+        """One-line source label for citing this passage: book + location trail.
+
+        E.g. ``"Hypermedia Systems — Hypermedia Concepts > Hypermedia: A
+        Reintroduction"``. Falls back to the book title alone when the passage
+        has no heading context.
+        """
+        bits = [self.book_title] if self.book_title else []
+        loc = self.locator
+        if loc:
+            bits.append(loc)
+        return " — ".join(bits) if bits else "(untitled source)"
 
 
 @dataclass(frozen=True)
@@ -93,6 +125,74 @@ class CanonContext:
             "not sources to attribute.\n\n"
             f"{body}"
         )
+
+    def to_discussion_block(self) -> str:
+        """Render passages for OPEN discussion — the model may name AND quote them.
+
+        The quote-on-demand counterpart to ``to_prompt_block`` (ADR-076). Unlike
+        silent infusion, this tells the model it has a curated shelf and MAY
+        engage the passages openly: name the book, discuss its ideas, and quote
+        it **verbatim** when the user wants to see or verify the text — each
+        passage labelled with its book + in-book location so a citation is exact.
+
+        Carries the non-negotiable faithfulness contract: quote ONLY the text
+        below, cite ONLY the location shown, never invent a quote or an anchor,
+        and say plainly when the shelf has nothing on point. ``""`` if no passage.
+        """
+        if not self.passages:
+            return ""
+        entries = []
+        for i, passage in enumerate(self.passages, start=1):
+            if not passage.text.strip():
+                continue
+            entries.append(f"### Passage {i} — {passage.citation_line()}\n\n{passage.text.strip()}")
+        if not entries:
+            return ""
+        body = "\n\n".join(entries)
+        return (
+            "## The Canon Shelf\n\n"
+            "You have a curated shelf of real books. The passages below were retrieved "
+            "from it for this conversation. You MAY discuss them openly — name the book, "
+            "engage with its ideas, and quote it **verbatim** when the user wants to see "
+            "or verify the words.\n\n"
+            "Faithfulness (non-negotiable):\n"
+            "- Quote ONLY the text in the passages below — never reconstruct a quote from memory.\n"
+            "- When you quote, attribute it to its book and cite the location shown for that passage.\n"
+            "- Never invent a quote, chapter, section, or page. If the shelf has nothing on the "
+            "user's question, say so plainly rather than fabricate.\n"
+            "- These are reflowable e-books: cite by chapter/section (shown), never by page number.\n\n"
+            f"{body}"
+        )
+
+    def sources_footer(self) -> str:
+        """Rich "Sources" footer for the discussion path: per-book location + link.
+
+        One line per book actually drawn on — the distinct in-book locations its
+        passages came from, plus a link to the book's Resource page (the "point
+        to the raw" destination). Heavier than ``attribution_footer`` because the
+        discussion path quotes and must let the reader verify. ``""`` if none.
+        """
+        if not self.has_passages:
+            return ""
+        books: dict[str, dict[str, Any]] = {}
+        for passage in self.passages:
+            if not passage.text.strip() or not passage.book_title:
+                continue
+            entry = books.setdefault(
+                passage.resource_uid,
+                {"title": passage.book_title, "locators": []},
+            )
+            loc = passage.locator
+            if loc and loc not in entry["locators"]:
+                entry["locators"].append(loc)
+        if not books:
+            return ""
+        lines = []
+        for resource_uid, entry in books.items():
+            where = f" — {'; '.join(entry['locators'])}" if entry["locators"] else ""
+            link = f"/library/resources/get?uid={resource_uid}"
+            lines.append(f"- *{entry['title']}*{where} — [open the book]({link})")
+        return "\n\n---\n**Sources**\n" + "\n".join(lines)
 
     def attribution_footer(self) -> str:
         """Render the light "Drawing on" footer, or ``""`` if no passages.

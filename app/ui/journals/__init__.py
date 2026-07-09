@@ -119,11 +119,17 @@ def _Composer(
     ai_response: str,
     title: str,
     mode_value: str,
+    is_founder: bool = False,
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
     Hidden inputs carry IDs so the follow-up route can update them via
     HTMX out-of-band swaps without resetting the textarea.
+
+    ``is_founder`` renders the "Summon the canon shelf" dial — the quote-on-demand
+    surface (ADR-076). Because the composer form is never reset between turns
+    (only the textarea is cleared), a checked box persists across follow-ups, so
+    a summoned conversation stays summoned without any OOB re-render.
     """
     from ui.components import Icon
 
@@ -155,21 +161,45 @@ def _Composer(
                 ),
             ),
             Div(
-                P(
-                    "Thinking…",
-                    id="journal-reply-loading",
-                    cls="text-sm text-muted-foreground htmx-indicator",
+                # FOUNDER canon dial (ADR-076): checked → this follow-up may quote
+                # + cite the shelf; unchecked/absent → FastHTML binds
+                # summon_canon=False (a normal follow-up). A plain Span placeholder
+                # when not FOUNDER keeps the send button right-aligned.
+                (
+                    Label(
+                        Input(
+                            type="checkbox",
+                            name="summon_canon",
+                            value="true",
+                            cls="mr-1.5 align-middle",
+                        ),
+                        "Summon the canon shelf",
+                        cls=(
+                            "flex items-center text-[13px] text-muted-foreground"
+                            " cursor-pointer select-none"
+                        ),
+                    )
+                    if is_founder
+                    else Span()
                 ),
-                Button(
-                    Icon("arrow-up", size=16, cls="text-white"),
-                    type="submit",
-                    aria_label="Send follow-up",
-                    cls=(
-                        "w-[34px] h-[34px] rounded-full flex items-center justify-center"
-                        " bg-foreground hover:bg-foreground/80 transition-colors"
+                Div(
+                    P(
+                        "Thinking…",
+                        id="journal-reply-loading",
+                        cls="text-sm text-muted-foreground htmx-indicator",
                     ),
+                    Button(
+                        Icon("arrow-up", size=16, cls="text-white"),
+                        type="submit",
+                        aria_label="Send follow-up",
+                        cls=(
+                            "w-[34px] h-[34px] rounded-full flex items-center justify-center"
+                            " bg-foreground hover:bg-foreground/80 transition-colors"
+                        ),
+                    ),
+                    cls="flex items-center gap-3",
                 ),
-                cls="flex items-center justify-end gap-3 mt-2",
+                cls="flex items-center justify-between gap-3 mt-2",
             ),
             cls=("border border-border rounded-[25px] px-[18px] pt-3 pb-3 bg-background shadow-sm"),
         ),
@@ -298,11 +328,13 @@ def Stage3Fragment(
     raw_entry: str,
     title: str,
     related_output: str,
+    is_founder: bool = False,
 ) -> Any:
     """Fragment returned after Stage 3 — What Is Related completes.
 
     Now includes a follow-up composer so the user can continue the conversation
     after the DNWF completes. Context: original entry + Stage 3 output.
+    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -324,7 +356,7 @@ def Stage3Fragment(
                     " transition-colors no-underline"
                 ),
             ),
-            _Composer(raw_entry, related_output, title, resolved.value),
+            _Composer(raw_entry, related_output, title, resolved.value, is_founder=is_founder),
             cls="flex-shrink-0",
         ),
         id="journal-workspace",
@@ -337,12 +369,14 @@ def StandardResponseFragment(
     title: str,
     response_output: str,
     mode: "JournalMode | None" = None,
+    is_founder: bool = False,
 ) -> Any:
     """Growing chat thread — initial AI response with sticky composer.
 
     Replaces the single-swap pattern: the workspace is now a flex column with
     a scrollable #journal-thread and a sticky #journal-composer. Follow-ups
     append new bubbles via hx-swap="beforeend" on #journal-thread.
+    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -358,7 +392,7 @@ def StandardResponseFragment(
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
-        _Composer(raw_entry, response_output, title, resolved.value),
+        _Composer(raw_entry, response_output, title, resolved.value, is_founder=is_founder),
         id="journal-workspace",
         cls="flex flex-col h-full",
     )
@@ -368,6 +402,7 @@ def FileOutputFragment(
     title: str,
     output_filename: str,
     response_output: str,
+    is_founder: bool = False,
 ) -> Any:
     """Shown after a compiled journal file is processed and saved to je_out/.
 
@@ -465,7 +500,7 @@ def FileOutputFragment(
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6",
         ),
-        _Composer(title, response_output, title, resolved_mode.value),
+        _Composer(title, response_output, title, resolved_mode.value, is_founder=is_founder),
         id="journal-workspace",
         cls="flex flex-col h-full",
     )

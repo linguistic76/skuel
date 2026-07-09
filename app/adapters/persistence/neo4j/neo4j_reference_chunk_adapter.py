@@ -106,6 +106,7 @@ class Neo4jReferenceChunkAdapter:
                         "text": chunk.text,
                         "context_window": chunk.context_window,
                         "heading": chunk.heading,
+                        "section_path": chunk.section_path,
                         "chunking_version": chunk.chunking_version,
                         "sequence": i,
                         "embedding": inherited["embedding"] if inherited else None,
@@ -132,6 +133,7 @@ class Neo4jReferenceChunkAdapter:
                     c.text = row.text,
                     c.context_window = row.context_window,
                     c.heading = row.heading,
+                    c.section_path = row.section_path,
                     c.chunking_version = row.chunking_version,
                     c.embedding = row.embedding,
                     c.embedding_version = row.embedding_version,
@@ -202,10 +204,13 @@ class Neo4jReferenceChunkAdapter:
             $query_embedding
         ) YIELD node AS chunk, score
         WHERE score >= $threshold
-        MATCH (r:Resource)-[:HAS_REFERENCE_CHUNK]->(chunk)
+        MATCH (r:Resource)-[rel:HAS_REFERENCE_CHUNK]->(chunk)
         RETURN chunk.uid AS chunk_uid,
                chunk.text AS text,
                chunk.context_window AS context_window,
+               chunk.heading AS heading,
+               chunk.section_path AS section_path,
+               rel.sequence AS sequence,
                score AS similarity_score,
                r.uid AS resource_uid,
                r.title AS book_title
@@ -231,6 +236,9 @@ class Neo4jReferenceChunkAdapter:
                 chunk_uid=row["chunk_uid"],
                 text=row["text"],
                 context_window=row.get("context_window"),
+                heading=row.get("heading"),
+                section_path=row.get("section_path"),
+                sequence=(int(row["sequence"]) if row.get("sequence") is not None else None),
                 similarity_score=float(row["similarity_score"]),
                 resource_uid=row["resource_uid"],
                 book_title=row["book_title"] or "",

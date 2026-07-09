@@ -132,6 +132,7 @@ def _consolidate_chunks(
                 context_before=group[0].context_before,
                 context_after=group[-1].context_after,
                 heading=next((c.heading for c in group if c.heading), None),
+                section_path=next((c.section_path for c in group if c.section_path), None),
                 chunking_version=version,
             )
         )

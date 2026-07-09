@@ -155,12 +155,20 @@ def _standard_base_for_mode(mode: "JournalMode") -> str:
     )
 
 
-def follow_up_system_prompt(user_context_summary: str, mode: "JournalMode | None" = None) -> str:
+def follow_up_system_prompt(
+    user_context_summary: str,
+    mode: "JournalMode | None" = None,
+    canon_context: str = "",
+) -> str:
     """System prompt for a follow-up turn in a journal conversation.
 
     Uses a follow-up-specific base that omits any structural formatting rules
     (e.g. '# What is Emerging') so the LLM responds conversationally rather
     than re-running its analysis template.
+
+    ``canon_context`` (when non-empty) is ``CanonContext.to_discussion_block()``
+    — the follow-up is the quote-on-demand surface (ADR-076), so the model may
+    name and quote the shelf passages, not merely infuse them.
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -169,6 +177,8 @@ def follow_up_system_prompt(user_context_summary: str, mode: "JournalMode | None
     parts = [base]
     if user_context_summary:
         parts.append(f"## User's Active Context\n\n{user_context_summary}")
+    if canon_context:
+        parts.append(canon_context)
     return "\n\n".join(parts)
 
 

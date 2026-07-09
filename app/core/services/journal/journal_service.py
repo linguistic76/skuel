@@ -326,6 +326,19 @@ class JournalService:
             return result
         return Result.ok(result.value + canon.attribution_footer())
 
+    @staticmethod
+    def _append_canon_sources(result: Result[str], canon: CanonContext) -> Result[str]:
+        """Append the rich "Sources" footer (location + book link) to a follow-up.
+
+        The discussion path's counterpart to ``_append_canon_footer``: the
+        follow-up may quote, so the reader gets a verifiable back-pointer (the
+        in-book location + a link to the Resource page), not just a book name.
+        No-op when the turn errored or no passage was drawn.
+        """
+        if result.is_error or not canon.has_passages:
+            return result
+        return Result.ok(result.value + canon.sources_footer())
+
     # ------------------------------------------------------------------
     # Standard workflow
     # ------------------------------------------------------------------
@@ -422,6 +435,7 @@ class JournalService:
         user_reply: str,
         user_uid: UserUID,
         mode: JournalMode | None = None,
+        summon_canon: bool = False,
     ) -> Result[str]:
         """Respond to the user's follow-up without re-running the full analysis template.
 
@@ -429,18 +443,26 @@ class JournalService:
         the mode's base instructions, preventing the LLM from re-producing headings
         like '# What is Emerging' for a conversational reply.
 
+        The follow-up is the **quote-on-demand** surface (ADR-076): when
+        ``summon_canon`` is set (FULL tier), canon passages resonant with the
+        user's *question* (``user_reply``, not the raw entry) are injected via
+        ``to_discussion_block()`` so the model may name + quote the shelf, and a
+        "Sources" footer with per-quote location + book link is appended.
+        Fail-soft: no canon degrades to a normal follow-up.
+
         Backend: GoalsService, TasksService, HabitsService (context summary);
-                 LLMCaller (response generation).
+                 CanonRetrievalService (shelf); LLMCaller (response generation).
         """
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = follow_up_system_prompt(context_summary, mode)
+        canon = await self._maybe_summon_canon(user_reply, summon_canon)
+        system_prompt = follow_up_system_prompt(context_summary, mode, canon.to_discussion_block())
         user_message = (
             f"# Original Note\n\n{original_entry}\n\n"
             f"# Previous Response\n\n{ai_response}\n\n"
             f"# Follow-up\n\n{user_reply}"
         )
         try:
-            return await self._llm.generate(
+            result = await self._llm.generate(
                 prompt=user_message,
                 model=self._resolve_model(),
                 system_prompt=system_prompt,
@@ -449,3 +471,4 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal follow-up LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Follow-up failed: {exc}"))
+        return self._append_canon_sources(result, canon)

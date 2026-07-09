@@ -3,8 +3,25 @@
 from core.services.canon import CanonContext, CanonPassage
 
 
-def _passage(text: str, book: str, uid: str = "resource_book", score: float = 0.9) -> CanonPassage:
-    return CanonPassage(text=text, book_title=book, resource_uid=uid, similarity_score=score)
+def _passage(
+    text: str,
+    book: str,
+    uid: str = "resource_book",
+    score: float = 0.9,
+    *,
+    heading: str | None = None,
+    section_path: str | None = None,
+    sequence: int | None = None,
+) -> CanonPassage:
+    return CanonPassage(
+        text=text,
+        book_title=book,
+        resource_uid=uid,
+        similarity_score=score,
+        heading=heading,
+        section_path=section_path,
+        sequence=sequence,
+    )
 
 
 class TestCanonContextEmpty:
@@ -89,3 +106,86 @@ class TestAttributionFooter:
         assert ctx.to_prompt_block() == ""
         assert ctx.books() == []
         assert ctx.attribution_footer() == ""
+
+
+class TestPassageLocation:
+    def test_locator_joins_section_path_and_heading(self):
+        p = _passage(
+            "x",
+            "HMS",
+            section_path="Hypermedia Concepts > A Reintroduction",
+            heading="A Brief History",
+        )
+        assert p.locator == "Hypermedia Concepts > A Reintroduction > A Brief History"
+
+    def test_locator_empty_when_no_headings(self):
+        assert _passage("x", "HMS").locator == ""
+
+    def test_locator_heading_only(self):
+        assert _passage("x", "HMS", heading="Foreword").locator == "Foreword"
+
+    def test_citation_line_is_book_plus_location(self):
+        p = _passage("x", "Hypermedia Systems", heading="Foreword")
+        assert p.citation_line() == "Hypermedia Systems — Foreword"
+
+    def test_citation_line_book_only_without_location(self):
+        assert _passage("x", "Hypermedia Systems").citation_line() == "Hypermedia Systems"
+
+
+class TestDiscussionBlock:
+    def test_block_permits_quoting_and_names_the_shelf(self):
+        ctx = CanonContext(
+            passages=(_passage("HTML is a hypermedia.", "Hypermedia Systems", heading="Intro"),)
+        )
+        block = ctx.to_discussion_block()
+        assert "## The Canon Shelf" in block
+        # The exact passage text is present (quotable verbatim)…
+        assert "HTML is a hypermedia." in block
+        # …labelled with its source so a citation is exact…
+        assert "Hypermedia Systems — Intro" in block
+        # …and the faithfulness contract is stated (this is the discussion path,
+        # the OPPOSITE of the silent-infusion to_prompt_block()).
+        assert "verbatim" in block
+        assert "never" in block.lower()
+        assert "do NOT quote" not in block
+
+    def test_block_empty_when_no_passages(self):
+        assert CanonContext.empty().to_discussion_block() == ""
+
+    def test_block_empty_when_all_text_blank(self):
+        assert CanonContext(passages=(_passage("  ", "HMS"),)).to_discussion_block() == ""
+
+
+class TestSourcesFooter:
+    def test_footer_lists_book_location_and_link(self):
+        ctx = CanonContext(
+            passages=(
+                _passage(
+                    "x",
+                    "Hypermedia Systems",
+                    uid="resource.hypermedia-systems",
+                    section_path="Hypermedia Concepts",
+                    heading="A Reintroduction",
+                ),
+            )
+        )
+        footer = ctx.sources_footer()
+        assert "**Sources**" in footer
+        assert "*Hypermedia Systems*" in footer
+        assert "Hypermedia Concepts > A Reintroduction" in footer
+        assert "/library/resources/get?uid=resource.hypermedia-systems" in footer
+
+    def test_footer_groups_distinct_locations_per_book(self):
+        ctx = CanonContext(
+            passages=(
+                _passage("a", "HMS", uid="r", heading="Ch 1"),
+                _passage("b", "HMS", uid="r", heading="Ch 2"),
+            )
+        )
+        footer = ctx.sources_footer()
+        # One line per book (single "- *HMS*"), both locations listed.
+        assert footer.count("- *HMS*") == 1
+        assert "Ch 1" in footer and "Ch 2" in footer
+
+    def test_footer_empty_when_no_passages(self):
+        assert CanonContext.empty().sources_footer() == ""

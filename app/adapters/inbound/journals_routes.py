@@ -306,7 +306,10 @@ async def _process_single_upload(
         out_name = _write_je_out(stem, "_out.md", compiled.value)
         return _workspace(
             FileOutputFragment(
-                title=title, output_filename=out_name, response_output=compiled.value
+                title=title,
+                output_filename=out_name,
+                response_output=compiled.value,
+                is_founder=is_founder,
             )
         )
 
@@ -366,14 +369,22 @@ async def _process_single_upload(
         out_name = _write_je_out(stem, "_out.md", compiled.value)
         return _workspace(
             FileOutputFragment(
-                title=title, output_filename=out_name, response_output=compiled.value
+                title=title,
+                output_filename=out_name,
+                response_output=compiled.value,
+                is_founder=is_founder,
             )
         )
 
     # transcribe_only (STANDARD) — raw transcript download.
     out_name = _write_je_out(stem, ".txt", transcript)
     return _workspace(
-        FileOutputFragment(title=title, output_filename=out_name, response_output=transcript)
+        FileOutputFragment(
+            title=title,
+            output_filename=out_name,
+            response_output=transcript,
+            is_founder=is_founder,
+        )
     )
 
 
@@ -1190,6 +1201,7 @@ def create_journals_routes(
         user_reply: str,
         title: str = "",
         journal_mode: str = "",
+        summon_canon: bool = False,
     ) -> Any:
         """Continue a journal conversation.
 
@@ -1219,6 +1231,7 @@ def create_journals_routes(
             user_reply=user_reply.strip(),
             user_uid=user_uid,
             mode=mode,
+            summon_canon=summon_canon,
         )
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
@@ -1364,4 +1377,5 @@ def create_journals_routes(
             raw_entry=raw_entry,
             title=title,
             related_output=result.value,
+            is_founder=True,  # route is FOUNDER-gated above
         )

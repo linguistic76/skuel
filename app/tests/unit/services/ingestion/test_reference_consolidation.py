@@ -34,7 +34,12 @@ class _RecordingAdapter:
         return True
 
 
-def _frag(index: int, text: str, heading: str | None = None) -> ContentChunk:
+def _frag(
+    index: int,
+    text: str,
+    heading: str | None = None,
+    section_path: str | None = None,
+) -> ContentChunk:
     return ContentChunk(
         parent_uid=_UID,
         chunk_index=index,
@@ -43,6 +48,7 @@ def _frag(index: int, text: str, heading: str | None = None) -> ContentChunk:
         context_before="",
         context_after="",
         heading=heading,
+        section_path=section_path,
     )
 
 
@@ -103,6 +109,37 @@ def test_oversized_single_fragment_stands_alone() -> None:
 
 def test_empty_input_yields_empty() -> None:
     assert _consolidate_chunks([], _UID, REFERENCE_CHUNKING_PARAMS) == []
+
+
+def test_consolidation_carries_first_section_path() -> None:
+    # The merged passage inherits its location trail from the group (first
+    # non-empty section_path), just like heading — so a citation can anchor it.
+    frags = [
+        _frag(0, "content one", heading="A Brief History", section_path="Concepts > Reintro"),
+        _frag(1, "content two", heading="A Brief History", section_path="Concepts > Reintro"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].section_path == "Concepts > Reintro"
+    assert merged[0].heading == "A Brief History"
+
+
+def test_chunk_markdown_captures_ancestor_breadcrumb() -> None:
+    # End-to-end: the shared chunker records each chunk's ancestor-heading trail
+    # (excluding the chunk's own heading), and a same-level Part heading pops the
+    # book title so it never pollutes every breadcrumb.
+    from core.models.ps_content.content_chunks import ContentChunkingStrategy
+
+    md = (
+        "# Book Title\n\nfront matter text here that is long enough to keep\n\n"
+        "# Part One\n\n## A Chapter\n\n### A Section\n\n"
+        "body text of the section long enough to survive chunking cleanly\n"
+    )
+    chunks = ContentChunkingStrategy.chunk_markdown(md, _UID)
+    by_heading = {c.heading: c.section_path for c in chunks}
+    # Front matter under the title has no ancestors.
+    assert by_heading.get("Book Title") is None
+    # The deep section's trail is Part > Chapter — the title was popped by "Part One".
+    assert by_heading.get("A Section") == "Part One > A Chapter"
 
 
 async def test_zero_chunk_ingest_refuses_without_touching_the_shelf() -> None:
