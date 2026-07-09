@@ -163,15 +163,38 @@ DELETED: dict[str, str] = {
 }
 
 
+def _boundary_pattern(key: str) -> re.Pattern[str]:
+    """Compile a key with boundaries that block alphanumeric neighbors only.
+
+    Prevents `PageHead` matching inside `PageHeader`, while underscore
+    adjacency still matches so deleted snake_case names are caught inside
+    derived symbols (`sel_routes` in `create_sel_routes`). Keys ending in a
+    non-word character (`core.models.ku.`) keep prefix-matching.
+    """
+    prefix = r"(?<![A-Za-z0-9])" if key[0].isalnum() or key[0] == "_" else ""
+    suffix = r"(?![A-Za-z0-9])" if key[-1].isalnum() or key[-1] == "_" else ""
+    return re.compile(prefix + re.escape(key) + suffix)
+
+
+_RENAMED_PATTERNS = {old: _boundary_pattern(old) for old in RENAMED}
+_DELETED_PATTERNS = {old: _boundary_pattern(old) for old in DELETED}
+
+
+# The scanner's own documentation necessarily names tracked identifiers as
+# examples (sample output, the "What's tracked" table) — skip it to avoid
+# permanent self-flagging noise.
+SKIP_FILES = {ROOT / "docs" / "tools" / "HEALTH_CHECKS.md"}
+
+
 def get_scan_targets() -> list[Path]:
-    """Collect all .md files from SCAN_DIRS."""
+    """Collect all .md files from SCAN_DIRS, minus SKIP_FILES."""
     result: list[Path] = []
     for target in SCAN_DIRS:
         if target.is_file() and target.suffix == ".md":
             result.append(target)
         elif target.is_dir():
             result.extend(sorted(target.rglob("*.md")))
-    return result
+    return [p for p in result if p not in SKIP_FILES]
 
 
 def extract_code_segments(content: str) -> list[tuple[int, str]]:
@@ -240,11 +263,11 @@ def scan_file(md_file: Path) -> list[tuple[int, str, str, str]]:
             lineno = block_start + j
 
             for old, new in RENAMED.items():
-                if old in seg_line:
+                if _RENAMED_PATTERNS[old].search(seg_line):
                     issues.append((lineno, old, new, "renamed"))
 
             for deleted, reason in DELETED.items():
-                if deleted in seg_line:
+                if _DELETED_PATTERNS[deleted].search(seg_line):
                     issues.append((lineno, deleted, reason, "deleted"))
 
     return issues

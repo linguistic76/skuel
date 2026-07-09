@@ -119,7 +119,7 @@ Broken References — 1360 dead links:
 
 ### 3. `stale_names.py` — Deprecated Identifiers in Doc Code Blocks
 
-Scans **code blocks only** (fenced ` ``` ` blocks and inline backtick spans) in all docs for identifiers that have been renamed or deleted.
+Scans **code blocks only** (fenced ` ``` ` blocks and inline backtick spans) in all docs for identifiers that have been renamed or deleted. This file itself is excluded (`SKIP_FILES` in the script) — documenting the scanner requires naming tracked identifiers as examples.
 
 ```
 Stale Name Scanner
@@ -193,6 +193,8 @@ Cross-Reference Validation Report
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
+
+**Matching semantics:** keys refuse alphanumeric neighbors — `PageHead` does NOT fire on `PageHeader` — but underscore adjacency still matches, so deleted snake_case names are caught inside derived symbols (`sel_routes` fires on `create_sel_routes`). Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) prefix-match, so deleted-package paths work as before.
 
 ### When to add a RENAMED entry
 

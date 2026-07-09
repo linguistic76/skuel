@@ -28,6 +28,12 @@ Apply this pattern when a FastHTML route file (or its factory function) requires
 | `app/adapters/inbound/{name}_routes.py` | Simplified route registration |
 | `app/adapters/inbound/{name}_ui.py` | Refactored UI factory |
 
+Naming is a template, not a law — some hubs combine routes + UI in one file
+(`admin_dashboard_ui.py`, `user_profile_ui.py`, `today_routes.py`), and
+`TodayOrchestrator` lives in `ui/today/orchestrator.py` (its output is a view
+shape consumed only by the Today page, so it sits with its consumer rather
+than in `core/orchestrator/`).
+
 ## Step-by-Step
 
 ### 1. Create the Orchestrator
@@ -69,8 +75,12 @@ class {Name}Orchestrator:
     All service dependencies are required — bootstrap raises if any are missing
     (Fail-Fast Dependency Philosophy).
 
-    ``optional_intelligence`` is the one legitimate optional: it is ``None``
-    when ``INTELLIGENCE_TIER=core``.
+    ``optional_intelligence`` is the classic legitimate optional: it is ``None``
+    when ``INTELLIGENCE_TIER=core``. A service may also be optional for graceful
+    degradation of a non-essential hub block (e.g. ``AdminOrchestrator``'s
+    ``system_service``, ``TeacherOrchestrator``'s ``admin_stats``) — but every
+    optional must have a documented reason; never default a service to ``None``
+    just to make wiring easier.
     """
 
     def __init__(
@@ -176,6 +186,14 @@ assert services.{name}_orchestrator is not None, "{Name}Orchestrator not initial
 create_{name}_ui_routes(app, rt, orchestrator=services.{name}_orchestrator)
 ```
 
+Two wiring variants exist in the codebase — both acceptable:
+- **Explicit param** (admin): bootstrap asserts and passes `orchestrator=` as above.
+- **Extract inside** (profile, today): bootstrap passes the full `services`
+  container and the route file pulls `services.{name}_orchestrator` itself
+  (with the same not-None assert). Prefer the explicit param for new hubs; use
+  extract-inside only when the route file already takes `services` for other
+  reasons.
+
 ### 5. Refactor UI Factory
 
 Edit `app/adapters/inbound/{name}_ui.py`:
@@ -206,15 +224,16 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | Orchestrator | File | Services | Hub |
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
-| `ProfileOrchestrator` | `profile_orchestrator.py` | 9 | User Profile |
+| `ProfileOrchestrator` | `profile_orchestrator.py` | 7 | User Profile |
 | `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 9 | UserEntry (Submissions + Journals / Timeline; owns `get_entry_report_view` + `get_entry` compositions) |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |
-| `TeacherOrchestrator` | `teacher_orchestrator.py` | 4 | Teaching & Review |
+| `TeacherOrchestrator` | `teacher_orchestrator.py` | 2 | Teaching & Review |
 | `ActivityReviewOrchestrator` | `activity_review_orchestrator.py` | 4 | Activity Review Admin Hub |
 | `PathwaysOrchestrator` | `pathways_orchestrator.py` | 2 | Pathways UI |
 | `LateralRelationshipsOrchestrator` | `lateral_relationships_orchestrator.py` | 7 | Lateral Relationships API |
 | `CalendarOptimizationOrchestrator` | `calendar_optimization_orchestrator.py` | 3 | Calendar Optimization API + cross-domain scheduling intelligence (busy times, slot suggestions, conflict detection, calendar density) |
+| `TodayOrchestrator` | `ui/today/orchestrator.py` (view-layer exception) | 7 | Today page |
 
 ## Related Pattern: OOB Swaps for Shared-Data Hub Blocks
 
