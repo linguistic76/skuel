@@ -85,6 +85,17 @@ services:
       NEO4J_dbms_security_procedures_allowlist: "apoc.meta.*"
 
       # ============================================
+      # JVM CONFIGURATION
+      # ============================================
+      # Enable the Java Vector API (SIMD) for the vector indexes SKUEL relies on
+      # (Entity/ContentChunk/ReferenceChunk/Goal/Task embeddings — semantic search,
+      # canon retrieval, ZPD). Without it 2026.x warns "Java vector incubator module
+      # is not readable ... For optimal vector performance". Purely additive — the
+      # image sets no other server.jvm.additional lines (heap comes from the memory
+      # settings above), so this does not clobber GC/heap flags.
+      NEO4J_server_jvm_additional: "--add-modules jdk.incubator.vector"
+
+      # ============================================
       # NETWORK CONFIGURATION
       # ============================================
       NEO4J_server_bolt_enabled: "true"
