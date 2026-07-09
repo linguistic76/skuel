@@ -2396,6 +2396,24 @@ class SemanticSearchChunkResult(TypedDict):
     parent_entity_type: str
 
 
+class ReferenceChunkHit(TypedDict):
+    """Return shape for search_reference_chunks() — the canon shelf's read side.
+
+    Mirrors ``SemanticSearchChunkResult`` but reference-flavored: the owning node
+    is always a :Resource (a shelved canon book), so the parent is surfaced as
+    ``resource_uid`` / ``book_title`` rather than a generic entity. Lives on the
+    walled reference index (``referencechunk_embedding_idx``), never on the
+    curriculum chunk path — see ``test_reference_chunk_isolation.py``.
+    """
+
+    chunk_uid: str
+    text: str
+    context_window: str | None
+    similarity_score: float
+    resource_uid: str
+    book_title: str
+
+
 class RequiredKnowledgeResult(TypedDict):
     """Return shape for ExerciseBackend.get_required_knowledge()."""
 
@@ -2813,6 +2831,7 @@ __all__ = [
     "PrereqMasteryResult",
     "LearningRecommendationResult",
     "SemanticSearchChunkResult",
+    "ReferenceChunkHit",
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
     "RevisionChainResult",

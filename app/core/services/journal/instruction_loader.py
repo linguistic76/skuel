@@ -58,8 +58,13 @@ def stage1_system_prompt() -> str:
     return _load("main")
 
 
-def stage2_system_prompt(user_context_summary: str) -> str:
-    """System prompt for Stage 2 — Thought Partner."""
+def stage2_system_prompt(user_context_summary: str, canon_context: str = "") -> str:
+    """System prompt for Stage 2 — Thought Partner.
+
+    ``canon_context`` (when non-empty) is the ``CanonContext.to_prompt_block()``
+    of summoned canon passages, appended as its own section — same mechanism as
+    the user-context block.
+    """
     parts = [
         _load("main"),
         _load("stance"),
@@ -68,14 +73,22 @@ def stage2_system_prompt(user_context_summary: str) -> str:
     ]
     if user_context_summary:
         parts.append(f"## Current User Context\n\n{user_context_summary}")
+    if canon_context:
+        parts.append(canon_context)
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 
-def stage3_system_prompt(user_context_summary: str) -> str:
-    """System prompt for Stage 3 — What Is Related."""
+def stage3_system_prompt(user_context_summary: str, canon_context: str = "") -> str:
+    """System prompt for Stage 3 — What Is Related.
+
+    ``canon_context`` (when non-empty) is the ``CanonContext.to_prompt_block()``
+    of summoned canon passages, appended as its own section.
+    """
     parts = [_load("main")]
     if user_context_summary:
         parts.append(f"## Current User Context\n\n{user_context_summary}")
+    if canon_context:
+        parts.append(canon_context)
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 

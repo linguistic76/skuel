@@ -738,6 +738,20 @@ def _ReviewGate(
             ),
             cls="mb-4",
         ),
+        # Canon "summon" dial: unchecked → the param is omitted from the POST and
+        # FastHTML binds summon_canon=False (a normal, canon-free stage). Checked →
+        # curated book passages voice-infuse the response. hx_include="closest
+        # form" (on the button below) carries it. Wired once here for both stages.
+        Label(
+            Input(
+                type="checkbox",
+                name="summon_canon",
+                value="true",
+                cls="mr-2 align-middle",
+            ),
+            "Summon the canon shelf",
+            cls="flex items-center text-sm text-muted-foreground mb-4 cursor-pointer",
+        ),
         StyledButton(
             next_label,
             cls=ButtonT.default,

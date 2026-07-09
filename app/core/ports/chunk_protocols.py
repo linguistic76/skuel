@@ -20,7 +20,10 @@ See: /docs/migrations/AUTOMATIC_CHUNKING_INTEGRATION_2026-01-29.md
 
 from __future__ import annotations
 
-from typing import Protocol, TypedDict, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, TypedDict, runtime_checkable
+
+if TYPE_CHECKING:
+    from core.ports.query_types import ReferenceChunkHit
 
 
 class BatchChunkingCandidate(TypedDict):
@@ -80,5 +83,37 @@ class BatchChunkingOperations(Protocol):
         Returns:
             Candidate rows shaped by ``BatchChunkingCandidate``. Empty when
             nothing matches.
+        """
+        ...
+
+
+@runtime_checkable
+class ReferenceChunkSearchOperations(Protocol):
+    """Persistence port for reading the canon shelf's :ReferenceChunk vectors.
+
+    Implemented by ``Neo4jReferenceChunkAdapter``. Consumed by
+    ``CanonRetrievalService``. The ONLY read against
+    ``referencechunk_embedding_idx`` — living here (not on the shared vector
+    backend) is what keeps canon structurally invisible to SearchRouter (see
+    ``tests/unit/adapters/test_reference_chunk_isolation.py``).
+    """
+
+    async def search_reference_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+    ) -> list[ReferenceChunkHit]:
+        """Return the top canon passages nearest the query embedding.
+
+        Args:
+            query_embedding: The query text's embedding vector.
+            limit: Maximum passages to return.
+            threshold: Minimum cosine similarity for a passage to count.
+
+        Returns:
+            ``ReferenceChunkHit`` rows ordered by descending similarity, each
+            joined to its owning :Resource (book). Empty on no match or read
+            error (fails open — a canon miss must never break the journal).
         """
         ...
