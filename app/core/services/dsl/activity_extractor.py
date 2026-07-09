@@ -45,6 +45,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.vault_bridge_protocol import normalize_vault_line_hash
@@ -168,9 +169,12 @@ def _candidate_title(label: str, description: str) -> str:
         derive_principle_title,
     )
 
-    if label == "Principle":
+    # `label` is the extractor's node-label vocabulary ("Principle"/"Choice");
+    # from_string bridges it to the canonical enum (case-insensitive).
+    entity_type = EntityType.from_string(label)
+    if entity_type is EntityType.PRINCIPLE:
         return derive_principle_title(description)
-    if label == "Choice":
+    if entity_type is EntityType.CHOICE:
         return derive_choice_title(description)
     return description
 
