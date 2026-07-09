@@ -72,6 +72,33 @@ ACTION: ...determine if any of the flagged docs are actually stale...
 
 Claude then reads the flagged docs, compares them against what actually changed, and either updates stale content or confirms nothing needs changing.
 
+### Staleness Decision Policy — Present-Tense Docs vs Pinned Snapshots
+
+When the hook flags a doc, classify it before deciding whether "references a
+changed file" means "stale" (established on PR #577/#578, 2026-07-09):
+
+- **Present-tense docs get currency fixes.** Architecture, patterns, guides,
+  reference — and **roadmaps with open phases**: as long as any phase is
+  unfinished, a roadmap is read for current understanding, so a claim that now
+  reads as a wrong *present* fact must be corrected. Where such a doc narrates
+  history, keep the history accurate and add the present state (e.g. "X/Y *at
+  convergence time*; the set is registry-sourced, Z joined later via arc #N")
+  rather than rewriting what happened.
+- **Pinned snapshots stay as written.** Docs that declare their own
+  point-in-time scope — reviews pinned to a reviewed commit
+  (`docs/Reviews/*` with a `**Reviewed commit:**` header), dated outcome
+  logs, ADR *Context* sections describing the world at decision time. Their
+  line numbers, counts, and vocabulary are correct *relative to the pinned
+  revision*; "updating" them makes the doc claim it reviewed code it didn't.
+
+The test: does the doc **declare its own snapshot** (a reviewed commit, a
+date-scoped outcome)? → pinned, leave alone. Is it **read to understand the
+system today** (any doc with open or forward-looking content)? → present-tense,
+fix currency.
+
+If pinned snapshots accumulating drift becomes a problem, the lever is a
+lifecycle convention (archive or prune resolved reviews), not in-place edits.
+
 ### What It Can Detect
 
 - Cross-references: docs that mention changed code files
