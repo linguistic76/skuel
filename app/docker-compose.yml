@@ -75,6 +75,11 @@ services:
       - "${APP_PORT:-8000}:${APP_PORT:-8000}"
     volumes:
       - .:/app
+      # Keep the container's venv OFF the host bind mount. The image builds
+      # .venv at /app/.venv (Dockerfile `uv sync`); without this anonymous
+      # volume the `.:/app` mount masks it, so `uv run` re-syncs onto the host
+      # as root — clobbering the host .venv and breaking host-side `uv`/tests.
+      - /app/.venv
     depends_on:
       neo4j:
         condition: service_healthy
