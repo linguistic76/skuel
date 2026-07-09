@@ -163,6 +163,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Model-to-Adapter Dynamic Architecture](patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md) | 2025-11-27 | 495 |
 | [MyPy Pragmatic Strategy - Making Peace with 2200 E...](patterns/mypy_pragmatic_strategy.md) | 2025-11-27 | 351 |
 | [nous_subtopic Facet - Mechanism](patterns/NOUS_SUBTOPIC_FACET.md) | 2026-07-07 | 42 |
+| [Neo4j Server Tuning (memory, JVM, Vector API)](patterns/NEO4J_SERVER_TUNING.md) | 2026-07-09 | 86 |
 | [Performance Monitoring System](patterns/PERFORMANCE_MONITORING.md) | 2025-11-27 | 1033 |
 | [Protocol Architecture](patterns/protocol_architecture.md) | 2026-01-29 | 234 |
 | [Protocol LSP Compliance Pattern](patterns/PROTOCOL_LSP_COMPLIANCE.md) | 2025-11-08 | 246 |
