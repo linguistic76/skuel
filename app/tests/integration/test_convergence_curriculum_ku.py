@@ -9,8 +9,8 @@ via that shared base; they now inherit **mechanism B** —
 
 Ku's ``default_context_intent`` is EXPLORATORY, whose hard-coded clause is the generic
 "traverse every edge type" branch. So for Ku the convergence *narrows* the context to
-the registry vocabulary (``USES_KU`` / ``TRAINS_KU``) instead of returning every
-neighbour. Two things must hold:
+the registry vocabulary (``USES_KU`` / ``TRAINS_KU`` / ``CITES_RESOURCE``) instead of
+returning every neighbour. Two things must hold:
 
 1. **Wiring.** ``create_lp_sub_services`` / Ku factory pass a live
    ``relationship_service``; without it the inherited base returns an error (not a
@@ -108,7 +108,7 @@ def ku_intel(neo4j_driver):
 
 @pytest.mark.asyncio
 async def test_ku_registry_sourced_through_get_with_context(neo4j_driver, ku_intel, clean_neo4j):
-    """A Ku's registry edges (USES_KU/TRAINS_KU) surface; ORGANIZES + noise filtered."""
+    """A Ku's registry edges (USES_KU/TRAINS_KU here) surface; ORGANIZES + noise filtered."""
     async with neo4j_driver.session() as s:
         for uid, label, etype in [
             (KU, "Ku", "ku"),
@@ -129,8 +129,14 @@ async def test_ku_registry_sourced_through_get_with_context(neo4j_driver, ku_int
         await s.run("MATCH (k{uid:$k}),(c{uid:$c}) CREATE (k)-[:ORGANIZES]->(c)", k=KU, c=KU_ORG)
         await s.run("MATCH (k{uid:$k}),(n{uid:$n}) CREATE (k)-[:NOISE_LINK]->(n)", k=KU, n=KU_NOISE)
 
-    # USES_KU/TRAINS_KU are the registry vocabulary; ORGANIZES is intentionally absent.
-    assert set(KU_CONFIG.cross_domain_relationship_types) == {"USES_KU", "TRAINS_KU"}
+    # USES_KU/TRAINS_KU/CITES_RESOURCE are the registry vocabulary (CITES_RESOURCE
+    # since the Resources arc — Ku-authored ``resource_uids:``); ORGANIZES is
+    # intentionally absent.
+    assert set(KU_CONFIG.cross_domain_relationship_types) == {
+        "USES_KU",
+        "TRAINS_KU",
+        "CITES_RESOURCE",
+    }
     assert KU_CONFIG.default_context_intent.value == "exploratory"
 
     res = await ku_intel.get_with_context(KU, depth=1)
