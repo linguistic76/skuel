@@ -67,7 +67,7 @@ case "$1" in
     uv tree --outdated --depth 1
     echo ""
     echo -e "${YELLOW}Intentional pins — DO NOT bump in a routine upgrade:${NC}"
-    echo "  neo4j==5.26.0       driver/server/APOC compatibility (ADR-067 § Pins)"
+    echo "  neo4j==5.26.0       conservative driver pin, Bolt-fwd-compat w/ calendar server (ADR-067 § 3)"
     echo "  deepgram-sdk<5.0.0  5.x+ is a breaking SDK rewrite (ADR-067 § Pins)"
     echo ""
     echo -e "Upgrade workflow: see ${GREEN}docs/decisions/ADR-067-dependency-upgrade-policy.md${NC}"
