@@ -11,3 +11,6 @@ neo4j/conf/
 neo4j/plugins/
 neo4j/import/
 neo4j/backups/
+
+# Pre-upgrade data archives (backups live outside git — repo is public)
+neo4j/*.tgz
