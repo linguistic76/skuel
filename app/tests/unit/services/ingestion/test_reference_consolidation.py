@@ -111,16 +111,31 @@ def test_empty_input_yields_empty() -> None:
     assert _consolidate_chunks([], _UID, REFERENCE_CHUNKING_PARAMS) == []
 
 
-def test_consolidation_carries_first_section_path() -> None:
-    # The merged passage inherits its location trail from the group (first
-    # non-empty section_path), just like heading — so a citation can anchor it.
+def test_consolidation_takes_location_pair_from_first_fragment() -> None:
+    # heading + section_path must come from the SAME fragment (the group's first)
+    # so they describe one section. Picking each independently could pair the
+    # first fragment's heading with a later fragment's path → a wrong anchor
+    # (Codex #572 P2). Here frag 0 and frag 1 differ, so the merged pair must be
+    # exactly frag 0's — never a "A Brief History" / "Later Part" cross.
     frags = [
         _frag(0, "content one", heading="A Brief History", section_path="Concepts > Reintro"),
-        _frag(1, "content two", heading="A Brief History", section_path="Concepts > Reintro"),
+        _frag(1, "content two", heading="Later Section", section_path="Later Part"),
     ]
     merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
-    assert merged[0].section_path == "Concepts > Reintro"
     assert merged[0].heading == "A Brief History"
+    assert merged[0].section_path == "Concepts > Reintro"
+
+
+def test_consolidation_location_pair_stays_consistent_when_first_is_headingless() -> None:
+    # A group starting mid-section (no immediate heading) keeps frag 0's pair:
+    # heading None + its ancestor trail — never borrowing a later section's heading.
+    frags = [
+        _frag(0, "continuation paragraph", heading=None, section_path="Concepts > Reintro"),
+        _frag(1, "next section body", heading="A New Section", section_path="Concepts"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading is None
+    assert merged[0].section_path == "Concepts > Reintro"
 
 
 def test_chunk_markdown_captures_ancestor_breadcrumb() -> None:

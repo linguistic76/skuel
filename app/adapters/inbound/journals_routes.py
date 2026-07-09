@@ -1224,6 +1224,18 @@ def create_journals_routes(
         if journal_service is None:
             return FollowUpErrorFragment("Journal AI features are not available (CORE tier).")
 
+        # Canon is a FOUNDER entitlement — the composer dial is hidden for other
+        # tiers, but a POST flag is forgeable, so gate it server-side (Codex #572
+        # P1). Only load the user when a summon is actually requested (no cost on
+        # the common canon-free follow-up).
+        if summon_canon:
+            user_result = await user_service.get_user(user_uid)
+            summon_canon = (
+                user_result.is_ok
+                and user_result.value is not None
+                and user_result.value.journal_tier.is_founder()
+            )
+
         mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_follow_up(
             original_entry=original_entry.strip(),

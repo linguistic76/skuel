@@ -131,8 +131,13 @@ def _consolidate_chunks(
                 text=text,
                 context_before=group[0].context_before,
                 context_after=group[-1].context_after,
-                heading=next((c.heading for c in group if c.heading), None),
-                section_path=next((c.section_path for c in group if c.section_path), None),
+                # Location is taken as a PAIR from the group's first fragment (where
+                # the merged passage starts) so heading and its ancestor trail always
+                # describe the SAME section. Picking each independently could pair one
+                # section's heading with another's path (e.g. a title heading under a
+                # different Part's trail) → a wrong citation anchor (Codex #572 P2).
+                heading=group[0].heading,
+                section_path=group[0].section_path,
                 chunking_version=version,
             )
         )
