@@ -92,6 +92,7 @@ class CanonRetrievalService:
             threshold=min_score,
         )
         if not hits:
+            logger.debug("Canon draw: no passage cleared min_score=%.3f", min_score)
             return Result.ok(CanonContext.empty())
 
         passages = tuple(
@@ -103,4 +104,17 @@ class CanonRetrievalService:
             )
             for hit in hits
         )
-        return Result.ok(CanonContext(passages=passages))
+        context = CanonContext(passages=passages)
+        # Observability for the documented tuning work (min_score / limit): the
+        # only window onto what a summon actually drew. Titles + scores only —
+        # never passage or journal text (ADR-073).
+        scores = [p.similarity_score for p in passages]
+        logger.info(
+            "Canon draw: %d passage(s) from %s (score %.3f-%.3f, min_score=%.3f)",
+            len(passages),
+            ", ".join(context.books()) or "(untitled)",
+            min(scores),
+            max(scores),
+            min_score,
+        )
+        return Result.ok(context)
