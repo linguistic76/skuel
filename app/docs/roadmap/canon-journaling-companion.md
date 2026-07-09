@@ -131,9 +131,11 @@ This **splits** the arc; it does not extend it.
 - File path parity: `run_compiled` (the FOUNDER upload/batch compile, which has no
   review gate) takes the same `summon_canon` flag, threaded to both stages. A
   FOUNDER-only "Summon the canon shelf" checkbox rides the upload form
-  (`render_upload_form` / `render_right_panel`), Alpine-shown only in
-  `instructions_only` mode — the sole upload path that reaches `run_compiled`.
-  Default off — the dial stays explicit.
+  (`render_upload_form` / `render_right_panel`), Alpine-shown (and enabled) only
+  for a single-file `instructions_only` upload — the sole upload shape that
+  reaches `run_compiled`. A multi-file/folder upload takes the batch path
+  (`_run_batch_over_dir`, no canon), so the toggle hides + disables itself there
+  rather than submit an ignored flag. Default off — the dial stays explicit.
 
 ### Future rungs (not scheduled)
 

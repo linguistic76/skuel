@@ -243,22 +243,36 @@ def _build_canon_toggle(*, compact: bool = False) -> Any:
     """FOUNDER-only "Summon the canon shelf" checkbox for the file compile.
 
     The file path has no per-stage review gate, so the canon dial rides the
-    upload form here. Shown only in ``instructions_only`` mode — the sole upload
-    path that reaches the FOUNDER DNWF compile (``run_compiled``); ``x-show``
-    keeps it hidden for the transcribe modes. Unchecked → the ``summon_canon``
-    field is omitted and the compile is canon-free (default). Rendered ONLY when
-    the caller is FOUNDER, so a non-FOUNDER never sees a control the server would
-    ignore. Mirrors the review-gate checkbox on the interactive stages.
+    upload form here. Shown only in ``instructions_only`` mode with a single
+    file selected (``fileCount <= 1``) — the sole upload shape that reaches the
+    FOUNDER DNWF compile (``run_compiled``). A multi-file / folder upload takes
+    the batch path (``_run_batch_over_dir``), which never reaches
+    ``run_compiled``, so the toggle hides itself rather than submit a
+    ``summon_canon`` the server would silently ignore. Unchecked → the field is
+    omitted and the compile is canon-free (default). Rendered ONLY when the
+    caller is FOUNDER. Mirrors the review-gate checkbox on the interactive
+    stages.
     """
+    supported = "processingMode === 'instructions_only' && fileCount <= 1"
     return Label(
-        Input(type="checkbox", name="summon_canon", value="true", cls="mr-2 align-middle"),
+        Input(
+            type="checkbox",
+            name="summon_canon",
+            value="true",
+            cls="mr-2 align-middle",
+            # Disable (not just hide) when unsupported: a display:none checkbox
+            # still POSTs its value, so a box checked then invalidated by adding
+            # files would leak summon_canon=true onto the ignored batch path.
+            # Same x-show + :disabled pairing the file inputs above use.
+            **{":disabled": f"!({supported})"},  # boundary: fasthtml-elements
+        ),
         "Summon the canon shelf",
         cls=(
             "flex items-center text-sm text-muted-foreground cursor-pointer "
             + ("mt-3" if compact else "mb-1")
         ),
         **{
-            "x-show": "processingMode === 'instructions_only'",
+            "x-show": supported,
             "x-cloak": True,  # boundary: fasthtml-elements
         },
     )
