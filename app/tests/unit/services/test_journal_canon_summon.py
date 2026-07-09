@@ -237,9 +237,12 @@ class TestFollowUpCanonWiring:
         assert "The Canon Shelf" in system_prompt
         assert "verbatim" in system_prompt
         assert "Wisdom to Draw On" not in system_prompt
-        # Rich Sources footer with location + link appended to the reply.
-        assert "**Sources**" in result.value
-        assert "/library/resources/get?uid=resource_hms" in result.value
+        # Structured sources returned for clickable rendering (not markdown in text).
+        turn = result.value
+        assert turn.text == "Yes, the book says so."
+        assert len(turn.sources) == 1
+        assert turn.sources[0].resource_uid == "resource_hms"
+        assert turn.sources[0].locators == ("Hypermedia Concepts > A Reintroduction",)
 
     @pytest.mark.asyncio
     async def test_retrieval_keys_on_the_user_question_not_the_entry(self):
@@ -276,5 +279,6 @@ class TestFollowUpCanonWiring:
         )
 
         assert result.is_ok
-        assert result.value == "Plain reply."
+        assert result.value.text == "Plain reply."
+        assert result.value.sources == ()
         assert "The Canon Shelf" not in llm.generate.await_args.kwargs["system_prompt"]

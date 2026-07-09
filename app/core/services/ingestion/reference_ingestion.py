@@ -84,6 +84,40 @@ def _strip_frontmatter(markdown_text: str) -> str:
     return after[newline + 1 :] if newline != -1 else ""
 
 
+def _fragment_trail(chunk: ContentChunk) -> list[str]:
+    """The chunk's full location path: ancestor breadcrumb + its own heading."""
+    parts = chunk.section_path.split(" > ") if chunk.section_path else []
+    if chunk.heading:
+        parts = [*parts, chunk.heading]
+    return parts
+
+
+def _common_location(group: list[ContentChunk]) -> tuple[str | None, str | None]:
+    """Deepest heading + ancestor path that contains EVERY fragment in the group.
+
+    A consolidation group is packed by word count and may cross heading
+    boundaries, so a single merged passage can span sibling sections. Citing the
+    whole passage by any one fragment's location would mis-attribute a quote taken
+    from another section inside it (Codex #572 P2). Instead the passage is cited by
+    the **longest common ancestor** of its fragments — the deepest section that
+    truly contains all of it, always correct for whatever the chunk spans. Returns
+    ``(heading, section_path)`` where ``heading`` is the last common element and
+    ``section_path`` its ancestors; both ``None`` when the group spans the whole book.
+    """
+    trails = [_fragment_trail(c) for c in group]
+    common: list[str] = []
+    for level in zip(*trails, strict=False):
+        if len(set(level)) == 1:
+            common.append(level[0])
+        else:
+            break
+    if not common:
+        return None, None
+    heading = common[-1]
+    section_path = " > ".join(common[:-1]) if len(common) > 1 else None
+    return heading, section_path
+
+
 def _consolidate_chunks(
     chunks: list[ContentChunk], resource_uid: str, params: ChunkingParams
 ) -> list[ContentChunk]:
@@ -123,6 +157,10 @@ def _consolidate_chunks(
         text = "\n\n".join(c.text.strip() for c in group)
         if not text.strip():
             continue
+        # Cite the merged passage by the deepest section that contains ALL of it
+        # (longest common ancestor), so a quote from anywhere inside it is never
+        # attributed to a sibling section it merely sits next to (Codex #572 P2).
+        merged_heading, merged_section_path = _common_location(group)
         merged.append(
             ContentChunk(
                 parent_uid=resource_uid,
@@ -131,13 +169,8 @@ def _consolidate_chunks(
                 text=text,
                 context_before=group[0].context_before,
                 context_after=group[-1].context_after,
-                # Location is taken as a PAIR from the group's first fragment (where
-                # the merged passage starts) so heading and its ancestor trail always
-                # describe the SAME section. Picking each independently could pair one
-                # section's heading with another's path (e.g. a title heading under a
-                # different Part's trail) → a wrong citation anchor (Codex #572 P2).
-                heading=group[0].heading,
-                section_path=group[0].section_path,
+                heading=merged_heading,
+                section_path=merged_section_path,
                 chunking_version=version,
             )
         )

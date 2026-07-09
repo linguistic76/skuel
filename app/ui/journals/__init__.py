@@ -9,9 +9,11 @@ from fasthtml.common import (
     Form,
     Input,
     Label,
+    Li,
     P,
     Span,
     Textarea,
+    Ul,
 )
 
 from ui.components import Button as StyledButton
@@ -19,6 +21,7 @@ from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 
 if TYPE_CHECKING:
     from core.models.enums.user_enums import JournalMode
+    from core.services.canon import CanonSource
     from core.services.journal.suggestion import SuggestedActivity
 
 # ------------------------------------------------------------------
@@ -506,22 +509,60 @@ def FileOutputFragment(
     )
 
 
+def _CanonSourcesBlock(sources: "tuple[CanonSource, ...]") -> Any:
+    """Clickable "Sources" block under a canon-summoned follow-up (ADR-076).
+
+    The journal bubble renders plain text, so a markdown link would show as
+    literal `[text](url)`. This renders a real anchor per book to its Resource
+    page — the citation's "point to the raw" destination — with the in-book
+    locations the quotes came from. Aligned under the AI response (past the avatar).
+    """
+    from ui.components import Icon
+
+    items = []
+    for s in sources:
+        where = f" — {'; '.join(s.locators)}" if s.locators else ""
+        items.append(
+            Li(
+                A(
+                    Icon("book-open", size=13, cls="inline-block mr-1 align-[-2px]"),
+                    s.book_title,
+                    href=f"/library/resources/get?uid={s.resource_uid}",
+                    cls="text-primary hover:underline font-medium no-underline",
+                ),
+                Span(where, cls="text-muted-foreground"),
+                cls="text-[13px] leading-relaxed",
+            )
+        )
+    return Div(
+        Span(
+            "Sources",
+            cls="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+        ),
+        Ul(*items, cls="mt-1 space-y-1 list-none pl-0"),
+        cls="ml-[46px] mt-1 mb-3 border-l-2 border-border pl-3",
+    )
+
+
 def FollowUpFragment(
     user_reply: str,
     ai_text: str,
     combined: str,
     title: str,
     mode: "JournalMode",
+    sources: "tuple[CanonSource, ...] | None" = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
 
-    Returns a tuple: two chat bubbles (main swap) plus two OOB inputs that update
+    Returns a tuple: the chat bubbles (main swap) plus two OOB inputs that update
     the hidden context fields in #journal-composer without a full replacement.
+    ``sources`` (canon draws) render as a clickable citation block after the reply.
     """
     label = f"Journal Response — {mode.display_label()}"
     return (
         _UserBubble(user_reply),
         _AiBubble(label, ai_text),
+        *((_CanonSourcesBlock(sources),) if sources else ()),
         # OOB: update accumulated conversation context in the sticky composer
         Input(
             id="journal-original-entry",

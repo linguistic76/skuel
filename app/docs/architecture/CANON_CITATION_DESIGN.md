@@ -152,16 +152,17 @@ book, quotes verbatim, cites Ch./section, links to the Resource page, refuses to
 
 ---
 
-## 7a. Known follow-up (documented, not silently dropped)
+## 7a. Sources render as real HTML links (not markdown text)
 
-Journal response bubbles render as **plain text** (`whitespace-pre-wrap`) — the app's
-deliberate copy-to-Obsidian design (ADR-073), shared by the existing Stage footers. So the
-Sources footer's markdown link shows as link *text* in-app (it is clickable once the user
-copies the reply into Obsidian). The book name + location trail are fully readable in-app;
-only the link is non-live there. Making in-app citations clickable means rendering journal
-markdown to HTML (a cross-cutting change needing sanitization) — deferred as its own
-decision rather than folded into this arc. The inline quotes + citations the model writes,
-and the location trail, already satisfy "point to the location."
+Journal response bubbles render as **plain text** (`whitespace-pre-wrap`, the copy-to-Obsidian
+design), so a markdown link in the reply text would show as literal `[text](url)`. The
+follow-up therefore returns **structured** sources (`CanonContext.sources()` → `CanonSource`),
+not a markdown footer: `run_follow_up` returns a `JournalFollowUp(text, sources)` and
+`FollowUpFragment` renders a real `<a href="/library/resources/get?uid=…">` per book +
+its in-book locations — a genuinely clickable "point to the raw" (Codex #572 P2). The model's
+inline quotes/citations live in the plain-text reply; the clickable back-pointers live in the
+Sources block. Applying the same treatment to the compiled-file path (still a markdown
+artifact) is a later, optional refinement.
 
 ## 8. Design principle recorded here
 

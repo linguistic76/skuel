@@ -1257,10 +1257,11 @@ def create_journals_routes(
         )
         return FollowUpFragment(
             user_reply=user_reply.strip(),
-            ai_text=result.value,
+            ai_text=result.value.text,
             combined=combined,
             title=title.strip(),
             mode=mode,
+            sources=result.value.sources,
         )
 
     # ------------------------------------------------------------------

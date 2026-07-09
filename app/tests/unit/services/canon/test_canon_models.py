@@ -156,8 +156,8 @@ class TestDiscussionBlock:
         assert CanonContext(passages=(_passage("  ", "HMS"),)).to_discussion_block() == ""
 
 
-class TestSourcesFooter:
-    def test_footer_lists_book_location_and_link(self):
+class TestSources:
+    def test_sources_carry_book_uid_and_location(self):
         ctx = CanonContext(
             passages=(
                 _passage(
@@ -169,23 +169,22 @@ class TestSourcesFooter:
                 ),
             )
         )
-        footer = ctx.sources_footer()
-        assert "**Sources**" in footer
-        assert "*Hypermedia Systems*" in footer
-        assert "Hypermedia Concepts > A Reintroduction" in footer
-        assert "/library/resources/get?uid=resource.hypermedia-systems" in footer
+        sources = ctx.sources()
+        assert len(sources) == 1
+        assert sources[0].book_title == "Hypermedia Systems"
+        assert sources[0].resource_uid == "resource.hypermedia-systems"
+        assert sources[0].locators == ("Hypermedia Concepts > A Reintroduction",)
 
-    def test_footer_groups_distinct_locations_per_book(self):
+    def test_sources_group_distinct_locations_per_book(self):
         ctx = CanonContext(
             passages=(
                 _passage("a", "HMS", uid="r", heading="Ch 1"),
                 _passage("b", "HMS", uid="r", heading="Ch 2"),
             )
         )
-        footer = ctx.sources_footer()
-        # One line per book (single "- *HMS*"), both locations listed.
-        assert footer.count("- *HMS*") == 1
-        assert "Ch 1" in footer and "Ch 2" in footer
+        sources = ctx.sources()
+        assert len(sources) == 1  # one book
+        assert sources[0].locators == ("Ch 1", "Ch 2")
 
-    def test_footer_empty_when_no_passages(self):
-        assert CanonContext.empty().sources_footer() == ""
+    def test_sources_empty_when_no_passages(self):
+        assert CanonContext.empty().sources() == ()

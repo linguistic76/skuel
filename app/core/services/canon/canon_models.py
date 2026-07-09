@@ -12,7 +12,6 @@ context that lives for one stage call and is dropped.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -58,6 +57,21 @@ class CanonPassage:
         if loc:
             bits.append(loc)
         return " — ".join(bits) if bits else "(untitled source)"
+
+
+@dataclass(frozen=True)
+class CanonSource:
+    """One shelved book a response drew on, with the in-book locations it used.
+
+    The UI-facing shape of an attribution: a book + the distinct location trails
+    its quoted passages came from + the ``resource_uid`` that builds the link to
+    its Resource page. Kept structured (not markdown) so a plain-text surface can
+    render a real anchor.
+    """
+
+    book_title: str
+    resource_uid: str
+    locators: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -164,35 +178,36 @@ class CanonContext:
             f"{body}"
         )
 
-    def sources_footer(self) -> str:
-        """Rich "Sources" footer for the discussion path: per-book location + link.
+    def sources(self) -> tuple[CanonSource, ...]:
+        """Structured per-book sources for the discussion path — for UI rendering.
 
-        One line per book actually drawn on — the distinct in-book locations its
-        passages came from, plus a link to the book's Resource page (the "point
-        to the raw" destination). Heavier than ``attribution_footer`` because the
-        discussion path quotes and must let the reader verify. ``""`` if none.
+        One entry per book actually drawn on, with the distinct in-book locations
+        its passages came from. The UI turns each into a real, clickable link to
+        the book's Resource page (the "point to the raw" destination) — the
+        discussion path quotes, so the reader must be able to verify. Empty when
+        nothing was drawn. Structured (not markdown) so the plain-text journal
+        bubble can render an actual anchor rather than literal `[text](url)`.
         """
         if not self.has_passages:
-            return ""
-        books: dict[str, dict[str, Any]] = {}
+            return ()
+        by_book: dict[str, list[str]] = {}
+        titles: dict[str, str] = {}
         for passage in self.passages:
             if not passage.text.strip() or not passage.book_title:
                 continue
-            entry = books.setdefault(
-                passage.resource_uid,
-                {"title": passage.book_title, "locators": []},
-            )
+            titles[passage.resource_uid] = passage.book_title
+            locators = by_book.setdefault(passage.resource_uid, [])
             loc = passage.locator
-            if loc and loc not in entry["locators"]:
-                entry["locators"].append(loc)
-        if not books:
-            return ""
-        lines = []
-        for resource_uid, entry in books.items():
-            where = f" — {'; '.join(entry['locators'])}" if entry["locators"] else ""
-            link = f"/library/resources/get?uid={resource_uid}"
-            lines.append(f"- *{entry['title']}*{where} — [open the book]({link})")
-        return "\n\n---\n**Sources**\n" + "\n".join(lines)
+            if loc and loc not in locators:
+                locators.append(loc)
+        return tuple(
+            CanonSource(
+                book_title=titles[uid],
+                resource_uid=uid,
+                locators=tuple(locators),
+            )
+            for uid, locators in by_book.items()
+        )
 
     def attribution_footer(self) -> str:
         """Render the light "Drawing on" footer, or ``""`` if no passages.

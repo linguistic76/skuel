@@ -111,31 +111,52 @@ def test_empty_input_yields_empty() -> None:
     assert _consolidate_chunks([], _UID, REFERENCE_CHUNKING_PARAMS) == []
 
 
-def test_consolidation_takes_location_pair_from_first_fragment() -> None:
-    # heading + section_path must come from the SAME fragment (the group's first)
-    # so they describe one section. Picking each independently could pair the
-    # first fragment's heading with a later fragment's path → a wrong anchor
-    # (Codex #572 P2). Here frag 0 and frag 1 differ, so the merged pair must be
-    # exactly frag 0's — never a "A Brief History" / "Later Part" cross.
+def test_location_is_the_section_when_fragments_share_it() -> None:
+    # A group wholly inside one section is cited by that full section trail.
     frags = [
-        _frag(0, "content one", heading="A Brief History", section_path="Concepts > Reintro"),
-        _frag(1, "content two", heading="Later Section", section_path="Later Part"),
+        _frag(0, "one", heading="Section A", section_path="Part > Chapter"),
+        _frag(1, "two", heading="Section A", section_path="Part > Chapter"),
     ]
     merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
-    assert merged[0].heading == "A Brief History"
-    assert merged[0].section_path == "Concepts > Reintro"
+    assert merged[0].heading == "Section A"
+    assert merged[0].section_path == "Part > Chapter"
 
 
-def test_consolidation_location_pair_stays_consistent_when_first_is_headingless() -> None:
-    # A group starting mid-section (no immediate heading) keeps frag 0's pair:
-    # heading None + its ancestor trail — never borrowing a later section's heading.
+def test_location_backs_off_to_common_ancestor_across_sibling_sections() -> None:
+    # A group crossing sibling subsections is cited by their common parent — never
+    # by one subsection's heading, so a quote from the other isn't mis-attributed
+    # (Codex #572 P2). frag 0 in "Section A", frag 1 in "Section B" → cite "Chapter".
     frags = [
-        _frag(0, "continuation paragraph", heading=None, section_path="Concepts > Reintro"),
-        _frag(1, "next section body", heading="A New Section", section_path="Concepts"),
+        _frag(0, "one", heading="Section A", section_path="Part > Chapter"),
+        _frag(1, "two", heading="Section B", section_path="Part > Chapter"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading == "Chapter"
+    assert merged[0].section_path == "Part"
+
+
+def test_location_is_book_level_when_fragments_span_unrelated_parts() -> None:
+    # No shared ancestor → cite the book only (heading + path both None), rather
+    # than pretend the whole passage lives in one Part.
+    frags = [
+        _frag(0, "one", heading="Ch A", section_path="Part One"),
+        _frag(1, "two", heading="Ch B", section_path="Part Two"),
     ]
     merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
     assert merged[0].heading is None
-    assert merged[0].section_path == "Concepts > Reintro"
+    assert merged[0].section_path is None
+
+
+def test_location_common_ancestor_when_first_fragment_is_headingless() -> None:
+    # A chapter-intro paragraph (no own heading) + a subsection under it → the
+    # common ancestor is the chapter, cited without borrowing the subsection head.
+    frags = [
+        _frag(0, "intro para", heading=None, section_path="Part > Chapter"),
+        _frag(1, "sub body", heading="Section A", section_path="Part > Chapter"),
+    ]
+    merged = _consolidate_chunks(frags, _UID, REFERENCE_CHUNKING_PARAMS)
+    assert merged[0].heading == "Chapter"
+    assert merged[0].section_path == "Part"
 
 
 def test_chunk_markdown_captures_ancestor_breadcrumb() -> None:
