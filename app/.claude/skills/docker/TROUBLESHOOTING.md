@@ -71,6 +71,26 @@ docker compose build --no-cache skuel-app
 
 ---
 
+## Host `.venv` becomes root-owned / host `uv sync` fails with "Permission denied"
+
+**Symptom:** After running `./dev up` (the Docker app mode), host-side `uv sync` or `./dev test-integration` fails:
+```
+error: failed to remove file `/home/mike/skuel/app/.venv/.lock`: Permission denied (os error 13)
+```
+`ls -ld .venv` shows it owned by `root`, and `.venv/bin/python` points at a container-internal path (`/usr/local/bin/python3.14`) that does not exist on the host.
+
+**Cause:** the `skuel-app` service bind-mounts `.:/app`. Without isolation that mount masks the image's baked `/app/.venv`, so the container (running as root) does `uv run`/`uv sync` **onto the host bind mount**, leaving a root-owned venv the host `uv` can no longer rebuild. It recurs every time you alternate Docker app mode with host-side `uv run`.
+
+**Fix (already in place):** `docker-compose.yml` declares an anonymous volume `- /app/.venv` on the app service, keeping the container's venv off the host mount. If you hit a legacy root-owned `.venv`, clear it once:
+```bash
+sudo rm -rf .venv
+sudo find . -type d -name __pycache__ -user root -exec rm -rf {} + 2>/dev/null
+uv sync
+```
+Host dev/test mode is `./dev up-neo4j` + `uv run` on the host (the Docker app mode also needs `OPENAI_API_KEY` in the container env, which normally lives in the host credential store).
+
+---
+
 ## Health check fails, container restarts
 
 **Symptom:** Container shows as `unhealthy` and keeps restarting (if `restart: unless-stopped` is set, it stays up but logged as unhealthy).
