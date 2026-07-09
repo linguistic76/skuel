@@ -1278,6 +1278,7 @@ def create_journals_routes(
         title: str = "",
         scribe_output: str = "",
         review_notes: str = "",
+        summon_canon: bool = False,
     ) -> Any:
         from ui.journals import ErrorFragment, Stage2Fragment
 
@@ -1297,6 +1298,7 @@ def create_journals_routes(
             scribe_output=scribe_output,
             review_notes=review_notes,
             user_uid=user_uid,
+            summon_canon=summon_canon,
         )
         if result.is_error:
             logger.error("Stage 2 failed for %s: %s", user_uid, result.expect_error())
@@ -1322,6 +1324,7 @@ def create_journals_routes(
         scribe_output: str = "",
         thought_partner_output: str = "",
         review_notes: str = "",
+        summon_canon: bool = False,
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 
@@ -1341,6 +1344,7 @@ def create_journals_routes(
             thought_partner_output=thought_partner_output,
             review_notes=review_notes,
             user_uid=user_uid,
+            summon_canon=summon_canon,
         )
         if result.is_error:
             logger.error("Stage 3 failed for %s: %s", user_uid, result.expect_error())

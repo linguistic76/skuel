@@ -25,6 +25,7 @@ __version__ = "1.0"
 from typing import Any
 
 from core.models.ps_content.content_chunks import ContentChunk
+from core.ports.query_types import ReferenceChunkHit
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -161,6 +162,81 @@ class Neo4jReferenceChunkAdapter:
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Failed to store reference chunks for {resource_uid}: {e}")
             return False
+
+    async def search_reference_chunks(
+        self,
+        query_embedding: list[float],
+        limit: int,
+        threshold: float,
+    ) -> list[ReferenceChunkHit]:
+        """Vector-search the canon shelf for passages nearest the query embedding.
+
+        Targets the walled ``referencechunk_embedding_idx`` (NOT
+        ``contentchunk_embedding_idx``) and joins each hit back to its owning
+        :Resource for the book title. This is the ONLY read against that index —
+        keeping it here, off the shared ``VectorSearchBackend``, is the structural
+        guarantee that canon stays invisible to SearchRouter (frozen by
+        ``tests/unit/adapters/test_reference_chunk_isolation.py``).
+
+        A ``candidate_limit`` of ``2 * limit`` widens the neighbor pool so the
+        ``threshold`` cut still leaves ``limit`` survivors in the common case
+        (mirrors ``VectorSearchBackend.semantic_search_chunks``' unscoped 2x
+        pass).
+
+        Fails OPEN (empty list on read error) — a canon miss must degrade the
+        journal to a normal one, never break it.
+
+        Args:
+            query_embedding: The query text's embedding vector.
+            limit: Maximum passages to return.
+            threshold: Minimum cosine similarity for a passage to count.
+
+        Returns:
+            ``ReferenceChunkHit`` rows ordered by descending similarity. Empty
+            on no match or error.
+        """
+        query = """
+        CALL db.index.vector.queryNodes(
+            'referencechunk_embedding_idx',
+            $candidate_limit,
+            $query_embedding
+        ) YIELD node AS chunk, score
+        WHERE score >= $threshold
+        MATCH (r:Resource)-[:HAS_REFERENCE_CHUNK]->(chunk)
+        RETURN chunk.uid AS chunk_uid,
+               chunk.text AS text,
+               chunk.context_window AS context_window,
+               score AS similarity_score,
+               r.uid AS resource_uid,
+               r.title AS book_title
+        ORDER BY score DESC
+        LIMIT $limit
+        """
+        try:
+            result = await self.neo4j.execute_query(
+                query,
+                {
+                    "query_embedding": query_embedding,
+                    "candidate_limit": limit * 2,
+                    "threshold": threshold,
+                    "limit": limit,
+                },
+            )
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Reference chunk vector search failed: {e}")
+            return []
+
+        return [
+            ReferenceChunkHit(
+                chunk_uid=row["chunk_uid"],
+                text=row["text"],
+                context_window=row.get("context_window"),
+                similarity_score=float(row["similarity_score"]),
+                resource_uid=row["resource_uid"],
+                book_title=row["book_title"] or "",
+            )
+            for row in (result or [])
+        ]
 
     async def get_chunk_embedding_freshness(self, chunk_uids: list[str]) -> list[dict[str, Any]]:
         """

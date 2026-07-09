@@ -31,6 +31,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.canon import CanonContext, CanonRetrievalService
     from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
@@ -64,6 +65,7 @@ class JournalService:
         tasks_service: TasksService | None = None,
         habits_service: HabitsService | None = None,
         dsl_bridge: LLMDSLBridgeService | None = None,
+        canon_retrieval_service: CanonRetrievalService | None = None,
     ) -> None:
         self._llm = llm_caller
         self._user_entry = user_entry_service
@@ -73,6 +75,9 @@ class JournalService:
         # Optional Digital pre-pass that turns prose into @context() lines for
         # the "Suggested activities" panel. None on CORE tier (no panel).
         self._dsl_bridge = dsl_bridge
+        # Optional canon shelf — voice-infuses a summoned Stage 2/3 with curated
+        # book passages. None when unwired (CORE tier / no embeddings).
+        self._canon = canon_retrieval_service
 
     def _resolve_model(self) -> str:
         """Return the best available LLM model based on configured adapters."""
@@ -194,6 +199,26 @@ class JournalService:
         return Result.ok(await fetch_active_goal_titles(self._goals, user_uid))
 
     # ------------------------------------------------------------------
+    # Canon shelf (the "summon" dial)
+    # ------------------------------------------------------------------
+
+    async def _maybe_summon_canon(self, raw_entry: str, summon: bool) -> CanonContext:
+        """Resolve the canon context for a stage — THE single dial branch point.
+
+        Fail-soft: dial off, no canon service (CORE tier / no embeddings), or a
+        retrieval failure all collapse to an empty ``CanonContext`` so the stage
+        proceeds as a normal journal. Graduating the dial to automatic later
+        means changing only this method (consult prefs/heuristics here) — the
+        call sites stay untouched.
+        """
+        from core.services.canon import CanonContext
+
+        if not summon or self._canon is None:
+            return CanonContext.empty()
+        result = await self._canon.retrieve(raw_entry)
+        return result.value if result.is_ok else CanonContext.empty()
+
+    # ------------------------------------------------------------------
     # Stage 1 — Scribe
     # ------------------------------------------------------------------
 
@@ -222,10 +247,17 @@ class JournalService:
         scribe_output: str,
         review_notes: str,
         user_uid: UserUID,
+        summon_canon: bool = False,
     ) -> Result[str]:
-        """Stage 2: Thought Partner response across four roles."""
+        """Stage 2: Thought Partner response across four roles.
+
+        When ``summon_canon`` is set (FULL tier), curated book passages resonant
+        with the raw entry voice-infuse the reasoning and a light "Drawing on"
+        footer is appended. Fail-soft: no canon degrades to a normal Stage 2.
+        """
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = stage2_system_prompt(context_summary)
+        canon = await self._maybe_summon_canon(raw_entry, summon_canon)
+        system_prompt = stage2_system_prompt(context_summary, canon.to_prompt_block())
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 1 — Scribe Record\n\n{scribe_output}\n\n"
@@ -233,7 +265,7 @@ class JournalService:
             "Please process this as Stage 2 — Thought Partner."
         )
         try:
-            return await self._llm.generate(
+            result = await self._llm.generate(
                 prompt=user_message,
                 model=self._resolve_model(),
                 system_prompt=system_prompt,
@@ -242,6 +274,7 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal Stage 2 LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Stage 2 failed: {exc}"))
+        return self._append_canon_footer(result, canon)
 
     # ------------------------------------------------------------------
     # Stage 3 — What Is Related
@@ -253,10 +286,17 @@ class JournalService:
         thought_partner_output: str,
         review_notes: str,
         user_uid: UserUID,
+        summon_canon: bool = False,
     ) -> Result[str]:
-        """Stage 3: propose graph connections to knowledge, goals, tasks, and habits."""
+        """Stage 3: propose graph connections to knowledge, goals, tasks, and habits.
+
+        When ``summon_canon`` is set (FULL tier), curated book passages resonant
+        with the raw entry voice-infuse the reasoning and a light "Drawing on"
+        footer is appended. Fail-soft: no canon degrades to a normal Stage 3.
+        """
         context_summary = await self._build_context_summary(user_uid)
-        system_prompt = stage3_system_prompt(context_summary)
+        canon = await self._maybe_summon_canon(raw_entry, summon_canon)
+        system_prompt = stage3_system_prompt(context_summary, canon.to_prompt_block())
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 2 — What Is Emerging\n\n{thought_partner_output}\n\n"
@@ -264,7 +304,7 @@ class JournalService:
             "Please process this as Stage 3 — What Is Related."
         )
         try:
-            return await self._llm.generate(
+            result = await self._llm.generate(
                 prompt=user_message,
                 model=self._resolve_model(),
                 system_prompt=system_prompt,
@@ -273,6 +313,18 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal Stage 3 LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Stage 3 failed: {exc}"))
+        return self._append_canon_footer(result, canon)
+
+    @staticmethod
+    def _append_canon_footer(result: Result[str], canon: CanonContext) -> Result[str]:
+        """Append the "Drawing on" footer to a successful stage output.
+
+        No-op when the stage errored or no canon passage was drawn — the footer
+        only ever appears when the response was genuinely voice-infused.
+        """
+        if result.is_error or not canon.has_passages:
+            return result
+        return Result.ok(result.value + canon.attribution_footer())
 
     # ------------------------------------------------------------------
     # Standard workflow

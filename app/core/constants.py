@@ -819,3 +819,19 @@ MASS_DELETION_MIN_COUNT: Final = 10
 # deletion, misconfigured root), not authoring. Escape hatch: delete explicitly
 # via the ingestion dashboard, or sync in smaller batches.
 MASS_DELETION_MAX_FRACTION: Final = 0.5
+
+
+# ============================================================================
+# CANON RETRIEVAL (canon_retrieval_service.py — Phase 3 journaling companion)
+# ============================================================================
+
+# How many canon :ReferenceChunk passages to draw into a summoned journal stage.
+# Small by design: the passages voice-infuse the LLM's reasoning as system-prompt
+# context, they are not a search result set — a handful of the most resonant
+# passages is enough to color the response without drowning the entry.
+CANON_RETRIEVAL_LIMIT: Final = 4
+
+# Cosine-similarity floor for a passage to count as "resonant" with the entry.
+# Deliberately permissive (the journal is associative, not a precision search) —
+# below this the passage is noise and is dropped. Tunable once we measure.
+CANON_RETRIEVAL_MIN_SCORE: Final = 0.3

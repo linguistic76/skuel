@@ -1143,6 +1143,21 @@ async def compose_services(
         else:
             logger.info("⏭️  DSL bridge skipped (intelligence tier: CORE) — parser-only extraction")
 
+        # Canon retrieval: draws curated book passages from the walled reference
+        # shelf to voice-infuse a summoned journal stage (Phase 3). FULL tier only
+        # — without embeddings there is no query vector, so it stays None and the
+        # journal degrades to canon-free. The adapter is NOT wired into
+        # SearchRouter (that omission is the isolation guarantee).
+        canon_retrieval_service = None
+        if embeddings_service is not None:
+            from core.services.canon import CanonRetrievalService
+
+            canon_retrieval_service = CanonRetrievalService(
+                reference_search=reference_chunk_adapter,
+                embeddings_service=embeddings_service,
+            )
+            logger.info("✅ CanonRetrievalService created (canon journaling companion)")
+
         # JournalService: DNWF three-stage workflow (FULL tier only, requires llm_caller)
         journal_service = None
         if llm_caller is not None:
@@ -1155,6 +1170,7 @@ async def compose_services(
                 tasks_service=activity_services["tasks"],
                 habits_service=activity_services["habits"],
                 dsl_bridge=dsl_bridge,
+                canon_retrieval_service=canon_retrieval_service,
             )
             logger.info("✅ JournalService created")
 
