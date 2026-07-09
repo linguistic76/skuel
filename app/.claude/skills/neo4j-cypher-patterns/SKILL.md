@@ -225,7 +225,11 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 | **Domain indexes** | `sync_domain_indexes()` | Always | UID, user_uid, status, date, composite — 48 indexes |
 | **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 15 domains — Cypher-first foundation |
 | **Auth indexes** | `sync_auth_indexes()` | Always | Rate limiting, session lookup, email uniqueness |
-| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine similarity on Entity + ContentChunk |
+| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine on Entity, ContentChunk, ReferenceChunk, Goal, Task |
+
+> **Server side:** the Java Vector API (SIMD) must be enabled for these to run optimally —
+> `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` in `infrastructure/docker-compose.yml`.
+> See [NEO4J_SERVER_TUNING.md](../../../docs/patterns/NEO4J_SERVER_TUNING.md).
 
 Full-text indexes are the **Cypher-first search foundation** — always available, no embeddings needed:
 
@@ -235,7 +239,7 @@ CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline')
 YIELD node, score
 RETURN node.uid, node.title, score
 
--- Vector search (FULL tier only, 1024-dim BAAI/bge-large-en-v1.5)
+-- Vector search (FULL tier only, 1024-dim; OpenAI text-embedding-3-small — ADR-068, BGE staged)
 CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding)
 YIELD node, score
 RETURN node.uid, node.title, score
