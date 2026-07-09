@@ -194,7 +194,7 @@ Cross-Reference Validation Report
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
 
-**Matching semantics:** keys match on word boundaries at identifier-like ends — `PageHead` does NOT fire on `PageHeader`. Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) still prefix-match, so deleted-package paths work as before. No need to worry about substring collisions when picking a key.
+**Matching semantics:** keys refuse alphanumeric neighbors — `PageHead` does NOT fire on `PageHeader` — but underscore adjacency still matches, so deleted snake_case names are caught inside derived symbols (`sel_routes` fires on `create_sel_routes`). Keys ending in a non-word character (e.g. the trailing dot in `core.models.ku.`) prefix-match, so deleted-package paths work as before.
 
 ### When to add a RENAMED entry
 

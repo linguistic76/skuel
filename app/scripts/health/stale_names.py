@@ -164,13 +164,15 @@ DELETED: dict[str, str] = {
 
 
 def _boundary_pattern(key: str) -> re.Pattern[str]:
-    """Compile a key with word boundaries on identifier-like ends.
+    """Compile a key with boundaries that block alphanumeric neighbors only.
 
-    Prevents `PageHead` matching inside `PageHeader` while keeping
-    prefix-style keys like `core.models.ku.` matching `core.models.ku.foo`.
+    Prevents `PageHead` matching inside `PageHeader`, while underscore
+    adjacency still matches so deleted snake_case names are caught inside
+    derived symbols (`sel_routes` in `create_sel_routes`). Keys ending in a
+    non-word character (`core.models.ku.`) keep prefix-matching.
     """
-    prefix = r"(?<![A-Za-z0-9_])" if key[0].isalnum() or key[0] == "_" else ""
-    suffix = r"(?![A-Za-z0-9_])" if key[-1].isalnum() or key[-1] == "_" else ""
+    prefix = r"(?<![A-Za-z0-9])" if key[0].isalnum() or key[0] == "_" else ""
+    suffix = r"(?![A-Za-z0-9])" if key[-1].isalnum() or key[-1] == "_" else ""
     return re.compile(prefix + re.escape(key) + suffix)
 
 
