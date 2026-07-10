@@ -414,3 +414,31 @@ def test_rendered_yaml_passes_sync_validation() -> None:
     result = validate_edge_data(data)
     assert result.is_ok, f"rendered Edge YAML failed sync validation: {result}"
     assert data["source"] == "inferred-approved"
+
+
+@pytest.mark.anyio
+async def test_stale_dimension_embeddings_dropped_not_crashed() -> None:
+    """A single stale-dimension vector must not 500 generation (Codex P2 #599).
+
+    A model/dimension change can leave one old-length embedding until the
+    backfill sweeps; the strict pairwise scorer would raise on it. The
+    dominant dimension survives, the stale row is dropped.
+    """
+    kus = [
+        _ku("ku.a.one", 0.0),
+        _ku("ku.a.two", 55.0),
+        KuEmbeddingRow(
+            uid="ku.a.stale",
+            title="Stale",
+            summary="old-model vector",
+            embedding=[0.5, 0.5, 0.5],  # wrong dimension vs _vec()'s
+        ),
+    ]
+    service = _service(kus)
+
+    result = await service.generate_candidates()
+
+    assert not result.is_error
+    uids = {uid for cand in result.value for uid in (cand.a_uid, cand.b_uid)}
+    assert "ku.a.stale" not in uids
+    assert uids  # the two healthy Kus still produced their mid-band pair

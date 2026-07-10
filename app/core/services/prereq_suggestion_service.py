@@ -40,6 +40,7 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+from collections import Counter
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -304,7 +305,7 @@ class PrereqSuggestionService:
         kus_result = await self.backend.get_kus_with_embeddings()
         if kus_result.is_error:
             return Result.fail(kus_result)
-        kus = kus_result.value
+        kus = self._drop_stale_dimensions(kus_result.value)
         if not kus:
             return Result.fail(
                 Errors.business(
@@ -325,6 +326,28 @@ class PrereqSuggestionService:
         reachable = {uid: self._reachable_from(uid, adjacency) for uid in adjacency}
 
         return Result.ok(self._band_pairs(kus, reachable))
+
+    def _drop_stale_dimensions(self, kus: list[KuEmbeddingRow]) -> list[KuEmbeddingRow]:
+        """Keep only embeddings of the dominant dimension.
+
+        A model/dimension change (ADR-068) can leave a stale vector of a
+        different length until the backfill sweeps it; one such row would
+        crash the strict pairwise scorer and 500 the generate action.
+        Majority dimension wins; dropped rows are logged for the backfill.
+        """
+        if not kus:
+            return kus
+        counts = Counter(len(ku["embedding"]) for ku in kus)
+        if len(counts) == 1:
+            return kus
+        dominant = counts.most_common(1)[0][0]
+        kept = [ku for ku in kus if len(ku["embedding"]) == dominant]
+        self.logger.warning(
+            f"Dropped {len(kus) - len(kept)} Ku embedding(s) with stale dimensions "
+            f"from candidate generation (dominant {dominant}, seen {dict(counts)}) — "
+            "run the embedding backfill to refresh them"
+        )
+        return kept
 
     @staticmethod
     def _reachable_from(start: str, adjacency: dict[str, set[str]]) -> set[str]:
