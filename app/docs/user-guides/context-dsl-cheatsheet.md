@@ -38,10 +38,11 @@ as already done.
 Combine when an activity spans domains: `@context(task,goal)`. Add `learning`
 as a modifier for educational activities: `@context(task,learning)`.
 
-Other vocabulary (`ku`, `path_step`, `learning_path`, `calendar`, `life_path`,
-`finance`) is recognized but does not create entities from your notes today —
-`ku` creation is teacher/admin-gated, and the rest have no create surface
-wired. See `/docs/dsl/DSL_SPECIFICATION.md` for the full vocabulary split.
+Other valid vocabulary: `ku` (creates a Knowledge Unit; teacher/admin only)
+and `path_step`/`ps`, `learning_path`/`lp`, `calendar`, `life_path`, `finance`
+— these parse but create nothing yet (no create surface wired; the sync warns
+you whenever such a context is skipped). Anything else inside `@context()` is an error.
+See `/docs/dsl/DSL_SPECIFICATION.md` for the full vocabulary.
 
 A typo in `@context()` fails the whole line (you'll see it in the sync
 warnings) — that's deliberate, so a misspelled context never half-creates

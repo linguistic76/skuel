@@ -108,17 +108,19 @@ Use for calendar events and meetings:
 
 ---
 
-### `@context(learning)` - Educational Activities
+### `learning` - Educational Modifier
 
-Use for knowledge acquisition:
+Add `learning` alongside an entity-creating type to mark knowledge acquisition:
 
 ```markdown
-- [ ] Read Chapter 3: Law of Success @context(learning) @ku(ku:mindset/law-of-success)
-- [ ] Watch Python async programming tutorial @context(learning) @duration(45m)
-- [ ] Practice yoga asana sequence @context(learning) @duration(1h)
+- [ ] Read Chapter 3: Law of Success @context(task,learning) @ku(ku:mindset/law-of-success)
+- [ ] Watch Python async programming tutorial @context(task,learning) @duration(45m)
+- [ ] Practice yoga asana sequence @context(habit,learning) @duration(1h)
 ```
 
-**When to use:** Activities focused on building knowledge or skills.
+**When to use:** Activities focused on building knowledge or skills. `learning`
+is a modifier, never a type on its own — `@context(learning)` alone fails with
+a validation error, because a modifier with no base type creates nothing.
 
 ---
 
@@ -251,7 +253,7 @@ Combine energy states for complex activities:
 
 ```markdown
 - [ ] Practice discernment meditation @context(habit) @ku(ku:sel/thought-not-reality) @repeat(daily)
-- [ ] Review Linear Algebra concepts @context(learning) @ku(ku:math/linear-algebra) @duration(1h)
+- [ ] Review Linear Algebra concepts @context(task,learning) @ku(ku:math/linear-algebra) @duration(1h)
 - [ ] Apply Stoic principles to daily stressors @context(habit) @ku(ku:philosophy/stoicism)
 ```
 

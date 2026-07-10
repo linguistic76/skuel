@@ -28,12 +28,13 @@ The DSL transforms freeform journal input into SKUEL's domain architecture:
 
 This is the bridge from "user speaks/writes" to "structured action".
 
-**DSL Syntax (v0.5 - EntityType/NonKuDomain Contexts):**
+**DSL Syntax (v0.6 - closed 13-value vocabulary, non-empty description):**
 
 ```markdown
-- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1)
-      @duration(90m) @energy(focus) @ku(ku:sel/mindfulness) @link(goal:health)
+- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1) @duration(90m) @energy(focus) @ku(ku:sel/mindfulness) @link(goal:health)
 ```
+
+(One physical line — the parser handles each line independently.)
 
 **Required:** `@context()` - determines entity type (uses EntityType or NonKuDomain enums)
 **Optional:** All other tags
@@ -64,6 +65,30 @@ _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
     "learningpath": EntityType.LEARNING_PATH,
     "life_path": EntityType.LIFE_PATH,
 }
+
+# The DSL's sanctioned @context vocabulary ("shorten the menu", 2026-07-10):
+# the 12 domain types a person can capture in a note, plus the learning
+# modifier. EntityType/NonKuDomain hold 29 values, but the other 17 are
+# system-side records (reports, templates, forms, interactions) a journal
+# line can never mean — resolving them here would let lines parse and then
+# silently create nothing. See DSL_SPECIFICATION § @context types.
+_DSL_CONTEXT_VOCABULARY: frozenset[EntityType | NonKuDomain] = frozenset(
+    {
+        EntityType.TASK,
+        EntityType.HABIT,
+        EntityType.GOAL,
+        EntityType.EVENT,
+        EntityType.PRINCIPLE,
+        EntityType.CHOICE,
+        EntityType.KU,
+        EntityType.PATH_STEP,
+        EntityType.LEARNING_PATH,
+        EntityType.LIFE_PATH,
+        NonKuDomain.FINANCE,
+        NonKuDomain.CALENDAR,
+        NonKuDomain.LEARNING,
+    }
+)
 
 # ============================================================================
 # PARSED ACTIVITY LINE (Intermediate Representation)
@@ -483,7 +508,7 @@ class ActivityDSLParser:
 
     - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
     - [ ] Write proposal @context(task) @priority(1) @when(2025-11-27T09:00)
-    - [ ] Learn Python async @context(learning) @ku(ku:tech/python-async)
+    - [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
     '''
 
     result = parser.parse_journal(journal_text)
@@ -607,6 +632,17 @@ class ActivityDSLParser:
 
             # Extract description (everything before first @tag, minus checkbox)
             description = self._extract_description(line)
+
+            # A tags-only line has no human-readable content; extraction would
+            # mint a titleless entity, so fail it like any other invalid line.
+            if not description:
+                return Result.fail(
+                    Errors.validation(
+                        message="Activity Line has no description — add text before the tags",
+                        field="description",
+                        value=line[:50],
+                    )
+                )
 
             # Check checkbox state
             is_checked = bool(self.CHECKBOX_CHECKED.match(line))
@@ -785,10 +821,11 @@ class ActivityDSLParser:
         """
         Parse @context() value to typed EntityType/NonKuDomain list.
 
-        Converts comma-separated context strings to EntityType or NonKuDomain enum
-        values. EntityType is tried first (covers most domains), then NonKuDomain
-        (Finance, Calendar, Learning, Group). Invalid context strings produce a
-        validation error with the list of valid options.
+        Converts comma-separated context strings to EntityType or NonKuDomain
+        enum values, then gates them against ``_DSL_CONTEXT_VOCABULARY`` — the
+        13 values a note line can legitimately mean. Typos AND system-side enum
+        members (e.g. "interaction") both fail with the same validation error
+        listing the sanctioned vocabulary.
 
         Args:
             value: Raw @context() value (e.g., "task", "habit,learning")
@@ -813,33 +850,32 @@ class ActivityDSLParser:
             if not v:
                 continue
 
-            # Check DSL-specific aliases first (e.g. "learningstep", "life_path")
-            dsl_alias = _DSL_CONTEXT_ALIASES.get(v)
-            if dsl_alias is not None:
-                contexts.append(dsl_alias)
+            # Resolve: DSL aliases first (e.g. "learningstep"), then the enums.
+            resolved: EntityType | NonKuDomain | None = _DSL_CONTEXT_ALIASES.get(v)
+            if resolved is None:
+                resolved = EntityType.from_string(v)
+            if resolved is None:
+                resolved = NonKuDomain.from_string(v)
+
+            # A value that resolves to an enum member OUTSIDE the DSL
+            # vocabulary (e.g. "interaction", "form_template") is just as
+            # invalid as a typo — accepting it would parse a line that can
+            # never create anything.
+            if resolved is None or resolved not in _DSL_CONTEXT_VOCABULARY:
+                invalid.append(v)
                 continue
 
-            # Try EntityType (covers most domains)
-            entity_type = EntityType.from_string(v)
-            if entity_type is not None:
-                contexts.append(entity_type)
-                continue
-
-            # Try NonKuDomain (Finance, Calendar, Learning, Group)
-            non_ku = NonKuDomain.from_string(v)
-            if non_ku is not None:
-                contexts.append(non_ku)
-                continue
-
-            invalid.append(v)
+            contexts.append(resolved)
 
         if invalid:
-            # Build helpful error message with valid options from both enums
-            all_values = sorted({e.value for e in EntityType} | {e.value for e in NonKuDomain})
-            valid_options = ", ".join(all_values)
+            valid_options = ", ".join(sorted(e.value for e in _DSL_CONTEXT_VOCABULARY))
             return Result.fail(
                 Errors.validation(
-                    message=f"Invalid context types: {invalid}. Valid types: {valid_options}",
+                    message=(
+                        f"Invalid context types: {invalid}. "
+                        f"Valid types: {valid_options}. "
+                        "Full reference: docs/dsl/DSL_SPECIFICATION.md"
+                    ),
                     field="context",
                     value=value,
                 )
@@ -849,6 +885,20 @@ class ActivityDSLParser:
             return Result.fail(
                 Errors.validation(
                     message="@context() must contain at least one valid entity type",
+                    field="context",
+                    value=value,
+                )
+            )
+
+        # `learning` is a modifier — an adjective with no noun creates nothing,
+        # which would silently drop the line at extraction (Codex on #594).
+        if all(c is NonKuDomain.LEARNING for c in contexts):
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        "learning is a modifier — combine it with an "
+                        "entity-creating type, e.g. @context(task,learning)"
+                    ),
                     field="context",
                     value=value,
                 )

@@ -301,6 +301,87 @@ Some reflections on the day...
         assert extraction.activities_found == 0
         assert extraction.total_created == 0
 
+    @pytest.mark.asyncio
+    async def test_unrouted_lines_surface_as_warnings(self, extractor):
+        """Lines whose contexts all lack a wired create surface are recorded, not silent."""
+        entry = UserEntry(
+            uid="ue_unrouted",
+            title="Unrouted",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="unrouted.md",
+            file_path="/tmp/unrouted.md",
+            file_type="text/plain",
+            file_size=100,
+            # ps is staged (ps_service unwired in this fixture AND production);
+            # the task line routes normally.
+            processed_content=("- [ ] Study step @context(ps)\n- [ ] Call bank @context(task)\n"),
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1
+        assert len(extraction.unrouted_lines) == 1
+        assert "Study step" in extraction.unrouted_lines[0]
+        assert "path_step" in extraction.unrouted_lines[0]
+        # Rides into the persisted summary the sync warnings read
+        assert extraction.to_dict()["unrouted_lines"] == extraction.unrouted_lines
+
+    @pytest.mark.asyncio
+    async def test_mixed_context_reports_skipped_context(self, extractor):
+        """@context(task,ps): Task is created AND the skipped ps context is reported."""
+        entry = UserEntry(
+            uid="ue_mixed",
+            title="Mixed",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="mixed.md",
+            file_path="/tmp/mixed.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content="- [ ] Draft lesson @context(task,ps)\n",
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1
+        assert len(extraction.unrouted_lines) == 1
+        warning = extraction.unrouted_lines[0]
+        assert "path_step" in warning and "skipped" in warning
+        assert "task" in warning  # names what WAS created
+
+    @pytest.mark.asyncio
+    async def test_learning_modifier_never_reported_as_skipped(self, extractor):
+        """@context(task,learning): modifier creates nothing by design — no warning."""
+        entry = UserEntry(
+            uid="ue_modifier",
+            title="Modifier",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="modifier.md",
+            file_path="/tmp/modifier.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content="- [ ] Read chapter @context(task,learning)\n",
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1
+        assert extraction.unrouted_lines == []
+
     def test_preview_extraction(self, extractor):
         """Preview shows what would be extracted."""
         content = """

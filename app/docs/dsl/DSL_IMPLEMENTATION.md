@@ -111,29 +111,39 @@ tags = extract_tags(line)
 ### `@context()` Parsing
 
 ```python
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 
-def parse_context(value: str) -> list[EntityType]:
-    """Parse @context() into EntityType list."""
-    raw_contexts = [c.strip().lower() for c in value.split(',')]
-
-    entity_types = []
-    for ctx in raw_contexts:
-        entity_type = EntityType.from_string(ctx)
-        if entity_type:
-            entity_types.append(entity_type)
+def parse_context(value: str) -> Result[list[EntityType | NonKuDomain]]:
+    """Parse @context() against the closed DSL vocabulary (v0.6)."""
+    contexts, invalid = [], []
+    for ctx in (c.strip().lower() for c in value.split(',')):
+        # Resolve: DSL aliases, then EntityType.from_string, then NonKuDomain.
+        resolved = resolve(ctx)
+        # Strict, closed vocabulary: a typo AND a system-side enum member
+        # (e.g. "interaction") both count as invalid — any invalid value
+        # fails the WHOLE line with an error listing the 13 valid types.
+        if resolved is None or resolved not in _DSL_CONTEXT_VOCABULARY:
+            invalid.append(ctx)
         else:
-            # Log warning: unknown context type
-            pass
-
-    return entity_types
+            contexts.append(resolved)
+    if invalid:
+        return Result.fail(...)  # lists the sanctioned vocabulary
+    # `learning` is a modifier — alone it creates nothing, so it also fails.
+    if all(c is NonKuDomain.LEARNING for c in contexts):
+        return Result.fail(...)
+    return Result.ok(contexts)
 ```
 
 **Example:**
 ```python
 parse_context("task, learning")
-# Result: [EntityType.TASK, NonKuDomain.LEARNING]
-# (the real parser tries EntityType.from_string first, then NonKuDomain.from_string)
+# Result.ok([EntityType.TASK, NonKuDomain.LEARNING])
+
+parse_context("task, interaction")
+# Result.fail — "interaction" is outside _DSL_CONTEXT_VOCABULARY; whole line fails
+
+parse_context("learning")
+# Result.fail — modifier with no base type
 ```
 
 ---

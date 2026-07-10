@@ -179,7 +179,7 @@ class TestKnowledgeAndLinks:
     def test_parse_ku(self):
         """Parse @ku knowledge unit reference."""
         result = parse_activity_line(
-            "- [ ] Study mindfulness @context(learning) @ku(ku:sel/mindfulness-intro)"
+            "- [ ] Study mindfulness @context(task,learning) @ku(ku:sel/mindfulness-intro)"
         )
 
         assert result.is_ok
@@ -334,7 +334,7 @@ class TestJournalParsing:
 Today's goals:
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
 - [ ] Write proposal @context(task) @priority(1) @when({when_str})
-- [ ] Learn Python async @context(learning) @ku(ku:tech/python-async)
+- [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
 
 Some notes without @context that should be ignored.
 
@@ -349,7 +349,7 @@ More activities:
 
         assert parsed.activity_lines_found == 4
         assert len(parsed.activities) == 4
-        assert len(parsed.get_tasks()) == 1
+        assert len(parsed.get_tasks()) == 2  # proposal + Learn Python (task,learning)
         assert len(parsed.get_habits()) == 2  # meditation + journaling (has habit context)
 
     def test_parse_empty_journal(self):
@@ -401,6 +401,46 @@ class TestErrorHandling:
 
         assert result.is_ok
         assert result.value.when is None  # Invalid value ignored
+
+    def test_empty_description_fails(self):
+        """Tags-only lines fail — extraction would mint a titleless entity."""
+        for line in ("- [ ] @context(task)", "@context(task) @priority(1)"):
+            result = parse_activity_line(line)
+
+            assert result.is_error, f"should reject: {line}"
+            assert "description" in result.expect_error().message
+
+    def test_tag_first_line_with_description_parses(self):
+        """Bridge-style tag-first lines keep their description (it follows the tags)."""
+        result = parse_activity_line("@context(task) Call mom @priority(1)")
+
+        assert result.is_ok
+        assert result.value.description == "Call mom"
+
+    def test_system_side_contexts_rejected(self):
+        """Enum members outside the DSL vocabulary fail like typos (menu ruling)."""
+        for ctx in ("interaction", "form_template", "exercise", "activity_report", "group"):
+            result = parse_activity_line(f"- [ ] Something @context({ctx})")
+
+            assert result.is_error, f"@context({ctx}) should be rejected"
+            message = result.expect_error().message
+            assert "Invalid context types" in message
+            # Error guidance lists the sanctioned vocabulary, not the full enum dump.
+            assert "form_template" not in message.split("Valid types:")[1]
+
+    def test_learning_only_context_rejected(self):
+        """learning is a modifier — alone it would create nothing, so it fails."""
+        result = parse_activity_line("- [ ] Read chapter @context(learning)")
+
+        assert result.is_error
+        assert "modifier" in result.expect_error().message
+
+    def test_staged_contexts_still_parse(self):
+        """Staged domain types (create surface unwired) remain valid vocabulary."""
+        for ctx in ("ps", "lp", "path_step", "calendar", "lifepath", "finance"):
+            result = parse_activity_line(f"- [ ] Something @context({ctx})")
+
+            assert result.is_ok, f"@context({ctx}) should parse"
 
 
 if __name__ == "__main__":
