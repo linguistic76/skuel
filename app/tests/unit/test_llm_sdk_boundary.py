@@ -60,8 +60,13 @@ import importlib
 import sys
 from pathlib import Path
 
-_APP_ROOT = Path(__file__).resolve().parent.parent
-_CORE = _APP_ROOT / "core"
+# Anchor on the imported package, not this file's location — the test must
+# keep scanning the real core/ tree no matter where it lives under tests/.
+# (core/ is a namespace package: __file__ is None, __path__ carries the dir.)
+import core as _core_pkg
+
+_CORE = Path(next(iter(_core_pkg.__path__))).resolve()
+_APP_ROOT = _CORE.parent
 
 # --- Tier 1: pure / edge-tier packages core/ may import anywhere -------------
 ALLOWED_THIRD_PARTY = frozenset(
