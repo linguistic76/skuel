@@ -5,7 +5,13 @@ Tests for build_relationship_filter_fragments - Below-Boundary Cypher Authoring
 These fragments were relocated from ``core/models/search_request.py``
 (``to_graph_patterns``) to below the hexagonal boundary (ADR-044). The core
 model now passes a ``RelationshipFilters`` intent down; the Cypher is authored
-here. These tests pin the flag→fragment mapping so the move stays verbatim.
+here. These tests pin the flag→fragment mapping.
+
+The signatures pin the 2026-07 remapped vocabulary (the original hand-authored
+edges — PRACTICES, ADHERES_TO, EMBODIES_KNOWLEDGE, ENABLES_LEARNING,
+PURSUING_GOAL — had no write paths; see
+tests/unit/adapters/test_relationship_filter_vocabulary.py and
+tests/integration/test_smart_filter_fragments.py for the guards).
 """
 
 from dataclasses import fields
@@ -21,13 +27,15 @@ from core.models.relationship_filters import RelationshipFilters
 # Maps each flag to a distinctive substring of its expected Cypher fragment.
 FLAG_SIGNATURES: dict[str, str] = {
     "ready_to_learn": "MATCH (entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)",
-    "builds_on_mastered": "(mastered)-[:ENABLES_LEARNING|RELATED_TO]-(entity)",
-    "in_active_path": "[:ENROLLED_IN]->(lp:Lp)",
-    "supports_goals": "[:PURSUING_GOAL]->(goal:Goal)",
-    "builds_on_habits": "[:PRACTICES]->(habit:Habit)",
-    "applied_in_tasks": "[:OWNS]->(task:Task)",
-    "aligned_with_principles": "[:ADHERES_TO]->(principle:Principle)",
-    "next_logical_step": "[:ENABLES_LEARNING]->(entity)",
+    "builds_on_mastered": "(mastered)-[:ENABLES_KNOWLEDGE|RELATED_TO]-(entity)",
+    "in_active_path": "[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE]->(entity)",
+    "supports_goals": "[:OWNS]->(goal:Goal)",
+    "builds_on_habits": "[:OWNS]->(habit:Habit)",
+    # datetime() coercion is load-bearing: updated_at is a DTO-written ISO
+    # string on most nodes; without it the comparison is null.
+    "applied_in_tasks": "datetime(task.updated_at)",
+    "aligned_with_principles": "[:GROUNDED_IN_KNOWLEDGE]->(entity)",
+    "next_logical_step": "[:ENABLES_KNOWLEDGE]->(entity)",
     "not_yet_viewed": "[:VIEWED|IN_PROGRESS|MASTERED]->(entity)",
     "viewed_not_mastered": "[:VIEWED|IN_PROGRESS]->(entity)",
     "ready_to_review": "[m:MASTERED]->(entity)",
