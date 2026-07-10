@@ -32,11 +32,14 @@ as already done.
 | `@context(event)` | Event | `- [ ] Workshop @context(event) @when(2026-07-15T14:00) @duration(2h)` |
 | `@context(principle)` | Principle | `- [ ] Discernment before action @context(principle)` |
 | `@context(choice)` | Choice | `- [ ] Pick course platform @context(choice) @when(2026-08-01)` |
-| `@context(finance)` | Finance item | `- [ ] Yoga mat order $45 @context(finance)` (amount read from the description) |
-| `@context(calendar)` | Calendar item | `- [ ] Studio booking @context(calendar) @when(2026-07-20T10:00)` |
 
 Combine when an activity spans domains: `@context(task,goal)`. Add `learning`
 as a modifier for educational activities: `@context(task,learning)`.
+
+Other vocabulary (`ku`, `path_step`, `learning_path`, `calendar`, `life_path`,
+`finance`) is recognized but does not create entities from your notes today —
+`ku` creation is teacher/admin-gated, and the rest have no create surface
+wired. See `/docs/dsl/DSL_SPECIFICATION.md` for the full vocabulary split.
 
 A typo in `@context()` fails the whole line (you'll see it in the sync
 warnings) — that's deliberate, so a misspelled context never half-creates

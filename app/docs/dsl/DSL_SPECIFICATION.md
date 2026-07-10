@@ -85,7 +85,7 @@ ContextList ::= DomainIdentifier ("," DomainIdentifier)*
 DomainIdentifier ::= Identifier
 ```
 
-**Extractable Context Types** (each routes to a converter in `ActivityExtractorService` and creates a real entity):
+**Entity-creating context types** (wired to a live create surface in production — `services_bootstrap/compose.py`):
 
 ```
 task        → one-off or concrete action           (Activity Domain)
@@ -94,12 +94,7 @@ goal        → desired outcome or state             (Activity Domain)
 event       → scheduled occurrence                 (Activity Domain)
 principle   → value or belief to embody            (Activity Domain)
 choice      → decision to make                     (Activity Domain)
-finance     → expense/income item                  (NonKuDomain)
 ku          → atomic Knowledge Unit                (Curriculum; creation role-gated)
-path_step   → learning step (aliases: ps, step)    (Curriculum; creation role-gated)
-learning_path → learning sequence (aliases: lp)    (Curriculum; creation role-gated)
-calendar    → scheduled activity view              (NonKuDomain)
-life_path   → ultimate life goal alignment         (alias: lifepath)
 ```
 
 **Modifier context** (valid in combination; creates no entity by itself):
@@ -108,7 +103,17 @@ life_path   → ultimate life goal alignment         (alias: lifepath)
 learning    → marks the activity as educational, e.g. @context(task,learning)
 ```
 
-**Parseable vs. extractable:** the parser accepts every `EntityType` (25 values) and `NonKuDomain` (4 values) — but only the contexts above have converters. A line tagged with a parseable-but-unroutable context (e.g. `@context(exercise)`) parses successfully and creates nothing. Stick to the vocabulary above.
+**Parse-only context types** (recognized and counted in extraction stats, but skip cleanly — the extractor has converters, yet production wires no create surface for them):
+
+```
+path_step     → aliases: ps, step, learningstep    (no create-capable facade method today)
+learning_path → aliases: lp, path, learningpath    (no create-capable facade method today)
+calendar      →                                    (no create-capable facade method today)
+life_path     → alias: lifepath                    (no create-capable facade method today)
+finance       →                                    (retired as in-app domain — ADR-052 Firefly sidecar)
+```
+
+**Parseable vs. extractable:** the parser accepts every `EntityType` (25 values) and `NonKuDomain` (4 values) — anything beyond the lists above (e.g. `@context(exercise)`) parses successfully and creates nothing. For lines that should become real entities, stick to the entity-creating vocabulary.
 
 **Examples:**
 ```markdown

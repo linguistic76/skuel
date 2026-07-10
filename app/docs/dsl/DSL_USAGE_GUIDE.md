@@ -157,7 +157,7 @@ Combine contexts when activities span categories:
 ### Monthly Patterns
 
 ```markdown
-- [ ] Review monthly budget @context(habit,finance) @repeat(monthly:1) @duration(1h)
+- [ ] Review monthly budget @context(habit) @repeat(monthly:1) @duration(1h)
 - [ ] Pay rent @context(task,habit) @repeat(monthly:1)
 - [ ] Deep clean apartment @context(habit) @repeat(monthly:1,15) @duration(2h)
 ```
