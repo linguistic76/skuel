@@ -637,6 +637,79 @@ def to_nous_subtopic_pairs(records: list[Neo4jProperties]) -> list[NousSubtopicP
     return pairs
 
 
+class SearchEventProps(TypedDict):
+    """Write-side properties for one :SearchEvent node.
+
+    Built by ``SearchEventRecorder`` from a ``search.executed`` event and
+    persisted verbatim by ``SearchEventBackend.record_search_event``.
+    ``created_at`` is an isoformat string — the backend stores it as a native
+    Neo4j datetime via ``datetime($created_at)`` (the writer decides storage
+    type; the gap reader returns it back as ``toString(...)``).
+    """
+
+    uid: str
+    query_text: str
+    query_normalized: str
+    user_uid: str | None
+    entry_point: str
+    domains: list[str]
+    filters_json: str
+    result_count: int
+    zero_results: bool
+    semantic_boost: bool
+    created_at: str
+
+
+class SearchGapRow(TypedDict):
+    """One aggregated content-gap row from ``SearchEventBackend.get_search_gaps``.
+
+    Groups :SearchEvent nodes by ``query_normalized`` over the low/zero-result
+    window — the content-authoring queue ("what did people search and not find").
+    """
+
+    query: str
+    searches: int
+    zero_count: int
+    avg_results: float
+    last_seen: str
+    entry_points: list[str]
+
+
+def _numeric_or_zero(value: object) -> float:
+    """Narrow a raw Neo4j property to a number, defaulting non-numerics to 0."""
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def to_search_gap_rows(records: list[Neo4jProperties]) -> list[SearchGapRow]:
+    """Narrow raw Neo4j gap-aggregation rows to typed ``SearchGapRow``s.
+
+    The domain-boundary converter for ``SearchEventBackend.get_search_gaps`` —
+    numeric properties are isinstance-narrowed before casting and rows missing
+    a query key are dropped, so only well-formed gap rows reach the admin
+    surface.
+    """
+    rows: list[SearchGapRow] = []
+    for record in records:
+        query = record.get("query")
+        if not isinstance(query, str):
+            continue
+        raw_entry_points = record.get("entry_points") or []
+        entry_points = (
+            [str(ep) for ep in raw_entry_points] if isinstance(raw_entry_points, list) else []
+        )
+        rows.append(
+            SearchGapRow(
+                query=query,
+                searches=int(_numeric_or_zero(record.get("searches"))),
+                zero_count=int(_numeric_or_zero(record.get("zero_count"))),
+                avg_results=_numeric_or_zero(record.get("avg_results")),
+                last_seen=str(record.get("last_seen") or ""),
+                entry_points=entry_points,
+            )
+        )
+    return rows
+
+
 class ProgressResult(TypedDict, total=False):
     """
     Result structure for progress tracking operations.

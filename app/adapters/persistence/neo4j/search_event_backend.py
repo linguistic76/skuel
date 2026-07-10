@@ -17,12 +17,14 @@ See: /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from core.ports.query_types import SearchGapRow, to_search_gap_rows
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+    from core.ports.query_types import SearchEventProps
 
 
 class SearchEventBackend:
@@ -31,9 +33,9 @@ class SearchEventBackend:
     def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self._executor = executor
 
-    async def record_search_event(self, props: dict[str, Any]) -> Result[list[dict[str, Any]]]:
+    async def record_search_event(self, props: SearchEventProps) -> Result[None]:
         """Persist one :SearchEvent node from a search.executed event's properties."""
-        return await self._executor.execute_query(
+        result = await self._executor.execute_query(
             """
             CREATE (e:SearchEvent {
                 uid: $uid,
@@ -50,8 +52,11 @@ class SearchEventBackend:
             })
             RETURN e.uid AS uid
             """,
-            props,
+            dict(props),
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(None)
 
     async def get_search_gaps(
         self,
@@ -59,9 +64,9 @@ class SearchEventBackend:
         max_result_count: int = 2,
         days: int = 90,
         limit: int = 50,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[SearchGapRow]]:
         """Aggregate low/zero-result searches grouped by normalized query text."""
-        return await self._executor.execute_query(
+        result = await self._executor.execute_query(
             """
             MATCH (e:SearchEvent)
             WHERE e.result_count <= $max_result_count
@@ -77,6 +82,9 @@ class SearchEventBackend:
             """,
             {"max_result_count": max_result_count, "days": days, "limit": limit},
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(to_search_gap_rows(result.value or []))
 
     async def count_search_events(self) -> Result[int]:
         """Total :SearchEvent count — the 1000+ trigger for deferred analytics phases."""

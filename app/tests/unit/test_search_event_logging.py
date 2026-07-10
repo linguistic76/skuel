@@ -51,7 +51,7 @@ def test_search_executed_event_shape() -> None:
 
 def _recorder(backend: MagicMock | None = None) -> tuple[SearchEventRecorder, MagicMock]:
     backend = backend or MagicMock()
-    backend.record_search_event = AsyncMock(return_value=Result.ok([{"uid": "x"}]))
+    backend.record_search_event = AsyncMock(return_value=Result.ok(None))
     return SearchEventRecorder(backend=backend), backend
 
 

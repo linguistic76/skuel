@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from core.models.principle.principle import Principle as Principle
     from core.models.search_request import SearchRequest
     from core.models.task.task import Task as Task
+    from core.ports.query_types import SearchEventProps, SearchGapRow
     from core.services.user import UserContext
 
 # Generic type variable for domain entities
@@ -793,7 +794,7 @@ class SearchEventBackendOperations(Protocol):
     Backend: adapters/persistence/neo4j/search_event_backend.py
     """
 
-    async def record_search_event(self, props: dict[str, Any]) -> Result[list[dict[str, Any]]]:
+    async def record_search_event(self, props: "SearchEventProps") -> Result[None]:
         """Persist one :SearchEvent node from a search.executed event's properties."""
         ...
 
@@ -803,7 +804,7 @@ class SearchEventBackendOperations(Protocol):
         max_result_count: int = 2,
         days: int = 90,
         limit: int = 50,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list["SearchGapRow"]]:
         """
         Aggregate low/zero-result searches — the content-authoring gap queue.
 
