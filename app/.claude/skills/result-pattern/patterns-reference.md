@@ -7,8 +7,7 @@ Comprehensive code examples for SKUEL's Result[T] error handling pattern.
 ### Complete CRUD Service Example
 
 ```python
-from core.utils.result_simplified import Result
-from core.utils.errors_simplified import Errors
+from core.utils.result_simplified import Errors, Result
 
 class TasksCoreService(BaseService[BackendOperations[Task], Task]):
 

@@ -79,7 +79,7 @@ SKUEL uses exactly 6 error categories (reduced from 37):
 ### Errors Factory Methods
 
 ```python
-from core.utils.errors_simplified import Errors
+from core.utils.result_simplified import Errors
 
 # Validation - single field issues
 Errors.validation(
@@ -567,8 +567,7 @@ async def test_success_case():
 
 | File | Purpose |
 |------|---------|
-| `/core/utils/result_simplified.py` | Result[T] type definition |
-| `/core/utils/errors_simplified.py` | ErrorContext, Errors factory |
+| `/core/utils/result_simplified.py` | Result[T] type, ErrorContext, Errors factory |
 | `/adapters/inbound/boundary.py` | @boundary_handler decorator |
 | `/adapters/inbound/result_helpers.py` | `require_found()` — fetch + not-found in one call |
 | `/docs/patterns/ERROR_HANDLING.md` | Full documentation |
