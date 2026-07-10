@@ -111,8 +111,10 @@ def main():
             all_passed = False
 
     # 3. SKUEL Linting (consolidated architecture + patterns)
+    # --strict: the WARNING tier is at zero codebase-wide (earned 2026-07);
+    # strict mode keeps it there by failing quality on any new warning.
     if not run_command(
-        ["uv", "run", "python", "scripts/lint_skuel.py"],
+        ["uv", "run", "python", "scripts/lint_skuel.py", "--strict"],
         "SKUEL Linting",
         check=False,
     ):

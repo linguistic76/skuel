@@ -207,7 +207,7 @@ class FacetedQueryBuilder:
 
         try:
             # Parse base query to extract the MATCH clause
-            # TODO [ENHANCEMENT]: Use analyze_query_intent for semantic analysis
+            # TODO(deferred): Use analyze_query_intent for semantic analysis
             # analyze_query_intent(base_query)
             match_clause = base_query.split("RETURN")[0] if "RETURN" in base_query else base_query
 

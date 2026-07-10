@@ -20,7 +20,7 @@ ERROR (blocks CI):
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
 
-WARNING (reported, doesn't block):
+WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL004: Confidence thresholds on semantic queries
   SKUEL005: Result[T] return types on service methods
   SKUEL007: String-based Result.fail() - use Errors factory
@@ -34,6 +34,7 @@ WARNING (reported, doesn't block):
   SKUEL017: Bare except Exception - use specific exception types
   SKUEL018: Direct access to RichUserContext RICH_ONLY_FIELDS - use accessors
   SKUEL019: Credential-shaped env reads bypassing get_credential()
+  SKUEL026: Suppression comment that suppresses nothing (rot / typo / unsupported rule)
 
 INFO (informational, visibility only):
   SKUEL006: TODO/FIXME comments - track technical debt
@@ -46,7 +47,6 @@ AUTO-FIXABLE:
 Usage:
     uv run python scripts/lint_skuel.py              # Report violations (with code context)
     uv run python scripts/lint_skuel.py --fix        # Auto-fix where possible
-    uv run python scripts/lint_skuel.py --check      # Exit 1 if violations (for CI)
     uv run python scripts/lint_skuel.py --strict     # Treat warnings as errors
     uv run python scripts/lint_skuel.py --changed    # Lint only files changed vs main branch
     uv run python scripts/lint_skuel.py --staged     # Lint only staged files (pre-commit)
@@ -60,10 +60,12 @@ Last Updated: April 2026
 """
 
 import ast
+import io
 import re
 import subprocess
 import sys
 import time
+import tokenize
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -696,6 +698,32 @@ await tasks_service.update_task(uid, TaskUpdateIntent(status="in_progress"))""",
 from core.ports.query_types import TaskUpdatePayload  # SKUEL025
 updates: TaskUpdatePayload = {"status": "in_progress"}""",
     },
+    "SKUEL026": {
+        "title": "Unused Suppression Comment",
+        "severity": "WARNING",
+        "description": """A ``# skuel-lint: disable[-file]=SKUELXXX`` comment that suppresses
+nothing. After the normal scan, the linter re-lints every file containing suppression
+comments with suppressions ignored; a comment is USED iff the named rule would fire at
+that line (line-level) or anywhere in the file (file-level). Anything else is rot:
+
+- the violation it once guarded was refactored away,
+- the named rule does not support inline suppression (only rules that call the
+  suppression helpers honor the comment — see SUPPRESSIBLE_RULES),
+- the rule ID is unknown / a typo, or
+- the comment is malformed (the checkers match the exact substring
+  ``# skuel-lint: disable=SKUELXXX`` — e.g. a missing space disables nothing).
+
+Suppressions are exemptions from enforced rules; an inert one silently widens what
+readers believe is exempted. Delete it (git history keeps the reason).
+
+Detection is structural: real ``#`` comments are discovered via tokenize, so
+suppression examples inside string literals / docstrings are never audited.
+This rule is itself not suppressible.""",
+        "good": """route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: disable=SKUEL011 -- FastHTML app attribute check
+# (SKUEL011 fires on this line without the comment -> the suppression is USED)""",
+        "bad": """value = compute()  # skuel-lint: disable=SKUEL011 -- no hasattr here anymore
+# (SKUEL011 would not fire on this line -> the comment is rot; delete it)""",
+    },
 }
 
 
@@ -717,10 +745,28 @@ class Violation:
 
 
 @dataclass
+class SuppressionComment:
+    """A genuine `# skuel-lint: disable[-file]=SKUELXXX` comment found by tokenize.
+
+    `used` is set by the suppression audit: True iff the named rule would fire at
+    this line (line-level) / anywhere in this file (file-level) with suppressions
+    ignored — i.e. the comment actually suppresses something.
+    """
+
+    file_path: Path  # relative to project root, like Violation.file_path
+    line_number: int
+    rule_id: str
+    file_level: bool
+    line_content: str = ""
+    used: bool = False
+
+
+@dataclass
 class LintResult:
     """Results from linting."""
 
     violations: list[Violation] = field(default_factory=list)
+    suppressions: list[SuppressionComment] = field(default_factory=list)
     files_scanned: int = 0
     scan_time_ms: float = 0.0
 
@@ -763,26 +809,70 @@ class SkuelLinter:
     - Minimal false positives
     """
 
-    # Directories to exclude
-    EXCLUDED_PATHS: ClassVar[list[str]] = [
-        ".venv",
-        "venv",
-        "__pycache__",
-        ".git",
-        "node_modules",
-        "dist",
-        "build",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-        "htmlcov",
-        "backup_archive",
-        "z_archives",
-        "zarchives",
+    # Directory names excluded wherever they appear in the path. Matched as whole
+    # path SEGMENTS — the old substring match swallowed real modules ("build" in
+    # "query_builder.py" silently unlinted every *builder* file, 19 files total).
+    EXCLUDED_DIR_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".git",
+            "node_modules",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            "htmlcov",
+            "backup_archive",
+            "z_archives",
+            "zarchives",
+            ".claude",  # Claude Code config/skills (documentation only)
+        }
+    )
+
+    # Root-relative path prefixes excluded as a unit.
+    EXCLUDED_PATH_PREFIXES: ClassVar[tuple[str, ...]] = (
         "scripts/migrations",  # Migration scripts document old patterns
         "scripts/lint_skuel",  # Linter files document patterns they check
-        ".claude",  # Claude Code config/skills (documentation only)
-    ]
+    )
+
+    def _is_excluded(self, py_file: Path) -> bool:
+        """True if the file lives under an excluded directory / path prefix."""
+        rel = py_file.relative_to(self.root_dir)
+        if any(part in self.EXCLUDED_DIR_NAMES for part in rel.parts):
+            return True
+        return rel.as_posix().startswith(self.EXCLUDED_PATH_PREFIXES)
+
+    # Rules that honor `# skuel-lint: disable[-file]=SKUELXXX` — exactly the set
+    # whose checkers call _is_line_suppressed/_is_file_suppressed. A suppression
+    # comment naming any OTHER rule does nothing and is flagged by SKUEL026.
+    # Guarded against drift by test_lint_skuel.py (source-scan of the call sites).
+    SUPPRESSIBLE_RULES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "SKUEL005",
+            "SKUEL011",
+            "SKUEL012",
+            "SKUEL015",
+            "SKUEL017",
+            "SKUEL018",
+            "SKUEL019",
+            "SKUEL020",
+            "SKUEL021",
+            "SKUEL022",
+            "SKUEL023",
+            "SKUEL024",
+            "SKUEL025",
+        }
+    )
+
+    # Deliberately looser than the exact substring the checkers match, so typos
+    # ("#skuel-lint:disable=...", stray spaces) are DISCOVERED and then reported
+    # as unused by SKUEL026 instead of silently doing nothing.
+    _SUPPRESSION_COMMENT_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"#\s*skuel-lint:\s*disable(?P<filelevel>-file)?\s*=\s*(?P<rule>SKUEL\d{3})"
+    )
 
     # Domain backends that legitimately extend UniversalNeo4jBackend
     CURRICULUM_BACKENDS: ClassVar[list[str]] = [
@@ -924,11 +1014,15 @@ class SkuelLinter:
         target_path: str | None = None,
         rules_filter: list[str] | None = None,
         changed_files: list[Path] | None = None,
+        ignore_suppressions: bool = False,
     ) -> None:
         self.root_dir = root_dir
         self.target_path = target_path
         self.rules_filter = rules_filter
         self.changed_files = changed_files
+        # Shadow-lint mode for the SKUEL026 suppression audit: rules behave as if
+        # no suppression comments existed, so the audit can see what WOULD fire.
+        self.ignore_suppressions = ignore_suppressions
         self.result = LintResult()
 
     @staticmethod
@@ -961,6 +1055,11 @@ class SkuelLinter:
         for file_path in python_files:
             self._lint_file(file_path)
 
+        # SKUEL026 suppression audit — skipped in shadow mode (the audit's own
+        # re-lint) and when a --rule filter excludes it.
+        if not self.ignore_suppressions and self._should_run_rule("SKUEL026"):
+            self._audit_suppressions(python_files)
+
         self.result.scan_time_ms = (time.time() - start_time) * 1000
         return self.result
 
@@ -972,22 +1071,144 @@ class SkuelLinter:
 
     def _is_line_suppressed(self, line: str, rule_id: str) -> bool:
         """Check for inline suppression: # skuel-lint: disable=SKUEL011"""
+        if self.ignore_suppressions:
+            return False
         return f"# skuel-lint: disable={rule_id}" in line
 
     def _is_file_suppressed(self, content: str, rule_id: str) -> bool:
         """Check for file-level suppression: # skuel-lint: disable-file=SKUEL011"""
+        if self.ignore_suppressions:
+            return False
         return f"# skuel-lint: disable-file={rule_id}" in content
+
+    def _find_suppression_comments(self, file_path: Path) -> list[SuppressionComment]:
+        """
+        Find genuine `# skuel-lint: disable[-file]=SKUELXXX` comments in a file.
+
+        Uses tokenize so only real COMMENT tokens count — suppression examples
+        inside string literals / docstrings (linter tests, rule docs) are never
+        audited. Returns [] on unreadable or syntactically untokenizable files.
+        """
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except OSError, UnicodeDecodeError:
+            return []
+        # Cheap pre-filter: tokenizing every file would dominate the audit cost.
+        if "skuel-lint:" not in content:
+            return []
+
+        rel_path = file_path.relative_to(self.root_dir)
+        comments: list[SuppressionComment] = []
+        try:
+            tokens = tokenize.generate_tokens(io.StringIO(content).readline)
+            for tok in tokens:
+                if tok.type != tokenize.COMMENT:
+                    continue
+                for match in self._SUPPRESSION_COMMENT_RE.finditer(tok.string):
+                    comments.append(
+                        SuppressionComment(
+                            file_path=rel_path,
+                            line_number=tok.start[0],
+                            rule_id=match.group("rule"),
+                            file_level=bool(match.group("filelevel")),
+                            line_content=tok.line.strip(),
+                        )
+                    )
+        except tokenize.TokenError, IndentationError, SyntaxError:
+            return []
+        return comments
+
+    def _audit_suppressions(self, python_files: list[Path]) -> None:
+        """
+        SKUEL026: flag suppression comments that suppress nothing.
+
+        For every file containing suppression comments, shadow-lint that file
+        with suppressions ignored and only the named rules enabled. A comment is
+        USED iff its rule fires in the shadow run (at its line for line-level /
+        anywhere in the file for file-level) AND is absent from the main run —
+        i.e. the comment actually suppressed something. A rule that fires in
+        BOTH runs was not suppressed (non-suppressible rule, malformed comment),
+        so the comment is flagged alongside the visible violation. Every checker
+        reads the suppression off the exact line it reports (`lines[lineno - 1]`),
+        so same-line matching is sound.
+        """
+        # Snapshot BEFORE any SKUEL026 findings are appended below.
+        main_line_hits = {
+            (str(v.file_path), v.rule_id, v.line_number) for v in self.result.violations
+        }
+        main_file_hits = {(str(v.file_path), v.rule_id) for v in self.result.violations}
+
+        for file_path in python_files:
+            comments = self._find_suppression_comments(file_path)
+            if not comments:
+                continue
+
+            shadow = SkuelLinter(
+                self.root_dir,
+                rules_filter=sorted({c.rule_id for c in comments}),
+                ignore_suppressions=True,
+            )
+            shadow._lint_file(file_path)
+            fired_at = {(v.rule_id, v.line_number) for v in shadow.result.violations}
+            fired_rules = {v.rule_id for v in shadow.result.violations}
+
+            for comment in comments:
+                rel_str = str(comment.file_path)
+                if comment.file_level:
+                    comment.used = (
+                        comment.rule_id in fired_rules
+                        and (rel_str, comment.rule_id) not in main_file_hits
+                    )
+                else:
+                    comment.used = (comment.rule_id, comment.line_number) in fired_at and (
+                        rel_str,
+                        comment.rule_id,
+                        comment.line_number,
+                    ) not in main_line_hits
+                self.result.suppressions.append(comment)
+                if comment.used:
+                    continue
+
+                scope = "in this file" if comment.file_level else "at this line"
+                fired = (
+                    comment.rule_id in fired_rules
+                    if comment.file_level
+                    else (comment.rule_id, comment.line_number) in fired_at
+                )
+                if comment.rule_id not in RULE_DOCS:
+                    why = f"'{comment.rule_id}' is not a SKUEL rule (typo?)"
+                elif comment.rule_id not in self.SUPPRESSIBLE_RULES:
+                    why = f"{comment.rule_id} does not support inline suppression"
+                elif fired:
+                    why = (
+                        f"{comment.rule_id} fires {scope} but was not suppressed "
+                        f"(malformed comment? the checkers match the exact substring)"
+                    )
+                else:
+                    why = f"{comment.rule_id} would not fire {scope}"
+                self.result.violations.append(
+                    Violation(
+                        file_path=comment.file_path,
+                        line_number=comment.line_number,
+                        column=0,
+                        severity=Severity.WARNING,
+                        rule_id="SKUEL026",
+                        message=f"Suppression comment suppresses nothing — {why}",
+                        suggestion=(
+                            "Delete the comment (git history keeps the reason). If it "
+                            "was meant to suppress a real violation, the checkers match "
+                            "the exact substring '# skuel-lint: disable[-file]=SKUELXXX' "
+                            "on the flagged line."
+                        ),
+                        line_content=comment.line_content,
+                    )
+                )
 
     def _find_python_files(self) -> list[Path]:
         """Find all Python files to lint."""
         # Git-aware mode: use pre-resolved changed files
         if self.changed_files is not None:
-            filtered = []
-            for py_file in self.changed_files:
-                rel_path = str(py_file.relative_to(self.root_dir))
-                if not any(excluded in rel_path for excluded in self.EXCLUDED_PATHS):
-                    filtered.append(py_file)
-            return filtered
+            return [f for f in self.changed_files if not self._is_excluded(f)]
 
         python_files = []
 
@@ -1003,10 +1224,7 @@ class SkuelLinter:
             search_root = self.root_dir
 
         for py_file in search_root.rglob("*.py"):
-            rel_path = str(py_file.relative_to(self.root_dir))
-
-            # Skip excluded paths
-            if any(excluded in rel_path for excluded in self.EXCLUDED_PATHS):
+            if self._is_excluded(py_file):
                 continue
 
             python_files.append(py_file)
@@ -3431,9 +3649,14 @@ class SkuelLinter:
         """
         if not self.result.violations:
             if not quiet:
+                suppression_note = ""
+                if self.result.suppressions:
+                    # No violations => no SKUEL026 => every suppression is used.
+                    suppression_note = f", {len(self.result.suppressions)} suppressions (all used)"
                 print(
                     f"{Colors.GREEN}✅ No SKUEL violations found!{Colors.RESET} "
-                    f"({self.result.files_scanned} files scanned in {self.result.scan_time_ms:.0f}ms)"
+                    f"({self.result.files_scanned} files scanned in "
+                    f"{self.result.scan_time_ms:.0f}ms{suppression_note})"
                 )
             return 0
 
@@ -3546,6 +3769,23 @@ class SkuelLinter:
                     f"{Colors.DIM}{title}{Colors.RESET}"
                 )
 
+        # Suppression visibility — active exemptions are part of the picture
+        if self.result.suppressions:
+            used = sum(1 for s in self.result.suppressions if s.used)
+            unused = len(self.result.suppressions) - used
+            unused_note = f", {Colors.YELLOW}{unused} unused{Colors.RESET}" if unused else ""
+            print(
+                f"\n  {Colors.BOLD}Suppressions:{Colors.RESET} "
+                f"{len(self.result.suppressions)} active ({used} used{unused_note})"
+            )
+            per_rule: dict[str, int] = {}
+            for s in self.result.suppressions:
+                if s.used:
+                    per_rule[s.rule_id] = per_rule.get(s.rule_id, 0) + 1
+            if per_rule:
+                breakdown = ", ".join(f"{r}: {n}" for r, n in sorted(per_rule.items()))
+                print(f"    {Colors.DIM}used by rule: {breakdown}{Colors.RESET}")
+
         print(f"\n  {Colors.BOLD}Total:    {len(self.result.violations)}{Colors.RESET}")
 
         fixable = len([v for v in self.result.violations if v.fix_available])
@@ -3641,11 +3881,8 @@ Examples:
   %(prog)s --explain SKUEL003       # Show rule documentation
   %(prog)s --fix                    # Auto-fix violations
   %(prog)s --no-context             # Hide code context
-  %(prog)s --quiet --check          # CI mode
+  %(prog)s --quiet --strict         # CI/gate mode (warnings fail)
         """,
-    )
-    parser.add_argument(
-        "--check", action="store_true", help="Exit with code 1 if any violations (for CI)"
     )
     parser.add_argument("--fix", action="store_true", help="Auto-fix violations where possible")
     parser.add_argument("--strict", action="store_true", help="Treat warnings as errors")
@@ -3794,20 +4031,37 @@ Examples:
                 "warning": len(linter.result.by_severity(Severity.WARNING)),
                 "info": len(linter.result.by_severity(Severity.INFO)),
             },
+            "suppressions": {
+                "total": len(linter.result.suppressions),
+                "used": sum(1 for s in linter.result.suppressions if s.used),
+                "unused": sum(1 for s in linter.result.suppressions if not s.used),
+                "comments": [
+                    {
+                        "file": str(s.file_path),
+                        "line": s.line_number,
+                        "rule_id": s.rule_id,
+                        "file_level": s.file_level,
+                        "used": s.used,
+                    }
+                    for s in linter.result.suppressions
+                ],
+            },
         }
         print(json.dumps(output, indent=2))
-        exit_code = 1 if linter.result.violations else 0
+        # Same severity semantics as print_report — INFO never fails a run.
+        if linter.result.has_critical or linter.result.has_error:
+            exit_code = 2
+        elif args.strict and linter.result.has_warning:
+            exit_code = 1
+        else:
+            exit_code = 0
     else:
         show_context = not args.no_context
         exit_code = linter.print_report(
             strict=args.strict, quiet=args.quiet, show_context=show_context
         )
 
-    # Exit
-    if args.check:
-        sys.exit(1 if linter.result.violations else 0)
-    else:
-        sys.exit(exit_code)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

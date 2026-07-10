@@ -1,4 +1,3 @@
-# skuel-lint: disable-file=SKUEL005 -- Generic base, return types in subclasses
 """
 Unified Base Service - Relationship-Centric Architecture
 ========================================================

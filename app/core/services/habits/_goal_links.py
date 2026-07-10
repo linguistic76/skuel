@@ -33,9 +33,7 @@ async def enrich_habits_with_goal_links(
     backend: HabitsOperations,
     habits: list[Habit],
     active_goal_uids: list[str] | None = None,
-) -> list[
-    Habit
-]:  # skuel-lint: disable=SKUEL005 -- fail-soft read-projection; habits returned unchanged on lookup failure (derived field is best-effort, not a propagated error)
+) -> list[Habit]:
     """Return habits with their derived ``supports_goal_uid`` populated.
 
     Batch-looks up the SUPPORTS_GOAL edge for ``habits`` and returns new Habit
