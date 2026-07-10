@@ -726,7 +726,8 @@ def SuggestedActivitiesPanel(
     if unavailable:
         body: Any = P(
             "Suggestions aren't available right now. You can still type @context() "
-            "lines yourself — see the context DSL cheat-sheet.",
+            'lines yourself, e.g. "- [ ] Call hosting provider @context(task) '
+            '@priority(2)" — types: task, habit, goal, event, principle, choice.',
             cls="text-[12.5px] text-muted-foreground leading-snug",
         )
     elif error:

@@ -23,9 +23,6 @@ The DSL transforms freeform journal input into SKUEL's domain architecture:
 - Finance: Money matters (expenses/income)
 - Calendar: Scheduled activity views
 
-**Content Processing:**
-- Report: File uploads and processing
-
 **+1 - The Destination:**
 - LifePath: Ultimate life goal alignment
 

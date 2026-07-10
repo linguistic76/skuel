@@ -295,7 +295,7 @@ Ship the article draft and prep for Thursday's call.
 - [ ] Finish and send article draft @context(task) @priority(1) @energy(focus) @duration(2h)
 - [ ] Morning meditation @context(habit) @repeat(daily) @duration(20m) @energy(rest,spiritual)
 - [ ] Prep notes for Thursday call @context(task) @priority(2) @duration(30m)
-- [ ] Review weekly goals @context(habit,reflection) @repeat(weekly:Tue) @duration(10m)
+- [ ] Review weekly goals @context(habit) @repeat(weekly:Tue) @duration(10m)
 
 ## Notes
 
@@ -484,7 +484,7 @@ Get the outline finished so the writing block tomorrow is unblocked.
 - [ ] Write outline for Part 2 @context(task) @priority(1) @energy(focus) @duration(90m)
 - [ ] Morning meditation @context(habit) @repeat(daily) @duration(20m)
 - [ ] Reply to the three backlogged emails @context(task) @energy(light) @duration(20m)
-- [ ] Weekly planning review @context(habit,reflection) @repeat(weekly:Tue) @duration(15m)
+- [ ] Weekly planning review @context(habit) @repeat(weekly:Tue) @duration(15m)
 ```
 
 You don't need to open SKUEL at all during this step. Author in Obsidian, where you're comfortable.
