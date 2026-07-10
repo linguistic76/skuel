@@ -16,8 +16,14 @@ This test suite verifies that:
 Event Flow:
 -----------
 Event completed → CalendarEventCompleted event → LessonPracticeService.handle_event_completed()
-    → Query Neo4j for (Event)-[:PRACTICES]->(KU) → Update KU practice counts
+    → Query Neo4j for (Event)-[:APPLIES_KNOWLEDGE]->(KU) → Update KU practice counts
     → Publish KnowledgePracticed event
+
+APPLIES_KNOWLEDGE is THE Event→Ku edge (EVENTS_CONFIG registry, Edge-YAML
+`connections.applies_knowledge`, create_study_session). The seeds below MERGE
+the same edge the real writers write — a seed-and-match guard: if the read in
+find_kus_practiced_by_event drifts to an unwritten edge again (the former
+[:PRACTICES], 2026-07-10 audit), these tests fail.
 """
 
 from datetime import date, datetime
@@ -38,6 +44,7 @@ from core.models.enums import (
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.pathways.path_step import PathStep
+from core.models.relationship_names import RelationshipName
 from core.services.ps.ps_practice_service import PsPracticeService
 
 
@@ -130,14 +137,16 @@ class TestEventKuPracticeFlow:
                 event_uid=event.uid,
             )
 
-        # Create graph relationships: (Event)-[:PRACTICES]->(KU)
+        # Create graph relationships: (Event)-[:APPLIES_KNOWLEDGE]->(KU) —
+        # the canonical writer-backed Event→Ku edge (matches EVENTS_CONFIG,
+        # Edge-YAML ingestion, and create_study_session).
         async with neo4j_driver.session() as session:
             for ku in kus:
                 await session.run(
-                    """
-                    MATCH (event:Event {uid: $event_uid})
-                    MATCH (ku:Entity {uid: $ku_uid})
-                    MERGE (event)-[:PRACTICES]->(ku)
+                    f"""
+                    MATCH (event:Event {{uid: $event_uid}})
+                    MATCH (ku:Entity {{uid: $ku_uid}})
+                    MERGE (event)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku)
                     RETURN event.uid, ku.uid
                     """,
                     event_uid=event.uid,
@@ -279,7 +288,7 @@ class TestEventKuPracticeFlow:
         test_user_uid,
     ):
         """Test that completing an event with no KUs doesn't affect practice counts."""
-        # Create event with no PRACTICES relationships
+        # Create event with no APPLIES_KNOWLEDGE relationships
         event = Event(
             uid="event.no_kus",
             user_uid=test_user_uid,

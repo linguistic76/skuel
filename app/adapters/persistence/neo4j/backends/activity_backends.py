@@ -849,9 +849,6 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     - list_by_user(uid, limit)   → wraps get_user_entities(), extracts list
     - get_user_events(uid)       → alias for list_by_user()
     - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
-    - link_event_to_goal(…)           → Cypher MERGE CONTRIBUTES_TO_GOAL
-    - link_event_to_habit(…)          → Cypher MERGE REINFORCES_HABIT
-    - link_event_to_knowledge(…)      → Cypher MERGE REINFORCES_KNOWLEDGE (batch)
     - get_goal_links_for_events(…)    → batch map event_uid → contributed goal_uid
     - get_habit_links_for_events(…)   → batch map event_uid → reinforced habit_uid
     """
