@@ -15,8 +15,11 @@ boundary (ADR-044): ``SearchRequest`` passes only the active-flag *intent*
 The anchor node is ``(entity)`` — the variable ``faceted_search_raw`` binds the
 candidate node to. ``$user_uid`` is a Cypher query parameter filled at
 execution time, not here. Relationship types are a fixed, hand-authored
-vocabulary (the same literals the prior fragments used), so nothing is
-interpolated from caller input.
+vocabulary, so nothing is interpolated from caller input. Every edge type
+used here MUST be a registered ``RelationshipName`` value with a real write
+path — guarded by ``tests/unit/adapters/test_relationship_filter_vocabulary.py``
+(the original hand-authored vocabulary included five edge types nothing
+ever wrote, making six of the eleven filters silent no-ops).
 """
 
 from __future__ import annotations
@@ -40,52 +43,58 @@ _READY_TO_LEARN = """NOT EXISTS {
 # Pattern 2: Builds on mastered knowledge (related to what user knows)
 _BUILDS_ON_MASTERED = """EXISTS {
     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-    WHERE (mastered)-[:ENABLES_LEARNING|RELATED_TO]-(entity)
+    WHERE (mastered)-[:ENABLES_KNOWLEDGE|RELATED_TO]-(entity)
 }"""
 
-# Pattern 3: In active learning path
+# Pattern 3: In active learning path. PathSteps compose content via
+# USES_KU/TRAINS_KU/CONTAINS_KNOWLEDGE (all three coexist); enrollment
+# lifecycle lives on the ENROLLED_IN edge (r.status='completed' marks
+# completion — see _adaptive_mixin), NOT on lp.status.
 _IN_ACTIVE_PATH = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[:ENROLLED_IN]->(lp:LearningPath)
+    MATCH (user:User {uid: $user_uid})-[enrollment:ENROLLED_IN]->(lp:LearningPath)
           -[:HAS_STEP]->(ps:PathStep)
-          -[:REQUIRES_KNOWLEDGE]->(entity)
-    WHERE lp.status = 'active'
+          -[:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE]->(entity)
+    WHERE coalesce(enrollment.status, 'active') <> 'completed'
 }"""
 
-# Pattern 4: Supports active goals
+# Pattern 4: Supports active goals (OWNS is the universal ownership edge)
 _SUPPORTS_GOALS = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[:PURSUING_GOAL]->(goal:Goal)
+    MATCH (user:User {uid: $user_uid})-[:OWNS]->(goal:Goal)
           -[:REQUIRES_KNOWLEDGE]->(entity)
-    WHERE goal.status IN ['active', 'in_progress']
+    WHERE goal.status IN ['active', 'scheduled']
 }"""
 
-# Pattern 5: Builds on active habits
+# Pattern 5: Builds on active habits (REINFORCES_KNOWLEDGE is the
+# canonical Habit→Ku edge)
 _BUILDS_ON_HABITS = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[:PRACTICES]->(habit:Habit)
-          -[:APPLIES_KNOWLEDGE]->(entity)
-    WHERE habit.status IN ['active', 'in_progress']
-      AND habit.is_active = true
+    MATCH (user:User {uid: $user_uid})-[:OWNS]->(habit:Habit)
+          -[:REINFORCES_KNOWLEDGE]->(entity)
+    WHERE habit.status = 'active'
 }"""
 
-# Pattern 6: Applied in recent tasks
+# Pattern 6: Applied in recent tasks. updated_at is a DTO-written ISO
+# STRING on most nodes (mixed column) — datetime() coerces strings and
+# is a no-op on natives; without it the comparison is null and the row
+# silently drops.
 _APPLIED_IN_TASKS = """EXISTS {
     MATCH (user:User {uid: $user_uid})-[:OWNS]->(task:Task)
           -[:APPLIES_KNOWLEDGE]->(entity)
-    WHERE task.status IN ['completed', 'in_progress']
-      AND task.updated_at >= datetime() - duration({days: 30})
+    WHERE task.status IN ['completed', 'active']
+      AND datetime(task.updated_at) >= datetime() - duration({days: 30})
 }"""
 
-# Pattern 7: Aligned with principles
+# Pattern 7: Aligned with principles (GROUNDED_IN_KNOWLEDGE is the
+# canonical Principle→Ku edge)
 _ALIGNED_WITH_PRINCIPLES = """EXISTS {
-    MATCH (user:User {uid: $user_uid})-[:ADHERES_TO]->(principle:Principle)
-          -[:EMBODIES_KNOWLEDGE]->(entity)
-    WHERE principle.status = 'adopted'
-      OR principle.priority >= 0.7
+    MATCH (user:User {uid: $user_uid})-[:OWNS]->(principle:Principle)
+          -[:GROUNDED_IN_KNOWLEDGE]->(entity)
+    WHERE principle.status = 'active'
 }"""
 
 # Pattern 8: Next logical step (enabled by mastered, not yet mastered, prereqs met)
 _NEXT_LOGICAL_STEP = """EXISTS {
     MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-          -[:ENABLES_LEARNING]->(entity)
+          -[:ENABLES_KNOWLEDGE]->(entity)
     WHERE NOT EXISTS {
         MATCH (user)-[:MASTERED]->(entity)
     }

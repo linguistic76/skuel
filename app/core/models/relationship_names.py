@@ -266,6 +266,7 @@ class RelationshipName(StrEnum):
     )
     FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals
+    ENROLLED_IN = "ENROLLED_IN"  # (user)-[:ENROLLED_IN {enrolled_at, status}]->(lp) - LP enrollment; r.status='completed' marks completion (written by UserBackend.enroll_in_learning_path)
     MEMBER_OF = "MEMBER_OF"  # (user)-[:MEMBER_OF]->(team) - Team membership
     SHARES_WITH = (
         "SHARES_WITH"  # (user)-[:SHARES_WITH {shared_at, role}]->(entity) - Content sharing
