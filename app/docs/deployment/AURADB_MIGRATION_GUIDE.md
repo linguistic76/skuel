@@ -444,45 +444,15 @@ CREATE CONSTRAINT lifepath_uid_unique IF NOT EXISTS FOR (lp:LifePath) REQUIRE lp
 uv run python scripts/create_vector_indexes.py
 ```
 
-**Or manually:**
+**Or manually** (one block per label — the authoritative set lives in
+`PRIORITY_ENTITIES` in `scripts/create_vector_indexes.py`: Entity, ContentChunk,
+ReferenceChunk, Task, Goal, Ku, PathStep; index name is always
+`{label_lowercased}_embedding_idx`):
 
 ```cypher
-// KU vector index
-CREATE VECTOR INDEX ku_embedding_idx IF NOT EXISTS
+// Repeat for each label: Entity, ContentChunk, ReferenceChunk, Task, Goal, Ku, PathStep
+CREATE VECTOR INDEX entity_embedding_idx IF NOT EXISTS
 FOR (n:Entity)
-ON n.embedding
-OPTIONS {
-  indexConfig: {
-    `vector.dimensions`: 1024,
-    `vector.similarity_function`: 'cosine'
-  }
-};
-
-// Task vector index
-CREATE VECTOR INDEX task_embedding_idx IF NOT EXISTS
-FOR (n:Task)
-ON n.embedding
-OPTIONS {
-  indexConfig: {
-    `vector.dimensions`: 1024,
-    `vector.similarity_function`: 'cosine'
-  }
-};
-
-// Goal vector index
-CREATE VECTOR INDEX goal_embedding_idx IF NOT EXISTS
-FOR (n:Goal)
-ON n.embedding
-OPTIONS {
-  indexConfig: {
-    `vector.dimensions`: 1024,
-    `vector.similarity_function`: 'cosine'
-  }
-};
-
-// Habit vector index
-CREATE VECTOR INDEX habit_embedding_idx IF NOT EXISTS
-FOR (n:Habit)
 ON n.embedding
 OPTIONS {
   indexConfig: {
@@ -502,7 +472,7 @@ uv run python scripts/verify_schema.py
 **Expected Output:**
 ```
 ✅ Constraints: 13/13 created
-✅ Vector Indexes: 4/4 active
+✅ Vector Indexes: 7/7 active
 ✅ Schema migration complete
 ```
 

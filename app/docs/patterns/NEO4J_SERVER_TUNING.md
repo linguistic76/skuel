@@ -33,9 +33,10 @@ re-list them (the setting is multi-valued).
 
 ## Vector API (SIMD) — why it is enabled
 
-SKUEL runs **five 1024-dim cosine vector indexes** — `Entity`, `ContentChunk`, `ReferenceChunk`,
-`Goal`, and `Task` embeddings. Semantic search, canon retrieval (ADR-076/077), and ZPD all query
-them via `db.index.vector.queryNodes(...)`. (Embeddings are generated **Python-side** — OpenAI
+SKUEL runs **seven 1024-dim cosine vector indexes** — `Entity`, `ContentChunk`, `ReferenceChunk`,
+`Goal`, `Task`, `Ku`, and `PathStep` embeddings. Semantic search, canon retrieval (ADR-076/077),
+ZPD, and the "Related concepts" detail-page lens all query them via
+`db.index.vector.queryNodes(...)`. (Embeddings are generated **Python-side** — OpenAI
 `text-embedding-3-small` @1024, ADR-068, BGE staged long-term — never by a Neo4j GenAI plugin; the
 server only *indexes and searches* the vectors.)
 

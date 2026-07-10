@@ -49,12 +49,18 @@ what's missing is the grouping and a surface to show it. Each PR starts with
 its own research + planning pass — the notes below are scope sketches, not
 designs.
 
-### 1. Concept clustering
+### 1. Concept clustering — SHIPPED 2026-07-10
 
-Cross-KU similarity surface: "you studied X — here's Y using the same core
-concept." Needs a clustering pass over existing entity/chunk embeddings plus a
-user-facing surface. **Open product decision (STOP point): where the surface
-lives** (Ku/PS detail page vs /explore vs elsewhere).
+Landed as the **"Related concepts"** chip-row on BOTH detail pages
+(`/explore/ku/{uid}` + `/explore/ps/{uid}`) — the product ruling chose the
+detail-page surface and rejected graph-view/search-strip variants. Mechanic:
+on-demand node→node vector similarity (`find_related_concepts` →
+`find_similar_to_node` against `ku_embedding_idx` / `pathstep_embedding_idx`),
+lazy HTMX fragments at `/explore/{ku,ps}/{uid}/related`. A read-time lens
+ONLY — no clustering pass, no persisted edges, no cluster nodes; FULL tier
+only (section absent on CORE). Threshold `ku_similar_min_score=0.72` derived
+from a full-corpus sweep — see the derivation comment in
+`core/config/unified_config.py::VectorSearchConfig`.
 
 ### 2. Prerequisite inference
 

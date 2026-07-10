@@ -46,6 +46,8 @@ def create_explore_routes(
         ps_engagement_service=services.ps_engagement,
         user_service=services.user,
         form_submission_service=services.form_submissions,
+        # None on CORE tier — the "Related concepts" sections are simply absent
+        vector_search_service=services.vector_search_service,
     )
 
 

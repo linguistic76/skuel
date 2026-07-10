@@ -173,6 +173,19 @@ class VectorSearchConfig:
     # /search empty-state still holds for gibberish. See SEARCH_ARCHITECTURE.md.
     body_chunk_search_min_score: float = 0.68
 
+    # Node→node "Related concepts" lens (Ku + PathStep detail pages).
+    # ku_min_score=0.75 is calibrated for text→entity queries and is too strict
+    # for node→node similarity, which scores lower across the board. Full-corpus
+    # sweep (121 Kus, top-10 each, 2026-07-10): rank-1 neighbour median 0.78;
+    # weak cross-topic pairs ceiling ~0.70-0.71, while the 0.71-0.72 band is
+    # already defensible — 0.72 admits real neighbours with a margin band over
+    # the noise ceiling. At 0.72, 109/121 Kus keep >=1 neighbour (avg 3.9 of
+    # limit 5). Applied to PathStep→PathStep too (13-node corpus, thin lists
+    # accepted by design). Full distribution tables: the "Related concepts"
+    # PR (feat/related-concepts-similarity).
+    ku_similar_min_score: float = 0.72
+    related_concepts_limit: int = 5  # Chip-row cap on the detail pages
+
     # Hybrid search weights (0.0-1.0)
     vector_weight: float = 0.5  # 50% vector similarity
     text_weight: float = 0.5  # 50% full-text match

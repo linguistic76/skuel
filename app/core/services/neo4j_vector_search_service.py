@@ -717,9 +717,29 @@ class Neo4jVectorSearchService:
 
         return Result.ok(states)
 
-    # -------------------------------------------------------------------------
-    # Test-covered public API — no production route caller yet (PLANNED)
-    # -------------------------------------------------------------------------
+    async def find_related_concepts(self, label: str, uid: str) -> Result[list[dict[str, Any]]]:
+        """
+        Read-time "Related concepts" lens for the Ku/PathStep detail pages.
+
+        Node→node similarity against the node's own-label vector index with
+        the empirically derived node→node threshold (node→node scores run
+        lower than text→entity queries, so ku_min_score would starve it —
+        see VectorSearchConfig.ku_similar_min_score for the derivation).
+        Read-only: no edges are created or persisted from this path.
+
+        Args:
+            label: Node label — "Ku" or "PathStep"
+            uid: UID of the source node
+
+        Returns:
+            Result containing list of {node, score} dicts sorted by similarity
+        """
+        return await self.find_similar_to_node(
+            label=label,
+            uid=uid,
+            limit=self.config.related_concepts_limit,
+            min_score=self.config.ku_similar_min_score,
+        )
 
     async def find_similar_to_node(
         self,
@@ -786,6 +806,10 @@ class Neo4jVectorSearchService:
             similar = [s for s in similar if s["node"].get("uid") != uid][:limit]
 
         return Result.ok(similar)
+
+    # -------------------------------------------------------------------------
+    # Test-covered public API — no production route caller yet (PLANNED)
+    # -------------------------------------------------------------------------
 
     async def find_cross_domain_similar(
         self,

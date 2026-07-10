@@ -79,6 +79,7 @@ def render_ku_detail_content(
     user_uid: str | None,
     mastery_checkins: list[dict] | None = None,
     resources: list[dict] | None = None,
+    show_related: bool = False,
 ) -> Div:
     """Reading-first Ku detail content fragment.
 
@@ -90,6 +91,9 @@ def render_ku_detail_content(
         resources: Curated Resources this Ku cites (CITES_RESOURCE) — rendered
             as reference chips in a bottom-of-page "Resources" section, mirroring
             the PathStep detail page. SKUEL points at the source; the human reads it.
+        show_related: Mount the lazy "Related concepts" fragment (vector
+            similarity). FULL tier only — False (section absent) when the
+            vector search service is unavailable.
     """
     status = (
         "understood"
@@ -118,6 +122,8 @@ def render_ku_detail_content(
     )
     if resources:
         post_read.append(_resources_section(resources))
+    if show_related:
+        post_read.append(_related_placeholder(uid))
 
     return Div(
         _back_link(),
@@ -293,4 +299,64 @@ def _resources_section(resources: list[dict]) -> "FT":
     )
 
 
-__all__ = ["render_ku_detail_content", "render_ku_not_found"]
+# ---------------------------------------------------------------------------
+# Related concepts section (vector similarity — read-time lens)
+# ---------------------------------------------------------------------------
+
+
+def _related_placeholder(uid: str) -> "FT":
+    """Lazy HTMX mount for the Related-concepts section.
+
+    The fragment returns the full section (heading included) or an empty div,
+    so an empty/failed lookup leaves no orphaned heading behind.
+    """
+    return Div(
+        id="ku-related-fragment",
+        **{
+            "hx-get": f"/explore/ku/{uid}/related",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def render_ku_related_concepts(related: list[dict]) -> "FT":
+    """Related concepts — vector-similar Kus as reading-page chips.
+
+    Read-time lens over embeddings: no edges exist or are created for these
+    neighbours. Ordered by similarity (scores not shown); each chip links to
+    the neighbour's reading page. Empty input collapses to an empty div so
+    the section vanishes entirely rather than rendering a bare heading.
+    """
+    items = [r for r in related if r.get("uid")]
+    if not items:
+        return Div(id="ku-related-fragment")
+    return Section(
+        Div(
+            "Related concepts",
+            id="ku-related-heading",
+            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+        ),
+        Div(
+            *[
+                A(
+                    r.get("title") or r["uid"],
+                    href=f"/explore/ku/{r['uid']}",
+                    cls=(
+                        "inline-flex items-center px-3 py-1.5 rounded-full border "
+                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "text-foreground hover:bg-accent hover:text-accent-foreground"
+                    ),
+                )
+                for r in items
+            ],
+            cls="flex flex-wrap gap-2",
+        ),
+        id="ku-related-fragment",
+        cls="mb-9",
+        role="region",
+        **{"aria-labelledby": "ku-related-heading"},
+    )
+
+
+__all__ = ["render_ku_detail_content", "render_ku_not_found", "render_ku_related_concepts"]
