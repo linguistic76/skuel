@@ -4,74 +4,90 @@
 
 ---
 
-## Common Operations
+## Canonical Cypher Shapes
 
-### Operation 1: [Task Name]
+### Ownership-scoped fetch (multi-tenant security)
 
-```python
-# Minimal working example
+```cypher
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task {uid: $task_uid})
+RETURN t
 ```
 
-**When to use**: [One-line description]
+**When to use**: Any user-owned read — missing the OWNS hop is a security bug (return not-found, not forbidden).
+
+### Entity fetch with label guard (G13 shadow rule)
+
+```cypher
+// Entity-only paths — bind the universal base label
+MATCH (n:Entity {uid: $uid})
+
+// Mixed-label paths (endpoints may be User/Group/…) — exclude the :Content shadow
+MATCH (n {uid: $uid}) WHERE NOT n:Content
+```
+
+**When to use**: Always. An unlabeled `MATCH ({uid: $uid})` binds BOTH the entity and its `:Content` chunk-store shadow node.
+
+### Temporal comparison on string-stored fields
+
+```cypher
+// datetime-typed field (DTO .isoformat() → STRING): coerce the stored side
+WHERE datetime(n.created_at) >= datetime($window_start)
+
+// date-only field
+WHERE date(n.due_date) < date()
+
+// datetime field compared against a date: parse-then-extract (date() ERRORS on datetime strings)
+WHERE date(datetime(h.last_completed)) < date()
+```
+
+**When to use**: Whenever the writer was a DTO (`.isoformat()`). `string >= datetime()` evaluates to `null` — rows silently drop.
 
 ---
 
-### Operation 2: [Task Name]
+## Key Infrastructure
+
+### `TimedDriver` — per-query server-side timeout (ADR-064)
+
+Default 120s ceiling (`NEO4J_TRANSACTION_TIMEOUT`). Override per call site:
 
 ```python
-# Minimal working example
+from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
+
+with neo4j_query_timeout(300.0):
+    ...  # the full await chain must be inside the block (ContextVar read at call time)
 ```
 
-**When to use**: [One-line description]
-
----
-
-### Operation 3: [Task Name]
+### `RelationshipName` enum (SKUEL013)
 
 ```python
-# Minimal working example
+from core.models.relationship_names import RelationshipName
+
+query = f"MATCH (a)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(b)"
+# Property maps in f-strings need escaped braces: {{uid: $uid}}
 ```
 
-**When to use**: [One-line description]
+### Identifier validation (labels/rel-types can't be parameterized)
 
----
-
-## Key Classes/Functions
-
-### `ClassName` or `function_name()`
-
-**Purpose**: [One-line description]
-
-**Signature**:
 ```python
-def function_name(
-    param1: Type1,
-    param2: Type2,
-) -> ReturnType:
-    """Docstring"""
-```
-
-**Common usage**:
-```python
-# Most common pattern
+from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
+validate_label(label)        # known NeoLabel value or ValueError
+validate_identifier(field)   # safe identifier or ValueError
 ```
 
 ---
 
-### `AnotherClass` or `another_function()`
+## Index Inventory (bootstrap: `Neo4jSchemaManager`)
 
-**Purpose**: [One-line description]
+| Index type | Count | Tier | Notes |
+|-----------|-------|------|-------|
+| Domain (uid/status/date/composite) | ~48 | Always | `sync_domain_indexes()` |
+| Full-text (Lucene) | 14 | Always | 6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms |
+| Auth | — | Always | sessions, rate limiting, email uniqueness |
+| Vector (1024-dim cosine) | 5 | FULL only | Entity, ContentChunk, ReferenceChunk (bootstrap) + Goal, Task (`scripts/create_vector_indexes.py`) |
 
-**Signature**:
-```python
-class AnotherClass:
-    def method_name(self, param: Type) -> ReturnType:
-        """Docstring"""
-```
-
-**Common usage**:
-```python
-# Most common pattern
+```cypher
+CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline') YIELD node, score
+CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD node, score
 ```
 
 ---
@@ -80,27 +96,32 @@ class AnotherClass:
 
 | Problem | Solution |
 |---------|----------|
-| [Common mistake 1] | [Quick fix] |
-| [Common mistake 2] | [Quick fix] |
-| [Common mistake 3] | [Quick fix] |
+| Unlabeled `MATCH ({uid: ...})` doubles rows | Label guard: `:Entity` or `WHERE NOT n:Content` (G13) |
+| `string >= datetime()` → null, rows vanish | Coerce stored side: `datetime(n.field) >= datetime($w)` |
+| `date()` on a datetime string → error | `date(datetime(field))` |
+| `HAS_TASK`/`HAS_GOAL` ownership edges | Backends only write/query `OWNS` |
+| `:Curriculum` label in MATCH | No such label — use `:Ku`/`:PathStep`/`:LearningPath`/`:Exercise` or `:Entity` + `entity_type` |
+| Status literals like `'pending'`/`'on_track'` | Not `EntityStatus` values — bind `$statuses` from the enum (SKUEL014) |
+| APOC call in `core/` | SKUEL001 — APOC is `apoc.meta.*` only, adapters-side |
+| Inline Cypher in a service | SKUEL021 — Cypher lives in `adapters/persistence/neo4j/` backends |
+| Comparing vault UID `ps:x:y` to graph UID | Ingestion normalizes `:` → `.`; graph stores `ps.x.y` |
+| Cartesian product from stacked OPTIONAL MATCH | `collect(DISTINCT ...)` per branch before the next MATCH |
 
 ---
 
-## Cheat Sheet
+## Where Does Cypher Live?
 
-```python
-# Pattern 1: [Name]
-# [One-line description]
-
-# Pattern 2: [Name]
-# [One-line description]
-
-# Pattern 3: [Name]
-# [One-line description]
-```
+| Cypher | Location |
+|--------|----------|
+| Generic CRUD | `UniversalNeo4jBackend` (11 mixin files) |
+| Domain-specific | 31 backends in `adapters/persistence/neo4j/backends/` (9 cluster files) |
+| Cross-domain aggregation | `user_context_queries.py` (MEGA-QUERY), `CrossDomainQueryService` — the only two service-layer exceptions |
+| Vector search | `VectorSearchBackend` (FULL tier) |
+| DDL | `neo4j_schema_manager.py` (startup, idempotent `IF NOT EXISTS`) |
 
 ---
 
 **See Also**: [SKILL.md](SKILL.md) for detailed explanations
-**See Also**: [PATTERNS.md](PATTERNS.md) for design patterns
-**See Also**: [EXAMPLES.md](EXAMPLES.md) for complete examples
+**See Also**: [PATTERNS.md](PATTERNS.md) for design patterns (MERGE+SET, UNWIND batching, WHERE guards, temporal coercion)
+**See Also**: [examples.md](examples.md) for complete per-domain examples
+**See Also**: [reference.md](reference.md) for the relationship catalog

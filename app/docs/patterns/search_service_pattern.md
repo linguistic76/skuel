@@ -475,39 +475,24 @@ External Callers:
 ├── /api/search/unified → SearchRouter.advanced_search()
 └── GraphQL queries     → SearchRouter.faceted_search()
 
-SearchRouter (uses _GRAPH_AWARE_DOMAINS):
-├── Graph-Aware Domains → domain.search.graph_aware_faceted_search()
-│   ├── Activity: tasks, goals, habits, events, choices, principles
-│   └── Curriculum: ku (January 2026 - unified with Activity Domains)
-└── Simple Search → domain.search.search()
-    └── ls, lp, moc
+SearchRouter (uses _GRAPH_AWARE_DOMAINS — all 12 searchable domains):
+├── Activity: tasks, goals, habits, events, choices, principles
+├── Curriculum: ku, ps, lp
+└── Learning Loop: exercises, revised_exercises, user_entry
 ```
 
-**graph_aware_faceted_search()** is implemented by Activity Domain SearchServices + KuSearchService:
-- User ownership filter for Activity Domains (OWNS relationship)
-- NO ownership filter for KU (shared content)
+**graph_aware_faceted_search()** is implemented across all 12 searchable domains:
+- Visibility scoping per each domain's `DomainConfig.search_visibility` (`OWNER_ONLY` / `PUBLIC` / `SCOPE_AWARE`) via `build_search_visibility_clause()`
 - Property filters from SearchRequest
-- **SearchRequest graph patterns** (`ready_to_learn`, `supports_goals`, etc.) - now applied to KU
+- **SearchRequest graph patterns** (`ready_to_learn`, `supports_goals`, etc.)
 - Graph pattern enrichment with domain-specific relationships
 - `_graph_context` field with relationship summaries
 
-**BaseService Configuration (January 2026):**
-```python
-# Activity Domains inherit from BaseService with these defaults
-_graph_enrichment_patterns: ClassVar[list[tuple[str, str, str]]] = []
-_user_ownership_relationship: ClassVar[str | None] = "OWNS"  # None for shared content
-```
+**BaseService Configuration:** all configuration lives on **DomainConfig** (the single source of truth) — `graph_enrichment_patterns`, `user_ownership_relationship` (None for shared content → `SearchVisibility.PUBLIC`), `search_fields`, etc. The old per-class `_user_ownership_relationship` / `_graph_enrichment_patterns` ClassVars are gone.
 
-## Curriculum Domain Search Services (January 2026)
+## Curriculum Domain Search Services
 
-Curriculum domains (PS, LP, MOC) use **standalone search services** that don't inherit from BaseService:
-
-### Why Standalone Pattern?
-
-- Curriculum domains are **shared content** (no user ownership)
-- Different search needs than Activity Domains
-- Simpler dependency graph
-- Following MocSearchService precedent
+Curriculum domains (Ku, PS, LP) extend **BaseService via `create_curriculum_domain_config()`** — same pattern as Activity Domains, with `user_ownership_relationship=None` (shared content, no ownership filter). MOC is not a searchable domain (emergent identity via ORGANIZES edges).
 
 ### PsSearchService
 
@@ -545,18 +530,12 @@ class LpSearchService(BaseService["LpOperations", LearningPath]):
 Curriculum services expose search via `.search` property like Activity Domains:
 
 ```python
-# PsService facade
+# PsService facade (core/services/ps_service.py) — sub-services built by factory
 class PsService:
-    def __init__(self, driver, event_bus=None):
-        self.core = PsCoreService(driver=driver, event_bus=event_bus)
-        self.relationship = LsRelationshipService(driver=driver)
-        self.search = PsSearchService(driver=driver)  # Search sub-service
-
-# LpService facade
-class LpService:
-    def __init__(self, driver, ps_service, ...):
-        self.core = LpCoreService(driver=driver, ...)
-        self.search = LpSearchService(driver=driver)  # Search sub-service
+    def __init__(self, ...):
+        subs = ...  # sub-service factory
+        self.core = subs.core
+        self.search = subs.search  # PsSearchService
         # ... other sub-services
 ```
 
@@ -569,7 +548,6 @@ class LpService:
 | **[SEARCH_SERVICE_METHODS.md](../reference/SEARCH_SERVICE_METHODS.md)** | **Method catalog** | Complete method reference for all 10 search services |
 | **[SEARCH_MODELS.md](../reference/models/SEARCH_MODELS.md)** | **Model reference** | Complete SearchRequest/SearchResponse documentation |
 | [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) | Search architecture | SearchRouter + domain services overview |
-| [search-one-path-forward.md](~/.claude/plans/search-one-path-forward.md) | Architecture plan | One Path Forward consolidation (January 2026) |
 
 ### Related Documentation
 

@@ -33,7 +33,7 @@ RETURN r
 - SET overwrites relationship properties on each call
 - Use `ON CREATE SET` if you only want to set props on first creation
 
-**Real-world usage**: Standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
+**Real-world usage**: Standardized across hierarchy (`_hierarchy_mixin.py`), lateral relationships (`LateralRelationshipBackend`), badges (`EARNED_BADGE`), LP/PS construction (`HAS_STEP`, `USES_KU`, `CONTAINS_KNOWLEDGE`). Cross-domain relationship creation (task→knowledge, goal→habit, etc.) is handled by `UnifiedRelationshipService`, not domain backends. **Rule:** Use MERGE (not CREATE) whenever both endpoints already exist — prevents duplicate edges on retry.
 
 ---
 
@@ -402,14 +402,14 @@ RETURN teacher.uid as teacher_uid  -- works for all entity types
 
 **COALESCE for hybrid queries** (supports both curriculum and user-owned types in one query):
 ```cypher
--- UserEntryBackend.get_exercise_context() — works for Exercise AND RevisedExercise
+// UserEntryBackend.get_exercise_context() — works for Exercise AND RevisedExercise
 MATCH (exercise:Entity {uid: $exercise_uid})
 WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
 OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
 RETURN COALESCE(teacher.uid, exercise.user_uid) as teacher_uid
--- Exercise: OWNS relationship → teacher.uid ✓
--- RevisedExercise: both OWNS + stored user_uid agree ✓
--- YAML-ingested exercise, no owner: both NULL → auto-share skipped ✓
+// Exercise: OWNS relationship → teacher.uid ✓
+// RevisedExercise: both OWNS + stored user_uid agree ✓
+// YAML-ingested exercise, no owner: both NULL → auto-share skipped ✓
 ```
 
 **When `teacher_uid` can be NULL:** Exercises ingested via YAML with no authenticated
@@ -440,17 +440,17 @@ Before "fixing" a comparison, **grep the write path**: `.isoformat()` → string
 
 **The fix — coerce the stored side:**
 ```cypher
--- datetime-typed field (has a time component): use datetime()
+// datetime-typed field (has a time component): use datetime()
 WHERE datetime(n.created_at) >= datetime($window_start)
 WHERE datetime(s.next_due_at) <= datetime()
 
--- date-typed field (date-only string "2026-06-05"): use date()
+// date-typed field (date-only string "2026-06-05"): use date()
 WHERE date(n.due_date) >= date($start_date)
 ```
 
 🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`). For a **datetime**-typed field compared against a *date*, parse-then-extract:
 ```cypher
--- last_completed is a datetime string; we want "before today"
+// last_completed is a datetime string; we want "before today"
 CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 ```
 
@@ -498,12 +498,12 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 | PS-specific Cypher | 5 PsBackend mixins (`_organizes_mixin.py`, `_learning_state_mixin.py`, `_semantic_mixin.py`, `_knowledge_context_mixin.py`, `_adaptive_mixin.py`) | `_LearningStateMixin.mark_mastered()`, `_OrganizesMixin.organize()` |
 | Cross-domain aggregation | Service files (exception — uses `QueryExecutor`) | `user_context_queries.py` MEGA-QUERY, `CrossDomainQueryService` (9 targeted reads → frozen typed dataclasses) |
 | Vector index calls | `VectorSearchBackend` in `vector_search_backend.py` (infrastructure, FULL tier only) | `db.index.vector.queryNodes()` |
-| Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 15 domains |
+| Fulltext index creation | `neo4j_schema_manager.py` (bootstrap, always) | `sync_fulltext_indexes()` — 14 domains |
 | Query generation | `query_optimizer.py`, `query_template_registry.py` | Builds Cypher by design |
 | Generic hierarchy | `_HierarchyMixin` (shared by 6 Activity backends) | `get_children_raw()`, `create_hierarchy_relationship()` |
 | JSON property utilities | `core/utils/neo4j_mapper.py` | `parse_neo4j_json()`, `deserialize_json_fields()` |
 
-**27 domain backends** live in `adapters/persistence/neo4j/backends/` (9 cluster files). Import directly from the cluster file:
+**31 domain backends** live in `adapters/persistence/neo4j/backends/` (9 cluster files). Import directly from the cluster file:
 
 | Cluster file | Backends |
 |---|---|
@@ -513,7 +513,7 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 | `backends/user_entry_backend.py` | UserEntryBackend (shell over 5 `_user_entry_*_mixin` files) |
 | `backends/sharing_backend.py` | SharingBackend |
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
-| `backends/journal_backends.py` | JournalInputBackend, JournalOutputBackend |
+| `backends/templates_backends.py` | TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend |
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
 | `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
 

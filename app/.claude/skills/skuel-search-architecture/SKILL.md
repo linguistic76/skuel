@@ -17,9 +17,9 @@ description: Explains SKUEL's unified search architecture, SearchRouter orchestr
 
 ```
 External Callers (One Path Forward):
-├── /search routes      → SearchRouter.search() or search_domains()
+├── /search routes      → SearchRouter.faceted_search() / search() / search_domains()
 ├── /api/search/unified → SearchRouter.advanced_search(SearchRequest)
-└── Cross-domain        → SearchRouter.unified_search()
+└── Cross-domain NL     → SearchRouter.intelligent_search()
 
 SearchRouter (THE Orchestrator):
 ├── EntityType/NonKuDomain → domain search service (type-safe dispatch)
@@ -67,7 +67,7 @@ class PsSearchService(BaseService["PsOperations", PathStep]):
         search_fields=("title", "intent", "description"),
         category_field="nous",  # NOUS topic membership (array — `has` semantics)
     )
-    # _user_ownership_relationship = None by default for curriculum
+    # user_ownership_relationship=None by default for curriculum (DomainConfig field)
 
 # Activity domain example (user-owned content)
 class TasksSearchService(BaseService[TasksOperations, Task]):
@@ -151,11 +151,12 @@ await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 | `intelligent_search(query, user_uid)` | NL cross-domain with semantic filter extraction |
 | `advanced_search(SearchRequest)` | Filters, graph patterns, tags (`request.user_uid` scopes all strategies) |
 | `faceted_search(request, user_uid)` | THE entry point for UI-driven search (/search) |
+| `retrieve_scoped_chunks(...)` | Scoped ContentChunk retrieval for semantic boost / RAG contexts (FULL tier) |
 
 | Aspect | Value |
 |--------|-------|
 | **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |
-| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership) |
+| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry/RevisedExercise `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 
@@ -198,8 +199,8 @@ At startup, `Neo4jSchemaManager` creates all indexes needed for search:
 
 | Index Type | Method | Tier | What It Powers |
 |-----------|--------|------|---------------|
-| **Full-text indexes** | `sync_fulltext_indexes()` | Always (CORE + FULL) | Lucene keyword search — 15 domains |
-| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine similarity on Entity + ContentChunk |
+| **Full-text indexes** | `sync_fulltext_indexes()` | Always (CORE + FULL) | Lucene keyword search — 14 domains |
+| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine — Entity, ContentChunk, ReferenceChunk (bootstrap) + Goal, Task per-label (`scripts/create_vector_indexes.py`) |
 
 Full-text indexes are the **Cypher-first search foundation**. They enable `db.index.fulltext.queryNodes()` for relevance-ranked keyword search without embeddings. The `_SearchMixin.search()` method provides a `CONTAINS`-based fallback, but full-text indexes are always available for richer search.
 
