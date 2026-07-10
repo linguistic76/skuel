@@ -10,8 +10,10 @@ related: [tasks-quick-add.md]
 # Context DSL Cheat-Sheet
 
 Turn a plain markdown line into a real SKUEL entity by adding `@context()`.
-Write these lines in a Periodic Note or your captures folder — the next vault
-sync extracts them.
+Write these lines in a Periodic Note or another synced folder — the next vault
+sync extracts them. Vault sync only reads the allowlisted folders
+(`periodic_notes/`, `personal_notes/`, `activity_notes/`, `knowledge/` by
+default); loose captures belong in `activity_notes/`.
 
 ## The shape
 

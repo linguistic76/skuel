@@ -716,7 +716,7 @@ def SuggestedActivitiesPanel(
     header = Div(
         P("Suggested activities", cls="text-[14px] font-semibold text-foreground"),
         P(
-            "Copy any line into a Periodic Note or your captures folder. "
+            "Copy any line into a Periodic Note or your activity notes folder. "
             "Nothing is saved automatically.",
             cls="text-[12px] text-muted-foreground mt-1 leading-snug",
         ),
