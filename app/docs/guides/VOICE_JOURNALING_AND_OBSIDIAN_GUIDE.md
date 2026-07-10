@@ -261,12 +261,7 @@ Add these to any line to give SKUEL more to work with:
 A fully annotated task line looks like this:
 
 ```
-- [ ] Write the chapter on habits
-      @context(task)
-      @when(2026-07-02T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
+- [ ] Write the chapter on habits @context(task) @when(2026-07-02T09:00) @priority(1) @duration(90m) @energy(focus,creative)
 ```
 
 You don't need all of these. Even `@context(task)` alone is enough for SKUEL to track it.

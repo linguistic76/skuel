@@ -264,11 +264,7 @@ Combine energy states for complex activities:
 Use `@link()` for additional KU references:
 
 ```markdown
-- [ ] Integrate SEL principles into Teens.yoga curriculum
-      @context(task,learning)
-      @ku(ku:sel/core-principles)
-      @link(ku:teens-yoga/curriculum-design, ku:education/pedagogy)
-      @duration(3h)
+- [ ] Integrate SEL principles into Teens.yoga curriculum @context(task,learning) @ku(ku:sel/core-principles) @link(ku:teens-yoga/curriculum-design, ku:education/pedagogy) @duration(3h)
 ```
 
 ---
@@ -278,22 +274,13 @@ Use `@link()` for additional KU references:
 ### Linking Tasks to Goals
 
 ```markdown
-- [ ] Publish Instagram post about upcoming workshop
-      @context(task)
-      @link(goal:teens-yoga/100-followers, goal:teens-yoga/workshop-signups)
-      @duration(30m)
-      @energy(creative,social)
+- [ ] Publish Instagram post about upcoming workshop @context(task) @link(goal:teens-yoga/100-followers, goal:teens-yoga/workshop-signups) @duration(30m) @energy(creative,social)
 ```
 
 ### Habits Supporting Goals
 
 ```markdown
-- [ ] Daily content creation practice
-      @context(habit)
-      @repeat(daily)
-      @link(goal:teens-yoga/consistent-content)
-      @duration(45m)
-      @energy(creative)
+- [ ] Daily content creation practice @context(habit) @repeat(daily) @link(goal:teens-yoga/consistent-content) @duration(45m) @energy(creative)
 ```
 
 ---
@@ -303,12 +290,7 @@ Use `@link()` for additional KU references:
 Connect activities to guiding principles:
 
 ```markdown
-- [ ] Review business decisions against core values
-      @context(habit)
-      @repeat(weekly:Fri)
-      @link(principle:discernment-first, principle:awareness-before-action)
-      @duration(30m)
-      @energy(focus,spiritual)
+- [ ] Review business decisions against core values @context(habit) @repeat(weekly:Fri) @link(principle:discernment-first, principle:awareness-before-action) @duration(30m) @energy(focus,spiritual)
 ```
 
 ---
@@ -331,28 +313,11 @@ Connect activities to guiding principles:
 ```markdown
 ### Deep Work - 9am-12pm
 
-- [ ] Draft Teens.yoga lesson on focus
-      @context(task,learning)
-      @when(2025-11-30T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
-      @ku(ku:teens-yoga/focus-lesson)
-      @link(goal:teens-yoga/20-members)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members)
 
-- [ ] Debug calendar sync issue
-      @context(task)
-      @when(2025-11-30T10:45)
-      @priority(2)
-      @duration(45m)
-      @energy(focus)
+- [ ] Debug calendar sync issue @context(task) @when(2025-11-30T10:45) @priority(2) @duration(45m) @energy(focus)
 
-- [ ] Respond to partnership inquiry email
-      @context(task)
-      @when(2025-11-30T11:30)
-      @priority(3)
-      @duration(20m)
-      @energy(light,social)
+- [ ] Respond to partnership inquiry email @context(task) @when(2025-11-30T11:30) @priority(3) @duration(20m) @energy(light,social)
 ```
 
 ### Goal Planning
@@ -401,21 +366,9 @@ Make it energy-aware:
 Connect to knowledge and goals:
 
 ```markdown
-- [ ] Call doctor about preventive care plan
-      @context(task)
-      @when(2025-11-30T14:00)
-      @duration(15m)
-      @energy(light,social)
-      @link(goal:health/preventive-care, principle:health-first)
+- [ ] Call doctor about preventive care plan @context(task) @when(2025-11-30T14:00) @duration(15m) @energy(light,social) @link(goal:health/preventive-care, principle:health-first)
 
-- [ ] Morning strength training routine
-      @context(habit)
-      @when(2025-11-30T07:00)
-      @repeat(weekly:Mon,Wed,Fri)
-      @duration(45m)
-      @energy(physical)
-      @ku(ku:fitness/strength-training-basics)
-      @link(goal:health/build-strength)
+- [ ] Morning strength training routine @context(habit) @when(2025-11-30T07:00) @repeat(weekly:Mon,Wed,Fri) @duration(45m) @energy(physical) @ku(ku:fitness/strength-training-basics) @link(goal:health/build-strength)
 ```
 
 ---
@@ -439,13 +392,7 @@ When a one-off task becomes recurring:
 Link habits to the goals they support:
 
 ```markdown
-- [ ] Daily meditation practice
-      @context(habit)
-      @repeat(daily)
-      @duration(20m)
-      @energy(spiritual,rest)
-      @ku(ku:yoga/meditation-intro)
-      @link(goal:wellness/consistent-practice, principle:awareness-first)
+- [ ] Daily meditation practice @context(habit) @repeat(daily) @duration(20m) @energy(spiritual,rest) @ku(ku:yoga/meditation-intro) @link(goal:wellness/consistent-practice, principle:awareness-first)
 ```
 
 ### Multi-Domain Activities
@@ -453,14 +400,7 @@ Link habits to the goals they support:
 Activities that span multiple domains:
 
 ```markdown
-- [ ] Record and publish podcast episode on teen mental health
-      @context(task,learning,habit)
-      @when(2025-11-30T10:00)
-      @duration(2h)
-      @energy(creative,focus,social)
-      @ku(ku:teens-yoga/mental-health)
-      @link(goal:teens-yoga/thought-leadership, habit:weekly-content-creation)
-      @priority(1)
+- [ ] Record and publish podcast episode on teen mental health @context(task,learning,habit) @when(2025-11-30T10:00) @duration(2h) @energy(creative,focus,social) @ku(ku:teens-yoga/mental-health) @link(goal:teens-yoga/thought-leadership, habit:weekly-content-creation) @priority(1)
 ```
 
 ---

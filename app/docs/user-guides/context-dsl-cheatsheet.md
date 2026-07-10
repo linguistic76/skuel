@@ -63,14 +63,7 @@ line but drops the schedule.
 ## Full example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus
-      @context(task,learning)
-      @when(2026-07-14T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
-      @ku(ku:teens-yoga/focus-lesson)
-      @link(goal:teens-yoga/20-members)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2026-07-14T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members)
 ```
 
 **Full reference:** `/docs/dsl/DSL_USAGE_GUIDE.md` (patterns) and

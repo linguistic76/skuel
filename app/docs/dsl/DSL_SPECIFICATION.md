@@ -31,6 +31,8 @@ The SKUEL Activity DSL is a **domain-specific language** embedded in Markdown th
 
 An Activity Line is any Markdown line containing at minimum one `@context()` tag.
 
+**One physical line.** The parser processes each line independently — description and ALL tags must share the line. Splitting tags onto indented continuation lines produces a metadata-less checkbox task (via the obsidian-tasks fallback) plus an empty-description tag line, not one entity.
+
 ```
 ActivityLine ::= LeadingMarkdown Description TagList
 LeadingMarkdown ::= "- [ ]" | "- [x]" | "-" | "*" | ""  // optional
@@ -367,14 +369,7 @@ vortex:     → Vortexes
 ## Complete Example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus
-      @context(task,learning)
-      @when(2025-11-30T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
-      @ku(ku:teens-yoga/focus-lesson)
-      @link(goal:teens-yoga/20-members, principle:discernment-first)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
 ```
 
 **Parsing yields:**

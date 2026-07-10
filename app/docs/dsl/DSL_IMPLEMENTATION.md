@@ -583,21 +583,22 @@ def test_parse_repeat():
 
 ```python
 def test_full_activity_line_parsing():
-    line = """- [ ] Draft lesson
-              @context(task,learning)
-              @when(2025-11-30T09:00)
-              @priority(1)
-              @duration(90m)
-              @energy(focus,creative)"""
+    # An Activity Line is ONE physical line — parse_journal handles each
+    # line independently, so tags must live on the same line as the description.
+    line = (
+        "- [ ] Draft lesson @context(task,learning) @when(2025-11-30T09:00) "
+        "@priority(1) @duration(90m) @energy(focus,creative)"
+    )
 
     parser = ActivityDSLParser()
     result = parser.parse_line(line)
 
-    assert result is not None
-    assert result.description == "Draft lesson"
-    assert EntityType.TASK in result.contexts
-    assert EntityType.PATH_STEP in result.contexts
-    assert result.when == datetime(2025, 11, 30, 9, 0)
+    assert result.is_ok
+    activity = result.value
+    assert activity.description == "Draft lesson"
+    assert EntityType.TASK in activity.contexts
+    assert NonKuDomain.LEARNING in activity.contexts
+    assert activity.when == datetime(2025, 11, 30, 9, 0)
     assert result.priority == 1
     assert result.duration_minutes == 90
     assert "focus" in result.energy_states
