@@ -154,9 +154,8 @@ class Neo4jSchemaManager:
 
             return Result.ok(results)
 
-        except (
-            Exception
-        ) as e:  # skuel-lint: disable=SKUEL017 -- schema sync iterates dataclass fields + DB ops
+        # intentional-broad: schema sync iterates dataclass fields + DB ops
+        except Exception as e:
             self.logger.error(f"Schema sync failed for {neo_label}: {e}")
             return Result.fail(Errors.system(f"Schema sync failed: {e}", operation="sync_indexes"))
 

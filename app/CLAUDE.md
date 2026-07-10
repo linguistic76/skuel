@@ -255,7 +255,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 - Use `Errors` factory for creating errors
 - Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
-- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL024, SKUEL025.
+- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017–SKUEL025. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
 
@@ -543,6 +543,7 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 | SKUEL022 | No `adapters/` imports in `core/` — `TYPE_CHECKING`-only imports exempt | ERROR |
 | SKUEL024 | No `cls=` + `**kwargs` collision in FT helpers — fix: `cls=f"...{cls}".strip()` | ERROR |
 | SKUEL025 | No deleted Activity `*UpdatePayload` — use `*UpdateIntent` or `*UpdateRequest.to_intent()` | ERROR |
+| SKUEL026 | No suppression comments that suppress nothing (per-run audit) | WARNING |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt

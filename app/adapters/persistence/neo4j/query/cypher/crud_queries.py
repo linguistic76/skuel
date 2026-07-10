@@ -44,9 +44,8 @@ def _is_sequence_field(entity_class: type, field_name: str) -> bool:
         field_type = type_hints.get(field_name)
         origin = get_origin(field_type) if field_type else None
         return origin in (list, tuple)
-    except (
-        Exception
-    ):  # skuel-lint: disable=SKUEL017 -- type introspection may raise arbitrary errors
+    # intentional-broad: type introspection may raise arbitrary errors
+    except Exception:
         return False
 
 

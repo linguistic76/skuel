@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# skuel-lint: disable-file=SKUEL015 -- Interactive CLI utility (uses print())
 """
 Migrate secrets out of the worktree (Stage 2).
 ==============================================

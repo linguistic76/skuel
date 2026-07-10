@@ -32,9 +32,7 @@ async def enrich_events_with_goal_links(
     backend: Any,
     events: list[Event],
     active_goal_uids: list[str] | None = None,
-) -> list[
-    Event
-]:  # skuel-lint: disable=SKUEL005 -- fail-soft read-projection; events returned unchanged on lookup failure (derived field is best-effort, not a propagated error)
+) -> list[Event]:
     """Return events with their derived ``contributes_to_goal_uid`` populated.
 
     Batch-looks up the CONTRIBUTES_TO_GOAL edge for ``events`` and returns new Event

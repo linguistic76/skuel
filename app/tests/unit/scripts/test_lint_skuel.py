@@ -2861,3 +2861,149 @@ class TestSKUEL025:
         content = "updates: TaskUpdatePayload = {}\n"
         violations = lint_content(linter, content, file_path="tests/unit/test_x.py")
         assert violations == []
+
+
+class TestSKUEL026:
+    """SKUEL026 — suppression audit: flag comments that suppress nothing.
+
+    These tests use real files (tmp_path): the audit re-reads files from disk
+    to tokenize genuine comments and shadow-lint with suppressions ignored.
+    """
+
+    def _lint_tree(
+        self,
+        tmp_path: Path,
+        files: dict[str, str],
+        rules_filter: list[str] | None = None,
+    ) -> SkuelLinter:
+        for rel, content in files.items():
+            p = tmp_path / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding="utf-8")
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=rules_filter)
+        linter.lint()
+        return linter
+
+    def test_used_line_suppression_not_flagged(self, tmp_path: Path) -> None:
+        """A suppression whose rule fires at its line is used — no SKUEL026."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": (
+                    'ok = hasattr(app, "routes")  # skuel-lint: disable=SKUEL011 -- boundary check\n'
+                )
+            },
+        )
+        assert linter.result.violations == []
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is True
+
+    def test_unused_line_suppression_flagged(self, tmp_path: Path) -> None:
+        """A suppression on a line where the rule would not fire is rot."""
+        linter = self._lint_tree(
+            tmp_path,
+            {"core/services/x.py": "value = 1  # skuel-lint: disable=SKUEL011 -- stale\n"},
+        )
+        flagged = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(flagged) == 1
+        assert flagged[0].line_number == 1
+        assert "would not fire at this line" in flagged[0].message
+        assert linter.result.suppressions[0].used is False
+
+    def test_used_file_level_suppression_not_flagged(self, tmp_path: Path) -> None:
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/app.py": (
+                    '# skuel-lint: disable-file=SKUEL015 -- CLI report\nprint("hello")\n'
+                )
+            },
+        )
+        assert linter.result.violations == []
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is True
+        assert linter.result.suppressions[0].file_level is True
+
+    def test_unused_file_level_suppression_flagged(self, tmp_path: Path) -> None:
+        linter = self._lint_tree(
+            tmp_path,
+            {"core/app.py": "# skuel-lint: disable-file=SKUEL015 -- stale\nvalue = 1\n"},
+        )
+        flagged = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(flagged) == 1
+        assert "would not fire in this file" in flagged[0].message
+
+    def test_non_suppressible_rule_comment_flagged(self, tmp_path: Path) -> None:
+        """disable=SKUEL003 does nothing — SKUEL003 still fires AND the comment is flagged."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": "if result.is_err:  # skuel-lint: disable=SKUEL003 -- nope\n    pass\n"
+            },
+        )
+        rule_ids = {v.rule_id for v in linter.result.violations}
+        assert "SKUEL003" in rule_ids  # the violation is NOT suppressed
+        flagged = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(flagged) == 1
+        assert "does not support inline suppression" in flagged[0].message
+        assert linter.result.suppressions[0].used is False
+
+    def test_unknown_rule_comment_flagged(self, tmp_path: Path) -> None:
+        linter = self._lint_tree(
+            tmp_path,
+            {"core/services/x.py": "value = 1  # skuel-lint: disable=SKUEL099 -- typo\n"},
+        )
+        flagged = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(flagged) == 1
+        assert "not a SKUEL rule" in flagged[0].message
+
+    def test_malformed_comment_flagged_as_not_suppressed(self, tmp_path: Path) -> None:
+        """Missing space: discovered by the loose regex, but the checker's exact
+        substring match means it suppresses nothing — rule fires + comment flagged."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": 'ok = hasattr(app, "routes")  #skuel-lint:disable=SKUEL011 -- oops\n'
+            },
+        )
+        rule_ids = {v.rule_id for v in linter.result.violations}
+        assert "SKUEL011" in rule_ids
+        flagged = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(flagged) == 1
+        assert "was not suppressed" in flagged[0].message
+
+    def test_suppression_text_in_string_literal_ignored(self, tmp_path: Path) -> None:
+        """Suppression examples inside strings/docstrings are not genuine comments."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": (
+                    'EXAMPLE = """\nvalue = 1  # skuel-lint: disable=SKUEL011 -- doc example\n"""\n'
+                )
+            },
+        )
+        assert linter.result.suppressions == []
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
+
+    def test_rule_filter_excluding_skuel026_skips_audit(self, tmp_path: Path) -> None:
+        linter = self._lint_tree(
+            tmp_path,
+            {"core/services/x.py": "value = 1  # skuel-lint: disable=SKUEL011 -- stale\n"},
+            rules_filter=["SKUEL011"],
+        )
+        assert linter.result.suppressions == []
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
+
+
+class TestSuppressibleRulesDrift:
+    """SUPPRESSIBLE_RULES must equal the set of rules whose checkers actually
+    call the suppression helpers — SKUEL026's messaging depends on it."""
+
+    def test_suppressible_rules_match_helper_call_sites(self) -> None:
+        import re
+
+        source = (Path(__file__).resolve().parents[3] / "scripts" / "lint_skuel.py").read_text(
+            encoding="utf-8"
+        )
+        called = set(re.findall(r'_is_(?:line|file)_suppressed\([^)]*"(SKUEL\d{3})"\)', source))
+        assert called == set(SkuelLinter.SUPPRESSIBLE_RULES)

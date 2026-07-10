@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- soft-enhancement helpers, deliberately infallible: degrade to [] (module docstring); JournalService adds the Result wrapper at the service contract layer
 """Shared grounding for the LLM DSL bridge.
 
 Both bridge entry points ground ``transform_with_context`` in the user's active
@@ -33,11 +34,7 @@ if TYPE_CHECKING:
 _GROUNDING_GOAL_LIMIT = 10
 
 
-async def active_goal_titles(
-    goals_service: GoalsService | None, user_uid: UserUID
-) -> list[
-    str
-]:  # skuel-lint: disable=SKUEL005 -- soft-enhancement helper, deliberately infallible: degrades to [] (module docstring); JournalService.active_goal_titles adds the Result wrapper at the service contract layer
+async def active_goal_titles(goals_service: GoalsService | None, user_uid: UserUID) -> list[str]:
     """Titles of the user's active goals — the grounding fed to the DSL bridge.
 
     Returns an empty list (never an error) when no goals service is wired or the

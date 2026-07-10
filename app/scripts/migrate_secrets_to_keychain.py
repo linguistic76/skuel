@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# skuel-lint: disable-file=SKUEL015 -- Interactive CLI utility (uses print())
 """
 Migrate secrets from ~/.config/skuel/secrets.env into the OS keychain (Stage 3).
 ================================================================================

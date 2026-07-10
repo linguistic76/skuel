@@ -28,7 +28,7 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 83 tests covering all 17 SKUEL rules, LintResult, suppression
+- `tests/unit/scripts/test_lint_skuel.py` — 274 tests covering all 26 SKUEL rules, LintResult, suppression + the SKUEL026 audit
 - `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
 
 ## SKUEL-Specific Rules
@@ -77,6 +77,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` |
 | **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use accessor methods (`get_X()` / `X_or_empty()`) |
 | **SKUEL019** | Credential reads bypassing `get_credential()` | ERROR for catalog keys, WARNING for credential-shape names |
+| **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
 
 ## Inline Suppression
 
@@ -90,11 +91,29 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
-**SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (261 existing uses).
+**SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (same line or the line above — the line-above form survives formatter wrapping).
 
 **Always include a reason** after `--` to document why the suppression is needed.
+
+### Suppression audit (SKUEL026)
+
+Every run audits suppression comments: files containing them are shadow-linted with
+suppressions ignored, and a comment is **used** only if it actually suppressed a
+violation. Anything else — the guarded violation was refactored away, the rule isn't
+suppressible, a typo'd rule ID, a malformed comment — is flagged as SKUEL026 (WARNING,
+so it fails the `--strict` gates). The summary reports active/used counts per rule, and
+`--json` includes a full `suppressions` block.
+
+Discovery is tokenize-based: only genuine `#` comments count, so suppression examples
+inside string literals and docstrings (rule docs, linter tests) are never audited.
+
+**Formatter trap this audit catches:** a long trailing suppression comment makes the
+formatter wrap the statement, which strands the comment on a different line than the
+one the checker reads — silently killing the suppression. Prefer file-level
+suppressions (line 1 is never rewrapped) or the SKUEL017 line-above markers when the
+suppressed line is long.
 
 ## Rule: SKUEL003 - Deprecated .is_err
 
@@ -654,7 +673,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (19 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (26 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
@@ -686,4 +705,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-05-16
-**Status:** Active - 19 rules enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX`. Unit tests cover both linters.
+**Status:** Active - 26 rules (SKUEL001–SKUEL026) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Unit tests cover both linters.
