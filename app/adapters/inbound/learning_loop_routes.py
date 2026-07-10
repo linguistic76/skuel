@@ -13,8 +13,10 @@ and teacher feedback loaded via HTMX fragments.
 Routes:
 - GET  /explore/ku/{uid}          — Ku reading page (reading-first, no sidebar)
 - GET  /explore/ku/{uid}/content  — HTMX fragment: Ku reading content
+- GET  /explore/ku/{uid}/related  — HTMX fragment: Related concepts (Ku→Ku vector similarity)
 - GET  /explore/ps/{uid}          — PathStep detail page (reading-first, no sidebar)
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
+- GET  /explore/ps/{uid}/related  — HTMX fragment: Related concepts (PS→PS vector similarity)
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list with status
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback
 """
@@ -31,9 +33,17 @@ from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.utils.logging import get_logger
 from core.utils.markdown_renderer import render_markdown_with_toc
-from ui.explore.ku_detail import render_ku_detail_content, render_ku_not_found
+from ui.explore.ku_detail import (
+    render_ku_detail_content,
+    render_ku_not_found,
+    render_ku_related_concepts,
+)
 from ui.explore.ku_mastery import render_ku_mastery_result
-from ui.explore.ps_detail import render_ps_detail_content, render_ps_not_found
+from ui.explore.ps_detail import (
+    render_ps_detail_content,
+    render_ps_not_found,
+    render_ps_related_concepts,
+)
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.learning_loop.embedded_forms import (
@@ -51,6 +61,7 @@ if TYPE_CHECKING:
 
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.ports.form_protocols import FormSubmissionOperations
+    from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
 logger = get_logger("skuel.routes.learning_loop")
@@ -113,6 +124,7 @@ def create_learning_loop_detail_routes(
     orchestrator: "ExploreOrchestrator",
     ps_engagement_service: "PsEngagementService | None" = None,
     user_service: Any = None,
+    vector_search_service: "Neo4jVectorSearchService | None" = None,
 ) -> None:
     """Register /explore/ku/{uid} and /explore/ps/{uid} detail routes.
 
@@ -129,6 +141,9 @@ def create_learning_loop_detail_routes(
         user_service: Used to resolve the viewer's role for the teacher
             publish button on /explore/ps/{uid}. Optional — when absent,
             the publish state collapses to the empty-wrapper variant.
+        vector_search_service: Powers the "Related concepts" section
+            (node→node vector similarity, read-time lens). None on CORE
+            tier — the section is simply absent.
     """
 
     # -----------------------------------------------------------------
@@ -198,7 +213,39 @@ def create_learning_loop_detail_routes(
             user_uid=user_uid,
             mastery_checkins=mastery_checkins,
             resources=resources,
+            show_related=vector_search_service is not None,
         )
+
+    # -----------------------------------------------------------------
+    # GET /explore/{ku,ps}/{uid}/related — Related concepts fragments
+    # -----------------------------------------------------------------
+
+    async def _related_fragment(label: str, uid: str, fragment_id: str) -> list[dict[str, Any]]:
+        """Fetch vector-similar neighbours for a Related-concepts fragment.
+
+        Fail-soft by design (#538 precedent): CORE tier (service is None),
+        lookup errors, and missing embeddings all collapse to an empty list —
+        the section is simply absent, never an error banner.
+        """
+        if vector_search_service is None:
+            return []
+        result = await vector_search_service.find_related_concepts(label, uid)
+        if result.is_error:
+            logger.debug(
+                "Related concepts unavailable for %s %s (%s): %s",
+                label,
+                uid,
+                fragment_id,
+                result.expect_error().message,
+            )
+            return []
+        return [r["node"] for r in (result.value or [])]
+
+    @rt("/explore/ku/{uid}/related")
+    async def explore_ku_related_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: Related concepts — vector-similar Kus (read-time lens)."""
+        related = await _related_fragment("Ku", uid, "ku-related-fragment")
+        return render_ku_related_concepts(related)
 
     # -----------------------------------------------------------------
     # POST /explore/ku/{uid}/mastery-checkin — Knowledge dual-track (ADR-030)
@@ -347,6 +394,7 @@ def create_learning_loop_detail_routes(
             toc_html=toc_html,
             kus=kus,
             resources=resources,
+            show_related=vector_search_service is not None,
             is_marked_read=is_marked_read,
             is_bookmarked=is_bookmarked,
             is_in_progress=is_in_progress,
@@ -357,6 +405,12 @@ def create_learning_loop_detail_routes(
             user_role=user_role,
             has_task_templates=has_task_templates,
         )
+
+    @rt("/explore/ps/{uid}/related")
+    async def explore_ps_related_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: Related concepts — vector-similar PathSteps (read-time lens)."""
+        related = await _related_fragment("PathStep", uid, "ps-related-fragment")
+        return render_ps_related_concepts(related)
 
     logger.info(
         "Learning loop detail routes registered: /explore/ku/{uid} and "
@@ -454,13 +508,19 @@ def create_learning_loop_routes(
     ps_engagement_service: "PsEngagementService | None" = None,
     user_service: Any = None,
     form_submission_service: "FormSubmissionOperations | None" = None,
+    vector_search_service: "Neo4jVectorSearchService | None" = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 
     This is the single entry point called by explore_routes.py.
     """
     create_learning_loop_detail_routes(
-        app, rt, orchestrator, ps_engagement_service, user_service=user_service
+        app,
+        rt,
+        orchestrator,
+        ps_engagement_service,
+        user_service=user_service,
+        vector_search_service=vector_search_service,
     )
     create_learning_loop_fragment_routes(
         app, rt, orchestrator, form_submission_service=form_submission_service

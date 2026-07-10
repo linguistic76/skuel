@@ -719,11 +719,8 @@ PLANNED_METHODS: dict[str, str] = {
         "or the prerequisite-checker surface when per-Ku readiness is needed"
     ),
     # Restored from campaign-18 deletion — test-covered, no production caller
-    "core/services/neo4j_vector_search_service.py::find_similar_to_node": (
-        "find similar nodes to a given node via its stored embedding; integration "
-        "test coverage in test_vector_search.py + test_embedding_fixtures_usage.py; "
-        "wire into a 'more like this' route or recommendation surface"
-    ),
+    # (find_similar_to_node graduated 2026-07-10: consumed by find_related_concepts
+    # → the /explore/{ku,ps}/{uid}/related "Related concepts" fragments)
     "core/services/neo4j_vector_search_service.py::find_cross_domain_similar": (
         "cross-domain vector similarity across multiple labels in one call; "
         "integration test coverage in test_vector_search.py + test_embedding_fixtures_usage.py; "

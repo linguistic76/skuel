@@ -186,6 +186,8 @@ async def compose_services(
                 "Entity",  # Base label — covers all entity types via multi-label
                 "ContentChunk",  # RAG chunks
                 "ReferenceChunk",  # Canon reference-book chunks (own index, SearchRouter-invisible)
+                "Ku",  # Ku→Ku similarity — "Related concepts" on /explore/ku/{uid}
+                "PathStep",  # PS→PS similarity — "Related concepts" on /explore/ps/{uid}
             ]
             vector_result = await schema_manager.sync_vector_indexes(
                 entity_labels=vector_labels, dimension=1024, similarity="cosine"

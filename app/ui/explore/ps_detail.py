@@ -84,6 +84,7 @@ def render_ps_detail_content(
     has_task_templates: bool = False,
     kus: list[dict] | None = None,
     resources: list[dict] | None = None,
+    show_related: bool = False,
     # Retained for API compatibility; not rendered in this design iteration.
     toc_html: str = "",
     exercises: list[dict] | None = None,
@@ -110,6 +111,9 @@ def render_ps_detail_content(
         kus: Atomic Kus this step composes (USES_KU) — rendered as reader links.
         resources: Curated Resources this step cites (CITES_RESOURCE) —
             rendered as reference chips (author/year, source link when known).
+        show_related: Mount the lazy "Related concepts" fragment (PS→PS vector
+            similarity). FULL tier only — False (section absent) when the
+            vector search service is unavailable.
         toc_html: Not used in this layout (no TOC sidebar).
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
@@ -143,6 +147,7 @@ def render_ps_detail_content(
         _body_section(content_html) if content_html else Div(),
         _kus_section(kus) if kus else Div(),
         _resources_section(resources) if resources else Div(),
+        _related_placeholder(uid) if show_related else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
@@ -480,6 +485,66 @@ def _resources_section(resources: list[dict]) -> "FT":
 
 
 # ---------------------------------------------------------------------------
+# Related concepts section (vector similarity — read-time lens)
+# ---------------------------------------------------------------------------
+
+
+def _related_placeholder(uid: str) -> "FT":
+    """Lazy HTMX mount for the Related-concepts section.
+
+    The fragment returns the full section (heading included) or an empty div,
+    so an empty/failed lookup leaves no orphaned heading behind.
+    """
+    return Div(
+        id="ps-related-fragment",
+        **{
+            "hx-get": f"/explore/ps/{uid}/related",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def render_ps_related_concepts(related: list[dict]) -> "FT":
+    """Related concepts — vector-similar PathSteps as reader chips.
+
+    Read-time lens over embeddings: no edges exist or are created for these
+    neighbours. Ordered by similarity (scores not shown); each chip links to
+    the neighbour's detail page. Empty input collapses to an empty div so
+    the section vanishes entirely rather than rendering a bare heading.
+    """
+    items = [r for r in related if r.get("uid")]
+    if not items:
+        return Div(id="ps-related-fragment")
+    return Section(
+        H2(
+            "Related concepts",
+            id="ps-related-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        Div(
+            *[
+                A(
+                    r.get("title") or r["uid"],
+                    href=f"/explore/ps/{r['uid']}",
+                    cls=(
+                        "inline-flex items-center px-3 py-1.5 rounded-full border "
+                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "text-foreground hover:bg-accent hover:text-accent-foreground"
+                    ),
+                )
+                for r in items
+            ],
+            cls="flex flex-wrap gap-2",
+        ),
+        id="ps-related-fragment",
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-related-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Tasks section
 # ---------------------------------------------------------------------------
 
@@ -681,4 +746,4 @@ def _deps_accordion() -> "FT":
     )
 
 
-__all__ = ["render_ps_detail_content", "render_ps_not_found"]
+__all__ = ["render_ps_detail_content", "render_ps_not_found", "render_ps_related_concepts"]
