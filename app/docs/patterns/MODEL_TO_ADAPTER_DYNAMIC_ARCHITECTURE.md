@@ -17,6 +17,12 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 
 ---
 
+## July 2026 Update: SearchEventBackend (Discovery Analytics Phase 1)
+
+New standalone **`SearchEventBackend`** (`adapters/persistence/neo4j/search_event_backend.py`) behind the **`SearchEventBackendOperations`** port (`core/ports/search_protocols.py`). Persists and aggregates `:SearchEvent` behavioral-log nodes (`NeoLabel.SEARCH_EVENT` — a plain infrastructure node like `:ContentChunk`, not an EntityType). Like `InsightBackend`/`CrossDomainBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`. Methods: `record_search_event` (written by `SearchEventRecorder`, the `search.executed` subscriber), `get_search_gaps` (zero/low-result content-gap aggregation), `count_search_events` (the 1000+ discovery-analytics trigger). **See:** `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md`.
+
+---
+
 ## May 2026 Update: Connection-Fetch Backend Below the Boundary (ADR-044)
 
 `core/utils/connection_fetcher.py` — which both authored AND executed cross-domain Cypher via an injected `QueryExecutor` — was the last live raw-Cypher leak in `core/`. Its two queries moved verbatim into a new standalone **`ConnectionFetchBackend`** (`adapters/persistence/neo4j/connection_fetch_backend.py`) behind the **`ConnectionFetchOperations`** port (`core/ports/connection_fetch_protocols.py`; methods `fetch_entity_connections(config, uids)` + `fetch_source_pathstep(ps_uid)`). Like `CrossDomainBackend` / `InsightBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`.

@@ -106,6 +106,14 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 | `habit.created` | Habit created | Analytics |
 | `habit.missed` | Habit missed (scheduled but not done) | Reminders, Analytics |
 
+### Search (Cross-Cutting)
+
+**File:** `search_events.py`
+
+| Event | When Published | Subscribers |
+|-------|----------------|-------------|
+| `search.executed` | External search ran through SearchRouter (faceted/intelligent/advanced; one event per search, internal fan-out suppressed, empty queries skipped) | SearchEventRecorder (:SearchEvent behavioral log) |
+
 ### User Context Domain
 
 **File:** `user_events.py` (to be created)
