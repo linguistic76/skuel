@@ -370,6 +370,18 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # masked any same-named call). Two pure-plumbing helpers were DELETED (live
 # winners exist: inline None-guard / standalone from_domain_model fn); these
 # three are feature-shaped surfaces with no superseded loser.
+# Chain builders on phantom edges (Mike ruled PLANNED, not delete, 2026-07-10).
+_PHANTOM_EDGE_CHAIN_BUILDERS = (
+    "caller-less dependency-chain query builder (export lists only) built on "
+    "phantom edge vocabulary: REQUIRES between Principles/Habits plus the "
+    "user-scoped filter edges ADHERES_TO (User→Principle) and PRACTICES "
+    "(User→Habit) — none of these are in RelationshipName and none has a "
+    "writer anywhere (2026-07 writer audits; PRACTICES Event→Ku remapped in "
+    "#586, these User-scoped reads are the separate shape). Completing this "
+    "requires real edge vocabulary FIRST (register the edges + build write "
+    "paths), then wire a dependency-chain surface on the detail pages"
+)
+
 _MIXIN_PREREQUISITE_WRITE = (
     "config-driven prerequisite-write half staged — the write twin of the LIVE "
     "get_prerequisites/get_enables read pair (PsService + GraphQL curriculum "
@@ -737,6 +749,15 @@ PLANNED_METHODS: dict[str, str] = {
         "count query for ingestion history entries; unit test coverage in "
         "tests/unit/test_ingestion_history.py; no production caller yet — "
         "wire into the ingestion admin dashboard or a /status route"
+    ),
+    # --- Query builders: dependency chains on phantom edge vocabulary ---
+    # (outside METHOD_SCOPE — reported via the existence-checked out-of-scope
+    # path, not the vulture pipeline)
+    "adapters/persistence/neo4j/query/cypher/domain_queries.py::build_principle_dependencies": (
+        _PHANTOM_EDGE_CHAIN_BUILDERS
+    ),
+    "adapters/persistence/neo4j/query/cypher/domain_queries.py::build_habit_dependencies": (
+        _PHANTOM_EDGE_CHAIN_BUILDERS
     ),
 }
 
@@ -1803,11 +1824,15 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
 
     # Stale planned markings: a planned method that stopped being a vulture
     # candidate is now live (wiring complete) or deleted — either way the
-    # entry must go.
+    # entry must go. Only METHOD_SCOPE keys ride this check — out-of-scope
+    # entries are never vulture candidates here, so they get the
+    # existence-checked path below instead.
     flagged_keys = {f"{f.file}::{f.subject}" for f in findings + exempted}
     for planned_key in PLANNED_METHODS:
+        rel, _, name = planned_key.rpartition("::")
+        if not rel.startswith(METHOD_SCOPE):
+            continue
         if planned_key not in flagged_keys:
-            rel, _, name = planned_key.rpartition("::")
             findings.append(
                 Finding(
                     kind="planned-marking-stale",
@@ -1822,8 +1847,61 @@ def analyze_methods(codebase: ParsedCodebase, vulture_items: list) -> MethodAnal
                 )
             )
 
+    findings.extend(_out_of_scope_planned_findings(codebase))
+
     findings.sort(key=lambda f: (f.file, f.line))
     return MethodAnalysis(findings, exempted, suppressed, total, dispatch)
+
+
+def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
+    """Report PLANNED entries living outside METHOD_SCOPE (e.g. adapters/ query
+    builders).
+
+    The vulture pipeline never scopes to these files, so such entries can't
+    ride the normal candidate→PLANNED demotion or its stale check. They are
+    emitted directly as backlog items; the one verification possible without
+    call analysis is existence — a deleted or renamed function turns the
+    entry into a stale marking.
+    """
+    results: list[Finding] = []
+    for planned_key, note in PLANNED_METHODS.items():
+        rel, _, name = planned_key.rpartition("::")
+        if rel.startswith(METHOD_SCOPE):
+            continue
+        module = codebase.production.get(codebase.root / rel)
+        def_line = 0
+        if module is not None:
+            for node in ast.walk(module):
+                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
+                    def_line = node.lineno
+                    break
+        if def_line == 0:
+            results.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.INFO,
+                    subject=name,
+                    file=rel,
+                    line=0,
+                    detail=(
+                        "marked planned but the function no longer exists at this "
+                        "path — deleted or renamed; remove from PLANNED_METHODS"
+                    ),
+                )
+            )
+        else:
+            results.append(
+                Finding(
+                    kind="method-awaiting-wiring",
+                    severity=BloatSeverity.PLANNED,
+                    subject=name,
+                    file=rel,
+                    line=def_line,
+                    detail=f"unwired by intent — {note}",
+                    annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
+                )
+            )
+    return results
 
 
 # ============================================================================
