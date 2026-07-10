@@ -877,24 +877,31 @@ class ActivityDSLParser:
         if not value:
             return None
 
-        # Try ISO with T
-        match = self.ISO_DATETIME_T.match(value)
-        if match:
-            year, month, day, hour, minute = map(int, match.groups())
-            return datetime(year, month, day, hour, minute)
+        # Impossible calendar dates (e.g. 2026-02-31) must degrade like any
+        # other unparseable @when — schedule dropped, line kept — instead of
+        # escaping as ValueError and failing the whole line in parse_line().
+        try:
+            # Try ISO with T
+            match = self.ISO_DATETIME_T.match(value)
+            if match:
+                year, month, day, hour, minute = map(int, match.groups())
+                return datetime(year, month, day, hour, minute)
 
-        # Try ISO with space
-        match = self.ISO_DATETIME_SPACE.match(value)
-        if match:
-            year, month, day, hour, minute = map(int, match.groups())
-            return datetime(year, month, day, hour, minute)
+            # Try ISO with space
+            match = self.ISO_DATETIME_SPACE.match(value)
+            if match:
+                year, month, day, hour, minute = map(int, match.groups())
+                return datetime(year, month, day, hour, minute)
 
-        # Date only — the natural short form. Converters that want a date call
-        # .date(); time-of-day consumers get midnight.
-        match = self.ISO_DATE_ONLY.match(value)
-        if match:
-            year, month, day = map(int, match.groups())
-            return datetime(year, month, day)
+            # Date only — the natural short form. Converters that want a date
+            # call .date(); time-of-day consumers get midnight.
+            match = self.ISO_DATE_ONLY.match(value)
+            if match:
+                year, month, day = map(int, match.groups())
+                return datetime(year, month, day)
+        except ValueError as e:
+            self.logger.warning(f"Invalid @when date: {value} - {e}")
+            return None
 
         self.logger.warning(f"Could not parse @when value: {value}")
         return None
