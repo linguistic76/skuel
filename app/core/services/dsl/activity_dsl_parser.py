@@ -565,6 +565,9 @@ class ActivityDSLParser:
     # Duration format: 90m, 1h, 1h30m
     DURATION_PATTERN = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?")
 
+    # Valid @repeat(weekly:...) day names (spec grammar: Mon-Sun)
+    WEEKLY_DAYS = frozenset({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"})
+
     def __init__(self) -> None:
         """Initialize the parser."""
         self.logger = get_logger("skuel.dsl.parser")
@@ -1045,14 +1048,24 @@ class ActivityDSLParser:
         if value == "custom":
             return {"type": "custom"}
 
+        # Malformed-but-prefixed values (weekly:Funday, monthly:x) must return
+        # None like any unknown pattern — a non-None dict here would reach the
+        # converters as a real recurrence and dodge the tag_warnings report.
         if value.startswith("weekly:"):
             days_str = value[7:]  # Remove "weekly:"
-            days = [d.strip().capitalize() for d in days_str.split(",")]
+            days = [d.strip().capitalize() for d in days_str.split(",") if d.strip()]
+            if not days or any(d not in self.WEEKLY_DAYS for d in days):
+                self.logger.warning(f"Invalid weekly repeat days: {value}")
+                return None
             return {"type": "weekly", "days": days}
 
         if value.startswith("monthly:"):
             days_str = value[8:]  # Remove "monthly:"
-            day_numbers = [int(d.strip()) for d in days_str.split(",") if d.strip().isdigit()]
+            raw_days = [d.strip() for d in days_str.split(",") if d.strip()]
+            day_numbers = [int(d) for d in raw_days if d.isdigit() and 1 <= int(d) <= 31]
+            if not raw_days or len(day_numbers) != len(raw_days):
+                self.logger.warning(f"Invalid monthly repeat days: {value}")
+                return None
             return {"type": "monthly", "days": day_numbers}
 
         if value.startswith("every:"):

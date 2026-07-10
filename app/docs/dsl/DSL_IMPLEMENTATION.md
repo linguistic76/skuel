@@ -404,6 +404,10 @@ class ParsedActivityLine:
     source_file: str | None = None
     source_line: int | None = None
 
+    # Dropped-tag-value reports (@when(Friday), @priority(99), ...): value
+    # dropped, line kept; extraction surfaces these via the sync warnings.
+    tag_warnings: list[str] = field(default_factory=list)
+
     @property
     def context_values(self) -> list[str]:
         """Get string values of contexts for serialization."""

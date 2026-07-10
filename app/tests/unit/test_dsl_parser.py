@@ -446,6 +446,23 @@ class TestErrorHandling:
             assert fragment in joined, f"missing warning for {fragment}"
         assert len(activity.tag_warnings) == 4
 
+    def test_malformed_repeat_values_dropped_with_warning(self):
+        """Prefixed-but-malformed repeats drop with a warning, not a fake recurrence."""
+        for rep in (
+            "weekly:",
+            "weekly:Funday",
+            "weekly:Mon,Funday",
+            "monthly:x",
+            "monthly:0",
+            "monthly:32",
+            "every:d",
+        ):
+            result = parse_activity_line(f"- [ ] Chore @context(habit) @repeat({rep})")
+
+            assert result.is_ok, rep
+            assert result.value.repeat_pattern is None, f"@repeat({rep}) should drop"
+            assert any("@repeat" in w for w in result.value.tag_warnings), rep
+
     def test_valid_tag_values_produce_no_warnings(self):
         """Fully valid lines carry an empty tag_warnings list."""
         result = parse_activity_line(
