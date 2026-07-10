@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2025-11-30
+updated: 2026-07-10
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -9,8 +9,8 @@ related: [DSL_USAGE_GUIDE.md, DSL_IMPLEMENTATION.md]
 
 # SKUEL Activity DSL - Formal Specification
 
-*Current Version: v0.3*
-*Last Updated: 2025-11-30*
+*Current Version: v0.5*
+*Last Updated: 2026-07-10*
 
 ## Purpose
 
@@ -30,6 +30,8 @@ The SKUEL Activity DSL is a **domain-specific language** embedded in Markdown th
 ### Activity Line Definition
 
 An Activity Line is any Markdown line containing at minimum one `@context()` tag.
+
+**One physical line.** The parser processes each line independently — description and ALL tags must share the line. Splitting tags onto indented continuation lines produces a metadata-less checkbox task (via the obsidian-tasks fallback) plus an empty-description tag line, not one entity.
 
 ```
 ActivityLine ::= LeadingMarkdown Description TagList
@@ -61,11 +63,12 @@ Value ::= any characters except ")"
 
 ### Version History
 
-| Version | Tags Added | Description |
+| Version | Changes | Description |
 |---------|------------|-------------|
 | v0.1 | `@context()`, `@when()` | Core entity classification and scheduling |
 | v0.2 | `@priority()`, `@ku()`, `@link()` | Prioritization and graph relationships |
 | v0.3 | `@energy()`, `@duration()`, `@repeat()` | Behavioral, temporal, and habit patterns |
+| v0.5 | Typed contexts; date-only `@when()` | `@context()` values parse to `EntityType`/`NonKuDomain` enum values (the enums ARE the vocabulary — `note`/`reflection`/`metric` from earlier drafts were dropped, never implemented); `@when()` accepts date-only values. v0.4 was never released. |
 
 ---
 
@@ -84,28 +87,46 @@ ContextList ::= DomainIdentifier ("," DomainIdentifier)*
 DomainIdentifier ::= Identifier
 ```
 
-**Canonical Entity Types:**
+**Entity-creating context types** (wired to a live create surface in production — `services_bootstrap/compose.py`):
+
 ```
-task       → one-off or concrete action
-habit      → repeated behavior pattern
-goal       → desired outcome or state
-event      → scheduled occurrence
-learning   → educational activity
-note       → informational, not actionable
-reflection → introspective or journaling
-metric     → data/measurement item
+task        → one-off or concrete action           (Activity Domain)
+habit       → repeated behavior pattern            (Activity Domain)
+goal        → desired outcome or state             (Activity Domain)
+event       → scheduled occurrence                 (Activity Domain)
+principle   → value or belief to embody            (Activity Domain)
+choice      → decision to make                     (Activity Domain)
+ku          → atomic Knowledge Unit                (Curriculum; creation role-gated)
 ```
+
+**Modifier context** (valid in combination; creates no entity by itself):
+
+```
+learning    → marks the activity as educational, e.g. @context(task,learning)
+```
+
+**Parse-only context types** (recognized and counted in extraction stats, but skip cleanly — the extractor has converters, yet production wires no create surface for them):
+
+```
+path_step     → aliases: ps, step, learningstep    (no create-capable facade method today)
+learning_path → aliases: lp, path, learningpath    (no create-capable facade method today)
+calendar      →                                    (no create-capable facade method today)
+life_path     → alias: lifepath                    (no create-capable facade method today)
+finance       →                                    (retired as in-app domain — ADR-052 Firefly sidecar)
+```
+
+**Parseable vs. extractable:** the parser accepts every `EntityType` (25 values) and `NonKuDomain` (4 values) — anything beyond the lists above (e.g. `@context(exercise)`) parses successfully and creates nothing. For lines that should become real entities, stick to the entity-creating vocabulary.
 
 **Examples:**
 ```markdown
 @context(task)
-@context(habit,reflection)
+@context(habit)
 @context(goal,learning)
 ```
 
 **Type Safety Note:** The `@context()` value maps to `EntityType` (for all entity types) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = EntityType | NonKuDomain` covers all domains.
 
-Values are validated via `EntityType.from_string()`, which supports aliases (e.g., `"knowledge"` resolves to `EntityType.KU`, `"path-step"` resolves to `EntityType.PATH_STEP`). Invalid values produce clear parser errors — the enum IS the specification of valid context values. See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete `EntityType` value list and alias mappings.
+Values are validated via `EntityType.from_string()`, which supports aliases (e.g., `"knowledge"` resolves to `EntityType.KU`, `"path-step"` resolves to `EntityType.PATH_STEP`). Any invalid context value fails the **entire line** with a clear error listing the valid options — the strict failure is deliberate (a silently dropped context would disguise typos as success, and partial creation would produce duplicates when the corrected line re-syncs under line-hash dedup). The enum IS the specification of valid context values. See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete `EntityType` value list and alias mappings.
 
 ---
 
@@ -120,7 +141,7 @@ Values are validated via `EntityType.from_string()`, which supports aliases (e.g
 **Grammar:**
 ```
 WhenTag ::= "@when(" Timestamp ")"
-Timestamp ::= ISODate "T" ISOTime | ISODate " " ISOTime
+Timestamp ::= ISODate "T" ISOTime | ISODate " " ISOTime | ISODate
 ISODate ::= Digit{4} "-" Digit{2} "-" Digit{2}
 ISOTime ::= Digit{2} ":" Digit{2}
 ```
@@ -129,9 +150,12 @@ ISOTime ::= Digit{2} ":" Digit{2}
 ```markdown
 @when(2025-11-30T09:30)    # Canonical ISO 8601
 @when(2025-11-30 09:30)    # Relaxed format (space instead of T)
+@when(2025-11-30)          # Date only (v0.5+) — midnight; matches obsidian-tasks 📅 granularity
 ```
 
 **Timezone:** If no timezone specified, defaults to user's configured timezone. Future versions may support explicit offsets (`+07:00`).
+
+**Unparseable values:** a `@when()` value that matches none of the formats (e.g. `@when(Friday)`) or names an impossible calendar date (e.g. `@when(2026-02-31)`) does not fail the line — the schedule is dropped with a server-side warning. Use real ISO dates for reliable scheduling.
 
 ---
 
@@ -345,14 +369,7 @@ vortex:     → Vortexes
 ## Complete Example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus
-      @context(task,learning)
-      @when(2025-11-30T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
-      @ku(ku:teens-yoga/focus-lesson)
-      @link(goal:teens-yoga/20-members, principle:discernment-first)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
 ```
 
 **Parsing yields:**
@@ -374,9 +391,9 @@ vortex:     → Vortexes
 
 ---
 
-## Future Extensions (v0.4+)
+## Future Extensions (v0.6+)
 
-Planned additions for future versions:
+Planned additions for future versions (none implemented — staged backlog, visible by design):
 
 ```markdown
 @window()     # Time windows (morning/afternoon/evening)
@@ -397,7 +414,7 @@ Planned additions for future versions:
 - `X` = Major version (breaking grammar changes)
 - `Y` = Minor version (new optional tags)
 
-**Current:** v0.3 (November 2025)
+**Current:** v0.5 (the version lives in this spec and the parser module docstring — keep them in step)
 
 ---
 

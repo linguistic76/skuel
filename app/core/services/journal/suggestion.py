@@ -10,7 +10,7 @@ Pipeline: ``LLMDSLBridgeService.transform_with_context`` emits ``@context()``
 lines (tag-first, no checkbox); this module parses them with the canonical
 ``ActivityDSLParser`` to validate + extract a clean description, then re-renders
 each into the checkbox form documented in
-``userguides/context-dsl-cheatsheet.md`` (``- [ ] <desc> @context(<type>) …``).
+``/docs/user-guides/context-dsl-cheatsheet.md`` (``- [ ] <desc> @context(<type>) …``).
 
 **Metadata is preserved, not normalised.** The bridge prompt produces loosely
 shaped tags (``@when(Friday)``, ``@priority(high)``, ``@amount(150)``) that the

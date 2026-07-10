@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-06-12
+updated: 2026-07-10
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage]
@@ -10,7 +10,7 @@ related: [DSL_SPECIFICATION.md, DSL_IMPLEMENTATION.md]
 # SKUEL Activity DSL - Usage Guide
 
 *Practical examples and patterns for writing SKUEL Activity Lines*
-*Last Updated: 2026-06-12*
+*Last Updated: 2026-07-10*
 
 > **Wiring status:** live. Activity Lines in a UserEntry are extracted into
 > real entities via `Pipeline.EXTRACT_ACTIVITIES`
@@ -32,11 +32,14 @@ This declares "task" as the entity type, making it queryable and processable by 
 
 ### Adding Time
 
-Add `@when()` for scheduling:
+Add `@when()` for scheduling — full timestamp or date only:
 
 ```markdown
 - [ ] Morning meditation @context(habit) @when(2025-11-30T07:00)
+- [ ] Plan next week @context(task) @when(2025-11-30)
 ```
+
+`@when()` takes ISO dates (`YYYY-MM-DDTHH:MM`, `YYYY-MM-DD HH:MM`, or `YYYY-MM-DD`). Anything else (`@when(Friday)`, `@when(07:00)`) drops the schedule — the line still parses, but unscheduled.
 
 ### Common Pattern
 
@@ -125,8 +128,8 @@ Combine contexts when activities span categories:
 
 ```markdown
 - [ ] Publish first SEL mini-course @context(task,goal,learning)
-- [ ] Daily gratitude journal @context(habit,reflection)
-- [ ] Record transcript on secular spirituality for teens @context(task,learning,reflection)
+- [ ] Daily gratitude journal @context(habit) @energy(spiritual)
+- [ ] Record transcript on secular spirituality for teens @context(task,learning)
 ```
 
 **When to use:** Activities that legitimately belong to multiple domains.
@@ -140,7 +143,7 @@ Combine contexts when activities span categories:
 ```markdown
 - [ ] Morning pages writing @context(habit) @repeat(daily) @duration(20m) @energy(creative)
 - [ ] Vitamin D supplement @context(habit) @repeat(daily)
-- [ ] Evening wind-down routine @context(habit) @repeat(daily) @when(21:00) @duration(30m)
+- [ ] Evening wind-down routine @context(habit) @repeat(daily) @duration(30m) @energy(rest)
 ```
 
 ### Weekly Patterns
@@ -148,13 +151,13 @@ Combine contexts when activities span categories:
 ```markdown
 - [ ] Strength training @context(habit) @repeat(weekly:Mon,Wed,Fri) @duration(45m) @energy(physical)
 - [ ] Meal prep for week @context(habit) @repeat(weekly:Sun) @duration(2h)
-- [ ] Review weekly goals @context(habit,reflection) @repeat(weekly:Sun) @duration(30m)
+- [ ] Review weekly goals @context(habit) @repeat(weekly:Sun) @duration(30m)
 ```
 
 ### Monthly Patterns
 
 ```markdown
-- [ ] Review monthly budget @context(habit,metric) @repeat(monthly:1) @duration(1h)
+- [ ] Review monthly budget @context(habit) @repeat(monthly:1) @duration(1h)
 - [ ] Pay rent @context(task,habit) @repeat(monthly:1)
 - [ ] Deep clean apartment @context(habit) @repeat(monthly:1,15) @duration(2h)
 ```
@@ -221,7 +224,7 @@ Combine contexts when activities span categories:
 ### Restorative Activities
 
 ```markdown
-- [ ] Afternoon nap @context(habit) @energy(rest) @repeat(daily) @when(14:00) @duration(20m)
+- [ ] Afternoon nap @context(habit) @energy(rest) @repeat(daily) @duration(20m)
 - [ ] Evening meditation @context(habit) @energy(rest,spiritual) @repeat(daily) @duration(20m)
 - [ ] Read fiction before bed @context(habit) @energy(rest) @repeat(daily) @duration(30m)
 ```
@@ -249,7 +252,7 @@ Combine energy states for complex activities:
 ```markdown
 - [ ] Practice discernment meditation @context(habit) @ku(ku:sel/thought-not-reality) @repeat(daily)
 - [ ] Review Linear Algebra concepts @context(learning) @ku(ku:math/linear-algebra) @duration(1h)
-- [ ] Apply Stoic principles to daily stressors @context(reflection) @ku(ku:philosophy/stoicism)
+- [ ] Apply Stoic principles to daily stressors @context(habit) @ku(ku:philosophy/stoicism)
 ```
 
 **Pattern:** Use `@ku()` to track which knowledge is being applied or learned.
@@ -261,11 +264,7 @@ Combine energy states for complex activities:
 Use `@link()` for additional KU references:
 
 ```markdown
-- [ ] Integrate SEL principles into Teens.yoga curriculum
-      @context(task,learning)
-      @ku(ku:sel/core-principles)
-      @link(ku:teens-yoga/curriculum-design, ku:education/pedagogy)
-      @duration(3h)
+- [ ] Integrate SEL principles into Teens.yoga curriculum @context(task,learning) @ku(ku:sel/core-principles) @link(ku:teens-yoga/curriculum-design, ku:education/pedagogy) @duration(3h)
 ```
 
 ---
@@ -275,22 +274,13 @@ Use `@link()` for additional KU references:
 ### Linking Tasks to Goals
 
 ```markdown
-- [ ] Publish Instagram post about upcoming workshop
-      @context(task)
-      @link(goal:teens-yoga/100-followers, goal:teens-yoga/workshop-signups)
-      @duration(30m)
-      @energy(creative,social)
+- [ ] Publish Instagram post about upcoming workshop @context(task) @link(goal:teens-yoga/100-followers, goal:teens-yoga/workshop-signups) @duration(30m) @energy(creative,social)
 ```
 
 ### Habits Supporting Goals
 
 ```markdown
-- [ ] Daily content creation practice
-      @context(habit)
-      @repeat(daily)
-      @link(goal:teens-yoga/consistent-content)
-      @duration(45m)
-      @energy(creative)
+- [ ] Daily content creation practice @context(habit) @repeat(daily) @link(goal:teens-yoga/consistent-content) @duration(45m) @energy(creative)
 ```
 
 ---
@@ -300,12 +290,7 @@ Use `@link()` for additional KU references:
 Connect activities to guiding principles:
 
 ```markdown
-- [ ] Review business decisions against core values
-      @context(reflection,habit)
-      @repeat(weekly:Fri)
-      @link(principle:discernment-first, principle:awareness-before-action)
-      @duration(30m)
-      @energy(focus,spiritual)
+- [ ] Review business decisions against core values @context(habit) @repeat(weekly:Fri) @link(principle:discernment-first, principle:awareness-before-action) @duration(30m) @energy(focus,spiritual)
 ```
 
 ---
@@ -320,7 +305,7 @@ Connect activities to guiding principles:
 - [ ] Wake up at 6am @context(habit) @repeat(daily) @when(2025-11-30T06:00)
 - [ ] Morning meditation 20 minutes @context(habit) @repeat(daily) @when(2025-11-30T06:15) @duration(20m) @energy(spiritual,rest) @ku(ku:yoga/meditation-intro)
 - [ ] Morning pages writing @context(habit) @repeat(daily) @when(2025-11-30T06:40) @duration(20m) @energy(creative)
-- [ ] Review daily intentions @context(habit,reflection) @repeat(daily) @when(2025-11-30T07:00) @duration(10m) @link(principle:awareness-first)
+- [ ] Review daily intentions @context(habit) @repeat(daily) @when(2025-11-30T07:00) @duration(10m) @link(principle:awareness-first)
 ```
 
 ### Work Block
@@ -328,28 +313,11 @@ Connect activities to guiding principles:
 ```markdown
 ### Deep Work - 9am-12pm
 
-- [ ] Draft Teens.yoga lesson on focus
-      @context(task,learning)
-      @when(2025-11-30T09:00)
-      @priority(1)
-      @duration(90m)
-      @energy(focus,creative)
-      @ku(ku:teens-yoga/focus-lesson)
-      @link(goal:teens-yoga/20-members)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members)
 
-- [ ] Debug calendar sync issue
-      @context(task)
-      @when(2025-11-30T10:45)
-      @priority(2)
-      @duration(45m)
-      @energy(focus)
+- [ ] Debug calendar sync issue @context(task) @when(2025-11-30T10:45) @priority(2) @duration(45m) @energy(focus)
 
-- [ ] Respond to partnership inquiry email
-      @context(task)
-      @when(2025-11-30T11:30)
-      @priority(3)
-      @duration(20m)
-      @energy(light,social)
+- [ ] Respond to partnership inquiry email @context(task) @when(2025-11-30T11:30) @priority(3) @duration(20m) @energy(light,social)
 ```
 
 ### Goal Planning
@@ -398,21 +366,9 @@ Make it energy-aware:
 Connect to knowledge and goals:
 
 ```markdown
-- [ ] Call doctor about preventive care plan
-      @context(task)
-      @when(2025-11-30T14:00)
-      @duration(15m)
-      @energy(light,social)
-      @link(goal:health/preventive-care, principle:health-first)
+- [ ] Call doctor about preventive care plan @context(task) @when(2025-11-30T14:00) @duration(15m) @energy(light,social) @link(goal:health/preventive-care, principle:health-first)
 
-- [ ] Morning strength training routine
-      @context(habit)
-      @when(2025-11-30T07:00)
-      @repeat(weekly:Mon,Wed,Fri)
-      @duration(45m)
-      @energy(physical)
-      @ku(ku:fitness/strength-training-basics)
-      @link(goal:health/build-strength)
+- [ ] Morning strength training routine @context(habit) @when(2025-11-30T07:00) @repeat(weekly:Mon,Wed,Fri) @duration(45m) @energy(physical) @ku(ku:fitness/strength-training-basics) @link(goal:health/build-strength)
 ```
 
 ---
@@ -436,13 +392,7 @@ When a one-off task becomes recurring:
 Link habits to the goals they support:
 
 ```markdown
-- [ ] Daily meditation practice
-      @context(habit)
-      @repeat(daily)
-      @duration(20m)
-      @energy(spiritual,rest)
-      @ku(ku:yoga/meditation-intro)
-      @link(goal:wellness/consistent-practice, principle:awareness-first)
+- [ ] Daily meditation practice @context(habit) @repeat(daily) @duration(20m) @energy(spiritual,rest) @ku(ku:yoga/meditation-intro) @link(goal:wellness/consistent-practice, principle:awareness-first)
 ```
 
 ### Multi-Domain Activities
@@ -450,14 +400,7 @@ Link habits to the goals they support:
 Activities that span multiple domains:
 
 ```markdown
-- [ ] Record and publish podcast episode on teen mental health
-      @context(task,learning,habit)
-      @when(2025-11-30T10:00)
-      @duration(2h)
-      @energy(creative,focus,social)
-      @ku(ku:teens-yoga/mental-health)
-      @link(goal:teens-yoga/thought-leadership, habit:weekly-content-creation)
-      @priority(1)
+- [ ] Record and publish podcast episode on teen mental health @context(task,learning,habit) @when(2025-11-30T10:00) @duration(2h) @energy(creative,focus,social) @ku(ku:teens-yoga/mental-health) @link(goal:teens-yoga/thought-leadership, habit:weekly-content-creation) @priority(1)
 ```
 
 ---
@@ -511,7 +454,7 @@ Convert recurring tasks to habits with `@repeat()`:
 - [ ] Exercise @context(task) @when(2025-12-01T07:00)
 
 # ✅ Single habit definition
-- [ ] Exercise @context(habit) @when(07:00) @repeat(daily) @duration(45m)
+- [ ] Exercise @context(habit) @repeat(daily) @duration(45m)
 ```
 
 ---

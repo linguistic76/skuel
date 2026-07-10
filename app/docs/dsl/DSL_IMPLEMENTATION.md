@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2025-11-30
+updated: 2026-07-10
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -10,7 +10,7 @@ related: [DSL_SPECIFICATION.md, DSL_USAGE_GUIDE.md]
 # SKUEL Activity DSL - Implementation Guide
 
 *Parser architecture and implementation patterns*
-*Last Updated: 2025-11-30*
+*Last Updated: 2026-07-10*
 
 ## Overview
 
@@ -132,7 +132,8 @@ def parse_context(value: str) -> list[EntityType]:
 **Example:**
 ```python
 parse_context("task, learning")
-# Result: [EntityType.TASK, EntityType.PATH_STEP]
+# Result: [EntityType.TASK, NonKuDomain.LEARNING]
+# (the real parser tries EntityType.from_string first, then NonKuDomain.from_string)
 ```
 
 ---
@@ -144,17 +145,22 @@ from datetime import datetime
 
 WHEN_PATTERN_ISO = re.compile(r'(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})')
 WHEN_PATTERN_RELAXED = re.compile(r'(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})')
+WHEN_PATTERN_DATE_ONLY = re.compile(r'(\d{4})-(\d{2})-(\d{2})\s*$')
 
 def parse_when(value: str) -> datetime | None:
-    """Parse @when() timestamp."""
-    # Try ISO format first
-    match = WHEN_PATTERN_ISO.match(value)
-    if not match:
-        match = WHEN_PATTERN_RELAXED.match(value)
+    """Parse @when() timestamp (impossible dates degrade to None, never raise)."""
+    try:
+        match = WHEN_PATTERN_ISO.match(value) or WHEN_PATTERN_RELAXED.match(value)
+        if match:
+            year, month, day, hour, minute = map(int, match.groups())
+            return datetime(year, month, day, hour, minute)
 
-    if match:
-        year, month, day, hour, minute = map(int, match.groups())
-        return datetime(year, month, day, hour, minute)
+        match = WHEN_PATTERN_DATE_ONLY.match(value)
+        if match:
+            year, month, day = map(int, match.groups())
+            return datetime(year, month, day)  # midnight
+    except ValueError:
+        return None  # impossible calendar date (e.g. 2026-02-31) — drop schedule, keep line
 
     return None
 ```
@@ -163,6 +169,9 @@ def parse_when(value: str) -> datetime | None:
 ```python
 parse_when("2025-11-30T09:30")
 # Result: datetime(2025, 11, 30, 9, 30)
+
+parse_when("2025-11-30")
+# Result: datetime(2025, 11, 30) — date only (v0.5+)
 ```
 
 ---
@@ -511,39 +520,26 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
 
 ### Graph Schema
 
+There is **no ActivityLine node** — a parsed line is an in-memory intermediate
+(`ParsedActivityLine`), never persisted. The extractor creates the domain
+entity through its facade (so it gets the full multi-label `:Entity` + domain
+treatment), then writes one provenance edge back to the source UserEntry
+(ADR-069):
+
 ```cypher
-// Activity Line as base node
-CREATE (a:ActivityLine {
-  uid: "activity:<hash>",
-  description: "...",
-  contexts: ["task", "learning"],
-  when: datetime("2025-11-30T09:00"),
-  priority: 1,
-  duration_minutes: 90,
-  energy_states: ["focus", "creative"],
-  source_file: "2025-11-30.md",
-  source_line: 42
-})
+// Domain entity created via the facade (TasksService etc.)
+(t:Entity:Task {uid: "task_<generated>", title: "...", due_date: date("2025-11-30"), priority: "high", ...})
 
-// Convert to domain entity
-CREATE (t:Task {
-  uid: "task:<generated>",
-  title: "...",
-  due_date: date("2025-11-30"),
-  priority: 1,
-  ...
-})
+// Provenance: what line of which entry produced this entity.
+// source_line_hash is the SHA-256 of the normalized source line — the
+// idempotency key that lets edited notes re-sync without duplicating.
+(t)-[:EXTRACTED_FROM {source_line_hash: "...", extracted_at: datetime()}]->(entry:Entity:UserEntry)
 
-// Link activity line to entity
-CREATE (a)-[:CONVERTED_TO]->(t)
-
-// Knowledge connection
-MATCH (ku:KnowledgeUnit {uid: "ku:teens-yoga/focus-lesson"})
-CREATE (t)-[:APPLIES_KNOWLEDGE]->(ku)
-
-// Goal connection
-MATCH (g:Goal {uid: "goal:teens-yoga/20-members"})
-CREATE (t)-[:FULFILLS_GOAL]->(g)
+// @ku() / @link() ride the create request as fields
+// (applies_knowledge_uids, fulfills_goal_uid, ...) and the graph-aware
+// create paths persist them as edges:
+(t)-[:APPLIES_KNOWLEDGE]->(ku:Entity:Ku)
+(t)-[:FULFILLS_GOAL]->(g:Entity:Goal)
 ```
 
 ---
@@ -556,7 +552,7 @@ CREATE (t)-[:FULFILLS_GOAL]->(g)
 def test_parse_context():
     assert parse_context("task") == [EntityType.TASK]
     assert parse_context("task, habit") == [EntityType.TASK, EntityType.HABIT]
-    assert parse_context("task,learning") == [EntityType.TASK, EntityType.PATH_STEP]
+    assert parse_context("task,learning") == [EntityType.TASK, NonKuDomain.LEARNING]
 
 def test_parse_when():
     result = parse_when("2025-11-30T09:30")
@@ -564,6 +560,9 @@ def test_parse_when():
 
     result = parse_when("2025-11-30 09:30")
     assert result == datetime(2025, 11, 30, 9, 30)
+
+    result = parse_when("2025-11-30")  # date only (v0.5+) — midnight
+    assert result == datetime(2025, 11, 30)
 
 def test_parse_duration():
     assert parse_duration("1h30m") == 90
@@ -584,21 +583,22 @@ def test_parse_repeat():
 
 ```python
 def test_full_activity_line_parsing():
-    line = """- [ ] Draft lesson
-              @context(task,learning)
-              @when(2025-11-30T09:00)
-              @priority(1)
-              @duration(90m)
-              @energy(focus,creative)"""
+    # An Activity Line is ONE physical line — parse_journal handles each
+    # line independently, so tags must live on the same line as the description.
+    line = (
+        "- [ ] Draft lesson @context(task,learning) @when(2025-11-30T09:00) "
+        "@priority(1) @duration(90m) @energy(focus,creative)"
+    )
 
     parser = ActivityDSLParser()
     result = parser.parse_line(line)
 
-    assert result is not None
-    assert result.description == "Draft lesson"
-    assert EntityType.TASK in result.contexts
-    assert EntityType.PATH_STEP in result.contexts
-    assert result.when == datetime(2025, 11, 30, 9, 0)
+    assert result.is_ok
+    activity = result.value
+    assert activity.description == "Draft lesson"
+    assert EntityType.TASK in activity.contexts
+    assert NonKuDomain.LEARNING in activity.contexts
+    assert activity.when == datetime(2025, 11, 30, 9, 0)
     assert result.priority == 1
     assert result.duration_minutes == 90
     assert "focus" in result.energy_states

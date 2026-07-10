@@ -716,7 +716,7 @@ def SuggestedActivitiesPanel(
     header = Div(
         P("Suggested activities", cls="text-[14px] font-semibold text-foreground"),
         P(
-            "Copy any line into a Periodic Note or your captures folder. "
+            "Copy any line into a Periodic Note or your activity notes folder. "
             "Nothing is saved automatically.",
             cls="text-[12px] text-muted-foreground mt-1 leading-snug",
         ),
@@ -726,7 +726,8 @@ def SuggestedActivitiesPanel(
     if unavailable:
         body: Any = P(
             "Suggestions aren't available right now. You can still type @context() "
-            "lines yourself — see the context DSL cheat-sheet.",
+            'lines yourself, e.g. "- [ ] Call hosting provider @context(task) '
+            '@priority(2)" — types: task, habit, goal, event, principle, choice.',
             cls="text-[12.5px] text-muted-foreground leading-snug",
         )
     elif error:

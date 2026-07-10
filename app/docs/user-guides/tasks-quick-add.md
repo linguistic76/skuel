@@ -90,17 +90,18 @@ After adding tasks, use the filter bar to:
 
 ## Alternative: Journal DSL Entry
 
-You can also create tasks via the Activity DSL in journals:
+You can also create tasks via the Activity DSL in journals and synced notes.
+An Activity Line is a single line — description first, tags after:
 
 ```
-@context(task) @priority(high) @when(2025-12-15)
-Review quarterly report and prepare summary
+- [ ] Review quarterly report and prepare summary @context(task) @priority(2) @when(2025-12-15)
 ```
 
 This creates a task with:
 - Context: task
-- Priority: high (P2)
-- Due date: December 15, 2025
+- Priority: 2 (`@priority()` takes 1–5; 1 = highest)
+- Due date: December 15, 2025 (`@when()` takes ISO dates — date-only or with a time)
 - Title: "Review quarterly report and prepare summary"
 
-See `/docs/dsl/DSL_USAGE_GUIDE.md` for full DSL syntax.
+See `/docs/user-guides/context-dsl-cheatsheet.md` for the quick reference and
+`/docs/dsl/DSL_USAGE_GUIDE.md` for full DSL syntax.

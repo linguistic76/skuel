@@ -307,6 +307,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Documentation Freshness](user-guides/documentation-freshness.md)** | **2026-03-04** | How SKUEL's three doc freshness systems work together (hooks + health checks + cross-refs) |
 | **[Zone of Proximal Development](user-guides/zpd.md)** | **2026-03-09** | How ZPD works — current zone, proximal zone, readiness scores, behavioral enrichment |
 | **[Journal Privacy](user-guides/journal-privacy.md)** | **2026-06-26** | Who can see journal entries, SKUEL's policy commitment, and field-level encryption roadmap |
+| **[Context DSL Cheat-Sheet](user-guides/context-dsl-cheatsheet.md)** | **2026-07-10** | Quick reference for @context() Activity Lines — context types, optional tags, full example |
 
 ---
 
