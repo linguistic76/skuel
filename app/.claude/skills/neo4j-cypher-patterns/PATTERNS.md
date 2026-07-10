@@ -402,14 +402,14 @@ RETURN teacher.uid as teacher_uid  -- works for all entity types
 
 **COALESCE for hybrid queries** (supports both curriculum and user-owned types in one query):
 ```cypher
--- UserEntryBackend.get_exercise_context() — works for Exercise AND RevisedExercise
+// UserEntryBackend.get_exercise_context() — works for Exercise AND RevisedExercise
 MATCH (exercise:Entity {uid: $exercise_uid})
 WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
 OPTIONAL MATCH (teacher:User)-[:OWNS]->(exercise)
 RETURN COALESCE(teacher.uid, exercise.user_uid) as teacher_uid
--- Exercise: OWNS relationship → teacher.uid ✓
--- RevisedExercise: both OWNS + stored user_uid agree ✓
--- YAML-ingested exercise, no owner: both NULL → auto-share skipped ✓
+// Exercise: OWNS relationship → teacher.uid ✓
+// RevisedExercise: both OWNS + stored user_uid agree ✓
+// YAML-ingested exercise, no owner: both NULL → auto-share skipped ✓
 ```
 
 **When `teacher_uid` can be NULL:** Exercises ingested via YAML with no authenticated
@@ -440,17 +440,17 @@ Before "fixing" a comparison, **grep the write path**: `.isoformat()` → string
 
 **The fix — coerce the stored side:**
 ```cypher
--- datetime-typed field (has a time component): use datetime()
+// datetime-typed field (has a time component): use datetime()
 WHERE datetime(n.created_at) >= datetime($window_start)
 WHERE datetime(s.next_due_at) <= datetime()
 
--- date-typed field (date-only string "2026-06-05"): use date()
+// date-typed field (date-only string "2026-06-05"): use date()
 WHERE date(n.due_date) >= date($start_date)
 ```
 
 🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`). For a **datetime**-typed field compared against a *date*, parse-then-extract:
 ```cypher
--- last_completed is a datetime string; we want "before today"
+// last_completed is a datetime string; we want "before today"
 CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 ```
 
