@@ -52,7 +52,13 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 | **SKUEL025** | A deleted Activity `*UpdatePayload` name (ADR-066) | Use the domain `*UpdateIntent` / `*UpdateRequest.to_intent()` (AST rule) |
 
-### WARNING (reported, doesn't block)
+### WARNING (blocks `./dev lint` / `./dev quality` via `--strict`; plain runs report only)
+
+The WARNING tier reached zero codebase-wide in July 2026 and both gate commands
+now pass `--strict`, so a new warning fails lint/quality. The tier still differs
+from ERROR: a plain `uv run python scripts/lint_skuel.py` (no `--strict`) reports
+warnings without failing, which is the on-ramp for prototyping a new rule.
+
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
 | **SKUEL004** | Missing confidence threshold | Semantic queries need confidence filters |
@@ -675,7 +681,7 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 2. **Fast Feedback** - Violations caught before code review
 3. **Consistent Codebase** - All code follows same patterns
 4. **Self-Documenting** - Linter messages explain best practices (`--explain`)
-5. **Flexible Severity** - CRITICAL/ERROR block CI, WARNING for gradual improvement
+5. **Flexible Severity** - CRITICAL/ERROR always fail; WARNING fails the `--strict` gates (`./dev lint` / `./dev quality`) now that the tier is at zero, but stays advisory in plain runs
 
 ---
 

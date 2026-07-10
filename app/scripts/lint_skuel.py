@@ -20,7 +20,7 @@ ERROR (blocks CI):
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
 
-WARNING (reported, doesn't block):
+WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL004: Confidence thresholds on semantic queries
   SKUEL005: Result[T] return types on service methods
   SKUEL007: String-based Result.fail() - use Errors factory
