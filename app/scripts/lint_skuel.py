@@ -21,7 +21,6 @@ ERROR (blocks CI):
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
-  SKUEL004: Confidence thresholds on semantic queries
   SKUEL005: Result[T] return types on service methods
   SKUEL007: String-based Result.fail() - use Errors factory
   SKUEL008: No wrapper classes around UniversalNeo4jBackend
@@ -143,17 +142,6 @@ readability and consistency with .is_ok/.is_error naming.""",
         "bad": """if result.is_err:  # Deprecated
     return result""",
         "autofix": "Automatically replaced by --fix",
-    },
-    "SKUEL004": {
-        "title": "Confidence Thresholds on Semantic Queries",
-        "severity": "WARNING",
-        "description": """Semantic relationship queries should include confidence thresholds
-to filter out low-confidence relationships.""",
-        "good": """MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)
-WHERE r.confidence >= $min_confidence
-RETURN b""",
-        "bad": """MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)
-RETURN b  -- No confidence filter!""",
     },
     "SKUEL005": {
         "title": "Service Methods Should Return Result[T]",
@@ -914,6 +902,9 @@ class SkuelLinter:
     AST_RULE_IDS: ClassVar[frozenset[str]] = frozenset(
         {
             "SKUEL001",
+            "SKUEL002",
+            "SKUEL013",
+            "SKUEL014",
             "SKUEL020",
             "SKUEL021",
             "SKUEL022",
@@ -1343,17 +1334,17 @@ class SkuelLinter:
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
-                    self._check_semantic_type_strings(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL004"):
-                    self._check_confidence_thresholds(file_path, rel_path, content, lines)
+                    self._check_semantic_type_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL005"):
                     self._check_result_return_types(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(file_path, rel_path, content, lines)
+                    self._check_relationship_name_strings(
+                        file_path, rel_path, content, lines, tree
+                    )
                 if self._should_run_rule("SKUEL014"):
-                    self._check_entity_type_strings(file_path, rel_path, content, lines)
+                    self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
             if "/adapters/persistence/" in str(file_path):
                 if self._should_run_rule("SKUEL008"):
@@ -1558,13 +1549,10 @@ class SkuelLinter:
     # ERROR RULES
     # =========================================================================
 
-    def _check_semantic_type_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL002 [ERROR]: Use SemanticRelationshipType enum, not magic strings.
-        """
-        semantic_types = [
+    # SKUEL002: the SemanticRelationshipType member names. A string literal whose
+    # value IS one of these (exact match) is a magic string standing in for the enum.
+    SEMANTIC_TYPE_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
             "REQUIRES_THEORETICAL_UNDERSTANDING",
             "REQUIRES_PRACTICAL_APPLICATION",
             "REQUIRES_CONCEPTUAL_FOUNDATION",
@@ -1573,28 +1561,59 @@ class SkuelLinter:
             "HAS_NARROWER_CONCEPT",
             "SHARES_PRINCIPLE_WITH",
             "ANALOGOUS_TO",
-        ]
+        }
+    )
 
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#") or '"""' in line or "'''" in line:
+    def _check_semantic_type_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL002 [ERROR]: Use SemanticRelationshipType enum, not magic strings.
+
+        AST-based, docstring-aware (same model as SKUEL021): flags a *used* string
+        Constant whose value is exactly a SemanticRelationshipType member name.
+        Inert bare-string statements (docstrings, USAGE EXAMPLES blocks) and
+        comments are never string nodes in play, so prose mentioning a semantic
+        type name cannot trip the rule. Exact-value matching means a name embedded
+        in a longer string (e.g. quoted inside documentation text) is not flagged —
+        only a literal standing in for the enum member is.
+        """
+        if tree is None:
+            return
+
+        inert_ids = self._inert_ids_for(tree)
+        reported_lines: set[int] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in inert_ids:
+                continue
+            if node.value not in self.SEMANTIC_TYPE_NAMES:
                 continue
 
-            for sem_type in semantic_types:
-                if f'"{sem_type}"' in line or f"'{sem_type}'" in line:
-                    if f"SemanticRelationshipType.{sem_type}" not in line:
-                        self.result.violations.append(
-                            Violation(
-                                file_path=rel_path,
-                                line_number=line_num,
-                                column=line.find(sem_type),
-                                severity=Severity.ERROR,
-                                rule_id="SKUEL002",
-                                message=f"Magic string '{sem_type}' - use enum instead",
-                                suggestion=f"Use SemanticRelationshipType.{sem_type}",
-                                line_content=line.strip(),
-                            )
-                        )
+            line_num = node.lineno
+            if line_num in reported_lines:
+                continue
+            reported_lines.add(line_num)
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL002",
+                    message=f"Magic string '{node.value}' - use enum instead",
+                    suggestion=f"Use SemanticRelationshipType.{node.value}",
+                    line_content=line.strip(),
+                )
+            )
 
     def _check_is_err_usage(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -1634,53 +1653,6 @@ class SkuelLinter:
     # =========================================================================
     # WARNING RULES
     # =========================================================================
-
-    def _check_confidence_thresholds(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL004 [WARNING]: Semantic queries should have confidence thresholds.
-        """
-        semantic_patterns = [
-            "REQUIRES_THEORETICAL_UNDERSTANDING",
-            "REQUIRES_PRACTICAL_APPLICATION",
-            "REQUIRES_CONCEPTUAL_FOUNDATION",
-            "BUILDS_ON_FOUNDATION",
-            "SHARES_PRINCIPLE_WITH",
-            "ANALOGOUS_TO",
-        ]
-
-        structural_patterns = [
-            "APPLIES_KNOWLEDGE",
-            "ENABLES",
-            "PREREQUISITE",
-            "HAS_STEP",
-            "HAS_PATH",
-            "CONTRIBUTES_TO",
-        ]
-
-        for line_num, line in enumerate(lines, start=1):
-            if "MATCH" not in line:
-                continue
-
-            has_semantic = any(p in line for p in semantic_patterns)
-            has_structural = any(p in line for p in structural_patterns)
-
-            if has_semantic and not has_structural:
-                context = "\n".join(lines[line_num : min(line_num + 5, len(lines))])
-                if "confidence" not in context:
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=0,
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL004",
-                            message="Semantic query without confidence threshold",
-                            suggestion="Add: WHERE r.confidence >= $min_confidence",
-                            line_content=line.strip(),
-                        )
-                    )
 
     def _check_result_return_types(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -1933,14 +1905,11 @@ class SkuelLinter:
                 )
             )
 
-    def _check_relationship_name_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL013 [WARNING]: Use RelationshipName enum instead of magic strings.
-        """
-        # Common relationship names that should use enum
-        relationship_names = [
+    # SKUEL013: relationship type names that must go through the RelationshipName
+    # enum. A string literal whose value IS one of these (exact match) is a magic
+    # string standing in for the enum member.
+    RELATIONSHIP_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
             # Core domain relationships
             "SERVES_GOAL",
             "SERVES_LIFE_PATH",
@@ -1976,79 +1945,65 @@ class SkuelLinter:
             "MEMBER_OF",
             # Ownership
             "OWNS",
-        ]
+        }
+    )
 
-        # Track docstring context
-        in_docstring = False
-        docstring_delimiter = None
-
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Track docstring state
-            if not in_docstring:
-                for delim in ['"""', "'''"]:
-                    if delim in stripped:
-                        count = stripped.count(delim)
-                        if count == 1:
-                            in_docstring = True
-                            docstring_delimiter = delim
-                            break
-                        # Single-line docstring - skip this line
-                        if count >= 2 and stripped.startswith(delim):
-                            continue
-            else:
-                if docstring_delimiter and docstring_delimiter in stripped:
-                    in_docstring = False
-                    docstring_delimiter = None
-                continue  # Skip lines inside docstrings
-
-            if stripped.startswith("#"):
-                continue
-
-            # Skip if already using enum
-            if "RelationshipName." in line:
-                continue
-
-            for rel_name in relationship_names:
-                # Check for quoted string usage in function calls
-                if f'"{rel_name}"' in line or f"'{rel_name}'" in line:
-                    # Skip if it's in a Cypher query string (those need literal strings)
-                    if "MATCH" in line or "-[:" in line or "]->" in line or "CREATE" in line:
-                        continue
-
-                    # Skip if we're inside a multi-line Cypher query (check context)
-                    # Look at surrounding lines for Cypher indicators
-                    context_start = max(0, line_num - 10)
-                    context_lines = lines[context_start:line_num]
-                    in_cypher_context = any(
-                        "MATCH" in l or "WHERE any(r in relationships" in l or "type(r) IN" in l
-                        for l in context_lines
-                    )
-                    if in_cypher_context:
-                        continue
-
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=line.find(rel_name),
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL013",
-                            message=f"Magic string '{rel_name}' - use RelationshipName enum",
-                            suggestion=f"Use RelationshipName.{rel_name}",
-                            line_content=line.strip(),
-                        )
-                    )
-
-    def _check_entity_type_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    def _check_relationship_name_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL014 [WARNING]: Use EntityType/NonKuDomain enum instead of magic strings.
+        SKUEL013 [WARNING]: Use RelationshipName enum instead of magic strings.
+
+        AST-based, docstring-aware (same model as SKUEL021): flags a *used* string
+        Constant whose value is exactly a relationship type name. Comments and
+        inert bare-string statements (docstrings, USAGE EXAMPLES blocks) never
+        reach the check, and exact-value matching means a relationship name inside
+        a longer string (Cypher text, prose) is not flagged — which structurally
+        replaces the old 10-line "am I inside a Cypher query" lookback heuristic.
+        Cypher itself cannot legitimately exist in this rule's scope anyway:
+        SKUEL021 bans it across core/.
         """
-        # Entity types that should use enum
-        entity_types = [
+        if tree is None:
+            return
+
+        inert_ids = self._inert_ids_for(tree)
+        reported: set[tuple[int, str]] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in inert_ids:
+                continue
+            if node.value not in self.RELATIONSHIP_NAMES:
+                continue
+
+            line_num = node.lineno
+            if (line_num, node.value) in reported:
+                continue
+            reported.add((line_num, node.value))
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL013",
+                    message=f"Magic string '{node.value}' - use RelationshipName enum",
+                    suggestion=f"Use RelationshipName.{node.value}",
+                    line_content=line.strip(),
+                )
+            )
+
+    # SKUEL014: entity-type identifiers that must be compared via the
+    # EntityType / NonKuDomain enums, never as raw strings.
+    ENTITY_TYPE_STRINGS: ClassVar[frozenset[str]] = frozenset(
+        {
             # Activity domains
             "task",
             "habit",
@@ -2085,47 +2040,102 @@ class SkuelLinter:
             "submission",
             "journal",
             "submission_report",
-        ]
+        }
+    )
 
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#") or '"""' in line or "'''" in line:
+    @staticmethod
+    def _mentions_enum_name(node: ast.AST) -> bool:
+        """True if any Name inside ``node`` is EntityType / NonKuDomain — the
+        comparison already routes through the enum (e.g. ``EntityType.TASK.value
+        == raw``), so a string operand is not a magic-string violation."""
+        return any(
+            isinstance(n, ast.Name) and n.id in ("EntityType", "NonKuDomain")
+            for n in ast.walk(node)
+        )
+
+    def _check_entity_type_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL014 [WARNING]: Use EntityType/NonKuDomain enum instead of magic strings.
+
+        AST-based: flags COMPARISONS against raw entity-type strings — the shapes
+        that should route through the enum:
+
+        - equality:    ``entity_type == "task"``   (either side, case-insensitive)
+        - membership:  ``"task" in contexts``      (string on the left)
+        - membership:  ``entity_type in ("task", "goal")`` (literal container)
+
+        A Compare that already references EntityType / NonKuDomain anywhere in it
+        (e.g. ``EntityType.TASK.value == raw``) is exempt — the enum is in play.
+        Plain string literals outside comparisons (dict keys, log messages,
+        docstrings) are deliberately NOT flagged: "task" the word is ubiquitous;
+        only comparison context makes it an entity-type discriminator.
+        """
+        if tree is None:
+            return
+
+        reported_lines: set[int] = set()
+
+        def flag(line_num: int, col: int, value: str) -> None:
+            if line_num in reported_lines:
+                return
+            reported_lines.add(line_num)
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=col,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL014",
+                    message=f"Magic string '{value}' - use EntityType/NonKuDomain enum",
+                    suggestion=f"Use EntityType.{value.upper()} or NonKuDomain.{value.upper()}",
+                    line_content=line.strip(),
+                )
+            )
+
+        def entity_string(node: ast.expr) -> ast.Constant | None:
+            """The node as an entity-type string Constant, else None."""
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value.lower() in self.ENTITY_TYPE_STRINGS
+            ):
+                return node
+            return None
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            if self._mentions_enum_name(node):
                 continue
 
-            # Skip if already using enum
-            if "EntityType." in line or "NonKuDomain." in line:
-                continue
-
-            # Skip imports and type hints
-            if "import" in line or "EntityType" in line or "NonKuDomain" in line:
-                continue
-
-            for entity_type in entity_types:
-                # Look for entity type comparisons like == "task" or in ["task", ...]
-                patterns_to_check = [
-                    f'== "{entity_type}"',
-                    f"== '{entity_type}'",
-                    f'"{entity_type}" in ',
-                    f"'{entity_type}' in ",
-                    f'entity_type == "{entity_type}"',
-                    f"entity_type == '{entity_type}'",
-                ]
-
-                for pattern in patterns_to_check:
-                    if pattern in line.lower():
-                        self.result.violations.append(
-                            Violation(
-                                file_path=rel_path,
-                                line_number=line_num,
-                                column=0,
-                                severity=Severity.WARNING,
-                                rule_id="SKUEL014",
-                                message=f"Magic string '{entity_type}' - use EntityType/NonKuDomain enum",
-                                suggestion=f"Use EntityType.{entity_type.upper()} or NonKuDomain.{entity_type.upper()}",
-                                line_content=line.strip(),
-                            )
-                        )
-                        break  # Only report once per line
+            left = node.left
+            for op, right in zip(node.ops, node.comparators, strict=True):
+                if isinstance(op, ast.Eq | ast.NotEq):
+                    for side in (left, right):
+                        hit = entity_string(side)
+                        if hit is not None:
+                            flag(hit.lineno, hit.col_offset, str(hit.value))
+                elif isinstance(op, ast.In | ast.NotIn):
+                    # "task" in contexts — string on the left of `in`
+                    hit = entity_string(left)
+                    if hit is not None:
+                        flag(hit.lineno, hit.col_offset, str(hit.value))
+                    # entity_type in ("task", "goal") — literal container of strings
+                    elif isinstance(right, ast.Tuple | ast.List | ast.Set):
+                        for elt in right.elts:
+                            hit = entity_string(elt)
+                            if hit is not None:
+                                flag(hit.lineno, hit.col_offset, str(hit.value))
+                                break
+                left = right
 
     def _check_print_statements(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]

@@ -1020,7 +1020,13 @@ class ActivityDSLParser:
                         link_type = normalized.value
 
                     # Reconstruct full UID if needed
-                    if link_type in ("goal", "principle", "project", "person", "vortex"):
+                    if link_type in (
+                        EntityType.GOAL.value,
+                        EntityType.PRINCIPLE.value,
+                        "project",
+                        "person",
+                        "vortex",
+                    ):
                         # These don't need prefix in the ID
                         full_id = f"{link_type}:{link_id}"
                     else:

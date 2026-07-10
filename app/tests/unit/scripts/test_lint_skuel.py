@@ -95,17 +95,15 @@ def lint_content(
 
     if is_service and not is_test:
         if linter._should_run_rule("SKUEL002"):
-            linter._check_semantic_type_strings(fp, rel, content, lines)
-        if linter._should_run_rule("SKUEL004"):
-            linter._check_confidence_thresholds(fp, rel, content, lines)
+            linter._check_semantic_type_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL005"):
             linter._check_result_return_types(fp, rel, content, lines)
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
         if linter._should_run_rule("SKUEL013"):
-            linter._check_relationship_name_strings(fp, rel, content, lines)
+            linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
-            linter._check_entity_type_strings(fp, rel, content, lines)
+            linter._check_entity_type_strings(fp, rel, content, lines, tree)
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
@@ -417,6 +415,26 @@ class TestSKUEL002:
         violations = lint_content(linter, '"""Use REQUIRES_THEORETICAL_UNDERSTANDING"""')
         assert len(violations) == 0
 
+    def test_quoted_name_in_docstring_clean(self) -> None:
+        # The old quote-counting heuristic flagged quoted names in docstrings.
+        linter = make_linter(["SKUEL002"])
+        content = 'def f() -> None:\n    """Pass "BUILDS_ON_FOUNDATION" to the builder."""\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_embedded_in_longer_string_clean(self) -> None:
+        # Exact-value matching: a name inside a longer string is prose, not the enum.
+        linter = make_linter(["SKUEL002"])
+        violations = lint_content(linter, 'msg = "edge BUILDS_ON_FOUNDATION missing"')
+        assert len(violations) == 0
+
+    def test_multiline_arg_now_caught(self) -> None:
+        linter = make_linter(["SKUEL002"])
+        content = 'link(\n    "ANALOGOUS_TO",\n)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+
 
 # ============================================================================
 # SKUEL003: .is_err deprecated
@@ -450,36 +468,6 @@ class TestSKUEL003:
         linter = make_linter(["SKUEL003"])
         violations = lint_content(linter, "x = result.is_err")
         assert violations[0].severity == Severity.ERROR
-
-
-# ============================================================================
-# SKUEL004: Confidence thresholds
-# ============================================================================
-
-
-class TestSKUEL004:
-    def test_semantic_query_without_confidence(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\nRETURN b"
-        violations = lint_content(linter, content)
-        assert len(violations) == 1
-        assert violations[0].rule_id == "SKUEL004"
-
-    def test_semantic_query_with_confidence(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = (
-            "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\n"
-            "WHERE r.confidence >= 0.7\n"
-            "RETURN b"
-        )
-        violations = lint_content(linter, content)
-        assert len(violations) == 0
-
-    def test_structural_query_no_warning(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = "MATCH (a)-[r:ENABLES]->(b)\nRETURN b"
-        violations = lint_content(linter, content)
-        assert len(violations) == 0
 
 
 # ============================================================================
@@ -819,6 +807,28 @@ class TestSKUEL013:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    def test_skips_comments(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(linter, 'x = 1  # pass "SERVES_GOAL" here')
+        assert len(violations) == 0
+
+    def test_multiline_call_now_caught(self) -> None:
+        # The old rule's 10-line Cypher-context lookback could swallow real
+        # violations near any line containing "MATCH"; the AST rule flags the
+        # used literal regardless of surrounding text.
+        linter = make_linter(["SKUEL013"])
+        content = (
+            "# a comment mentioning MATCH above the call\n"
+            "await backend.add_relationship(\n"
+            "    uid1,\n"
+            '    "SERVES_GOAL",\n'
+            "    uid2,\n"
+            ")"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 4
+
 
 # ============================================================================
 # SKUEL014: EntityType enum
@@ -828,13 +838,19 @@ class TestSKUEL013:
 class TestSKUEL014:
     def test_detects_string_comparison(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "task":')
+        violations = lint_content(linter, 'if entity_type == "task":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
     def test_enum_usage_clean(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, "if entity.entity_type == EntityType.TASK:")
+        violations = lint_content(linter, "if entity.entity_type == EntityType.TASK:\n    pass")
+        assert len(violations) == 0
+
+    def test_enum_value_comparison_exempt(self) -> None:
+        # EntityType referenced inside the Compare — the enum is already in play.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'ok = EntityType.TASK.value == "task"')
         assert len(violations) == 0
 
     def test_skips_comments(self) -> None:
@@ -842,15 +858,46 @@ class TestSKUEL014:
         violations = lint_content(linter, '# entity_type == "task"')
         assert len(violations) == 0
 
+    def test_skips_docstrings(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter, '"""Example: entity_type == "task" routes to TasksService."""'
+        )
+        assert len(violations) == 0
+
+    def test_flags_membership_string_left_of_in(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if "task" in contexts:\n    pass')
+        assert len(violations) == 1
+
+    def test_flags_membership_in_literal_container(self) -> None:
+        # Old line-regex missed the container form entirely.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if entity_type in ("task", "goal"):\n    pass')
+        assert len(violations) == 1
+
+    def test_multiline_container_now_caught(self) -> None:
+        # Wrapped comparisons were invisible to the old single-line regex.
+        linter = make_linter(["SKUEL014"])
+        content = 'if entity_type in (\n    "task",\n    "goal",\n):\n    pass'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_plain_string_literal_not_flagged(self) -> None:
+        # "task" outside a comparison (log message, dict key) is not a discriminator.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'logger.info("task completed")\nd = {"task": 1}')
+        assert len(violations) == 0
+
     def test_flags_stale_lesson_alias(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "lesson":')
+        violations = lint_content(linter, 'if entity_type == "lesson":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
     def test_flags_interaction_magic_string(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "interaction":')
+        violations = lint_content(linter, 'if entity_type == "interaction":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
