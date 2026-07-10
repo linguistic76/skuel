@@ -132,6 +132,7 @@ class ParsedActivityLine:
         source_line: Optional line number in source
         raw_line: Original unparsed line text
         is_checked: Whether checkbox is checked ([x] vs [ ])
+        tag_warnings: Dropped-tag-value reports (written tag, unparseable value)
 
     Example:
         ```python
@@ -191,6 +192,14 @@ class ParsedActivityLine:
 
     # obsidian-tasks 🆔 join key (ADR-070); None for @context() DSL lines.
     vault_id: str | None = None
+
+    # Dropped-tag-value reports: a tag that was written but whose value did
+    # not parse (@when(Friday), @priority(99), @duration(10), @repeat(yearly))
+    # degrades softly — line kept, value dropped. The drop is recorded here so
+    # extraction can surface it in the run summary instead of leaving it in
+    # server logs only. The suggestions flow deliberately ignores this field
+    # (bridge tags stay loose for the user to refine while curating).
+    tag_warnings: list[str] = field(default_factory=list)
 
     # ========================================================================
     # ACTIVITY DOMAINS (7) - Type-Safe Checks
@@ -656,6 +665,29 @@ class ActivityDSLParser:
             primary_ku = self._parse_ku(tags.get("ku"))
             links = self._parse_links(tags.get("link", ""))
 
+            # A written tag whose value didn't parse degrades softly (value
+            # dropped, line kept) — record the drop so it can surface in the
+            # extraction summary instead of server logs only.
+            tag_warnings: list[str] = []
+            if tags.get("when") and when is None:
+                tag_warnings.append(
+                    f"@when({tags['when']}) not parseable — schedule dropped "
+                    "(use YYYY-MM-DD or YYYY-MM-DDTHH:MM)"
+                )
+            if tags.get("priority") and priority is None:
+                tag_warnings.append(
+                    f"@priority({tags['priority']}) invalid — dropped (use 1-5, 1 = highest)"
+                )
+            if tags.get("duration") and duration is None:
+                tag_warnings.append(
+                    f"@duration({tags['duration']}) invalid — dropped (use units, e.g. 90m, 1h30m)"
+                )
+            if tags.get("repeat") and repeat is None:
+                tag_warnings.append(
+                    f"@repeat({tags['repeat']}) unknown pattern — dropped "
+                    "(daily, weekly:Mon,Wed, monthly:1,15, every:3d)"
+                )
+
             activity = ParsedActivityLine(
                 description=description,
                 contexts=contexts,
@@ -670,6 +702,7 @@ class ActivityDSLParser:
                 source_line=source_line_num,
                 raw_line=line,
                 is_checked=is_checked,
+                tag_warnings=tag_warnings,
             )
 
             self.logger.debug(

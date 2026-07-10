@@ -61,7 +61,8 @@ something.
 | `@link()` | goal:, principle:, ku:, … | `@link(goal:health, principle:awareness-first)` |
 
 `@when()` needs a real ISO date — `@when(Friday)` or `@when(07:00)` keeps the
-line but drops the schedule.
+line but drops the schedule (the sync warnings tell you which values were
+dropped; same for invalid `@priority`/`@duration`/`@repeat` values).
 
 ## Full example
 

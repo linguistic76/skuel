@@ -359,6 +359,33 @@ Some reflections on the day...
         assert "task" in warning  # names what WAS created
 
     @pytest.mark.asyncio
+    async def test_tag_warnings_ride_into_extraction_summary(self, extractor):
+        """Dropped tag values surface in the run summary the sync warnings read."""
+        entry = UserEntry(
+            uid="ue_tagwarn",
+            title="TagWarn",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="tagwarn.md",
+            file_path="/tmp/tagwarn.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content="- [ ] Finish report @context(task) @when(Friday)\n",
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1  # entity still created
+        assert len(extraction.tag_warnings) == 1
+        assert "Finish report" in extraction.tag_warnings[0]
+        assert "@when(Friday)" in extraction.tag_warnings[0]
+        assert extraction.to_dict()["tag_warnings"] == extraction.tag_warnings
+
+    @pytest.mark.asyncio
     async def test_learning_modifier_never_reported_as_skipped(self, extractor):
         """@context(task,learning): modifier creates nothing by design — no warning."""
         entry = UserEntry(
