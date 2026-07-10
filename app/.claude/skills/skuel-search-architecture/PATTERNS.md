@@ -135,17 +135,17 @@ request = SearchRequest(
 )
 ```
 
-**All 8 graph patterns** (in `SearchRequest`; authoritative Cypher in `relationship_filter_fragments.py`):
+**All 8 graph patterns** (in `SearchRequest`; authoritative Cypher in `relationship_filter_fragments.py` — every edge is a registered `RelationshipName` with a real write path, guarded by `tests/unit/adapters/test_relationship_filter_vocabulary.py`):
 | Field | Cypher Pattern (EXISTS fragment) | Meaning |
 |-------|---------------|---------|
 | `ready_to_learn` | NOT EXISTS an unmastered REQUIRES_KNOWLEDGE prereq | No blocked prerequisites |
-| `builds_on_mastered` | user MASTERED neighbor —ENABLES_LEARNING\|RELATED_TO— this | Extends existing knowledge |
-| `in_active_path` | user ENROLLED_IN active lp HAS_STEP ps REQUIRES_KNOWLEDGE this | Part of followed learning path |
-| `supports_goals` | user PURSUING_GOAL goal REQUIRES_KNOWLEDGE this | Linked to active goals |
-| `builds_on_habits` | user PRACTICES habit APPLIES_KNOWLEDGE this | Reinforces active habits |
-| `applied_in_tasks` | user OWNS task APPLIES_KNOWLEDGE this (30-day window) | Used in recent tasks |
-| `aligned_with_principles` | user ADHERES_TO principle EMBODIES_KNOWLEDGE this | Aligns with principles |
-| `next_logical_step` | MASTERED —ENABLES_LEARNING→ this, prereqs met, not yet mastered | Natural progression |
+| `builds_on_mastered` | user MASTERED neighbor —ENABLES_KNOWLEDGE\|RELATED_TO— this | Extends existing knowledge |
+| `in_active_path` | user ENROLLED_IN (not completed) lp HAS_STEP ps USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE this | Part of followed learning path |
+| `supports_goals` | user OWNS active goal REQUIRES_KNOWLEDGE this | Linked to active goals |
+| `builds_on_habits` | user OWNS active habit REINFORCES_KNOWLEDGE this | Reinforces active habits |
+| `applied_in_tasks` | user OWNS task APPLIES_KNOWLEDGE this (30-day window; `datetime()` coerces string `updated_at`) | Used in recent tasks |
+| `aligned_with_principles` | user OWNS active principle GROUNDED_IN_KNOWLEDGE this | Aligns with principles |
+| `next_logical_step` | MASTERED —ENABLES_KNOWLEDGE→ this, prereqs met, not yet mastered | Natural progression |
 
 **Pedagogical patterns** (content state):
 | Field | Meaning |

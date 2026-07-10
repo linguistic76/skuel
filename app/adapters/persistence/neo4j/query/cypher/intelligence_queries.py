@@ -190,7 +190,7 @@ def build_optimized_ready_to_learn(
     }}
 
     // Count what this unlocks (useful for prioritization)
-    OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Entity)
+    OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(unlocked:Entity)
     WHERE NOT EXISTS {{
         MATCH (user:User {{uid: $user_uid}})-[:MASTERED]->(unlocked)
     }}
@@ -244,14 +244,14 @@ def build_goal_aligned_hybrid(
         params["learning_level"] = learning_level
 
     # Goal status filter
-    goal_status_filter = "goal.status IN ['active', 'in_progress']" if only_active_goals else "true"
+    goal_status_filter = "goal.status IN ['active', 'scheduled']" if only_active_goals else "true"
 
     # Build WHERE clause
     property_where = " AND ".join(property_filters) if property_filters else "true"
 
     cypher = f"""
     // Start with user's goals
-    MATCH (user:User {{uid: $user_uid}})-[:PURSUING_GOAL]->(goal:Goal)
+    MATCH (user:User {{uid: $user_uid}})-[:OWNS]->(goal:Goal)
     WHERE {goal_status_filter}
 
     // Find knowledge required by goals

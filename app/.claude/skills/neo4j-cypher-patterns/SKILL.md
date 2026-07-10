@@ -409,7 +409,7 @@ Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comp
 
 ## Additional Resources
 
-- [reference.md](reference.md) - Curated relationship type catalog (enum has 168 members)
+- [reference.md](reference.md) - Curated relationship type catalog (enum has 169 members)
 - [examples.md](examples.md) - Full query examples for each domain
 - [docs/patterns/NEO4J_QUERY_TIMEOUT.md](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) - Per-query server-side timeout (TimedDriver, override mechanism)
 - [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not 124 call-site edits
@@ -430,7 +430,7 @@ Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comp
 - [query_architecture.md](/docs/patterns/query_architecture.md) - Query architecture patterns
 
 **Code:**
-- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 168 relationship types)
+- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 169 relationship types)
 
 ---
 

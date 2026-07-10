@@ -122,7 +122,7 @@ class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
     # Enables relationship types (default: [])
     _enables_relationships: ClassVar[list[str]] = [
         "ENABLES_STEP",
-        "ENABLES_LEARNING",
+        "ENABLES_KNOWLEDGE",
     ]
 ```
 
@@ -163,7 +163,7 @@ class PsSearchService(BaseService["BackendOperations[Ls]", Ls]):
     # Curriculum features (opt-in)
     _content_field: str = "description"
     _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP", "ENABLES_LEARNING"]
+    _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP", "ENABLES_KNOWLEDGE"]
 
     # Graph enrichment
     _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str, str]]] = [

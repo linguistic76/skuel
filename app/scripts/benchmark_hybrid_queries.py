@@ -97,7 +97,7 @@ class QueryBenchmark:
         Pattern:
             MATCH (ku:Entity)
             WHERE EXISTS {
-              MATCH (user)-[:MASTERED]->()-[:ENABLES_LEARNING]->(ku)
+              MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
             }
             RETURN ku
 
@@ -107,7 +107,7 @@ class QueryBenchmark:
         MATCH (ku:Entity)
         WHERE EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-                  -[:ENABLES_LEARNING]->(ku)
+                  -[:ENABLES_KNOWLEDGE]->(ku)
         }
         AND NOT EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
@@ -139,7 +139,7 @@ class QueryBenchmark:
               AND ku.learning_level = $level
             WITH ku
             WHERE EXISTS {
-              MATCH (user)-[:MASTERED]->()-[:ENABLES_LEARNING]->(ku)
+              MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
             }
             RETURN ku
 
@@ -166,7 +166,7 @@ class QueryBenchmark:
         Pattern:
             MATCH (ku:Entity)
             WHERE EXISTS {
-              MATCH (user)-[:MASTERED]->()-[:ENABLES_LEARNING]->(ku)
+              MATCH (user)-[:MASTERED]->()-[:ENABLES_KNOWLEDGE]->(ku)
             }
             WITH ku
             WHERE ku.sel_category = $category
@@ -179,7 +179,7 @@ class QueryBenchmark:
         MATCH (ku:Entity)
         WHERE EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(mastered:Entity)
-                  -[:ENABLES_LEARNING]->(ku)
+                  -[:ENABLES_KNOWLEDGE]->(ku)
         }
         AND NOT EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
@@ -188,7 +188,7 @@ class QueryBenchmark:
         WHERE ku.sel_category = $category
           AND ku.learning_level = $level
 
-        OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(unlocked:Entity)
+        OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(unlocked:Entity)
         WHERE NOT EXISTS {
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(unlocked)
         }

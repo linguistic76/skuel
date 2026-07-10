@@ -65,7 +65,7 @@ class HybridQueryBuilder:
         },
         graph_patterns={
             "ready_to_learn": "NOT EXISTS { MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq) ... }",
-            "supports_goals": "EXISTS { MATCH (user)-[:PURSUING_GOAL]->(goal)-[:REQUIRES_KNOWLEDGE]->(ku) }",
+            "supports_goals": "EXISTS { MATCH (user)-[:OWNS]->(goal)-[:REQUIRES_KNOWLEDGE]->(ku) }",
         },
         user_uid="user.mike",
         QueryLimit.SMALL,
@@ -171,9 +171,9 @@ class HybridQueryBuilder:
                     "// Fetch relationship context for each result",
                     "OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)",
                     "OPTIONAL MATCH (user:User {uid: $user_uid})-[mastery:MASTERED]->(prereq)",
-                    "OPTIONAL MATCH (ku)-[:ENABLES_LEARNING]->(next:Entity)",
-                    "OPTIONAL MATCH (user)-[:PURSUING_GOAL]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)",
-                    "WHERE goal.status IN ['active', 'in_progress']",
+                    "OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(next:Entity)",
+                    "OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)",
+                    "WHERE goal.status IN ['active', 'scheduled']",
                     "",
                     "WITH ku,",
                     "     collect(DISTINCT {uid: prereq.uid, title: prereq.title, mastered: mastery IS NOT NULL}) as prerequisites,",
@@ -433,8 +433,8 @@ class QueryOptimizationPatterns:
         """
         return """
         // ✅ EFFICIENT PATTERN
-        MATCH (user:User {uid: $user_uid})-[:PURSUING_GOAL]->(goal:Goal)
-        WHERE goal.status IN ['active', 'in_progress'] -- Filter goals first
+        MATCH (user:User {uid: $user_uid})-[:OWNS]->(goal:Goal)
+        WHERE goal.status IN ['active', 'scheduled'] -- Filter goals first
         WITH user, collect(goal) as active_goals
 
         MATCH (goal)-[:REQUIRES_KNOWLEDGE]->(ku:Entity)
@@ -469,11 +469,11 @@ class QueryOptimizationPatterns:
             }
         }
         AND EXISTS { -- Pattern 2: Enabled by mastered
-            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(m)-[:ENABLES_LEARNING]->(ku)
+            MATCH (user:User {uid: $user_uid})-[:MASTERED]->(m)-[:ENABLES_KNOWLEDGE]->(ku)
         }
         AND EXISTS { -- Pattern 3: Supports goals
-            MATCH (user)-[:PURSUING_GOAL]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
-            WHERE goal.status IN ['active', 'in_progress']
+            MATCH (user)-[:OWNS]->(goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
+            WHERE goal.status IN ['active', 'scheduled']
         }
 
         RETURN ku
