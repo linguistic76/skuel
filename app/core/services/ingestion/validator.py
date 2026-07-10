@@ -656,7 +656,9 @@ async def validate_relationship_targets(
 
 _VALID_POLARITIES = {-1, 0, 1}
 _VALID_TEMPORALITIES = {"minutes", "hours", "days", "chronic"}
-_VALID_SOURCES = {"self_observation", "research", "teacher", "clinical"}
+# "inferred-approved" = machine-suggested edge explicitly approved by an admin
+# via /admin/prereq-suggestions (ContentVaultEdgeWriter stamps it on the YAML)
+_VALID_SOURCES = {"self_observation", "research", "teacher", "clinical", "inferred-approved"}
 
 
 def validate_edge_data(data: dict[str, Any]) -> Result[None]:
@@ -666,7 +668,7 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
     Required: from, to, relationship
     Optional: confidence (0.0-1.0), polarity (-1/0/1),
               temporality (minutes/hours/days/chronic),
-              source (self_observation/research/teacher/clinical)
+              source (self_observation/research/teacher/clinical/inferred-approved)
 
     Args:
         data: Parsed edge YAML data

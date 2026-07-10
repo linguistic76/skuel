@@ -390,3 +390,27 @@ def test_approvable_relationships_are_the_ruled_three() -> None:
         "RELATED_TO",
         "COMPLEMENTARY_TO",
     }
+
+
+def test_rendered_yaml_passes_sync_validation() -> None:
+    """The approved file must survive content-vault sync (Codex P1 #599).
+
+    validate_edge_data is the gate every Edge YAML passes at ingestion —
+    a rendered file that fails it would silently never land in the graph.
+    """
+    import yaml
+
+    from core.services.ingestion.validator import validate_edge_data
+
+    content = render_edge_yaml(
+        "ku.sel.empathy",
+        "ku.sel.compassion",
+        RelationshipName.PREREQUISITE_FOR,
+        rationale="Compassion is empathy plus the motivation to act.",
+    )
+    frontmatter = content.split("---")[1]
+    data = yaml.safe_load(frontmatter)
+
+    result = validate_edge_data(data)
+    assert result.is_ok, f"rendered Edge YAML failed sync validation: {result}"
+    assert data["source"] == "inferred-approved"
