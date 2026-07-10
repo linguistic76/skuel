@@ -84,6 +84,10 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
 ### WARNING
 
+Warnings fail the gate commands (`./dev lint` / `./dev quality` pass `--strict`)
+now that the tier is at zero codebase-wide; a plain `lint_skuel.py` run reports
+them without failing.
+
 | Rule | Pattern | Description |
 |------|---------|-------------|
 | **SKUEL004** | Missing confidence threshold | Semantic queries need confidence filters |

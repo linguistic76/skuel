@@ -55,7 +55,7 @@ The `./dev` script is the primary interface for development commands. Every comm
 |-----------------|----------------------------|
 | `./dev serve` | `uv run python main.py` |
 | `./dev format` | `uv run ruff format` |
-| `./dev lint` | `uv run ruff check` + `uv run python scripts/lint_skuel.py` |
+| `./dev lint` | `uv run ruff check` + `uv run python scripts/lint_skuel.py --strict` |
 | `./dev lint-fix` | `uv run ruff check --fix` |
 | `./dev quality` | `uv run python scripts/run_quality_checks.py` |
 | `./dev test` | `uv run python scripts/run_tests.py comprehensive` |
