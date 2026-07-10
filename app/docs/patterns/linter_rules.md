@@ -456,7 +456,7 @@ def fetch() -> None:
 
 **How to fix a violation:** relocate the query into an adapter backend in `adapters/persistence/neo4j/` behind a `core/ports` protocol, and inject it at the composition root. For an "inverted boundary" case (a `core/` model/util that builds a Cypher string handed to a passthrough executor), pass the domain *intent* down and author the Cypher below the boundary — see `ConnectionFetchBackend` / `ConnectionFetchOperations` (PR #75) and `build_relationship_filter_fragments` (PR #78) for the patterns.
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, multi-line collapse, and suppression. `tests/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover. The real `core/` tree is held clean by `./dev quality` in CI.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL021` covers used Cypher in `core/services`/`core/utils`/`core/models`, f-strings, passed/returned strings, docstring + `USAGE EXAMPLES` + comment skips, multi-line collapse, and suppression. `tests/unit/test_core_utils_boundary.py` additionally bans execution primitives (neo4j driver imports, `.execute_query(` calls) that SKUEL021 does not cover. The real `core/` tree is held clean by `./dev quality` in CI.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL021 -- <reason>` (line)
