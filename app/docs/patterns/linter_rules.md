@@ -623,8 +623,6 @@ uv run mypy core/ adapters/ routes/
 # SKUEL pattern linter (all rules)
 uv run python scripts/lint_skuel.py
 
-# With error exit for CI
-uv run python scripts/lint_skuel.py --check
 ```
 
 **New CLI options (December 2025):**
@@ -644,8 +642,8 @@ uv run python scripts/lint_skuel.py --list-rules
 # Show code context around violations
 uv run python scripts/lint_skuel.py --context
 
-# Quiet mode for CI (minimal output)
-uv run python scripts/lint_skuel.py --quiet --check
+# Quiet gate mode (minimal output, warnings fail)
+uv run python scripts/lint_skuel.py --quiet --strict
 
 # JSON output for tooling integration
 uv run python scripts/lint_skuel.py --json
@@ -667,7 +665,7 @@ Add to pre-commit hooks or CI pipeline:
 ```yaml
 # .github/workflows/ci.yml
 - name: Lint SKUEL patterns
-  run: uv run python scripts/lint_skuel.py --check
+  run: uv run python scripts/lint_skuel.py --strict
 ```
 
 ## Linter Configuration Files

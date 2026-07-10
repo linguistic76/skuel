@@ -165,7 +165,6 @@ Always include a reason after `--` to document why.
 # Basic usage
 uv run python scripts/lint_skuel.py                    # Report violations
 uv run python scripts/lint_skuel.py --fix              # Auto-fix (SKUEL003, SKUEL009, SKUEL010)
-uv run python scripts/lint_skuel.py --check            # Exit 1 if violations (CI mode)
 
 # Filtering
 uv run python scripts/lint_skuel.py --file core/services/   # Lint specific path

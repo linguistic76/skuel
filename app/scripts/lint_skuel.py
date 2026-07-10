@@ -47,7 +47,6 @@ AUTO-FIXABLE:
 Usage:
     uv run python scripts/lint_skuel.py              # Report violations (with code context)
     uv run python scripts/lint_skuel.py --fix        # Auto-fix where possible
-    uv run python scripts/lint_skuel.py --check      # Exit 1 if violations (for CI)
     uv run python scripts/lint_skuel.py --strict     # Treat warnings as errors
     uv run python scripts/lint_skuel.py --changed    # Lint only files changed vs main branch
     uv run python scripts/lint_skuel.py --staged     # Lint only staged files (pre-commit)
@@ -3882,11 +3881,8 @@ Examples:
   %(prog)s --explain SKUEL003       # Show rule documentation
   %(prog)s --fix                    # Auto-fix violations
   %(prog)s --no-context             # Hide code context
-  %(prog)s --quiet --check          # CI mode
+  %(prog)s --quiet --strict         # CI/gate mode (warnings fail)
         """,
-    )
-    parser.add_argument(
-        "--check", action="store_true", help="Exit with code 1 if any violations (for CI)"
     )
     parser.add_argument("--fix", action="store_true", help="Auto-fix violations where possible")
     parser.add_argument("--strict", action="store_true", help="Treat warnings as errors")
@@ -4052,18 +4048,20 @@ Examples:
             },
         }
         print(json.dumps(output, indent=2))
-        exit_code = 1 if linter.result.violations else 0
+        # Same severity semantics as print_report — INFO never fails a run.
+        if linter.result.has_critical or linter.result.has_error:
+            exit_code = 2
+        elif args.strict and linter.result.has_warning:
+            exit_code = 1
+        else:
+            exit_code = 0
     else:
         show_context = not args.no_context
         exit_code = linter.print_report(
             strict=args.strict, quiet=args.quiet, show_context=show_context
         )
 
-    # Exit
-    if args.check:
-        sys.exit(1 if linter.result.violations else 0)
-    else:
-        sys.exit(exit_code)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
