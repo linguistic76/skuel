@@ -197,8 +197,10 @@ class ParsedActivityLine:
     # not parse (@when(Friday), @priority(99), @duration(10), @repeat(yearly))
     # degrades softly — line kept, value dropped. The drop is recorded here so
     # extraction can surface it in the run summary instead of leaving it in
-    # server logs only. The suggestions flow deliberately ignores this field
-    # (bridge tags stay loose for the user to refine while curating).
+    # server logs only. USER-TYPED lines only, by consumer contract: the
+    # suggestions flow ignores this field, and the extractor exempts
+    # bridge-generated lines — bridge tags are deliberately loose
+    # (@when(Friday)) and not the user's values to fix.
     tag_warnings: list[str] = field(default_factory=list)
 
     # ========================================================================
