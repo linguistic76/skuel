@@ -904,7 +904,7 @@ class PsService:
             timestamp=event.occurred_at,
         )
 
-    async def batch_increment_substance_metric(
+    async def batch_increment_substance_metric(  # skuel-lint: disable=SKUEL005 -- fire-and-forget metric increment from event paths; invalid input logged and dropped by design
         self, ku_uids: tuple[str, ...], metric: str, timestamp_field: str, timestamp: Any
     ) -> None:
         """Atomically increment a substance metric for multiple entities."""

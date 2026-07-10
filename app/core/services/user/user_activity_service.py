@@ -285,7 +285,7 @@ class UserActivityService:
     # CONTEXT INVALIDATION (Event-Driven Architecture)
     # ========================================================================
 
-    async def invalidate_context(
+    async def invalidate_context(  # skuel-lint: disable=SKUEL005 -- fire-and-forget cache invalidation from event handlers
         self,
         user_uid: UserUID,
         reason: str = InvalidationReason.MANUAL,

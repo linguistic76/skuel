@@ -730,6 +730,14 @@ class Violation:
     original_text: str = ""
     fixed_text: str = ""
     line_content: str = ""  # The actual line of code
+    # Inclusive 1-based line range where a `# skuel-lint: disable=` comment is
+    # honored for this violation. None → exactly line_number (the default for
+    # single-line constructs). Rules over multi-line headers (SKUEL005 defs,
+    # SKUEL017 excepts) set this to the full header span so a suppression
+    # survives ruff-format wrapping the statement (the #590 stranding class);
+    # the SKUEL026 audit reads the SAME span, keeping checker and audit in
+    # lockstep.
+    suppression_span: tuple[int, int] | None = None
 
 
 @dataclass
@@ -903,8 +911,10 @@ class SkuelLinter:
         {
             "SKUEL001",
             "SKUEL002",
+            "SKUEL005",
             "SKUEL013",
             "SKUEL014",
+            "SKUEL017",
             "SKUEL020",
             "SKUEL021",
             "SKUEL022",
@@ -1142,15 +1152,25 @@ class SkuelLinter:
         anywhere in the file for file-level) AND is absent from the main run —
         i.e. the comment actually suppressed something. A rule that fires in
         BOTH runs was not suppressed (non-suppressible rule, malformed comment),
-        so the comment is flagged alongside the visible violation. Every checker
-        reads the suppression off the exact line it reports (`lines[lineno - 1]`),
-        so same-line matching is sound.
+        so the comment is flagged alongside the visible violation.
+
+        Line matching is span-aware: a checker reads the suppression off the
+        exact line it reports (`lines[lineno - 1]`) OR, for multi-line header
+        constructs, off any line in the violation's ``suppression_span``
+        (SKUEL005 def signatures, SKUEL017 except clauses). The Violation
+        carries that span, so checker and audit honor the SAME set of lines.
         """
+
+        def _covers(violation: Violation, line: int) -> bool:
+            start, end = violation.suppression_span or (
+                violation.line_number,
+                violation.line_number,
+            )
+            return start <= line <= end
+
         # Snapshot BEFORE any SKUEL026 findings are appended below.
-        main_line_hits = {
-            (str(v.file_path), v.rule_id, v.line_number) for v in self.result.violations
-        }
-        main_file_hits = {(str(v.file_path), v.rule_id) for v in self.result.violations}
+        main_violations = list(self.result.violations)
+        main_file_hits = {(str(v.file_path), v.rule_id) for v in main_violations}
 
         for file_path in python_files:
             comments = self._find_suppression_comments(file_path)
@@ -1163,8 +1183,12 @@ class SkuelLinter:
                 ignore_suppressions=True,
             )
             shadow._lint_file(file_path)
-            fired_at = {(v.rule_id, v.line_number) for v in shadow.result.violations}
             fired_rules = {v.rule_id for v in shadow.result.violations}
+
+            def fired_at(rule_id: str, line: int) -> bool:
+                return any(
+                    v.rule_id == rule_id and _covers(v, line) for v in shadow.result.violations
+                )
 
             for comment in comments:
                 rel_str = str(comment.file_path)
@@ -1174,11 +1198,15 @@ class SkuelLinter:
                         and (rel_str, comment.rule_id) not in main_file_hits
                     )
                 else:
-                    comment.used = (comment.rule_id, comment.line_number) in fired_at and (
-                        rel_str,
-                        comment.rule_id,
-                        comment.line_number,
-                    ) not in main_line_hits
+                    hit_in_main = any(
+                        str(v.file_path) == rel_str
+                        and v.rule_id == comment.rule_id
+                        and _covers(v, comment.line_number)
+                        for v in main_violations
+                    )
+                    comment.used = (
+                        fired_at(comment.rule_id, comment.line_number) and not hit_in_main
+                    )
                 self.result.suppressions.append(comment)
                 if comment.used:
                     continue
@@ -1187,7 +1215,7 @@ class SkuelLinter:
                 fired = (
                     comment.rule_id in fired_rules
                     if comment.file_level
-                    else (comment.rule_id, comment.line_number) in fired_at
+                    else fired_at(comment.rule_id, comment.line_number)
                 )
                 if comment.rule_id not in RULE_DOCS:
                     why = f"'{comment.rule_id}' is not a SKUEL rule (typo?)"
@@ -1298,7 +1326,7 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL016"):
                 self._check_poetry_references(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL017") and not is_test:
-                self._check_broad_exception_catches(file_path, rel_path, content, lines)
+                self._check_broad_exception_catches(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL018") and not is_test:
                 self._check_rich_only_field_access(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL019") and not is_test:
@@ -1336,13 +1364,11 @@ class SkuelLinter:
                 if self._should_run_rule("SKUEL002"):
                     self._check_semantic_type_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL005"):
-                    self._check_result_return_types(file_path, rel_path, content, lines)
+                    self._check_result_return_types(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(
-                        file_path, rel_path, content, lines, tree
-                    )
+                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL014"):
                     self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
@@ -1654,86 +1680,124 @@ class SkuelLinter:
     # WARNING RULES
     # =========================================================================
 
+    # SKUEL005: method names exempt from the Result[T] contract — cache-style
+    # utilities and event-style fire-and-forget handlers (mirrors the old
+    # line-substring patterns, translated onto the method NAME).
+    RESULT_EXEMPT_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"get", "set", "delete", "clear", "get_hit_rate", "is_expired"}
+    )
+    RESULT_EXEMPT_PREFIXES: ClassVar[tuple[str, ...]] = (
+        "handle_",
+        "learn_from_",
+        "increment_",
+        "ensure_",
+    )
+
+    # Annotation text that satisfies SKUEL005: `Result`, `Result[T]`,
+    # `Result[T] | None`, and string forward-refs thereof. Word-bounded so
+    # `LintResult` / `Results` don't pass.
+    _RESULT_ANNOTATION_RE: ClassVar[re.Pattern[str]] = re.compile(r"\bResult\b")
+
     def _check_result_return_types(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL005 [WARNING]: Service methods should return Result[T].
+
+        AST-based: flags every top-level-or-method ``async def`` (not nested
+        inside another function) whose return annotation does not reference
+        ``Result`` — including multi-line signatures, which the old
+        single-physical-line check was completely blind to. Functions without a
+        return annotation are not flagged (mypy's disallow_untyped_defs owns
+        missing annotations in core.services).
+
+        Skips: private methods (``_``-prefixed), ``@classmethod`` factories, and
+        the utility-name exemptions in RESULT_EXEMPT_NAMES / _PREFIXES.
+
+        The ``# skuel-lint: disable=SKUEL005`` comment is honored on any line of
+        the def header (the ``async def`` line through the line before the body),
+        so a suppression survives ruff-format wrapping a long signature; the
+        violation carries that span for the SKUEL026 audit.
         """
         if "protocol" in str(file_path).lower():
             return
 
         if self._is_file_suppressed(content, "SKUEL005"):
             return
+        if tree is None:
+            return
 
-        utility_patterns = [
-            "get(self, key:",
-            "set(self, key:",
-            "delete(self, key:",
-            "clear(self)",
-            "_get_",
-            "get_hit_rate",
-            "is_expired",
-            "_evict",
-            "_adaptive",
-            "_update_access",
-            "_remove_from",
-            "handle_",
-            "learn_from_",
-            "increment_",
-            "ensure_",
-        ]
+        # Functions nested inside another function/lambda are helpers, not the
+        # service surface — collect them so the main walk can skip them. Methods
+        # of Protocol classes are contract stubs, not implementations — the
+        # implementing service is where the Result[T] contract is enforced
+        # (protocols declared in *protocol*-named files are already exempt via
+        # the file-name check; this catches Protocol classes declared inline).
+        nested_ids: set[int] = set()
+        for scope in ast.walk(tree):
+            if isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+                for child in ast.walk(scope):
+                    if child is not scope and isinstance(child, ast.AsyncFunctionDef):
+                        nested_ids.add(id(child))
+            elif isinstance(scope, ast.ClassDef) and any(
+                (isinstance(base, ast.Name) and base.id == "Protocol")
+                or (isinstance(base, ast.Attribute) and base.attr == "Protocol")
+                for base in scope.bases
+            ):
+                for child in ast.walk(scope):
+                    if isinstance(child, ast.AsyncFunctionDef):
+                        nested_ids.add(id(child))
 
-        base_method_indent: int | None = None
-
-        for line_num, line in enumerate(lines, start=1):
-            if not line.strip():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef):
+                continue
+            if id(node) in nested_ids:
+                continue
+            if node.returns is None:
+                continue
+            name = node.name
+            if name.startswith("_"):
+                continue
+            if name in self.RESULT_EXEMPT_NAMES or name.startswith(self.RESULT_EXEMPT_PREFIXES):
+                continue
+            # @classmethod factories (dataclass builders, not service methods)
+            if any(
+                (isinstance(d, ast.Name) and d.id == "classmethod")
+                or (isinstance(d, ast.Attribute) and d.attr == "classmethod")
+                for d in node.decorator_list
+            ):
+                continue
+            if self._RESULT_ANNOTATION_RE.search(ast.unparse(node.returns)):
                 continue
 
-            stripped = line.lstrip()
-            indent = len(line) - len(stripped)
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
+            # Suppression: any def-header line (span recorded on the violation).
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL005")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
 
-            if stripped.startswith(("def ", "async def ")):
-                if base_method_indent is None:
-                    base_method_indent = indent
-                elif indent <= base_method_indent:
-                    base_method_indent = indent
-
-            if "async def" in line and "->" in line:
-                if base_method_indent is not None and indent > base_method_indent:
-                    continue
-
-                if "def _" in line or "def __" in line:
-                    continue
-
-                if any(p in line for p in utility_patterns):
-                    continue
-
-                # Skip @classmethod methods (factory methods on dataclasses, not services)
-                is_classmethod = False
-                for prev_idx in range(line_num - 2, max(0, line_num - 5), -1):
-                    prev_stripped = lines[prev_idx].strip()
-                    if prev_stripped == "@classmethod":
-                        is_classmethod = True
-                        break
-                    if not prev_stripped.startswith("@"):
-                        break
-                if is_classmethod:
-                    continue
-
-                if "Result[" not in line and not self._is_line_suppressed(line, "SKUEL005"):
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=0,
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL005",
-                            message="Service method should return Result[T]",
-                            suggestion="Change return type to Result[T]",
-                            line_content=line.strip(),
-                        )
-                    )
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=start,
+                    column=node.col_offset,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL005",
+                    message="Service method should return Result[T]",
+                    suggestion="Change return type to Result[T]",
+                    line_content=line.strip(),
+                    suppression_span=(start, end),
+                )
+            )
 
     def _check_string_result_fail(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2303,14 +2367,42 @@ class SkuelLinter:
                     )
                     break  # Only report once per line
 
+    @staticmethod
+    def _catches_bare_exception(handler_type: ast.expr | None) -> bool:
+        """True if an except clause catches the bare ``Exception`` class —
+        directly (``except Exception``) or inside a tuple
+        (``except (ValueError, Exception)``). ``except:`` (type None) is ruff
+        E722's territory, not this rule's."""
+        if isinstance(handler_type, ast.Name):
+            return handler_type.id == "Exception"
+        if isinstance(handler_type, ast.Tuple):
+            return any(
+                isinstance(elt, ast.Name) and elt.id == "Exception" for elt in handler_type.elts
+            )
+        return False
+
     def _check_broad_exception_catches(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL017 [WARNING]: Bare `except Exception` without justification.
 
-        Flags `except Exception` catches that don't have an `# intentional-broad:`
-        or `# safety-net:` comment on the same line or the line above.
+        AST-based: flags every ``ast.ExceptHandler`` whose type resolves to
+        ``Exception`` (bare Name or inside a tuple) — including formatter-wrapped
+        clauses like ``except (\\n    Exception\\n) as e:`` that the old
+        single-line regex was blind to. Docstring mentions are structurally
+        immune (a string is not an ExceptHandler).
+
+        Justification markers ``# intentional-broad:`` / ``# safety-net:`` are
+        honored on the line above the ``except`` and on any line of the clause
+        header (the ``except`` line through the line before the body). The
+        ``# skuel-lint: disable=SKUEL017`` comment is honored on any header line
+        (the violation carries that span for the SKUEL026 audit).
 
         Exceptions: test files, scripts/, CLI entrypoints, this linter.
         """
@@ -2327,57 +2419,41 @@ class SkuelLinter:
         ):
             return
 
-        pattern = re.compile(r"\bexcept\s+Exception\b")
+        if self._is_file_suppressed(content, "SKUEL017"):
+            return
+        if tree is None:
+            return
 
-        # Track whether we're inside a docstring
-        in_docstring = False
-        docstring_delim = None
-
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Track docstring boundaries
-            for delim in ('"""', "'''"):
-                count = stripped.count(delim)
-                if count >= 2:
-                    pass  # Opening and closing on same line
-                elif count == 1:
-                    if not in_docstring:
-                        in_docstring = True
-                        docstring_delim = delim
-                    elif docstring_delim == delim:
-                        in_docstring = False
-                        docstring_delim = None
-
-            if in_docstring:
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            if not self._catches_bare_exception(node.type):
                 continue
 
-            if not pattern.search(line):
-                continue
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
 
-            # Skip comments
-            if stripped.startswith("#"):
-                continue
-
-            # Check if the same line has a suppression comment
-            if (
-                "# intentional-broad:" in line
-                or "# safety-net:" in line
-                or self._is_line_suppressed(line, "SKUEL017")
+            # Markers: line above the except + any clause-header line.
+            marker_zone = lines[max(0, start - 2) : end]
+            if any(
+                "# intentional-broad:" in marker_line or "# safety-net:" in marker_line
+                for marker_line in marker_zone
             ):
                 continue
 
-            # Check if the line above has a suppression comment
-            if line_num >= 2:
-                prev_line = lines[line_num - 2]
-                if "# intentional-broad:" in prev_line or "# safety-net:" in prev_line:
-                    continue
+            # Suppression: any clause-header line (span recorded on the violation).
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL017")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
 
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=line_num,
-                    column=line.find("except"),
+                    line_number=start,
+                    column=node.col_offset,
                     severity=Severity.WARNING,
                     rule_id="SKUEL017",
                     message="Bare `except Exception` — use specific exception types",
@@ -2387,6 +2463,7 @@ class SkuelLinter:
                         "or add `# intentional-broad: <reason>` comment"
                     ),
                     line_content=line.strip(),
+                    suppression_span=(start, end),
                 )
             )
 

@@ -215,7 +215,7 @@ class EmbeddingBackgroundWorker:
         await self._process_batches_loop()
         return Result.ok(None)
 
-    async def drain(
+    async def drain(  # skuel-lint: disable=SKUEL005 -- script-mode drain returns processed counts; failures re-queue with bounded retries (fail-soft worker)
         self,
     ) -> dict[str, int]:
         """

@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- fail-soft read-projection; habits returned unchanged on lookup failure (derived field is best-effort, not a propagated error)
 """Shared helper: populate the derived ``supports_goal_uid`` on Habit objects.
 
 The Habit→Goal link is the ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` graph edge,
