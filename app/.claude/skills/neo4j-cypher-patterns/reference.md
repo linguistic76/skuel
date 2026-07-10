@@ -35,7 +35,7 @@ The universal ownership edge and the sharing model (ADR-038).
 | `CITES_RESOURCE` | PathStep / Ku | Resource | Curriculum cites reference material (`context` prop) |
 
 ```cypher
--- Find all Resources cited by PathSteps in a LearningPath
+// Find all Resources cited by PathSteps in a LearningPath
 MATCH (lp:LearningPath)-[:HAS_STEP]->(ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
 RETURN ps.title AS path_step, r.title AS resource, r.author, r.media_type
 ```
@@ -53,7 +53,6 @@ Cross-domain edges into `:Ku` nodes (there is no `:Curriculum` label).
 | `REINFORCES_KNOWLEDGE` | Habit | Ku | Habit reinforces this knowledge |
 | `GROUNDED_IN_KNOWLEDGE` | Principle | Ku | Principle grounded in knowledge |
 | `INFORMED_BY_KNOWLEDGE` | Choice | Ku | Choice informed by knowledge |
-| `COVERS_KNOWLEDGE` | Event | Ku | Event covers knowledge topic |
 | `HAS_NARROWER` / `HAS_BROADER` | Ku | Ku | Concept hierarchy (parent↔child) |
 | `UNLOCKS_KNOWLEDGE` | Task | Ku | Completing unlocks knowledge |
 
@@ -102,7 +101,6 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `DEPENDS_ON_GOAL` | Goal | Goal | Goal depends on another |
 | `GUIDED_BY_PRINCIPLE` | Goal | Principle | Goal guided by principle |
 | `SUPPORTS_GOAL` | Habit | Goal | Habit supports goal (with weight) |
-| `ADVANCES_GOAL` | Event | Goal | Event advances goal |
 | `CELEBRATES_GOAL` | Event | Goal | Event celebrates goal achievement |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |
 

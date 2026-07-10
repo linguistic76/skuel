@@ -156,7 +156,7 @@ await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 | Aspect | Value |
 |--------|-------|
 | **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |
-| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership) |
+| **User Ownership** | `DomainConfig.search_visibility`: Activities/UserEntry/RevisedExercise `OWNER_ONLY`, PS/LP/KU `PUBLIC`, Exercise `SCOPE_AWARE` (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group membership) |
 | **Result Type** | `UnifiedSearchResult` with `results_by_domain` + `top_results` |
 | **Dispatch** | EntityType/NonKuDomain enum (type-safe, no string checks) |
 

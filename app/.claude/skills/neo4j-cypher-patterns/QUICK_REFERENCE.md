@@ -30,13 +30,13 @@ MATCH (n {uid: $uid}) WHERE NOT n:Content
 ### Temporal comparison on string-stored fields
 
 ```cypher
--- datetime-typed field (DTO .isoformat() → STRING): coerce the stored side
+// datetime-typed field (DTO .isoformat() → STRING): coerce the stored side
 WHERE datetime(n.created_at) >= datetime($window_start)
 
--- date-only field
+// date-only field
 WHERE date(n.due_date) < date()
 
--- datetime field compared against a date: parse-then-extract (date() ERRORS on datetime strings)
+// datetime field compared against a date: parse-then-extract (date() ERRORS on datetime strings)
 WHERE date(datetime(h.last_completed)) < date()
 ```
 

@@ -234,12 +234,12 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 Full-text indexes are the **Cypher-first search foundation** — always available, no embeddings needed:
 
 ```cypher
--- Full-text search (Lucene-based, relevance-ranked)
+// Full-text search (Lucene-based, relevance-ranked)
 CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline')
 YIELD node, score
 RETURN node.uid, node.title, score
 
--- Vector search (FULL tier only, 1024-dim; OpenAI text-embedding-3-small — ADR-068, BGE staged)
+// Vector search (FULL tier only, 1024-dim; OpenAI text-embedding-3-small — ADR-068, BGE staged)
 CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding)
 YIELD node, score
 RETURN node.uid, node.title, score

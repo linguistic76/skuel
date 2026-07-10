@@ -38,7 +38,7 @@ Task, Goal, Habit, Event, Choice, Principle · Ku, PathStep, LearningPath · Exe
 
 | Visibility (`DomainConfig.search_visibility`) | Domains |
 |--------|---------|
-| `OWNER_ONLY` | 6 Activity + UserEntry |
+| `OWNER_ONLY` | 6 Activity + UserEntry + RevisedExercise |
 | `PUBLIC` | Ku, PS, LP |
 | `SCOPE_AWARE` | Exercise (curriculum visible to all; owned scopes via OWNS/SHARES_WITH/group) |
 
