@@ -24,7 +24,7 @@ Standalone edge YAML files (`type: Edge`) are ingested into Neo4j as typed, evid
 - `confidence` must be 0.0-1.0
 - `polarity` must be -1, 0, or 1
 - `temporality` must be one of: minutes, hours, days, chronic
-- `source` must be one of: self_observation, research, teacher, clinical
+- `source` must be one of: self_observation, research, teacher, clinical, inferred-approved
 
 ### Preparation
 

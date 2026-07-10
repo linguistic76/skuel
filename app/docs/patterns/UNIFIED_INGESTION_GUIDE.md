@@ -1009,7 +1009,7 @@ tags: [health, nervous-system]
 - `confidence`: 0.0–1.0
 - `polarity`: -1, 0, or 1
 - `temporality`: minutes, hours, days, chronic
-- `source`: self_observation, research, teacher, clinical
+- `source`: self_observation, research, teacher, clinical, inferred-approved (app-stamped by the `/admin/prereq-suggestions` approve action)
 
 **Evidence relationship types:** `EXACERBATED_BY`, `REDUCED_BY`, `CORRELATED_WITH`, `CAUSES`, `PRECEDES`
 

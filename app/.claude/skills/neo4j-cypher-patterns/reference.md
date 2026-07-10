@@ -200,7 +200,7 @@ Observable connections between knowledge units.
 | `CAUSES` | Entity | Entity | Direct causal relationship |
 | `PRECEDES` | Entity | Entity | Temporal precedence |
 
-Evidence edges carry properties: `confidence` (0.0–1.0), `polarity` (-1/0/1), `temporality` (minutes/hours/days/chronic), `source` (self_observation/research/teacher/clinical), `evidence` (text), `observed_at`.
+Evidence edges carry properties: `confidence` (0.0–1.0), `polarity` (-1/0/1), `temporality` (minutes/hours/days/chronic), `source` (self_observation/research/teacher/clinical/inferred-approved), `evidence` (text), `observed_at`.
 
 ## Journal Pipeline (UserEntry, ADR-054)
 
