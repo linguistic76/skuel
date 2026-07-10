@@ -675,8 +675,15 @@ class ActivityExtractorService:
         for activity in parsed.activities:
             # Dropped tag values (parser-collected): the entity is still
             # created, but the user must see which written values were lost.
-            for tag_warning in activity.tag_warnings:
-                extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
+            # Gated on the same Guard-2 hash as entity creation so an
+            # already-extracted line doesn't re-warn on every force re-sync —
+            # one warning per line VERSION. (unrouted_lines below stays
+            # ungated on purpose: those lines never create, so they remain
+            # pending and re-reporting them each sync is correct.)
+            line_hash = normalized_line_hash(activity.raw_line) if activity.raw_line else None
+            if line_hash is None or line_hash not in existing_line_hashes:
+                for tag_warning in activity.tag_warnings:
+                    extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
             # Per-context, not per-line: @context(task,finance) creates the
             # Task, but the skipped finance context must still be reported.
             # LEARNING is a pure modifier — never routable, never a skip.

@@ -386,6 +386,37 @@ Some reflections on the day...
         assert extraction.to_dict()["tag_warnings"] == extraction.tag_warnings
 
     @pytest.mark.asyncio
+    async def test_tag_warnings_not_repeated_for_already_extracted_lines(self, extractor):
+        """A line already carrying EXTRACTED_FROM provenance doesn't re-warn on re-sync."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] Finish report @context(task) @when(Friday)"
+        entry = UserEntry(
+            uid="ue_renag",
+            title="ReNag",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="renag.md",
+            file_path="/tmp/renag.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content=f"{line}\n",
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset({normalized_line_hash(line)}),
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 0  # Guard 2 skipped the line
+        assert extraction.tag_warnings == []  # and the warning is gated with it
+
+    @pytest.mark.asyncio
     async def test_learning_modifier_never_reported_as_skipped(self, extractor):
         """@context(task,learning): modifier creates nothing by design — no warning."""
         entry = UserEntry(
