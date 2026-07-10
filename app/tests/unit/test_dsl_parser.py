@@ -179,7 +179,7 @@ class TestKnowledgeAndLinks:
     def test_parse_ku(self):
         """Parse @ku knowledge unit reference."""
         result = parse_activity_line(
-            "- [ ] Study mindfulness @context(learning) @ku(ku:sel/mindfulness-intro)"
+            "- [ ] Study mindfulness @context(task,learning) @ku(ku:sel/mindfulness-intro)"
         )
 
         assert result.is_ok
@@ -334,7 +334,7 @@ class TestJournalParsing:
 Today's goals:
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
 - [ ] Write proposal @context(task) @priority(1) @when({when_str})
-- [ ] Learn Python async @context(learning) @ku(ku:tech/python-async)
+- [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
 
 Some notes without @context that should be ignored.
 
@@ -349,7 +349,7 @@ More activities:
 
         assert parsed.activity_lines_found == 4
         assert len(parsed.activities) == 4
-        assert len(parsed.get_tasks()) == 1
+        assert len(parsed.get_tasks()) == 2  # proposal + Learn Python (task,learning)
         assert len(parsed.get_habits()) == 2  # meditation + journaling (has habit context)
 
     def test_parse_empty_journal(self):
@@ -427,6 +427,13 @@ class TestErrorHandling:
             assert "Invalid context types" in message
             # Error guidance lists the sanctioned vocabulary, not the full enum dump.
             assert "form_template" not in message.split("Valid types:")[1]
+
+    def test_learning_only_context_rejected(self):
+        """learning is a modifier — alone it would create nothing, so it fails."""
+        result = parse_activity_line("- [ ] Read chapter @context(learning)")
+
+        assert result.is_error
+        assert "modifier" in result.expect_error().message
 
     def test_staged_contexts_still_parse(self):
         """Staged domain types (create surface unwired) remain valid vocabulary."""

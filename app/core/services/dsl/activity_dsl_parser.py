@@ -508,7 +508,7 @@ class ActivityDSLParser:
 
     - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
     - [ ] Write proposal @context(task) @priority(1) @when(2025-11-27T09:00)
-    - [ ] Learn Python async @context(learning) @ku(ku:tech/python-async)
+    - [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
     '''
 
     result = parser.parse_journal(journal_text)
@@ -885,6 +885,20 @@ class ActivityDSLParser:
             return Result.fail(
                 Errors.validation(
                     message="@context() must contain at least one valid entity type",
+                    field="context",
+                    value=value,
+                )
+            )
+
+        # `learning` is a modifier — an adjective with no noun creates nothing,
+        # which would silently drop the line at extraction (Codex on #594).
+        if all(c is NonKuDomain.LEARNING for c in contexts):
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        "learning is a modifier — combine it with an "
+                        "entity-creating type, e.g. @context(task,learning)"
+                    ),
                     field="context",
                     value=value,
                 )

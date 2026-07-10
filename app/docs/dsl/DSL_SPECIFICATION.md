@@ -100,7 +100,7 @@ choice      → decision to make                     (Activity Domain)
 ku          → atomic Knowledge Unit                (Curriculum; creation role-gated)
 ```
 
-**Modifier context** (valid in combination; creates no entity by itself):
+**Modifier context** (valid ONLY in combination — `@context(learning)` alone fails validation, since a modifier with no base type creates nothing):
 
 ```
 learning    → marks the activity as educational, e.g. @context(task,learning)
