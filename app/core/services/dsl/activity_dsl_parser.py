@@ -1072,11 +1072,15 @@ class ActivityDSLParser:
 
         if value.startswith("every:"):
             interval_str = value[6:]  # Remove "every:"
-            match = re.match(r"(\d+)([dhwm])", interval_str)
+            # fullmatch, not prefix match: every:2dfoo must drop (and surface
+            # in tag_warnings), not silently become "2d". Long unit forms are
+            # accepted explicitly — every:3days is natural spelling, and each
+            # long form starts with its short unit letter.
+            match = re.fullmatch(r"(\d+)\s*(d|h|w|m|days?|hours?|weeks?|months?)", interval_str)
             if match:
                 amount = int(match.group(1))
                 unit_map = {"d": "days", "h": "hours", "w": "weeks", "m": "months"}
-                unit = unit_map.get(match.group(2), "days")
+                unit = unit_map[match.group(2)[0]]
                 return {"type": "interval", "interval": amount, "unit": unit}
 
         self.logger.warning(f"Unknown repeat pattern: {value}")

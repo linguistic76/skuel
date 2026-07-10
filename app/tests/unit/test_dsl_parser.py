@@ -456,12 +456,28 @@ class TestErrorHandling:
             "monthly:0",
             "monthly:32",
             "every:d",
+            "every:2dfoo",
+            "every:3x",
         ):
             result = parse_activity_line(f"- [ ] Chore @context(habit) @repeat({rep})")
 
             assert result.is_ok, rep
             assert result.value.repeat_pattern is None, f"@repeat({rep}) should drop"
             assert any("@repeat" in w for w in result.value.tag_warnings), rep
+
+    def test_interval_repeat_long_unit_forms_accepted(self):
+        """Natural spellings (every:3days) parse to the same interval as every:3d."""
+        for rep, unit in (("every:3d", "days"), ("every:3days", "days"), ("every:2weeks", "weeks")):
+            result = parse_activity_line(f"- [ ] Chore @context(habit) @repeat({rep})")
+
+            assert result.is_ok, rep
+            pattern = result.value.repeat_pattern
+            assert pattern == {
+                "type": "interval",
+                "interval": int(rep.split(":")[1][0]),
+                "unit": unit,
+            }, rep
+            assert result.value.tag_warnings == []
 
     def test_valid_tag_values_produce_no_warnings(self):
         """Fully valid lines carry an empty tag_warnings list."""

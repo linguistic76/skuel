@@ -211,8 +211,11 @@ Day ::= "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"
 DayOfMonthList ::= DayOfMonth ("," DayOfMonth)*
 DayOfMonth ::= Integer  // 1-31
 
-Interval ::= Number "d"
+Interval ::= Number Unit
+Unit ::= "d" | "h" | "w" | "m"   // long forms accepted: days/hours/weeks/months
 ```
+
+**Strict values (v0.6+):** malformed-but-prefixed patterns (`weekly:Funday`, `monthly:32`, `every:2dfoo`) drop the whole `@repeat()` value with a `tag_warnings` report — partial acceptance would hide the typo.
 
 **Examples:**
 ```markdown
