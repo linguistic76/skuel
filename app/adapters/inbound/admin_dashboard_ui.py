@@ -13,6 +13,9 @@ Routes:
 - GET /admin/users/partial - HTMX partial for filtered user list
 - GET /admin/users/{uid}/role-form - HTMX partial for role change form
 - GET /admin/analytics - Analytics dashboard
+- GET /admin/prereq-suggestions - Prerequisite-edge suggestion queue (Discovery Analytics PR 4)
+- POST /admin/prereq-suggestions/generate - HTMX: run candidates → LLM judge, return queue fragment
+- POST /admin/prereq-suggestions/approve - HTMX: write ONE Edge YAML into the content vault
 - GET /admin/system - System health dashboard
 
 Note: KU progress is accessible per-student at /teaching/students/{uid}?tab=ku.
@@ -25,14 +28,25 @@ Version: 1.0.0
 Date: 2025-12-07
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
 
 from adapters.inbound.auth import make_service_getter, require_admin
+from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from ui.admin.layout import create_admin_page
+from ui.admin.prereq_views import (
+    CHOICE_COMPLEMENTARY,
+    CHOICE_PREREQ_A_TO_B,
+    CHOICE_PREREQ_B_TO_A,
+    CHOICE_RELATED,
+    AdminPrereqComponents,
+)
 from ui.admin.types import UserCardData
 from ui.admin.views import (
     AdminAnalyticsComponents,
@@ -48,11 +62,27 @@ from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from core.orchestrator.admin_orchestrator import AdminOrchestrator
+    from core.services.prereq_suggestion_service import PrereqSuggestionService
 
 logger = get_logger("skuel.routes.admin.ui")
 
+#: Queue-form choice value → (swap a/b before writing, relationship name).
+#: Direction is expressed by from/to ordering in the Edge YAML, so both
+#: prereq choices resolve to PREREQUISITE_FOR.
+APPROVE_CHOICES: dict[str, tuple[bool, str]] = {
+    CHOICE_PREREQ_A_TO_B: (False, RelationshipName.PREREQUISITE_FOR.value),
+    CHOICE_PREREQ_B_TO_A: (True, RelationshipName.PREREQUISITE_FOR.value),
+    CHOICE_RELATED: (False, RelationshipName.RELATED_TO.value),
+    CHOICE_COMPLEMENTARY: (False, RelationshipName.COMPLEMENTARY_TO.value),
+}
 
-def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrchestrator") -> None:
+
+def create_admin_dashboard_routes(
+    _app: Any,
+    rt: Any,
+    orchestrator: "AdminOrchestrator",
+    prereq_suggestions: "PrereqSuggestionService",
+) -> None:
     """
     Create admin dashboard UI routes.
 
@@ -62,6 +92,7 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
         _app: FastHTML app instance
         rt: Route decorator
         orchestrator: AdminOrchestrator facade (user_service, admin_stats, system_service)
+        prereq_suggestions: Prerequisite-edge suggestion queue service (PR 4)
     """
 
     get_user_service = make_service_getter(orchestrator.user_service)
@@ -562,6 +593,88 @@ def create_admin_dashboard_routes(_app: Any, rt: Any, orchestrator: "AdminOrches
             system_status=system_status.get("status", "unknown"),
             request=request,
         )
+
+    # ========================================================================
+    # PREREQUISITE-EDGE SUGGESTIONS (Discovery Analytics PR 4)
+    # ========================================================================
+
+    @rt("/admin/prereq-suggestions")
+    @require_admin(get_user_service)
+    async def admin_prereq_suggestions(request: Request, current_user: Any = None) -> Any:
+        """Prerequisite-edge suggestion queue — generate, review, approve to Edge YAML."""
+        system_status = await orchestrator.get_system_status()
+
+        content = Div(
+            PageHeader(
+                "Prereq Suggestions",
+                subtitle="Inferred Ku↔Ku edges awaiting review — approve writes Edge YAML",
+            ),
+            AdminPrereqComponents.render_page(prereq_suggestions.judge_available),
+        )
+
+        return await create_admin_page(
+            content=content,
+            active_section="prereq",
+            admin_username=current_user.display_name or current_user.title,
+            title="Prereq Suggestions",
+            system_status=system_status.get("status", "unknown"),
+            request=request,
+        )
+
+    @rt("/admin/prereq-suggestions/generate", methods=["POST"])
+    @csrf_protected
+    @require_admin(get_user_service)
+    async def admin_prereq_generate(request: Request, current_user: Any = None) -> Any:
+        """HTMX: run the full pipeline (candidates → judge), return the queue fragment.
+
+        Suggestions are EPHEMERAL — computed on demand, held in the returned
+        HTML (hidden form fields), never persisted as nodes.
+        """
+        run_result = await prereq_suggestions.generate_suggestions()
+        if run_result.is_error:
+            err = run_result.expect_error()
+            return render_error_banner(err.user_message or err.message, severity="warning")
+        return AdminPrereqComponents.render_queue(run_result.value)
+
+    @rt("/admin/prereq-suggestions/approve", methods=["POST"])
+    @csrf_protected
+    @require_admin(get_user_service)
+    async def admin_prereq_approve(request: Request, current_user: Any = None) -> Any:
+        """HTMX: approve one suggestion — writes ONE Edge YAML file into the content vault.
+
+        The single sanctioned vault-write (Mike's ruling 2026-07-10): explicit
+        admin approve only, containment-guarded, never overwrites. No graph
+        writes — the edge lands via the next content-vault sync.
+        """
+        form = await request.form()
+        a_uid = str(form.get("a_uid", "")).strip()
+        b_uid = str(form.get("b_uid", "")).strip()
+        a_title = str(form.get("a_title", "")).strip()
+        b_title = str(form.get("b_title", "")).strip()
+        rationale = str(form.get("rationale", "")).strip()
+        choice = APPROVE_CHOICES.get(str(form.get("choice", "")))
+
+        if choice is None or not a_uid or not b_uid:
+            return AdminPrereqComponents.render_row_error(
+                "Invalid approve request (missing pair or unknown relation choice)",
+                a_title,
+                b_title,
+            )
+
+        swap, relationship = choice
+        from_uid, to_uid = (b_uid, a_uid) if swap else (a_uid, b_uid)
+        result = await prereq_suggestions.approve(
+            from_uid=from_uid,
+            to_uid=to_uid,
+            relationship=relationship,
+            rationale=rationale or None,
+        )
+        if result.is_error:
+            err = result.expect_error()
+            return AdminPrereqComponents.render_row_error(
+                err.user_message or err.message, a_title, b_title
+            )
+        return AdminPrereqComponents.render_approved_row(Path(result.value).name, a_title, b_title)
 
     # ========================================================================
     # SYSTEM HEALTH

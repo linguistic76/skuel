@@ -78,6 +78,8 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
     CurriculumExerciseResult,
+    KuEdgeRow,
+    KuEmbeddingRow,
     LearningGapResult,
     LearningRecommendationResult,
     OrganizerResult,
@@ -1535,6 +1537,35 @@ class RevisedExerciseOperations(Protocol):
 
     async def get_revision_chain(self, exercise_uid: str) -> Result[list[RevisionChainResult]]:
         """Get all revisions in the chain for an original exercise."""
+        ...
+
+
+# =============================================================================
+# PREREQUISITE-EDGE SUGGESTIONS (Discovery Analytics PR 4)
+# =============================================================================
+
+
+class PrereqSuggestionBackendOperations(Protocol):
+    """
+    Backend contract for the prerequisite-edge suggestion read side.
+
+    Read-only: candidate generation computes pairwise cosine in Python over
+    stored Ku embeddings — this feature never writes to the graph (the only
+    write is the Edge YAML file the admin approves into the content vault).
+
+    Backend: adapters/persistence/neo4j/prereq_candidate_backend.py
+    """
+
+    async def get_kus_with_embeddings(self) -> Result[list[KuEmbeddingRow]]:
+        """All Kus that have a stored entity embedding (uid, title, summary, vector)."""
+        ...
+
+    async def get_ku_ku_edges(self) -> Result[list[KuEdgeRow]]:
+        """All directed Ku→Ku relationships of any type (for pair exclusion)."""
+        ...
+
+    async def get_ku_titles(self, uids: list[str]) -> Result[dict[str, str]]:
+        """Titles of the given Ku uids — doubles as the approve-time existence check."""
         ...
 
 

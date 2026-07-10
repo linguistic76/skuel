@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.notifications.notification_service import NotificationService
     from core.services.performance_optimization_service import PerformanceOptimizationService
+    from core.services.prereq_suggestion_service import PrereqSuggestionService
     from core.services.principles_service import PrinciplesService
     from core.services.ps_engagement import PsEngagementService
     from core.services.ps_service import PsService
@@ -316,6 +317,8 @@ class Services:
     )
     # Orchestrators (Application Layer)
     admin_orchestrator: "AdminOrchestrator | None" = None
+    # Prerequisite-edge suggestion queue (Discovery Analytics PR 4) — admin surface
+    prereq_suggestions: "PrereqSuggestionService | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
     user_entry_orchestrator: "UserEntryOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None

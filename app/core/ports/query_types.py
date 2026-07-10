@@ -710,6 +710,68 @@ def to_search_gap_rows(records: list[Neo4jProperties]) -> list[SearchGapRow]:
     return rows
 
 
+class KuEmbeddingRow(TypedDict):
+    """One Ku with its stored entity embedding, for in-process pair scoring.
+
+    Read by ``PrereqCandidateBackend.get_kus_with_embeddings`` — the candidate
+    stage of prerequisite-edge suggestions computes pairwise cosine over these
+    rows in Python (121 Kus ⇒ trivial), so no vector index round-trips are
+    needed. ``summary`` coalesces ``summary``/``description`` for LLM-judge
+    context.
+    """
+
+    uid: str
+    title: str
+    summary: str
+    embedding: list[float]
+
+
+class KuEdgeRow(TypedDict):
+    """One directed Ku→Ku relationship (any type), as stored in the graph.
+
+    Read by ``PrereqCandidateBackend.get_ku_ku_edges`` — candidate generation
+    excludes pairs already connected by ANY authored Ku↔Ku edge (checked both
+    directions) and pairs transitively covered by a directed path.
+    """
+
+    from_uid: str
+    to_uid: str
+    rel_type: str
+
+
+def to_ku_embedding_rows(records: list[Neo4jProperties]) -> list[KuEmbeddingRow]:
+    """Narrow raw Neo4j Ku rows to typed ``KuEmbeddingRow``s (malformed rows dropped)."""
+    rows: list[KuEmbeddingRow] = []
+    for record in records:
+        uid = record.get("uid")
+        embedding = record.get("embedding")
+        if not isinstance(uid, str) or not isinstance(embedding, list) or not embedding:
+            continue
+        rows.append(
+            KuEmbeddingRow(
+                uid=uid,
+                title=str(record.get("title") or uid),
+                summary=str(record.get("summary") or ""),
+                embedding=[float(v) for v in embedding],
+            )
+        )
+    return rows
+
+
+def to_ku_edge_rows(records: list[Neo4jProperties]) -> list[KuEdgeRow]:
+    """Narrow raw Neo4j Ku→Ku edge rows to typed ``KuEdgeRow``s (malformed rows dropped)."""
+    rows: list[KuEdgeRow] = []
+    for record in records:
+        from_uid = record.get("from_uid")
+        to_uid = record.get("to_uid")
+        if not isinstance(from_uid, str) or not isinstance(to_uid, str):
+            continue
+        rows.append(
+            KuEdgeRow(from_uid=from_uid, to_uid=to_uid, rel_type=str(record.get("rel_type") or ""))
+        )
+    return rows
+
+
 class ProgressResult(TypedDict, total=False):
     """
     Result structure for progress tracking operations.
