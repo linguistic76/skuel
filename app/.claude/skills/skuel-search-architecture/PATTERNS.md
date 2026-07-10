@@ -35,15 +35,15 @@ results = await search_router.search_domains(
 for entity_type, items in results.value.results_by_domain.items():
     ...  # items: list[SearchResultItem]
 
-# Or search everything
-all_results = await search_router.unified_search("health fitness")
+# Or open-ended NL cross-domain discovery
+all_results = await search_router.intelligent_search("health fitness", user_uid=user_uid)
 top_10 = all_results.value.top_results  # Combined score: relevance 60% + priority 40%
 ```
 
 **Trade-offs**:
 - Use `search()` when you know the domain upfront
 - Use `search_domains()` for curated multi-domain results
-- Use `unified_search()` for open-ended cross-domain discovery
+- Use `intelligent_search()` for open-ended cross-domain discovery (there is no `unified_search()` method)
 
 **Real-world usage**: `search_routes.py` GET `/search/results`
 
@@ -135,17 +135,17 @@ request = SearchRequest(
 )
 ```
 
-**All 8 graph patterns** (in `SearchRequest`):
-| Field | Cypher Pattern | Meaning |
+**All 8 graph patterns** (in `SearchRequest`; authoritative Cypher in `relationship_filter_fragments.py`):
+| Field | Cypher Pattern (EXISTS fragment) | Meaning |
 |-------|---------------|---------|
-| `ready_to_learn` | All REQUIRES_KNOWLEDGE targets are MASTERED | No blocked prerequisites |
-| `builds_on_mastered` | EXISTS MASTERED neighbor ENABLES_LEARNING this | Extends existing knowledge |
-| `in_active_path` | EXISTS user FOLLOWING lp CONTAINS this | Part of followed learning path |
-| `supports_goals` | EXISTS user OWNS goal REQUIRES_KNOWLEDGE this | Linked to active goals |
-| `builds_on_habits` | EXISTS user OWNS habit REINFORCES_KNOWLEDGE this | Reinforces active habits |
-| `applied_in_tasks` | EXISTS user OWNS task APPLIES_KNOWLEDGE this | Used in recent tasks |
-| `aligned_with_principles` | EXISTS user OWNS principle GROUNDED_IN_KNOWLEDGE this | Aligns with principles |
-| `next_logical_step` | Built from mastery graph traversal | Natural progression |
+| `ready_to_learn` | NOT EXISTS an unmastered REQUIRES_KNOWLEDGE prereq | No blocked prerequisites |
+| `builds_on_mastered` | user MASTERED neighbor —ENABLES_LEARNING\|RELATED_TO— this | Extends existing knowledge |
+| `in_active_path` | user ENROLLED_IN active lp HAS_STEP ps REQUIRES_KNOWLEDGE this | Part of followed learning path |
+| `supports_goals` | user PURSUING_GOAL goal REQUIRES_KNOWLEDGE this | Linked to active goals |
+| `builds_on_habits` | user PRACTICES habit APPLIES_KNOWLEDGE this | Reinforces active habits |
+| `applied_in_tasks` | user OWNS task APPLIES_KNOWLEDGE this (30-day window) | Used in recent tasks |
+| `aligned_with_principles` | user ADHERES_TO principle EMBODIES_KNOWLEDGE this | Aligns with principles |
+| `next_logical_step` | MASTERED —ENABLES_LEARNING→ this, prereqs met, not yet mastered | Natural progression |
 
 **Pedagogical patterns** (content state):
 | Field | Meaning |
@@ -273,7 +273,7 @@ class PsSearchService(BaseService[PsOperations, PathStep]):
         search_fields=("title", "summary", "tags"),
         search_order_by="updated_at",
     )
-    # _user_ownership_relationship = None → no OWNS filter applied
+    # user_ownership_relationship=None (DomainConfig) → SearchVisibility.PUBLIC, no OWNS filter
 ```
 
 **Key config fields**:
@@ -318,7 +318,7 @@ Per-domain `intelligent_search()` methods were deleted in Theme F (June 2026) �
 | Pattern | Use Case | Complexity | SearchRouter Method |
 |---------|----------|------------|---------------------|
 | Text Search | Simple keyword lookup | Low | `search()` |
-| Cross-Domain | Compare across domains | Low | `search_domains()`, `unified_search()` |
+| Cross-Domain | Compare across domains | Low | `search_domains()` |
 | Faceted Search | Status/priority filters | Medium | `faceted_search()` |
 | Graph-Aware | Relationship condition filters | High | `faceted_search()` |
 | Traversal | Find connected entities | Medium | `advanced_search()` |
@@ -331,7 +331,7 @@ Per-domain `intelligent_search()` methods were deleted in Theme F (June 2026) �
 
 1. **Always use SearchRouter** — never call `domain_service.search.search()` directly from routes
 2. **MOC is not searchable** — it's emergent identity on Ku nodes, not a separate domain
-3. **Curriculum search has no user filter** — `_user_ownership_relationship = None`, results are shared for all users
+3. **Curriculum search has no user filter** — DomainConfig `user_ownership_relationship=None` → `SearchVisibility.PUBLIC`, results are shared for all users
 4. **`faceted_search()` vs `advanced_search()`** — both take `SearchRequest`; `faceted_search()` also takes `user_uid` and selects a strategy; `advanced_search()` is for cross-domain with traversal
 5. **Graph pattern filters require `user_uid`** — `ready_to_learn`, `supports_goals`, etc. need the user to check their mastery/ownership
 

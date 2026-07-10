@@ -256,7 +256,7 @@ skills:
 
   - name: neo4j-cypher-patterns
     description: Neo4j Cypher queries and SKUEL's graph patterns
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-09"
     foundation: []
     dependencies: []
     library_package: neo4j
@@ -455,7 +455,7 @@ skills:
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-09"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library

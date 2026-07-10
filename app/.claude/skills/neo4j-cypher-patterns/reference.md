@@ -1,192 +1,195 @@
 # Neo4j Relationship Reference
 
-Complete catalog of all relationship types in SKUEL's graph database.
+Curated catalog of the relationship types you'll actually meet in SKUEL's graph, grouped by category.
 
-**Source of Truth:** `/core/models/relationship_names.py`
+**Source of Truth:** `/core/models/relationship_names.py` — the `RelationshipName` enum (168 members). This file documents the load-bearing subset with endpoints and semantics; for the exhaustive list (family relations, notifications, devices, ...) read the enum, whose inline comments carry endpoint documentation.
 
-## Relationship Categories
+**Naming note:** rows show the **Cypher edge type string** (the enum *value*). One member has a divergent name: `RelationshipName.LATERAL_ENABLES` has value `"ENABLES"` (and `LATERAL_ENABLED_BY` → `"ENABLED_BY"`).
 
-### Knowledge Relationships
+## Ownership & Sharing
 
-Relationships involving Knowledge Units (`Curriculum` nodes).
+The universal ownership edge and the sharing model (ADR-038).
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `PREREQUISITE` | Curriculum | Curriculum | Direct prerequisite dependency |
-| `REQUIRES_PREREQUISITE` | Curriculum | Curriculum | Requires as prerequisite |
-| `ENABLES` | Curriculum | Curriculum | This knowledge enables learning another |
-| `RELATED_TO` | Curriculum | Curriculum | General semantic relationship |
-| `HAS_NARROWER` | Curriculum | Curriculum | Parent → child concept hierarchy |
-| `HAS_BROADER` | Curriculum | Curriculum | Child → parent concept hierarchy |
-| `REQUIRES_KNOWLEDGE` | Goal/Task | Curriculum | Entity requires this knowledge |
-| `APPLIES_KNOWLEDGE` | Task/Event | Curriculum | Entity applies this knowledge |
-| `REINFORCES_KNOWLEDGE` | Habit | Curriculum | Habit reinforces this knowledge |
-| `GROUNDED_IN_KNOWLEDGE` | Principle | Curriculum | Principle grounded in knowledge |
-| `GROUNDS_PRINCIPLE` | Curriculum | Principle | Knowledge grounds this principle |
-| `ENABLES_KNOWLEDGE` | Curriculum | Curriculum | Enables learning this knowledge |
-| `ENABLES_GOAL` | Curriculum | Goal | Knowledge enables goal achievement |
-| `ENABLES_TASK` | Curriculum | Task | Knowledge enables task completion |
-| `INFORMS_CHOICE` | Curriculum | Choice | Knowledge informs this choice |
-| `SUPPORTS_HABIT` | Curriculum | Habit | Knowledge supports habit formation |
-| `COMPLETES_KNOWLEDGE` | Task | Curriculum | Task completion demonstrates mastery |
-| `INFERRED_KNOWLEDGE` | * | Curriculum | Inferred (not explicit) knowledge link |
-| `GUIDED_BY_KNOWLEDGE` | Goal | Curriculum | Goal guided by knowledge |
-| `REINFORCED_BY_KNOWLEDGE` | Habit | Curriculum | Habit reinforced by knowledge |
-| `BLOCKED_BY_KNOWLEDGE` | Task | Curriculum | Task blocked by lack of knowledge |
+| `OWNS` | User | Entity | **Universal ownership — THE edge backends write and query** |
+| `SHARES_WITH` | User | Entity | Manual sharing (`shared_at`, `role`, `share_version` props) |
+| `SHARED_WITH_GROUP` | Entity | Group | Group-scoped sharing |
+| `MEMBER_OF` | User | Group | Group membership |
+| `PURSUING_GOAL` | User | Goal | Active goal pursuit (used by search graph filters) |
 
-### Task Relationships
+> `HAS_TASK`, `HAS_EVENT`, `HAS_GOAL`, `HAS_HABIT`, `HAS_PRINCIPLE`, `HAS_CHOICE`, `HAS_KU` also exist in the enum as per-domain ownership members, but **backends write and query `OWNS`** — don't use the per-domain variants in new Cypher.
 
-Task dependencies, contributions, and cross-domain links.
+## Curriculum Structure & Composition
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `HAS_STEP` | LearningPath | PathStep | Path contains ordered step |
+| `REQUIRES_STEP` | PathStep | PathStep | Step prerequisites within a path |
+| `USES_KU` | PathStep | Ku | **THE composition edge** — path step composes atomic Kus |
+| `TRAINS_KU` | PathStep | Ku | Path step trains atomic Ku |
+| `CONTAINS_KNOWLEDGE` | PathStep | Ku | Step covers knowledge (coexists with USES_KU) |
+| `HAS_EXERCISE` | PathStep | Exercise | Curriculum loop anchor (dual-written with `Exercise.path_step_uid`) |
+| `ORGANIZES` | Entity | Entity | MOC hierarchy (`order`, `importance` props) — MOC is emergent, not a label |
+| `IN_DOMAIN` | Ku | KnowledgeDomain | Domain taxonomy membership |
+| `CITES_RESOURCE` | PathStep / Ku | Resource | Curriculum cites reference material (`context` prop) |
+
+```cypher
+-- Find all Resources cited by PathSteps in a LearningPath
+MATCH (lp:LearningPath)-[:HAS_STEP]->(ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
+RETURN ps.title AS path_step, r.title AS resource, r.author, r.media_type
+```
+
+## Knowledge Relationships
+
+Cross-domain edges into `:Ku` nodes (there is no `:Curriculum` label).
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `REQUIRES_KNOWLEDGE` | Goal/Task/Ku | Ku | Entity requires this knowledge (prerequisite when Ku→Ku) |
+| `ENABLES_KNOWLEDGE` | Ku | Ku | This knowledge enables learning another |
+| `RELATED_TO` | Ku | Ku | General semantic relationship |
+| `APPLIES_KNOWLEDGE` | Task/Event/UserEntry | Ku | Entity applies this knowledge (the substance contract edge) |
+| `REINFORCES_KNOWLEDGE` | Habit | Ku | Habit reinforces this knowledge |
+| `GROUNDED_IN_KNOWLEDGE` | Principle | Ku | Principle grounded in knowledge |
+| `INFORMED_BY_KNOWLEDGE` | Choice | Ku | Choice informed by knowledge |
+| `COVERS_KNOWLEDGE` | Event | Ku | Event covers knowledge topic |
+| `HAS_NARROWER` / `HAS_BROADER` | Ku | Ku | Concept hierarchy (parent↔child) |
+| `UNLOCKS_KNOWLEDGE` | Task | Ku | Completing unlocks knowledge |
+
+## User Learning Progress
+
+State progression: `NONE` → `VIEWED` → `IN_PROGRESS` → `MASTERED` (see `RelationshipName.is_learning_progress_relationship()`).
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `VIEWED` | User | Ku/PathStep | User has seen/read this content |
+| `IN_PROGRESS` | User | Ku/PathStep | User is actively learning |
+| `MASTERED` | User | Ku/PathStep | Knowledge acquired (`mastery_score`, `mastered_at` props) |
+
+## Learning Loop (ADR-054)
+
+Exercise → UserEntry → EntryReport → RevisedExercise.
+
+| Relationship | From | To | Purpose |
+|--------------|------|-----|---------|
+| `FULFILLS_EXERCISE` | UserEntry | Exercise | Entry responds to an exercise |
+| `FULFILLS_REVISED_EXERCISE` | UserEntry | RevisedExercise | Entry responds to a revised exercise |
+| `REPORT_FOR` | EntryReport | UserEntry | Report targets submission |
+| `RESPONDS_TO_REPORT` | RevisedExercise | EntryReport | Revision generated from feedback |
+| `REVISES_EXERCISE` | RevisedExercise | Exercise | Links revision back to origin |
+| `ASSESSMENT_OF` | EntryReport | UserEntry | Formal assessment link |
+| `INTERACTION_DURING` | Interaction | PathStep | Interaction happened during step |
+| `INTERACTION_WITHIN` | Interaction | LearningPath | Interaction within a path |
+
+## Task Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
 | `DEPENDS_ON` | Task | Task | Task dependency (blocking) |
-| `BLOCKS` | Task | Task | This task blocks another |
-| `BLOCKED_BY` | Task | Task | This task is blocked by another |
+| `BLOCKS` / `BLOCKED_BY` | Task | Task | Blocking pair |
+| `HAS_SUBTASK` / `SUBTASK_OF` | Task | Task | Hierarchy pair |
 | `CONTRIBUTES_TO_GOAL` | Task | Goal | Task contributes to goal progress |
 | `FULFILLS_GOAL` | Task | Goal | Task directly fulfills goal |
-| `GENERATES_TASK` | * | Task | Something generates this task |
-| `EXECUTES_TASK` | Event | Task | Event executes this task |
-| `REQUIRES_TASK` | * | Task | Requires this task |
-| `FUNDS_TASK` | Expense | Task | Expense funds this task |
-| `TRIGGERS_ON_COMPLETION` | Task | Task | Completing triggers another |
-| `UNLOCKS_KNOWLEDGE` | Task | Curriculum | Completing unlocks knowledge |
-| `COMPLETED_TASK` | User | Task | User completed this task |
+| `IMPLEMENTS_CHOICE` | Task | Choice | Task implements a decision |
 | `ASSIGNED_TO` | Task | User | Task assigned to user |
 
-### Goal Relationships
-
-Goal hierarchy, dependencies, and guidance.
+## Goal Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `SUBGOAL_OF` | Goal | Goal | This is a subgoal of parent |
-| `HAS_SUBGOAL` | Goal | Goal | This goal has a subgoal |
-| `HAS_CHILD` | Goal | Goal | Parent-child relationship |
+| `SUBGOAL_OF` / `HAS_SUBGOAL` | Goal | Goal | Hierarchy pair |
 | `DEPENDS_ON_GOAL` | Goal | Goal | Goal depends on another |
 | `GUIDED_BY_PRINCIPLE` | Goal | Principle | Goal guided by principle |
-| `SUPPORTS_GOAL` | Habit | Goal | Habit supports goal |
-| `INSPIRES_GOAL` | * | Goal | Something inspires this goal |
-| `CELEBRATED_BY_EVENT` | Goal | Event | Goal celebrated by event |
+| `SUPPORTS_GOAL` | Habit | Goal | Habit supports goal (with weight) |
+| `ADVANCES_GOAL` | Event | Goal | Event advances goal |
+| `CELEBRATES_GOAL` | Event | Goal | Event celebrates goal achievement |
 | `ALIGNED_WITH_PATH` | Goal | LifePath | Goal aligned with life path |
-| `MOTIVATED_BY_GOAL` | * | Goal | Motivated by this goal |
 
-### Habit Relationships
-
-Habit chains, prerequisites, reinforcement, and achievements.
+## Habit Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `HAS_SUBHABIT` | Habit | Habit | Parent-child composition |
-| `SUBHABIT_OF` | Habit | Habit | Child-parent (bidirectional) |
+| `HAS_SUBHABIT` / `SUBHABIT_OF` | Habit | Habit | Hierarchy pair |
 | `REQUIRES_PREREQUISITE_HABIT` | Habit | Habit | Habit requires another first |
 | `ENABLES_HABIT` | Habit | Habit | This habit enables another |
-| `REQUIRES_HABIT` | * | Habit | Requires this habit |
-| `REINFORCES_HABIT` | * | Habit | Reinforces this habit |
-| `INSPIRES_HABIT` | * | Habit | Inspires this habit |
-| `REINFORCES_STEP` | Habit | PathStep | Habit reinforces path step |
+| `STACKS_WITH` | Habit | Habit | Habit stacking |
 | `EMBODIES_PRINCIPLE` | Habit | Principle | Habit embodies principle |
-| `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
-| `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Habit unlocked a per-habit streak badge |
-| `EARNED_BADGE` | User | Achievement | User earned a badge (per-habit streak or cross-habit aggregate) |
+| `REINFORCES_STEP` | Habit | PathStep | Habit reinforces path step |
+| `UNLOCKED_ACHIEVEMENT` | Habit | Achievement | Per-habit streak badge |
+| `EARNED_BADGE` | User | Achievement | User earned a badge |
 
-### Event Relationships
-
-Event hierarchy, conflicts, execution, and practice.
+## Event Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `HAS_SUBEVENT` | Event | Event | Parent-child composition |
-| `SUBEVENT_OF` | Event | Event | Child-parent (bidirectional) |
-| `CONFLICTS_WITH` | Event | Event | Events conflict in schedule |
-| `FUNDS_EVENT` | Expense | Event | Expense funds event |
+| `HAS_SUBEVENT` / `SUBEVENT_OF` | Event | Event | Hierarchy pair |
+| `CONFLICTS_WITH` | Event | Event | Schedule conflict |
+| `EXECUTES_TASK` | Event | Task | Event executes task |
 | `ATTENDS` | User | Event | User attends event |
+| `PRACTICED_AT_EVENT` | Habit | Event | Habit practiced at event |
 
-### Principle Relationships
-
-Principle hierarchy, support, conflicts, guidance, and reflections.
+## Principle Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `HAS_SUBPRINCIPLE` | Principle | Principle | Parent-child composition |
-| `SUBPRINCIPLE_OF` | Principle | Principle | Child-parent (bidirectional) |
-| `SUPPORTS_PRINCIPLE` | * | Principle | Supports this principle |
-| `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflicts with principle |
+| `HAS_SUBPRINCIPLE` / `SUBPRINCIPLE_OF` | Principle | Principle | Hierarchy pair |
 | `GUIDES_GOAL` | Principle | Goal | Principle guides goal |
 | `GUIDES_CHOICE` | Principle | Choice | Principle guides choice |
-| `ALIGNED_WITH_PRINCIPLE` | Choice | Principle | Choice aligned with principle |
-| `REFLECTS_ON` | Reflection | Principle | Reflection about principle |
-| `REVEALS_CONFLICT` | Reflection | Principle | Reflection reveals conflict |
+| `CONFLICTS_WITH_PRINCIPLE` | * | Principle | Conflict marker |
 
-### Choice Relationships
-
-Choice hierarchy, influences, and outcomes.
+## Choice Relationships
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `HAS_SUBCHOICE` | Choice | Choice | Parent-child composition |
-| `SUBCHOICE_OF` | Choice | Choice | Child-parent (bidirectional) |
+| `HAS_SUBCHOICE` / `SUBCHOICE_OF` | Choice | Choice | Hierarchy pair |
 | `AFFECTS_GOAL` | Choice | Goal | Choice affects goal |
 | `ALIGNED_WITH_PRINCIPLE` | Choice | Principle | Choice aligned with principle |
-| `CONFLICTS_WITH_PRINCIPLE` | Choice | Principle | Choice conflicts with principle |
-
-### Choice Relationships
-
-Choice influences and outcomes.
-
-| Relationship | From | To | Purpose |
-|--------------|------|-----|---------|
 | `INFORMED_BY_PRINCIPLE` | Choice | Principle | Choice informed by principle |
-| `INFORMED_BY_KNOWLEDGE` | Choice | Curriculum | Choice informed by knowledge |
-| `INSPIRED_BY_CHOICE` | * | Choice | Inspired by this choice |
-| `IMPLEMENTS_CHOICE` | Task | Choice | Task implements choice |
-| `REQUIRES_KNOWLEDGE_FOR_DECISION` | Choice | Curriculum | Choice requires knowledge |
-| `OPENS_LEARNING_PATH` | Choice | Lp | Choice opens learning path |
-| `AFFECTS_GOAL` | Choice | Goal | Choice affects goal |
+| `TRIGGERS_CHOICE` | * | Choice | Something raises a decision |
 
-### User/Ownership Relationships
+## Lateral Relationships (all 9 domains, ADR-037)
 
-User-to-entity ownership and progress.
+Available on Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP. Written by `LateralRelationshipBackend`.
 
-| Relationship | From | To | Purpose |
-|--------------|------|-----|---------|
-| `HAS_TASK` | User | Task | User owns task |
-| `HAS_EVENT` | User | Event | User owns event |
-| `HAS_HABIT` | User | Habit | User owns habit |
-| `HAS_GOAL` | User | Goal | User owns goal |
-| `HAS_PRINCIPLE` | User | Principle | User has principle |
-| `HAS_CHOICE` | User | Choice | User made choice |
+| Relationship (Cypher string) | Enum member | Semantics |
+|--------------|-------------|-----------|
+| `BLOCKS` / `BLOCKED_BY` | same | Blocking pair |
+| `PREREQUISITE_FOR` | same | Soft dependency inverse |
+| `ENABLES` / `ENABLED_BY` | `LATERAL_ENABLES` / `LATERAL_ENABLED_BY` | Within-domain enabler pair |
+| `ALTERNATIVE_TO` | same | Mutually exclusive options (symmetric) |
+| `COMPLEMENTARY_TO` | same | Synergistic pairing (symmetric) |
+| `SIBLING` | same | Same parent, same depth (symmetric) |
+| `SIMILAR_TO` | same | High semantic similarity (symmetric) |
+| `RECOMMENDED_WITH` | same | Often done together (symmetric) |
+| `RELATED_TO` | same | Generic association |
 
-### User Learning Progress Relationships
+## Life Path (the destination)
 
-Track user interaction with knowledge units (pedagogical tracking).
-
-State progression: `NONE` → `VIEWED` → `IN_PROGRESS` → `MASTERED`
+Designation flips `entity_type` on the node — match by property, never by a `:LifePath`-only assumption.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `VIEWED` | User | Curriculum | User has seen/read this content |
-| `IN_PROGRESS` | User | Curriculum | User is actively learning |
-| `MASTERED` | User | Curriculum | User has acquired this knowledge |
-| `LEARNING` | User | Curriculum | Legacy - use IN_PROGRESS |
+| `ULTIMATE_PATH` | User | LifePath | User's designated life path (1:1) |
+| `SERVES_LIFE_PATH` | Entity | LifePath | Entity flows toward the life path |
+| `ALIGNMENT_SNAPSHOT` | User | LifePath | Daily alignment history (`date`, `score` props; MERGE-idempotent per day) |
 
-### Finance Relationships
-
-Expense and budget connections.
+## Activity Templates (PS-owned)
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `PART_OF_PROJECT` | Expense | Project | Expense part of project |
+| `HAS_TASK_TEMPLATE` (+ `HAS_GOAL_TEMPLATE`, `HAS_HABIT_TEMPLATE`, `HAS_EVENT_TEMPLATE`, `HAS_CHOICE_TEMPLATE`, `HAS_PRINCIPLE_TEMPLATE`) | PathStep | *Template | Step owns activity template |
+| `SPAWNED_FROM` | Activity instance | *Template | Instance provenance |
+| `ENGAGED_WITH` | User | PathStep | Engagement marker |
 
-### Learning Path Relationships
-
-Learning path dependencies and completion.
+## Forms
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `REQUIRES_PATH_COMPLETION` | Lp | Lp | Path requires another path first |
+| `EMBEDS_FORM` | Entity | FormTemplate | Entity embeds a form |
+| `RESPONDS_TO_FORM` | FormSubmission | FormTemplate | Submission answers form |
 
-### Evidence Relationships
+## Evidence Relationships
 
 Observable connections between knowledge units.
 
@@ -200,21 +203,7 @@ Observable connections between knowledge units.
 
 Evidence edges carry properties: `confidence` (0.0–1.0), `polarity` (-1/0/1), `temporality` (minutes/hours/days/chronic), `source` (self_observation/research/teacher/clinical), `evidence` (text), `observed_at`.
 
-### Resource Relationships
-
-Curriculum-to-Resource citations — connects teaching content to reference material.
-
-| Relationship | From | To | Properties | Purpose |
-|--------------|------|-----|------------|---------|
-| `CITES_RESOURCE` | PathStep / Ku | Resource | `context` | Curriculum cites reference material (books, talks, films) |
-
-```cypher
--- Find all Resources cited by PathSteps in a LearningPath
-MATCH (lp:LearningPath)-[:HAS_STEP]->(ps:PathStep)-[:CITES_RESOURCE]->(r:Resource)
-RETURN ps.title AS path_step, r.title AS resource, r.author, r.media_type
-```
-
-### Journal Pipeline (UserEntry, ADR-054)
+## Journal Pipeline (UserEntry, ADR-054)
 
 Journals are a **pipeline**, not a domain. Audio upload creates a source `UserEntry` with
 `pipeline=TRANSCRIBE_AND_STRUCTURE`; Deepgram transcribes, then the LLM generates a
@@ -224,7 +213,7 @@ structured second `UserEntry` linked by `TRANSFORMS`.
 |--------------|------|-----|---------|
 | `TRANSFORMS` | UserEntry (structured) | UserEntry (source) | LLM-processed output transforms raw input |
 
-### DSL Extraction Provenance (ADR-069)
+## DSL Extraction Provenance (ADR-069)
 
 `Pipeline.EXTRACT_ACTIVITIES` parses Activity Lines in a `UserEntry` into real
 entities. Each created entity gets a provenance edge back to its source entry
@@ -238,7 +227,7 @@ substance/ZPD edge from the entry itself.
 | `EXTRACTED_FROM` | created Entity (Task, Habit, ...) | UserEntry (source) | Extraction provenance; carries `extracted_at`, `source_line_hash` (sha256 of the whitespace-normalized DSL line — the re-run dedup key) |
 | `APPLIES_KNOWLEDGE` | UserEntry | Ku | Knowledge applied/reflected in the entry (same contract edge as Task→Ku) |
 
-### Authentication Relationships
+## Authentication Relationships
 
 Graph-native session and auth event tracking.
 
@@ -279,7 +268,7 @@ Some relationships carry metadata on the edge:
 (task)-[:APPLIES_KNOWLEDGE {confidence: 0.85}]->(ku)
 
 // Filter by confidence
-MATCH (t:Task)-[r:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+MATCH (t:Task)-[r:APPLIES_KNOWLEDGE]->(ku:Ku)
 WHERE r.confidence >= 0.8
 ```
 

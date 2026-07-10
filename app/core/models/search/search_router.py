@@ -44,8 +44,8 @@ Usage:
         "health fitness"
     )
 
-    # Unified cross-domain search
-    results = await router.unified_search("urgent health tasks")
+    # Natural-language cross-domain search (semantic filter extraction)
+    results = await router.intelligent_search("urgent health tasks")
 
     # Advanced search with graph and tag filters
     request = SearchRequest(

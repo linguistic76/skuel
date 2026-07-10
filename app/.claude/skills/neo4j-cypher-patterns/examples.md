@@ -2,20 +2,26 @@
 
 Comprehensive query examples for each SKUEL domain.
 
+**Conventions used throughout** (see SKILL.md for the rules behind them):
+- Ownership is the universal `(:User)-[:OWNS]->(:Entity)` edge — never `HAS_TASK`-style variants.
+- Knowledge units are `:Ku` nodes (there is no `:Curriculum` Neo4j label — `Curriculum` is a Python model class).
+- Status literals are `EntityStatus` values (`draft`, `scheduled`, `active`, `blocked`, `completed`, ...). In Python, always bind `$statuses` from the enum (SKUEL014); literals here are for readability.
+- Temporal fields written by DTOs are ISO **strings** — coerce with `date()`/`datetime()` before comparing (SKILL.md § 8).
+
 ## Tasks Domain
 
 ### Get User's Active Tasks
 ```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task)
-WHERE t.status IN ['pending', 'in_progress', 'blocked']
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
+WHERE t.status IN ['draft', 'scheduled', 'active', 'blocked']
 RETURN t
 ORDER BY t.priority DESC, t.due_date ASC
 ```
 
 ### Get Overdue Tasks
 ```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task)
-WHERE t.status IN ['pending', 'in_progress']
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
+WHERE t.status IN ['draft', 'scheduled', 'active', 'blocked']
   AND t.due_date IS NOT NULL
   AND date(t.due_date) < date()
 RETURN t
@@ -44,7 +50,7 @@ WITH t, subtasks, collect(DISTINCT {
 }) as dependencies
 
 // Get applied knowledge
-OPTIONAL MATCH (t)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Ku)
 WHERE coalesce(app_rel.confidence, 1.0) >= 0.7
 WITH t, subtasks, dependencies, collect(DISTINCT {
     uid: ku.uid,
@@ -79,8 +85,8 @@ ORDER BY depth ASC
 
 ### Get User's Active Goals with Progress
 ```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_GOAL]->(g:Goal)
-WHERE g.status IN ['active', 'on_track', 'at_risk']
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
+WHERE g.status IN ['active', 'scheduled']
 RETURN g,
        coalesce(g.progress, 0.0) as progress
 ORDER BY g.priority DESC
@@ -111,11 +117,10 @@ RETURN g as goal,
 MATCH (g:Goal {uid: $uid})
 
 // Required knowledge
-OPTIONAL MATCH (g)-[req:REQUIRES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (g)-[req:REQUIRES_KNOWLEDGE]->(ku:Ku)
 WITH g, collect({
     uid: ku.uid,
-    title: ku.title,
-    domain: ku.domain
+    title: ku.title
 }) as required_knowledge
 
 // Guiding principles
@@ -143,10 +148,10 @@ RETURN g as goal,
 
 ### Get Knowledge Unit with Prerequisites
 ```cypher
-MATCH (ku:Curriculum {uid: $uid})
+MATCH (ku:Ku {uid: $uid})
 
 // Direct prerequisites
-OPTIONAL MATCH (ku)-[prereq:REQUIRES_KNOWLEDGE]->(p:Curriculum)
+OPTIONAL MATCH (ku)-[prereq:REQUIRES_KNOWLEDGE]->(p:Ku)
 WHERE coalesce(prereq.confidence, 1.0) >= 0.7
 WITH ku, collect(DISTINCT {
     uid: p.uid,
@@ -155,14 +160,14 @@ WITH ku, collect(DISTINCT {
 }) as prerequisites
 
 // What this enables
-OPTIONAL MATCH (ku)-[:ENABLES]->(enabled:Curriculum)
+OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled:Ku)
 WITH ku, prerequisites, collect(DISTINCT {
     uid: enabled.uid,
     title: enabled.title
 }) as enables
 
 // Related knowledge
-OPTIONAL MATCH (ku)-[:RELATED_TO]-(related:Curriculum)
+OPTIONAL MATCH (ku)-[:RELATED_TO]-(related:Ku)
 WITH ku, prerequisites, enables, collect(DISTINCT {
     uid: related.uid,
     title: related.title
@@ -176,7 +181,7 @@ RETURN ku,
 
 ### Get User's Knowledge Mastery State
 ```cypher
-MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Curriculum)
+MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Ku)
 RETURN ku.uid as uid,
        ku.title as title,
        type(r) as status,
@@ -195,11 +200,11 @@ ORDER BY mastery_score DESC
 ```cypher
 // Knowledge where all prerequisites are mastered
 MATCH (u:User {uid: $user_uid})
-MATCH (ku:Curriculum)
+MATCH (ku:Ku)
 WHERE NOT (u)-[:MASTERED]->(ku)  // Not already mastered
 
 // Check prerequisites
-OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Curriculum)
+OPTIONAL MATCH (ku)-[:REQUIRES_KNOWLEDGE]->(prereq:Ku)
 WITH u, ku, collect(prereq) as prereqs
 
 // All prerequisites must be mastered
@@ -210,11 +215,32 @@ ORDER BY ku.title
 LIMIT 10
 ```
 
+### PathStep Composition (USES_KU)
+```cypher
+// The Kus a PathStep composes into learning content
+MATCH (ps:PathStep {uid: $ps_uid})-[u:USES_KU]->(ku:Ku)
+RETURN ku.uid as uid, ku.title as title
+ORDER BY coalesce(u.order, 999)
+
+// All PathSteps that teach a given Ku
+MATCH (ps:PathStep)-[:USES_KU]->(ku:Ku {uid: $ku_uid})
+RETURN ps.uid, ps.title
+```
+
+### MOC Organization (emergent hierarchy)
+```cypher
+// Children a MOC organizes, in order. MOC is not a label —
+// it's any Entity with outgoing ORGANIZES edges.
+MATCH (moc:Entity {uid: $uid})-[r:ORGANIZES]->(child:Entity)
+RETURN child.uid, child.title, child.entity_type, r.order
+ORDER BY r.order ASC
+```
+
 ## Habits Domain
 
 ### Get Active Habits with Streaks
 ```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_HABIT]->(h:Habit)
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(h:Habit)
 WHERE h.status = 'active'
 RETURN h,
        coalesce(h.current_streak, 0) as streak,
@@ -235,7 +261,7 @@ WITH h, collect({
 }) as linked_goals
 
 // Reinforced knowledge
-OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
 WITH h, linked_goals, collect({
     uid: ku.uid,
     title: ku.title
@@ -279,7 +305,7 @@ WITH p, guided_goals, aligned_choices, collect({
 }) as embodying_habits
 
 // Grounding knowledge
-OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Ku)
 RETURN p as principle,
        guided_goals,
        aligned_choices,
@@ -298,7 +324,7 @@ OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
 WITH c, collect({uid: p.uid, title: p.title}) as guiding_principles
 
 // Informing knowledge
-OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Ku)
 WITH c, guiding_principles, collect({
     uid: ku.uid,
     title: ku.title
@@ -330,27 +356,29 @@ RETURN c as choice,
 MATCH (user:User {uid: $user_uid})
 
 // Tasks by status
-OPTIONAL MATCH (user)-[:HAS_TASK]->(task:Task)
+OPTIONAL MATCH (user)-[:OWNS]->(task:Task)
 WITH user,
-     collect(CASE WHEN task.status IN ['pending', 'in_progress'] THEN task.uid END) as active_tasks,
+     collect(CASE WHEN task.status IN ['draft', 'scheduled', 'active', 'blocked'] THEN task.uid END) as active_tasks,
      collect(CASE WHEN task.status = 'completed' THEN task.uid END) as completed_tasks,
-     collect(CASE WHEN task.due_date < date() AND task.status NOT IN ['completed', 'cancelled']
+     collect(CASE WHEN task.due_date IS NOT NULL
+                   AND date(task.due_date) < date()
+                   AND task.status NOT IN ['completed', 'cancelled']
              THEN task.uid END) as overdue_tasks
 
 // Goals by status
-OPTIONAL MATCH (user)-[:HAS_GOAL]->(goal:Goal)
+OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_tasks, completed_tasks, overdue_tasks,
-     collect(CASE WHEN goal.status IN ['active', 'on_track'] THEN goal.uid END) as active_goals,
+     collect(CASE WHEN goal.status IN ['active', 'scheduled'] THEN goal.uid END) as active_goals,
      collect(CASE WHEN goal.status = 'completed' THEN goal.uid END) as completed_goals
 
 // Active habits
-OPTIONAL MATCH (user)-[:HAS_HABIT]->(habit:Habit)
+OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = 'active'
 WITH user, active_tasks, completed_tasks, overdue_tasks, active_goals, completed_goals,
      collect(habit.uid) as active_habits
 
 // Knowledge mastery
-OPTIONAL MATCH (user)-[m:MASTERED]->(ku:Curriculum)
+OPTIONAL MATCH (user)-[m:MASTERED]->(ku:Ku)
 WITH user, active_tasks, completed_tasks, overdue_tasks,
      active_goals, completed_goals, active_habits,
      collect({uid: ku.uid, score: m.mastery_score}) as mastered_knowledge
@@ -370,19 +398,19 @@ RETURN user,
 MATCH (u:User {uid: $user_uid})
 
 // Knowledge user is learning
-MATCH (u)-[:IN_PROGRESS|MASTERED]->(ku:Curriculum)
+MATCH (u)-[:IN_PROGRESS|MASTERED]->(ku:Ku)
 
 // Goals that require this knowledge
 OPTIONAL MATCH (goal:Goal)-[:REQUIRES_KNOWLEDGE]->(ku)
-WHERE (u)-[:HAS_GOAL]->(goal)
+WHERE (u)-[:OWNS]->(goal)
 
 // Habits that reinforce this knowledge
 OPTIONAL MATCH (habit:Habit)-[:REINFORCES_KNOWLEDGE]->(ku)
-WHERE (u)-[:HAS_HABIT]->(habit)
+WHERE (u)-[:OWNS]->(habit)
 
 // Tasks that apply this knowledge
 OPTIONAL MATCH (task:Task)-[:APPLIES_KNOWLEDGE]->(ku)
-WHERE (u)-[:HAS_TASK]->(task) AND task.status IN ['pending', 'in_progress']
+WHERE (u)-[:OWNS]->(task) AND task.status IN ['draft', 'scheduled', 'active', 'blocked']
 
 WITH ku,
      collect(DISTINCT goal) as goals,
@@ -404,10 +432,10 @@ MATCH (t:Task)
 WHERE t.title CONTAINS $query OR t.description CONTAINS $query
 
 // Ownership check
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t)
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t)
 
 // Get graph context
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 
 WITH t,
@@ -435,10 +463,12 @@ RETURN count(n) as created
 
 ### Batch Relationship Creation
 ```cypher
-// Create multiple relationships in one query
+// Create multiple relationships in one query.
+// Label guard is mandatory — an unlabeled MATCH by uid also binds the
+// entity's :Content shadow node (G13 rule, SKILL.md § 0).
 UNWIND $edges as edge
-MATCH (a {uid: edge.from_uid})
-MATCH (b {uid: edge.to_uid})
+MATCH (a:Entity {uid: edge.from_uid})
+MATCH (b:Entity {uid: edge.to_uid})
 MERGE (a)-[r:REQUIRES_KNOWLEDGE]->(b)
 SET r.confidence = edge.confidence,
     r.created_at = coalesce(r.created_at, datetime())
@@ -448,15 +478,15 @@ RETURN count(r) as created
 ### Count Without Loading Entities
 ```cypher
 // Efficient counting
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task)
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
 WHERE t.status = 'completed'
 RETURN count(t) as completed_count
 ```
 
 ### Pagination with Ordering
 ```cypher
-MATCH (u:User {uid: $user_uid})-[:HAS_TASK]->(t:Task)
-WHERE t.status IN ['pending', 'in_progress']
+MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
+WHERE t.status IN ['draft', 'scheduled', 'active', 'blocked']
 RETURN t
 ORDER BY t.priority DESC, t.due_date ASC
 SKIP $offset

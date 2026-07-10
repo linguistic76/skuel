@@ -24,9 +24,9 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Choices | `Choice` | `choice_{slug}_{random}` | `choice_accept-offer_jkl345` |
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
 | **Curriculum (4) — shared content** | | | |
-| Knowledge Units | `Ku` | `ku_{slug}_{random}` | `ku_python-basics_abc123` |
-| Path Steps | `PathStep` | `ps:{random}` | `ps:intro-to-python` |
-| Learning Paths | `LearningPath` | `lp:{random}` | `lp:become-python-developer` |
+| Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault) or `ku_{slug}_{random}` (API) — both sanctioned, never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
+| Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored `ps:{ns}:{slug}`; ingestion normalizes `:` → `.`) | `ps.python.intro` |
+| Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (same colon→dot normalization) | `lp.python.developer` |
 | Exercises | `Exercise` | varies | |
 | **Ontology — shared taxonomy** | | | |
 | Knowledge Domains | `KnowledgeDomain` | `kd.{domain_name}` | `kd.self_awareness` |
@@ -139,7 +139,7 @@ RETURN t, knowledge
 
 ```cypher
 // Get user's mastery state for knowledge units
-MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Curriculum)
+MATCH (u:User {uid: $user_uid})-[r:MASTERED|IN_PROGRESS|VIEWED]->(ku:Ku)
 RETURN ku.uid,
        type(r) as status,
        r.mastery_score as score,
@@ -162,11 +162,11 @@ SKUEL has two query builders for domain services (SKUEL001: no APOC in domain se
 ```
 Layer 1: UniversalNeo4jBackend (Generic CRUD)
 ├── Uses UnifiedQueryBuilder for generic operations
-└── Powers ALL 20 entity types with CRUD, search, relationships
+└── Powers ALL 25 entity types with CRUD, search, relationships
 
 Layer 2: Domain Backends (Domain-Specific Cypher)
-├── 27 typed subclasses in backends/ (9 cluster files — import directly from the cluster file)
-├── 13 standalone backends (CrossDomainBackend, UserBackend, UserProgressBackend, SessionBackend, InsightBackend, LifePathBackend, ZpdBackend, ZpdSnapshotBackend, VectorSearchBackend, IngestionBackend, JupyterSyncBackend, EmbeddingsBackend, KnowledgeDomainBackend)
+├── 31 typed subclasses in backends/ (9 cluster files — import directly from the cluster file)
+├── ~23 standalone backends in adapters/persistence/neo4j/ (CrossDomainBackend, UserBackend, VectorSearchBackend, ZPDBackend, EmbeddingsBackend, IngestionBackend, ...) — full inventory: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 ├── Domain-specific relationship Cypher (ORGANIZES, SHARES_WITH, FULFILLS_EXERCISE, etc.)
 └── Rule: If a Cypher query uses domain-specific relationships, it belongs here
 
@@ -223,9 +223,9 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 | Index Type | Method | When Created | Purpose |
 |-----------|--------|-------------|---------|
 | **Domain indexes** | `sync_domain_indexes()` | Always | UID, user_uid, status, date, composite — 48 indexes |
-| **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 15 domains — Cypher-first foundation |
+| **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 14 domains (6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms) — Cypher-first foundation |
 | **Auth indexes** | `sync_auth_indexes()` | Always | Rate limiting, session lookup, email uniqueness |
-| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine on Entity, ContentChunk, ReferenceChunk, Goal, Task |
+| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine — bootstrap creates Entity, ContentChunk, ReferenceChunk; Goal + Task per-label indexes via `scripts/create_vector_indexes.py` (5 total live) |
 
 > **Server side:** the Java Vector API (SIMD) must be enabled for these to run optimally —
 > `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` in `infrastructure/docker-compose.yml`.
@@ -300,10 +300,10 @@ The same pattern applies to DDL (vector indexes, schema creation) — validate `
 ```cypher
 // GOOD - returns task even without knowledge
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 
 // RISKY - returns nothing if no knowledge relationship
-MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 ```
 
 ### 3. Use COLLECT to Prevent Cartesian Products
@@ -311,13 +311,13 @@ MATCH (t:Task {uid: $uid})-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
 ```cypher
 // GOOD - one row per task
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 RETURN t, collect(DISTINCT ku) as knowledge, collect(DISTINCT g) as goals
 
 // BAD - cartesian product of knowledge × goals
 MATCH (t:Task {uid: $uid})
-OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Curriculum)
+OPTIONAL MATCH (t)-[:APPLIES_KNOWLEDGE]->(ku:Ku)
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal)
 RETURN t, ku, g
 ```
@@ -352,7 +352,7 @@ MATCH (t:Task {uid: $task_uid})
 RETURN t
 ```
 
-**Note:** The OWNS relationship is the universal ownership pattern. Domain-specific variants (HAS_TASK, HAS_GOAL, etc.) exist in RelationshipName but OWNS is what the backends use.
+**Note:** The OWNS relationship is the universal ownership pattern. Per-domain variants (HAS_TASK, HAS_GOAL, etc.) exist in RelationshipName but backends neither write nor query them — always use OWNS.
 
 ### 6. Per-Query Server-Side Timeout (TimedDriver)
 
@@ -409,7 +409,7 @@ Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comp
 
 ## Additional Resources
 
-- [reference.md](reference.md) - Complete relationship type catalog (80+ types)
+- [reference.md](reference.md) - Curated relationship type catalog (enum has 168 members)
 - [examples.md](examples.md) - Full query examples for each domain
 - [docs/patterns/NEO4J_QUERY_TIMEOUT.md](/docs/patterns/NEO4J_QUERY_TIMEOUT.md) - Per-query server-side timeout (TimedDriver, override mechanism)
 - [ADR-064](/docs/decisions/ADR-064-neo4j-per-query-timeout.md) - Why the chokepoint is a driver wrapper, not 124 call-site edits
@@ -430,7 +430,7 @@ Date/datetime fields are stored as **ISO strings** (DTO `.isoformat()`), so comp
 - [query_architecture.md](/docs/patterns/query_architecture.md) - Query architecture patterns
 
 **Code:**
-- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 80+ relationship types)
+- `/core/models/relationship_names.py` - RelationshipName enum (source of truth for all 168 relationship types)
 
 ---
 
