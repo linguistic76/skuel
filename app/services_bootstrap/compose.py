@@ -1531,7 +1531,10 @@ async def compose_services(
         )
         logger.info("✅ Library Orchestrator created")
 
-        admin_stats_service = AdminStatsService(backend=cross_domain_backend)
+        admin_stats_service = AdminStatsService(
+            backend=cross_domain_backend,
+            search_event_backend=search_event_backend,
+        )
 
         from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
 

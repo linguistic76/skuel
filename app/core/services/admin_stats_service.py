@@ -15,6 +15,8 @@ Methods:
 - get_user_ku_detail          — Detailed KU progress for a specific user
 - get_user_detail_stats       — Cross-domain activity stats for a specific user
 - get_users_with_activity_counts — Users list with entity counts (for admin table)
+- get_search_gaps             — Zero/low-result search queue (content authoring)
+- get_search_event_total      — Running :SearchEvent count (Phase-2 trigger)
 """
 
 from typing import TYPE_CHECKING, Any
@@ -26,6 +28,8 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
+    from core.ports.query_types import SearchGapRow
+    from core.ports.search_protocols import SearchEventBackendOperations
 
 logger = get_logger("skuel.services.admin_stats")
 
@@ -39,8 +43,13 @@ class AdminStatsService:
     and AuthEvent nodes — no single domain backend covers them all.
     """
 
-    def __init__(self, backend: "CrossDomainBackendOperations") -> None:
+    def __init__(
+        self,
+        backend: "CrossDomainBackendOperations",
+        search_event_backend: "SearchEventBackendOperations | None" = None,
+    ) -> None:
         self.backend = backend
+        self.search_event_backend = search_event_backend
         self.logger = logger
 
     async def get_entity_system_metrics(self) -> Result[dict[str, int]]:
@@ -242,3 +251,33 @@ class AdminStatsService:
         if result.is_error:
             return Result.fail(result)
         return Result.ok([dict(r) for r in (result.value or [])])
+
+    async def get_search_gaps(
+        self,
+        *,
+        max_result_count: int = 2,
+        days: int = 90,
+        limit: int = 50,
+    ) -> Result[list["SearchGapRow"]]:
+        """Zero/low-result searches grouped by normalized query — the content authoring queue.
+
+        Empty list when no search-event backend is wired (nothing logged, nothing to show).
+
+        Backend: SearchEventBackend.get_search_gaps
+        """
+        if self.search_event_backend is None:
+            self.logger.info("Search-event backend not wired — returning empty search-gap queue")
+            return Result.ok([])
+        return await self.search_event_backend.get_search_gaps(
+            max_result_count=max_result_count, days=days, limit=limit
+        )
+
+    async def get_search_event_total(self) -> Result[int]:
+        """Running :SearchEvent total — tracked against the 1,000+ Phase-2 analytics trigger.
+
+        Backend: SearchEventBackend.count_search_events
+        """
+        if self.search_event_backend is None:
+            self.logger.info("Search-event backend not wired — search event total is 0")
+            return Result.ok(0)
+        return await self.search_event_backend.count_search_events()

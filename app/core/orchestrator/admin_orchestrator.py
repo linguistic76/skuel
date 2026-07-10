@@ -142,7 +142,7 @@ class AdminOrchestrator:
         return await self._admin_stats.get_activity_entity_counts()
 
     async def get_analytics_data(self) -> dict[str, Any]:
-        """Aggregate user role counts + activity entity counts for the analytics page.
+        """Aggregate role counts + activity counts + search gaps for the analytics page.
 
         Partial-failure tolerant — returns zero-value fallbacks for each
         failed sub-query rather than surfacing a top-level error.
@@ -165,4 +165,21 @@ class AdminOrchestrator:
         if activity_result.is_error:
             logger.error(f"Error fetching activity stats: {activity_result.error}")
 
-        return {"user_stats": user_stats, "activity_stats": activity_stats}
+        gaps_result = await self._admin_stats.get_search_gaps()
+        search_gaps: list[dict[str, Any]] = (
+            [dict(row) for row in (gaps_result.value or [])] if not gaps_result.is_error else []
+        )
+        if gaps_result.is_error:
+            logger.error(f"Failed to load search gaps: {gaps_result.error}")
+
+        total_result = await self._admin_stats.get_search_event_total()
+        search_event_total: int = (total_result.value or 0) if not total_result.is_error else 0
+        if total_result.is_error:
+            logger.error(f"Failed to load search event total: {total_result.error}")
+
+        return {
+            "user_stats": user_stats,
+            "activity_stats": activity_stats,
+            "search_gaps": search_gaps,
+            "search_event_total": search_event_total,
+        }
