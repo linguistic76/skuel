@@ -529,6 +529,7 @@ class ActivityDSLParser:
     # Timestamp formats
     ISO_DATETIME_T = re.compile(r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})")
     ISO_DATETIME_SPACE = re.compile(r"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})")
+    ISO_DATE_ONLY = re.compile(r"(\d{4})-(\d{2})-(\d{2})\s*$")
 
     # Duration format: 90m, 1h, 1h30m
     DURATION_PATTERN = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?")
@@ -815,7 +816,7 @@ class ActivityDSLParser:
             if not v:
                 continue
 
-            # Check DSL-specific aliases first (e.g. "learningstep", "journal")
+            # Check DSL-specific aliases first (e.g. "learningstep", "life_path")
             dsl_alias = _DSL_CONTEXT_ALIASES.get(v)
             if dsl_alias is not None:
                 contexts.append(dsl_alias)
@@ -871,6 +872,7 @@ class ActivityDSLParser:
         Accepts:
         - 2025-11-27T09:30 (ISO with T)
         - 2025-11-27 09:30 (ISO with space)
+        - 2025-11-27 (date only — midnight; matches obsidian-tasks 📅 granularity)
         """
         if not value:
             return None
@@ -886,6 +888,13 @@ class ActivityDSLParser:
         if match:
             year, month, day, hour, minute = map(int, match.groups())
             return datetime(year, month, day, hour, minute)
+
+        # Date only — the natural short form. Converters that want a date call
+        # .date(); time-of-day consumers get midnight.
+        match = self.ISO_DATE_ONLY.match(value)
+        if match:
+            year, month, day = map(int, match.groups())
+            return datetime(year, month, day)
 
         self.logger.warning(f"Could not parse @when value: {value}")
         return None

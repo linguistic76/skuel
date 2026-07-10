@@ -84,6 +84,27 @@ class TestSingleLineParsing:
         expected = future_date.replace(second=0, microsecond=0)
         assert activity.when == expected
 
+    def test_parse_with_when_date_only(self):
+        """Parse @when with a date-only value (obsidian-tasks 📅 granularity) — midnight."""
+        from datetime import timedelta
+
+        future_date = datetime.now() + timedelta(days=30)
+        when_str = future_date.strftime("%Y-%m-%d")
+
+        result = parse_activity_line(f"- [ ] Plan week @context(task) @when({when_str})")
+
+        assert result.is_ok
+        activity = result.value
+        expected = future_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        assert activity.when == expected
+
+    def test_parse_with_when_unparseable_drops_schedule(self):
+        """An unparseable @when value keeps the line but drops the schedule."""
+        result = parse_activity_line("- [ ] Finish report @context(task) @when(Friday)")
+
+        assert result.is_ok
+        assert result.value.when is None
+
     def test_parse_duration_minutes(self):
         """Parse @duration with minutes."""
         result = parse_activity_line("- [ ] Quick task @context(task) @duration(30m)")
