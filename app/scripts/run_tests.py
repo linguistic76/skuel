@@ -6,12 +6,11 @@ Usage:
     uv run python scripts/run_tests.py [mode] [options]
 
 Modes:
-    all           - Run complete test suite (1,349 tests, ~73s)
-    comprehensive - Run all tests except broken unit tests (1,150 tests, ~70s) [RECOMMENDED]
-    integration   - Run integration tests only (240 tests, ~60s) [FAST]
-    service       - Run service tests only (~600 tests)
-    unit          - Run unit tests only (164 tests - mostly broken)
-    quick         - Run fastest subset for smoke testing
+    all           - Run everything under tests/ (needs Docker for integration/e2e)
+    comprehensive - unit + integration + infrastructure [RECOMMENDED]
+    integration   - Integration tests only (local Docker Neo4j)
+    unit          - Unit tests only — the CI suite (no Docker)
+    quick         - Fastest smoke subset (integration + auth + error handling)
 
 Options:
     -v, --verbose     - Verbose output
@@ -38,28 +37,34 @@ class TestRunner:
         self.tests_dir = self.project_root / "tests"
 
     def run_all(self, extra_args: list[str]) -> int:
-        """Run complete test suite (1,349 tests)."""
-        print("🔍 Running COMPLETE test suite (1,349 tests)")
-        print("   Expected: 1,124 passing, 183 failed, 35 errors")
-        print("   Runtime: ~73 seconds\n")
+        """Run the complete test suite (everything under tests/)."""
+        print("🔍 Running COMPLETE test suite (all of tests/)")
+        print("   unit + integration + e2e + infrastructure + benchmarks")
+        print("   Integration/e2e need local Docker Neo4j (testcontainers)\n")
 
         cmd = ["uv", "run", "pytest", "tests/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_comprehensive(self, extra_args: list[str]) -> int:
-        """Run all tests except broken unit tests (RECOMMENDED)."""
+        """Run unit + integration + infrastructure (RECOMMENDED).
+
+        tests/unit/ is the CI suite (root-level tests were migrated into it
+        2026-07-10) — the old --ignore=tests/unit/ predates that and would
+        silently skip the bulk of the suite. Excludes only e2e (slow, worker
+        lifecycle) and benchmarks.
+        """
         print("✅ Running COMPREHENSIVE test suite (recommended)")
-        print("   Tests: ~1,150 (integration + service + auth + other)")
-        print("   Expected: ~1,100 passing (~95% success)")
-        print("   Runtime: ~70 seconds")
-        print("   Excludes: 164 broken unit tests\n")
+        print("   unit (CI suite) + integration + infrastructure")
+        print("   Excludes: e2e, benchmarks")
+        print("   Integration needs local Docker Neo4j (testcontainers)\n")
 
         cmd = [
             "uv",
             "run",
             "pytest",
             "tests/",
-            "--ignore=tests/unit/",
+            "--ignore=tests/e2e/",
+            "--ignore=tests/benchmarks/",
             "-v",
             *extra_args,
         ]
@@ -88,34 +93,10 @@ class TestRunner:
         ]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
-    def run_service(self, extra_args: list[str]) -> int:
-        """Run service tests only."""
-        print("🔧 Running SERVICE tests only")
-        print("   Tests: ~600 (activity domains + curriculum)")
-        print("   Expected: ~550 passing (~92% success)")
-        print("   Runtime: ~40 seconds\n")
-
-        # Run root-level test files (exclude integration/ and unit/)
-        cmd = [
-            "uv",
-            "run",
-            "pytest",
-            "tests/",
-            "--ignore=tests/integration/",
-            "--ignore=tests/unit/",
-            "--ignore=tests/infrastructure/",
-            "-v",
-            *extra_args,
-        ]
-        return subprocess.run(cmd, cwd=self.project_root).returncode
-
     def run_unit(self, extra_args: list[str]) -> int:
-        """Run unit tests only (mostly broken - mock issues)."""
-        print("🧪 Running UNIT tests only")
-        print("   Tests: 164 (relationship services)")
-        print("   ⚠️  WARNING: Most unit tests are broken (mock configuration)")
-        print("   Expected: 0 passing (known issue)")
-        print("   Runtime: ~10 seconds\n")
+        """Run unit tests only — the CI suite (no Docker needed)."""
+        print("🧪 Running UNIT tests (the CI suite)")
+        print("   Mock-based; no Docker/Neo4j required\n")
 
         cmd = ["uv", "run", "pytest", "tests/unit/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
@@ -158,7 +139,7 @@ def main():
         "mode",
         nargs="?",
         default="comprehensive",
-        choices=["all", "comprehensive", "integration", "service", "unit", "quick"],
+        choices=["all", "comprehensive", "integration", "unit", "quick"],
         help="Test mode to run (default: comprehensive)",
     )
 
@@ -218,7 +199,6 @@ def main():
         "all": runner.run_all,
         "comprehensive": runner.run_comprehensive,
         "integration": runner.run_integration,
-        "service": runner.run_service,
         "unit": runner.run_unit,
         "quick": runner.run_quick,
     }
