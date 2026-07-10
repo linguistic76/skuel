@@ -249,7 +249,9 @@ class Query:
 
         # Perform search using SearchRouter (One Path Forward)
         user_uid = require_user_uid(info)
-        result = await context.search_router.faceted_search(search_request, user_uid)
+        result = await context.search_router.faceted_search(
+            search_request, user_uid, entry_point="graphql"
+        )
 
         if result.is_error or not result.value.results:
             return []

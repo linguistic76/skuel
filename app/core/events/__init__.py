@@ -193,6 +193,9 @@ from core.events.principle_events import (
     PrincipleUpdated,
 )
 
+# Search events (discovery analytics)
+from core.events.search_events import SearchExecuted
+
 # Task events
 from core.events.task_events import (
     TaskCompleted,
@@ -319,6 +322,8 @@ __all__ = [
     "PrincipleDeleted",
     "PrincipleStrengthChanged",
     "PrincipleUpdated",
+    # Search
+    "SearchExecuted",
     "TaskCompleted",
     # Tasks
     "TaskCreated",
@@ -457,6 +462,8 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "transcription.created": TranscriptionCreated,
     "transcription.completed": TranscriptionCompleted,
     "transcription.failed": TranscriptionFailed,
+    # Search (discovery analytics)
+    "search.executed": SearchExecuted,
 }
 
 
@@ -655,6 +662,10 @@ TRANSCRIPTION_EVENTS = [
     TranscriptionFailed,
 ]
 
+SEARCH_EVENTS = [
+    SearchExecuted,
+]
+
 # All events
 ALL_EVENTS = (
     LEARNING_LOOP_EVENTS
@@ -671,6 +682,7 @@ ALL_EVENTS = (
     + FORM_EVENTS
     + USER_ENTRY_EVENTS
     + TRANSCRIPTION_EVENTS
+    + SEARCH_EVENTS
 )
 
 

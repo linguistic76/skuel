@@ -454,6 +454,15 @@ async def compose_services(
         insight_store = InsightStore(insight_backend)
         logger.info("✅ InsightStore created (event-driven insights)")
 
+        # Search event recorder (discovery analytics) — persists search.executed
+        # events as :SearchEvent nodes. Tier-independent: a plain graph write.
+        from adapters.persistence.neo4j.search_event_backend import SearchEventBackend
+        from core.services.search_event_recorder import SearchEventRecorder
+
+        search_event_backend = SearchEventBackend(query_executor)
+        search_event_recorder = SearchEventRecorder(backend=search_event_backend)
+        logger.info("✅ SearchEventRecorder created (search behavioral log)")
+
         # ========================================================================
         # ACTIVITY KNOWLEDGE INTELLIGENCE (shared singleton for all 6 domains)
         # ========================================================================
@@ -1640,6 +1649,7 @@ async def compose_services(
             insight_store=insight_store,
             group_backend=group_backend,
             ps_engagement=template_services["ps_engagement"],
+            search_event_recorder=search_event_recorder,
         )
         logger.info("✅ All services initialized")
 

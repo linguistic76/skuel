@@ -775,3 +775,44 @@ class SupportsTagSearch(Protocol):
             Result containing list of entities with matching tags
         """
         ...
+
+
+# =============================================================================
+# SEARCH EVENT LOGGING (Discovery Analytics)
+# =============================================================================
+# :SearchEvent is a plain infrastructure node (like :ContentChunk/:AuthEvent),
+# NOT an EntityType. The recorder writes one node per search.executed event;
+# the gap reader aggregates them (read-only) for content-gap analysis.
+# See: /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+
+
+class SearchEventBackendOperations(Protocol):
+    """
+    Backend contract for :SearchEvent persistence and aggregation.
+
+    Backend: adapters/persistence/neo4j/search_event_backend.py
+    """
+
+    async def record_search_event(self, props: dict[str, Any]) -> Result[list[dict[str, Any]]]:
+        """Persist one :SearchEvent node from a search.executed event's properties."""
+        ...
+
+    async def get_search_gaps(
+        self,
+        *,
+        max_result_count: int = 2,
+        days: int = 90,
+        limit: int = 50,
+    ) -> Result[list[dict[str, Any]]]:
+        """
+        Aggregate low/zero-result searches — the content-authoring gap queue.
+
+        Groups by normalized query text; returns per-query search counts,
+        zero-result counts, average result count, last-seen timestamp, and
+        the entry points that produced them.
+        """
+        ...
+
+    async def count_search_events(self) -> Result[int]:
+        """Total :SearchEvent count — the 1000+ trigger for deferred analytics phases."""
+        ...

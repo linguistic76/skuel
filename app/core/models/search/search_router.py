@@ -517,10 +517,58 @@ class SearchRouter:
     # FACETED SEARCH - One Path Forward (Complete)
     # =========================================================================
 
+    async def _publish_search_event(
+        self,
+        query_text: str | None,
+        *,
+        user_uid: UserUID | None,
+        entry_point: str,
+        result_count: int,
+        domains: tuple[str, ...] = (),
+        semantic_boost: bool = False,
+        filters: dict[str, Any] | None = None,
+    ) -> None:
+        """Publish search.executed for one EXTERNAL search — discovery-analytics log.
+
+        One event per external entry point call (faceted/intelligent/advanced;
+        the GraphQL caller flows through faceted). Internal fan-out never
+        publishes — intelligent_search suppresses its per-domain faceted calls
+        via log_event=False. Empty/whitespace queries are skipped (filter-only
+        searches carry no gap signal). Fail-soft: never raises, a logging
+        failure must never break search.
+
+        Subscriber: SearchEventRecorder → SearchEventBackend (:SearchEvent).
+        """
+        stripped = (query_text or "").strip()
+        if not stripped:
+            return
+
+        import json
+
+        from core.events import SearchExecuted, publish_event
+
+        try:
+            event = SearchExecuted(
+                query_text=stripped,
+                user_uid=user_uid,
+                entry_point=entry_point,
+                result_count=result_count,
+                zero_results=result_count == 0,
+                semantic_boost=semantic_boost,
+                domains=domains,
+                filters_json=json.dumps(filters or {}, default=str),
+            )
+            await publish_event(self.services.event_bus, event, self.logger)
+        except Exception as e:  # safety-net: search logging must never break search
+            self.logger.warning(f"search.executed not published: {e}")
+
     async def faceted_search(
         self,
         request: "SearchRequest",
         user_uid: UserUID | None = None,
+        *,
+        log_event: bool = True,
+        entry_point: str = "faceted",
     ) -> Result["SearchResponse"]:
         """
         Faceted search - THE entry point for all UI-driven search.
@@ -608,6 +656,17 @@ class SearchRouter:
                     request, domain_str, response.value
                 )
                 response = Result.ok(augmented)
+
+            if log_event and response.is_ok:
+                await self._publish_search_event(
+                    request.query_text,
+                    user_uid=user_uid,
+                    entry_point=entry_point,
+                    result_count=response.value.total,
+                    domains=(domain_str,) if domain_str else (),
+                    semantic_boost=request.enable_semantic_boost,
+                    filters=request.to_property_filters(),
+                )
             return response
 
         except (AttributeError, TypeError, ValueError, KeyError) as e:
@@ -1178,7 +1237,11 @@ class SearchRouter:
                         status=parsed.statuses[0] if parsed.statuses else None,
                         limit=limit_per_domain,
                     )
-                    facet_result = await self.faceted_search(request, effective_uid)
+                    # log_event=False: this is internal fan-out — intelligent_search
+                    # publishes exactly ONE search.executed itself below.
+                    facet_result = await self.faceted_search(
+                        request, effective_uid, log_event=False
+                    )
                     if facet_result.is_error:
                         self.logger.warning(
                             f"intelligent_search faceted_search failed for "
@@ -1210,6 +1273,14 @@ class SearchRouter:
 
                 results_by_domain[entity_type] = items
                 total_count += len(items)
+
+            await self._publish_search_event(
+                query,
+                user_uid=effective_uid,
+                entry_point="intelligent",
+                result_count=total_count,
+                domains=tuple(d.value for d in target_domains),
+            )
 
             return Result.ok(
                 UnifiedSearchResult(
@@ -1374,6 +1445,19 @@ class SearchRouter:
 
                     results_by_domain[entity_type] = items
                     total_count += len(items)
+
+            await self._publish_search_event(
+                request.query_text,
+                user_uid=request.user_uid or (user_context.user_uid if user_context else None),
+                entry_point="advanced",
+                result_count=total_count,
+                domains=(
+                    tuple(et.value for et in eligible_domains)
+                    if request.has_entity_type_filter()
+                    else ()
+                ),
+                filters=request.to_property_filters(),
+            )
 
             return Result.ok(
                 UnifiedSearchResult(
