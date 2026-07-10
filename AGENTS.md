@@ -93,7 +93,9 @@ invariants — keep comments focused on real, high-priority risks.
   the **`codex-considered`** label is applied (a new commit clears the label). This
   makes "the *requested* Codex review was read & considered" an enforced, auditable
   step. Clear it: read the review → post a short "Codex consideration" note
-  (accept/reject + why) → `gh pr edit <PR#> --add-label codex-considered`.
+  (accept/reject + why) → `app/scripts/apply_codex_considered.sh <PR#>` (race-safe:
+  a gate run still queued from the last push strips a bare `gh pr edit --add-label`;
+  the script drains in-flight runs and confirms the gate goes green).
 - **Required checks on `main`:** **CI Gate** (mechanical — tests/types/lint/cypher/
   route-audit) **and Codex Review Gate**. `main` keeps admin-bypass.
 - To change a reviewer's auto-behavior, flip its **dashboard** toggle (Codex: the

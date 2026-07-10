@@ -179,15 +179,19 @@ post_clean_consideration() {
 
 # The label IS the gate's unblock signal — a silent failure here would report
 # merge-ready without satisfying the gate (happened live during the 2026-06-10
-# auth incident). Hard-fail so the caller retries explicitly. Applied ONLY after
-# a real CLEAN verdict was read (never on timeout).
+# auth incident), and a plain label-add can be RACE-STRIPPED by a gate run still
+# in flight from the last push (happened live on #584). Delegate to the
+# race-safe applier, which drains in-flight gate runs and confirms the gate
+# status actually goes green. Applied ONLY after a real CLEAN verdict was read
+# (never on timeout).
 apply_label() {
-  if gh_retry api "repos/$REPO/issues/$PR/labels" -f "labels[]=codex-considered" --jq '.[0].name' >/dev/null; then
-    echo "✓ codex-considered applied"
+  local script_dir
+  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  if "$script_dir/apply_codex_considered.sh" "$PR"; then
     return 0
   fi
-  echo "✗ could not apply codex-considered (gate NOT satisfied) — apply manually:" >&2
-  echo "  gh pr edit $PR --add-label codex-considered" >&2
+  echo "✗ codex-considered NOT confirmed green — re-run when ready:" >&2
+  echo "  scripts/apply_codex_considered.sh $PR" >&2
   return 1
 }
 
@@ -233,7 +237,7 @@ case $RC in
   2)
     echo "→ Codex returned findings (above). READ them, then either address them"
     echo "  or write a PR-side accept/reject consideration note, and apply the label"
-    echo "  deliberately: gh pr edit $PR --add-label codex-considered"
+    echo "  deliberately (race-safe): scripts/apply_codex_considered.sh $PR"
     exit 2
     ;;
   4)
@@ -247,7 +251,7 @@ case $RC in
     echo "  Re-run this script to keep waiting, or check the PR shortly. Apply"
     echo "  codex-considered ONLY after reading a real verdict. If Codex is genuinely"
     echo "  down and you must proceed, that is a deliberate call — add a consideration"
-    echo "  note saying so, then: gh pr edit $PR --add-label codex-considered"
+    echo "  note saying so, then: scripts/apply_codex_considered.sh $PR"
     exit 3
     ;;
 esac

@@ -155,6 +155,15 @@ status **`Codex Review Gate`**, operating in **two tiers**:
 **Both tiers:** A **new commit (`synchronize`) auto-removes the label**, so changed
 code must be re-considered.
 
+> ⚠️ **Label race:** workflow runs are queued, not instant — a gate run still in
+> flight from the **last push** strips the label even when the label was applied
+> *after* that push (observed live on #584). Apply the label with
+> **`app/scripts/apply_codex_considered.sh <PR#>`**, which waits for in-flight gate
+> runs on the head SHA to drain, applies the label, and polls the `Codex Review
+> Gate` commit status until it actually reports green (re-adding once if
+> stripped). If labeling by hand, re-check the label + gate status immediately
+> before merging.
+
 (Codex auto-review is off, so there are no ambient auto-reviews. If you ever re-enable
 dashboard auto-review, those auto-reviews stay advisory and **do not gate** — only an
 explicit `@codex review` does.)
@@ -166,7 +175,10 @@ To gate a PR on Codex and clear it:
 1. `gh pr comment <PR#> --body "@codex review"` (as your account → a real review).
 2. Read the review; post a short **"Codex consideration"** comment — what you
    accept / reject and why.
-3. Apply the label: `gh pr edit <PR#> --add-label codex-considered`.
+3. Apply the label race-safely: `app/scripts/apply_codex_considered.sh <PR#>`
+   (waits out in-flight gate runs and confirms the gate goes green; plain
+   `gh pr edit <PR#> --add-label codex-considered` can be silently race-stripped
+   by a gate run queued from the last push).
 
 The label is the auditable record that steps 1–2 happened. **Implementation note:**
 the gate is a **commit status** (not a job check-run) so the `issue_comment`
