@@ -58,7 +58,9 @@ core/prompts/
     ├── journal_exploration.md
     ├── dsl_domain_recognition.md
     ├── dsl_domain_recognition_compact.md
+    ├── prereq_edge_judge.md
     ├── askesis_guided_redirect.md
+    ├── askesis_guided_direct.md
     ├── askesis_guided_out_of_scope.md
     ├── askesis_guided_assess.md
     ├── askesis_guided_probe.md
@@ -86,6 +88,7 @@ programming error, not a domain failure.
 | `journal_activity` | `InstructionResolver` via `EnrichmentMode.ACTIVITY_TRACKING` (`LLM_SUMMARY` / `TRANSCRIBE_AND_STRUCTURE` pipelines) | `{content}` |
 | `journal_articulation` | `InstructionResolver` via `EnrichmentMode.IDEA_ARTICULATION` | `{content}` |
 | `journal_exploration` | `InstructionResolver` via `EnrichmentMode.CRITICAL_THINKING` | `{content}` |
+| `prereq_edge_judge` | `PrereqSuggestionService._judge_batch()` (admin prereq-edge queue, batch pair classification) | `{pairs_block}` |
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}` |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |

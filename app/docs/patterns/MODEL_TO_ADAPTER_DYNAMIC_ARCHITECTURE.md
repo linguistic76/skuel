@@ -17,6 +17,12 @@ The architecture is **100% dynamic** for model-to-adapter connections. The intro
 
 ---
 
+## July 2026 Update: PrereqCandidateBackend (Discovery Analytics PR 4)
+
+New standalone READ-ONLY **`PrereqCandidateBackend`** (`adapters/persistence/neo4j/prereq_candidate_backend.py`) behind the **`PrereqSuggestionBackendOperations`** port (`core/ports/curriculum_protocols.py`). Feeds the admin prerequisite-edge suggestion queue: `get_kus_with_embeddings` (in-process pairwise cosine — no vector index round-trips), `get_ku_ku_edges` (pair exclusion incl. transitive coverage), `get_ku_titles` (approve-time existence check). Same standalone shape as `SearchEventBackend` below — takes the shared `QueryExecutor` directly, since it reads across Kus rather than serving one entity type's CRUD. This feature never writes to the graph; its only write is an Edge YAML file into the content vault (`EdgeFileWriterPort` / `ContentVaultEdgeWriter` — filesystem adapter, not a Neo4j backend). **See:** `/docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md` § 2.
+
+---
+
 ## July 2026 Update: SearchEventBackend (Discovery Analytics Phase 1)
 
 New standalone **`SearchEventBackend`** (`adapters/persistence/neo4j/search_event_backend.py`) behind the **`SearchEventBackendOperations`** port (`core/ports/search_protocols.py`). Persists and aggregates `:SearchEvent` behavioral-log nodes (`NeoLabel.SEARCH_EVENT` — a plain infrastructure node like `:ContentChunk`, not an EntityType). Like `InsightBackend`/`CrossDomainBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`. Methods: `record_search_event` (written by `SearchEventRecorder`, the `search.executed` subscriber), `get_search_gaps` (zero/low-result content-gap aggregation), `count_search_events` (the 1000+ discovery-analytics trigger). **See:** `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md`.
