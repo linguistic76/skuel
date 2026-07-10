@@ -81,15 +81,16 @@ search events.
 `SearchEventBackend.get_search_gaps(max_result_count=2, days=90)` aggregates
 low/zero-result searches by normalized query (counts, zero-counts, avg results,
 last seen, entry points). `count_search_events()` reports the running total
-against the Phase 2 trigger. The admin surface (`/admin/analytics` "Search
-Gaps" section) ships in the immediate follow-up PR.
+against the Phase 2 trigger. The admin surface is live: the
+`/admin/analytics` "Search Gaps (content authoring queue)" section renders the
+gap table plus the running event total vs the Phase-2 trigger.
 
 ---
 
 ## Phases 2+ — Deferred (trigger: 1,000+ logged events)
 
-Check: `MATCH (e:SearchEvent) RETURN count(e)` — surfaced on `/admin/analytics`
-once the gap-surface PR lands.
+Check: `MATCH (e:SearchEvent) RETURN count(e)` — the running total is
+surfaced on `/admin/analytics` (Search Gaps section).
 
 With few users, behavioral aggregates are noise. These phases subscribe to the
 same `search.executed` stream / read the same nodes — no SearchRouter changes

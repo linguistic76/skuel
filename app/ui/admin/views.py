@@ -580,19 +580,25 @@ class AdminUIComponents:
 class AdminAnalyticsComponents:
     """Analytics components for admin dashboard."""
 
+    # Phase-2 discovery analytics (clustering, temporal patterns) unlock at this
+    # :SearchEvent volume — see /docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md
+    PHASE_2_EVENT_TRIGGER: ClassVar[int] = 1000
+
     @staticmethod
     def render_analytics_dashboard(analytics_data: dict) -> Div:
         """
         Render full analytics dashboard.
 
         Args:
-            analytics_data: Dict with user_stats, activity_stats, etc.
+            analytics_data: Dict with user_stats, activity_stats, search_gaps, etc.
 
         Returns:
             Div with analytics sections
         """
         user_stats = analytics_data.get("user_stats", {})
         activity_stats = analytics_data.get("activity_stats", {})
+        search_gaps = analytics_data.get("search_gaps", [])
+        search_event_total = analytics_data.get("search_event_total", 0)
 
         return Div(
             # User distribution section
@@ -605,6 +611,14 @@ class AdminAnalyticsComponents:
             Card(
                 CardHeader(CardTitle("Activity Statistics (30 days)")),
                 CardBody(AdminAnalyticsComponents.render_activity_stats(activity_stats)),
+                cls="mb-6",
+            ),
+            # Search gaps section — the content authoring queue
+            Card(
+                CardHeader(CardTitle("Search Gaps (content authoring queue)")),
+                CardBody(
+                    AdminAnalyticsComponents.render_search_gaps(search_gaps, search_event_total)
+                ),
                 cls="mb-6",
             ),
         )
@@ -675,6 +689,73 @@ class AdminAnalyticsComponents:
                     color="orange-600",
                 ),
             ]
+        )
+
+    @staticmethod
+    def render_search_gaps(gaps: list[dict], event_total: int) -> Div:
+        """
+        Render the zero/low-result search queue plus the running event total.
+
+        Args:
+            gaps: SearchGapRow dicts (query, searches, zero_count, avg_results,
+                  last_seen, entry_points) from AdminOrchestrator.get_analytics_data
+            event_total: Running :SearchEvent count vs the Phase-2 trigger
+
+        Returns:
+            Div with the gap table (or empty state) and the event-total line
+        """
+        total_line = P(
+            f"{event_total:,} search event(s) logged — Phase 2 analytics "
+            f"(clustering, temporal patterns) unlock at "
+            f"{AdminAnalyticsComponents.PHASE_2_EVENT_TRIGGER:,}+.",
+            cls="text-sm text-muted-foreground mt-3",
+        )
+
+        if not gaps:
+            return Div(
+                P(
+                    "No zero/low-result searches recorded yet",
+                    cls="text-sm text-muted-foreground",
+                ),
+                total_line,
+            )
+
+        body_data = []
+        for gap in gaps:
+            body_data.append(
+                {
+                    "Query": gap.get("query", ""),
+                    "Searches": gap.get("searches", 0),
+                    "Zero Results": gap.get("zero_count", 0),
+                    "Avg Results": f"{float(gap.get('avg_results', 0.0)):.1f}",
+                    # last_seen is toString(datetime) — the date part is enough here
+                    "Last Seen": str(gap.get("last_seen", ""))[:10],
+                    "Entry Points": ", ".join(gap.get("entry_points", [])),
+                }
+            )
+
+        return Div(
+            P(
+                f"{len(gaps)} low/zero-result quer{'y' if len(gaps) == 1 else 'ies'} "
+                f"(≤2 results, last 90 days)",
+                cls="text-sm text-muted-foreground mb-3",
+            ),
+            Div(
+                TableFromDicts(
+                    header_data=[
+                        "Query",
+                        "Searches",
+                        "Zero Results",
+                        "Avg Results",
+                        "Last Seen",
+                        "Entry Points",
+                    ],
+                    body_data=body_data,
+                    cls=(TableT.striped,),
+                ),
+                cls="overflow-x-auto",
+            ),
+            total_line,
         )
 
 

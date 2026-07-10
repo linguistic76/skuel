@@ -101,7 +101,8 @@ The user management section (`/admin/users`) provides:
 │   ├─ get_user_role_counts()       → AdminStatsService                   │
 │   ├─ get_user_detail_stats(uid)   → AdminStatsService                   │
 │   ├─ _get_activity_entity_counts() → AdminStatsService (private)        │
-│   └─ get_analytics_data()         → aggregates role_counts + entity_counts│
+│   └─ get_analytics_data()         → role_counts + entity_counts +      │
+│                                      search gaps/event total            │
 │                                                                          │
 │   user_service property           → exposed for @require_admin          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -221,6 +222,7 @@ User management UI components:
 | `render_analytics_dashboard(data)` | Full analytics view |
 | `render_user_distribution(stats)` | Role distribution bars |
 | `render_activity_stats(data)` | Activity count cards |
+| `render_search_gaps(gaps, event_total)` | Zero/low-result search queue table + running `:SearchEvent` total vs the Phase-2 trigger |
 
 ### AdminLearningComponents (ui/admin/views.py)
 
@@ -235,7 +237,7 @@ KU learning progression components — **used by the Teaching student submission
 
 **AdminStatsService** (`core/services/admin_stats_service.py`):
 
-Cross-domain aggregation queries, injected with `QueryExecutor`. Registered on `Services` dataclass as `services.admin_stats`.
+Cross-domain aggregation queries, injected with the `CrossDomainBackend` (plus an optional `SearchEventBackend` for the discovery-analytics read side). Registered on `Services` dataclass as `services.admin_stats`.
 
 | Method | Purpose |
 |--------|---------|
@@ -246,6 +248,8 @@ Cross-domain aggregation queries, injected with `QueryExecutor`. Registered on `
 | `get_user_ku_detail(user_uid)` | Detailed KU list for a user with relationship data |
 | `get_activity_entity_counts()` | System-wide Task/Habit/Goal/Journal counts via single Cypher COUNT query |
 | `get_user_role_counts()` | User counts grouped by role via single Cypher GROUP BY query |
+| `get_search_gaps(max_result_count, days, limit)` | Zero/low-result search queue (content authoring) — empty list when no search-event backend is wired |
+| `get_search_event_total()` | Running `:SearchEvent` count vs the 1,000+ Phase-2 analytics trigger |
 
 **`get_user_detail_stats` returns:**
 
@@ -480,7 +484,7 @@ analytics_data = await orchestrator.get_analytics_data()
 AdminAnalyticsComponents.render_analytics_dashboard(analytics_data)
 ```
 
-**Applied to:** system status (overview), user stats (users list), activity entity counts (analytics), detail stats (user detail). KU metrics + user progress are handled per-student in the Teaching UI (`/teaching/students/{uid}/submissions?tab=ku`).
+**Applied to:** system status (overview), user stats (users list), activity entity counts + search gaps/event total (analytics), detail stats (user detail). KU metrics + user progress are handled per-student in the Teaching UI (`/teaching/students/{uid}/submissions?tab=ku`).
 
 **March 2026 — Service extraction:** `_get_user_stats` helper deleted. User role counts and activity entity counts now use efficient Cypher COUNT queries on `AdminStatsService` (`get_user_role_counts`, `get_activity_entity_counts`) instead of fetching full entity lists just to count them.
 

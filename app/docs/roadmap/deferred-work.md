@@ -66,8 +66,8 @@ before this ship). One event per external search (internal fan-out suppressed),
 empty/filter-only queries skipped, fail-soft twice over (publish helper + event
 bus isolation). The zero/low-result **content-gap aggregation**
 (`get_search_gaps`) is useful immediately as a content-authoring queue — no
-data threshold needed; its `/admin/analytics` surface ships in the immediate
-follow-up PR.
+data threshold needed; its `/admin/analytics` surface is live ("Search Gaps
+(content authoring queue)" section: gap table + running event total).
 
 **Still deferred (Phases 2+)**: behavioral aggregates need volume. With fewer
 than 1,000 logged searches, clustering and usage-weighted ranking are noise.
@@ -75,7 +75,7 @@ than 1,000 logged searches, clustering and usage-weighted ranking are noise.
 **What to do**:
 
 1. Verify search event count: `MATCH (e:SearchEvent) RETURN count(e)` — proceed when ≥ 1,000
-   (surfaced on `/admin/analytics` once the gap-surface PR lands).
+   (the running total is surfaced on `/admin/analytics`, Search Gaps section).
 2. Query clustering + temporal patterns over the logged events.
 3. Usage-aware ranking — requires click-tracking (not collected in Phase 1) and a ranking
    integration design pass (no `SearchRankingService` exists; scoring lives in SearchRouter).
