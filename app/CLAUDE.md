@@ -253,7 +253,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 - Use `.expect_error()` only when you need to _read_ the error (logging, branching on category)
 - Use `require_found(result, resource, uid)` for the fetch + not-found guard pattern in routes
 - Use `Errors` factory for creating errors
-- Six error types: Validation, NotFound, Database, Integration, Business, System
+- Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
 - **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL024, SKUEL025.
 

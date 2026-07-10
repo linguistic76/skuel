@@ -53,11 +53,11 @@ skills:
 
   - name: python
     description: Python development patterns in SKUEL
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: []
     dependencies: []
     library_package: null  # Language, not a package
-    library_version: "3.12"  # Minimum version from pyproject.toml
+    library_version: "3.14"  # Pinned in .python-version (ADR-067: latest stable)
     primary_docs:
       - /docs/patterns/three_tier_type_system.md
       - /docs/patterns/ASYNC_SYNC_DESIGN_PATTERN.md
@@ -75,7 +75,7 @@ skills:
 
   - name: pydantic
     description: Pydantic V2 validation models
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: []
     dependencies: []
     library_package: pydantic
@@ -105,7 +105,7 @@ skills:
 
   - name: chartjs
     description: Chart.js data visualization in SKUEL
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: []
     dependencies: []
     library_package: null  # Vendored static file
@@ -138,7 +138,7 @@ skills:
 
   - name: fasthtml
     description: FastHTML - Python's server-rendered hypermedia framework
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: [python]
     dependencies: [python]
     library_package: python-fasthtml
@@ -354,7 +354,7 @@ skills:
 
   - name: result-pattern
     description: Result[T] error handling pattern
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: [python]
     dependencies: [python]
     library_package: null  # SKUEL pattern, not external library
@@ -535,7 +535,7 @@ skills:
 
   - name: pytest
     description: SKUEL testing patterns - fixtures, async testing, mocking with Result[T]
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-07-10"
     foundation: [python, result-pattern]
     dependencies: [python, result-pattern]
     library_package: pytest

@@ -92,7 +92,7 @@ from core.utils.result_simplified import Result
 mock_backend.get.return_value = Result.ok(task)
 
 # Error case
-from core.errors import Errors
+from core.utils.result_simplified import Errors
 mock_backend.get.return_value = Result.fail(
     Errors.not_found("Task", "task:123")
 )
@@ -237,7 +237,7 @@ async def test_get_task_success(tasks_service, sample_task):
 @pytest.mark.asyncio
 async def test_get_task_not_found(tasks_service, mock_backend):
     # Arrange
-    from core.errors import Errors
+    from core.utils.result_simplified import Errors
     mock_backend.get.return_value = Result.fail(
         Errors.not_found("Task", "nonexistent")
     )
@@ -346,5 +346,4 @@ mock_backend.get.return_value = Result.ok(task)
 
 - `/tests/fixtures/service_factories.py` - Mock creation factories
 - `/tests/helpers/fluent_mocks.py` - Fluent API mocking
-- `/core/utils/result_simplified.py` - Result[T] implementation
-- `/core/errors.py` - Error factory (Errors.not_found, etc.)
+- `/core/utils/result_simplified.py` - Result[T] implementation + Errors factory (Errors.not_found, etc.)
