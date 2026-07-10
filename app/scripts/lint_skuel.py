@@ -905,6 +905,24 @@ class SkuelLinter:
         "core/services/user/user_context_populator.py",
     )
 
+    # Rules whose checkers consume the shared AST. `_lint_file` parses each file
+    # ONCE and hands the tree to these checkers (None on SyntaxError — every AST
+    # rule skips unparseable files; ruff flags the syntax error anyway). The list
+    # gates the parse itself: a run filtered to purely line-based rules (e.g. the
+    # SKUEL026 shadow-lint of a file whose only suppression names SKUEL012) never
+    # pays for a parse.
+    AST_RULE_IDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "SKUEL001",
+            "SKUEL020",
+            "SKUEL021",
+            "SKUEL022",
+            "SKUEL023",
+            "SKUEL024",
+            "SKUEL025",
+        }
+    )
+
     # SKUEL019: Credential keys that must route through get_credential().
     #
     # Mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
@@ -1024,6 +1042,11 @@ class SkuelLinter:
         # no suppression comments existed, so the audit can see what WOULD fire.
         self.ignore_suppressions = ignore_suppressions
         self.result = LintResult()
+        # Per-file memo for _inert_string_constant_ids — SKUEL001 and SKUEL021
+        # share the same inert-docstring walk over the same tree. Keyed by the
+        # tree OBJECT (identity compare on a held strong ref, so a recycled
+        # id() can never alias two trees).
+        self._inert_ids_memo: tuple[ast.AST, set[int]] | None = None
 
     @staticmethod
     def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
@@ -1258,6 +1281,16 @@ class SkuelLinter:
             # still gets the boundary rules.
             is_below_boundary = is_core or is_service
 
+            # Shared parse: every AST rule reads the SAME tree, parsed once per
+            # file (previously each rule re-parsed independently — ~7 parses/file
+            # dominated full-scan time). None = syntax error → AST rules skip.
+            tree: ast.Module | None = None
+            if not is_test and any(self._should_run_rule(r) for r in self.AST_RULE_IDS):
+                try:
+                    tree = ast.parse(content)
+                except SyntaxError:
+                    tree = None
+
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
                 self._check_is_err_usage(file_path, rel_path, content, lines)
@@ -1280,11 +1313,13 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL019") and not is_test:
                 self._check_credential_env_reads(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL020") and not is_test:
-                self._check_request_annotation(file_path, rel_path, content, lines)
+                self._check_request_annotation(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL024") and not is_test:
-                self._check_cls_kwargs_collision(file_path, rel_path, content, lines)
+                self._check_cls_kwargs_collision(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL025") and not is_test:
-                self._check_deleted_activity_update_payloads(file_path, rel_path, content, lines)
+                self._check_deleted_activity_update_payloads(
+                    file_path, rel_path, content, lines, tree
+                )
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1293,18 +1328,18 @@ class SkuelLinter:
             # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere in core/.
             if is_below_boundary and not is_test:
                 if self._should_run_rule("SKUEL001"):
-                    self._check_apoc_in_services(file_path, rel_path, content, lines)
+                    self._check_apoc_in_services(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL021"):
-                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines)
+                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines, tree)
 
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
-                self._check_core_imports_adapter(file_path, rel_path, content, lines)
+                self._check_core_imports_adapter(file_path, rel_path, content, lines, tree)
 
             # Static type-direction rule (ADR-044): all of core/, not just services.
             # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
             if is_core and not is_test and self._should_run_rule("SKUEL023"):
-                self._check_adapter_type_annotations(file_path, rel_path, content, lines)
+                self._check_adapter_type_annotations(file_path, rel_path, content, lines, tree)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
@@ -1332,7 +1367,12 @@ class SkuelLinter:
     # =========================================================================
 
     def _check_apoc_in_services(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL001 [CRITICAL]: No banned APOC procedures authored above the boundary.
@@ -1360,12 +1400,10 @@ class SkuelLinter:
             "apoc.meta.",
         )
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
-        inert_ids = self._inert_string_constant_ids(tree)
+        inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
         for node in ast.walk(tree):
@@ -1430,8 +1468,22 @@ class SkuelLinter:
                 inert.add(id(node.value))
         return inert
 
+    def _inert_ids_for(self, tree: ast.AST) -> set[int]:
+        """Memoized `_inert_string_constant_ids` — one walk per file, shared by
+        every string-constant rule (SKUEL001/021 today)."""
+        if self._inert_ids_memo is not None and self._inert_ids_memo[0] is tree:
+            return self._inert_ids_memo[1]
+        ids = self._inert_string_constant_ids(tree)
+        self._inert_ids_memo = (tree, ids)
+        return ids
+
     def _check_raw_cypher_in_services(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL021 [ERROR]: No raw Cypher authored above the hexagonal boundary.
@@ -1460,12 +1512,10 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL021"):
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
-        inert_ids = self._inert_string_constant_ids(tree)
+        inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
         for node in ast.walk(tree):
@@ -2175,6 +2225,20 @@ class SkuelLinter:
                     )
                 )
 
+    # SKUEL016: precompiled once — this rule runs on EVERY file (tests included),
+    # and per-call re.search with an inline pattern made it the single hottest
+    # checker in a full scan before the `poetry` content pre-filter below.
+    POETRY_PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str, str], ...]] = (
+        (re.compile(r"\bpoetry\s+install\b", re.IGNORECASE), "poetry install", "uv sync"),
+        (re.compile(r"\bpoetry\s+add\b", re.IGNORECASE), "poetry add", "uv add"),
+        (re.compile(r"\bpoetry\s+remove\b", re.IGNORECASE), "poetry remove", "uv remove"),
+        (re.compile(r"\bpoetry\s+run\b", re.IGNORECASE), "poetry run", "uv run"),
+        (re.compile(r"\bpoetry\s+lock\b", re.IGNORECASE), "poetry lock", "uv lock"),
+        (re.compile(r"\bpoetry\s+update\b", re.IGNORECASE), "poetry update", "uv lock --upgrade"),
+        (re.compile(r"\bpoetry\.lock\b", re.IGNORECASE), "poetry.lock", "uv.lock"),
+        (re.compile(r"\[tool\.poetry\b", re.IGNORECASE), "[tool.poetry]", "[project]"),
+    )
+
     def _check_poetry_references(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
@@ -2199,16 +2263,9 @@ class SkuelLinter:
         ):
             return
 
-        poetry_patterns = [
-            (r"\bpoetry\s+install\b", "poetry install", "uv sync"),
-            (r"\bpoetry\s+add\b", "poetry add", "uv add"),
-            (r"\bpoetry\s+remove\b", "poetry remove", "uv remove"),
-            (r"\bpoetry\s+run\b", "poetry run", "uv run"),
-            (r"\bpoetry\s+lock\b", "poetry lock", "uv lock"),
-            (r"\bpoetry\s+update\b", "poetry update", "uv lock --upgrade"),
-            (r"\bpoetry\.lock\b", "poetry.lock", "uv.lock"),
-            (r"\[tool\.poetry\b", "[tool.poetry]", "[project]"),
-        ]
+        # Cheap pre-filter: every pattern contains the literal "poetry".
+        if "poetry" not in content.lower():
+            return
 
         for line_num, line in enumerate(lines, start=1):
             stripped = line.strip()
@@ -2219,8 +2276,8 @@ class SkuelLinter:
             ):
                 continue
 
-            for pattern, match_text, replacement in poetry_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
+            for pattern, match_text, replacement in self.POETRY_PATTERNS:
+                match = pattern.search(line)
                 if match:
                     self.result.violations.append(
                         Violation(
@@ -2603,7 +2660,12 @@ class SkuelLinter:
         return False
 
     def _check_request_annotation(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL020 [ERROR]: FastHTML route handlers must annotate ``request: Request``.
@@ -2623,14 +2685,12 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL020"):
             return
 
-        # Cheap pre-filter: only parse files that actually register routes. Every
+        # Cheap pre-filter: only walk files that actually register routes. Every
         # decorator we match renders as `@rt...` or `@app....` in source.
         if "@rt" not in content and "@app." not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         for node in ast.walk(tree):
@@ -2778,7 +2838,12 @@ class SkuelLinter:
         return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
 
     def _check_cls_kwargs_collision(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL024 [ERROR]: a helper must not hardcode ``cls=`` AND splat ``**kwargs``
@@ -2811,9 +2876,7 @@ class SkuelLinter:
         if "cls" not in content or "**" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         scope_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
@@ -2916,7 +2979,12 @@ class SkuelLinter:
         return False
 
     def _check_core_imports_adapter(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL022 [ERROR]: a ``core/`` module must not import from ``adapters/``.
@@ -2939,13 +3007,11 @@ class SkuelLinter:
         """
         if self._is_file_suppressed(content, "SKUEL022"):
             return
-        # Cheap pre-filter: only parse files that mention adapters at all.
+        # Cheap pre-filter: only walk files that mention adapters at all.
         if "adapters" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         # Collect line numbers inside the BODY of `if TYPE_CHECKING:` blocks — exempt.
@@ -3014,7 +3080,12 @@ class SkuelLinter:
     )
 
     def _check_deleted_activity_update_payloads(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL025 [ERROR]: no reference to a deleted Activity Domain ``*UpdatePayload``.
@@ -3043,9 +3114,7 @@ class SkuelLinter:
         if "UpdatePayload" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         forbidden = self._DELETED_ACTIVITY_UPDATE_PAYLOADS
@@ -3301,7 +3370,12 @@ class SkuelLinter:
         return refs
 
     def _check_adapter_type_annotations(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL023 [ERROR]: a ``core/`` module must not type an annotation against a
@@ -3372,9 +3446,7 @@ class SkuelLinter:
         if "adapters" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         # ── Import-site rule (Tier 4) ─────────────────────────────────────

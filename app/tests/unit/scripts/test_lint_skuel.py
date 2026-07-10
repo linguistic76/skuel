@@ -6,6 +6,7 @@ Tests all SKUEL lint rules, LintResult dataclass, and suppression logic.
 Uses synthetic string content — no filesystem access needed.
 """
 
+import ast
 import sys
 from pathlib import Path
 
@@ -46,6 +47,13 @@ def lint_content(
     is_test = "test_" in fp.name or "/tests/" in str(fp)
     is_core = "/core/" in str(fp) and fp.suffix == ".py"
 
+    # Shared parse — mirrors _lint_file: AST rules receive one tree per file,
+    # None on syntax error (they skip; ruff owns syntax errors).
+    try:
+        tree: ast.Module | None = ast.parse(content)
+    except SyntaxError:
+        tree = None
+
     # Run applicable rules based on the same logic as _lint_file
     if linter._should_run_rule("SKUEL003"):
         linter._check_is_err_usage(fp, rel, content, lines)
@@ -68,11 +76,11 @@ def lint_content(
     if linter._should_run_rule("SKUEL019") and not is_test:
         linter._check_credential_env_reads(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL020") and not is_test:
-        linter._check_request_annotation(fp, rel, content, lines)
+        linter._check_request_annotation(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL024") and not is_test:
-        linter._check_cls_kwargs_collision(fp, rel, content, lines)
+        linter._check_cls_kwargs_collision(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL025") and not is_test:
-        linter._check_deleted_activity_update_payloads(fp, rel, content, lines)
+        linter._check_deleted_activity_update_payloads(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -81,9 +89,9 @@ def lint_content(
     is_below_boundary = is_core or is_service
     if is_below_boundary and not is_test:
         if linter._should_run_rule("SKUEL001"):
-            linter._check_apoc_in_services(fp, rel, content, lines)
+            linter._check_apoc_in_services(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL021"):
-            linter._check_raw_cypher_in_services(fp, rel, content, lines)
+            linter._check_raw_cypher_in_services(fp, rel, content, lines, tree)
 
     if is_service and not is_test:
         if linter._should_run_rule("SKUEL002"):
@@ -103,10 +111,10 @@ def lint_content(
         linter._check_backend_wrappers(fp, rel, content)
 
     if is_core and not is_test and linter._should_run_rule("SKUEL022"):
-        linter._check_core_imports_adapter(fp, rel, content, lines)
+        linter._check_core_imports_adapter(fp, rel, content, lines, tree)
 
     if is_core and not is_test and linter._should_run_rule("SKUEL023"):
-        linter._check_adapter_type_annotations(fp, rel, content, lines)
+        linter._check_adapter_type_annotations(fp, rel, content, lines, tree)
 
     return linter.result.violations
 
