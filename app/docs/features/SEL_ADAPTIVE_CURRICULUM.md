@@ -388,7 +388,7 @@ create_sel_sidebar_layout(
 
 ```bash
 # SEL adaptive logic now tested via ku_adaptive_service tests
-uv run pytest tests/test_ku_search_service.py -v
+uv run pytest tests/unit/test_ku_search_service.py -v
 ```
 
 ### Manual Testing Checklist

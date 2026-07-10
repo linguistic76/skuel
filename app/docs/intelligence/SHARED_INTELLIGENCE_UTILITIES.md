@@ -595,7 +595,7 @@ uv run pytest tests/integration/test_habits_analytics_pipeline.py -v
 uv run pytest tests/integration/test_cross_domain_context_pipeline.py -v
 
 # Dual-track assessment behavior
-uv run pytest tests/test_principles_alignment_tracking.py -v
+uv run pytest tests/unit/test_principles_alignment_tracking.py -v
 ```
 
 ---

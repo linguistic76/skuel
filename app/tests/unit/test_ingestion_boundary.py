@@ -16,7 +16,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-INGESTION_DIR = Path(__file__).resolve().parents[1] / "core" / "ingestion"
+# Anchor on the imported package, not this file's location — the guard must
+# keep scanning the real core/ tree no matter where it lives under tests/
+# (core/ is a namespace package: __file__ is None, __path__ carries the dir).
+import core as _core_pkg
+
+_CORE = Path(next(iter(_core_pkg.__path__))).resolve()
+INGESTION_DIR = _CORE / "ingestion"
 
 # Neo4j driver/session execution primitives that must not appear in core/ingestion.
 FORBIDDEN_PATTERNS = (

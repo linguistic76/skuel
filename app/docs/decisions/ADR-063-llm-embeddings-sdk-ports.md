@@ -90,7 +90,7 @@ module is consistent with how `neo4j` and `httpx` exceptions are already
 handled there.
 
 ### Alternative 2: A new lint rule (à la SKUEL022)
-Deferred. A guard test (`tests/test_llm_sdk_boundary.py`) is lighter and matches
+Deferred. A guard test (`tests/unit/test_llm_sdk_boundary.py`) is lighter and matches
 the existing boundary-test precedent (`test_infrastructure_boundary.py`,
 `test_ingestion_boundary.py`). It has since been generalized from a 3-name SDK
 denylist to a full third-party **allowlist** for `core/` (fails closed on any
@@ -126,7 +126,7 @@ the port.
 - Adapters: `adapters/external/llm/`, `adapters/external/embeddings/`
 - Composition root: `services_bootstrap/compose.py`, `services_bootstrap/_learning_services.py`
 
-**Testing strategy:** `tests/test_llm_sdk_boundary.py` enforces a third-party
+**Testing strategy:** `tests/unit/test_llm_sdk_boundary.py` enforces a third-party
 import **allowlist** for `core/` (not a denylist of named SDKs — a denylist
 fails open the moment someone writes `import stripe`/`import requests`). Two
 tiers: `ALLOWED_THIRD_PARTY` (pure/edge-tier deps — pydantic, yaml, structlog,

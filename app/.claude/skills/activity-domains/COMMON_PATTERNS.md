@@ -349,7 +349,7 @@ related_uids = await service.relationships.get_related_uids("knowledge", entity_
 > Do **not** reintroduce candidate-list `link_to_goal`/`link_to_knowledge`/`link_to_principle`
 > wrappers on the service — they guessed the key from a hand-maintained list and silently
 > failed on a coverage gap or picked the wrong edge. Name the key explicitly at the facade.
-> Coverage is guarded by `tests/test_cross_domain_link_keys.py`.
+> Coverage is guarded by `tests/unit/test_cross_domain_link_keys.py`.
 
 For a relationship best expressed without a config `method_key` (e.g. task dependencies,
 `DEPENDS_ON`), create the edge through the backend batch path directly:

@@ -146,11 +146,11 @@ skuel_event_handler_duration_seconds{quantile="0.95"} > 0.1
 ### Tests
 
 **Old:** `tests/test_performance_monitoring.py` (removed)
-**New:** `tests/test_metrics_cache.py`
+**New:** `tests/unit/test_metrics_cache.py`
 
 Run tests:
 ```bash
-uv run pytest tests/test_metrics_cache.py -v
+uv run pytest tests/unit/test_metrics_cache.py -v
 ```
 
 ### Documentation

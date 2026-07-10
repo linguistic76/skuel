@@ -76,6 +76,7 @@ class TestUnifiedRegistry:
             "User",
             "PrincipleReflection",
             "UserEntry",
+            "Interaction",
         }
         assert set(LABEL_CONFIGS.keys()) == expected_labels
 

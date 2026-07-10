@@ -71,10 +71,10 @@ These landed *with* their doc updates, so VERIFY rather than assume gaps:
 1. Run in a fresh thread; invoke the **`docs-skills-evolution`** skill.
 2. Work the punch-list **file by file**, verifying each hit against the current code before editing (use the false-positive list above).
 3. Cross-reference validation runs in pre-commit on staged `.md` files — keep links valid.
-4. Group into one or a few PRs (docs-only, low risk); the boundary guard test `tests/test_llm_sdk_boundary.py` already protects the *code* invariant.
+4. Group into one or a few PRs (docs-only, low risk); the boundary guard test `tests/unit/test_llm_sdk_boundary.py` already protects the *code* invariant.
 
 ## Pointers
 - ADR-063 (`docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`) — the W1 decision + scope.
 - Memory: `project_w1_llm_embeddings_ports.md` (W1 details + gotchas), `project_skuel022_import_direction_series.md` (W3).
-- Guard: `tests/test_llm_sdk_boundary.py`.
+- Guard: `tests/unit/test_llm_sdk_boundary.py`.
 - New ports: `core/ports/llm_protocols.py`, `core/ports/embeddings_protocols.py`. New adapters: `adapters/external/llm/`, `adapters/external/embeddings/`.

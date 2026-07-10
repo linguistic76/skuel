@@ -106,11 +106,20 @@ def test_connection_property_filtering():
 
 
 def test_cypher_template_generation():
-    """Test that generated Cypher template uses item._node_props"""
+    """Test that the two-phase ingest templates are Pure Cypher.
+
+    Phase 1 (build_node_upsert_template) writes nodes from the pre-filtered
+    ``item._node_props``; phase 2 (build_relationship_template) MATCHes the
+    already-upserted nodes and only creates edges — it deliberately contains
+    no node-property writes and therefore no ``_node_props`` reference.
+    """
 
     # Cypher generation lives below the boundary now (ADR-044); it's a pure
     # function, so no driver/engine instance is needed.
-    from adapters.persistence.neo4j.bulk_upsert_backend import build_relationship_template
+    from adapters.persistence.neo4j.bulk_upsert_backend import (
+        build_node_upsert_template,
+        build_relationship_template,
+    )
     from core.ingestion.ingestion_types import RelationshipConfig
 
     # Define relationship config
@@ -122,17 +131,22 @@ def test_cypher_template_generation():
         }
     }
 
-    # Generate template
+    # Phase 1: node upsert stores the Python-side pre-filtered props
+    node_template = build_node_upsert_template("Entity", None)
+    assert "item._node_props" in node_template.template
+    assert "AS props" in node_template.template
+
+    # Phase 2: relationships only — MATCH the source node, never write props
     template = build_relationship_template("Entity", None, rel_config)
+    assert "item._node_props" not in template.template
+    assert "MATCH (n:" in template.template
+    assert "SET n" not in template.template  # no node-property writes in phase 2
 
-    # Verify template does NOT contain APOC function calls
-    assert "apoc.map.removeKeys" not in template.template
-    assert "CALL apoc" not in template.template
-    assert "apoc." not in template.template  # Check for actual APOC procedure calls
-
-    # Verify template DOES use item._node_props
-    assert "item._node_props" in template.template
-    assert "AS props" in template.template
+    # Neither phase may contain APOC function calls
+    for tpl in (node_template, template):
+        assert "apoc.map.removeKeys" not in tpl.template
+        assert "CALL apoc" not in tpl.template
+        assert "apoc." not in tpl.template  # Check for actual APOC procedure calls
 
     # Verify template includes CALL subquery for relationship creation
     # (uses MATCH to only link existing targets, avoiding stub node creation)
@@ -142,8 +156,8 @@ def test_cypher_template_generation():
     assert "PREREQUISITE" in template.template
 
     print("✅ Cypher template generation is Pure Cypher (no APOC)!")
-    print(f"   - Template name: {template.name}")
-    print("   - Uses item._node_props: True")
+    print(f"   - Node template: {node_template.name} (uses item._node_props)")
+    print(f"   - Relationship template: {template.name} (edges only)")
     print("   - Uses APOC: False")
 
 

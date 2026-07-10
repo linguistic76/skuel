@@ -1067,7 +1067,7 @@ The `@safe_backend_operation` decorator catches `NEO4J_EXCEPTIONS` first (→ `E
 - **Boundary Utilities**: `/adapters/inbound/boundary.py`
 - **Error Boundary Decorators**: `/core/utils/error_boundary.py`
 - **Migration Guide**: `/core/utils/result_migration_guide.md`
-- **Tests**: `/tests/test_result_simplified.py`
+- **Tests**: `/tests/unit/test_result_simplified.py`
 
 ## Future Enhancements
 

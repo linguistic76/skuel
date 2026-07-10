@@ -277,7 +277,7 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
   - `/core/models/relationship_names.py` (11 new values)
   - `/adapters/persistence/neo4j/query/cypher/post_processors.py` (Phase 3 - processor functions)
   - `/core/services/base_service.py` (`_parse_context_result()` applies processors)
-- **Tests:** `/tests/test_relationship_registry.py`
+- **Tests:** `/tests/unit/test_relationship_registry.py`
 
 ### New RelationshipName Values (Phase 2)
 
@@ -388,7 +388,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 ### Test Results
 
 ```
-tests/test_relationship_registry.py - 26 tests passing
+tests/unit/test_relationship_registry.py - 26 tests passing
 ├── TestUnifiedRegistry (3 tests)
 ├── TestUnifiedRelationshipDefinition (3 tests)
 ├── TestGenerateGraphEnrichment (3 tests)

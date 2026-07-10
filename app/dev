@@ -99,7 +99,7 @@ case "$1" in
     ;;
 
   test-all)
-    echo -e "${YELLOW}Running COMPLETE test suite (all 1,349 tests)${NC}"
+    echo -e "${YELLOW}Running COMPLETE test suite (all of tests/)${NC}"
     uv run python scripts/run_tests.py all
     ;;
 
@@ -108,13 +108,8 @@ case "$1" in
     uv run python scripts/run_tests.py integration
     ;;
 
-  test-service)
-    echo -e "${YELLOW}Running service tests only${NC}"
-    uv run python scripts/run_tests.py service
-    ;;
-
   test-unit)
-    echo -e "${YELLOW}Running unit tests (many need Phase 2 migration updates)${NC}"
+    echo -e "${GREEN}Running unit tests (the CI suite)${NC}"
     uv run python scripts/run_tests.py unit
     ;;
 
@@ -259,12 +254,11 @@ case "$1" in
     echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
     echo ""
     echo "Testing:"
-    echo "  ./dev test              - Run comprehensive tests (~1,150 tests, ~95% pass) [RECOMMENDED]"
-    echo "  ./dev test-all          - Run complete suite (1,349 tests, ~83% pass)"
-    echo "  ./dev test-integration  - Run integration tests (434 tests, 100% pass) [FAST & RELIABLE]"
-    echo "  ./dev test-service      - Run service tests (~600 tests, ~92% pass)"
-    echo "  ./dev test-unit         - Run unit tests (only - many need Phase 2 migration updates)"
-    echo "  ./dev test-quick        - Run quick smoke test (~350 tests, ~99% pass) [FASTEST]"
+    echo "  ./dev test              - unit + integration + infrastructure [RECOMMENDED]"
+    echo "  ./dev test-all          - Everything under tests/ (needs Docker)"
+    echo "  ./dev test-integration  - Integration tests (local Docker Neo4j)"
+    echo "  ./dev test-unit         - Unit tests — the CI suite (no Docker) [FASTEST]"
+    echo "  ./dev test-quick        - Quick smoke subset (integration + auth + errors)"
     echo ""
     echo "Dependencies:"
     echo "  ./dev deps                    - List outdated direct deps + intentional pins (alias: outdated)"

@@ -45,7 +45,13 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-UTILS_DIR = Path(__file__).resolve().parents[1] / "core" / "utils"
+# Anchor on the imported package, not this file's location — the guard must
+# keep scanning the real core/ tree no matter where it lives under tests/
+# (core/ is a namespace package: __file__ is None, __path__ carries the dir).
+import core as _core_pkg
+
+_CORE = Path(next(iter(_core_pkg.__path__))).resolve()
+UTILS_DIR = _CORE / "utils"
 
 # High-signal Cypher clause markers — mirror SKUEL021; these essentially never
 # appear in prose.

@@ -25,7 +25,7 @@ The source file was renamed `core/utils/connection_configs.py` and is now **pure
 
 **Wiring:** `create_all_backends()` now takes the shared `query_executor` and builds the backend; it flows through the `Services` container and each Activity Domain's `ui_related_services`, so all 6 UI factories receive the port as `ActivityUIConfig.backend` (was `<svc>.core.backend`). Call sites became `config.backend.fetch_entity_connections(config.connection_config, uids)` and `config.backend.fetch_source_pathstep(uid)`.
 
-**Guard:** `tests/test_core_utils_boundary.py` — AST-based, docstring-immune — bans neo4j driver imports, `execute_query` calls, and *used* raw-Cypher strings in `core/utils/` (`neo4j.exceptions` exempt per ADR-063). Widening SKUEL021's line-scan gate to `core/utils/` with a docstring-aware scanner remains a noted follow-up.
+**Guard:** `tests/unit/test_core_utils_boundary.py` — AST-based, docstring-immune — bans neo4j driver imports, `execute_query` calls, and *used* raw-Cypher strings in `core/utils/` (`neo4j.exceptions` exempt per ADR-063). Widening SKUEL021's line-scan gate to `core/utils/` with a docstring-aware scanner remains a noted follow-up.
 
 **Commit:** `2a596acc` (PR #75). **See:** `/docs/decisions/ADR-044-neo4j-committed-architectural-choice.md`.
 
@@ -73,7 +73,7 @@ adapters/external/
 
 **Ports** (`core/ports/`): `llm_protocols.py` (`ChatCompletionPort.complete(messages, *, system_prompt, model, ...) -> Result[LLMCompletion]`) and `embeddings_protocols.py` (`EmbeddingClientOperations.embed(text) -> Result[list[float]]`, plus the Neo4j-storage `EmbeddingsBackendOperations`).
 
-**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/test_llm_sdk_boundary.py`.
+**Consumers stay in `core/`, SDK-free:** `LLMService`, `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port — they never construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/unit/test_llm_sdk_boundary.py`.
 
 **See:** `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 
