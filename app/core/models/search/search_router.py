@@ -1456,6 +1456,7 @@ class SearchRouter:
                     if request.has_entity_type_filter()
                     else ()
                 ),
+                semantic_boost=request.enable_semantic_boost,
                 filters=request.to_property_filters(),
             )
 

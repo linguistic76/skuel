@@ -246,3 +246,23 @@ async def test_advanced_search_publishes_one_event_with_domain_filter() -> None:
     assert event.entry_point == "advanced"
     assert event.domains == ("ku",)
     assert event.zero_results is True
+    assert event.semantic_boost is False
+
+
+@pytest.mark.anyio
+async def test_advanced_search_records_semantic_boost_flag() -> None:
+    """The semantic/learning strategy's flag round-trips into the event (Codex P2 #596)."""
+    router, publish = _router_with_bus()
+    router._execute_advanced_search = AsyncMock(return_value=[])  # type: ignore[method-assign]
+
+    request = SearchRequest(
+        query_text="python",
+        entity_types=[EntityType.KU],
+        enable_semantic_boost=True,
+    )
+    result = await router.advanced_search(request)
+
+    assert result.is_ok
+    events = _published_events(publish)
+    assert len(events) == 1
+    assert events[0].semantic_boost is True
