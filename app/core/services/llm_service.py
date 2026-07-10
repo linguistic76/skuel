@@ -94,7 +94,7 @@ class LLMService:
             )
         self.chat_port = chat_port
 
-    async def generate(
+    async def generate(  # skuel-lint: disable=SKUEL005 -- always answers: port errors fold into a degraded LLMResponse, never a propagated failure
         self,
         prompt: str,
         context: str | None = None,
@@ -200,7 +200,7 @@ class LLMService:
 
         return LLMResponse(content=content, provider=LLMProvider.MOCK, model="mock-model")
 
-    async def generate_context_aware_answer(
+    async def generate_context_aware_answer(  # skuel-lint: disable=SKUEL005 -- always answers: errors fold into degraded response text (RAG surface)
         self,
         query: str,
         user_context: str,

@@ -207,7 +207,7 @@ class ContextRetriever:
     # PUBLIC API - CONTEXT RETRIEVAL
     # ========================================================================
 
-    async def retrieve_relevant_context(
+    async def retrieve_relevant_context(  # skuel-lint: disable=SKUEL005 -- fail-soft context enrichment: Askesis composes best-effort context, degraded sections omitted
         self,
         user_context: UserContext,
         query: str,

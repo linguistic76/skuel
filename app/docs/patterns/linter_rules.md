@@ -28,7 +28,7 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 274 tests covering all 26 SKUEL rules, LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_lint_skuel.py` — 298 tests covering all 25 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
 - `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
 
 ## SKUEL-Specific Rules
@@ -43,7 +43,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 ### ERROR (blocks CI)
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
-| **SKUEL002** | Magic semantic strings | Use `SemanticRelationshipType` enum |
+| **SKUEL002** | Magic semantic strings | Use `SemanticRelationshipType` enum (AST rule, docstring-aware) |
 | **SKUEL003** | `.is_err` usage | Use `.is_error` instead [auto-fix] |
 | **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
 | **SKUEL021** | Raw Cypher anywhere in `core/` | Relocate below the boundary (ADR-044) |
@@ -59,10 +59,15 @@ now pass `--strict`, so a new warning fails lint/quality. The tier still differs
 from ERROR: a plain `uv run python scripts/lint_skuel.py` (no `--strict`) reports
 warnings without failing, which is the on-ramp for prototyping a new rule.
 
+> **SKUEL004 (confidence thresholds on semantic queries) was deleted 2026-07.**
+> Its premise — Cypher authored in services — is structurally impossible since
+> SKUEL021 banned all raw Cypher in `core/`, it had zero hits, and its
+> "look 5 lines past MATCH for 'confidence'" heuristic could not be made sound
+> as a structural AST rule. Rule IDs are not renumbered.
+
 | Rule | Pattern | Enforcement |
 |------|---------|-------------|
-| **SKUEL004** | Missing confidence threshold | Semantic queries need confidence filters |
-| **SKUEL005** | Non-Result return types | Service methods should return `Result[T]` |
+| **SKUEL005** | Non-Result return types | Async service methods return `Result[T]` (AST rule — catches multi-line signatures; Protocol stubs, nested helpers, `@classmethod` factories exempt) |
 | **SKUEL006** | TODO/FIXME tracking | Categorizes and tracks TODO/FIXME comments [INFO] |
 | **SKUEL007** | String `Result.fail()` | Use `Errors` factory |
 | **SKUEL008** | Backend wrapper classes | Use `UniversalNeo4jBackend` directly |
@@ -70,11 +75,11 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL010** | Nested tuples | Neo4j can't store nested collections [auto-fix] |
 | **SKUEL011** | `hasattr()` usage | Use Protocol/isinstance |
 | **SKUEL012** | Lambda expressions | Use named functions |
-| **SKUEL013** | RelationshipName strings | Use `RelationshipName` enum |
-| **SKUEL014** | EntityType/NonKuDomain strings | Use `EntityType` or `NonKuDomain` enum |
+| **SKUEL013** | RelationshipName strings | Use `RelationshipName` enum (AST rule, docstring-aware, exact-value match) |
+| **SKUEL014** | EntityType/NonKuDomain strings in comparisons | Use `EntityType` or `NonKuDomain` enum (AST rule — flags `==`/`!=`/`in` shapes incl. literal containers) |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
-| **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` |
+| **SKUEL017** | Bare `except Exception` | Use specific exception types from `exception_types.py` (AST rule — catches formatter-wrapped clauses and `Exception` inside tuples) |
 | **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use accessor methods (`get_X()` / `X_or_empty()`) |
 | **SKUEL019** | Credential reads bypassing `get_credential()` | ERROR for catalog keys, WARNING for credential-shape names |
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment — see "Suppression audit" below |
@@ -93,7 +98,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 
 **Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
-**SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (same line or the line above — the line-above form survives formatter wrapping).
+**SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
 **Always include a reason** after `--` to document why the suppression is needed.
 
@@ -109,11 +114,23 @@ so it fails the `--strict` gates). The summary reports active/used counts per ru
 Discovery is tokenize-based: only genuine `#` comments count, so suppression examples
 inside string literals and docstrings (rule docs, linter tests) are never audited.
 
-**Formatter trap this audit catches:** a long trailing suppression comment makes the
-formatter wrap the statement, which strands the comment on a different line than the
-one the checker reads — silently killing the suppression. Prefer file-level
-suppressions (line 1 is never rewrapped) or the SKUEL017 line-above markers when the
-suppressed line is long.
+**Suppression placement (span-aware since 2026-07):** every checker reads the
+`# skuel-lint: disable=` comment off the exact line it reports — except the two
+rules that fire on multi-line headers, which honor the comment on **any line of
+the construct's header**:
+
+- **SKUEL005** — anywhere from the `async def` line through the line before the
+  body (so a comment the formatter strands on the closing `) -> X:` line still
+  suppresses).
+- **SKUEL017** — anywhere from the `except` line through the line before the
+  handler body (`# intentional-broad:` / `# safety-net:` markers are additionally
+  honored on the line above the `except`).
+
+The `Violation.suppression_span` field carries that range, and the SKUEL026 audit
+reads the SAME span — so a header-stranded suppression is correctly marked *used*,
+not rot. This closes the pre-#590 formatter trap where wrapping a statement
+silently killed its trailing suppression. For every other rule the comment must
+sit on the reported line; file-level suppression is always the fallback.
 
 ## Rule: SKUEL003 - Deprecated .is_err
 
@@ -258,6 +275,11 @@ from core.models.relationship_names import RelationshipName
 await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
 ```
 
+**Detection (AST, 2026-07):** flags a *used* string constant whose value is exactly
+a relationship name — docstrings, comments, and prose are structurally immune, and a
+name embedded in a longer string (Cypher text, log messages) is not an exact match,
+so no Cypher-context heuristics are needed.
+
 **Rationale:**
 - Type safety - IDE autocomplete and MyPy verification
 - Single source of truth - all relationships in one place
@@ -306,6 +328,13 @@ from core.models.enums.entity_enums import NonKuDomain
 if domain == NonKuDomain.FINANCE:
     ...
 ```
+
+**Detection (AST, 2026-07):** flags COMPARISON shapes only — `== / !=` against an
+entity-type string (either side, case-insensitive), `"task" in x` membership, and
+`x in ("task", "goal")` literal containers (including multi-line ones the old
+single-line regex missed). A Compare that references `EntityType` / `NonKuDomain`
+anywhere in it (e.g. `EntityType.TASK.value == raw`) is exempt. Plain string
+literals outside comparisons (dict keys, log messages) are deliberately not flagged.
 
 **Rationale:**
 - Type safety with compile-time verification
@@ -388,10 +417,16 @@ except Exception as e:  # safety-net: catch unexpected errors
 | `DATA_CONVERSION_EXCEPTIONS` | ValueError, TypeError, AttributeError, KeyError, ZeroDivisionError | `Errors.validation()` / `Errors.system()` |
 | `CONFIG_EXCEPTIONS` | FileNotFoundError, JSONDecodeError, ValueError, OSError, KeyError, TypeError | `Errors.system()` |
 
-**Suppression markers** (same line or line above):
+**Detection (AST, 2026-07):** flags every `ast.ExceptHandler` whose type resolves to
+`Exception` — bare, inside a tuple (`except (ValueError, Exception)`), or
+formatter-wrapped across lines (`except (\n    Exception\n) as e:` — invisible to the
+old single-line regex). Bare `except:` is ruff E722's territory. File-level
+`disable-file=SKUEL017` is honored (previously documented but dead).
+
+**Suppression markers** (anywhere in the except-clause header, or the line above):
 - `# intentional-broad: <reason>` — catches that must remain broad (event handlers, monadic boundaries, metrics wrappers)
 - `# safety-net: <reason>` — broad catches at boundaries where exceptions are unpredictable (API boundaries, JSON parsing, cleanup, UI rendering)
-- `# skuel-lint: disable=SKUEL017 -- <reason>` — unified suppression format (also supported)
+- `# skuel-lint: disable=SKUEL017 -- <reason>` — unified suppression format (also supported; honored on any header line, see "Suppression placement")
 
 **Status:** ✅ Zero violations (March 2026). Persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
 
@@ -671,7 +706,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (26 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (25 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (10 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
@@ -703,4 +738,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-05-16
-**Status:** Active - 26 rules (SKUEL001–SKUEL026) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Unit tests cover both linters.
+**Status:** Active - 25 rules (SKUEL001–SKUEL026; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.

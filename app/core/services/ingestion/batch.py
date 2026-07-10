@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- batch pipeline reports per-file errors as dicts aggregated into the batch report (deliberate carrier shape); orchestrator-level failures raise
 """
 Ingestion Batch Operations - Concurrent File Processing
 ========================================================

@@ -33,7 +33,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 8: Schedule-Aware Recommendations
     # =========================================================================
 
-    async def get_schedule_aware_recommendations(
+    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL005 -- fail-soft intelligence read: degrades to fewer/no recommendations, not an error
         self,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,

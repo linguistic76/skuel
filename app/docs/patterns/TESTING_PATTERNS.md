@@ -346,7 +346,7 @@ Pure helper functions (no I/O, no database) have dedicated unit tests for fast r
 ```
 tests/unit/
 ├── scripts/                          # Script/tool tests
-│   ├── test_lint_skuel.py            # 274 tests — all 26 SKUEL lint rules, LintResult, suppression audit
+│   ├── test_lint_skuel.py            # 298 tests — all 25 active SKUEL lint rules, LintResult, suppression audit
 │   └── test_cypher_linter.py         # 35 tests — CYP001-006, CYP009, query extraction, helpers
 ├── ui/                               # UI component tests
 │   ├── test_enum_helpers.py          # 52 tests — 34 bridge/helper/builder functions
@@ -407,7 +407,7 @@ def test_cascade_delete_removes_relationships():
 | `tests/integration/conftest.py` | Integration test fixtures |
 | `tests/integration/test_user_entity_tracking.py` | User relationship tests |
 | `tests/integration/test_yaml_roundtrip.py` | Ingestion roundtrip tests |
-| `tests/unit/scripts/test_lint_skuel.py` | SKUEL linter unit tests (274 tests) |
+| `tests/unit/scripts/test_lint_skuel.py` | SKUEL linter unit tests (298 tests) |
 | `tests/unit/scripts/test_cypher_linter.py` | Cypher linter unit tests (35 tests) |
 | `tests/unit/ui/test_enum_helpers.py` | UI enum bridge tests (52 tests) |
 | `tests/unit/ui/test_calendar_converters.py` | Calendar converter tests (28 tests) |

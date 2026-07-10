@@ -21,7 +21,6 @@ ERROR (blocks CI):
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
-  SKUEL004: Confidence thresholds on semantic queries
   SKUEL005: Result[T] return types on service methods
   SKUEL007: String-based Result.fail() - use Errors factory
   SKUEL008: No wrapper classes around UniversalNeo4jBackend
@@ -143,17 +142,6 @@ readability and consistency with .is_ok/.is_error naming.""",
         "bad": """if result.is_err:  # Deprecated
     return result""",
         "autofix": "Automatically replaced by --fix",
-    },
-    "SKUEL004": {
-        "title": "Confidence Thresholds on Semantic Queries",
-        "severity": "WARNING",
-        "description": """Semantic relationship queries should include confidence thresholds
-to filter out low-confidence relationships.""",
-        "good": """MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)
-WHERE r.confidence >= $min_confidence
-RETURN b""",
-        "bad": """MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)
-RETURN b  -- No confidence filter!""",
     },
     "SKUEL005": {
         "title": "Service Methods Should Return Result[T]",
@@ -742,6 +730,14 @@ class Violation:
     original_text: str = ""
     fixed_text: str = ""
     line_content: str = ""  # The actual line of code
+    # Inclusive 1-based line range where a `# skuel-lint: disable=` comment is
+    # honored for this violation. None → exactly line_number (the default for
+    # single-line constructs). Rules over multi-line headers (SKUEL005 defs,
+    # SKUEL017 excepts) set this to the full header span so a suppression
+    # survives ruff-format wrapping the statement (the #590 stranding class);
+    # the SKUEL026 audit reads the SAME span, keeping checker and audit in
+    # lockstep.
+    suppression_span: tuple[int, int] | None = None
 
 
 @dataclass
@@ -905,6 +901,29 @@ class SkuelLinter:
         "core/services/user/user_context_populator.py",
     )
 
+    # Rules whose checkers consume the shared AST. `_lint_file` parses each file
+    # ONCE and hands the tree to these checkers (None on SyntaxError — every AST
+    # rule skips unparseable files; ruff flags the syntax error anyway). The list
+    # gates the parse itself: a run filtered to purely line-based rules (e.g. the
+    # SKUEL026 shadow-lint of a file whose only suppression names SKUEL012) never
+    # pays for a parse.
+    AST_RULE_IDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "SKUEL001",
+            "SKUEL002",
+            "SKUEL005",
+            "SKUEL013",
+            "SKUEL014",
+            "SKUEL017",
+            "SKUEL020",
+            "SKUEL021",
+            "SKUEL022",
+            "SKUEL023",
+            "SKUEL024",
+            "SKUEL025",
+        }
+    )
+
     # SKUEL019: Credential keys that must route through get_credential().
     #
     # Mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
@@ -1024,6 +1043,11 @@ class SkuelLinter:
         # no suppression comments existed, so the audit can see what WOULD fire.
         self.ignore_suppressions = ignore_suppressions
         self.result = LintResult()
+        # Per-file memo for _inert_string_constant_ids — SKUEL001 and SKUEL021
+        # share the same inert-docstring walk over the same tree. Keyed by the
+        # tree OBJECT (identity compare on a held strong ref, so a recycled
+        # id() can never alias two trees).
+        self._inert_ids_memo: tuple[ast.AST, set[int]] | None = None
 
     @staticmethod
     def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
@@ -1128,15 +1152,18 @@ class SkuelLinter:
         anywhere in the file for file-level) AND is absent from the main run —
         i.e. the comment actually suppressed something. A rule that fires in
         BOTH runs was not suppressed (non-suppressible rule, malformed comment),
-        so the comment is flagged alongside the visible violation. Every checker
-        reads the suppression off the exact line it reports (`lines[lineno - 1]`),
-        so same-line matching is sound.
+        so the comment is flagged alongside the visible violation.
+
+        Line matching is span-aware: a checker reads the suppression off the
+        exact line it reports (`lines[lineno - 1]`) OR, for multi-line header
+        constructs, off any line in the violation's ``suppression_span``
+        (SKUEL005 def signatures, SKUEL017 except clauses). The Violation
+        carries that span, so checker and audit honor the SAME set of lines.
         """
+
         # Snapshot BEFORE any SKUEL026 findings are appended below.
-        main_line_hits = {
-            (str(v.file_path), v.rule_id, v.line_number) for v in self.result.violations
-        }
-        main_file_hits = {(str(v.file_path), v.rule_id) for v in self.result.violations}
+        main_violations = list(self.result.violations)
+        main_file_hits = {(str(v.file_path), v.rule_id) for v in main_violations}
 
         for file_path in python_files:
             comments = self._find_suppression_comments(file_path)
@@ -1149,32 +1176,32 @@ class SkuelLinter:
                 ignore_suppressions=True,
             )
             shadow._lint_file(file_path)
-            fired_at = {(v.rule_id, v.line_number) for v in shadow.result.violations}
-            fired_rules = {v.rule_id for v in shadow.result.violations}
+            shadow_violations = shadow.result.violations
+            fired_rules = {v.rule_id for v in shadow_violations}
 
             for comment in comments:
                 rel_str = str(comment.file_path)
-                if comment.file_level:
-                    comment.used = (
-                        comment.rule_id in fired_rules
-                        and (rel_str, comment.rule_id) not in main_file_hits
+                fired = (
+                    comment.rule_id in fired_rules
+                    if comment.file_level
+                    else self._fires_at_line(
+                        shadow_violations, comment.rule_id, comment.line_number
                     )
+                )
+                if comment.file_level:
+                    comment.used = fired and (rel_str, comment.rule_id) not in main_file_hits
                 else:
-                    comment.used = (comment.rule_id, comment.line_number) in fired_at and (
-                        rel_str,
+                    hit_in_main = self._fires_at_line(
+                        [v for v in main_violations if str(v.file_path) == rel_str],
                         comment.rule_id,
                         comment.line_number,
-                    ) not in main_line_hits
+                    )
+                    comment.used = fired and not hit_in_main
                 self.result.suppressions.append(comment)
                 if comment.used:
                     continue
 
                 scope = "in this file" if comment.file_level else "at this line"
-                fired = (
-                    comment.rule_id in fired_rules
-                    if comment.file_level
-                    else (comment.rule_id, comment.line_number) in fired_at
-                )
                 if comment.rule_id not in RULE_DOCS:
                     why = f"'{comment.rule_id}' is not a SKUEL rule (typo?)"
                 elif comment.rule_id not in self.SUPPRESSIBLE_RULES:
@@ -1258,6 +1285,16 @@ class SkuelLinter:
             # still gets the boundary rules.
             is_below_boundary = is_core or is_service
 
+            # Shared parse: every AST rule reads the SAME tree, parsed once per
+            # file (previously each rule re-parsed independently — ~7 parses/file
+            # dominated full-scan time). None = syntax error → AST rules skip.
+            tree: ast.Module | None = None
+            if not is_test and any(self._should_run_rule(r) for r in self.AST_RULE_IDS):
+                try:
+                    tree = ast.parse(content)
+                except SyntaxError:
+                    tree = None
+
             # Run applicable rules
             if self._should_run_rule("SKUEL003"):
                 self._check_is_err_usage(file_path, rel_path, content, lines)
@@ -1274,17 +1311,19 @@ class SkuelLinter:
             if self._should_run_rule("SKUEL016"):
                 self._check_poetry_references(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL017") and not is_test:
-                self._check_broad_exception_catches(file_path, rel_path, content, lines)
+                self._check_broad_exception_catches(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL018") and not is_test:
                 self._check_rich_only_field_access(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL019") and not is_test:
                 self._check_credential_env_reads(file_path, rel_path, content, lines)
             if self._should_run_rule("SKUEL020") and not is_test:
-                self._check_request_annotation(file_path, rel_path, content, lines)
+                self._check_request_annotation(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL024") and not is_test:
-                self._check_cls_kwargs_collision(file_path, rel_path, content, lines)
+                self._check_cls_kwargs_collision(file_path, rel_path, content, lines, tree)
             if self._should_run_rule("SKUEL025") and not is_test:
-                self._check_deleted_activity_update_payloads(file_path, rel_path, content, lines)
+                self._check_deleted_activity_update_payloads(
+                    file_path, rel_path, content, lines, tree
+                )
 
             # INFO rules (always run for visibility)
             if self._should_run_rule("SKUEL006"):
@@ -1293,32 +1332,30 @@ class SkuelLinter:
             # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere in core/.
             if is_below_boundary and not is_test:
                 if self._should_run_rule("SKUEL001"):
-                    self._check_apoc_in_services(file_path, rel_path, content, lines)
+                    self._check_apoc_in_services(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL021"):
-                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines)
+                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines, tree)
 
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
-                self._check_core_imports_adapter(file_path, rel_path, content, lines)
+                self._check_core_imports_adapter(file_path, rel_path, content, lines, tree)
 
             # Static type-direction rule (ADR-044): all of core/, not just services.
             # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
             if is_core and not is_test and self._should_run_rule("SKUEL023"):
-                self._check_adapter_type_annotations(file_path, rel_path, content, lines)
+                self._check_adapter_type_annotations(file_path, rel_path, content, lines, tree)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
-                    self._check_semantic_type_strings(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL004"):
-                    self._check_confidence_thresholds(file_path, rel_path, content, lines)
+                    self._check_semantic_type_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL005"):
-                    self._check_result_return_types(file_path, rel_path, content, lines)
+                    self._check_result_return_types(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
                 if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(file_path, rel_path, content, lines)
+                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL014"):
-                    self._check_entity_type_strings(file_path, rel_path, content, lines)
+                    self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
 
             if "/adapters/persistence/" in str(file_path):
                 if self._should_run_rule("SKUEL008"):
@@ -1332,7 +1369,12 @@ class SkuelLinter:
     # =========================================================================
 
     def _check_apoc_in_services(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL001 [CRITICAL]: No banned APOC procedures authored above the boundary.
@@ -1360,12 +1402,10 @@ class SkuelLinter:
             "apoc.meta.",
         )
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
-        inert_ids = self._inert_string_constant_ids(tree)
+        inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
         for node in ast.walk(tree):
@@ -1430,8 +1470,35 @@ class SkuelLinter:
                 inert.add(id(node.value))
         return inert
 
+    @staticmethod
+    def _fires_at_line(violations: list[Violation], rule_id: str, line: int) -> bool:
+        """True if any violation of ``rule_id`` covers ``line`` — where "covers"
+        means the exact reported line, or any line of the violation's
+        ``suppression_span`` for multi-line header constructs."""
+        for v in violations:
+            if v.rule_id != rule_id:
+                continue
+            start, end = v.suppression_span or (v.line_number, v.line_number)
+            if start <= line <= end:
+                return True
+        return False
+
+    def _inert_ids_for(self, tree: ast.AST) -> set[int]:
+        """Memoized `_inert_string_constant_ids` — one walk per file, shared by
+        every string-constant rule (SKUEL001/021 today)."""
+        if self._inert_ids_memo is not None and self._inert_ids_memo[0] is tree:
+            return self._inert_ids_memo[1]
+        ids = self._inert_string_constant_ids(tree)
+        self._inert_ids_memo = (tree, ids)
+        return ids
+
     def _check_raw_cypher_in_services(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL021 [ERROR]: No raw Cypher authored above the hexagonal boundary.
@@ -1460,12 +1527,10 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL021"):
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
-        inert_ids = self._inert_string_constant_ids(tree)
+        inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
         for node in ast.walk(tree):
@@ -1508,13 +1573,10 @@ class SkuelLinter:
     # ERROR RULES
     # =========================================================================
 
-    def _check_semantic_type_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL002 [ERROR]: Use SemanticRelationshipType enum, not magic strings.
-        """
-        semantic_types = [
+    # SKUEL002: the SemanticRelationshipType member names. A string literal whose
+    # value IS one of these (exact match) is a magic string standing in for the enum.
+    SEMANTIC_TYPE_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
             "REQUIRES_THEORETICAL_UNDERSTANDING",
             "REQUIRES_PRACTICAL_APPLICATION",
             "REQUIRES_CONCEPTUAL_FOUNDATION",
@@ -1523,28 +1585,59 @@ class SkuelLinter:
             "HAS_NARROWER_CONCEPT",
             "SHARES_PRINCIPLE_WITH",
             "ANALOGOUS_TO",
-        ]
+        }
+    )
 
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#") or '"""' in line or "'''" in line:
+    def _check_semantic_type_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL002 [ERROR]: Use SemanticRelationshipType enum, not magic strings.
+
+        AST-based, docstring-aware (same model as SKUEL021): flags a *used* string
+        Constant whose value is exactly a SemanticRelationshipType member name.
+        Inert bare-string statements (docstrings, USAGE EXAMPLES blocks) and
+        comments are never string nodes in play, so prose mentioning a semantic
+        type name cannot trip the rule. Exact-value matching means a name embedded
+        in a longer string (e.g. quoted inside documentation text) is not flagged —
+        only a literal standing in for the enum member is.
+        """
+        if tree is None:
+            return
+
+        inert_ids = self._inert_ids_for(tree)
+        reported_lines: set[int] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in inert_ids:
+                continue
+            if node.value not in self.SEMANTIC_TYPE_NAMES:
                 continue
 
-            for sem_type in semantic_types:
-                if f'"{sem_type}"' in line or f"'{sem_type}'" in line:
-                    if f"SemanticRelationshipType.{sem_type}" not in line:
-                        self.result.violations.append(
-                            Violation(
-                                file_path=rel_path,
-                                line_number=line_num,
-                                column=line.find(sem_type),
-                                severity=Severity.ERROR,
-                                rule_id="SKUEL002",
-                                message=f"Magic string '{sem_type}' - use enum instead",
-                                suggestion=f"Use SemanticRelationshipType.{sem_type}",
-                                line_content=line.strip(),
-                            )
-                        )
+            line_num = node.lineno
+            if line_num in reported_lines:
+                continue
+            reported_lines.add(line_num)
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL002",
+                    message=f"Magic string '{node.value}' - use enum instead",
+                    suggestion=f"Use SemanticRelationshipType.{node.value}",
+                    line_content=line.strip(),
+                )
+            )
 
     def _check_is_err_usage(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -1585,133 +1678,124 @@ class SkuelLinter:
     # WARNING RULES
     # =========================================================================
 
-    def _check_confidence_thresholds(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL004 [WARNING]: Semantic queries should have confidence thresholds.
-        """
-        semantic_patterns = [
-            "REQUIRES_THEORETICAL_UNDERSTANDING",
-            "REQUIRES_PRACTICAL_APPLICATION",
-            "REQUIRES_CONCEPTUAL_FOUNDATION",
-            "BUILDS_ON_FOUNDATION",
-            "SHARES_PRINCIPLE_WITH",
-            "ANALOGOUS_TO",
-        ]
+    # SKUEL005: method names exempt from the Result[T] contract — cache-style
+    # utilities and event-style fire-and-forget handlers (mirrors the old
+    # line-substring patterns, translated onto the method NAME).
+    RESULT_EXEMPT_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {"get", "set", "delete", "clear", "get_hit_rate", "is_expired"}
+    )
+    RESULT_EXEMPT_PREFIXES: ClassVar[tuple[str, ...]] = (
+        "handle_",
+        "learn_from_",
+        "increment_",
+        "ensure_",
+    )
 
-        structural_patterns = [
-            "APPLIES_KNOWLEDGE",
-            "ENABLES",
-            "PREREQUISITE",
-            "HAS_STEP",
-            "HAS_PATH",
-            "CONTRIBUTES_TO",
-        ]
-
-        for line_num, line in enumerate(lines, start=1):
-            if "MATCH" not in line:
-                continue
-
-            has_semantic = any(p in line for p in semantic_patterns)
-            has_structural = any(p in line for p in structural_patterns)
-
-            if has_semantic and not has_structural:
-                context = "\n".join(lines[line_num : min(line_num + 5, len(lines))])
-                if "confidence" not in context:
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=0,
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL004",
-                            message="Semantic query without confidence threshold",
-                            suggestion="Add: WHERE r.confidence >= $min_confidence",
-                            line_content=line.strip(),
-                        )
-                    )
+    # Annotation text that satisfies SKUEL005: `Result`, `Result[T]`,
+    # `Result[T] | None`, and string forward-refs thereof. Word-bounded so
+    # `LintResult` / `Results` don't pass.
+    _RESULT_ANNOTATION_RE: ClassVar[re.Pattern[str]] = re.compile(r"\bResult\b")
 
     def _check_result_return_types(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL005 [WARNING]: Service methods should return Result[T].
+
+        AST-based: flags every top-level-or-method ``async def`` (not nested
+        inside another function) whose return annotation does not reference
+        ``Result`` — including multi-line signatures, which the old
+        single-physical-line check was completely blind to. Functions without a
+        return annotation are not flagged (mypy's disallow_untyped_defs owns
+        missing annotations in core.services).
+
+        Skips: private methods (``_``-prefixed), ``@classmethod`` factories, and
+        the utility-name exemptions in RESULT_EXEMPT_NAMES / _PREFIXES.
+
+        The ``# skuel-lint: disable=SKUEL005`` comment is honored on any line of
+        the def header (the ``async def`` line through the line before the body),
+        so a suppression survives ruff-format wrapping a long signature; the
+        violation carries that span for the SKUEL026 audit.
         """
         if "protocol" in str(file_path).lower():
             return
 
         if self._is_file_suppressed(content, "SKUEL005"):
             return
+        if tree is None:
+            return
 
-        utility_patterns = [
-            "get(self, key:",
-            "set(self, key:",
-            "delete(self, key:",
-            "clear(self)",
-            "_get_",
-            "get_hit_rate",
-            "is_expired",
-            "_evict",
-            "_adaptive",
-            "_update_access",
-            "_remove_from",
-            "handle_",
-            "learn_from_",
-            "increment_",
-            "ensure_",
-        ]
+        # Functions nested inside another function/lambda are helpers, not the
+        # service surface — collect them so the main walk can skip them. Methods
+        # of Protocol classes are contract stubs, not implementations — the
+        # implementing service is where the Result[T] contract is enforced
+        # (protocols declared in *protocol*-named files are already exempt via
+        # the file-name check; this catches Protocol classes declared inline).
+        nested_ids: set[int] = set()
+        for scope in ast.walk(tree):
+            if isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+                for child in ast.walk(scope):
+                    if child is not scope and isinstance(child, ast.AsyncFunctionDef):
+                        nested_ids.add(id(child))
+            elif isinstance(scope, ast.ClassDef) and any(
+                (isinstance(base, ast.Name) and base.id == "Protocol")
+                or (isinstance(base, ast.Attribute) and base.attr == "Protocol")
+                for base in scope.bases
+            ):
+                for child in ast.walk(scope):
+                    if isinstance(child, ast.AsyncFunctionDef):
+                        nested_ids.add(id(child))
 
-        base_method_indent: int | None = None
-
-        for line_num, line in enumerate(lines, start=1):
-            if not line.strip():
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.AsyncFunctionDef):
+                continue
+            if id(node) in nested_ids:
+                continue
+            if node.returns is None:
+                continue
+            name = node.name
+            if name.startswith("_"):
+                continue
+            if name in self.RESULT_EXEMPT_NAMES or name.startswith(self.RESULT_EXEMPT_PREFIXES):
+                continue
+            # @classmethod factories (dataclass builders, not service methods)
+            if any(
+                (isinstance(d, ast.Name) and d.id == "classmethod")
+                or (isinstance(d, ast.Attribute) and d.attr == "classmethod")
+                for d in node.decorator_list
+            ):
+                continue
+            if self._RESULT_ANNOTATION_RE.search(ast.unparse(node.returns)):
                 continue
 
-            stripped = line.lstrip()
-            indent = len(line) - len(stripped)
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
+            # Suppression: any def-header line (span recorded on the violation).
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL005")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
 
-            if stripped.startswith(("def ", "async def ")):
-                if base_method_indent is None:
-                    base_method_indent = indent
-                elif indent <= base_method_indent:
-                    base_method_indent = indent
-
-            if "async def" in line and "->" in line:
-                if base_method_indent is not None and indent > base_method_indent:
-                    continue
-
-                if "def _" in line or "def __" in line:
-                    continue
-
-                if any(p in line for p in utility_patterns):
-                    continue
-
-                # Skip @classmethod methods (factory methods on dataclasses, not services)
-                is_classmethod = False
-                for prev_idx in range(line_num - 2, max(0, line_num - 5), -1):
-                    prev_stripped = lines[prev_idx].strip()
-                    if prev_stripped == "@classmethod":
-                        is_classmethod = True
-                        break
-                    if not prev_stripped.startswith("@"):
-                        break
-                if is_classmethod:
-                    continue
-
-                if "Result[" not in line and not self._is_line_suppressed(line, "SKUEL005"):
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=0,
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL005",
-                            message="Service method should return Result[T]",
-                            suggestion="Change return type to Result[T]",
-                            line_content=line.strip(),
-                        )
-                    )
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=start,
+                    column=node.col_offset,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL005",
+                    message="Service method should return Result[T]",
+                    suggestion="Change return type to Result[T]",
+                    line_content=line.strip(),
+                    suppression_span=(start, end),
+                )
+            )
 
     def _check_string_result_fail(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -1883,14 +1967,11 @@ class SkuelLinter:
                 )
             )
 
-    def _check_relationship_name_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
-    ) -> None:
-        """
-        SKUEL013 [WARNING]: Use RelationshipName enum instead of magic strings.
-        """
-        # Common relationship names that should use enum
-        relationship_names = [
+    # SKUEL013: relationship type names that must go through the RelationshipName
+    # enum. A string literal whose value IS one of these (exact match) is a magic
+    # string standing in for the enum member.
+    RELATIONSHIP_NAMES: ClassVar[frozenset[str]] = frozenset(
+        {
             # Core domain relationships
             "SERVES_GOAL",
             "SERVES_LIFE_PATH",
@@ -1926,79 +2007,65 @@ class SkuelLinter:
             "MEMBER_OF",
             # Ownership
             "OWNS",
-        ]
+        }
+    )
 
-        # Track docstring context
-        in_docstring = False
-        docstring_delimiter = None
-
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Track docstring state
-            if not in_docstring:
-                for delim in ['"""', "'''"]:
-                    if delim in stripped:
-                        count = stripped.count(delim)
-                        if count == 1:
-                            in_docstring = True
-                            docstring_delimiter = delim
-                            break
-                        # Single-line docstring - skip this line
-                        if count >= 2 and stripped.startswith(delim):
-                            continue
-            else:
-                if docstring_delimiter and docstring_delimiter in stripped:
-                    in_docstring = False
-                    docstring_delimiter = None
-                continue  # Skip lines inside docstrings
-
-            if stripped.startswith("#"):
-                continue
-
-            # Skip if already using enum
-            if "RelationshipName." in line:
-                continue
-
-            for rel_name in relationship_names:
-                # Check for quoted string usage in function calls
-                if f'"{rel_name}"' in line or f"'{rel_name}'" in line:
-                    # Skip if it's in a Cypher query string (those need literal strings)
-                    if "MATCH" in line or "-[:" in line or "]->" in line or "CREATE" in line:
-                        continue
-
-                    # Skip if we're inside a multi-line Cypher query (check context)
-                    # Look at surrounding lines for Cypher indicators
-                    context_start = max(0, line_num - 10)
-                    context_lines = lines[context_start:line_num]
-                    in_cypher_context = any(
-                        "MATCH" in l or "WHERE any(r in relationships" in l or "type(r) IN" in l
-                        for l in context_lines
-                    )
-                    if in_cypher_context:
-                        continue
-
-                    self.result.violations.append(
-                        Violation(
-                            file_path=rel_path,
-                            line_number=line_num,
-                            column=line.find(rel_name),
-                            severity=Severity.WARNING,
-                            rule_id="SKUEL013",
-                            message=f"Magic string '{rel_name}' - use RelationshipName enum",
-                            suggestion=f"Use RelationshipName.{rel_name}",
-                            line_content=line.strip(),
-                        )
-                    )
-
-    def _check_entity_type_strings(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+    def _check_relationship_name_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL014 [WARNING]: Use EntityType/NonKuDomain enum instead of magic strings.
+        SKUEL013 [WARNING]: Use RelationshipName enum instead of magic strings.
+
+        AST-based, docstring-aware (same model as SKUEL021): flags a *used* string
+        Constant whose value is exactly a relationship type name. Comments and
+        inert bare-string statements (docstrings, USAGE EXAMPLES blocks) never
+        reach the check, and exact-value matching means a relationship name inside
+        a longer string (Cypher text, prose) is not flagged — which structurally
+        replaces the old 10-line "am I inside a Cypher query" lookback heuristic.
+        Cypher itself cannot legitimately exist in this rule's scope anyway:
+        SKUEL021 bans it across core/.
         """
-        # Entity types that should use enum
-        entity_types = [
+        if tree is None:
+            return
+
+        inert_ids = self._inert_ids_for(tree)
+        reported: set[tuple[int, str]] = set()
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            if id(node) in inert_ids:
+                continue
+            if node.value not in self.RELATIONSHIP_NAMES:
+                continue
+
+            line_num = node.lineno
+            if (line_num, node.value) in reported:
+                continue
+            reported.add((line_num, node.value))
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL013",
+                    message=f"Magic string '{node.value}' - use RelationshipName enum",
+                    suggestion=f"Use RelationshipName.{node.value}",
+                    line_content=line.strip(),
+                )
+            )
+
+    # SKUEL014: entity-type identifiers that must be compared via the
+    # EntityType / NonKuDomain enums, never as raw strings.
+    ENTITY_TYPE_STRINGS: ClassVar[frozenset[str]] = frozenset(
+        {
             # Activity domains
             "task",
             "habit",
@@ -2035,47 +2102,102 @@ class SkuelLinter:
             "submission",
             "journal",
             "submission_report",
-        ]
+        }
+    )
 
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#") or '"""' in line or "'''" in line:
+    @staticmethod
+    def _mentions_enum_name(node: ast.AST) -> bool:
+        """True if any Name inside ``node`` is EntityType / NonKuDomain — the
+        comparison already routes through the enum (e.g. ``EntityType.TASK.value
+        == raw``), so a string operand is not a magic-string violation."""
+        return any(
+            isinstance(n, ast.Name) and n.id in ("EntityType", "NonKuDomain")
+            for n in ast.walk(node)
+        )
+
+    def _check_entity_type_strings(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL014 [WARNING]: Use EntityType/NonKuDomain enum instead of magic strings.
+
+        AST-based: flags COMPARISONS against raw entity-type strings — the shapes
+        that should route through the enum:
+
+        - equality:    ``entity_type == "task"``   (either side, case-insensitive)
+        - membership:  ``"task" in contexts``      (string on the left)
+        - membership:  ``entity_type in ("task", "goal")`` (literal container)
+
+        A Compare that already references EntityType / NonKuDomain anywhere in it
+        (e.g. ``EntityType.TASK.value == raw``) is exempt — the enum is in play.
+        Plain string literals outside comparisons (dict keys, log messages,
+        docstrings) are deliberately NOT flagged: "task" the word is ubiquitous;
+        only comparison context makes it an entity-type discriminator.
+        """
+        if tree is None:
+            return
+
+        reported_lines: set[int] = set()
+
+        def flag(line_num: int, col: int, value: str) -> None:
+            if line_num in reported_lines:
+                return
+            reported_lines.add(line_num)
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=col,
+                    severity=Severity.WARNING,
+                    rule_id="SKUEL014",
+                    message=f"Magic string '{value}' - use EntityType/NonKuDomain enum",
+                    suggestion=f"Use EntityType.{value.upper()} or NonKuDomain.{value.upper()}",
+                    line_content=line.strip(),
+                )
+            )
+
+        def entity_string(node: ast.expr) -> ast.Constant | None:
+            """The node as an entity-type string Constant, else None."""
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value.lower() in self.ENTITY_TYPE_STRINGS
+            ):
+                return node
+            return None
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            if self._mentions_enum_name(node):
                 continue
 
-            # Skip if already using enum
-            if "EntityType." in line or "NonKuDomain." in line:
-                continue
-
-            # Skip imports and type hints
-            if "import" in line or "EntityType" in line or "NonKuDomain" in line:
-                continue
-
-            for entity_type in entity_types:
-                # Look for entity type comparisons like == "task" or in ["task", ...]
-                patterns_to_check = [
-                    f'== "{entity_type}"',
-                    f"== '{entity_type}'",
-                    f'"{entity_type}" in ',
-                    f"'{entity_type}' in ",
-                    f'entity_type == "{entity_type}"',
-                    f"entity_type == '{entity_type}'",
-                ]
-
-                for pattern in patterns_to_check:
-                    if pattern in line.lower():
-                        self.result.violations.append(
-                            Violation(
-                                file_path=rel_path,
-                                line_number=line_num,
-                                column=0,
-                                severity=Severity.WARNING,
-                                rule_id="SKUEL014",
-                                message=f"Magic string '{entity_type}' - use EntityType/NonKuDomain enum",
-                                suggestion=f"Use EntityType.{entity_type.upper()} or NonKuDomain.{entity_type.upper()}",
-                                line_content=line.strip(),
-                            )
-                        )
-                        break  # Only report once per line
+            left = node.left
+            for op, right in zip(node.ops, node.comparators, strict=True):
+                if isinstance(op, ast.Eq | ast.NotEq):
+                    for side in (left, right):
+                        hit = entity_string(side)
+                        if hit is not None:
+                            flag(hit.lineno, hit.col_offset, str(hit.value))
+                elif isinstance(op, ast.In | ast.NotIn):
+                    # "task" in contexts — string on the left of `in`
+                    hit = entity_string(left)
+                    if hit is not None:
+                        flag(hit.lineno, hit.col_offset, str(hit.value))
+                    # entity_type in ("task", "goal") — literal container of strings
+                    elif isinstance(right, ast.Tuple | ast.List | ast.Set):
+                        for elt in right.elts:
+                            hit = entity_string(elt)
+                            if hit is not None:
+                                flag(hit.lineno, hit.col_offset, str(hit.value))
+                                break
+                left = right
 
     def _check_print_statements(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
@@ -2175,6 +2297,20 @@ class SkuelLinter:
                     )
                 )
 
+    # SKUEL016: precompiled once — this rule runs on EVERY file (tests included),
+    # and per-call re.search with an inline pattern made it the single hottest
+    # checker in a full scan before the `poetry` content pre-filter below.
+    POETRY_PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str, str], ...]] = (
+        (re.compile(r"\bpoetry\s+install\b", re.IGNORECASE), "poetry install", "uv sync"),
+        (re.compile(r"\bpoetry\s+add\b", re.IGNORECASE), "poetry add", "uv add"),
+        (re.compile(r"\bpoetry\s+remove\b", re.IGNORECASE), "poetry remove", "uv remove"),
+        (re.compile(r"\bpoetry\s+run\b", re.IGNORECASE), "poetry run", "uv run"),
+        (re.compile(r"\bpoetry\s+lock\b", re.IGNORECASE), "poetry lock", "uv lock"),
+        (re.compile(r"\bpoetry\s+update\b", re.IGNORECASE), "poetry update", "uv lock --upgrade"),
+        (re.compile(r"\bpoetry\.lock\b", re.IGNORECASE), "poetry.lock", "uv.lock"),
+        (re.compile(r"\[tool\.poetry\b", re.IGNORECASE), "[tool.poetry]", "[project]"),
+    )
+
     def _check_poetry_references(
         self, file_path: Path, rel_path: Path, content: str, lines: list[str]
     ) -> None:
@@ -2199,16 +2335,9 @@ class SkuelLinter:
         ):
             return
 
-        poetry_patterns = [
-            (r"\bpoetry\s+install\b", "poetry install", "uv sync"),
-            (r"\bpoetry\s+add\b", "poetry add", "uv add"),
-            (r"\bpoetry\s+remove\b", "poetry remove", "uv remove"),
-            (r"\bpoetry\s+run\b", "poetry run", "uv run"),
-            (r"\bpoetry\s+lock\b", "poetry lock", "uv lock"),
-            (r"\bpoetry\s+update\b", "poetry update", "uv lock --upgrade"),
-            (r"\bpoetry\.lock\b", "poetry.lock", "uv.lock"),
-            (r"\[tool\.poetry\b", "[tool.poetry]", "[project]"),
-        ]
+        # Cheap pre-filter: every pattern contains the literal "poetry".
+        if "poetry" not in content.lower():
+            return
 
         for line_num, line in enumerate(lines, start=1):
             stripped = line.strip()
@@ -2219,8 +2348,8 @@ class SkuelLinter:
             ):
                 continue
 
-            for pattern, match_text, replacement in poetry_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
+            for pattern, match_text, replacement in self.POETRY_PATTERNS:
+                match = pattern.search(line)
                 if match:
                     self.result.violations.append(
                         Violation(
@@ -2236,14 +2365,42 @@ class SkuelLinter:
                     )
                     break  # Only report once per line
 
+    @staticmethod
+    def _catches_bare_exception(handler_type: ast.expr | None) -> bool:
+        """True if an except clause catches the bare ``Exception`` class —
+        directly (``except Exception``) or inside a tuple
+        (``except (ValueError, Exception)``). ``except:`` (type None) is ruff
+        E722's territory, not this rule's."""
+        if isinstance(handler_type, ast.Name):
+            return handler_type.id == "Exception"
+        if isinstance(handler_type, ast.Tuple):
+            return any(
+                isinstance(elt, ast.Name) and elt.id == "Exception" for elt in handler_type.elts
+            )
+        return False
+
     def _check_broad_exception_catches(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL017 [WARNING]: Bare `except Exception` without justification.
 
-        Flags `except Exception` catches that don't have an `# intentional-broad:`
-        or `# safety-net:` comment on the same line or the line above.
+        AST-based: flags every ``ast.ExceptHandler`` whose type resolves to
+        ``Exception`` (bare Name or inside a tuple) — including formatter-wrapped
+        clauses like ``except (\\n    Exception\\n) as e:`` that the old
+        single-line regex was blind to. Docstring mentions are structurally
+        immune (a string is not an ExceptHandler).
+
+        Justification markers ``# intentional-broad:`` / ``# safety-net:`` are
+        honored on the line above the ``except`` and on any line of the clause
+        header (the ``except`` line through the line before the body). The
+        ``# skuel-lint: disable=SKUEL017`` comment is honored on any header line
+        (the violation carries that span for the SKUEL026 audit).
 
         Exceptions: test files, scripts/, CLI entrypoints, this linter.
         """
@@ -2260,57 +2417,41 @@ class SkuelLinter:
         ):
             return
 
-        pattern = re.compile(r"\bexcept\s+Exception\b")
+        if self._is_file_suppressed(content, "SKUEL017"):
+            return
+        if tree is None:
+            return
 
-        # Track whether we're inside a docstring
-        in_docstring = False
-        docstring_delim = None
-
-        for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Track docstring boundaries
-            for delim in ('"""', "'''"):
-                count = stripped.count(delim)
-                if count >= 2:
-                    pass  # Opening and closing on same line
-                elif count == 1:
-                    if not in_docstring:
-                        in_docstring = True
-                        docstring_delim = delim
-                    elif docstring_delim == delim:
-                        in_docstring = False
-                        docstring_delim = None
-
-            if in_docstring:
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ExceptHandler):
+                continue
+            if not self._catches_bare_exception(node.type):
                 continue
 
-            if not pattern.search(line):
-                continue
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
 
-            # Skip comments
-            if stripped.startswith("#"):
-                continue
-
-            # Check if the same line has a suppression comment
-            if (
-                "# intentional-broad:" in line
-                or "# safety-net:" in line
-                or self._is_line_suppressed(line, "SKUEL017")
+            # Markers: line above the except + any clause-header line.
+            marker_zone = lines[max(0, start - 2) : end]
+            if any(
+                "# intentional-broad:" in marker_line or "# safety-net:" in marker_line
+                for marker_line in marker_zone
             ):
                 continue
 
-            # Check if the line above has a suppression comment
-            if line_num >= 2:
-                prev_line = lines[line_num - 2]
-                if "# intentional-broad:" in prev_line or "# safety-net:" in prev_line:
-                    continue
+            # Suppression: any clause-header line (span recorded on the violation).
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL017")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
 
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=line_num,
-                    column=line.find("except"),
+                    line_number=start,
+                    column=node.col_offset,
                     severity=Severity.WARNING,
                     rule_id="SKUEL017",
                     message="Bare `except Exception` — use specific exception types",
@@ -2320,6 +2461,7 @@ class SkuelLinter:
                         "or add `# intentional-broad: <reason>` comment"
                     ),
                     line_content=line.strip(),
+                    suppression_span=(start, end),
                 )
             )
 
@@ -2603,7 +2745,12 @@ class SkuelLinter:
         return False
 
     def _check_request_annotation(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL020 [ERROR]: FastHTML route handlers must annotate ``request: Request``.
@@ -2623,14 +2770,12 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL020"):
             return
 
-        # Cheap pre-filter: only parse files that actually register routes. Every
+        # Cheap pre-filter: only walk files that actually register routes. Every
         # decorator we match renders as `@rt...` or `@app....` in source.
         if "@rt" not in content and "@app." not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         for node in ast.walk(tree):
@@ -2778,7 +2923,12 @@ class SkuelLinter:
         return (fn, kwarg_name, param_names, absorbs_cls, cls._locally_assigned_names(fn))
 
     def _check_cls_kwargs_collision(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL024 [ERROR]: a helper must not hardcode ``cls=`` AND splat ``**kwargs``
@@ -2811,9 +2961,7 @@ class SkuelLinter:
         if "cls" not in content or "**" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         scope_types = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
@@ -2916,7 +3064,12 @@ class SkuelLinter:
         return False
 
     def _check_core_imports_adapter(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL022 [ERROR]: a ``core/`` module must not import from ``adapters/``.
@@ -2939,13 +3092,11 @@ class SkuelLinter:
         """
         if self._is_file_suppressed(content, "SKUEL022"):
             return
-        # Cheap pre-filter: only parse files that mention adapters at all.
+        # Cheap pre-filter: only walk files that mention adapters at all.
         if "adapters" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         # Collect line numbers inside the BODY of `if TYPE_CHECKING:` blocks — exempt.
@@ -3014,7 +3165,12 @@ class SkuelLinter:
     )
 
     def _check_deleted_activity_update_payloads(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL025 [ERROR]: no reference to a deleted Activity Domain ``*UpdatePayload``.
@@ -3043,9 +3199,7 @@ class SkuelLinter:
         if "UpdatePayload" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         forbidden = self._DELETED_ACTIVITY_UPDATE_PAYLOADS
@@ -3301,7 +3455,12 @@ class SkuelLinter:
         return refs
 
     def _check_adapter_type_annotations(
-        self, file_path: Path, rel_path: Path, content: str, lines: list[str]
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
     ) -> None:
         """
         SKUEL023 [ERROR]: a ``core/`` module must not type an annotation against a
@@ -3372,9 +3531,7 @@ class SkuelLinter:
         if "adapters" not in content:
             return
 
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         # ── Import-site rule (Tier 4) ─────────────────────────────────────

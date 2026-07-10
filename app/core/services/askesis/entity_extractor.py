@@ -103,7 +103,7 @@ class EntityExtractor:
     # PUBLIC API - ENTITY EXTRACTION
     # ========================================================================
 
-    async def extract_entities_from_query(
+    async def extract_entities_from_query(  # skuel-lint: disable=SKUEL005 -- fail-soft extraction: unlinked entities degrade to fewer matches, not an error
         self, query: str, user_context: UserContext
     ) -> dict[str, list[dict[str, str]]]:
         """

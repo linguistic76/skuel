@@ -278,7 +278,7 @@ class UserCoreService:
 
         return result
 
-    async def append_dual_track_checkin(
+    async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- safe-by-design store_callback (ADR-030): check-in persistence must not fail the assessment
         self,
         user_uid: UserUID,
         result: DualTrackResult[Any],
@@ -324,7 +324,7 @@ class UserCoreService:
                 store_result.expect_error().message,
             )
 
-    async def append_knowledge_checkin(
+    async def append_knowledge_checkin(  # skuel-lint: disable=SKUEL005 -- safe-by-design store_callback (ADR-030): check-in persistence must not fail the assessment
         self,
         ku_uid: str,
         result: DualTrackResult[Any],

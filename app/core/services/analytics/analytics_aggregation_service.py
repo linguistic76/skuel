@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- read-only aggregation views: compose fail-soft metric dicts, degraded layers render empty ("analytics aggregate, they don't create")
 """
 Analytics Aggregation Service
 ==============================

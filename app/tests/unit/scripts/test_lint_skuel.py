@@ -6,6 +6,7 @@ Tests all SKUEL lint rules, LintResult dataclass, and suppression logic.
 Uses synthetic string content — no filesystem access needed.
 """
 
+import ast
 import sys
 from pathlib import Path
 
@@ -46,6 +47,13 @@ def lint_content(
     is_test = "test_" in fp.name or "/tests/" in str(fp)
     is_core = "/core/" in str(fp) and fp.suffix == ".py"
 
+    # Shared parse — mirrors _lint_file: AST rules receive one tree per file,
+    # None on syntax error (they skip; ruff owns syntax errors).
+    try:
+        tree: ast.Module | None = ast.parse(content)
+    except SyntaxError:
+        tree = None
+
     # Run applicable rules based on the same logic as _lint_file
     if linter._should_run_rule("SKUEL003"):
         linter._check_is_err_usage(fp, rel, content, lines)
@@ -62,17 +70,17 @@ def lint_content(
     if linter._should_run_rule("SKUEL016"):
         linter._check_poetry_references(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL017") and not is_test:
-        linter._check_broad_exception_catches(fp, rel, content, lines)
+        linter._check_broad_exception_catches(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL018") and not is_test:
         linter._check_rich_only_field_access(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL019") and not is_test:
         linter._check_credential_env_reads(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL020") and not is_test:
-        linter._check_request_annotation(fp, rel, content, lines)
+        linter._check_request_annotation(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL024") and not is_test:
-        linter._check_cls_kwargs_collision(fp, rel, content, lines)
+        linter._check_cls_kwargs_collision(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL025") and not is_test:
-        linter._check_deleted_activity_update_payloads(fp, rel, content, lines)
+        linter._check_deleted_activity_update_payloads(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -81,32 +89,30 @@ def lint_content(
     is_below_boundary = is_core or is_service
     if is_below_boundary and not is_test:
         if linter._should_run_rule("SKUEL001"):
-            linter._check_apoc_in_services(fp, rel, content, lines)
+            linter._check_apoc_in_services(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL021"):
-            linter._check_raw_cypher_in_services(fp, rel, content, lines)
+            linter._check_raw_cypher_in_services(fp, rel, content, lines, tree)
 
     if is_service and not is_test:
         if linter._should_run_rule("SKUEL002"):
-            linter._check_semantic_type_strings(fp, rel, content, lines)
-        if linter._should_run_rule("SKUEL004"):
-            linter._check_confidence_thresholds(fp, rel, content, lines)
+            linter._check_semantic_type_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL005"):
-            linter._check_result_return_types(fp, rel, content, lines)
+            linter._check_result_return_types(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
         if linter._should_run_rule("SKUEL013"):
-            linter._check_relationship_name_strings(fp, rel, content, lines)
+            linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
-            linter._check_entity_type_strings(fp, rel, content, lines)
+            linter._check_entity_type_strings(fp, rel, content, lines, tree)
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
 
     if is_core and not is_test and linter._should_run_rule("SKUEL022"):
-        linter._check_core_imports_adapter(fp, rel, content, lines)
+        linter._check_core_imports_adapter(fp, rel, content, lines, tree)
 
     if is_core and not is_test and linter._should_run_rule("SKUEL023"):
-        linter._check_adapter_type_annotations(fp, rel, content, lines)
+        linter._check_adapter_type_annotations(fp, rel, content, lines, tree)
 
     return linter.result.violations
 
@@ -409,6 +415,26 @@ class TestSKUEL002:
         violations = lint_content(linter, '"""Use REQUIRES_THEORETICAL_UNDERSTANDING"""')
         assert len(violations) == 0
 
+    def test_quoted_name_in_docstring_clean(self) -> None:
+        # The old quote-counting heuristic flagged quoted names in docstrings.
+        linter = make_linter(["SKUEL002"])
+        content = 'def f() -> None:\n    """Pass "BUILDS_ON_FOUNDATION" to the builder."""\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_embedded_in_longer_string_clean(self) -> None:
+        # Exact-value matching: a name inside a longer string is prose, not the enum.
+        linter = make_linter(["SKUEL002"])
+        violations = lint_content(linter, 'msg = "edge BUILDS_ON_FOUNDATION missing"')
+        assert len(violations) == 0
+
+    def test_multiline_arg_now_caught(self) -> None:
+        linter = make_linter(["SKUEL002"])
+        content = 'link(\n    "ANALOGOUS_TO",\n)'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+
 
 # ============================================================================
 # SKUEL003: .is_err deprecated
@@ -445,36 +471,6 @@ class TestSKUEL003:
 
 
 # ============================================================================
-# SKUEL004: Confidence thresholds
-# ============================================================================
-
-
-class TestSKUEL004:
-    def test_semantic_query_without_confidence(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\nRETURN b"
-        violations = lint_content(linter, content)
-        assert len(violations) == 1
-        assert violations[0].rule_id == "SKUEL004"
-
-    def test_semantic_query_with_confidence(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = (
-            "MATCH (a)-[r:REQUIRES_THEORETICAL_UNDERSTANDING]->(b)\n"
-            "WHERE r.confidence >= 0.7\n"
-            "RETURN b"
-        )
-        violations = lint_content(linter, content)
-        assert len(violations) == 0
-
-    def test_structural_query_no_warning(self) -> None:
-        linter = make_linter(["SKUEL004"])
-        content = "MATCH (a)-[r:ENABLES]->(b)\nRETURN b"
-        violations = lint_content(linter, content)
-        assert len(violations) == 0
-
-
-# ============================================================================
 # SKUEL005: Result[T] return types
 # ============================================================================
 
@@ -482,20 +478,96 @@ class TestSKUEL004:
 class TestSKUEL005:
     def test_service_method_without_result(self) -> None:
         linter = make_linter(["SKUEL005"])
-        content = "    async def get_tasks(self, uid: str) -> list[Task]:\n        pass"
+        content = "class S:\n    async def get_tasks(self, uid: str) -> list[Task]:\n        pass"
         violations = lint_content(linter, content)
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL005"
 
     def test_service_method_with_result(self) -> None:
         linter = make_linter(["SKUEL005"])
-        content = "    async def get_tasks(self, uid: str) -> Result[list[Task]]:\n        pass"
+        content = (
+            "class S:\n    async def get_tasks(self, uid: str) -> Result[list[Task]]:\n        pass"
+        )
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    def test_bare_result_and_optional_result_clean(self) -> None:
+        linter = make_linter(["SKUEL005"])
+        content = (
+            "class S:\n"
+            "    async def a(self) -> Result:\n"
+            "        pass\n"
+            '    async def b(self) -> "Result[Task] | None":\n'
+            "        pass"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_result_lookalike_names_still_flagged(self) -> None:
+        # Word-bounded match: LintResult / Results are not Result.
+        linter = make_linter(["SKUEL005"])
+        content = "class S:\n    async def scan(self) -> LintResult:\n        pass"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_multiline_signature_now_caught(self) -> None:
+        # The old check fired only when "async def" and "->" shared a physical
+        # line — every formatter-wrapped signature was invisible.
+        linter = make_linter(["SKUEL005"])
+        content = (
+            "class S:\n"
+            "    async def create_entity(\n"
+            "        self,\n"
+            "        title: str,\n"
+            "        description: str,\n"
+            "    ) -> dict[str, str]:\n"
+            "        pass"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+        assert violations[0].suppression_span == (2, 6)
+
     def test_private_method_exempt(self) -> None:
         linter = make_linter(["SKUEL005"])
-        content = "    async def _get_internal(self) -> Task:\n        pass"
+        content = "class S:\n    async def _get_internal(self) -> Task:\n        pass"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_unannotated_method_not_flagged(self) -> None:
+        # Missing annotations are mypy's job (disallow_untyped_defs).
+        linter = make_linter(["SKUEL005"])
+        content = "class S:\n    async def fire(self):\n        pass"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_nested_helper_exempt(self) -> None:
+        linter = make_linter(["SKUEL005"])
+        content = (
+            "class S:\n"
+            "    async def run(self) -> Result[None]:\n"
+            "        async def helper() -> int:\n"
+            "            return 1\n"
+            "        return await helper()"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_classmethod_exempt(self) -> None:
+        linter = make_linter(["SKUEL005"])
+        content = "class S:\n    @classmethod\n    async def build(cls) -> S:\n        return cls()"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_utility_names_exempt(self) -> None:
+        linter = make_linter(["SKUEL005"])
+        content = (
+            "class Cache:\n"
+            "    async def get(self, key: str) -> str:\n"
+            "        pass\n"
+            "    async def handle_event(self, e: Event) -> None:\n"
+            "        pass"
+        )
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
@@ -503,6 +575,7 @@ class TestSKUEL005:
         linter = make_linter(["SKUEL005"])
         content = (
             "# skuel-lint: disable-file=SKUEL005 -- protocol file\n"
+            "class S:\n"
             "    async def get_tasks(self, uid: str) -> list[Task]:\n"
             "        pass"
         )
@@ -511,7 +584,26 @@ class TestSKUEL005:
 
     def test_line_suppression(self) -> None:
         linter = make_linter(["SKUEL005"])
-        content = "    async def publish(self, msg: str) -> None:  # skuel-lint: disable=SKUEL005 -- fire-and-forget\n        pass"
+        content = (
+            "class S:\n"
+            "    async def publish(self, msg: str) -> None:  # skuel-lint: disable=SKUEL005 -- fire-and-forget\n"
+            "        pass"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_suppression_on_wrapped_signature_end_honored(self) -> None:
+        # ruff-format strands a long trailing suppression on the `) -> X:` line
+        # (the #590 class); the whole def header honors it.
+        linter = make_linter(["SKUEL005"])
+        content = (
+            "class S:\n"
+            "    async def publish(\n"
+            "        self,\n"
+            "        msg: str,\n"
+            "    ) -> None:  # skuel-lint: disable=SKUEL005 -- fire-and-forget\n"
+            "        pass"
+        )
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
@@ -519,9 +611,9 @@ class TestSKUEL005:
         linter = make_linter(["SKUEL005"])
         fp = Path("/fake/root/core/ports/domain_protocols.py")
         rel = Path("core/ports/domain_protocols.py")
-        content = "    async def get_tasks(self, uid: str) -> list[Task]:\n        pass"
+        content = "class S:\n    async def get_tasks(self, uid: str) -> list[Task]:\n        pass"
         lines = content.split("\n")
-        linter._check_result_return_types(fp, rel, content, lines)
+        linter._check_result_return_types(fp, rel, content, lines, ast.parse(content))
         assert len(linter.result.violations) == 0
 
 
@@ -811,6 +903,28 @@ class TestSKUEL013:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    def test_skips_comments(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(linter, 'x = 1  # pass "SERVES_GOAL" here')
+        assert len(violations) == 0
+
+    def test_multiline_call_now_caught(self) -> None:
+        # The old rule's 10-line Cypher-context lookback could swallow real
+        # violations near any line containing "MATCH"; the AST rule flags the
+        # used literal regardless of surrounding text.
+        linter = make_linter(["SKUEL013"])
+        content = (
+            "# a comment mentioning MATCH above the call\n"
+            "await backend.add_relationship(\n"
+            "    uid1,\n"
+            '    "SERVES_GOAL",\n'
+            "    uid2,\n"
+            ")"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 4
+
 
 # ============================================================================
 # SKUEL014: EntityType enum
@@ -820,13 +934,19 @@ class TestSKUEL013:
 class TestSKUEL014:
     def test_detects_string_comparison(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "task":')
+        violations = lint_content(linter, 'if entity_type == "task":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
     def test_enum_usage_clean(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, "if entity.entity_type == EntityType.TASK:")
+        violations = lint_content(linter, "if entity.entity_type == EntityType.TASK:\n    pass")
+        assert len(violations) == 0
+
+    def test_enum_value_comparison_exempt(self) -> None:
+        # EntityType referenced inside the Compare — the enum is already in play.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'ok = EntityType.TASK.value == "task"')
         assert len(violations) == 0
 
     def test_skips_comments(self) -> None:
@@ -834,15 +954,46 @@ class TestSKUEL014:
         violations = lint_content(linter, '# entity_type == "task"')
         assert len(violations) == 0
 
+    def test_skips_docstrings(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter, '"""Example: entity_type == "task" routes to TasksService."""'
+        )
+        assert len(violations) == 0
+
+    def test_flags_membership_string_left_of_in(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if "task" in contexts:\n    pass')
+        assert len(violations) == 1
+
+    def test_flags_membership_in_literal_container(self) -> None:
+        # Old line-regex missed the container form entirely.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'if entity_type in ("task", "goal"):\n    pass')
+        assert len(violations) == 1
+
+    def test_multiline_container_now_caught(self) -> None:
+        # Wrapped comparisons were invisible to the old single-line regex.
+        linter = make_linter(["SKUEL014"])
+        content = 'if entity_type in (\n    "task",\n    "goal",\n):\n    pass'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_plain_string_literal_not_flagged(self) -> None:
+        # "task" outside a comparison (log message, dict key) is not a discriminator.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'logger.info("task completed")\nd = {"task": 1}')
+        assert len(violations) == 0
+
     def test_flags_stale_lesson_alias(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "lesson":')
+        violations = lint_content(linter, 'if entity_type == "lesson":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
     def test_flags_interaction_magic_string(self) -> None:
         linter = make_linter(["SKUEL014"])
-        violations = lint_content(linter, 'if entity_type == "interaction":')
+        violations = lint_content(linter, 'if entity_type == "interaction":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
 
@@ -951,23 +1102,50 @@ class TestSKUEL016:
 # ============================================================================
 
 
+def try_except(except_clause: str, prefix: str = "") -> str:
+    """Build a minimal valid try/except snippet around the given except clause."""
+    return f"try:\n    x()\n{prefix}{except_clause}\n    pass"
+
+
 class TestSKUEL017:
     def test_detects_bare_except(self) -> None:
         linter = make_linter(["SKUEL017"])
-        violations = lint_content(linter, "    except Exception as e:")
+        violations = lint_content(linter, try_except("except Exception as e:"))
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL017"
+        assert violations[0].line_number == 3
 
     def test_specific_exception_clean(self) -> None:
         linter = make_linter(["SKUEL017"])
-        violations = lint_content(linter, "    except NEO4J_EXCEPTIONS as e:")
+        violations = lint_content(linter, try_except("except NEO4J_EXCEPTIONS as e:"))
+        assert len(violations) == 0
+
+    def test_wrapped_except_now_caught(self) -> None:
+        # Formatter-wrapped `except (\n Exception\n) as e:` was invisible to the
+        # old single-line regex.
+        linter = make_linter(["SKUEL017"])
+        content = "try:\n    x()\nexcept (\n    Exception\n) as e:\n    pass"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 3
+        assert violations[0].suppression_span == (3, 5)
+
+    def test_exception_inside_tuple_caught(self) -> None:
+        linter = make_linter(["SKUEL017"])
+        violations = lint_content(linter, try_except("except (ValueError, Exception) as e:"))
+        assert len(violations) == 1
+
+    def test_bare_colon_except_not_this_rules_territory(self) -> None:
+        # `except:` is ruff E722's job.
+        linter = make_linter(["SKUEL017"])
+        violations = lint_content(linter, try_except("except:"))
         assert len(violations) == 0
 
     def test_intentional_broad_comment(self) -> None:
         linter = make_linter(["SKUEL017"])
         violations = lint_content(
             linter,
-            "    except Exception as e:  # intentional-broad: event handler top-level",
+            try_except("except Exception as e:  # intentional-broad: event handler top-level"),
         )
         assert len(violations) == 0
 
@@ -975,21 +1153,57 @@ class TestSKUEL017:
         linter = make_linter(["SKUEL017"])
         violations = lint_content(
             linter,
-            "    except Exception as e:  # safety-net: narrowing in progress",
+            try_except("except Exception as e:  # safety-net: narrowing in progress"),
         )
+        assert len(violations) == 0
+
+    def test_marker_inside_wrapped_clause_honored(self) -> None:
+        linter = make_linter(["SKUEL017"])
+        content = (
+            "try:\n"
+            "    x()\n"
+            "except (\n"
+            "    Exception\n"
+            ") as e:  # intentional-broad: monadic boundary\n"
+            "    pass"
+        )
+        violations = lint_content(linter, content)
         assert len(violations) == 0
 
     def test_line_suppression(self) -> None:
         linter = make_linter(["SKUEL017"])
         violations = lint_content(
             linter,
-            "    except Exception as e:  # skuel-lint: disable=SKUEL017 -- top-level handler",
+            try_except(
+                "except Exception as e:  # skuel-lint: disable=SKUEL017 -- top-level handler"
+            ),
         )
+        assert len(violations) == 0
+
+    def test_suppression_on_wrapped_clause_end_honored(self) -> None:
+        linter = make_linter(["SKUEL017"])
+        content = (
+            "try:\n"
+            "    x()\n"
+            "except (\n"
+            "    Exception\n"
+            ") as e:  # skuel-lint: disable=SKUEL017 -- top-level handler\n"
+            "    pass"
+        )
+        violations = lint_content(linter, content)
         assert len(violations) == 0
 
     def test_prev_line_suppression(self) -> None:
         linter = make_linter(["SKUEL017"])
-        content = "    # intentional-broad: event bus\n    except Exception as e:"
+        content = try_except("except Exception as e:", prefix="# intentional-broad: event bus\n")
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL017"])
+        content = "# skuel-lint: disable-file=SKUEL017 -- boundary module\n" + try_except(
+            "except Exception as e:"
+        )
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
@@ -997,9 +1211,9 @@ class TestSKUEL017:
         linter = make_linter(["SKUEL017"])
         fp = Path("/fake/root/scripts/migrate.py")
         rel = Path("scripts/migrate.py")
-        content = "    except Exception as e:"
+        content = try_except("except Exception as e:")
         lines = content.split("\n")
-        linter._check_broad_exception_catches(fp, rel, content, lines)
+        linter._check_broad_exception_catches(fp, rel, content, lines, ast.parse(content))
         assert len(linter.result.violations) == 0
 
     def test_skips_docstrings(self) -> None:
@@ -2993,6 +3207,40 @@ class TestSKUEL026:
         )
         assert linter.result.suppressions == []
         assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
+
+    def test_span_suppression_on_wrapped_signature_counts_as_used(self, tmp_path: Path) -> None:
+        """The formatter strands a long trailing suppression on the final
+        `) -> X:` line of a wrapped signature (the #590 class). The checker
+        honors any def-header line; the audit must read the SAME span and mark
+        the comment USED, not rot."""
+        content = (
+            "class S:\n"
+            "    async def publish(\n"
+            "        self,\n"
+            "        msg: str,\n"
+            "    ) -> None:  # skuel-lint: disable=SKUEL005 -- fire-and-forget\n"
+            "        pass\n"
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL005"] == []
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is True
+
+    def test_span_suppression_on_wrapped_except_counts_as_used(self, tmp_path: Path) -> None:
+        content = (
+            "try:\n"
+            "    x()\n"
+            "except (\n"
+            "    Exception\n"
+            ") as e:  # skuel-lint: disable=SKUEL017 -- top-level handler\n"
+            "    pass\n"
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL017"] == []
+        assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is True
 
 
 class TestSuppressibleRulesDrift:

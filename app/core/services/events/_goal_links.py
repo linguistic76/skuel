@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL005 -- fail-soft read-projection; events returned unchanged on lookup failure (derived field is best-effort, not a propagated error)
 """Shared helper: populate the derived ``contributes_to_goal_uid`` on Event objects.
 
 The Event→Goal link is the ``(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` graph edge,

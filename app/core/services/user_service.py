@@ -209,7 +209,7 @@ class UserService:
         """Update user preferences (convenience method)."""
         return await self.core.update_preferences(user_uid, preferences_update)
 
-    async def append_dual_track_checkin(
+    async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- facade delegation to the safe-by-design store_callback (ADR-030)
         self,
         user_uid: UserUID,
         result: DualTrackResult[Any],
@@ -223,7 +223,7 @@ class UserService:
         """
         await self.core.append_dual_track_checkin(user_uid, result, dimension=dimension)
 
-    async def append_knowledge_checkin(
+    async def append_knowledge_checkin(  # skuel-lint: disable=SKUEL005 -- facade delegation to the safe-by-design store_callback (ADR-030)
         self,
         ku_uid: str,
         result: DualTrackResult[Any],
@@ -636,7 +636,7 @@ class UserService:
         """Add message to user's conversation history."""
         return await self.activity.add_conversation_message(user_uid, role, content, metadata)
 
-    async def invalidate_context(
+    async def invalidate_context(  # skuel-lint: disable=SKUEL005 -- facade delegation to the fire-and-forget cache invalidation
         self, user_uid: UserUID, reason: str = "manual", affected_contexts: list[str] | None = None
     ) -> None:
         """Invalidate cached user context when domain events occur."""
