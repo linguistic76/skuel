@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 26 architectural rules (SKUEL001-SKUEL026) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 25 architectural rules (SKUEL001-SKUEL026; SKUEL004 deleted, IDs not renumbered) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | 10 Neo4j query rules (CYP001-CYP010) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -96,8 +96,7 @@ them without failing.
 
 | Rule | Pattern | Description |
 |------|---------|-------------|
-| **SKUEL004** | Missing confidence threshold | Semantic queries need confidence filters |
-| **SKUEL005** | Non-Result return types | Service methods should return `Result[T]` |
+| **SKUEL005** | Non-Result return types | Async service methods return `Result[T]` (AST — catches multi-line signatures) |
 | **SKUEL007** | String `Result.fail()` | Use `Errors` factory |
 | **SKUEL008** | Backend wrapper classes | Use `UniversalNeo4jBackend` directly |
 | **SKUEL009** | Tuple defaults | Single-element tuple bug [auto-fix] |
@@ -108,7 +107,7 @@ them without failing.
 | **SKUEL014** | EntityType/NonKuDomain strings | Use `EntityType` or `NonKuDomain` enum |
 | **SKUEL015** | Print in production code | Use `logger.*()` instead |
 | **SKUEL016** | Stale Poetry references | SKUEL uses uv, not Poetry |
-| **SKUEL017** | Bare `except Exception` | Use specific types from `exception_types.py` |
+| **SKUEL017** | Bare `except Exception` | Use specific types from `exception_types.py` (AST — catches wrapped clauses) |
 | **SKUEL018** | Direct read of `RichUserContext` rich-only fields | Use `get_X()` / `X_or_empty()` accessors |
 | **SKUEL026** | Suppression comment that suppresses nothing | Delete the rotted comment (per-run audit; see linter_rules.md) |
 
@@ -205,7 +204,7 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (26 rules) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (25 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
 | `scripts/cypher_linter.py` | Cypher query linter (10 rules) |
 | `scripts/run_quality_checks.py` | Quality check orchestrator |
 | `docs/patterns/linter_rules.md` | Detailed rule documentation |

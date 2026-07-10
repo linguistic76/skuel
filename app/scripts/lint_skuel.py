@@ -1161,13 +1161,6 @@ class SkuelLinter:
         carries that span, so checker and audit honor the SAME set of lines.
         """
 
-        def _covers(violation: Violation, line: int) -> bool:
-            start, end = violation.suppression_span or (
-                violation.line_number,
-                violation.line_number,
-            )
-            return start <= line <= end
-
         # Snapshot BEFORE any SKUEL026 findings are appended below.
         main_violations = list(self.result.violations)
         main_file_hits = {(str(v.file_path), v.rule_id) for v in main_violations}
@@ -1183,40 +1176,32 @@ class SkuelLinter:
                 ignore_suppressions=True,
             )
             shadow._lint_file(file_path)
-            fired_rules = {v.rule_id for v in shadow.result.violations}
-
-            def fired_at(rule_id: str, line: int) -> bool:
-                return any(
-                    v.rule_id == rule_id and _covers(v, line) for v in shadow.result.violations
-                )
+            shadow_violations = shadow.result.violations
+            fired_rules = {v.rule_id for v in shadow_violations}
 
             for comment in comments:
                 rel_str = str(comment.file_path)
+                fired = (
+                    comment.rule_id in fired_rules
+                    if comment.file_level
+                    else self._fires_at_line(
+                        shadow_violations, comment.rule_id, comment.line_number
+                    )
+                )
                 if comment.file_level:
-                    comment.used = (
-                        comment.rule_id in fired_rules
-                        and (rel_str, comment.rule_id) not in main_file_hits
-                    )
+                    comment.used = fired and (rel_str, comment.rule_id) not in main_file_hits
                 else:
-                    hit_in_main = any(
-                        str(v.file_path) == rel_str
-                        and v.rule_id == comment.rule_id
-                        and _covers(v, comment.line_number)
-                        for v in main_violations
+                    hit_in_main = self._fires_at_line(
+                        [v for v in main_violations if str(v.file_path) == rel_str],
+                        comment.rule_id,
+                        comment.line_number,
                     )
-                    comment.used = (
-                        fired_at(comment.rule_id, comment.line_number) and not hit_in_main
-                    )
+                    comment.used = fired and not hit_in_main
                 self.result.suppressions.append(comment)
                 if comment.used:
                     continue
 
                 scope = "in this file" if comment.file_level else "at this line"
-                fired = (
-                    comment.rule_id in fired_rules
-                    if comment.file_level
-                    else fired_at(comment.rule_id, comment.line_number)
-                )
                 if comment.rule_id not in RULE_DOCS:
                     why = f"'{comment.rule_id}' is not a SKUEL rule (typo?)"
                 elif comment.rule_id not in self.SUPPRESSIBLE_RULES:
@@ -1484,6 +1469,19 @@ class SkuelLinter:
             ):
                 inert.add(id(node.value))
         return inert
+
+    @staticmethod
+    def _fires_at_line(violations: list[Violation], rule_id: str, line: int) -> bool:
+        """True if any violation of ``rule_id`` covers ``line`` — where "covers"
+        means the exact reported line, or any line of the violation's
+        ``suppression_span`` for multi-line header constructs."""
+        for v in violations:
+            if v.rule_id != rule_id:
+                continue
+            start, end = v.suppression_span or (v.line_number, v.line_number)
+            if start <= line <= end:
+                return True
+        return False
 
     def _inert_ids_for(self, tree: ast.AST) -> set[int]:
         """Memoized `_inert_string_constant_ids` — one walk per file, shared by
