@@ -207,7 +207,7 @@ Changes not staged for commit:
   modified:   docs/patterns/SERVICE_PATTERNS.md
 
 Untracked files:
-  tests/test_new_feature.py
+  tests/unit/test_new_feature.py
 ```
 
 See the actual changes:
@@ -227,7 +227,7 @@ Add files to the staging area (preparing them for commit):
 ```bash
 # Add specific files
 git add core/services/tasks_service.py
-git add tests/test_new_feature.py
+git add tests/unit/test_new_feature.py
 
 # OR add all changed files at once
 git add .
@@ -246,7 +246,7 @@ git status
 On branch main
 Changes to be committed:
   modified:   core/services/tasks_service.py
-  new file:   tests/test_new_feature.py
+  new file:   tests/unit/test_new_feature.py
 ```
 
 #### 6. Commit Your Changes

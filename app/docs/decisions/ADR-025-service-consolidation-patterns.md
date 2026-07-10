@@ -203,7 +203,7 @@ Implement consolidation in three phases:
 
 **Tests:**
 - All 1163 unit tests pass
-- `/tests/test_ku_graph_service.py` - updated for CypherGenerator change
+- `/tests/unit/test_ku_graph_service.py` - updated for CypherGenerator change
 
 ### Testing Strategy
 - [x] Unit tests: All existing tests pass (1163)

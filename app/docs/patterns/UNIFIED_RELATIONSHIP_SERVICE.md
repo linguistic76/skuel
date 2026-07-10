@@ -444,7 +444,7 @@ await service.create_relationship(
 
 Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goal`,
 `link_choice_to_habit`, …) that supply the explicit key. The (facade, key) coverage is
-guarded by `tests/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
+guarded by `tests/unit/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
 `tests/integration/test_relationship_link_roundtrip.py`.
 
 ### User→Entity ownership edges — `create_user_relationship`

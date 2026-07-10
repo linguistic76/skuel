@@ -407,7 +407,7 @@ class NotificationService:
 Protocols make testing trivial - just create a simple class that matches the protocol:
 
 ```python
-# Test file: tests/test_notification_service.py
+# Test file: tests/unit/test_notification_service.py
 import pytest
 from core.services.notification_service import NotificationService
 from core.utils.result_simplified import Result

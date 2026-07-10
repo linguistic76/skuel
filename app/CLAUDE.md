@@ -628,7 +628,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 **Intelligence Tier Toggle (ADR-043):** `INTELLIGENCE_TIER=core` ($0, analytics only) vs `INTELLIGENCE_TIER=full` (default). All 6 Activity Domain + 2 Curriculum facades have `.ai` (optional, `None` when `INTELLIGENCE_TIER=core`).
 
-**LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
+**LLM/embedding SDK clients (ADR-063):** `openai`/`anthropic`/`huggingface_hub` clients live in `adapters/external/llm/` + `adapters/external/embeddings/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`. `core/` is SDK-client-free (only `exception_types.py` imports SDK exception classes). Guarded by `tests/unit/test_llm_sdk_boundary.py` (fails closed on any new vendor import).
 
 **See:** `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`, `/docs/decisions/ADR-043-intelligence-tier-toggle.md`, `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`
 
