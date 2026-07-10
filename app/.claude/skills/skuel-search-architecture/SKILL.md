@@ -153,6 +153,8 @@ await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 | `faceted_search(request, user_uid)` | THE entry point for UI-driven search (/search) |
 | `retrieve_scoped_chunks(...)` | Scoped ContentChunk retrieval for semantic boost / RAG contexts (FULL tier) |
 
+**Search-event logging (July 2026):** all three external entry points (faceted/intelligent/advanced) publish `search.executed` → `:SearchEvent` node — one event per external search (`intelligent_search`'s internal faceted fan-out passes `log_event=False`; empty queries never logged; fail-soft; tier-independent). See SEARCH_ARCHITECTURE.md § Search-Event Logging.
+
 | Aspect | Value |
 |--------|-------|
 | **Domains** | 12 (Task, Goal, Habit, Event, Choice, Principle, Ku, PathStep, LearningPath, Exercise, RevisedExercise, UserEntry) |

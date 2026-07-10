@@ -156,6 +156,7 @@ class NeoLabel(StrEnum):
     USER_PROGRESS = "UserProgress"
     EMBEDDING_VECTOR = "EmbeddingVector"
     ASKESIS = "Askesis"
+    SEARCH_EVENT = "SearchEvent"  # Search behavioral log (discovery analytics)
 
     # =========================================================================
     # Class Methods

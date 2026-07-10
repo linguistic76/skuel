@@ -501,6 +501,33 @@ learning_state_boost_not_started: float = 0.15   # +15%
 
 ---
 
+## Search-Event Logging (Discovery Analytics Phase 1, July 2026)
+
+Every EXTERNAL search through SearchRouter publishes a `search.executed` event
+(`core/events/search_events.py`), persisted by `SearchEventRecorder`
+(`core/services/search_event_recorder.py`) → `SearchEventBackend`
+(`adapters/persistence/neo4j/search_event_backend.py`) as a `:SearchEvent`
+node — the behavioral log behind content-gap analysis and the deferred
+discovery-analytics phases.
+
+- **One event per external search.** All three entry points publish —
+  `faceted_search` (entry_point `faceted`; the GraphQL caller stamps
+  `graphql`), `intelligent_search` (`intelligent`), `advanced_search`
+  (`advanced`). `intelligent_search`'s internal per-domain `faceted_search`
+  fan-out passes `log_event=False` and never publishes.
+- **Empty/filter-only queries are never logged** — no query text, no gap signal.
+- **Fail-soft twice over:** the router's `_publish_search_event` helper never
+  raises, and the event bus isolates handler errors — logging can never break
+  or fail a search. `retrieve_scoped_chunks` (Askesis RAG) is not logged.
+- **Tier-independent** (ADR-043 untouched): a plain graph write, active on
+  CORE and FULL; the subscriber is an in-process event-bus handler, not a
+  background worker.
+
+**See:** `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md` (node schema,
+gap aggregation, deferred phases).
+
+---
+
 ## NOUS Topic Integration
 
 NOUS is the official grouping of Kus — the "magazine sections" of SKUEL's

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Intelligence Roadmap
-updated: 2025-11-27
+updated: 2026-07-10
 status: current
 category: intelligence
 tags: [intelligence, roadmap]
@@ -8,8 +8,8 @@ related: []
 ---
 
 # SKUEL Intelligence Roadmap
-**Last Updated:** 2025-10-09
-**Status:** Foundation Complete, Future Features Shelved
+**Last Updated:** 2026-07-10
+**Status:** Foundation Complete; Discovery Phase 1 shipped; Semantic remainder approved
 
 ## Philosophy
 
@@ -24,14 +24,15 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 
 ---
 
-## Current State (2025-10-09)
+## Current State (2026-07-10)
 
 ### ✅ Production-Ready Intelligence
 
-| Endpoint | Service | Capability |
-|----------|---------|------------|
-| `/api/search/intent-prediction` | SearchIntelligenceService | Analyzes query intent (learn/practice/discover) |
-| `/api/search/semantic-insights` | SearchIntelligenceService | Suggests relevant search filters |
+| Surface | Service | Capability |
+|---------|---------|------------|
+| `POST /api/search/intelligent` | SearchIntelligenceService (via SearchRouter) | Query intent analysis (learn/practice/discover) + semantic filter extraction |
+| `/search` body-chunk layer (#538) | Neo4jVectorSearchService | Lesson-body semantic hits fold into faceted results |
+| `search.executed` → `:SearchEvent` | SearchEventRecorder | Search behavioral log (Discovery Analytics Phase 1) |
 
 **Foundation Service:** `BaseAnalyticsService` (578 lines)
 - Intent scoring with confidence
@@ -47,23 +48,24 @@ Intelligence without data is fantasy. Intelligence without users is premature op
 
 ### 🔮 Medium Priority (Implement After Core Proven)
 
-#### 1. Semantic Analysis (`/api/search/semantic-analysis`)
-**Prerequisites:**
-- Users actively searching (real queries to analyze)
-- OpenAI API integration stable
-- Text corpus with meaningful content
+#### 1. Semantic Analysis remainder — ✅ APPROVED 2026-07-10 (queued)
+Search wiring shipped (#538 body-chunk layer); the readability/TextAnalysisService
+recipe and its `/api/search/semantic-analysis` endpoint were buried (One Path
+Forward). What remains — all three product-approved as a follow-up arc, one PR
+each: concept clustering, prerequisite inference, Askesis/ZPD gap feed.
 
-**Value Proposition:** Understand complexity and readability of knowledge content
-
-**Estimated Effort:** 3-4 days
+**Prerequisites:** none — sequenced after the Discovery Analytics Phase 1 arc
 **Roadmap:** `/docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md`
 
 ---
 
-#### 2. Discovery Analytics (`/api/search/discovery-analytics`)
+#### 2. Discovery Analytics Phases 2+ (Phase 1 ✅ shipped 2026-07-10)
+Phase 1 (search-event logging + content-gap aggregation) is live: every external
+search lands a `:SearchEvent` node. Deferred phases: query clustering, temporal
+patterns, usage-aware ranking.
+
 **Prerequisites:**
-- Search query logging enabled
-- At least 1000+ real queries in database
+- 1000+ `:SearchEvent` nodes (`MATCH (e:SearchEvent) RETURN count(e)`)
 - Multiple users with varied search patterns
 
 **Value Proposition:** Identify content gaps, optimize search results

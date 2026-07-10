@@ -21,6 +21,7 @@ def _wire_event_subscribers(
     insight_store: Any,
     group_backend: Any,
     ps_engagement: Any,
+    search_event_recorder: Any,
 ) -> None:
     """Wire all event subscribers for context invalidation, cross-domain, and intelligence.
 
@@ -506,5 +507,11 @@ def _wire_event_subscribers(
         "HabitMissed, ChoiceMade, PathStepCompleted | "
         "Tier 2: PrincipleReflectionRecorded, PrincipleConflictRevealed"
     )
+
+    # ── Search behavioral log (discovery analytics) ─────────────────────────
+    from core.events.search_events import SearchExecuted
+
+    event_bus.subscribe(SearchExecuted, search_event_recorder.handle_search_executed)
+    logger.info("✅ SearchEventRecorder subscribed to SearchExecuted (:SearchEvent log)")
 
     logger.info("✅ Event-driven architecture wired (45+ event types subscribed)")

@@ -815,6 +815,7 @@ class Neo4jSchemaManager:
         - Date indexes for temporal queries (4)
         - Entity type discriminator index (1)
         - Composite indexes for hot query paths (3)
+        - :SearchEvent behavioral-log indexes (2)
         """
         results: dict[str, Any] = {"created": [], "failed": []}
 
@@ -925,6 +926,11 @@ class Neo4jSchemaManager:
         await _composite("task_user_status_idx", NeoLabel.TASK, ["user_uid", "status"])
         await _composite("goal_user_status_idx", NeoLabel.GOAL, ["user_uid", "status"])
         await _composite("entity_user_type_idx", NeoLabel.ENTITY, ["user_uid", "entity_type"])
+
+        # Search behavioral log (:SearchEvent, discovery analytics) — gap
+        # aggregation groups by query_normalized and windows on created_at
+        await _idx("search_event_query_idx", NeoLabel.SEARCH_EVENT, "query_normalized")
+        await _idx("search_event_created_idx", NeoLabel.SEARCH_EVENT, "created_at")
 
         created_count = len(results["created"])
         failed_count = len(results["failed"])

@@ -1,210 +1,108 @@
 ---
-title: Discovery Analytics Implementation Roadmap
-updated: 2025-11-27
+title: Discovery Analytics Roadmap
+updated: 2026-07-10
 status: current
 category: intelligence
-tags: [analytics, discovery, intelligence, roadmap]
+tags: [analytics, discovery, intelligence, roadmap, search]
 related: []
 ---
 
-# Discovery Analytics Implementation Roadmap
+# Discovery Analytics Roadmap
 
-**Endpoint:** `/api/search/discovery-analytics`
-**Status:** FUTURE_VISION (Shelved until prerequisites met)
-**Priority:** Medium
-**Estimated Effort:** 2-3 days
+**Status:** Phase 1 (search-event logging) SHIPPED 2026-07-10. Phases 2+ deferred
+until 1,000+ logged events.
 
----
-
-## What It Does
-
-Analyzes search patterns to provide insights:
-- Query clustering (what users search for together)
-- Temporal patterns (when users search)
-- Content gaps (what users can't find)
-- User behavior insights (search → success patterns)
-
-**Key Value:** Helps you understand what users need and what content is missing.
+Discovery analytics closes the search-behavior loop: what users search for, what
+they can't find (content gaps → feeds content authoring), and eventually how
+usage should influence ranking.
 
 ---
 
-## Prerequisites (Check These First)
+## Phase 1 — Search-Event Logging + Content-Gap Surface ✅ SHIPPED
 
-- [ ] Search query logging is enabled
-- [ ] At least 1000+ search queries in database
-- [ ] Multiple users with varied search patterns (3+ users minimum)
-- [ ] Search feature is actively used
+Every external search is recorded as a `:SearchEvent` node. This is the data
+foundation for every later phase — and the zero/low-result aggregation is
+useful immediately (it tells the content author what people looked for and
+didn't find).
 
-**Critical:** You need real usage data. This feature is useless without it.
+### Flow
 
----
-
-## Implementation Plan
-
-### Day 1: Enable Search Query Logging
-
-**Step 1:** Add logging to SearchRouter
-```python
-# /core/models/search/search_router.py
-
-async def faceted_search(self, request: SearchRequest, user_uid: UserUID | None = None) -> Result[SearchResponse]:
-    # Log the search query
-    await self._log_search_query(
-        query=request.query_text,
-        filters=request.get_active_filters(),
-        timestamp=datetime.now()
-    )
-
-    # Execute search as normal (route to domain services)
-    ...
-
-async def _log_search_query(self, query: str, filters: dict, timestamp: datetime):
-    """Store search query in Neo4j for analytics"""
-    cypher = """
-    CREATE (sq:SearchQuery {
-        query: $query,
-        filters: $filters,
-        timestamp: $timestamp,
-        session_id: $session_id
-    })
-    """
-    await self._services.driver.execute_query(cypher, ...)
+```
+SearchRouter (faceted_search / intelligent_search / advanced_search)
+    → publishes SearchExecuted ("search.executed", core/events/search_events.py)
+    → InMemoryEventBus (in-process subscriber — not a background worker)
+    → SearchEventRecorder (core/services/search_event_recorder.py)
+    → SearchEventBackend (adapters/persistence/neo4j/search_event_backend.py)
+    → (:SearchEvent) node
 ```
 
-**Run for 1+ week to collect real data before implementing analytics.**
+- **One event per external search.** `intelligent_search` fans out through
+  per-domain `faceted_search` calls internally — those pass `log_event=False`
+  and never publish. The GraphQL `search_knowledge` caller flows through
+  `faceted_search(entry_point="graphql")`.
+- **Empty/filter-only queries are never logged** — no query text means no gap
+  signal (`/search/results` short-circuits empty queries anyway).
+- **Fail-soft, twice over:** the router's publish helper never raises, and the
+  event bus isolates handler errors — a logging failure cannot break or fail a
+  search.
+- **Tier-independent** (ADR-043 untouched): a plain graph write with no AI
+  dependency, active on both CORE and FULL.
+
+### `:SearchEvent` node
+
+A plain infrastructure node (`:ContentChunk`/`:AuthEvent` precedent), NOT one
+of the 25 EntityTypes. `NeoLabel.SEARCH_EVENT`.
+
+| Property | Type | Notes |
+|----------|------|-------|
+| `uid` | string | uuid4 |
+| `query_text` | string | as typed |
+| `query_normalized` | string | `lower().strip()` — the gap grouping key |
+| `user_uid` | string/null | who searched |
+| `entry_point` | string | `faceted` \| `intelligent` \| `advanced` \| `graphql` |
+| `domains` | list[string] | requested scope; empty = cross-domain sweep |
+| `filters_json` | string | `json.dumps` of active property filters |
+| `result_count` | int | total results returned |
+| `zero_results` | boolean | `result_count == 0` |
+| `semantic_boost` | boolean | body-chunk layer enabled (faceted only) |
+| `created_at` | datetime | native Neo4j datetime (writer passes isoformat) |
+
+Indexes: `search_event_query_idx` (`query_normalized`) and
+`search_event_created_idx` (`created_at`) — created by
+`Neo4jSchemaManager.sync_domain_indexes()` on startup.
+
+**Privacy stance:** query text is user-typed search *behavior*, stored with
+`user_uid`. It is never journal content — ADR-073 (journals store zero) is
+untouched. TODO before multi-user launch: define a retention/purge policy for
+search events.
+
+### Content-gap read side
+
+`SearchEventBackend.get_search_gaps(max_result_count=2, days=90)` aggregates
+low/zero-result searches by normalized query (counts, zero-counts, avg results,
+last seen, entry points). `count_search_events()` reports the running total
+against the Phase 2 trigger. The admin surface (`/admin/analytics` "Search
+Gaps" section) ships in the immediate follow-up PR.
 
 ---
 
-### Day 2: Query Clustering & Pattern Analysis
+## Phases 2+ — Deferred (trigger: 1,000+ logged events)
 
-Create `/core/services/analytics_service.py`:
-```python
-class AnalyticsService:
-    async def cluster_queries(self, time_period: str) -> List[dict]:
-        """Group similar queries using SearchIntelligenceService"""
-        # 1. Fetch all queries from time period
-        queries = await self._fetch_queries(time_period)
+Check: `MATCH (e:SearchEvent) RETURN count(e)` — surfaced on `/admin/analytics`
+once the gap-surface PR lands.
 
-        # 2. Use SearchIntelligenceService to analyze each query
-        analyzed = [
-            self.search_intelligence.analyze_query_intent(q)
-            for q in queries
-        ]
+With few users, behavioral aggregates are noise. These phases subscribe to the
+same `search.executed` stream / read the same nodes — no SearchRouter changes
+needed:
 
-        # 3. Group by primary_intent and domain
-        clusters = self._group_by_similarity(analyzed)
+1. **Query clustering** — group logged queries by intent/embedding similarity
+   to reveal demand themes.
+2. **Temporal patterns** — when searches happen (hour/day aggregation).
+3. **Usage-aware ranking** — weight results by click-through/selection signal.
+   Requires (a) a click-tracking property (`clicked_result_uid`) that Phase 1
+   deliberately does not collect, and (b) a ranking integration point — note
+   there is no `SearchRankingService` today; scoring lives in SearchRouter's
+   result scoring path and would need a deliberate design pass.
 
-        return clusters
-
-    async def analyze_temporal_patterns(self, queries: List[dict]) -> dict:
-        """When do users search? Hour of day, day of week"""
-        # Simple datetime aggregation
-        by_hour = defaultdict(int)
-        by_day = defaultdict(int)
-
-        for q in queries:
-            hour = q['timestamp'].hour
-            day = q['timestamp'].strftime('%A')
-            by_hour[hour] += 1
-            by_day[day] += 1
-
-        return {"by_hour": by_hour, "by_day": by_day}
-```
-
----
-
-### Day 3: Content Gap Analysis
-
-```python
-async def identify_content_gaps(
-    self,
-    queries: List[str],
-    knowledge_corpus: List[KnowledgeUnit]
-) -> List[dict]:
-    """Find what users search for but can't find"""
-
-    gaps = []
-    for query in queries:
-        # Search for matching content via SearchRouter
-        request = SearchRequest(query_text=query)
-        results = await self.search_router.faceted_search(request, user_uid=None)
-
-        # If few or no results, it's a gap
-        if len(results) < 3:
-            gaps.append({
-                "query": query,
-                "result_count": len(results),
-                "suggested_action": "Create knowledge unit on this topic"
-            })
-
-    return sorted(gaps, key=lambda x: x['result_count'])
-```
-
----
-
-## Services Needed
-
-| Service | Status | Create? |
-|---------|--------|---------|
-| SearchRouter | ✅ Exists | Extend with logging |
-| SearchIntelligenceService | ✅ Exists | No |
-| AnalyticsService | ❌ Doesn't exist | Yes |
-
----
-
-## Data Model
-
-**SearchQuery Node:**
-```cypher
-CREATE (sq:SearchQuery {
-    query: "machine learning basics",
-    filters: {domain: "TECH"},
-    timestamp: datetime(),
-    session_id: "abc123",
-    result_count: 15,
-    clicked_result_uid: "ku.ml_intro"  # Optional: if user clicked
-})
-```
-
-**Keep it simple!** Just log queries and results.
-
----
-
-## Success Criteria
-
-**Before considering this "done":**
-- [ ] Can cluster queries into meaningful groups
-- [ ] Identifies peak search times
-- [ ] Reveals content gaps clearly
-- [ ] Helps prioritize content creation
-
-**Not required:** Machine learning, complex NLP, real-time
-
----
-
-## When to Implement
-
-✅ **Implement when:**
-- You have 1000+ logged searches
-- Multiple users searching regularly
-- You want to know what content to create next
-- Search logging has run for 2+ weeks
-
-❌ **Don't implement if:**
-- No search query logging yet (start there first!)
-- Less than 500 total searches
-- Single user only
-- Core features need more work
-
----
-
-## Important Notes
-
-**This feature is USELESS without data.**
-
-Implementation is easy (2-3 days), but you need real searches first. Don't implement until you have meaningful query data to analyze.
-
-**Minimum viable data:**
-- 1000+ searches
-- 5+ days of search history
-- 3+ users with different search patterns
+**Do not build these early.** The analytics are cheap; meaningful data is the
+scarce input.

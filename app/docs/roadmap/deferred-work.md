@@ -36,9 +36,11 @@ Stale prior steps this replaced: there is no stubbed `SemanticAnalysisService` t
 enable, and no `POST /api/ingest/domain/ku` embedding trigger — embeddings are
 post-persist events (ADR-074), not an ingestion side effect.
 
-**Still deferred (NOT search — separate consumers):** the remainder of semantic
-analysis is a product decision, no longer a data-volume one (the ≥ 50 KU threshold is
-already met):
+**Still deferred (NOT search — separate consumers):** the remainder was
+product-APPROVED 2026-07-10 (all three items below) as a follow-up arc after
+Discovery Analytics Phase 1 — no longer awaiting a decision, awaiting its turn.
+The old TextAnalysisService/readability recipe was buried outright (One Path
+Forward ruling, same date):
 
 1. **Concept clustering** — cross-KU similarity graph ("you studied X — here's Y using
    the same core concept"). Needs a clustering algorithm + a surface to show it; the
@@ -47,30 +49,39 @@ already met):
    similarity rather than authored Edge YAML.
 3. **Askesis gap-detection feed** — routing semantic neighbours into ZPD gap analysis.
 
-**Enable when**: a product decision to build clustering/inference — not gated on KU
-count (already satisfied).
+**Enable when**: picked up after the Discovery Analytics Phase 1 arc completes
+(approved; not gated on KU count or any data threshold).
 
 ---
 
 ### 2. Discovery Analytics
 
-**Why deferred**: Discovery analytics learns from search behavior — what users search for,
-what they click, what they ignore. With fewer than 1,000 logged search queries, the behavioral
-signal is too sparse to distinguish signal from noise.
+**Logging portion — ✅ SHIPPED 2026-07-10 (Phase 1).** Every external search now
+lands a `:SearchEvent` node: `SearchRouter` publishes `search.executed` from all
+three entry points (faceted/intelligent/advanced, incl. the GraphQL caller) →
+`SearchEventRecorder` → `SearchEventBackend`. Tier-independent (a plain graph
+write, active on CORE and FULL — the prior claim here that publishing was
+"wired but disabled behind a feature flag" was never true; nothing existed
+before this ship). One event per external search (internal fan-out suppressed),
+empty/filter-only queries skipped, fail-soft twice over (publish helper + event
+bus isolation). The zero/low-result **content-gap aggregation**
+(`get_search_gaps`) is useful immediately as a content-authoring queue — no
+data threshold needed; its `/admin/analytics` surface ships in the immediate
+follow-up PR.
 
-**The problem**: SKUEL's search is currently keyword + embedding similarity. It does not learn
-from usage. If 80% of users search "meditation" and click the same three KUs, those KUs should
-rank higher. Discovery analytics closes this loop.
+**Still deferred (Phases 2+)**: behavioral aggregates need volume. With fewer
+than 1,000 logged searches, clustering and usage-weighted ranking are noise.
 
 **What to do**:
 
-1. Verify search query log count: `MATCH (e:SearchEvent) RETURN count(e)` — proceed when ≥ 1,000.
-2. Enable search event logging in `SearchRouter` (event publishing is wired but disabled behind
-   `INTELLIGENCE_TIER=full` and a feature flag).
-3. Implement click-through rate weighting in `SearchRankingService` using logged events.
-4. See `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md` for full implementation steps.
+1. Verify search event count: `MATCH (e:SearchEvent) RETURN count(e)` — proceed when ≥ 1,000
+   (surfaced on `/admin/analytics` once the gap-surface PR lands).
+2. Query clustering + temporal patterns over the logged events.
+3. Usage-aware ranking — requires click-tracking (not collected in Phase 1) and a ranking
+   integration design pass (no `SearchRankingService` exists; scoring lives in SearchRouter).
+4. See `/docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md`.
 
-**Enable when**: 1,000+ search queries logged in Neo4j.
+**Enable when**: 1,000+ search events logged in Neo4j.
 
 ---
 
@@ -301,8 +312,8 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 
 | Item | Trigger | Check |
 |------|---------|-------|
-| Semantic Analysis (clustering/inference remainder) | Product decision (KU ≥ 50 already met; search-wiring shipped) | Product need (not a data threshold) |
-| Discovery Analytics | Search queries ≥ 1,000 | `MATCH (e:SearchEvent) RETURN count(e)` |
+| Semantic Analysis (clustering/inference/ZPD-feed remainder) | APPROVED 2026-07-10 — next arc after Discovery Phase 1 | Sequencing, not a threshold |
+| Discovery Analytics Phases 2+ (logging shipped 2026-07-10) | Search events ≥ 1,000 | `MATCH (e:SearchEvent) RETURN count(e)` |
 | Real-time Intelligence | DAU ≥ 10 for 2+ weeks | Grafana `skuel_daily_active_users` |
 | Per-user intelligence tier | Billing model defined | Business decision |
 | KnowledgeConfig validation | Config fields added | `grep embedding_model core/config/unified_config.py` |

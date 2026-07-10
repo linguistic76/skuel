@@ -1,152 +1,76 @@
 ---
-title: Semantic Analysis Implementation Roadmap
-updated: 2025-11-27
+title: Semantic Analysis Roadmap
+updated: 2026-07-10
 status: current
 category: intelligence
 tags: [analysis, intelligence, roadmap, semantic]
 related: []
 ---
 
-# Semantic Analysis Implementation Roadmap
+# Semantic Analysis Roadmap
 
-**Endpoint:** `/api/search/semantic-analysis`
-**Status:** FUTURE_VISION (Shelved until prerequisites met)
-**Priority:** Medium
-**Estimated Effort:** 3-4 days
-
----
-
-## What It Does
-
-Analyzes text content to understand:
-- Linguistic structure (sentence complexity, readability)
-- Semantic roles (who does what to whom)
-- Knowledge extraction (facts, relationships, concepts)
-- Discourse analysis (coherence, argumentation structure)
+**Status:** Search wiring SHIPPED (#538, body-chunk semantic layer). The
+remainder is a 3-item backlog — product-approved 2026-07-10 as a follow-up arc,
+one item per PR, each planned fresh when picked up.
 
 ---
 
-## Prerequisites (Check These First)
+## What already shipped
 
-- [ ] SKUEL has 50+ knowledge units with rich text content
-- [ ] Users are creating and editing content regularly
-- [ ] OpenAI API integration is stable and tested
-- [ ] Core search functionality is proven valuable
+The original (2025-11) ambition — "search should understand content
+semantically" — is live:
 
-**DO NOT implement until all prerequisites are met.**
+- **Body-chunk semantic layer (#538):** `/search` reaches lesson-body prose via
+  `:ContentChunk` embeddings when `enable_semantic_boost` is on; matching body
+  passages surface their parent Ku/PS card. Fails soft on the CORE tier.
+- **Embedding infrastructure (ADR-074):** all content-bearing entities + body
+  chunks are embedded event-driven post-persist, with content-hash idempotency.
+- **Chunk semantic types:** ContentChunk carries DEFINITION / EXPLANATION /
+  EXAMPLE / CODE / SUMMARY etc. — semantic structure at the passage level.
 
----
+The original prerequisite (50+ KUs with rich text) is met (121 Kus, ~100%
+chunk-embedded).
 
-## Implementation Plan
+## Buried (One Path Forward ruling, 2026-07-10)
 
-### Day 1: TextAnalysisService Foundation
-Create `/core/services/text_analysis_service.py`:
-```python
-class TextAnalysisService:
-    def analyze_readability(self, text: str) -> dict:
-        """Calculate Flesch reading ease, grade level"""
-
-    def extract_sentences(self, text: str) -> List[str]:
-        """Simple sentence tokenization"""
-
-    def calculate_complexity(self, text: str) -> float:
-        """Word count, avg sentence length, vocabulary diversity"""
-```
-
-**Tools:** Python stdlib only (no external NLP libraries initially)
+The 2025-11 draft proposed a `TextAnalysisService` (Flesch readability scores,
+regex-based semantic-role extraction) behind a `/api/search/semantic-analysis`
+endpoint. **Removed outright, not deferred:** pattern-matching NLP adds nothing
+next to the shipped embedding + chunk infrastructure, and nothing consumes
+readability scores. If content-complexity-for-ZPD ever matters, it gets
+designed fresh against the chunk layer — do not resurrect the old recipe.
 
 ---
 
-### Day 2: Semantic Role Extraction
-Extend TextAnalysisService:
-```python
-def extract_semantic_roles(self, text: str) -> dict:
-    """Pattern-based extraction of agents, actions, objects"""
-    # Use SearchIntelligenceService for domain detection
-    # Use simple regex patterns for verb/noun identification
-```
+## The approved remainder (follow-up arc, one PR each)
 
-**Keep It Simple:** Start with pattern matching, not full NLP parsing
+All three consumers were product-approved 2026-07-10. The embeddings exist;
+what's missing is the grouping and a surface to show it. Each PR starts with
+its own research + planning pass — the notes below are scope sketches, not
+designs.
 
----
+### 1. Concept clustering
 
-### Day 3: Integration with OpenAI
-```python
-async def analyze_semantic_content(
-    self,
-    content: str,
-    embeddings_service: OpenAIEmbeddingsService
-) -> dict:
-    # 1. Basic text analysis (TextAnalysisService)
-    linguistic = self.text_analysis.analyze_readability(content)
+Cross-KU similarity surface: "you studied X — here's Y using the same core
+concept." Needs a clustering pass over existing entity/chunk embeddings plus a
+user-facing surface. **Open product decision (STOP point): where the surface
+lives** (Ku/PS detail page vs /explore vs elsewhere).
 
-    # 2. Get embeddings for similarity
-    embedding = await embeddings_service.get_embedding(content)
+### 2. Prerequisite inference
 
-    # 3. Extract concepts (SearchIntelligenceService)
-    intent = self.search_intelligence.analyze_query_intent(content)
+Derive suggested `PREREQUISITE_FOR` edges from content similarity. Suggestions
+only — authored Edge YAML stays canonical, and inferred edges are NEVER
+auto-written to the graph. **Open product decision (STOP point): the approval
+workflow** (admin queue vs drafted Edge YAML in the vault).
 
-    return {
-        "linguistic_analysis": linguistic,
-        "semantic_features": {...},
-        "knowledge_extraction": {...}
-    }
-```
+### 3. Askesis/ZPD gap-detection feed
+
+Route semantic neighbours of a learner's weak areas into ZPD gap analysis
+(`core/services/zpd/`), strengthening "what should I learn next."
+**STOP point: any change to user-visible recommendations** that weighs inferred
+gaps against authored curriculum order needs a pedagogical ruling.
 
 ---
 
-### Day 4: Testing & Refinement
-- Test with real knowledge units
-- Compare results with user expectations
-- Adjust complexity metrics
-- Document limitations
-
----
-
-## Services Needed
-
-| Service | Status | Create? |
-|---------|--------|---------|
-| OpenAIEmbeddingsService | ✅ Exists | No |
-| SearchIntelligenceService | ✅ Exists | No |
-| TextAnalysisService | ❌ Doesn't exist | Yes |
-
----
-
-## Success Criteria
-
-**Before considering this "done":**
-- [ ] Returns meaningful readability scores
-- [ ] Identifies key concepts accurately
-- [ ] Complexity metrics match human judgment
-- [ ] Helps users understand their content better
-
-**Not required:** Perfect NLP, academic-grade analysis
-
----
-
-## Limitations to Accept
-
-This will NOT be:
-- Full linguistic parsing (no parse trees)
-- Multi-language support (English only initially)
-- Academic-quality NLP (good enough is fine)
-- Real-time (can be slow for large content)
-
-**That's okay!** Start simple, improve based on real usage.
-
----
-
-## When to Implement
-
-✅ **Implement when:**
-- You have 100+ knowledge units with varied content
-- Users want to understand content complexity
-- Search results need better relevance scoring
-- You have 2-3 days to focus on this feature
-
-❌ **Don't implement if:**
-- Core features aren't stable yet
-- Content corpus is still small
-- Users haven't requested content analysis
-- You have higher priority work
+**Trigger:** none — not data-gated. Picked up after the Discovery Analytics
+Phase 1 arc (search-event logging + gap surface) completes.

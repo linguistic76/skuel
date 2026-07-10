@@ -1,6 +1,6 @@
 ---
 title: SKUEL Intelligence Documentation
-updated: 2025-11-27
+updated: 2026-07-10
 status: current
 category: intelligence
 tags: [intelligence, readme]
@@ -20,14 +20,15 @@ This directory contains roadmaps for search intelligence features - both impleme
 - **[INTELLIGENCE_ROADMAP.md](./INTELLIGENCE_ROADMAP.md)** - Master roadmap and philosophy
 
 ### ✅ Production Features (Implemented)
-- `/api/search/intent-prediction` - Query intent analysis
-- `/api/search/semantic-insights` - Facet suggestions
-
-See `search_intelligence_api.py` for implementation.
+- Query intent analysis + facet suggestions — `SearchIntelligenceService`
+  (`core/services/search/search_intelligence_service.py`), consumed by
+  SearchRouter's intelligent search (`POST /api/search/intelligent`)
+- Search-event logging (Discovery Analytics Phase 1, 2026-07-10) — every
+  external search → `search.executed` → `:SearchEvent` node
 
 ### 🔮 Future Features (Roadmaps)
-- **[SEMANTIC_ANALYSIS_ROADMAP.md](./SEMANTIC_ANALYSIS_ROADMAP.md)** - Text analysis (3-4 days)
-- **[DISCOVERY_ANALYTICS_ROADMAP.md](./DISCOVERY_ANALYTICS_ROADMAP.md)** - Query patterns (2-3 days)
+- **[SEMANTIC_ANALYSIS_ROADMAP.md](./SEMANTIC_ANALYSIS_ROADMAP.md)** - Approved 3-item remainder: concept clustering / prereq inference / ZPD gap feed (search-wiring shipped #538; readability recipe buried)
+- **[DISCOVERY_ANALYTICS_ROADMAP.md](./DISCOVERY_ANALYTICS_ROADMAP.md)** - Phases 2+ (clustering, temporal, usage-aware ranking) at 1000+ logged events
 - **[REALTIME_INTELLIGENCE_ROADMAP.md](./REALTIME_INTELLIGENCE_ROADMAP.md)** - Personalization (3-4 days)
 
 ### 🌟 Aspirational
@@ -73,8 +74,9 @@ Don't implement intelligence "because it's cool." Implement it because:
 |---------|--------|----------|---------------|--------|
 | Intent Prediction | ✅ DONE | - | - | - |
 | Semantic Insights | ✅ DONE | - | - | - |
-| Semantic Analysis | 🔮 FUTURE | Medium | Content corpus | 3-4 days |
-| Discovery Analytics | 🔮 FUTURE | Medium | Query logs, 1000+ searches | 2-3 days |
+| Search-Event Logging (Discovery Ph. 1) | ✅ DONE (2026-07-10) | - | - | - |
+| Semantic Analysis remainder | ✅ APPROVED (queued) | Medium | Sequenced after Discovery Phase 1 arc | 1 PR each |
+| Discovery Analytics Phases 2+ | 🔮 FUTURE | Medium | 1000+ logged :SearchEvent nodes | 2-3 days |
 | Real-time Intelligence | 🔮 FUTURE | Low | Sessions, users, need | 3-4 days |
 | Ultimate Intelligence | 🌟 ASPIRATIONAL | Inspirational | AGI, quantum computers | 2+ years |
 
