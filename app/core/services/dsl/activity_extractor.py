@@ -651,7 +651,8 @@ class ActivityExtractorService:
         # whose contexts all lack one would skip in silence — record it so the
         # run summary (and the vault-sync warnings that read it) show the user
         # what was recognized but not created.
-        service_routes: list[tuple[Any, EntityType | NonKuDomain]] = [
+        # `object` not `Any`: the service half is only None-checked here.
+        service_routes: list[tuple[object, EntityType | NonKuDomain]] = [
             (self.tasks_service, EntityType.TASK),
             (self.habits_service, EntityType.HABIT),
             (self.goals_service, EntityType.GOAL),
