@@ -116,7 +116,7 @@ life_path     → alias: lifepath                    (no create-capable facade m
 finance       →                                    (retired as in-app domain — ADR-052 Firefly sidecar)
 ```
 
-**The vocabulary is closed (v0.6+):** the three lists above — entity-creating, modifier, parse-only — are the complete `@context()` vocabulary (13 values, `_DSL_CONTEXT_VOCABULARY` in the parser). Anything else fails the line with a validation error, whether it's a typo (`@context(taks)`) or a system-side enum member (`@context(interaction)`, `@context(form_template)`) — those are records the system writes, not things a note line can mean. Parse-only lines additionally surface an "unrouted" warning in the extraction summary so a recognized-but-skipped line is never silent.
+**The vocabulary is closed (v0.6+):** the three lists above — entity-creating, modifier, parse-only — are the complete `@context()` vocabulary (13 values, `_DSL_CONTEXT_VOCABULARY` in the parser). Anything else fails the line with a validation error, whether it's a typo (`@context(taks)`) or a system-side enum member (`@context(interaction)`, `@context(form_template)`) — those are records the system writes, not things a note line can mean. Parse-only contexts additionally surface an "unrouted" warning in the extraction summary — even when combined with an entity-creating context on the same line (`@context(task,ps)` creates the Task and reports the skipped `ps`) — so recognized-but-skipped is never silent.
 
 **Examples:**
 ```markdown

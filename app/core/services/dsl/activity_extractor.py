@@ -302,10 +302,11 @@ class ActivityExtractionResult:
     # ========================================================================
     parse_errors: list[str] = field(default_factory=list)
     creation_errors: list[str] = field(default_factory=list)
-    # Lines that parsed but whose contexts all lack a wired create surface
-    # (e.g. @context(exercise), or ps/lp/calendar/lifepath/finance which
-    # inject None in production). Warnings, not errors — the run succeeded;
-    # the user must still see what was recognized but not created.
+    # Per-context skip reports: any parsed context lacking a wired create
+    # surface (staged ps/lp/calendar/lifepath/finance in production) is
+    # reported here — including on mixed lines where another context DID
+    # create (LEARNING modifier excepted). Warnings, not errors — the run
+    # succeeded; the user must still see what was recognized but not created.
     unrouted_lines: list[str] = field(default_factory=list)
     extraction_started_at: datetime = field(default_factory=datetime.now)
     extraction_completed_at: datetime | None = None
@@ -666,10 +667,25 @@ class ActivityExtractorService:
         ]
         routable = {ctx for svc, ctx in service_routes if svc is not None}
         for activity in parsed.activities:
-            if not any(c in routable for c in activity.contexts):
-                context_names = ",".join(c.value for c in activity.contexts)
+            # Per-context, not per-line: @context(task,finance) creates the
+            # Task, but the skipped finance context must still be reported.
+            # LEARNING is a pure modifier — never routable, never a skip.
+            skipped = [
+                c for c in activity.contexts if c not in routable and c is not NonKuDomain.LEARNING
+            ]
+            if not skipped:
+                continue
+            routed = [c for c in activity.contexts if c in routable]
+            skipped_names = ",".join(c.value for c in skipped)
+            if routed:
+                routed_names = ",".join(c.value for c in routed)
                 extraction.unrouted_lines.append(
-                    f"@context({context_names}) has no entity-creating type — "
+                    f"context(s) {skipped_names} skipped (no create surface) on "
+                    f"'{activity.description[:60]}' — created only for {routed_names}"
+                )
+            else:
+                extraction.unrouted_lines.append(
+                    f"@context({skipped_names}) has no entity-creating type — "
                     f"nothing created: '{activity.description[:60]}'"
                 )
 

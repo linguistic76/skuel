@@ -41,7 +41,7 @@ as a modifier for educational activities: `@context(task,learning)`.
 Other valid vocabulary: `ku` (creates a Knowledge Unit; teacher/admin only)
 and `path_step`/`ps`, `learning_path`/`lp`, `calendar`, `life_path`, `finance`
 — these parse but create nothing yet (no create surface wired; the sync warns
-you when such a line is skipped). Anything else inside `@context()` is an error.
+you whenever such a context is skipped). Anything else inside `@context()` is an error.
 See `/docs/dsl/DSL_SPECIFICATION.md` for the full vocabulary.
 
 A typo in `@context()` fails the whole line (you'll see it in the sync
