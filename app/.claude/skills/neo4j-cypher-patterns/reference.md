@@ -2,7 +2,7 @@
 
 Curated catalog of the relationship types you'll actually meet in SKUEL's graph, grouped by category.
 
-**Source of Truth:** `/core/models/relationship_names.py` — the `RelationshipName` enum (168 members). This file documents the load-bearing subset with endpoints and semantics; for the exhaustive list (family relations, notifications, devices, ...) read the enum, whose inline comments carry endpoint documentation.
+**Source of Truth:** `/core/models/relationship_names.py` — the `RelationshipName` enum (169 members). This file documents the load-bearing subset with endpoints and semantics; for the exhaustive list (family relations, notifications, devices, ...) read the enum, whose inline comments carry endpoint documentation.
 
 **Naming note:** rows show the **Cypher edge type string** (the enum *value*). One member has a divergent name: `RelationshipName.LATERAL_ENABLES` has value `"ENABLES"` (and `LATERAL_ENABLED_BY` → `"ENABLED_BY"`).
 
@@ -16,7 +16,8 @@ The universal ownership edge and the sharing model (ADR-038).
 | `SHARES_WITH` | User | Entity | Manual sharing (`shared_at`, `role`, `share_version` props) |
 | `SHARED_WITH_GROUP` | Entity | Group | Group-scoped sharing |
 | `MEMBER_OF` | User | Group | Group membership |
-| `PURSUING_GOAL` | User | Goal | Active goal pursuit (used by search graph filters) |
+| `ENROLLED_IN` | User | LearningPath | LP enrollment (`enrolled_at`, `status` — `'completed'` marks completion) |
+| `PURSUING_GOAL` | User | Goal | Active goal pursuit (enum member; no current writer — search filters use OWNS + goal status) |
 
 > `HAS_TASK`, `HAS_EVENT`, `HAS_GOAL`, `HAS_HABIT`, `HAS_PRINCIPLE`, `HAS_CHOICE`, `HAS_KU` also exist in the enum as per-domain ownership members, but **backends write and query `OWNS`** — don't use the per-domain variants in new Cypher.
 
