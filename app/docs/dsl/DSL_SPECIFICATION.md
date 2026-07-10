@@ -9,7 +9,7 @@ related: [DSL_USAGE_GUIDE.md, DSL_IMPLEMENTATION.md]
 
 # SKUEL Activity DSL - Formal Specification
 
-*Current Version: v0.5*
+*Current Version: v0.6*
 *Last Updated: 2026-07-10*
 
 ## Purpose
@@ -68,7 +68,8 @@ Value ::= any characters except ")"
 | v0.1 | `@context()`, `@when()` | Core entity classification and scheduling |
 | v0.2 | `@priority()`, `@ku()`, `@link()` | Prioritization and graph relationships |
 | v0.3 | `@energy()`, `@duration()`, `@repeat()` | Behavioral, temporal, and habit patterns |
-| v0.5 | Typed contexts; date-only `@when()` | `@context()` values parse to `EntityType`/`NonKuDomain` enum values (the enums ARE the vocabulary — `note`/`reflection`/`metric` from earlier drafts were dropped, never implemented); `@when()` accepts date-only values. v0.4 was never released. |
+| v0.5 | Typed contexts; date-only `@when()` | `@context()` values parse to `EntityType`/`NonKuDomain` enum values (`note`/`reflection`/`metric` from earlier drafts were dropped, never implemented); `@when()` accepts date-only values. v0.4 was never released. |
+| v0.6 | Vocabulary shortened to 13; non-empty description | `@context()` validates against the DSL's own vocabulary (12 domain types + `learning`) instead of the full 29-value enum catalog — system-side types (`interaction`, `form_template`, …) now fail like typos instead of parsing into inert lines. Tags-only lines (empty description) are rejected. |
 
 ---
 
@@ -115,7 +116,7 @@ life_path     → alias: lifepath                    (no create-capable facade m
 finance       →                                    (retired as in-app domain — ADR-052 Firefly sidecar)
 ```
 
-**Parseable vs. extractable:** the parser accepts every `EntityType` (25 values) and `NonKuDomain` (4 values) — anything beyond the lists above (e.g. `@context(exercise)`) parses successfully and creates nothing. For lines that should become real entities, stick to the entity-creating vocabulary.
+**The vocabulary is closed (v0.6+):** the three lists above — entity-creating, modifier, parse-only — are the complete `@context()` vocabulary (13 values, `_DSL_CONTEXT_VOCABULARY` in the parser). Anything else fails the line with a validation error, whether it's a typo (`@context(taks)`) or a system-side enum member (`@context(interaction)`, `@context(form_template)`) — those are records the system writes, not things a note line can mean. Parse-only lines additionally surface an "unrouted" warning in the extraction summary so a recognized-but-skipped line is never silent.
 
 **Examples:**
 ```markdown
@@ -414,7 +415,7 @@ Planned additions for future versions (none implemented — staged backlog, visi
 - `X` = Major version (breaking grammar changes)
 - `Y` = Minor version (new optional tags)
 
-**Current:** v0.5 (the version lives in this spec and the parser module docstring — keep them in step)
+**Current:** v0.6 (the version lives in this spec and the parser module docstring — keep them in step)
 
 ---
 

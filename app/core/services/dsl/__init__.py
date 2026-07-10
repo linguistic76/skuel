@@ -12,10 +12,9 @@ SKUEL entities across all SKUEL domains.
 - Activity Domains (6): Tasks, Habits, Goals, Events, Principles, Choices
 - Curriculum Domains (3): KnowledgeUnit (KU), PathStep (PS), LearningPath (LP)
 - Non-Ku Domains: Finance, Calendar, Learning (modifier)
-- Content Processing: Report
 - The Destination (+1): LifePath
 
-**Type Safety (v0.5.0):**
+**Type Safety (v0.6):**
 
 The @context() tag values are parsed to `EntityType` or `NonKuDomain` enum values:
 - `ParsedActivityLine.contexts` is `list[EntityType | NonKuDomain]` instead of `list[str]`
@@ -74,7 +73,7 @@ from core.services.dsl import (
 )
 
 # Parse single line
-result = parse_activity_line("- @context(task) Call mom @priority(high)")
+result = parse_activity_line("- @context(task) Call mom @priority(1)")
 if result.is_ok:
     activity = result.value
     print(activity.description)  # "Call mom"

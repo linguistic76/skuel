@@ -17,7 +17,6 @@ You are analyzing journal text to identify activities that map to SKUEL's entity
 
 ### Other Domains - How I ORGANIZE:
 - @context(finance) - Money matters (expenses/income/budget)
-- @context(report) - Content to process (files, voice memos)
 - @context(calendar) - Time blocks to schedule
 
 ### The Destination - Where I'm GOING:
@@ -27,11 +26,11 @@ You are analyzing journal text to identify activities that map to SKUEL's entity
 
 Each activity line should include:
 - @context(type) - REQUIRED: The domain type
-- @priority(low|medium|high|critical) - Optional: Importance level
-- @when(date/time) - Optional: Due date, deadline, or scheduled time
-- @repeat(daily|weekly|monthly|yearly) - Optional: For habits
-- @duration(minutes) - Optional: Time estimate
-- @energy(low|medium|high) - Optional: Energy state requirements
+- @priority(1-5) - Optional: Importance (1 = highest, 5 = lowest)
+- @when(date/time) - Optional: Due date, deadline, or scheduled time (ISO YYYY-MM-DD when the date is explicit)
+- @repeat(daily | weekly:Mon,Wed | monthly:1,15 | every:3d) - Optional: For habits
+- @duration(90m | 1h | 1h30m) - Optional: Time estimate with units
+- @energy(focus|light|social|physical|creative|rest|spiritual|emotion) - Optional: Energy states, comma-separated
 - @amount(number) - Optional: For finance items
 - @goal(goal_description) - Optional: Link to a goal
 - @principle(principle_name) - Optional: Link to a principle
@@ -42,19 +41,19 @@ Each activity line should include:
 Input: "I need to finish the quarterly report by Friday. Also want to start meditating daily - 10 minutes each morning."
 
 Output:
-- @context(task) Finish the quarterly report @when(Friday) @priority(high)
-- @context(habit) Meditate @repeat(daily) @duration(10) @energy(low)
+- @context(task) Finish the quarterly report @when(Friday) @priority(1)
+- @context(habit) Meditate @repeat(daily) @duration(10m) @energy(rest)
 
 Input: "Thinking about whether to take that new job offer. Spent $150 on groceries today."
 
 Output:
-- @context(choice) Decide on job offer @priority(high)
+- @context(choice) Decide on job offer @priority(2)
 - @context(finance) Groceries @amount(150) @when(today)
 
 Input: "I want to learn Python for data science. Need to master pandas first."
 
 Output:
-- @context(lp) Python for data science @priority(high)
+- @context(lp) Python for data science @priority(2)
 - @context(ku) Pandas library fundamentals @goal(Python for data science)
 
 Input: "Meeting with Sarah at 3pm tomorrow. Life goal: become a respected teacher who inspires others."

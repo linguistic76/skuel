@@ -45,7 +45,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.vault_bridge_protocol import normalize_vault_line_hash
@@ -302,6 +302,11 @@ class ActivityExtractionResult:
     # ========================================================================
     parse_errors: list[str] = field(default_factory=list)
     creation_errors: list[str] = field(default_factory=list)
+    # Lines that parsed but whose contexts all lack a wired create surface
+    # (e.g. @context(exercise), or ps/lp/calendar/lifepath/finance which
+    # inject None in production). Warnings, not errors — the run succeeded;
+    # the user must still see what was recognized but not created.
+    unrouted_lines: list[str] = field(default_factory=list)
     extraction_started_at: datetime = field(default_factory=datetime.now)
     extraction_completed_at: datetime | None = None
 
@@ -406,6 +411,7 @@ class ActivityExtractionResult:
             "total_created": self.total_created,
             "parse_errors": self.parse_errors,
             "creation_errors": self.creation_errors,
+            "unrouted_lines": self.unrouted_lines,
             "extraction_started_at": self.extraction_started_at.isoformat(),
             "extraction_completed_at": self.extraction_completed_at.isoformat()
             if self.extraction_completed_at
@@ -635,6 +641,37 @@ class ActivityExtractorService:
             # The Destination (+1)
             f"{extraction.lifepath_items_found} lifepath items"
         )
+
+        # ================================================================
+        # Unrouted lines — visible, not silent
+        # ================================================================
+        # The parser accepts the full EntityType/NonKuDomain vocabulary, but
+        # only contexts with a wired create surface produce entities. A line
+        # whose contexts all lack one would skip in silence — record it so the
+        # run summary (and the vault-sync warnings that read it) show the user
+        # what was recognized but not created.
+        service_routes: list[tuple[Any, EntityType | NonKuDomain]] = [
+            (self.tasks_service, EntityType.TASK),
+            (self.habits_service, EntityType.HABIT),
+            (self.goals_service, EntityType.GOAL),
+            (self.events_service, EntityType.EVENT),
+            (self.principles_service, EntityType.PRINCIPLE),
+            (self.choices_service, EntityType.CHOICE),
+            (self.finance_service, NonKuDomain.FINANCE),
+            (self.ku_service, EntityType.KU),
+            (self.ps_service, EntityType.PATH_STEP),
+            (self.lp_service, EntityType.LEARNING_PATH),
+            (self.calendar_service, NonKuDomain.CALENDAR),
+            (self.lifepath_service, EntityType.LIFE_PATH),
+        ]
+        routable = {ctx for svc, ctx in service_routes if svc is not None}
+        for activity in parsed.activities:
+            if not any(c in routable for c in activity.contexts):
+                context_names = ",".join(c.value for c in activity.contexts)
+                extraction.unrouted_lines.append(
+                    f"@context({context_names}) has no entity-creating type — "
+                    f"nothing created: '{activity.description[:60]}'"
+                )
 
         # ================================================================
         # Step 2: Create entities for each activity type

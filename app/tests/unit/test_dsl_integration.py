@@ -301,6 +301,36 @@ Some reflections on the day...
         assert extraction.activities_found == 0
         assert extraction.total_created == 0
 
+    @pytest.mark.asyncio
+    async def test_unrouted_lines_surface_as_warnings(self, extractor):
+        """Lines whose contexts all lack a wired create surface are recorded, not silent."""
+        entry = UserEntry(
+            uid="ue_unrouted",
+            title="Unrouted",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="unrouted.md",
+            file_path="/tmp/unrouted.md",
+            file_type="text/plain",
+            file_size=100,
+            # ps is staged (ps_service unwired in this fixture AND production);
+            # the task line routes normally.
+            processed_content=("- [ ] Study step @context(ps)\n- [ ] Call bank @context(task)\n"),
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1
+        assert len(extraction.unrouted_lines) == 1
+        assert "Study step" in extraction.unrouted_lines[0]
+        assert "path_step" in extraction.unrouted_lines[0]
+        # Rides into the persisted summary the sync warnings read
+        assert extraction.to_dict()["unrouted_lines"] == extraction.unrouted_lines
+
     def test_preview_extraction(self, extractor):
         """Preview shows what would be extracted."""
         content = """

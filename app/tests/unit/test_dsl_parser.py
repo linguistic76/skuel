@@ -402,6 +402,39 @@ class TestErrorHandling:
         assert result.is_ok
         assert result.value.when is None  # Invalid value ignored
 
+    def test_empty_description_fails(self):
+        """Tags-only lines fail — extraction would mint a titleless entity."""
+        for line in ("- [ ] @context(task)", "@context(task) @priority(1)"):
+            result = parse_activity_line(line)
+
+            assert result.is_error, f"should reject: {line}"
+            assert "description" in result.expect_error().message
+
+    def test_tag_first_line_with_description_parses(self):
+        """Bridge-style tag-first lines keep their description (it follows the tags)."""
+        result = parse_activity_line("@context(task) Call mom @priority(1)")
+
+        assert result.is_ok
+        assert result.value.description == "Call mom"
+
+    def test_system_side_contexts_rejected(self):
+        """Enum members outside the DSL vocabulary fail like typos (menu ruling)."""
+        for ctx in ("interaction", "form_template", "exercise", "activity_report", "group"):
+            result = parse_activity_line(f"- [ ] Something @context({ctx})")
+
+            assert result.is_error, f"@context({ctx}) should be rejected"
+            message = result.expect_error().message
+            assert "Invalid context types" in message
+            # Error guidance lists the sanctioned vocabulary, not the full enum dump.
+            assert "form_template" not in message.split("Valid types:")[1]
+
+    def test_staged_contexts_still_parse(self):
+        """Staged domain types (create surface unwired) remain valid vocabulary."""
+        for ctx in ("ps", "lp", "path_step", "calendar", "lifepath", "finance"):
+            result = parse_activity_line(f"- [ ] Something @context({ctx})")
+
+            assert result.is_ok, f"@context({ctx}) should parse"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
