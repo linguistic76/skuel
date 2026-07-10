@@ -359,6 +359,95 @@ Some reflections on the day...
         assert "task" in warning  # names what WAS created
 
     @pytest.mark.asyncio
+    async def test_tag_warnings_ride_into_extraction_summary(self, extractor):
+        """Dropped tag values surface in the run summary the sync warnings read."""
+        entry = UserEntry(
+            uid="ue_tagwarn",
+            title="TagWarn",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="tagwarn.md",
+            file_path="/tmp/tagwarn.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content="- [ ] Finish report @context(task) @when(Friday)\n",
+        )
+
+        result = await extractor.extract_and_create(entry, "user_mike")
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1  # entity still created
+        assert len(extraction.tag_warnings) == 1
+        assert "Finish report" in extraction.tag_warnings[0]
+        assert "@when(Friday)" in extraction.tag_warnings[0]
+        assert extraction.to_dict()["tag_warnings"] == extraction.tag_warnings
+
+    @pytest.mark.asyncio
+    async def test_tag_warnings_not_repeated_for_already_extracted_lines(self, extractor):
+        """A line already carrying EXTRACTED_FROM provenance doesn't re-warn on re-sync."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] Finish report @context(task) @when(Friday)"
+        entry = UserEntry(
+            uid="ue_renag",
+            title="ReNag",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="renag.md",
+            file_path="/tmp/renag.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content=f"{line}\n",
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset({normalized_line_hash(line)}),
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 0  # Guard 2 skipped the line
+        assert extraction.tag_warnings == []  # and the warning is gated with it
+
+    @pytest.mark.asyncio
+    async def test_bridge_generated_lines_never_tag_warn(self, extractor):
+        """Bridge lines carry deliberately loose tags — not the user's values to fix."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] Finish report @context(task) @when(Friday)"
+        entry = UserEntry(
+            uid="ue_bridge",
+            title="Bridge",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="bridge.md",
+            file_path="/tmp/bridge.md",
+            file_type="text/plain",
+            file_size=100,
+            processed_content=f"{line}\n",
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            bridge_line_hashes=frozenset({normalized_line_hash(line)}),
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 1  # bridge line still extracts
+        assert extraction.tag_warnings == []  # but never nags about loose tags
+
+    @pytest.mark.asyncio
     async def test_learning_modifier_never_reported_as_skipped(self, extractor):
         """@context(task,learning): modifier creates nothing by design — no warning."""
         entry = UserEntry(

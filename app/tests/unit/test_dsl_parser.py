@@ -428,6 +428,67 @@ class TestErrorHandling:
             # Error guidance lists the sanctioned vocabulary, not the full enum dump.
             assert "form_template" not in message.split("Valid types:")[1]
 
+    def test_dropped_tag_values_recorded_as_warnings(self):
+        """Unparseable tag values drop softly AND leave a per-line warning."""
+        result = parse_activity_line(
+            "- [ ] Plan sprint @context(task) @when(Friday) @priority(99) "
+            "@duration(10) @repeat(yearly)"
+        )
+
+        assert result.is_ok
+        activity = result.value
+        assert activity.when is None
+        assert activity.priority is None
+        assert activity.duration_minutes is None
+        assert activity.repeat_pattern is None
+        joined = " ".join(activity.tag_warnings)
+        for fragment in ("@when(Friday)", "@priority(99)", "@duration(10)", "@repeat(yearly)"):
+            assert fragment in joined, f"missing warning for {fragment}"
+        assert len(activity.tag_warnings) == 4
+
+    def test_malformed_repeat_values_dropped_with_warning(self):
+        """Prefixed-but-malformed repeats drop with a warning, not a fake recurrence."""
+        for rep in (
+            "weekly:",
+            "weekly:Funday",
+            "weekly:Mon,Funday",
+            "monthly:x",
+            "monthly:0",
+            "monthly:32",
+            "every:d",
+            "every:2dfoo",
+            "every:3x",
+        ):
+            result = parse_activity_line(f"- [ ] Chore @context(habit) @repeat({rep})")
+
+            assert result.is_ok, rep
+            assert result.value.repeat_pattern is None, f"@repeat({rep}) should drop"
+            assert any("@repeat" in w for w in result.value.tag_warnings), rep
+
+    def test_interval_repeat_long_unit_forms_accepted(self):
+        """Natural spellings (every:3days) parse to the same interval as every:3d."""
+        for rep, unit in (("every:3d", "days"), ("every:3days", "days"), ("every:2weeks", "weeks")):
+            result = parse_activity_line(f"- [ ] Chore @context(habit) @repeat({rep})")
+
+            assert result.is_ok, rep
+            pattern = result.value.repeat_pattern
+            assert pattern == {
+                "type": "interval",
+                "interval": int(rep.split(":")[1][0]),
+                "unit": unit,
+            }, rep
+            assert result.value.tag_warnings == []
+
+    def test_valid_tag_values_produce_no_warnings(self):
+        """Fully valid lines carry an empty tag_warnings list."""
+        result = parse_activity_line(
+            "- [ ] Plan sprint @context(task) @when(2026-08-01) @priority(2) "
+            "@duration(45m) @repeat(daily)"
+        )
+
+        assert result.is_ok
+        assert result.value.tag_warnings == []
+
     def test_learning_only_context_rejected(self):
         """learning is a modifier — alone it would create nothing, so it fails."""
         result = parse_activity_line("- [ ] Read chapter @context(learning)")

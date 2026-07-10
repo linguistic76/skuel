@@ -308,6 +308,10 @@ class ActivityExtractionResult:
     # create (LEARNING modifier excepted). Warnings, not errors — the run
     # succeeded; the user must still see what was recognized but not created.
     unrouted_lines: list[str] = field(default_factory=list)
+    # Dropped-tag-value reports from the parser (@when(Friday), @priority(99),
+    # ...): the entity was created, but a written tag value was dropped. Same
+    # warnings-not-errors contract as unrouted_lines.
+    tag_warnings: list[str] = field(default_factory=list)
     extraction_started_at: datetime = field(default_factory=datetime.now)
     extraction_completed_at: datetime | None = None
 
@@ -413,6 +417,7 @@ class ActivityExtractionResult:
             "parse_errors": self.parse_errors,
             "creation_errors": self.creation_errors,
             "unrouted_lines": self.unrouted_lines,
+            "tag_warnings": self.tag_warnings,
             "extraction_started_at": self.extraction_started_at.isoformat(),
             "extraction_completed_at": self.extraction_completed_at.isoformat()
             if self.extraction_completed_at
@@ -668,6 +673,23 @@ class ActivityExtractorService:
         ]
         routable = {ctx for svc, ctx in service_routes if svc is not None}
         for activity in parsed.activities:
+            # Dropped tag values (parser-collected): the entity is still
+            # created, but the user must see which written values were lost.
+            # Two gates:
+            # 1. Guard-2 hash — an already-extracted line doesn't re-warn on
+            #    every force re-sync (one warning per line VERSION).
+            # 2. Bridge-generated lines never warn — their loose tags
+            #    (@when(Friday)) are machine-made, not the user's values to
+            #    fix, and non-deterministic rewording defeats hash gating.
+            # (unrouted_lines below stays ungated on purpose: those lines
+            # never create, so they remain pending and re-reporting them each
+            # sync is correct.)
+            line_hash = normalized_line_hash(activity.raw_line) if activity.raw_line else None
+            is_bridge_line = line_hash is not None and line_hash in bridge_line_hashes
+            already_extracted = line_hash is not None and line_hash in existing_line_hashes
+            if not is_bridge_line and not already_extracted:
+                for tag_warning in activity.tag_warnings:
+                    extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
             # Per-context, not per-line: @context(task,finance) creates the
             # Task, but the skipped finance context must still be reported.
             # LEARNING is a pure modifier — never routable, never a skip.

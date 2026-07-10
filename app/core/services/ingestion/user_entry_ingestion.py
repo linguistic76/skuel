@@ -629,7 +629,7 @@ def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
     if not isinstance(summary, dict):
         return []
     warnings: list[str] = []
-    for key in ("parse_errors", "creation_errors", "link_errors", "unrouted_lines"):
+    for key in ("parse_errors", "creation_errors", "link_errors", "unrouted_lines", "tag_warnings"):
         for problem in summary.get(key) or []:
             warnings.append(str(problem))
     return warnings

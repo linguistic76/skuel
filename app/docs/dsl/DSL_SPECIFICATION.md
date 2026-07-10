@@ -156,7 +156,7 @@ ISOTime ::= Digit{2} ":" Digit{2}
 
 **Timezone:** If no timezone specified, defaults to user's configured timezone. Future versions may support explicit offsets (`+07:00`).
 
-**Unparseable values:** a `@when()` value that matches none of the formats (e.g. `@when(Friday)`) or names an impossible calendar date (e.g. `@when(2026-02-31)`) does not fail the line — the schedule is dropped with a server-side warning. Use real ISO dates for reliable scheduling.
+**Unparseable values:** a `@when()` value that matches none of the formats (e.g. `@when(Friday)`) or names an impossible calendar date (e.g. `@when(2026-02-31)`) does not fail the line — the schedule is dropped, and the drop is reported as a `tag_warnings` entry in the extraction summary (surfaced by the vault-sync warnings). The same soft-drop-plus-warning applies to invalid `@priority()`, `@duration()`, and `@repeat()` values. Use real ISO dates for reliable scheduling.
 
 ---
 
@@ -211,8 +211,11 @@ Day ::= "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun"
 DayOfMonthList ::= DayOfMonth ("," DayOfMonth)*
 DayOfMonth ::= Integer  // 1-31
 
-Interval ::= Number "d"
+Interval ::= Number Unit
+Unit ::= "d" | "h" | "w" | "m"   // long forms accepted: days/hours/weeks/months
 ```
+
+**Strict values (v0.6+):** malformed-but-prefixed patterns (`weekly:Funday`, `monthly:32`, `every:2dfoo`) drop the whole `@repeat()` value with a `tag_warnings` report — partial acceptance would hide the typo.
 
 **Examples:**
 ```markdown

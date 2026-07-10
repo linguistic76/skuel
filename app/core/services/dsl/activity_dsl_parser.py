@@ -132,6 +132,7 @@ class ParsedActivityLine:
         source_line: Optional line number in source
         raw_line: Original unparsed line text
         is_checked: Whether checkbox is checked ([x] vs [ ])
+        tag_warnings: Dropped-tag-value reports (written tag, unparseable value)
 
     Example:
         ```python
@@ -191,6 +192,16 @@ class ParsedActivityLine:
 
     # obsidian-tasks 🆔 join key (ADR-070); None for @context() DSL lines.
     vault_id: str | None = None
+
+    # Dropped-tag-value reports: a tag that was written but whose value did
+    # not parse (@when(Friday), @priority(99), @duration(10), @repeat(yearly))
+    # degrades softly — line kept, value dropped. The drop is recorded here so
+    # extraction can surface it in the run summary instead of leaving it in
+    # server logs only. USER-TYPED lines only, by consumer contract: the
+    # suggestions flow ignores this field, and the extractor exempts
+    # bridge-generated lines — bridge tags are deliberately loose
+    # (@when(Friday)) and not the user's values to fix.
+    tag_warnings: list[str] = field(default_factory=list)
 
     # ========================================================================
     # ACTIVITY DOMAINS (7) - Type-Safe Checks
@@ -556,6 +567,9 @@ class ActivityDSLParser:
     # Duration format: 90m, 1h, 1h30m
     DURATION_PATTERN = re.compile(r"(?:(\d+)h)?(?:(\d+)m)?")
 
+    # Valid @repeat(weekly:...) day names (spec grammar: Mon-Sun)
+    WEEKLY_DAYS = frozenset({"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"})
+
     def __init__(self) -> None:
         """Initialize the parser."""
         self.logger = get_logger("skuel.dsl.parser")
@@ -656,6 +670,29 @@ class ActivityDSLParser:
             primary_ku = self._parse_ku(tags.get("ku"))
             links = self._parse_links(tags.get("link", ""))
 
+            # A written tag whose value didn't parse degrades softly (value
+            # dropped, line kept) — record the drop so it can surface in the
+            # extraction summary instead of server logs only.
+            tag_warnings: list[str] = []
+            if tags.get("when") and when is None:
+                tag_warnings.append(
+                    f"@when({tags['when']}) not parseable — schedule dropped "
+                    "(use YYYY-MM-DD or YYYY-MM-DDTHH:MM)"
+                )
+            if tags.get("priority") and priority is None:
+                tag_warnings.append(
+                    f"@priority({tags['priority']}) invalid — dropped (use 1-5, 1 = highest)"
+                )
+            if tags.get("duration") and duration is None:
+                tag_warnings.append(
+                    f"@duration({tags['duration']}) invalid — dropped (use units, e.g. 90m, 1h30m)"
+                )
+            if tags.get("repeat") and repeat is None:
+                tag_warnings.append(
+                    f"@repeat({tags['repeat']}) unknown pattern — dropped "
+                    "(daily, weekly:Mon,Wed, monthly:1,15, every:3d)"
+                )
+
             activity = ParsedActivityLine(
                 description=description,
                 contexts=contexts,
@@ -670,6 +707,7 @@ class ActivityDSLParser:
                 source_line=source_line_num,
                 raw_line=line,
                 is_checked=is_checked,
+                tag_warnings=tag_warnings,
             )
 
             self.logger.debug(
@@ -1012,23 +1050,37 @@ class ActivityDSLParser:
         if value == "custom":
             return {"type": "custom"}
 
+        # Malformed-but-prefixed values (weekly:Funday, monthly:x) must return
+        # None like any unknown pattern — a non-None dict here would reach the
+        # converters as a real recurrence and dodge the tag_warnings report.
         if value.startswith("weekly:"):
             days_str = value[7:]  # Remove "weekly:"
-            days = [d.strip().capitalize() for d in days_str.split(",")]
+            days = [d.strip().capitalize() for d in days_str.split(",") if d.strip()]
+            if not days or any(d not in self.WEEKLY_DAYS for d in days):
+                self.logger.warning(f"Invalid weekly repeat days: {value}")
+                return None
             return {"type": "weekly", "days": days}
 
         if value.startswith("monthly:"):
             days_str = value[8:]  # Remove "monthly:"
-            day_numbers = [int(d.strip()) for d in days_str.split(",") if d.strip().isdigit()]
+            raw_days = [d.strip() for d in days_str.split(",") if d.strip()]
+            day_numbers = [int(d) for d in raw_days if d.isdigit() and 1 <= int(d) <= 31]
+            if not raw_days or len(day_numbers) != len(raw_days):
+                self.logger.warning(f"Invalid monthly repeat days: {value}")
+                return None
             return {"type": "monthly", "days": day_numbers}
 
         if value.startswith("every:"):
             interval_str = value[6:]  # Remove "every:"
-            match = re.match(r"(\d+)([dhwm])", interval_str)
+            # fullmatch, not prefix match: every:2dfoo must drop (and surface
+            # in tag_warnings), not silently become "2d". Long unit forms are
+            # accepted explicitly — every:3days is natural spelling, and each
+            # long form starts with its short unit letter.
+            match = re.fullmatch(r"(\d+)\s*(d|h|w|m|days?|hours?|weeks?|months?)", interval_str)
             if match:
                 amount = int(match.group(1))
                 unit_map = {"d": "days", "h": "hours", "w": "weeks", "m": "months"}
-                unit = unit_map.get(match.group(2), "days")
+                unit = unit_map[match.group(2)[0]]
                 return {"type": "interval", "interval": amount, "unit": unit}
 
         self.logger.warning(f"Unknown repeat pattern: {value}")
