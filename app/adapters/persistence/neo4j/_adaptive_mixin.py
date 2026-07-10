@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 
@@ -53,9 +54,16 @@ class _AdaptiveMixin:
     # ========================================================================
 
     async def find_kus_practiced_by_event(self, event_uid: str) -> Result[list[Neo4jProperties]]:
-        """Find KU UIDs practiced by a completed event via PRACTICES relationship."""
-        query = """
-        MATCH (event:Event {uid: $event_uid})-[:PRACTICES]->(ku:Entity)
+        """Find KU UIDs practiced by a completed event via APPLIES_KNOWLEDGE.
+
+        APPLIES_KNOWLEDGE is THE Event→Ku edge — the one EVENTS_CONFIG
+        registers, Edge-YAML ingestion writes (``connections.applies_knowledge``),
+        and ``create_study_session`` MERGEs. The former read matched a
+        writer-less "PRACTICES" edge no code path ever wrote (2026-07-10
+        audit), so every event completion silently found zero KUs to practice.
+        """
+        query = f"""
+        MATCH (event:Event {{uid: $event_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity)
         RETURN DISTINCT ku.uid as ku_uid
         """
         return await self.execute_query(query, {"event_uid": event_uid})

@@ -87,7 +87,7 @@ class PsPracticeService:
             )
 
             # Query Neo4j to find KUs that this event practices
-            # Pattern: (Event)-[:PRACTICES]->(KnowledgeUnit)
+            # Pattern: (Event)-[:APPLIES_KNOWLEDGE]->(KnowledgeUnit)
             result = await self.backend.find_kus_practiced_by_event(event.event_uid)
 
             if result.is_error:

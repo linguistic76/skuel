@@ -86,16 +86,19 @@ if not records:
 
 **Problem**: Creating or checking relationships for multiple entities in one round-trip.
 
-**Context**: Batch linking events to multiple knowledge units; checking relationship existence across entity lists.
+**Context**: Batch-creating registry-validated relationships (e.g. Event→Ku APPLIES_KNOWLEDGE via `link_event_to_knowledge` on the Events service); checking relationship existence across entity lists.
 
 **Solution**:
 ```cypher
-// EventsBackend.link_event_to_knowledge() — batch link one event to many KUs
-MATCH (e:Event {uid: $event_uid})
-UNWIND $knowledge_uids AS ku_uid
-MATCH (k:Entity {uid: ku_uid})
-MERGE (e)-[r:REINFORCES_KNOWLEDGE]->(k)
-RETURN count(r) AS relationship_count
+// BatchCypherBuilder.build_relationship_create_query("APPLIES_KNOWLEDGE") —
+// the one batch relationship writer (rel type is literal; :Entity endpoint
+// labels guard against :Content shadow-uid double-binding)
+UNWIND $rels AS rel
+MATCH (a:Entity {uid: rel.from_uid})
+MATCH (b:Entity {uid: rel.to_uid})
+MERGE (a)-[r:APPLIES_KNOWLEDGE]->(b)
+SET r += rel.properties
+RETURN count(r) as created_count
 
 // UnifiedRelationshipService — batch check existence
 UNWIND $entity_uids AS entity_uid
@@ -117,7 +120,7 @@ RETURN entity_uid, count(related) AS count
 - UNWIND on an empty list returns no rows — always handle the empty case
 - OPTIONAL MATCH inside UNWIND prevents failures when entities have no relationships
 
-**Real-world usage**: `UnifiedRelationshipService.batch_has_relationship()`, `EventsBackend.link_event_to_knowledge()`
+**Real-world usage**: `UnifiedRelationshipService.batch_has_relationship()`, `BatchCypherBuilder.build_relationship_create_query()` (backs `create_relationships_batch` on the universal backend — how the Events service's `link_event_to_knowledge` facade writes APPLIES_KNOWLEDGE)
 
 ---
 
