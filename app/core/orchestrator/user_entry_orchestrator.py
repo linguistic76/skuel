@@ -152,6 +152,12 @@ class UserEntryOrchestrator:
         """Return the user's exercise submissions (FULFILLS_EXERCISE edge, any pipeline)."""
         return await self._entries.list_exercise_entries(user_uid=user_uid, limit=limit)
 
+    async def list_knowledge_entries_with_grounding(
+        self, user_uid: UserUID, limit: int = 500
+    ) -> Result[list[dict[str, Any]]]:
+        """Knowledge-pipeline entries + their grounded-Ku chips (newest first)."""
+        return await self._entries.list_knowledge_entries_with_grounding(user_uid, limit)
+
     async def get_entry_organized_children(self, uid: str) -> Result[list[OrganizerResult]]:
         """Ordered ORGANIZES children of an entry — the emergent-MOC map.
 

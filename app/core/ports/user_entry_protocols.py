@@ -435,6 +435,14 @@ class UserEntryContentOperations(Protocol):
         """A user's exercise submissions (FULFILLS_EXERCISE edge, pipeline-agnostic)."""
         ...
 
+    async def get_knowledge_entries_with_grounding(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[Neo4jProperties]]:
+        """Knowledge-pipeline entries + their APPLIES_KNOWLEDGE chips (confidence-ordered)."""
+        ...
+
 
 # ============================================================================
 # ISP parent 6 — ORGANIZES child reads (emergent MOC map)

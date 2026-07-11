@@ -464,6 +464,26 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(result)
         return Result.ok(self._to_domain_models(result.value or [], UserEntryDTO, UserEntry))
 
+    @with_error_handling("list_knowledge_entries_with_grounding")
+    async def list_knowledge_entries_with_grounding(
+        self,
+        user_uid: UserUID,
+        limit: int = 500,
+    ) -> Result[list[dict[str, Any]]]:
+        """Knowledge-pipeline entries with their grounded-Ku chips.
+
+        The read behind the knowledge-notes surface — the user reviews (and
+        prunes) what SKUEL inferred about their notes; grounding edges are
+        eager writes, the user is editor, not approver (ruling 2026-07-11).
+        Each row carries a confidence-ordered ``grounded_kus`` list.
+
+        Backend: _UserEntryContentMixin.get_knowledge_entries_with_grounding.
+        """
+        result = await self.backend.get_knowledge_entries_with_grounding(user_uid, limit)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     @with_error_handling("get_latest_entry_for_exercise")
     async def get_latest_entry_for_exercise(
         self,
