@@ -417,8 +417,13 @@ class EntryGroundingService:
                 continue
             try:
                 index = int(item.get("index", 0))
-                engages = bool(item.get("engages"))
             except TypeError, ValueError:
+                continue
+            # Strict bool — truthiness would coerce a string "false" to True
+            # and write an edge the judge rejected (Codex #610 P2). A non-bool
+            # verdict is dropped, so the coverage check below fails the entry.
+            engages = item.get("engages")
+            if not isinstance(engages, bool):
                 continue
             if not (1 <= index <= len(candidates)) or index in verdicts:
                 continue

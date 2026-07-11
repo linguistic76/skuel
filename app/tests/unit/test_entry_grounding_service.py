@@ -275,6 +275,23 @@ async def test_judge_malformed_json_skips_entry_unstamped() -> None:
 
 
 @pytest.mark.anyio
+async def test_judge_non_bool_verdict_fails_entry() -> None:
+    """A string "false" must not truthiness-coerce to an edge write (Codex #610 P2)."""
+    llm = _llm_with_response(
+        json.dumps([{"index": 1, "engages": "false", "rationale": "string verdict"}])
+    )
+    backend = _backend([_row()])
+    service = _service(backend, _vector([_hit("ku.a.one", 0.8)]), llm=llm)
+
+    result = await service.ground_pending()
+
+    assert not result.is_error
+    assert result.value.entries_failed == 1
+    backend.write_applies_knowledge.assert_not_awaited()
+    backend.stamp_grounded.assert_not_awaited()
+
+
+@pytest.mark.anyio
 async def test_judge_incomplete_coverage_fails_entry() -> None:
     """A half-judged entry must not write the unjudged half."""
     llm = _llm_with_response(json.dumps([{"index": 1, "engages": True, "rationale": "ok"}]))
