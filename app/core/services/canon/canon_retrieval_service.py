@@ -84,6 +84,11 @@ class CanonRetrievalService:
             )
         if not query_text or not query_text.strip():
             return Result.fail(Errors.validation("Query text cannot be empty", field="query_text"))
+        if resource_uids is not None and not resource_uids:
+            # Empty scope is a guaranteed miss — don't spend an embedding call
+            # on it (the adapter would short-circuit to [] anyway).
+            logger.debug("Canon draw: empty resource scope — skipping retrieval")
+            return Result.ok(CanonContext.empty())
 
         embedding_result = await self._embeddings.create_embedding(query_text)
         if embedding_result.is_error:
