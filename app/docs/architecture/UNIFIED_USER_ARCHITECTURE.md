@@ -372,6 +372,8 @@ These fields are separate from `entities_rich` — they are scalar/list fields o
 
 `UserContextCache` (`core/services/user/user_context_cache.py`) caches `UserContext` with a 5-minute TTL. `ProfileHubData` (`core/services/user_stats_types.py`) is a frozen, serialisable view computed FROM `UserContext` — stats derived from UIDs, not queried separately.
 
+Two access modes on the facade: `UserService.get_rich_unified_context()` is cached-or-build (pays the MEGA-QUERY on a miss); `UserService.peek_cached_context()` is cache-hit-only and NEVER builds — for latency-sensitive surfaces that enrich opportunistically when a context happens to be warm (the `/search` capacity-warnings path, SEARCH_ARCHITECTURE § Personalization).
+
 ---
 
 ## Consuming UserContext Correctly
