@@ -130,7 +130,15 @@ class AdminPrereqComponents:
             else None
         )
 
-        options = [
+        # Unjudged row (CORE mode or judge skip): a disabled placeholder keeps
+        # the browser from silently submitting the first option — approving
+        # without an explicit choice would write an arbitrary DIRECTED edge.
+        placeholder = (
+            [Option("Choose relation…", value="", selected=True, disabled=True)]
+            if preselect is None
+            else []
+        )
+        options = placeholder + [
             Option(
                 f"Prerequisite: {s.a_title} → {s.b_title}",
                 value=CHOICE_PREREQ_A_TO_B,
@@ -171,7 +179,7 @@ class AdminPrereqComponents:
                     Input(type="hidden", name="a_title", value=s.a_title),
                     Input(type="hidden", name="b_title", value=s.b_title),
                     Input(type="hidden", name="rationale", value=s.rationale or ""),
-                    Select(*options, name="choice", full_width=False, cls="text-sm"),
+                    Select(*options, name="choice", required=True, full_width=False, cls="text-sm"),
                     Button("Approve", type="submit", cls=(ButtonT.primary, "ml-2")),
                     hx_post="/admin/prereq-suggestions/approve",
                     hx_target="closest .prereq-row",

@@ -474,3 +474,27 @@ async def test_directional_approve_preserves_order() -> None:
 
     filename = writer.write_edge_file.await_args.args[0]
     assert "two" in filename.split("-prereq-")[0]
+
+
+def test_unjudged_row_renders_disabled_placeholder() -> None:
+    """CORE-mode rows must not silently default to a directed prereq (Codex P2 #599)."""
+    from fasthtml.common import to_xml
+
+    from core.services.prereq_suggestion_service import PrereqSuggestion
+    from ui.admin.prereq_views import AdminPrereqComponents
+
+    unjudged = PrereqSuggestion(
+        a_uid="ku.a.one",
+        a_title="One",
+        b_uid="ku.a.two",
+        b_title="Two",
+        similarity=0.55,
+        verdict=None,
+        rationale=None,
+    )
+    html = to_xml(AdminPrereqComponents.render_suggestion_row(unjudged, 0))
+
+    assert "Choose relation…" in html
+    assert 'value=""' in html and "disabled" in html
+    # No real option may carry selected — only the placeholder does
+    assert html.count("selected") == 1
