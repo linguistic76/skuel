@@ -18,6 +18,10 @@ Philosophy: "Users can handle complexity, but they need visual calm to process i
 
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+# FT must be a RUNTIME import in route modules — @rt resolves handler
+# annotations at registration time (#601: TYPE_CHECKING-only FT kills bootstrap).
+from fasthtml.common import FT
+
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -113,7 +117,7 @@ def create_search_api_routes(
 
     @rt("/search/subtopics")
     @boundary_handler()
-    async def search_subtopics(request: Request, nous: str | None = None) -> Any:
+    async def search_subtopics(request: Request, nous: str | None = None) -> tuple[FT, FT]:
         """Re-render the sub-topic select scoped to the chosen NOUS topic.
 
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
