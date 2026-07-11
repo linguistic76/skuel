@@ -56,3 +56,26 @@ def test_semantic_search_chunks_targets_only_content_index() -> None:
         f"semantic_search_chunks now targets {REFERENCE_INDEX!r} — canon chunks "
         "must never be reachable through the curriculum chunk query."
     )
+
+
+def test_scoped_branch_stays_adapter_only() -> None:
+    """The scoped exact-cosine scan lives ONLY in the reference chunk adapter.
+
+    The PS-scoped branch (ADR-077) reads :ReferenceChunk via
+    ``vector.similarity.cosine`` instead of the index — a second read path that
+    must stay behind the same wall. SearchRouter and the shared vector backend
+    must not gain a :ReferenceChunk read of either shape.
+    """
+    import adapters.persistence.neo4j.neo4j_reference_chunk_adapter as adapter_module
+
+    adapter_source = _source(adapter_module)
+    assert "vector.similarity.cosine" in adapter_source, (
+        "The scoped exact-cosine branch left the reference chunk adapter — "
+        "the ADR-077 scoped read must live behind the canon wall."
+    )
+    for module, name in ((router_module, "SearchRouter"), (vsb_module, "vector_search_backend")):
+        source = _source(module)
+        assert ":ReferenceChunk" not in source and "ReferenceChunk" not in source, (
+            f"{name} now references ReferenceChunk — canon chunks must stay "
+            "invisible outside the reference adapter."
+        )

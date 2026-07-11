@@ -103,6 +103,7 @@ class ReferenceChunkSearchOperations(Protocol):
         query_embedding: list[float],
         limit: int,
         threshold: float,
+        resource_uids: list[str] | None = None,
     ) -> list[ReferenceChunkHit]:
         """Return the top canon passages nearest the query embedding.
 
@@ -110,10 +111,14 @@ class ReferenceChunkSearchOperations(Protocol):
             query_embedding: The query text's embedding vector.
             limit: Maximum passages to return.
             threshold: Minimum cosine similarity for a passage to count.
+            resource_uids: ``None`` = the whole shelf (index search); a list =
+                only chunks under those Resources (exact scoped scan); ``[]``
+                = empty scope, returns ``[]`` without searching.
 
         Returns:
             ``ReferenceChunkHit`` rows ordered by descending similarity, each
-            joined to its owning :Resource (book). Empty on no match or read
-            error (fails open — a canon miss must never break the journal).
+            joined to its owning :Resource (book). Empty on no match, empty
+            scope, or read error (fails open — a canon miss must never break
+            the caller's session).
         """
         ...

@@ -141,3 +141,18 @@ class TestRetrieveHappyPath:
         assert kwargs["limit"] == CANON_RETRIEVAL_LIMIT
         assert kwargs["threshold"] == CANON_RETRIEVAL_MIN_SCORE
         assert kwargs["query_embedding"] == [0.1]
+        # Default scope is the whole shelf — journal behaviour unchanged.
+        assert kwargs["resource_uids"] is None
+
+    @pytest.mark.asyncio
+    async def test_resource_uids_pass_through_to_search(self):
+        embeddings = MagicMock()
+        embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1]))
+        search = MagicMock()
+        search.search_reference_chunks = AsyncMock(return_value=[])
+        service = CanonRetrievalService(reference_search=search, embeddings_service=embeddings)
+
+        await service.retrieve("q", resource_uids=["resource.hms", "resource.other"])
+
+        kwargs = search.search_reference_chunks.await_args.kwargs
+        assert kwargs["resource_uids"] == ["resource.hms", "resource.other"]

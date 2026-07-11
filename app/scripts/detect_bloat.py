@@ -577,6 +577,13 @@ PLANNED_METHODS: dict[str, str] = {
     # --- LP: reverse-lookup search lenses ---
     "core/services/lp/lp_search_service.py::get_aligned_with_goal": _LP_REVERSE_LOOKUP,
     "core/services/lp/lp_search_service.py::get_by_knowledge": _LP_REVERSE_LOOKUP,
+    # --- Canon: Askesis teaching framing (ADR-077 PR-A of two) ---
+    "core/services/canon/canon_models.py::to_teaching_block": (
+        "staged by design — PR-A of the Askesis-canon integration "
+        "(plans/askesis-canon-phase1-implementation.md) ships the retrieval seam + "
+        "this teaching-time prompt framing; PR-B wires it into "
+        "ResponseGenerator.build_guided_system_prompt. Remove from PLANNED when PR-B lands."
+    ),
     # --- DSL: extraction preview lens (pipeline itself went live in ADR-069 PR-1) ---
     "core/services/dsl/activity_extractor.py::preview_extraction": _DSL_EXTRACTION_PREVIEW,
     # --- LifePath: word-action alignment lens ---
