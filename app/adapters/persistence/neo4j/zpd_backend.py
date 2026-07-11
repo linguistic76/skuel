@@ -76,12 +76,15 @@ CALL (task_engaged_uids, habit_engaged_uids, entry_engaged_uids) {
 WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
-// ENABLES joins the forward expansion here ONLY (ruling 2026-07-10): "you
-// engaged A, A ENABLES B → B is proximal". Readiness (Step 3) and blocking
-// gaps (Step 5) stay strictly PREREQUISITE_FOR — an enabler is an invitation,
-// never a gate or a requirement.
+// Enabler edges join the forward expansion here ONLY (ruling 2026-07-10):
+// "you engaged A, A enables B → B is proximal". Readiness (Step 3) and
+// blocking gaps (Step 5) stay strictly PREREQUISITE_FOR — an enabler is an
+// invitation, never a gate or a requirement.
+// TWO enabler vocabularies exist (Codex P2 #600): standalone Edge YAML
+// authors ENABLES (all 32 live edges), while the relationship registry maps
+// frontmatter connections.enables → ENABLES_KNOWLEDGE — traverse both.
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
-OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR|ENABLES]->(next:Entity)
+OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE]->(next:Entity)
 OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Entity)
 // Next step in the same Learning Path: find siblings that come after engaged_uid
 OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)

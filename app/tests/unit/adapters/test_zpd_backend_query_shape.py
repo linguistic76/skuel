@@ -32,16 +32,23 @@ _TARGETED = _strip_comments(_TARGETED_KU_ENGAGEMENT_QUERY)
 
 
 class TestEnablesProximalOnly:
-    def test_proximal_expansion_follows_prerequisite_and_enables(self) -> None:
-        """Step 2 forward step: engaged -PREREQUISITE_FOR|ENABLES-> next."""
-        assert re.search(
-            r"\(engaged:Entity \{uid: engaged_uid\}\)-\[:PREREQUISITE_FOR\|ENABLES\]->",
-            _ZONE,
-        ), "proximal expansion must follow both PREREQUISITE_FOR and ENABLES"
+    def test_proximal_expansion_follows_prerequisite_and_both_enabler_vocabularies(self) -> None:
+        """Step 2 forward step follows PREREQUISITE_FOR + BOTH enabler edge types.
 
-    def test_enables_appears_exactly_once_in_zone_query(self) -> None:
-        """ENABLES may exist ONLY in the proximal-expansion step — one site."""
-        assert _ZONE.count("ENABLES") == 1
+        Two enabler vocabularies exist (Codex P2 #600): standalone Edge YAML
+        authors ENABLES; the relationship registry maps connections.enables
+        to ENABLES_KNOWLEDGE. The proximal expansion must read both.
+        """
+        assert re.search(
+            r"\(engaged:Entity \{uid: engaged_uid\}\)-\[:PREREQUISITE_FOR\|ENABLES\|ENABLES_KNOWLEDGE\]->",
+            _ZONE,
+        ), "proximal expansion must follow PREREQUISITE_FOR, ENABLES and ENABLES_KNOWLEDGE"
+
+    def test_enabler_edges_appear_only_in_the_proximal_union(self) -> None:
+        """Enabler types may exist ONLY in the single proximal-expansion union."""
+        assert _ZONE.count("PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE") == 1
+        # Both ENABLES substrings live inside that one union — no other site
+        assert _ZONE.count("ENABLES") == 2
 
     def test_readiness_and_gap_traversals_are_incoming_prereq_only(self) -> None:
         """Steps 3 + 5 count incoming prerequisites; no other edge type may gate.
