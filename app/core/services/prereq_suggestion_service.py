@@ -89,6 +89,15 @@ _REL_FILENAME_TOKENS: dict[RelationshipName, str] = {
     RelationshipName.COMPLEMENTARY_TO: "complements",
 }
 
+#: Symmetric relationships carry no direction — from/to is canonicalized to
+#: sorted-UID order at approve time, so the same pair always yields the same
+#: file regardless of which A/B order a generate run happened to emit
+#: (otherwise re-approving after a regeneration could write a reverse
+#: duplicate the no-overwrite guard cannot see).
+_SYMMETRIC_RELATIONSHIPS: frozenset[RelationshipName] = frozenset(
+    {RelationshipName.RELATED_TO, RelationshipName.COMPLEMENTARY_TO}
+)
+
 
 # =============================================================================
 # Data shapes (ephemeral — round-trip through the admin queue's form fields)
@@ -617,6 +626,8 @@ class PrereqSuggestionService:
             return Result.fail(
                 Errors.validation("from/to must be two distinct Ku uids", field="to_uid")
             )
+        if rel in _SYMMETRIC_RELATIONSHIPS:
+            from_uid, to_uid = sorted((from_uid, to_uid))
 
         titles_result = await self.backend.get_ku_titles([from_uid, to_uid])
         if titles_result.is_error:

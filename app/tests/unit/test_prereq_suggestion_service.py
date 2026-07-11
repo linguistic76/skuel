@@ -442,3 +442,35 @@ async def test_stale_dimension_embeddings_dropped_not_crashed() -> None:
     uids = {uid for cand in result.value for uid in (cand.a_uid, cand.b_uid)}
     assert "ku.a.stale" not in uids
     assert uids  # the two healthy Kus still produced their mid-band pair
+
+
+@pytest.mark.anyio
+async def test_symmetric_approve_canonicalizes_pair_order() -> None:
+    """RELATED_TO approve must yield ONE filename regardless of A/B order (Codex P2 #599).
+
+    Generate runs can emit the same pair in either order; without
+    canonicalization the no-overwrite guard can't see a reverse duplicate.
+    """
+    writer = MagicMock()
+    writer.write_edge_file = AsyncMock(return_value=Result.ok("/vault/edges/x.md"))
+    service = _service(_TWO_KUS, writer=writer)
+
+    await service.approve(from_uid="ku.a.two", to_uid="ku.a.one", relationship="RELATED_TO")
+    reversed_call = writer.write_edge_file.await_args.args
+    await service.approve(from_uid="ku.a.one", to_uid="ku.a.two", relationship="RELATED_TO")
+    forward_call = writer.write_edge_file.await_args.args
+
+    assert reversed_call == forward_call  # same (filename, content) both ways
+
+
+@pytest.mark.anyio
+async def test_directional_approve_preserves_order() -> None:
+    """PREREQUISITE_FOR direction is meaning — canonicalization must NOT touch it."""
+    writer = MagicMock()
+    writer.write_edge_file = AsyncMock(return_value=Result.ok("/vault/edges/x.md"))
+    service = _service(_TWO_KUS, writer=writer)
+
+    await service.approve(from_uid="ku.a.two", to_uid="ku.a.one", relationship="PREREQUISITE_FOR")
+
+    filename = writer.write_edge_file.await_args.args[0]
+    assert "two" in filename.split("-prereq-")[0]
