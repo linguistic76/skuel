@@ -85,6 +85,7 @@ def render_ps_detail_content(
     kus: list[dict] | None = None,
     resources: list[dict] | None = None,
     show_related: bool = False,
+    show_next_step_related: bool = False,
     # Retained for API compatibility; not rendered in this design iteration.
     toc_html: str = "",
     exercises: list[dict] | None = None,
@@ -114,6 +115,10 @@ def render_ps_detail_content(
         show_related: Mount the lazy "Related concepts" fragment (PS→PS vector
             similarity). FULL tier only — False (section absent) when the
             vector search service is unavailable.
+        show_next_step_related: Mount the lazy "Related to your next step"
+            fragment (ZPD next-step Kus + their vector neighbours). FULL tier
+            + authenticated only — False (section absent) when ZPD or vector
+            search is unavailable or the viewer is anonymous.
         toc_html: Not used in this layout (no TOC sidebar).
         exercises: Not rendered inline in this design (deferred).
         engagement: Not rendered inline in this design (deferred).
@@ -148,6 +153,7 @@ def render_ps_detail_content(
         _kus_section(kus) if kus else Div(),
         _resources_section(resources) if resources else Div(),
         _related_placeholder(uid) if show_related else Div(),
+        _next_step_related_placeholder() if show_next_step_related else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
         _deps_accordion(),
@@ -545,6 +551,98 @@ def render_ps_related_concepts(related: list[dict]) -> "FT":
 
 
 # ---------------------------------------------------------------------------
+# "Related to your next step" section (ZPD proximal zone + vector similarity)
+# ---------------------------------------------------------------------------
+
+
+def _next_step_related_placeholder() -> "FT":
+    """Lazy HTMX mount for the "Related to your next step" section.
+
+    The fragment is user-scoped (ZPD proximal zone), not PS-scoped, so the
+    endpoint carries no uid. Returns the full section or an empty div, so an
+    empty/failed lookup leaves no orphaned heading behind.
+    """
+    return Div(
+        id="ps-next-step-fragment",
+        **{
+            "hx-get": "/explore/next-step/related",
+            "hx-trigger": "load",
+            "hx-swap": "outerHTML",
+        },
+    )
+
+
+def render_ps_next_step_related(groups: list[dict]) -> "FT":
+    """ "Related to your next step" — ZPD-recommended Kus + vector neighbours.
+
+    Each group is ``{"ku": {uid, title}, "related": [node dicts]}``: the
+    next-step Ku comes from the user's ZPD proximal zone (readiness-ranked,
+    authored-edge traversal); the trailing chips are undirected vector-similarity
+    hints, explicitly labeled "related (unordered)" so they read as invitations,
+    never as curriculum order. Read-time lens — nothing is persisted.
+
+    Empty input collapses to an empty div so the section vanishes entirely.
+    """
+    items = [g for g in groups if (g.get("ku") or {}).get("uid")]
+    if not items:
+        return Div(id="ps-next-step-fragment")
+
+    def _chip(node: dict, *, emphasis: bool = False) -> "FT":
+        base = (
+            "inline-flex items-center px-3 py-1.5 rounded-full border "
+            "text-[13px] font-medium hover:bg-accent hover:text-accent-foreground "
+        )
+        tone = (
+            "border-strength-core/50 bg-strength-core/10 text-foreground"
+            if emphasis
+            else "border-border bg-muted/40 text-foreground"
+        )
+        return A(
+            node.get("title") or node["uid"], href=f"/explore/ku/{node['uid']}", cls=base + tone
+        )
+
+    rows = []
+    for group in items:
+        ku = group["ku"]
+        related = [r for r in (group.get("related") or []) if r.get("uid")]
+        rows.append(
+            Div(
+                _chip(ku, emphasis=True),
+                *(
+                    [
+                        Span(
+                            "related (unordered):",
+                            cls="text-[11px] text-muted-foreground font-mono self-center",
+                        ),
+                        *[_chip(r) for r in related],
+                    ]
+                    if related
+                    else []
+                ),
+                cls="flex flex-wrap gap-2 items-center",
+            )
+        )
+
+    return Section(
+        H2(
+            "Related to your next step",
+            id="ps-next-step-h",
+            cls="block text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground mb-[9px]",
+        ),
+        P(
+            "Your readiest next concepts (from what you've engaged), each with "
+            "unordered related hints — not a prescribed sequence.",
+            cls="text-[12px] text-muted-foreground mb-3",
+        ),
+        Div(*rows, cls="flex flex-col gap-2.5"),
+        id="ps-next-step-fragment",
+        cls="mt-[24px]",
+        role="region",
+        **{"aria-labelledby": "ps-next-step-h"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # Tasks section
 # ---------------------------------------------------------------------------
 
@@ -746,4 +844,9 @@ def _deps_accordion() -> "FT":
     )
 
 
-__all__ = ["render_ps_detail_content", "render_ps_not_found", "render_ps_related_concepts"]
+__all__ = [
+    "render_ps_detail_content",
+    "render_ps_next_step_related",
+    "render_ps_not_found",
+    "render_ps_related_concepts",
+]

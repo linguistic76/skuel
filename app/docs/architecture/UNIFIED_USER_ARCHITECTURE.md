@@ -282,7 +282,9 @@ class UserContextBuilder:
         """Rich context — UIDs + entities + graph neighbourhoods. Requires user_service wired."""
 ```
 
-**`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically. For standalone builders (e.g. `services_bootstrap/compose.py`), pass `UserContextBuilder(executor, user_service=user_service)` at construction.
+**`user_service` wiring:** `build()` and `build_rich()` resolve the `User` internally via `_resolve_user()`, which requires `user_service` to be set. `UserService.__init__` wires `user_service=self` automatically.
+
+**ONE builder in production (July 2026):** the builder `UserService.__init__` constructs is THE single app-wide instance — `services_bootstrap/compose.py` reuses `user_service.context_builder` for every consumer, and `_intelligence_hub` post-wires `zpd_service` + `ps_engagement_service` onto it. Never construct a second builder in production: a compose-level duplicate once received the ZPD/engagement post-wiring while `UserService.get_rich_unified_context` (the daily-plan path) kept using the internal one — `zpd_assessment` was silently None in production. Guarded by `tests/unit/services/test_user_context_builder_wiring.py` (including a source-level check that compose.py constructs no builder).
 
 **Queries:**
 ```python

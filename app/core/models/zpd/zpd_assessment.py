@@ -97,8 +97,10 @@ class ZPDAssessment:
 
     proximal_zone : list[str]
         ku_uids structurally adjacent to the current zone but not yet engaged.
-        Derived via PREREQUISITE_FOR, COMPLEMENTARY_TO, and LP ORGANIZES
+        Derived via PREREQUISITE_FOR, ENABLES, COMPLEMENTARY_TO, and LP ORGANIZES
         traversal. These are the candidates for the user's next path step.
+        ENABLES expands the proximal zone ONLY — readiness scoring and blocking
+        gaps stay strictly prerequisite-driven (an enabler never becomes a gate).
 
     engaged_paths : list[str]
         lp_uids (Learning Path UIDs) that the user has partially traversed —

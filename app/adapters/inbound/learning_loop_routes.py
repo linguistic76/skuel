@@ -17,6 +17,7 @@ Routes:
 - GET  /explore/ps/{uid}          — PathStep detail page (reading-first, no sidebar)
 - GET  /explore/ps/{uid}/content  — HTMX fragment: PathStep detail content
 - GET  /explore/ps/{uid}/related  — HTMX fragment: Related concepts (PS→PS vector similarity)
+- GET  /explore/next-step/related — HTMX fragment: ZPD next-step Kus + vector neighbours
 - GET  /learning-loop/ps/{ps_uid}/exercises                — Exercise list with status
 - GET  /learning-loop/ps/{ps_uid}/submissions-and-feedback — Submissions + feedback
 """
@@ -41,6 +42,7 @@ from ui.explore.ku_detail import (
 from ui.explore.ku_mastery import render_ku_mastery_result
 from ui.explore.ps_detail import (
     render_ps_detail_content,
+    render_ps_next_step_related,
     render_ps_not_found,
     render_ps_related_concepts,
 )
@@ -61,6 +63,7 @@ if TYPE_CHECKING:
 
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.ports.form_protocols import FormSubmissionOperations
+    from core.ports.zpd_protocols import ZPDOperations
     from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
     from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 
@@ -125,6 +128,7 @@ def create_learning_loop_detail_routes(
     ps_engagement_service: "PsEngagementService | None" = None,
     user_service: Any = None,
     vector_search_service: "Neo4jVectorSearchService | None" = None,
+    zpd_service: "ZPDOperations | None" = None,
 ) -> None:
     """Register /explore/ku/{uid} and /explore/ps/{uid} detail routes.
 
@@ -144,6 +148,9 @@ def create_learning_loop_detail_routes(
         vector_search_service: Powers the "Related concepts" section
             (node→node vector similarity, read-time lens). None on CORE
             tier — the section is simply absent.
+        zpd_service: Powers the "Related to your next step" section on
+            the PS detail page (ZPD proximal zone, readiness-ranked). None
+            on CORE tier — the section is simply absent.
     """
 
     # -----------------------------------------------------------------
@@ -395,6 +402,11 @@ def create_learning_loop_detail_routes(
             kus=kus,
             resources=resources,
             show_related=vector_search_service is not None,
+            show_next_step_related=(
+                user_uid is not None
+                and zpd_service is not None
+                and vector_search_service is not None
+            ),
             is_marked_read=is_marked_read,
             is_bookmarked=is_bookmarked,
             is_in_progress=is_in_progress,
@@ -411,6 +423,59 @@ def create_learning_loop_detail_routes(
         """HTMX fragment: Related concepts — vector-similar PathSteps (read-time lens)."""
         related = await _related_fragment("PathStep", uid, "ps-related-fragment")
         return render_ps_related_concepts(related)
+
+    # -----------------------------------------------------------------
+    # GET /explore/next-step/related — "Related to your next step" fragment
+    # -----------------------------------------------------------------
+
+    # How many readiness-ranked proximal Kus get a chip row. Kept small: the
+    # section is an invitation, not a syllabus.
+    next_step_ku_limit = 2
+
+    @rt("/explore/next-step/related")
+    async def explore_next_step_related_fragment(request: Request) -> Any:
+        """HTMX fragment: ZPD next-step Kus + their undirected vector neighbours.
+
+        User-scoped (not PS-scoped): the next-step Kus come from the viewer's
+        ZPD proximal zone (readiness-ranked, authored PREREQUISITE_FOR/ENABLES
+        traversal); each gets #598-style similarity chips labeled as unordered
+        hints. Uses assess_zone (not the lighter get_proximal_ku_uids wrapper)
+        because current_zone is needed too — already-engaged Kus are filtered
+        out of the hint chips (runtime-observed: the engaged Ku is often a
+        vector neighbour of the very Ku it enables). Fail-soft at every layer
+        (#538 precedent): anonymous viewer, CORE tier (zpd/vector service
+        None), ZPD errors, and an empty proximal zone all collapse to an empty
+        fragment — never an error banner.
+        """
+        user_uid = get_current_user(request)
+        if user_uid is None or zpd_service is None or vector_search_service is None:
+            return render_ps_next_step_related([])
+
+        zone_result = await zpd_service.assess_zone(user_uid)
+        if zone_result.is_error:
+            logger.debug(
+                "Next-step related unavailable for %s: %s",
+                user_uid,
+                zone_result.expect_error().message,
+            )
+            return render_ps_next_step_related([])
+
+        assessment = zone_result.value
+        engaged = set(assessment.current_zone)
+        groups: list[dict[str, Any]] = []
+        for ku_uid in assessment.top_proximal_ku_uids(next_step_ku_limit):
+            title = ku_uid
+            ku_result = await orchestrator.get_ku(ku_uid)
+            if ku_result.is_ok and ku_result.value is not None:
+                title = getattr(ku_result.value, "title", "") or ku_uid
+            related = await _related_fragment("Ku", ku_uid, "ps-next-step-fragment")
+            groups.append(
+                {
+                    "ku": {"uid": ku_uid, "title": title},
+                    "related": [r for r in related if r.get("uid") not in engaged],
+                }
+            )
+        return render_ps_next_step_related(groups)
 
     logger.info(
         "Learning loop detail routes registered: /explore/ku/{uid} and "
@@ -509,6 +574,7 @@ def create_learning_loop_routes(
     user_service: Any = None,
     form_submission_service: "FormSubmissionOperations | None" = None,
     vector_search_service: "Neo4jVectorSearchService | None" = None,
+    zpd_service: "ZPDOperations | None" = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 
@@ -521,6 +587,7 @@ def create_learning_loop_routes(
         ps_engagement_service,
         user_service=user_service,
         vector_search_service=vector_search_service,
+        zpd_service=zpd_service,
     )
     create_learning_loop_fragment_routes(
         app, rt, orchestrator, form_submission_service=form_submission_service

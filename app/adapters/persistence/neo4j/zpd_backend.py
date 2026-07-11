@@ -68,8 +68,7 @@ WITH u,
      [uid IN entry_engaged_raw WHERE uid IS NOT NULL | uid] AS entry_engaged_uids
 
 // Combine all engaged UIDs (deduplicated via UNWIND + DISTINCT, no APOC)
-CALL {
-    WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids
+CALL (task_engaged_uids, habit_engaged_uids, entry_engaged_uids) {
     UNWIND (task_engaged_uids + habit_engaged_uids + entry_engaged_uids) AS uid
     WITH DISTINCT uid WHERE uid IS NOT NULL
     RETURN collect(uid) AS engaged_uids
@@ -77,8 +76,12 @@ CALL {
 WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
+// ENABLES joins the forward expansion here ONLY (ruling 2026-07-10): "you
+// engaged A, A ENABLES B → B is proximal". Readiness (Step 3) and blocking
+// gaps (Step 5) stay strictly PREREQUISITE_FOR — an enabler is an invitation,
+// never a gate or a requirement.
 UNWIND CASE WHEN size(engaged_uids) = 0 THEN [null] ELSE engaged_uids END AS engaged_uid
-OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR]->(next:Entity)
+OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:PREREQUISITE_FOR|ENABLES]->(next:Entity)
 OPTIONAL MATCH (engaged:Entity {uid: engaged_uid})-[:COMPLEMENTARY_TO]->(adj:Entity)
 // Next step in the same Learning Path: find siblings that come after engaged_uid
 OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
@@ -135,8 +138,7 @@ WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids,
 
 // ── Step 6: Submission scores per KU ────────────────────────────────────
 // Exercise -> APPLIES_KNOWLEDGE -> Ku, Submission -> FULFILLS_EXERCISE -> Exercise
-CALL {
-    WITH engaged_uids
+CALL () {
     MATCH (owner:User {uid: $user_uid})-[:OWNS]->(es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
     WHERE es.status IN ['completed', 'approved']
     WITH ku_sub.uid AS sub_ku_uid, max(coalesce(es.score, 0.0)) AS best_score, count(es) AS sub_count
@@ -190,8 +192,7 @@ WITH u, task_engaged_uids, habit_engaged_uids,
      AS entry_engaged_uids
 
 // Submission scores for target KUs
-CALL {
-    WITH u
+CALL (u) {
     MATCH (u)-[:OWNS]->(es:Entity:UserEntry)-[:FULFILLS_EXERCISE]->(ex:Entity)-[:APPLIES_KNOWLEDGE]->(ku_sub:Entity)
     WHERE ku_sub.uid IN $ku_uids AND es.status IN ['completed', 'approved']
     WITH ku_sub.uid AS sub_ku_uid, max(coalesce(es.score, 0.0)) AS best_score, count(es) AS sub_count

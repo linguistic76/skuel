@@ -412,16 +412,31 @@ async def compose_services(
         # Create user context service (context-aware intelligence)
         # NOTE: UserContextBuilder now owns user resolution (Option A architecture, Nov 2025)
         # This eliminates repetitive user lookup in every service method.
-        from core.services.user import UserContextBuilder, UserContextService
+        #
+        # ONE builder (July 2026): UserService constructs THE app-wide
+        # UserContextBuilder in its __init__ (it needs user_service=self for user
+        # resolution — a true circular dependency, so the builder can't be built
+        # first and injected). Compose REUSES that instance everywhere. A second
+        # compose-level builder here previously shadowed it: _intelligence_hub
+        # post-wired zpd_service/ps_engagement onto the compose copy only, so
+        # UserService.get_rich_unified_context (the production daily-plan path)
+        # never ran the ZPD capstone — zpd_assessment was always None.
+        from core.services.user import UserContextService
 
-        context_builder = UserContextBuilder(user_context_query_executor, user_service=user_service)
+        context_builder = user_service.context_builder
+        if context_builder is None:
+            raise RuntimeError(
+                "UserService.context_builder is None — bootstrap must construct "
+                "UserService with the UserContextQueryExecutor so the single "
+                "app-wide UserContextBuilder exists (see create_user_service above)."
+            )
         context_service = UserContextService(
             context_builder=context_builder,
             user_service=user_service,
             tasks_service=None,  # Will be wired after tasks service is created
         )
         logger.info("✅ UserContextService created (context-aware intelligence)")
-        logger.info("   - UserContextBuilder owns user resolution (Option A architecture)")
+        logger.info("   - Single UserContextBuilder (owned by UserService) shared app-wide")
 
         # Create cross-domain backend (shared by graph intelligence, cross-domain query,
         # and cross-domain analytics services)
