@@ -123,5 +123,7 @@ def test_builder_exposes_post_wire_seams(attr: str) -> None:
     """_intelligence_hub post-wires these onto the shared builder — keep the seams."""
     service = _user_service()
     assert service.context_builder is not None
-    assert hasattr(type(service.context_builder), "__init__")
+    # "MISSING" sentinel: the attribute must EXIST (as the un-wired None
+    # default) — if the seam is ever removed, getattr returns the sentinel
+    # and this fails; after _intelligence_hub post-wiring it becomes real.
     assert getattr(service.context_builder, attr, "MISSING") is None
