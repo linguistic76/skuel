@@ -15,7 +15,7 @@ tested — scores depend on the embedded corpus.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 from fasthtml.common import to_xml
@@ -26,6 +26,7 @@ from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.utils.result_simplified import Errors, Result
 from ui.explore.ku_detail import render_ku_related_concepts
 from ui.explore.ps_detail import render_ps_related_concepts
+from ui.page_contexts import RelatedConceptChip
 
 # ============================================================================
 # Section renderers — chips or complete absence
@@ -62,13 +63,15 @@ class TestRenderKuRelatedConcepts:
         assert "Related concepts" not in html
 
     def test_items_without_uid_are_filtered(self) -> None:
-        html = to_xml(render_ku_related_concepts([{"title": "orphan"}]))
+        orphan = cast("RelatedConceptChip", {"title": "orphan"})  # malformed: fail-soft filter
+        html = to_xml(render_ku_related_concepts([orphan]))
 
         assert "Related concepts" not in html
         assert "orphan" not in html
 
     def test_uid_fallback_when_title_missing(self) -> None:
-        html = to_xml(render_ku_related_concepts([{"uid": "ku.x.y"}]))
+        untitled = cast("RelatedConceptChip", {"uid": "ku.x.y"})  # missing title: uid fallback
+        html = to_xml(render_ku_related_concepts([untitled]))
 
         assert "ku.x.y" in html
 

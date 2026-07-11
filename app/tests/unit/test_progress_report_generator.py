@@ -60,6 +60,10 @@ def mock_context_builder():
     """Create a mock UserContextBuilder returning an empty entities_rich context."""
     mock_context = MagicMock()
     mock_context.entities_rich = {}
+    # Real contexts carry None (CORE tier) or a ZPDAssessment — never a Mock.
+    # Leaving this as an auto-MagicMock would route generate() through the
+    # zpd_summary path with a fake truthy assessment.
+    mock_context.zpd_assessment = None
 
     builder = MagicMock()
     builder.build_rich = AsyncMock(return_value=Result.ok(mock_context))
@@ -402,3 +406,99 @@ class TestBuildReportContent:
 
         assert "Active Insights" in content
         assert "You complete more tasks on Mondays" in content
+
+
+class TestExtractZpdSummary:
+    """_extract_zpd_summary must read the fields ZPDAssessment actually has.
+
+    Regression (PR 5, discovery-analytics arc): the summary previously read a
+    phantom ``zpd.readiness_score`` scalar — the real field is the
+    ``readiness_scores`` dict — so the baked summary always carried None and
+    the report's ZPD section never rendered.
+    """
+
+    def test_summary_from_real_assessment(self, generator):
+        from core.models.zpd.zpd_assessment import ZPDAction, ZPDAssessment
+
+        assessment = ZPDAssessment(
+            current_zone=["ku.a"],
+            proximal_zone=["ku.b", "ku.c"],
+            engaged_paths=[],
+            readiness_scores={"ku.b": 1.0, "ku.c": 0.5},
+            blocking_gaps=["ku.gap"],
+            behavioral_readiness=0.5,
+            recommended_actions=(
+                ZPDAction(
+                    entity_uid="ku.b",
+                    entity_type="path_step",
+                    action_type="learn",
+                    priority=0.8,
+                    rationale="ready",
+                ),
+            ),
+        )
+
+        summary = generator._extract_zpd_summary(assessment)
+
+        assert summary == {
+            "proximal_count": 2,
+            "max_readiness": 1.0,
+            "blocking_gaps_count": 1,
+            "recommended_count": 1,
+        }
+
+    def test_empty_assessment_yields_zero_counts(self, generator):
+        from core.models.zpd.zpd_assessment import ZPDAssessment
+
+        assessment = ZPDAssessment(
+            current_zone=[],
+            proximal_zone=[],
+            engaged_paths=[],
+            readiness_scores={},
+            blocking_gaps=[],
+            behavioral_readiness=0.5,
+        )
+
+        summary = generator._extract_zpd_summary(assessment)
+
+        assert summary["proximal_count"] == 0
+        assert summary["max_readiness"] is None
+        assert summary["blocking_gaps_count"] == 0
+        assert summary["recommended_count"] == 0
+
+    def test_render_zpd_section_shows_counts(self, generator):
+        """The report UI renders the new summary shape (end-to-end shape check)."""
+        from fasthtml.common import to_xml
+
+        from ui.learning_loop.report import _render_zpd_section
+
+        html = to_xml(
+            _render_zpd_section(
+                {
+                    "proximal_count": 2,
+                    "max_readiness": 0.5,
+                    "blocking_gaps_count": 1,
+                    "recommended_count": 3,
+                }
+            )
+        )
+
+        assert "Zone of Proximal Development" in html
+        assert "Ready next steps: 2" in html
+        assert "Top readiness: 50%" in html
+        assert "Blocking gaps: 1" in html
+        assert "Recommended actions: 3" in html
+
+    def test_render_zpd_section_collapses_for_legacy_snapshot(self, generator):
+        """Old baked snapshots ({'readiness_score': None, counts 0}) render nothing."""
+        from fasthtml.common import to_xml
+
+        from ui.learning_loop.report import _render_zpd_section
+
+        html = to_xml(
+            _render_zpd_section(
+                {"readiness_score": None, "blocking_gaps_count": 0, "recommended_count": 0}
+            )
+        )
+
+        assert "Zone of Proximal Development" not in html

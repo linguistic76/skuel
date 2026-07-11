@@ -1081,21 +1081,30 @@ def _render_cross_domain_section(patterns: dict[str, Any]) -> Any:
 
 
 def _render_zpd_section(zpd: dict[str, Any]) -> Any:
-    """Render Zone of Proximal Development summary (FULL tier only)."""
-    readiness = zpd.get("readiness_score")
+    """Render Zone of Proximal Development summary (FULL tier only).
+
+    Reads the summary baked by ``ProgressReportGenerator._extract_zpd_summary``:
+    ``proximal_count`` / ``max_readiness`` (dict-derived — there is no scalar
+    per-user readiness on ZPDAssessment), plus gap and action counts. Older
+    baked snapshots without these keys collapse to whatever counts they carry.
+    """
+    proximal = zpd.get("proximal_count", 0)
+    max_readiness = zpd.get("max_readiness")
     blocking = zpd.get("blocking_gaps_count", 0)
     recommended = zpd.get("recommended_count", 0)
 
-    if readiness is None:
-        return Div()
-
-    items = [
-        P(f"Learning readiness: {readiness:.0%}", cls="text-sm"),
-    ]
+    items = []
+    if proximal > 0:
+        items.append(P(f"Ready next steps: {proximal}", cls="text-sm"))
+    if max_readiness is not None:
+        items.append(P(f"Top readiness: {max_readiness:.0%}", cls="text-sm"))
     if blocking > 0:
         items.append(P(f"Blocking gaps: {blocking}", cls="text-sm text-amber-600"))
     if recommended > 0:
         items.append(P(f"Recommended actions: {recommended}", cls="text-sm text-muted-foreground"))
+
+    if not items:
+        return Div()
 
     return Div(
         Hr(cls="my-6"),

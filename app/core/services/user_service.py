@@ -107,11 +107,20 @@ class UserService:
             user_repo, event_bus=event_bus, metrics_cache=metrics_cache
         )
 
-        # Context builder requires the injected query executor
+        # Context builder requires the injected query executor.
+        #
+        # This is THE single app-wide UserContextBuilder (One Path Forward, July
+        # 2026): it must be constructed here because it needs user_service=self
+        # for user resolution — a true circular dependency, so it can't be built
+        # first and injected. services_bootstrap/compose.py reuses this instance
+        # for every consumer (UserContextService, report generators, orchestrators)
+        # and _intelligence_hub post-wires zpd_service + ps_engagement_service
+        # onto it — never construct a second builder in production.
+        self.context_builder: UserContextBuilder | None
         if query_executor is not None:
             self.context_builder = UserContextBuilder(query_executor, user_service=self)
         else:
-            self.context_builder = None  # type: ignore[assignment]
+            self.context_builder = None
             logger.warning(
                 "UserService initialized without query_executor - context operations unavailable"
             )

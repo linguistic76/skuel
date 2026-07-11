@@ -38,6 +38,8 @@ from ui.patterns.relationships import EntityRelationshipsSection
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
+    from ui.page_contexts import RelatedConceptChip
+
 _COLUMN_CLS = "mx-auto max-w-[700px] px-4 sm:px-6 pt-6 sm:pt-9 pb-28"
 
 # ---------------------------------------------------------------------------
@@ -320,7 +322,7 @@ def _related_placeholder(uid: str) -> "FT":
     )
 
 
-def render_ku_related_concepts(related: list[dict]) -> "FT":
+def render_ku_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
     """Related concepts — vector-similar Kus as reading-page chips.
 
     Read-time lens over embeddings: no edges exist or are created for these

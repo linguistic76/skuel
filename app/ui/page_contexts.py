@@ -279,3 +279,30 @@ class TodayPageContext(TypedDict):
     rituals: list[RitualView]
     kinds: dict[str, KindMeta]
     ritual_icons: dict[str, str]  # {"past": <svg>, "upcoming": <svg>} for ritualIconHtml()
+
+
+# =============================================================================
+# Explore — Related-concepts fragments (vector-similarity read-time lens)
+# =============================================================================
+
+
+class RelatedConceptChip(TypedDict):
+    """One similarity chip: uid + title only — a read-time hint, never an edge.
+
+    Produced by the /explore/*/related route boundary (narrowed from raw
+    vector-search node dicts); consumed by the related-concepts renderers.
+    """
+
+    uid: str
+    title: str
+
+
+class NextStepRelatedGroup(TypedDict):
+    """One ZPD next-step Ku with its undirected similarity hints.
+
+    ``ku`` is the readiness-ranked proximal-zone Ku (authored-edge traversal);
+    ``related`` are its vector neighbours, engaged Kus already filtered out.
+    """
+
+    ku: RelatedConceptChip
+    related: list[RelatedConceptChip]

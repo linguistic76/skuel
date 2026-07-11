@@ -9,9 +9,10 @@ related: []
 
 # Semantic Analysis Roadmap
 
-**Status:** Search wiring SHIPPED (#538, body-chunk semantic layer). The
-remainder is a 3-item backlog — product-approved 2026-07-10 as a follow-up arc,
-one item per PR, each planned fresh when picked up.
+**Status:** COMPLETE. Search wiring SHIPPED (#538, body-chunk semantic layer);
+all 3 remainder items shipped 2026-07-10 (one PR each — see per-item notes).
+The only open thread is item 3's deferred semantic pool expansion, data-gated
+on engagement edges.
 
 ---
 
@@ -88,14 +89,36 @@ candidates → LLM judge → per-row approve/reject. Mechanic
   graph. Reject is stateless v1 (suggestion reappears on regeneration);
   suggestions are ephemeral — no persisted suggestion nodes.
 
-### 3. Askesis/ZPD gap-detection feed
+### 3. Askesis/ZPD gap-detection feed — SHIPPED-AS-SCOPED 2026-07-10
 
-Route semantic neighbours of a learner's weak areas into ZPD gap analysis
-(`core/services/zpd/`), strengthening "what should I learn next."
-**STOP point: any change to user-visible recommendations** that weighs inferred
-gaps against authored curriculum order needs a pedagogical ruling.
+Phase A found the real blocker was a **production wiring bug**, not missing
+semantics: a second compose-level `UserContextBuilder` shadowed UserService's
+internal one, so the ZPD capstone (`zpd_assessment`) never reached
+`get_rich_unified_context` — daily-plan P5 ran on `None` since March. Shipped
+scope (pedagogical rulings 2026-07-10):
+
+- **Dual-builder fix:** ONE app-wide builder (owned by `UserService`, reused by
+  compose; guarded by a source-level regression test) — the capstone now runs
+  on the production daily-plan path.
+- **ENABLES-proximal:** the zone query's proximal expansion follows
+  `PREREQUISITE_FOR|ENABLES` (32 authored ENABLES edges now feed the zone).
+  **Ruling: proximal expansion ONLY** — readiness scoring and blocking-gap
+  logic stay strictly prerequisite-only; an enabler never becomes a gate.
+- **"Related to your next step" chips** on the PS detail page
+  (`/explore/next-step/related`, #598 mechanic): the viewer's readiness-ranked
+  proximal Kus, each with vector neighbours labeled "related (unordered)" —
+  authored-edge logic primary, vector hints explicitly undirected. Fail-soft
+  absent on CORE/anonymous/empty-zone.
+
+**Explicitly deferred — semantic pool expansion** (routing vector neighbours of
+weak areas INTO the candidate pool): parked until engagement data exists
+(Mike's ZPD is empty — zero activity→Ku edges). The fuel arc is
+entry-enrichment ([[entry-enrichment-capability]], EXTRACT_ACTIVITIES /
+vector-first entry↔graph linking), which stays parked. Re-open only with
+engagement data AND a fresh pedagogical ruling on weighing inferred gaps
+against authored order.
 
 ---
 
-**Trigger:** none — not data-gated. Picked up after the Discovery Analytics
-Phase 1 arc (search-event logging + gap surface) completes.
+**Trigger:** none — arc complete. Item 3's deferred remainder is data-gated on
+engagement edges (see above).

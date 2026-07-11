@@ -710,14 +710,23 @@ PLANNED_METHODS: dict[str, str] = {
         "view or a teacher-facing confidence dashboard"
     ),
     "core/services/zpd/zpd_service.py::get_proximal_ku_uids": (
-        "ZPD proximal-zone read — returns Ku UIDs in the learner's zone of "
-        "proximal development; wire into PS recommendations or the daily-plan "
-        "surface once the ZPD→UI path is built"
+        "lightweight ranked-proximal-Kus wrapper over assess_zone — the "
+        "/explore/next-step/related fragment (its once-destined consumer) ended "
+        "up on assess_zone directly because it also needs current_zone to filter "
+        "engaged Kus out of the hint chips; this wrapper stays staged for a "
+        "consumer that needs ONLY the ranked list"
     ),
     "core/services/zpd/zpd_service.py::get_readiness_score": (
         "ZPD readiness score for a specific Ku — wire into the PS detail page "
         "or the prerequisite-checker surface when per-Ku readiness is needed"
     ),
+    # NOT registrable: core/services/askesis_service.py::analyze_user_state has
+    # zero external callers (hand-verified 2026-07-10, PR 5 discovery-analytics
+    # arc) but shares its name with the LIVE UserStateAnalyzer.analyze_user_state
+    # it delegates to, so the name-based reference scan sees it as live — a
+    # registry entry here would only fire planned-marking-stale. Staged, not
+    # superseded (deletion-campaign protocol): it's the Askesis pre-answer
+    # state-snapshot facade awaiting its pipeline consumer.
     # Restored from campaign-18 deletion — test-covered, no production caller
     # (find_similar_to_node graduated 2026-07-10: consumed by find_related_concepts
     # → the /explore/{ku,ps}/{uid}/related "Related concepts" fragments)

@@ -784,7 +784,7 @@ def test_live_known_dead_facade_method_flagged(live_methods):
     # it at another reference-free dead/planned method.
     # (Was pure_to_dict until campaign 18 deleted it; was list_user_knowledge
     # until the curriculum campaign deleted it.)
-    finding = finding_for(live_methods.findings, "get_proximal_ku_uids")
+    finding = finding_for(live_methods.findings, "get_readiness_score")
     assert finding is not None and finding.severity is BloatSeverity.PLANNED
 
 

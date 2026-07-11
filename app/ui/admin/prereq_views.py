@@ -138,7 +138,8 @@ class AdminPrereqComponents:
             if preselect is None
             else []
         )
-        options = placeholder + [
+        options = [
+            *placeholder,
             Option(
                 f"Prerequisite: {s.a_title} → {s.b_title}",
                 value=CHOICE_PREREQ_A_TO_B,

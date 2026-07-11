@@ -104,11 +104,17 @@ class ZPDService:
 Single-roundtrip `_ZONE_QUERY` — 6 steps in one Cypher query:
 
 1. **Current zone** — KUs via APPLIES_KNOWLEDGE (tasks, journals) + REINFORCES_KNOWLEDGE (habits). Returns per-source lists for compound evidence.
-2. **Proximal zone** — adjacent via PREREQUISITE_FOR, COMPLEMENTARY_TO, LP ORGANIZES. Excludes already-engaged KUs.
-3. **Prerequisite graph** — total vs met prerequisites per proximal KU (readiness scoring).
+2. **Proximal zone** — adjacent via PREREQUISITE_FOR, **ENABLES/ENABLES_KNOWLEDGE** (both enabler vocabularies: standalone Edge YAML authors ENABLES; frontmatter connections.enables ingests as ENABLES_KNOWLEDGE), COMPLEMENTARY_TO, LP ORGANIZES. Excludes already-engaged KUs. A **PS-enabler bridge** also expands from the RAW engaged entities (activity edges target :PathStep too, ADR-046) and rolls enabled PathSteps down to their composed Kus — the zone stays Ku-grain.
+3. **Prerequisite graph** — total vs met prerequisites per proximal KU (readiness scoring). PREREQUISITE_FOR only.
 4. **Engaged Learning Paths** — LPs the user is partially traversing.
-5. **Blocking gaps** — prerequisite KUs not met that gate proximal KUs.
+5. **Blocking gaps** — prerequisite KUs not met that gate proximal KUs. PREREQUISITE_FOR only.
 6. **Submission scores** — via `FULFILLS_EXERCISE -> APPLIES_KNOWLEDGE` join.
+
+> **ENABLES ruling (2026-07-10):** ENABLES counts for **proximal expansion only**
+> (step 2). Readiness (step 3) and blocking gaps (step 5) stay strictly
+> prerequisite-driven — an enabler is an invitation, never a gate. Guarded by
+> `tests/unit/adapters/test_zpd_backend_query_shape.py` +
+> `tests/integration/test_zpd_enables_proximal.py`.
 
 **Guard:** `get_ku_count()` — ZPD requires 3+ KUs in the curriculum graph. Below threshold, returns empty assessment.
 
@@ -283,10 +289,21 @@ if zpd_service is not None:
 - `None` on standard `build()` or CORE tier
 - Populated only on `build_rich()` with FULL intelligence tier
 
+> **ONE builder (July 2026):** there is a single app-wide `UserContextBuilder`,
+> constructed inside `UserService.__init__` (it needs `user_service=self`) and
+> reused by compose.py; `_intelligence_hub` post-wires `zpd_service` onto it.
+> Never construct a second builder in production — a compose-level duplicate
+> once left `zpd_assessment` permanently None on the daily-plan path
+> (`UserService.get_rich_unified_context`). Guarded by
+> `tests/unit/services/test_user_context_builder_wiring.py`.
+
 **Consumers:**
 - `DailyPlanningMixin.get_ready_to_work_on_today()` — P5 Learning: uses `recommended_actions`
 - `LearningIntelligenceMixin.get_optimal_next_path_steps()` — primary ranking signal
 - `AskesisService` — reads assessment for scaffolding decisions
+- `/explore/next-step/related` fragment (PS detail page) — "Related to your next step"
+  chips via `assess_zone()` (readiness-ranked proximal Kus, engaged Kus filtered from
+  hints) + vector neighbours (labeled unordered hints)
 
 ---
 

@@ -112,7 +112,7 @@ async def assess_zone(self, user_uid: UserUID, context: UserContext | None = Non
 ZPDBackend uses a single 2-hop Cypher traversal per `get_zone_data()` call:
 
 - **Step 1:** Find current zone — KUs via APPLIES_KNOWLEDGE (Tasks, Journals) + REINFORCES_KNOWLEDGE (Habits). Returns per-source lists: `task_engaged`, `journal_engaged`, `habit_engaged`
-- **Step 2:** Find proximal zone — adjacent via PREREQUISITE_FOR, COMPLEMENTARY_TO, LP ORGANIZES (same path, next step)
+- **Step 2:** Find proximal zone — adjacent via PREREQUISITE_FOR, ENABLES|ENABLES_KNOWLEDGE (both enabler vocabularies — standalone Edge YAML authors ENABLES, frontmatter connections.enables ingests as ENABLES_KNOWLEDGE), COMPLEMENTARY_TO, LP ORGANIZES (same path, next step). A PS-enabler bridge additionally expands from the RAW (pre-roll-down) engaged entities — activity edges target :PathStep too (ADR-046) — rolling enabled PathSteps down to their composed Kus so the zone keeps its Ku-grain invariant. Enablers expand the proximal zone ONLY (ruling 2026-07-10) — Steps 3 and 5 stay strictly PREREQUISITE_FOR; an enabler never becomes a gate
 - **Step 3:** Prerequisite graph for readiness scoring — count total vs met prerequisites per proximal KU
 - **Step 4:** Engaged Learning Paths — which LPs the user is actively on
 - **Step 5:** Blocking gaps — prerequisite KUs not yet met that block proximal KUs

@@ -48,6 +48,8 @@ def create_explore_routes(
         form_submission_service=services.form_submissions,
         # None on CORE tier — the "Related concepts" sections are simply absent
         vector_search_service=services.vector_search_service,
+        # None on CORE tier — "Related to your next step" is simply absent
+        zpd_service=services.zpd_service,
     )
 
 

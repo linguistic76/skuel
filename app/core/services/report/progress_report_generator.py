@@ -445,11 +445,19 @@ class ProgressReportGenerator:
         return trends
 
     def _extract_zpd_summary(self, zpd: Any) -> dict[str, Any]:
-        """Extract a serializable summary from a ZPDAssessment."""
+        """Extract a serializable summary from a ZPDAssessment.
+
+        ``readiness_scores`` is a per-proximal-Ku dict — the summary carries its
+        size (ready next steps) and its max (best single readiness), not a
+        single scalar (ZPDAssessment has no per-user aggregate score).
+        """
+        raw_scores = getattr(zpd, "readiness_scores", None)
+        readiness_scores: dict[str, float] = raw_scores if isinstance(raw_scores, dict) else {}
         return {
-            "readiness_score": getattr(zpd, "readiness_score", None),
-            "blocking_gaps_count": len(getattr(zpd, "blocking_gaps", []) or []),
-            "recommended_count": len(getattr(zpd, "recommended_actions", []) or []),
+            "proximal_count": len(getattr(zpd, "proximal_zone", None) or []),
+            "max_readiness": max(readiness_scores.values()) if readiness_scores else None,
+            "blocking_gaps_count": len(getattr(zpd, "blocking_gaps", None) or []),
+            "recommended_count": len(getattr(zpd, "recommended_actions", None) or []),
         }
 
     def _synthesize_recommendations(
