@@ -1555,6 +1555,22 @@ async def compose_services(
         )
         logger.info("✅ Admin Orchestrator created")
 
+        # Prerequisite-edge suggestions (Discovery Analytics PR 4) — read-only
+        # candidate backend + the ONE sanctioned vault-write adapter (approve
+        # writes an Edge YAML into {INGESTION_PATH}/edges/, never the graph).
+        # Tier-independent construction: llm_service is None on CORE, where the
+        # queue degrades to undirected pairs the admin classifies himself.
+        from adapters.persistence.neo4j.prereq_candidate_backend import PrereqCandidateBackend
+        from adapters.vault.content_edge_writer import ContentVaultEdgeWriter
+        from core.services.prereq_suggestion_service import PrereqSuggestionService
+
+        prereq_suggestions = PrereqSuggestionService(
+            backend=PrereqCandidateBackend(query_executor),
+            edge_writer=ContentVaultEdgeWriter(config.vault.ingestion_path),
+            llm_service=llm_service,
+        )
+        logger.info("✅ PrereqSuggestionService created (admin edge-suggestion queue)")
+
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
         activity_review_orchestrator = ActivityReviewOrchestrator(
@@ -1759,6 +1775,7 @@ async def compose_services(
             goal_task_generator=orchestration["goal_task_generator"],
             habit_event_scheduler=orchestration["habit_event_scheduler"],
             admin_orchestrator=admin_orchestrator,
+            prereq_suggestions=prereq_suggestions,
             profile_orchestrator=profile_orchestrator,
             user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,

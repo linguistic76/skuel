@@ -62,12 +62,31 @@ only (section absent on CORE). Threshold `ku_similar_min_score=0.72` derived
 from a full-corpus sweep — see the derivation comment in
 `core/config/unified_config.py::VectorSearchConfig`.
 
-### 2. Prerequisite inference
+### 2. Prerequisite inference — SHIPPED 2026-07-10
 
-Derive suggested `PREREQUISITE_FOR` edges from content similarity. Suggestions
-only — authored Edge YAML stays canonical, and inferred edges are NEVER
-auto-written to the graph. **Open product decision (STOP point): the approval
-workflow** (admin queue vs drafted Edge YAML in the vault).
+Landed as the **admin suggestion queue** at `/admin/prereq-suggestions`:
+candidates → LLM judge → per-row approve/reject. Mechanic
+(`PrereqSuggestionService` + read-only `PrereqCandidateBackend`):
+
+- **Candidates = MID-similarity band, not the 0.72 knob.** Phase A proved
+  authored `PREREQUISITE_FOR` pairs sit at cosine 0.32–0.57; the band is
+  0.40–0.72 (0.40 admits 6/8 authored pairs = recall ceiling; 0.72 hands off
+  to the "Related concepts" lens), per-Ku cap + 200-pair global bound.
+  Pairs already connected by ANY Ku↔Ku edge (both directions) or covered by
+  an authored directed path are excluded. Pairwise cosine runs in-process
+  over stored `Ku.embedding` — no vector-index round-trips.
+- **Judge = LLM (FULL tier)**: {prereq A→B | B→A | related | skip} + one-line
+  rationale (`prereq_edge_judge` template, fail-soft per batch). **CORE
+  degrades** to undirected pairs — the admin picks relation + direction
+  himself (Analog-complete).
+- **Approval ruling (Mike, 2026-07-10): approve = the app writes ONE Edge
+  YAML file into `{INGESTION_PATH}/edges/`** — the first sanctioned
+  vault-write (`EdgeFileWriterPort` / `ContentVaultEdgeWriter`: containment
+  after resolve(), strict filename shape, never overwrites, colon-form UIDs
+  reverse-normalized, `source: inferred-approved`). The edge lands in the
+  graph via the normal content-vault sync; this feature NEVER writes to the
+  graph. Reject is stateless v1 (suggestion reappears on regeneration);
+  suggestions are ephemeral — no persisted suggestion nodes.
 
 ### 3. Askesis/ZPD gap-detection feed
 

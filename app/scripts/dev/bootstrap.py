@@ -771,7 +771,13 @@ async def _wire_all_routes(
     from adapters.inbound.admin_dashboard_ui import create_admin_dashboard_routes
 
     assert services.admin_orchestrator is not None, "AdminOrchestrator not initialised"
-    create_admin_dashboard_routes(app, rt, orchestrator=services.admin_orchestrator)
+    assert services.prereq_suggestions is not None, "PrereqSuggestionService not initialised"
+    create_admin_dashboard_routes(
+        app,
+        rt,
+        orchestrator=services.admin_orchestrator,
+        prereq_suggestions=services.prereq_suggestions,
+    )
 
     if services.cross_domain_analytics:
         from adapters.inbound.analytics_api import register_analytics_routes

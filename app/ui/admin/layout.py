@@ -17,6 +17,7 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Overview", "/admin", "overview", icon="📊"),
     SidebarItem("Users", "/admin/users", "users", icon="👥"),
     SidebarItem("Analytics", "/admin/analytics", "analytics", icon="📈"),
+    SidebarItem("Prereq Edges", "/admin/prereq-suggestions", "prereq", icon="🔗"),
     SidebarItem("Transcription", "/admin/batch-transcribe", "transcription", icon="🎙️"),
     SidebarItem("System", "/admin/system", "system", icon="⚙️"),
     SidebarItem(

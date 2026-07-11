@@ -611,7 +611,7 @@ source: self_observation
 - `confidence`: 0.0–1.0
 - `polarity`: -1 (negative), 0 (neutral), 1 (positive)
 - `temporality`: minutes, hours, days, chronic
-- `source`: self_observation, research, teacher, clinical
+- `source`: self_observation, research, teacher, clinical, inferred-approved (app-stamped on admin-approved suggestions; hand-authored edges use the first four)
 
 ### Curriculum Structure Edges (Batch Relationship Files)
 

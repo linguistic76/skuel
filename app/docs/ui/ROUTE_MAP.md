@@ -10,6 +10,10 @@ For layout primitives (`BasePage`, `SidebarPage`, `AuthPage`) and shared compone
 
 Admin navbar: SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sign out (icon+text). Admin home hub at `/` shows two cards: Admin (`/admin`) + Teaching (`/teaching/students`). Mobile: hamburger with Admin + Teaching + Sign out links. Icon links are hidden for admins.
 
+### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
+
+Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" runs the on-demand pipeline (mid-band Ku-pair candidates → LLM judge on FULL tier; undirected pairs on CORE). Each row: pair titles + cosine + judge rationale, a relation/direction select, **Approve** (writes ONE Edge YAML into the content vault's `edges/` — lands in the graph on the next content sync) and **Reject** (client-side only; stateless v1). Routes in `adapters/inbound/admin_dashboard_ui.py`; components in `ui/admin/prereq_views.py`.
+
 ---
 
 ## Regular User Navigation
