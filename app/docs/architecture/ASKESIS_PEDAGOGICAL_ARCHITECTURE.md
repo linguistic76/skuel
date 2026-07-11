@@ -53,8 +53,8 @@ and the engagement is meaningful (not a single abandoned task).
 ### Proximal Zone (what the user is ready for)
 
 ```cypher
-// Structurally ready — prerequisites met
-(Ku_engaged)-[:PREREQUISITE_FOR]->(Ku_next)
+// Structurally ready — prerequisites met, or opened up by an enabler
+(Ku_engaged)-[:PREREQUISITE_FOR|ENABLES]->(Ku_next)
 
 // Could illuminate — complementary to engaged KU
 (Ku_engaged)-[:COMPLEMENTARY_TO]->(Ku_adjacent)
@@ -67,6 +67,10 @@ A KU is in the **proximal zone** when:
 1. It is adjacent to an engaged KU via one of these edges, AND
 2. The user has not yet meaningfully engaged it, AND
 3. The user has engaged the prerequisite(s) for it (if any)
+
+ENABLES counts for proximal expansion **only** (ruling 2026-07-10): readiness
+scoring and blocking-gap detection stay strictly PREREQUISITE_FOR — an enabler
+is an invitation, never a gate.
 
 This is the computation `ZPDService.assess_zone()` performs (see
 `docs/roadmap/zpd-service-architecture.md`).

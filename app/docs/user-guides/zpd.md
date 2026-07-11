@@ -72,10 +72,15 @@ Once your current zone is established, ZPD looks outward. It finds knowledge uni
 | Connection type | What it means |
 |----------------|--------------|
 | PREREQUISITE_FOR | You know X, and X is a prerequisite for Y — so Y is in reach |
+| ENABLES | You know X, and X enables Y — Y is an invitation, not a requirement |
 | COMPLEMENTARY_TO | You know X, and Y complements X — exploring Y would deepen understanding |
 | Learning Path siblings | You're on step 3 of a path — step 4 is structurally next |
 
 The proximal zone excludes anything you've already engaged with. It's always forward-looking.
+
+ENABLES expands the proximal zone **only**. Readiness scores and blocking gaps
+stay strictly prerequisite-based — an enabler never becomes something you're
+required to learn first.
 
 ### Readiness Scores
 
