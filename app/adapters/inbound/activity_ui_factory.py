@@ -19,8 +19,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
-from fasthtml.common import Div
+from fasthtml.common import Div, HttpHeader
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -182,9 +183,21 @@ def create_activity_ui_routes(
     async def page(request: Request) -> Any:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
+        # The shell and its content fragment are two separate HTTP requests:
+        # filter params in the page URL (stat-card links, bookmarks, the
+        # HX-Push-Url below) must be explicitly re-forwarded or they are
+        # silently dropped and the fragment renders with defaults.
+        forwarded = {
+            name: request.query_params[name]
+            for name, _default in config.filter_params
+            if name in request.query_params
+        }
+        fragment_url = f"/{domain}/content"
+        if forwarded:
+            fragment_url = f"{fragment_url}?{urlencode(forwarded)}"
         content = Div(
             PageHeader(title, actions=header_actions),
-            content_loading_placeholder(f"/{domain}/content", f"{domain}-content"),
+            content_loading_placeholder(fragment_url, f"{domain}-content"),
             personal_header_placeholder(),
         )
         return await render_activity_sidebar_page(content, active=domain, request=request)
@@ -226,14 +239,23 @@ def create_activity_ui_routes(
     @rt(f"/{domain}/list-fragment")
     async def list_fragment(request: Request) -> Any:
         """HTMX fragment: filtered list only (for filter bar updates)."""
-        error, _all_items, filtered, connections_map, _param_values = await _fetch_filtered(request)
+        error, _all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
         if error is not None:
             return Div(
                 render_error_banner(error.display_message),
                 id=f"{singular}-list",
             )
 
-        return config.list_component(filtered, connections_map)
+        # Sync the browser URL with the applied filters so a filtered view is
+        # bookmarkable and survives refresh (the page shell re-forwards the
+        # params). Default-valued params are omitted to keep the URL canonical.
+        non_default = {
+            name: param_values[name]
+            for name, default in config.filter_params
+            if param_values[name] != default
+        }
+        page_url = f"/{domain}?{urlencode(non_default)}" if non_default else f"/{domain}"
+        return config.list_component(filtered, connections_map), HttpHeader("HX-Push-Url", page_url)
 
     # ------------------------------------------------------------------
     # 4. Detail shell: /{domain}/detail
