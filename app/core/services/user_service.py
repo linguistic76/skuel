@@ -217,16 +217,28 @@ class UserService:
     ) -> Result[User]:
         """Update user preferences (convenience method).
 
-        Invalidates the cached UserContext immediately on success — preference
-        fields (available_minutes_daily → workload capacity, preferred_time,
-        learning_level) feed the context, so a Settings save must be visible
-        on the next context read, not after the 5-minute TTL.
+        Invalidates the cached UserContext immediately on success, then
+        REBUILDS it — preference fields (available_minutes_daily → workload
+        capacity, preferred_time, learning_level) feed the context, and
+        cache-hit-only consumers (SearchRouter._peek_capacity_warnings) never
+        build on their own, so invalidation alone would leave search blind to
+        the new preferences until another surface warmed the cache (Codex
+        #605). The rebuild costs one rich build per Settings save — the same
+        price the navbar personal-header pays on every page load. Fail-soft:
+        a rebuild failure logs and the save still succeeds (the cache is
+        simply cold, as before).
         """
         result = await self.core.update_preferences(user_uid, preferences_update)
         if result.is_ok:
             await self.activity.invalidate_context(
                 user_uid, reason=InvalidationReason.PREFERENCES_UPDATED, immediate=True
             )
+            rebuild = await self.get_rich_unified_context(user_uid)
+            if rebuild.is_error:
+                logger.warning(
+                    "Context rebuild after preference save failed — cache stays cold",
+                    extra={"user_uid": user_uid, "error": str(rebuild.error)},
+                )
         return result
 
     async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- facade delegation to the safe-by-design store_callback (ADR-030)

@@ -153,10 +153,20 @@ class TestBuilderWiresPreferences:
     """BOTH build paths must carry User.preferences into the context."""
 
     def _user_service(self, prefs: UserPreferences) -> UserService:
-        user = User(uid=_UID, title=_UID, email="prefs@test.local", preferences=prefs)
+        # Stateful repo double: update_user persists, get_user_by_uid returns
+        # the latest — the post-save context REBUILD must see the new prefs.
+        state = {"user": User(uid=_UID, title=_UID, email="prefs@test.local", preferences=prefs)}
+
+        async def _get(_uid: str) -> Result[User]:
+            return Result.ok(state["user"])
+
+        async def _update(user: User) -> Result[User]:
+            state["user"] = user
+            return Result.ok(user)
+
         repo = MagicMock()
-        repo.get_user_by_uid = AsyncMock(return_value=Result.ok(user))
-        repo.update_user = AsyncMock(side_effect=Result.ok)
+        repo.get_user_by_uid = AsyncMock(side_effect=_get)
+        repo.update_user = AsyncMock(side_effect=_update)
         executor = MagicMock()
         executor.execute_mega_query = AsyncMock(
             return_value=Result.ok({"uids": {}, "entities": {}, "rich": {}})
@@ -186,19 +196,28 @@ class TestBuilderWiresPreferences:
         assert result.is_ok, f"rich context build failed: {result.error}"
         assert result.value.available_minutes_daily == 300
 
-    async def test_update_preferences_invalidates_context_cache(self) -> None:
-        """A Settings save must be visible on the NEXT context read — the
-        cached rich context is invalidated immediately, not after the TTL."""
+    async def test_update_preferences_rebuilds_context_cache(self) -> None:
+        """A Settings save must be visible to cache-hit-only consumers
+        (SearchRouter._peek_capacity_warnings never builds): the cached rich
+        context is invalidated AND rebuilt with the new preferences — neither
+        stale (old value until TTL) nor cold (peek returns nothing)."""
         service = self._user_service(_preferences(available_minutes_daily=60))
 
         warmed = await service.get_rich_unified_context(_UID)
         assert warmed.is_ok
-        assert service.peek_cached_context(_UID) is not None
+        cached = service.peek_cached_context(_UID)
+        assert cached is not None
+        assert cached.available_minutes_daily == 60
 
         update = await service.update_preferences(_UID, {"available_minutes_daily": 300})
 
         assert update.is_ok, f"update failed: {update.error}"
-        assert service.peek_cached_context(_UID) is None, (
-            "preferences save left a stale cached context — capacity warnings "
+        rebuilt = service.peek_cached_context(_UID)
+        assert rebuilt is not None, (
+            "preferences save left a COLD context cache — cache-hit-only "
+            "capacity warnings would vanish on a save-then-search flow"
+        )
+        assert rebuilt.available_minutes_daily == 300, (
+            "preferences save left a STALE cached context — capacity warnings "
             "would ignore the new available_minutes_daily until TTL expiry"
         )
