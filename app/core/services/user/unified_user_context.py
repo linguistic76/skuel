@@ -79,6 +79,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.ports.query_types import (
+        CapacityWarnings,
         CrossDomainInsightsData,
         CurrentPathStepItem,
         GroupSummary,
@@ -794,6 +795,48 @@ class UserContext:
         )
         capacity = self.available_minutes_daily // 15  # 15 min per item average
         return min(1.0, active_items / max(capacity, 1))
+
+    def get_capacity_warnings(self) -> "CapacityWarnings":
+        """Advisory warnings for surfaces that offer NEW work (search, recommendations).
+
+        Empty dict means no concerns — callers put it straight on
+        ``SearchResponse.capacity_warnings``. Reads the builder-computed
+        ``current_workload_score`` (calculate_current_workload) and the
+        overdue backlog; at most two entries (payload shapes:
+        ``core/ports/query_types.py`` WorkloadWarning / OverdueTasksWarning):
+
+        - ``workload`` — score ≥ 0.8: approaching (``high``) or at
+          (``at_capacity``) the user's daily capacity
+        - ``overdue_tasks`` — any overdue tasks outstanding
+        """
+        warnings: CapacityWarnings = {}
+
+        score = self.current_workload_score
+        if score >= 0.8:
+            active_items = (
+                len(self.active_task_uids) + len(self.today_event_uids) + len(self.daily_habits)
+            )
+            at_capacity = score >= 1.0
+            descriptor = "at" if at_capacity else "near"
+            warnings["workload"] = {
+                "level": "at_capacity" if at_capacity else "high",
+                "score": round(score, 2),
+                "active_items": active_items,
+                "message": (
+                    f"You're {descriptor} your daily capacity "
+                    f"({active_items} active items) — be selective about taking on more."
+                ),
+            }
+
+        if self.overdue_task_uids:
+            count = len(self.overdue_task_uids)
+            plural = "s" if count != 1 else ""
+            warnings["overdue_tasks"] = {
+                "count": count,
+                "message": f"{count} task{plural} overdue — consider clearing those first.",
+            }
+
+        return warnings
 
     def get_recommended_next_action(self) -> dict[str, Any]:
         """

@@ -83,7 +83,11 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
-    from core.ports.query_types import NousSubtopicPair, SemanticSearchChunkResult
+    from core.ports.query_types import (
+        CapacityWarnings,
+        NousSubtopicPair,
+        SemanticSearchChunkResult,
+    )
     from core.services.user import UserContext
     from services_bootstrap import Services
 
@@ -596,7 +600,7 @@ class SearchRouter:
         """
         from datetime import datetime
 
-        from core.models.search_request import SearchResponse
+        from core.models.search_request import SearchResponse, build_facet_counts
 
         start_time = datetime.now()
 
@@ -657,6 +661,16 @@ class SearchRouter:
                 )
                 response = Result.ok(augmented)
 
+            # Response enrichment (July 2026 — the formerly writer-less
+            # fields): facet counts derive from the returned window, and
+            # capacity warnings come from the WARM UserContext cache only —
+            # neither adds a query to the keystroke-driven /search path.
+            if response.is_ok:
+                if request.include_facet_counts and response.value.results:
+                    response.value.facet_counts = build_facet_counts(response.value.results)
+                if user_uid is not None:
+                    response.value.capacity_warnings = self._peek_capacity_warnings(user_uid)
+
             if log_event and response.is_ok:
                 await self._publish_search_event(
                     request.query_text,
@@ -675,6 +689,22 @@ class SearchRouter:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Faceted search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
+
+    def _peek_capacity_warnings(self, user_uid: UserUID) -> "CapacityWarnings":
+        """Capacity warnings from the WARM UserContext cache — never builds.
+
+        Cache-hit-only by design: search must not pay MEGA-QUERY latency
+        (SEARCH_ARCHITECTURE § Personalization). A cold cache yields no
+        warnings; surfaces that build the rich context (profile, personal
+        header) warm it, and domain events keep it honest via invalidation.
+        """
+        user_service = getattr(self.services, "user", None)
+        if user_service is None:
+            return {}
+        context = user_service.peek_cached_context(user_uid)
+        if context is None:
+            return {}
+        return context.get_capacity_warnings()
 
     async def retrieve_scoped_chunks(
         self,
