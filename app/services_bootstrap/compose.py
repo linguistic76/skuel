@@ -1589,6 +1589,33 @@ async def compose_services(
         )
         logger.info("✅ PrereqSuggestionService created (admin edge-suggestion queue)")
 
+        # Entry→Ku grounding (Entry-Enrichment PR 3). Tier-independent
+        # construction: the candidate stage only READS stored vectors through
+        # the Ku vector index, so CORE (which composes no shared vector-search
+        # service — that one bundles the embeddings client) gets a client-less
+        # instance; llm_service is None on CORE, where candidates write
+        # vector-only. Triggers: post-sync pass in the vault sync doors +
+        # scripts/ground_knowledge_entries.py backfill.
+        from adapters.persistence.neo4j.entry_grounding_backend import EntryGroundingBackend
+        from core.services.entry_grounding_service import EntryGroundingService
+
+        grounding_vector_search = vector_search_service
+        if grounding_vector_search is None:
+            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
+            from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+
+            grounding_vector_search = Neo4jVectorSearchService(
+                VectorSearchBackend(executor=query_executor)
+            )
+
+        entry_grounding = EntryGroundingService(
+            backend=EntryGroundingBackend(query_executor),
+            vector_search=grounding_vector_search,
+            event_bus=event_bus,
+            llm_service=llm_service,
+        )
+        logger.info("✅ EntryGroundingService created (entry→Ku grounding)")
+
         from core.orchestrator.activity_review_orchestrator import ActivityReviewOrchestrator
 
         activity_review_orchestrator = ActivityReviewOrchestrator(
@@ -1794,6 +1821,7 @@ async def compose_services(
             habit_event_scheduler=orchestration["habit_event_scheduler"],
             admin_orchestrator=admin_orchestrator,
             prereq_suggestions=prereq_suggestions,
+            entry_grounding=entry_grounding,
             profile_orchestrator=profile_orchestrator,
             user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,

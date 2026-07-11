@@ -807,6 +807,71 @@ def to_ku_edge_rows(records: list[Neo4jProperties]) -> list[KuEdgeRow]:
     return rows
 
 
+class GroundingEntryRow(TypedDict):
+    """One knowledge-pipeline UserEntry awaiting a Ku-grounding pass.
+
+    Read by ``EntryGroundingBackend.get_pending_entries`` — the candidate
+    stage of entry→Ku grounding queries the Ku vector index with the entry's
+    stored embedding. ``applied_ku_uids`` (existing APPLIES_KNOWLEDGE targets)
+    and ``rejected_ku_uids`` (user-removed inferred links) are carried so the
+    service never re-writes an existing edge, never re-publishes its substance
+    event, and never re-infers a link the user deliberately removed.
+    """
+
+    uid: str
+    user_uid: str
+    title: str
+    content: str
+    embedding: list[float]
+    embedding_text_hash: str
+    applied_ku_uids: list[str]
+    rejected_ku_uids: list[str]
+
+
+class GroundingRemovalRow(TypedDict):
+    """Provenance of one removed ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge.
+
+    Returned by ``EntryGroundingBackend.remove_grounded_edge`` so removals can
+    be logged as threshold-calibration data (Mike's ruling 2026-07-11: the
+    user is editor, not approver — removals teach us where the knob is wrong).
+    """
+
+    ku_uid: str
+    confidence: float | None
+    inferred: bool
+
+
+def to_grounding_entry_rows(records: list[Neo4jProperties]) -> list[GroundingEntryRow]:
+    """Narrow raw pending-entry rows to typed ``GroundingEntryRow``s (malformed rows dropped)."""
+    rows: list[GroundingEntryRow] = []
+    for record in records:
+        uid = record.get("uid")
+        user_uid = record.get("user_uid")
+        embedding = record.get("embedding")
+        if (
+            not isinstance(uid, str)
+            or not isinstance(user_uid, str)
+            or not isinstance(embedding, list)
+            or not embedding
+        ):
+            continue
+        applied = record.get("applied_ku_uids")
+        rejected = record.get("rejected_ku_uids")
+        rows.append(
+            GroundingEntryRow(
+                uid=uid,
+                user_uid=user_uid,
+                title=str(record.get("title") or uid),
+                content=str(record.get("content") or ""),
+                embedding=[float(v) for v in embedding],
+                embedding_text_hash=str(record.get("embedding_text_hash") or ""),
+                applied_ku_uids=[str(k) for k in applied] if isinstance(applied, list) else [],
+                rejected_ku_uids=[str(k) for k in rejected] if isinstance(rejected, list) else [],
+            )
+        )
+    return rows
+
+
 class ProgressResult(TypedDict, total=False):
     """
     Result structure for progress tracking operations.

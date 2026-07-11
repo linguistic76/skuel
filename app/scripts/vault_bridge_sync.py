@@ -35,6 +35,12 @@ events, so the drain step is skipped. ``scripts/generate_embeddings_batch.py
 [--stale]`` remains the backstop for pre-existing coverage gaps or drift, not
 a required follow-up to this script.
 
+Grounding (Entry-Enrichment PR 3): after the drain, personal-vault syncs run
+an entry→Ku grounding pass over pending ``pipeline: knowledge`` entries —
+because the drain just stored their embeddings, this sync's entries ground
+immediately. ``scripts/ground_knowledge_entries.py`` is the backfill/dry-run
+counterpart.
+
 Usage:
     uv run scripts/vault_bridge_sync.py --user <user_uid>          # personal
     uv run scripts/vault_bridge_sync.py --vault content            # content
@@ -103,6 +109,27 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
             return 1
+
+        # Post-sync grounding pass (Entry-Enrichment PR 3): the drain above
+        # just stored this sync's UserEntry embeddings in-process, so unlike
+        # the app-process route doors this pass grounds THIS sync's entries
+        # immediately. Personal vaults only — the content vault has no
+        # UserEntries. Fail-soft: a grounding problem never fails the sync.
+        if kind is VaultKind.PERSONAL:
+            grounding = composed.value.entry_grounding
+            if grounding is not None:
+                print("\nGrounding knowledge entries (post-sync pass) ...")
+                grounded = await grounding.ground_pending(UserUID(user_uid))
+                if grounded.is_error:
+                    print(f"WARNING: grounding pass failed: {grounded.expect_error()}")
+                else:
+                    report = grounded.value
+                    print(
+                        f"  entries scanned: {report.entries_scanned}, "
+                        f"edges written: {report.edges_written}, "
+                        f"failed: {report.entries_failed} "
+                        f"(judge={'on' if report.judged else 'off'})"
+                    )
 
         stats = result.value
         print("\n=== VaultSyncStats ===")

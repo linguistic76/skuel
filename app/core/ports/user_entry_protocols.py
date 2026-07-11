@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
-from core.ports.query_types import OrganizerResult
+from core.ports.query_types import GroundingEntryRow, GroundingRemovalRow, OrganizerResult
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -518,4 +518,45 @@ class UserEntryProcessingOperations(Protocol):
         new_instructions: dict[str, Any] | None = None,
     ) -> Result[UserEntry]:
         """Re-run the entry's pipeline, optionally with new instructions."""
+        ...
+
+
+# ============================================================================
+# Entry→Ku grounding — standalone backend contract (Entry-Enrichment PR 3)
+# ============================================================================
+
+
+@runtime_checkable
+class EntryGroundingBackendOperations(Protocol):
+    """Persistence contract for entry→Ku grounding.
+
+    Candidate reads + eager edge writes for ``EntryGroundingService``: which
+    knowledge-pipeline entries still need a grounding pass, the provenance-
+    stamped ``APPLIES_KNOWLEDGE`` write, the per-entry grounded stamp, and the
+    ownership-scoped removal that records the user's rejection.
+
+    Implementation: ``EntryGroundingBackend``
+    (``adapters/persistence/neo4j/entry_grounding_backend.py``).
+    """
+
+    async def get_pending_entries(
+        self, user_uid: str | None = None, force: bool = False
+    ) -> Result[list[GroundingEntryRow]]:
+        """Knowledge entries with an embedding whose grounding stamp is missing or stale."""
+        ...
+
+    async def write_applies_knowledge(
+        self, entry_uid: str, ku_uid: str, confidence: float
+    ) -> Result[bool]:
+        """MERGE the inferred edge with provenance; True iff a NEW edge was created."""
+        ...
+
+    async def stamp_grounded(self, entry_uid: str, text_hash: str, version: int) -> Result[None]:
+        """Mark the entry's grounding pass complete for its current embedding text."""
+        ...
+
+    async def remove_grounded_edge(
+        self, entry_uid: str, ku_uid: str, user_uid: UserUID
+    ) -> Result[GroundingRemovalRow | None]:
+        """Ownership-scoped edge delete + rejection record; None when nothing matched."""
         ...

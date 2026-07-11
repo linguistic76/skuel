@@ -188,7 +188,13 @@ Based on substance score:
 | **Event** | `connections.applies_knowledge` | `APPLIES_KNOWLEDGE` | Events (0.05/event, max 0.25) |
 | **Choice** | `connections.informed_by_knowledge` | `INFORMED_BY_KNOWLEDGE` | Choices (0.07/choice, max 0.15) |
 | **Principle** | `connections.grounded_in_knowledge` | `GROUNDED_IN_KNOWLEDGE` | Principles (0.07/principle, max 0.15) |
-| **UserEntry** | *(extraction-driven — `EXTRACT_ACTIVITIES` pipeline, not YAML)* | `APPLIES_KNOWLEDGE` | Entries (0.07/entry, max 0.20) |
+| **UserEntry** | *(entry-driven, not YAML — see below)* | `APPLIES_KNOWLEDGE` | Entries (0.07/entry, max 0.20) |
+
+The entries channel is scoped to **grounded knowledge/je_pro entries** (Mike's ruling
+2026-07-11) and has TWO writers, both publishing the same `KnowledgeReflectedInEntry`
+event: explicit `@ku()` references in the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and
+vector grounding of `pipeline: knowledge` entries (`EntryGroundingService`,
+Entry-Enrichment PR 3). The handler is writer-agnostic — same event, same credit.
 
 ### Examples
 
@@ -352,9 +358,16 @@ Each channel has a **single-item** event (exactly 1 KU connection) and a **bulk*
 - **Increments:** `times_reflected_in_entries`
 - **Updates:** `last_reflected_date`
 - **Weight:** 0.07 per entry (max 0.20)
-- **Published by:** `UserEntryProcessingService` — once per successful
-  `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` edge write in the `EXTRACT_ACTIVITIES`
-  pipeline (ADR-069)
+- **Published by:** TWO writers, one event, writer-agnostic handler:
+  - `UserEntryProcessingService` — once per successful
+    `(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)` edge write from an explicit `@ku()`
+    reference in the `EXTRACT_ACTIVITIES` pipeline (ADR-069)
+  - `EntryGroundingService` — once per genuinely NEW inferred edge
+    (`inferred: true`, `confidence: <similarity>`, `grounded_at`) written by the
+    vector grounding pass over `pipeline: knowledge` entries (knowledge/ and
+    je_pro/ doors — Entry-Enrichment PR 3). Existing edges and user-rejected
+    links never re-publish; removals via the grounding remove route are
+    calibration data for the threshold.
 - **Rationale:** Written reflection is metacognition — consciously processing the knowledge
 
 ---
@@ -409,7 +422,7 @@ All 6 channels tracked:
 - `event_knowledge_applied` - Events practicing KU
 - `choice_knowledge_informed` - Choices informed by KU
 - `principle_knowledge_grounded` - Principles grounded in KU
-- `entry_knowledge_applied` - UserEntries reflecting on KU (EXTRACT_ACTIVITIES, ADR-069)
+- `entry_knowledge_applied` - UserEntries reflecting on KU (explicit `@ku()` refs via EXTRACT_ACTIVITIES ADR-069, plus inferred grounding edges; the MEGA-QUERY's `min_confidence` filter applies to the inferred `confidence` property)
 
 ---
 

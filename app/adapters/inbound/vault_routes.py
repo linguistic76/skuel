@@ -60,6 +60,7 @@ from ui.patterns import PageHeader
 from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
+    from core.services.entry_grounding_service import EntryGroundingService
     from core.services.vault.vault_reconciler import VaultReconciler
 
 logger = get_logger("skuel.routes.vault")
@@ -397,9 +398,35 @@ def create_vault_routes(
     rt: RouteDecorator,
     vault_reconciler: VaultReconciler,
     user_service: Any,
+    entry_grounding: EntryGroundingService | None = None,
 ) -> None:
     """Register vault bridge routes (UI + API)."""
     get_user_service = make_service_getter(user_service)
+
+    async def _ground_after_sync(user_uid: UserUID) -> None:
+        """Post-sync entry→Ku grounding pass (Entry-Enrichment PR 3).
+
+        Fail-soft: grounding problems are logged, never surfaced as a sync
+        failure. Eventual consistency by design — in the app process the
+        background embedding worker embeds THIS sync's new entries up to a
+        batch interval later, so this pass grounds everything embedded since
+        the previous pass and a just-synced entry grounds on the next sync
+        (or via scripts/ground_knowledge_entries.py). Keeps the worker
+        generic — no domain logic inside it (ADR-070 no-background-watcher
+        stance for the trigger).
+        """
+        if entry_grounding is None:
+            return
+        result = await entry_grounding.ground_pending(user_uid)
+        if result.is_error:
+            logger.warning(f"Post-sync grounding pass failed: {result.expect_error()}")
+            return
+        report = result.value
+        if report.edges_written:
+            logger.info(
+                f"Post-sync grounding: {report.edges_written} edge(s) across "
+                f"{report.entries_with_writes} entries for {user_uid}"
+            )
 
     async def _describe_personal_vault(user_uid: UserUID) -> VaultDescription:
         """Unwrap the reconciler's read-only wall description for UI rendering.
@@ -487,6 +514,7 @@ def create_vault_routes(
         if stats.first_run_notice:
             return _consent_form(await _describe_personal_vault(user_uid))
 
+        await _ground_after_sync(user_uid)
         return _sync_stats_fragment(asdict(stats))
 
     @rt("/settings/vault/preview", methods=["POST"])
@@ -547,6 +575,7 @@ def create_vault_routes(
         if sync_result.is_error:
             return _sync_error_fragment(str(sync_result.expect_error()))
 
+        await _ground_after_sync(user_uid)
         return _sync_stats_fragment(asdict(sync_result.value))
 
     # ------------------------------------------------------------------
@@ -572,6 +601,7 @@ def create_vault_routes(
         stats = result.value
         if stats.first_run_notice:
             return Result.ok({"first_run_notice": True})
+        await _ground_after_sync(user_uid)
         return Result.ok(asdict(stats))
 
     @rt("/api/vault/preview", methods=["POST"])
@@ -614,6 +644,7 @@ def create_vault_routes(
         if sync_result.is_error:
             return Result.fail(sync_result)
 
+        await _ground_after_sync(user_uid)
         stats = sync_result.value
         payload = asdict(stats)
         payload["consented"] = True
