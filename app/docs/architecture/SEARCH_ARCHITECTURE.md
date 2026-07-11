@@ -145,16 +145,21 @@ negatives + the exercise visibility matrix, revert-verified against pre-fix main
 
 **When Used:** Fallback for text-only queries with no relationship filters
 
-**Implementation:** `SearchRouter.faceted_search()` → domain service `.search()`
+**Implementation:** `SearchRouter.faceted_search()` → `_simple_domain_search()` → domain service `.search()`
 
 **How it Works:**
 1. `SearchRouter` receives `SearchRequest`
-2. Routes to domain search service (e.g., `KuSearchService.search()`)
-3. Domain service builds Cypher via `UnifiedQueryBuilder`
-4. Executes fulltext or filtered search (fulltext indexes auto-created at bootstrap via `Neo4jSchemaManager.sync_fulltext_indexes()`)
-5. Returns results with relevance scoring
+2. Routes to the domain search service's `.search()` — inherited from
+   `BaseService` (`SearchOperationsMixin`), never defined per domain and never
+   called directly from routes
+3. The backend builds Cypher via `build_text_search_query()`
+   (`adapters/persistence/neo4j/query/cypher/crud_queries.py`): case-insensitive
+   `CONTAINS` over the domain's configured `search_fields`, visibility-scoped
+   by `build_search_visibility_clause()`
+4. Returns results sorted by the domain's `search_order_by`
 
-**UI Mapping:** "Properties" sidebar section — domain, SEL category, learning level, content type, educational level
+**UI Mapping:** the Type dropdown alone, or Type + the per-type context
+filters (status, priority, SEL category, learning level, ...)
 
 ```python
 request = SearchRequest(
@@ -204,26 +209,25 @@ response = await search_router.faceted_search(request, user_uid)
 
 ### 3. MEGA-QUERY (Context-Based)
 
-**Purpose:** Build complete user state for personalization and ranking
+**Purpose:** Build complete user state (`UserContext`) for the intelligence services
 
-**When Used:** Building `UserContext` for intelligence features; search uses a subset for ranking
+**When Used:** Daily planning, ZPD assessment, Askesis — NOT the search path
 
 **Implementation:** `/core/services/user/user_context_queries.py`
 
 **How it Works:**
 1. Single comprehensive Cypher query
 2. Fetches ~240 fields of user state across all entity types
-3. Powers capacity warnings, result ranking, personalized facet suggestions
+3. Powers the intelligence services (daily plan, ZPD, alignment)
 
 **Relationship to Search:**
-- NOT directly used for search queries
-- Provides user context for result ranking and capacity warnings
-- `build_rich(user_uid, window="30d")` extends MEGA-QUERY with activity window data
-
-```python
-user_context = await context_builder.build(user_uid)
-ranked_results = intelligence.rank_results(results, user_context)
-```
+- NOT part of any search query — `SearchRouter` never builds a `UserContext`,
+  so searching stays fast and adds no MEGA-QUERY latency
+- Search gets its per-user awareness a cheaper way: the graph-relationship
+  filters and `_graph_context` enrichment reference `$user_uid` directly
+  inside each domain's own Cypher (see the walkthrough below)
+- `build_rich(user_uid, window="30d")` extends MEGA-QUERY with activity
+  window data — again for intelligence features, not search
 
 ---
 
@@ -231,34 +235,93 @@ ranked_results = intelligence.rank_results(results, user_context)
 
 ### Request Flow
 
+The public entry point is always `SearchRouter.faceted_search()`. The names
+below the router are private routing helpers (`_`-prefixed) — you never call
+them directly; they show where a request goes inside the router.
+
 ```
-User types search → HTMX triggers /search/results
-       │
+User types in the search box, or changes any filter
+       │  (every control carries hx-get="/search/results" — HTMX re-fires
+       │   the search with ALL current filters via hx-include)
        ▼
-SearchRequest built (filter parameters)
-       │
+/search/results route (adapters/inbound/search_routes.py)
+       │  SearchRequest.from_form_params() — normalizes empty→None,
+       │  checkbox→bool, parses enums; invalid values → friendly error
        ▼
-has_relationship_filters()?
+SearchRouter.faceted_search(request, user_uid)      ← THE public entry point
        │
-  ┌────┴────┐
-  │         │
-  NO        YES
-  │         │
-  ▼         ▼
-simple_    graph_aware_
-search()   search()
-  │         │
-  │         ├─► Domain-specific handlers
-  │         └─► Returns with _graph_context
-  │
-  ├─► SearchIntelligenceService.rank_results()
-  │   (uses UserContext for personalization)
-  │
-  └─► SearchResponse with:
-      - results (with graph context if applicable)
-      - facet_counts (for sidebar badges)
-      - capacity_warnings (from UserContext)
+       ├─ single domain resolvable? (Type dropdown, or request.domain)
+       │    ├─ YES + graph-aware domain + user
+       │    │     → _graph_aware_domain_search()
+       │    │       → BaseService.graph_aware_faceted_search()
+       │    │         → backend.faceted_search_raw()   ← builds the Cypher
+       │    │           (ownership MATCH + property filters + text search
+       │    │            + relationship-filter fragments + enrichment)
+       │    ├─ YES, otherwise → _simple_domain_search()  (text search)
+       │    └─ NO → _cross_domain_search()  (sweeps eligible domains)
+       │
+       ├─ enable_semantic_boost checked? → _augment_with_body_chunks()
+       │    (FULL tier: vector search over lesson-body ContentChunks folds
+       │     body hits into their parent Ku/PathStep cards; fails soft)
+       │
+       └─► SearchResponse
+             - results (each stamped with _domain; _graph_context on the
+               graph-aware path)
+             - total / limit / offset (pagination)
+             - search_time_ms (shown in the results header)
 ```
+
+### One Search, End to End (worked example)
+
+What actually happens when you type **"python"**, set Type to **Tasks**, and
+check **Ready to learn**. The Cypher below is assembled by
+`faceted_search_raw` (`adapters/persistence/neo4j/_search_raw_mixin.py`) from
+three sources — the ownership MATCH (from the domain's `DomainConfig`), the
+text filter (from `search_fields`), and the relationship-filter fragment
+(from `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py`,
+quoted verbatim):
+
+```cypher
+// 1. Ownership scoping: only YOUR tasks are candidates.
+//    OWNS is the universal ownership edge; $user_uid is a query parameter —
+//    user data is never spliced into the query text.
+MATCH (user:User {uid: $user_uid})-[:OWNS]->(entity:Task)
+
+WHERE 1=1
+  // 2. Text search over the domain's configured search_fields
+  //    (title + description for Tasks). Case-insensitive substring match.
+  AND (toLower(entity.title) CONTAINS $query_text
+       OR toLower(entity.description) CONTAINS $query_text)
+
+  // 3. "Ready to learn" = the task has NO prerequisite knowledge
+  //    you haven't mastered yet. Double negative on purpose:
+  //    "no prerequisite exists that is not mastered".
+  AND NOT EXISTS {
+      MATCH (entity)-[:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+      WHERE NOT EXISTS {
+          MATCH (user:User {uid: $user_uid})-[:MASTERED]->(prereq)
+      }
+  }
+
+// 4. Graph enrichment: pull related nodes so the result card can show
+//    "Graph Context" badges without extra round trips. One OPTIONAL MATCH
+//    per pattern registered for the domain in relationship_registry.py
+//    (Task has ~18 — one shown here).
+OPTIONAL MATCH (entity)-[:APPLIES_KNOWLEDGE]->(applied_knowledge:Entity)
+
+RETURN entity,
+       collect(DISTINCT {applied_knowledge_uid: applied_knowledge.uid,
+                         applied_knowledge_title: applied_knowledge.title}) as applied_knowledge_list
+LIMIT $limit
+```
+
+Reading it as a founder: `MATCH` walks edges (the arrows ARE the
+relationships), `EXISTS { ... }` asks "is there such a path?" without
+returning it, and everything prefixed `$` is a parameter — the only way user
+input ever reaches a query. Every relationship-filter checkbox on `/search`
+maps to exactly one fragment like step 3; they are all in
+`relationship_filter_fragments.py`, each a self-contained boolean anchored on
+`(entity)`.
 
 ### Complementary Design
 
@@ -675,28 +738,20 @@ Key design: **query text is OPTIONAL** — filter-only search is valid, end to e
 
 ---
 
-## Personalization Pipeline
+## Personalization — What Actually Runs
 
-1. **User Context Loading** (from MEGA-QUERY):
-   ```python
-   user_context = await _build_user_context_for_ranking(user_uid)
-   ```
+Search personalization is **query-time, not ranking-time** on the `/search`
+path: the per-user awareness lives inside the Cypher itself (ownership MATCH,
+relationship-filter fragments referencing `$user_uid`, `_graph_context`
+enrichment). `faceted_search()` builds no `UserContext` and runs no ranking
+pass — that keeps the search box fast.
 
-2. **Result Ranking**:
-   ```python
-   ranked = intelligence.rank_results(results, user_context)
-   ```
-
-3. **Capacity Warnings** (in response):
-   ```python
-   warnings = _build_capacity_warnings(user_context)
-   # workload, energy, time, habits_at_risk, goal_context
-   ```
-
-4. **Facet Suggestions**:
-   ```python
-   suggestions = intelligence.suggest_facets(query, current_facets, user_context)
-   ```
+Context-based scoring exists on the API paths that already carry a
+`UserContext`: `intelligent_search()` and `advanced_search()` call
+`SearchRouter._score_results()`, which applies the unified per-domain scorers
+(next section). `SearchResponse.facet_counts` and
+`SearchResponse.capacity_warnings` are reserved fields — no producer
+populates them today; treat any doc or UI that claims otherwise as stale.
 
 ---
 
@@ -893,7 +948,7 @@ Graph Relationships:
 | **Vector Search** | `/core/services/neo4j_vector_search_service.py` | `semantic_enhanced_search()`, `learning_aware_search()` (FULL tier only) |
 | **Vector Config** | `/core/config/unified_config.py` | `VectorSearchConfig` |
 | **Schema Manager** | `/adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL tier only) |
-| **UI Components** | `/ui/search/components.py` | Sidebar, results, learning badges |
+| **UI Components** | `/ui/search/components.py` | Query box, filter bar (+ mobile drawer), result cards, pagination |
 | **Intelligence** | `/core/services/search/search_intelligence_service.py` | Ranking, suggestions |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
 | **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/backends/curriculum_backends.py` | IN_PROGRESS, MASTERED (Ku-native two-tier: Studying + Understood) |
