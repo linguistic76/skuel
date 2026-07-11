@@ -37,7 +37,7 @@ from core.models.relationship_registry import (
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
 from core.models.type_hints import UserUID
-from core.utils.frontmatter import parse_frontmatter
+from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.services.ingestion.config")
@@ -490,17 +490,27 @@ def is_staging_path(path: Path, excluded: frozenset[str] = STAGING_EXCLUDED_DIRS
 
 _JE_PRO_DIRNAME = "je_pro"
 
+# Bounded read window for the je_pro consent gate: generous for any real
+# frontmatter block, tiny next to the parser's 10 MB file cap — the gate runs
+# per-file per-sync and must never load a huge exemplar wholesale.
+_JE_PRO_GATE_READ_CHARS = 64 * 1024
+
 
 def _in_je_pro_scope(path: Path, allowlist: "SyncAllowlist | None") -> bool:
     """Whether the je_pro consent gate applies to ``path``.
 
-    With an allowlist, scoped to the governed personal vault (a content-vault
-    folder that happens to be named ``je_pro`` is ungoverned — same scoping as
-    the staging floor). Without one (single-vault fallback) the whole vault is
-    personal, so any ``je_pro`` component counts.
+    Personal vaults only. With an allowlist, the gate applies inside the
+    governed root — and only when the allowlist gates je_pro at all: the
+    CONTENT vault's own allowlist sets ``gates_je_pro=False`` (Codex #608),
+    so a curriculum folder that happens to be named ``je_pro`` ingests
+    normally under its own descriptor — the same posture as paths outside
+    a personal wall. Without an allowlist (single-vault fallback)
+    the whole vault is personal, so any ``je_pro`` component counts.
     """
     if allowlist is None:
         return _JE_PRO_DIRNAME in path.parts
+    if not allowlist.gates_je_pro:
+        return False
     located = path.parent.resolve() / path.name
     if not located.is_relative_to(allowlist.governed_root):
         return False
@@ -523,18 +533,33 @@ def je_pro_skip_reason(path: Path) -> str | None:
     An unreadable file is NOT a consent verdict: we defer to the parse-level
     error surface rather than skip, so deletion reconciliation never retracts
     a stored entry over a transient I/O failure.
+
+    The read is BOUNDED (Codex #608): this runs for every je_pro file on every
+    sync, before the parser's file-size guard, so a huge exemplar must never be
+    fully loaded here. Consent frontmatter lives in the first bytes; a file
+    whose frontmatter does not close inside the window cannot legitimately
+    carry consent, so it fails closed (with an explicit reason).
     """
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            text = fh.read(_JE_PRO_GATE_READ_CHARS)
     except OSError:
         return None
     if path.suffix.lower() in (".yaml", ".yml"):
         try:
             loaded = yaml.safe_load(text)
         except yaml.YAMLError:
+            # Includes truncation of an oversized YAML entry — a je_pro YAML
+            # that large is pathological; fail closed, the warning says why.
             loaded = None
         data: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
     else:
+        if text.startswith("---") and split_frontmatter(text)[0] is None:
+            return (
+                "frontmatter block does not close within the first "
+                f"{_JE_PRO_GATE_READ_CHARS // 1024} KB — consent cannot be read "
+                "(fail-closed); fix or shrink the frontmatter"
+            )
         data, _ = parse_frontmatter(text)
     raw_pipeline = data.get("pipeline")
     if raw_pipeline is None or not str(raw_pipeline).strip():
@@ -617,6 +642,11 @@ class SyncAllowlist:
     # every sync attempt. Checked before allowed_dirs, so an excluded dir wins
     # even when nested under an allowed one.
     excluded_dirs: frozenset[Path] = frozenset()
+    # Whether the je_pro frontmatter consent gate applies inside this governed
+    # root. True for personal vaults (the ADR-073 doorway); the CONTENT vault's
+    # allowlist sets False so a curriculum folder merely named ``je_pro``
+    # ingests normally under its own descriptor (Codex #608).
+    gates_je_pro: bool = True
 
     def permits(self, path: Path) -> bool:
         """Whether ``path`` is allowed by this wall (True = keep).
@@ -666,6 +696,7 @@ def build_sync_allowlist(
     allowed_dirs: str | None = None,
     content_root: Path | None = None,
     excluded_dirs: frozenset[Path] = frozenset(),
+    gates_je_pro: bool = True,
 ) -> SyncAllowlist:
     """Build the fail-closed vault-sync allowlist for ``governed_root``.
 
@@ -697,6 +728,12 @@ def build_sync_allowlist(
       so curriculum still ingests; only the ``je_*`` staging floor (scoped inside
       ``permits``) applies. ``governs()`` is still true here, so full-mode
       reprocesses retract stale staging rows like the routine incremental paths.
+
+    ``gates_je_pro``: pass ``False`` when building the CONTENT vault's own
+    allowlist — the je_pro consent gate is a personal-vault concept and must
+    not gate a curriculum folder that happens to share the name (Codex #608).
+    A combined personal+content root keeps the default (its je_pro IS the
+    personal doorway).
     """
     governed = governed_root.resolve()
     resolved_excluded = frozenset(d.resolve() for d in excluded_dirs)
@@ -713,7 +750,10 @@ def build_sync_allowlist(
                 governed,
             )
         return SyncAllowlist(
-            governed_root=governed, allowed_dirs=valid, excluded_dirs=resolved_excluded
+            governed_root=governed,
+            allowed_dirs=valid,
+            excluded_dirs=resolved_excluded,
+            gates_je_pro=gates_je_pro,
         )
 
     # Var unset. Single-vault (content vault is / is under the governed root):
@@ -726,12 +766,14 @@ def build_sync_allowlist(
                 governed_root=governed,
                 allowed_dirs=frozenset({governed}),
                 excluded_dirs=resolved_excluded,
+                gates_je_pro=gates_je_pro,
             )
     # Distinct personal vault: fail-closed default to the doorway folders only.
     return SyncAllowlist(
         governed_root=governed,
         allowed_dirs=frozenset(governed / subdir for subdir in _DEFAULT_SYNC_SUBDIRS),
         excluded_dirs=resolved_excluded,
+        gates_je_pro=gates_je_pro,
     )
 
 

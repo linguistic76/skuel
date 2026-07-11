@@ -28,7 +28,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
 from core.config import get_settings
 from core.models.enums.pipeline import JeUse, Pipeline
-from core.utils.frontmatter import parse_frontmatter
+from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
@@ -190,6 +190,15 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
                 raw_text = fh.read(_EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM)
         except (OSError, UnicodeError) as e:  # unreadable/undecodable — skip it
             logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
+            return None
+        if raw_text.startswith("---") and split_frontmatter(raw_text)[0] is None:
+            # An opening fence with no close inside the bounded read: parsing
+            # would silently default je_use to BOTH and inject the raw YAML as
+            # style (Codex #608) — fail closed, skip the file.
+            logger.warning(
+                f"Skipping journal exemplar {path.name!r}: frontmatter does not "
+                "close within the bounded read"
+            )
             return None
         frontmatter, body = parse_frontmatter(raw_text)
         return frontmatter, body[:_EXEMPLAR_MAX_CHARS]

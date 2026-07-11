@@ -571,6 +571,61 @@ def test_content_vault_je_pro_is_ungoverned(tmp_path: Path) -> None:
     assert is_ingestible_path(bare, wall) is True
 
 
+def test_content_vaults_own_allowlist_does_not_gate_je_pro(tmp_path: Path) -> None:
+    # Codex #608: the content vault's OWN descriptor governs the content root
+    # (whole-vault-open allowlist), so without gates_je_pro=False a curriculum
+    # folder named je_pro would be consent-gated under its own descriptor.
+    from core.services.ingestion.config import is_ingestible_path
+
+    content = tmp_path / "0vault"
+    (content / "je_pro").mkdir(parents=True)
+    bare = content / "je_pro" / "lesson.md"
+    bare.write_text("type: Ku\nno pipeline needed here", encoding="utf-8")
+
+    content_wall = build_sync_allowlist(content, content_root=content, gates_je_pro=False)
+    assert content_wall.gates_je_pro is False
+    assert is_ingestible_path(bare, content_wall) is True
+    # A combined personal+content root keeps the gate (default True).
+    combined_wall = build_sync_allowlist(content, content_root=content)
+    assert combined_wall.gates_je_pro is True
+    assert is_ingestible_path(bare, combined_wall) is False
+
+
+def test_je_pro_gate_read_is_bounded_and_unterminated_frontmatter_fails_closed(
+    tmp_path: Path,
+) -> None:
+    # Codex #608: the gate runs per-file per-sync BEFORE the parser's size
+    # guard — it must never load a huge file wholesale, and a frontmatter
+    # block that does not close inside the bounded window is unreadable
+    # consent → fail closed with an explicit reason.
+    from core.services.ingestion.config import (
+        _JE_PRO_GATE_READ_CHARS,
+        is_ingestible_path,
+        je_pro_skip_reason,
+    )
+
+    root, wall = _je_pro_vault(tmp_path)
+    monster = root / "je_pro" / "unterminated.md"
+    monster.write_text(
+        "---\npipeline: knowledge\nnotes: " + "x" * (_JE_PRO_GATE_READ_CHARS + 1024),
+        encoding="utf-8",
+    )
+
+    reason = je_pro_skip_reason(monster)
+    assert reason is not None
+    assert "does not close" in reason
+    assert is_ingestible_path(monster, wall) is False
+
+    # A big BODY after well-formed frontmatter is fine — only the window
+    # matters for consent, the parser's 10 MB cap governs the rest.
+    big_body = root / "je_pro" / "big-but-consented.md"
+    big_body.write_text(
+        _JE_PRO_CONSENTED + "y" * (_JE_PRO_GATE_READ_CHARS + 1024), encoding="utf-8"
+    )
+    assert je_pro_skip_reason(big_body) is None
+    assert is_ingestible_path(big_body, wall) is True
+
+
 def test_single_vault_fallback_gates_je_pro(tmp_path: Path) -> None:
     # No allowlist (single-vault fallback): the whole vault is personal, so the
     # je_pro consent gate applies there too.

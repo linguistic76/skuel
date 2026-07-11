@@ -1289,6 +1289,9 @@ async def compose_services(
             _content_root,
             content_root=_content_root,
             excluded_dirs=frozenset({_content_root / "Resources"}),
+            # The je_pro consent gate is a personal-vault concept — a content
+            # folder merely named je_pro is curriculum, not a doorway.
+            gates_je_pro=False,
         )
 
         _content_descriptor = VaultDescriptor(

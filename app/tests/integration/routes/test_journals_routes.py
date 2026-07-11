@@ -580,6 +580,27 @@ class TestJournalExemplarLoading:
         pairs = _load_journal_exemplars()
         assert pairs == [("RAW BODY", "STYLED BODY")]
 
+    def test_unterminated_frontmatter_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Codex #608: an opening fence whose close falls OUTSIDE the bounded
+        # read must skip the file — parsing the truncated text would default
+        # je_use to BOTH and inject raw YAML into the prompt as style.
+        from adapters.inbound.journals_routes import (
+            _EXEMPLAR_FRONTMATTER_HEADROOM,
+            _EXEMPLAR_MAX_CHARS,
+            _load_journal_exemplars,
+        )
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "big.md").write_text("RAW BODY")
+        oversized = "---\nje_use: understanding\npad: " + "z" * (
+            _EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM
+        )
+        (pro / "big.md").write_text(oversized + "\n---\nSTYLED")
+
+        assert _load_journal_exemplars() == []
+
     def test_frontmatter_headroom_preserves_content_budget(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
