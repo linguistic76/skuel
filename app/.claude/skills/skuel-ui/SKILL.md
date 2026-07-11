@@ -266,7 +266,9 @@ async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
 - Detail pages: `*/detail/content?uid=` (replaces detail content area)
 - Path-param pages: `*/{uid}/content` (replaces content area for that entity)
 
-**Rule:** Every route that calls a service before rendering belongs in a `*/content` fragment, not the shell. The shell only does: auth check, UID extraction, error for missing UID.
+**Rule:** Every route that calls a service before rendering belongs in a `*/content` fragment, not the shell. The shell only does: auth check, UID extraction, error for missing UID, and **forwarding page-URL state into the fragment URL**.
+
+**Query-param trap:** the page URL and the fragment request are two separate HTTP requests — filter params in the page URL (`/tasks?status=completed`) are silently dropped unless the shell whitelist-forwards them into the placeholder URL. And when a fragment applies user-chosen filters, answer with an `HX-Push-Url` header pointing at the canonical *page* URL so the view is bookmarkable. Both halves implemented in `adapters/inbound/activity_ui_factory.py`; full recipe in `docs/patterns/SHELL_FIRST_PAGE_PATTERN.md` § The Query-Param Trap.
 
 **See also:** `docs/patterns/SHELL_FIRST_PAGE_PATTERN.md`
 
