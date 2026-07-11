@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-04-08
+updated: 2026-07-11
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -60,12 +60,51 @@ async def domain_content_fragment(request: Request) -> Any:
 
 ## Shell Responsibilities
 
-The shell does exactly three things:
+The shell does exactly four things:
 1. Auth check (`require_authenticated_user`)
 2. UID extraction from query/path params
 3. Fast error for missing UID (no DB needed to know if `uid=""`)
+4. Forwarding page-URL state (filter/query params) into the fragment URL
 
 Everything else belongs in the fragment.
+
+## The Query-Param Trap
+
+The page URL and the fragment request are **two separate HTTP requests**. Any
+state carried in the page URL (`/tasks?status=completed`) is invisible to the
+fragment unless the shell explicitly re-forwards it into the fragment URL. A
+hardcoded `content_loading_placeholder("/tasks/content", ...)` silently drops
+the params and the fragment renders with defaults — links, bookmarks, and
+refreshes of a filtered view all land on the default view instead.
+
+This class of bug hides easily: it passes casual inspection whenever the
+user's data happens to look right under the default filter (worked-by-
+coincidence). The fix is a whitelist-forward in the shell:
+
+```python
+forwarded = {
+    name: request.query_params[name]
+    for name, _default in config.filter_params   # whitelist, not passthrough
+    if name in request.query_params
+}
+fragment_url = f"/{domain}/content"
+if forwarded:
+    fragment_url = f"{fragment_url}?{urlencode(forwarded)}"
+```
+
+The inverse direction matters too: when a fragment applies user-chosen state
+(e.g. the filter bar's `list-fragment`), it should sync the browser URL with
+an `HX-Push-Url` response header pointing at the canonical *page* URL (never
+the fragment URL — a refresh of a pushed fragment URL would render bare HTML):
+
+```python
+return config.list_component(filtered, connections_map), HttpHeader(
+    "HX-Push-Url", page_url    # e.g. "/tasks?status=completed"
+)
+```
+
+Both halves live in `adapters/inbound/activity_ui_factory.py` for the 6
+Activity Domains.
 
 ## Fragment Responsibilities
 
