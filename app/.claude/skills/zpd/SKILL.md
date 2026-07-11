@@ -104,7 +104,7 @@ class ZPDService:
 Single-roundtrip `_ZONE_QUERY` — 6 steps in one Cypher query:
 
 1. **Current zone** — KUs via APPLIES_KNOWLEDGE (tasks, journals) + REINFORCES_KNOWLEDGE (habits). Returns per-source lists for compound evidence.
-2. **Proximal zone** — adjacent via PREREQUISITE_FOR, **ENABLES/ENABLES_KNOWLEDGE** (both enabler vocabularies: standalone Edge YAML authors ENABLES; frontmatter connections.enables ingests as ENABLES_KNOWLEDGE), COMPLEMENTARY_TO, LP ORGANIZES. Excludes already-engaged KUs.
+2. **Proximal zone** — adjacent via PREREQUISITE_FOR, **ENABLES/ENABLES_KNOWLEDGE** (both enabler vocabularies: standalone Edge YAML authors ENABLES; frontmatter connections.enables ingests as ENABLES_KNOWLEDGE), COMPLEMENTARY_TO, LP ORGANIZES. Excludes already-engaged KUs. A **PS-enabler bridge** also expands from the RAW engaged entities (activity edges target :PathStep too, ADR-046) and rolls enabled PathSteps down to their composed Kus — the zone stays Ku-grain.
 3. **Prerequisite graph** — total vs met prerequisites per proximal KU (readiness scoring). PREREQUISITE_FOR only.
 4. **Engaged Learning Paths** — LPs the user is partially traversing.
 5. **Blocking gaps** — prerequisite KUs not met that gate proximal KUs. PREREQUISITE_FOR only.
