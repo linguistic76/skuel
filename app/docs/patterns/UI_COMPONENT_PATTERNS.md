@@ -1016,6 +1016,7 @@ Badge("Revision Requested", variant=None, cls="bg-amber-100 text-amber-800 borde
 |---|---|---|
 | EntityStatus value (active, submitted, completed, ...) | `StatusBadge(status)` | `StatusBadge("active")` |
 | Priority value (high, medium, low, ...) | `PriorityBadge(priority)` | `PriorityBadge("high")` |
+| Priority on an Activity card (inline-editable) | `PriorityBadgeDropdown(...)` from `ui/activities/_shared` | `PriorityBadgeDropdown(task.uid, "high", domain="tasks", singular="task")` |
 | Category/type label with a BadgeT color match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
 | Category/type label with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 ...")` |
 

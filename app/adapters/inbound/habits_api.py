@@ -1,6 +1,6 @@
 """Habits API routes.
 
-Provides JSON endpoints for habit status updates, completion tracking,
+Provides JSON endpoints for habit status/priority updates, completion tracking,
 lifecycle data, reminders, and daily-scheduling queries.
 
 Routes
@@ -59,8 +59,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -97,19 +99,27 @@ def create_habits_api_routes(
 ) -> list[Any]:
     """Register Habits API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Habit]:
+    async def update_status(uid: str, new_status: str) -> Result[Habit]:
         # ADR-066: facade + typed intent (no .core.update(dict) — the last activity
         # *_api.py to converge onto the One-Path typed update contract).
         return await habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Habit]:
+        return await habits_service.update_habit(uid, HabitUpdateIntent(priority=new_priority))
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="habits",
             singular="habit",
             service=habits_service,
-            update_status=update,
             card_fn=HabitCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=update_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -627,7 +637,7 @@ def create_habits_api_routes(
         )
 
     return [
-        *status_routes,
+        *field_routes,
         habit_track,
         habit_untrack,
         habit_bulk_complete,

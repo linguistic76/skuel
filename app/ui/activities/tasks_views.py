@@ -19,7 +19,13 @@ from fasthtml.common import (
 )
 
 from core.utils.activity_stats import compute_task_stats
-from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionBadges,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.forms import Input
@@ -97,8 +103,14 @@ def TaskCard(
 
     # Badges row
     badges: list[Any] = []
-    if task.priority:
-        badges.append(PriorityBadge(str(task.priority)))
+    badges.append(
+        PriorityBadgeDropdown(
+            task.uid,
+            str(task.priority) if task.priority else None,
+            domain="tasks",
+            singular="task",
+        )
+    )
     if task.status:
         badges.append(StatusBadge(str(task.status)))
 

@@ -1,8 +1,9 @@
-"""Unit tests for the Activity Domain status-update API factory.
+"""Unit tests for the Activity Domain inline field-update API factory.
 
-The factory registers a single ``POST /api/{domain}/{uid}/status`` route
-shared by all 6 Activity Domains. These tests exercise the four observable
-behaviors of that route without spinning up FastHTML or a real DB.
+The factory registers one ``POST /api/{domain}/{uid}/{field}`` route per
+FieldUpdateSpec, shared by all 6 Activity Domains (status + priority today).
+These tests exercise the observable behaviors of those routes without
+spinning up FastHTML or a real DB.
 """
 
 from __future__ import annotations
@@ -16,8 +17,10 @@ import pytest
 from fasthtml.common import to_xml
 
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
 )
 from core.utils.result_simplified import Errors, Result
 
@@ -68,43 +71,79 @@ def _request(form_data: dict[str, str] | None, user_uid: str = "user_test") -> A
 def _config(
     *,
     service: Any,
-    update_status: Any,
+    fields: tuple[FieldUpdateSpec, ...],
     card_fn: Any = lambda entity: SimpleNamespace(rendered=entity),
     domain_name: str = "tasks",
     singular: str = "task",
-) -> ActivityStatusApiConfig:
-    return ActivityStatusApiConfig(
+) -> ActivityFieldApiConfig:
+    return ActivityFieldApiConfig(
         domain_name=domain_name,
         singular=singular,
         service=service,
-        update_status=update_status,
         card_fn=card_fn,
+        fields=fields,
     )
 
 
-def _register(config: ActivityStatusApiConfig) -> Any:
-    """Register routes against a fake registry and return the status handler."""
+def _status_config(*, service: Any, update_status: Any, **kwargs: Any) -> ActivityFieldApiConfig:
+    return _config(
+        service=service, fields=(FieldUpdateSpec(field="status", apply=update_status),), **kwargs
+    )
+
+
+def _register(config: ActivityFieldApiConfig, field: str = "status") -> Any:
+    """Register routes against a fake registry and return one field handler."""
     rt = _RouteRegistry()
-    handlers = create_activity_status_api_routes(rt, config)
-    assert len(handlers) == 1
-    return rt.get(f"/api/{config.domain_name}/{{uid}}/status", "POST")
+    handlers = create_activity_field_api_routes(rt, config)
+    assert len(handlers) == len(config.fields)
+    return rt.get(f"/api/{config.domain_name}/{{uid}}/{field}", "POST")
 
 
 # ============================================================================
-# Route registration
+# Route registration — one route per FieldUpdateSpec
 # ============================================================================
 
 
-def test_registers_post_status_route_at_expected_path() -> None:
+def test_registers_post_route_per_field_at_expected_paths() -> None:
     rt = _RouteRegistry()
     service = SimpleNamespace(verify_ownership=AsyncMock())
-    update = AsyncMock()
 
-    create_activity_status_api_routes(
-        rt, _config(service=service, update_status=update, domain_name="goals", singular="goal")
+    create_activity_field_api_routes(
+        rt,
+        _config(
+            service=service,
+            fields=(
+                FieldUpdateSpec(field="status", apply=AsyncMock()),
+                FieldUpdateSpec(
+                    field="priority", apply=AsyncMock(), allowed_values=PRIORITY_VALUES
+                ),
+            ),
+            domain_name="goals",
+        ),
     )
 
     assert ("/api/goals/{uid}/status", "POST") in rt.handlers
+    assert ("/api/goals/{uid}/priority", "POST") in rt.handlers
+
+
+def test_handlers_get_distinct_names_per_domain_and_field() -> None:
+    """FastHTML derives route names from ``__name__`` — collisions are ambiguity."""
+    rt = _RouteRegistry()
+    service = SimpleNamespace(verify_ownership=AsyncMock())
+
+    create_activity_field_api_routes(
+        rt,
+        _config(
+            service=service,
+            fields=(
+                FieldUpdateSpec(field="status", apply=AsyncMock()),
+                FieldUpdateSpec(field="priority", apply=AsyncMock()),
+            ),
+        ),
+    )
+
+    names = {h.__name__ for h in rt.handlers.values()}
+    assert names == {"update_tasks_status", "update_tasks_priority"}
 
 
 # ============================================================================
@@ -119,7 +158,7 @@ async def test_success_returns_card_for_updated_entity() -> None:
     update = AsyncMock(return_value=Result.ok(entity))
     card_fn = MagicMock(side_effect=lambda e: SimpleNamespace(rendered=e))
 
-    handler = _register(_config(service=service, update_status=update, card_fn=card_fn))
+    handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
     response = await handler(_request({"status": "completed"}), uid="task.1")
 
     update.assert_awaited_once_with("task.1", "completed")
@@ -127,14 +166,70 @@ async def test_success_returns_card_for_updated_entity() -> None:
     assert response.rendered is entity
 
 
+@pytest.mark.asyncio
+async def test_priority_success_applies_value_and_returns_card() -> None:
+    entity = _FakeEntity(uid="task.1", status="active")
+    service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
+    update = AsyncMock(return_value=Result.ok(entity))
+    card_fn = MagicMock(side_effect=lambda e: SimpleNamespace(rendered=e))
+
+    config = _config(
+        service=service,
+        fields=(FieldUpdateSpec(field="priority", apply=update, allowed_values=PRIORITY_VALUES),),
+        card_fn=card_fn,
+    )
+    handler = _register(config, field="priority")
+    response = await handler(_request({"priority": "high"}), uid="task.1")
+
+    update.assert_awaited_once_with("task.1", "high")
+    assert response.rendered is entity
+
+
 # ============================================================================
-# Standard update_method path — accepts any (uid, status) -> Result callable
+# Whitelist — allowed_values rejects garbage before apply is invoked
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_standard_update_method_receives_uid_and_status() -> None:
-    """Domains pass a thin wrapper around core.update — must get (uid, status)."""
+async def test_value_outside_whitelist_renders_banner_and_skips_apply() -> None:
+    service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
+    update = AsyncMock()
+    card_fn = MagicMock()
+
+    config = _config(
+        service=service,
+        fields=(FieldUpdateSpec(field="priority", apply=update, allowed_values=PRIORITY_VALUES),),
+        card_fn=card_fn,
+    )
+    handler = _register(config, field="priority")
+    response = await handler(_request({"priority": "banana"}), uid="task.1")
+
+    update.assert_not_awaited()
+    card_fn.assert_not_called()
+    assert "Invalid priority value" in to_xml(response)
+
+
+@pytest.mark.asyncio
+async def test_no_whitelist_passes_value_through_to_apply() -> None:
+    """Status has no whitelist — transition validation is the service's job."""
+    entity = _FakeEntity(uid="task.1", status="paused")
+    service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
+    update = AsyncMock(return_value=Result.ok(entity))
+
+    handler = _register(_status_config(service=service, update_status=update))
+    await handler(_request({"status": "paused"}), uid="task.1")
+
+    update.assert_awaited_once_with("task.1", "paused")
+
+
+# ============================================================================
+# Standard apply path — accepts any (uid, value) -> Result callable
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_standard_apply_receives_uid_and_value() -> None:
+    """Domains pass a thin wrapper around the facade update — must get (uid, value)."""
     entity = _FakeEntity(uid="habit.1", status="paused")
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
 
@@ -146,7 +241,9 @@ async def test_standard_update_method_receives_uid_and_status() -> None:
         return Result.ok(entity)
 
     handler = _register(
-        _config(service=service, update_status=update, domain_name="habits", singular="habit")
+        _status_config(
+            service=service, update_status=update, domain_name="habits", singular="habit"
+        )
     )
     await handler(_request({"status": "paused"}), uid="habit.1")
 
@@ -154,13 +251,13 @@ async def test_standard_update_method_receives_uid_and_status() -> None:
 
 
 # ============================================================================
-# Explicit status-to-method dispatch — caller's update_status can dispatch
-# per-status (e.g. GoalsService.set_status calls activate/complete/archive).
+# Explicit status-to-method dispatch — caller's apply can dispatch per-status
+# (e.g. GoalsService.set_status calls activate/complete/archive).
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_status_dispatching_update_routes_to_correct_method() -> None:
+async def test_status_dispatching_apply_routes_to_correct_method() -> None:
     """The callable form accepts caller-side dispatch on the status string."""
     activate = AsyncMock(return_value=Result.ok(_FakeEntity(uid="goal.1", status="active")))
     complete = AsyncMock(return_value=Result.ok(_FakeEntity(uid="goal.1", status="completed")))
@@ -171,7 +268,7 @@ async def test_status_dispatching_update_routes_to_correct_method() -> None:
 
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
     handler = _register(
-        _config(
+        _status_config(
             service=service,
             update_status=set_status,
             domain_name="goals",
@@ -186,7 +283,7 @@ async def test_status_dispatching_update_routes_to_correct_method() -> None:
 
 
 # ============================================================================
-# Ownership failure — renders not-found banner, never invokes update
+# Ownership failure — renders not-found banner, never invokes apply
 # ============================================================================
 
 
@@ -198,7 +295,7 @@ async def test_ownership_failure_renders_not_found_banner() -> None:
     update = AsyncMock()
     card_fn = MagicMock()
 
-    handler = _register(_config(service=service, update_status=update, card_fn=card_fn))
+    handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
     response = await handler(_request({"status": "completed"}), uid="task.1")
 
     update.assert_not_awaited()
@@ -207,17 +304,17 @@ async def test_ownership_failure_renders_not_found_banner() -> None:
 
 
 # ============================================================================
-# Missing status form field — renders banner, never invokes update
+# Missing form field — renders banner, never invokes apply
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_missing_status_form_field_renders_banner() -> None:
+async def test_missing_field_value_renders_banner() -> None:
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
     update = AsyncMock()
     card_fn = MagicMock()
 
-    handler = _register(_config(service=service, update_status=update, card_fn=card_fn))
+    handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
     response = await handler(_request({}), uid="task.1")
 
     update.assert_not_awaited()
@@ -226,12 +323,12 @@ async def test_missing_status_form_field_renders_banner() -> None:
 
 
 @pytest.mark.asyncio
-async def test_blank_status_form_field_renders_banner() -> None:
-    """Empty-string status must be rejected — ``form.get("status")`` returns ``""``."""
+async def test_blank_field_value_renders_banner() -> None:
+    """Empty-string value must be rejected — ``form.get(field)`` returns ``""``."""
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
     update = AsyncMock()
 
-    handler = _register(_config(service=service, update_status=update))
+    handler = _register(_status_config(service=service, update_status=update))
     response = await handler(_request({"status": ""}), uid="task.1")
 
     update.assert_not_awaited()
@@ -250,7 +347,7 @@ async def test_service_error_renders_display_message_in_banner() -> None:
     update = AsyncMock(return_value=Result.fail(err))
     card_fn = MagicMock()
 
-    handler = _register(_config(service=service, update_status=update, card_fn=card_fn))
+    handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
     response = await handler(_request({"status": "active"}), uid="task.1")
 
     card_fn.assert_not_called()
@@ -271,7 +368,7 @@ async def test_not_found_banner_capitalizes_singular() -> None:
     update = AsyncMock()
 
     handler = _register(
-        _config(
+        _status_config(
             service=service,
             update_status=update,
             domain_name="principles",

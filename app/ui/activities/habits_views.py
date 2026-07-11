@@ -19,7 +19,13 @@ from fasthtml.common import (
 
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.utils.activity_stats import compute_habit_stats
-from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionBadges,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
@@ -123,8 +129,14 @@ def HabitCard(
         )
     if habit.habit_category:
         badges.append(Badge(str(habit.habit_category.value).title(), variant=BadgeT.primary))
-    if habit.priority:
-        badges.append(PriorityBadge(str(habit.priority)))
+    badges.append(
+        PriorityBadgeDropdown(
+            habit.uid,
+            str(habit.priority) if habit.priority else None,
+            domain="habits",
+            singular="habit",
+        )
+    )
     if habit.status:
         badges.append(StatusBadge(str(habit.status)))
 

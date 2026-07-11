@@ -21,7 +21,13 @@ from fasthtml.common import (
 
 from core.models.enums.activity_enums import ProgressLevel
 from core.utils.activity_stats import compute_goal_stats
-from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionSummary,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
@@ -93,8 +99,14 @@ def GoalCard(
 
     # Badges row
     badges: list[Any] = []
-    if goal.priority:
-        badges.append(PriorityBadge(str(goal.priority)))
+    badges.append(
+        PriorityBadgeDropdown(
+            goal.uid,
+            str(goal.priority) if goal.priority else None,
+            domain="goals",
+            singular="goal",
+        )
+    )
     if goal.status:
         badges.append(StatusBadge(str(goal.status)))
     if goal.timeframe:

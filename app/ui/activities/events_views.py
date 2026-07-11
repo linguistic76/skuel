@@ -17,7 +17,13 @@ from fasthtml.common import (
     Span,
 )
 
-from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionBadges,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -103,8 +109,14 @@ def EventCard(
         badges.append(Badge("Milestone", variant=BadgeT.warning))
     if event.is_online:
         badges.append(Badge("Online", variant=BadgeT.primary))
-    if event.priority:
-        badges.append(PriorityBadge(str(event.priority)))
+    badges.append(
+        PriorityBadgeDropdown(
+            event.uid,
+            str(event.priority) if event.priority else None,
+            domain="events",
+            singular="event",
+        )
+    )
     if event.status:
         badges.append(StatusBadge(str(event.status)))
 

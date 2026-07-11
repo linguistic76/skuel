@@ -23,7 +23,13 @@ from fasthtml.common import (
 )
 
 from core.models.enums.principle_enums import AlignmentLevel
-from ui.activities._shared import ActivityList, ConnectionSummary, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionSummary,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
@@ -129,6 +135,14 @@ def PrincipleCard(
 
     # Badges
     badges: list[Any] = []
+    badges.append(
+        PriorityBadgeDropdown(
+            principle.uid,
+            str(principle.priority) if principle.priority else None,
+            domain="principles",
+            singular="principle",
+        )
+    )
     if principle.strength:
         badges.append(StrengthBadge(principle.strength.value))
     if principle.principle_category:

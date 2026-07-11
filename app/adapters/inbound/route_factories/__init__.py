@@ -20,9 +20,11 @@ Factories:
 - OwnershipRouteFactory: Ownership-verified domain-specific routes
 """
 
-from adapters.inbound.route_factories.activity_status_api_factory import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+from adapters.inbound.route_factories.activity_field_api_factory import (
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
 )
 from adapters.inbound.route_factories.crud_route_factory import (
     CRUDOperations,
@@ -69,9 +71,11 @@ from adapters.inbound.route_factories.status_route_factory import (
 )
 
 __all__ = [
-    # Activity Domain HTMX status endpoint factory
-    "ActivityStatusApiConfig",
-    "create_activity_status_api_routes",
+    # Activity Domain HTMX inline field-update endpoint factory
+    "PRIORITY_VALUES",
+    "ActivityFieldApiConfig",
+    "FieldUpdateSpec",
+    "create_activity_field_api_routes",
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",

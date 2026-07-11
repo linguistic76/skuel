@@ -121,7 +121,8 @@ Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
 /domain/create             # FormGenerator-rendered create form (GET render, POST submit)
 /domain/edit?uid=...       # FormGenerator-rendered edit form prefilled from existing entity
 
-/api/{domain}/{uid}/status # HTMX status toggle (POST)
+/api/{domain}/{uid}/status   # HTMX status toggle (POST)
+/api/{domain}/{uid}/priority # HTMX inline priority change (POST)
 ```
 
 Forms live in `ui/activities/{domain}_form.py` and are appended inside the
@@ -142,6 +143,7 @@ omitted from forms — assign those via the detail-page relationship picker.
 - `CONNECTION_ICONS` — universal icon + href mapping for all 9 cross-domain connection types
 - `ConnectionBadges(connections)` — renders icon+title badge links for outgoing connections (used by Tasks, Habits, Events, Choices). Reads `connected_uid`/`connected_type` keys.
 - `ConnectionSummary(connections)` — renders compact icon+count badges for incoming connections (used by gravity-well domains: Goals, Principles). Reads `connected_type` keys.
+- `PriorityBadgeDropdown(uid, priority, domain, singular)` — interactive priority badge on all 6 cards: Alpine dropdown of the 4 `Priority` levels, picks POST `/api/{domain}/{uid}/priority` via HTMX and swap the re-rendered card. Both `/status` and `/priority` endpoints come from `activity_field_api_factory` (`create_activity_field_api_routes` + one `FieldUpdateSpec` per field; priority carries the `PRIORITY_VALUES` whitelist).
 
 Calendar cross-cutting system still works (reads service protocols, not UI routes).
 

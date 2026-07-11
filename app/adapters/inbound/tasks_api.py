@@ -1,6 +1,6 @@
 """Tasks API routes.
 
-Provides HTMX-compatible endpoints for task status updates, hierarchy queries,
+Provides HTMX-compatible endpoints for task status/priority updates, hierarchy queries,
 cross-domain links, and knowledge intelligence.
 
 Hierarchy (ownership-verified):
@@ -28,8 +28,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_csv_query_param,
     parse_int_query_param,
     verify_entity_ownership,
@@ -59,17 +61,25 @@ def create_tasks_api_routes(
 ) -> list[Any]:
     """Register Tasks API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Task]:
+    async def update_status(uid: str, new_status: str) -> Result[Task]:
         return await tasks_service.update_task(uid, TaskUpdateIntent(status=new_status))
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Task]:
+        return await tasks_service.update_task(uid, TaskUpdateIntent(priority=new_priority))
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="tasks",
             singular="task",
             service=tasks_service,
-            update_status=update,
             card_fn=TaskCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=update_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -295,7 +305,7 @@ def create_tasks_api_routes(
         return Result.ok({"priorities": priorities, "count": len(priorities)})
 
     return [
-        *status_routes,
+        *field_routes,
         task_children,
         task_parent,
         task_hierarchy,
