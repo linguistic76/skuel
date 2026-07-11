@@ -36,6 +36,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
+from core.events.embedding_publisher import publish_embedding_requested
 from core.events.user_entry_events import UserEntryCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionType
@@ -366,6 +367,17 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             f"fulfills_exercise={request.fulfills_exercise_uid or '-'})"
         )
 
+        # Post-persist embedding refresh (ADR-074) — pipeline-scoped: only
+        # knowledge entries (knowledge/ + consented je_pro/ notes) embed;
+        # turn-ins, teacher-review submissions, and LLM outputs never do.
+        # Covers the living-channel upsert too (vault re-sync of an edited
+        # note lands here); content-hash idempotency makes an unchanged
+        # re-sync a no-op at the worker.
+        if created.pipeline == Pipeline.KNOWLEDGE:
+            await publish_embedding_requested(
+                self.event_bus, EntityType.USER_ENTRY, created, self.logger
+            )
+
         # Event-side ``fulfills_exercise_uid`` means "a turn-in was filed" —
         # the exercise_handler subscriber runs the linker (scope validation +
         # revision title-stamp) off it. A living entry's declared intent must
@@ -512,7 +524,17 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         }
         if processed_file_path:
             updates["processed_file_path"] = processed_file_path
-        return await self.backend.update(uid, updates)
+        result = await self.backend.update(uid, updates)
+        if result.is_ok and result.value.pipeline == Pipeline.KNOWLEDGE:
+            # Post-persist embedding refresh (ADR-074) — knowledge entries only
+            await publish_embedding_requested(
+                self.event_bus,
+                EntityType.USER_ENTRY,
+                result.value,
+                self.logger,
+                changed_fields=updates,
+            )
+        return result
 
     @with_error_handling("update_user_entry")
     async def update_entry(
@@ -540,7 +562,18 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if not updates:
             return Result.fail(Errors.validation("No updatable fields provided", field="request"))
         updates["updated_at"] = datetime.now()
-        return await self.backend.update(uid, updates)
+        result = await self.backend.update(uid, updates)
+        if result.is_ok and result.value.pipeline == Pipeline.KNOWLEDGE:
+            # Post-persist embedding refresh (ADR-074) — knowledge entries
+            # only; the changed_fields gate skips tag/metadata-only edits.
+            await publish_embedding_requested(
+                self.event_bus,
+                EntityType.USER_ENTRY,
+                result.value,
+                self.logger,
+                changed_fields=updates,
+            )
+        return result
 
     # =========================================================================
     # JOURNAL CONTEXT

@@ -99,9 +99,10 @@ async def test_helper_no_text_no_event():
 
 @pytest.mark.asyncio
 async def test_helper_unmapped_type_no_event():
+    """A type with a field map but no event class (ENTRY_REPORT) never publishes."""
     bus = _CapturingBus()
     published = await publish_embedding_requested(
-        bus, EntityType.USER_ENTRY, {"uid": "ue_1", "title": "Journal"}, logger
+        bus, EntityType.ENTRY_REPORT, {"uid": "er_1", "title": "Report"}, logger
     )
     assert published is False
     assert bus.published == []
@@ -137,7 +138,7 @@ async def test_helper_changed_fields_gate_publishes_on_text_change():
 
 
 def test_event_map_mirrors_worker_subscriptions():
-    """EMBEDDING_EVENT_TYPES must cover exactly the 12 worker-subscribed types."""
+    """EMBEDDING_EVENT_TYPES must cover exactly the 13 worker-subscribed types."""
     assert set(EMBEDDING_EVENT_TYPES) == {
         EntityType.TASK,
         EntityType.GOAL,
@@ -151,6 +152,7 @@ def test_event_map_mirrors_worker_subscriptions():
         EntityType.PATH_STEP,
         EntityType.LEARNING_PATH,
         EntityType.REVISED_EXERCISE,
+        EntityType.USER_ENTRY,
     }
 
 
@@ -209,7 +211,9 @@ async def test_ingestion_step_skips_non_embeddable_and_non_entity_types():
     bus = _CapturingBus()
     service = _service(bus)
 
-    # USER_ENTRY is ingestible but not embeddable-gated
+    # USER_ENTRY has an event class but is deliberately NOT embeddable-gated
+    # in ENTITY_CONFIGS: its ONE publisher is UserEntryService (pipeline-scoped
+    # to knowledge entries) — the ingestion step must never double-publish.
     await service._publish_embedding_requests(
         EntityType.USER_ENTRY, [{"uid": "ue_1", "title": "Entry"}]
     )

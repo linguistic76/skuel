@@ -74,7 +74,22 @@ EMBEDDABLE_LABELS: dict[str, EntityType] = {
     label: entity_type for entity_type, label in EMBEDDING_NODE_LABELS.items()
 }
 
+# Per-label extra WHERE clauses, ANDed into every candidate query (all modes +
+# hash stamping). UserEntry embedding is pipeline-scoped: only knowledge
+# entries embed (the event path gates in UserEntryService) — without this the
+# backfill would embed every entry, including exercise turn-ins and
+# teacher-review submissions the event path deliberately never publishes.
+LABEL_EXTRA_FILTERS: dict[str, str] = {
+    "UserEntry": "n.pipeline = 'knowledge'",
+}
+
 CHUNK_LABEL = "ContentChunk"
+
+
+def _label_scope_clause(label: str) -> str:
+    """The label's extra AND clause, or empty when the label is unscoped."""
+    extra = LABEL_EXTRA_FILTERS.get(label)
+    return f"\n      AND {extra}" if extra else ""
 
 
 def build_candidate_query(label: str, stale: bool, audit: bool = False) -> str:
@@ -107,7 +122,7 @@ def build_candidate_query(label: str, stale: bool, audit: bool = False) -> str:
         predicate = "n.embedding IS NULL"
     return f"""
     MATCH (n:{label})
-    WHERE {predicate}
+    WHERE {predicate}{_label_scope_clause(label)}
     RETURN n.uid as uid, properties(n) as props
     """
 
@@ -298,7 +313,7 @@ async def stamp_entity_hashes(
     WHERE n.embedding IS NOT NULL
       AND n.embedding_version = $current_version
       AND n.embedding_text_hash IS NULL
-      AND NOT (n.updated_at IS NOT NULL AND n.embedding_updated_at < datetime(n.updated_at))
+      AND NOT (n.updated_at IS NOT NULL AND n.embedding_updated_at < datetime(n.updated_at)){_label_scope_clause(label)}
     RETURN n.uid as uid, properties(n) as props
     """
     result = await driver.execute_query(query, {"current_version": EMBEDDING_VERSION})

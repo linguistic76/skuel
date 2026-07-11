@@ -120,6 +120,7 @@ from core.events.embedding_events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
+    UserEntryEmbeddingRequested,
 )
 
 # Form events
@@ -257,6 +258,7 @@ __all__ = [
     "ResourceEmbeddingRequested",
     "RevisedExerciseEmbeddingRequested",
     "TaskEmbeddingRequested",
+    "UserEntryEmbeddingRequested",
     # Calendar Events
     "CalendarEventCreated",
     "CalendarEventDeleted",
@@ -378,6 +380,7 @@ EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
     "path_step.embedding_requested": PathStepEmbeddingRequested,
     "learning_path.embedding_requested": LearningPathEmbeddingRequested,
     "revised_exercise.embedding_requested": RevisedExerciseEmbeddingRequested,
+    "user_entry.embedding_requested": UserEntryEmbeddingRequested,
     # Tasks
     "task.created": TaskCreated,
     "task.completed": TaskCompleted,

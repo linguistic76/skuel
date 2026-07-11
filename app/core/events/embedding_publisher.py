@@ -37,6 +37,7 @@ from core.events.embedding_events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
+    UserEntryEmbeddingRequested,
 )
 from core.models.enums.entity_enums import EntityType
 from core.utils.embedding_text_builder import EMBEDDING_FIELD_MAPS, build_embedding_text
@@ -51,6 +52,10 @@ if TYPE_CHECKING:
 # ingest via ENTITY_CONFIGS[RESOURCE] (embeddable=True), so both ingest doors
 # publish ResourceEmbeddingRequested through this chokepoint. ResourceService
 # stays read-only — there is no API create path for resources.
+# USER_ENTRY's ONE producer is UserEntryService (create_entry + update paths),
+# which gates on pipeline=knowledge before publishing — the ingestion door
+# routes user_entry files through create_entry, and ENTITY_CONFIGS deliberately
+# leaves UserEntry non-embeddable so ingestion never double-publishes.
 EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
     EntityType.TASK: TaskEmbeddingRequested,
     EntityType.GOAL: GoalEmbeddingRequested,
@@ -64,6 +69,7 @@ EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
     EntityType.PATH_STEP: PathStepEmbeddingRequested,
     EntityType.LEARNING_PATH: LearningPathEmbeddingRequested,
     EntityType.REVISED_EXERCISE: RevisedExerciseEmbeddingRequested,
+    EntityType.USER_ENTRY: UserEntryEmbeddingRequested,
 }
 
 # EntityType → Neo4j node label for every embeddable type — THE one label map.
@@ -84,6 +90,7 @@ EMBEDDING_NODE_LABELS: dict[EntityType, str] = {
     EntityType.PATH_STEP: "PathStep",
     EntityType.LEARNING_PATH: "LearningPath",
     EntityType.REVISED_EXERCISE: "RevisedExercise",
+    EntityType.USER_ENTRY: "UserEntry",
 }
 
 
