@@ -27,6 +27,10 @@ KU_PREREQ_NEXT = "ku.test.zpd-prereq-next"  # KU_ENGAGED -PREREQUISITE_FOR-> thi
 KU_UNENGAGED_ENABLER = "ku.test.zpd-unengaged-enabler"  # -ENABLES-> KU_ENABLED, NOT a gap
 KU_UNENGAGED_PREREQ = "ku.test.zpd-unengaged-prereq"  # -PREREQUISITE_FOR-> KU_PREREQ_NEXT, IS a gap
 KU_ENABLED_CANONICAL = "ku.test.zpd-enabled-canonical"  # via ENABLES_KNOWLEDGE (registry vocab)
+PS_ENGAGED = "ps.test.zpd-engaged"  # engaged via a second task (PathStep grain)
+PS_ENABLED = "ps.test.zpd-enabled"  # PS_ENGAGED -ENABLES_KNOWLEDGE-> this
+KU_BRIDGED = "ku.test.zpd-bridged"  # PS_ENABLED -USES_KU-> this → proximal (bridge)
+TASK_PS_UID = "task_test_zpd_ps_engage"
 TASK_UID = "task_test_zpd_enables"
 
 _ALL_UIDS = [
@@ -38,6 +42,10 @@ _ALL_UIDS = [
     KU_UNENGAGED_ENABLER,
     KU_UNENGAGED_PREREQ,
     KU_ENABLED_CANONICAL,
+    PS_ENGAGED,
+    PS_ENABLED,
+    KU_BRIDGED,
+    TASK_PS_UID,
 ]
 
 
@@ -56,6 +64,7 @@ async def zpd_graph(neo4j_driver, clean_neo4j):
             KU_UNENGAGED_ENABLER,
             KU_UNENGAGED_PREREQ,
             KU_ENABLED_CANONICAL,
+            KU_BRIDGED,
         ):
             await session.run(
                 """
@@ -96,6 +105,48 @@ async def zpd_graph(neo4j_driver, clean_neo4j):
                 to_uid=to_uid,
             )
 
+    # PS-grain engagement + PS-level enabler bridge (Codex P2 #600 round 4):
+    # a task applies PS_ENGAGED; PS_ENGAGED -ENABLES_KNOWLEDGE-> PS_ENABLED;
+    # PS_ENABLED composes KU_BRIDGED — the bridge must roll it into proximal.
+    async with neo4j_driver.session() as session:
+        for ps_uid in (PS_ENGAGED, PS_ENABLED):
+            await session.run(
+                """
+                MERGE (p:Entity:PathStep {uid: $uid})
+                SET p.entity_type = 'path_step', p.title = $uid, p.status = 'active'
+                """,
+                uid=ps_uid,
+            )
+        await session.run(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (p:PathStep {uid: $ps_uid})
+            MERGE (t:Entity:Task {uid: $task_uid})
+            SET t.entity_type = 'task', t.title = 'ZPD PS probe task', t.status = 'active'
+            MERGE (u)-[:OWNS]->(t)
+            MERGE (t)-[:APPLIES_KNOWLEDGE]->(p)
+            """,
+            user_uid=USER_UID,
+            ps_uid=PS_ENGAGED,
+            task_uid=TASK_PS_UID,
+        )
+        await session.run(
+            """
+            MATCH (a:PathStep {uid: $a}) MATCH (b:PathStep {uid: $b})
+            MERGE (a)-[:ENABLES_KNOWLEDGE]->(b)
+            """,
+            a=PS_ENGAGED,
+            b=PS_ENABLED,
+        )
+        await session.run(
+            """
+            MATCH (p:PathStep {uid: $p}) MATCH (k:Ku {uid: $k})
+            MERGE (p)-[:USES_KU]->(k)
+            """,
+            p=PS_ENABLED,
+            k=KU_BRIDGED,
+        )
+
     yield
 
     async with neo4j_driver.session() as session:
@@ -122,6 +173,11 @@ async def test_enables_expands_proximal_zone(neo4j_driver, zpd_graph) -> None:
         "must expand the proximal zone too (Codex P2 #600)"
     )
     assert KU_PREREQ_NEXT in proximal_zone, "PREREQUISITE_FOR forward step must still work"
+    assert KU_BRIDGED in proximal_zone, (
+        "PS-level enabler bridge: engaged PathStep -ENABLES_KNOWLEDGE-> PathStep "
+        "must roll the enabled step's composed Kus into the proximal zone"
+    )
+    assert PS_ENABLED not in proximal_zone, "the zone stays Ku-grain — never raw PathStep uids"
     # Unengaged non-adjacent KUs never leak into the zone
     assert KU_UNENGAGED_ENABLER not in proximal_zone
     assert KU_UNENGAGED_ENABLER not in current_zone

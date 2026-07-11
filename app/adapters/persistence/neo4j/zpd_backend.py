@@ -61,8 +61,13 @@ WITH u,
      [n IN habit_applied_nodes WHERE n:Ku | n.uid] +
      reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS habit_engaged_raw,
      [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
-     reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS entry_engaged_raw
-WITH u,
+     reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid]) AS entry_engaged_raw,
+     // RAW (pre-roll-down) engaged entity uids — :Ku AND :PathStep targets.
+     // Kept alongside the Ku-grain lists so the PS-level enabler bridge in
+     // Step 2 can expand from the entities the activity edges actually hit.
+     [n IN task_applied_nodes + habit_applied_nodes + entry_applied_nodes
+      WHERE n IS NOT NULL | n.uid] AS engaged_raw_entity_uids
+WITH u, engaged_raw_entity_uids,
      [uid IN task_engaged_raw WHERE uid IS NOT NULL | uid] AS task_engaged_uids,
      [uid IN habit_engaged_raw WHERE uid IS NOT NULL | uid] AS habit_engaged_uids,
      [uid IN entry_engaged_raw WHERE uid IS NOT NULL | uid] AS entry_engaged_uids
@@ -73,7 +78,29 @@ CALL (task_engaged_uids, habit_engaged_uids, entry_engaged_uids) {
     WITH DISTINCT uid WHERE uid IS NOT NULL
     RETURN collect(uid) AS engaged_uids
 }
-WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids
+WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
+     engaged_raw_entity_uids
+
+// PS-level enabler bridge (Codex P2 #600): activity edges target :PathStep as
+// well as :Ku (ADR-046), and live PS-[:ENABLES_KNOWLEDGE]->PS edges exist. The
+// Ku-grain roll-down above loses the PathStep identity, so enabler edges
+// authored AT PathStep grain would never expand. Expand prereq/enabler edges
+// from the RAW engaged entities here, then roll enabled PathSteps down to
+// their composed Kus — the proximal zone stays Ku-grain (same invariant as
+// Step 1's roll-down). Subquery isolates cardinality: one row in, one out.
+CALL (engaged_raw_entity_uids) {
+    UNWIND CASE WHEN size(engaged_raw_entity_uids) = 0 THEN [null]
+           ELSE engaged_raw_entity_uids END AS raw_uid
+    OPTIONAL MATCH (src:Entity {uid: raw_uid})
+        -[:PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE]->(target:Entity)
+    WITH collect(DISTINCT target) AS targets
+    RETURN [t IN targets WHERE t:Ku | t.uid] +
+           reduce(acc = [], p IN [t IN targets WHERE t:PathStep] |
+                  acc + [(p)-[:TRAINS_KU|USES_KU]->(k:Ku) | k.uid])
+           AS bridged_candidate_uids
+}
+WITH u, task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
+     bridged_candidate_uids
 
 // ── Step 2: Proximal zone — structurally adjacent, not yet engaged ─────────
 // Enabler edges join the forward expansion here ONLY (ruling 2026-07-10):
@@ -91,13 +118,23 @@ OPTIONAL MATCH (lp:Entity)-[:ORGANIZES]->(path_next:Entity)
 WHERE (lp)-[:ORGANIZES]->(:Entity {uid: engaged_uid})
 
 WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
+     bridged_candidate_uids,
      collect(DISTINCT next.uid) + collect(DISTINCT adj.uid) + collect(DISTINCT path_next.uid)
-     AS candidate_uids_raw
-
-// Proximal = adjacent candidates NOT already in current zone, and non-null
+     AS expansion_uids
 WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
-     [uid IN candidate_uids_raw
-      WHERE uid IS NOT NULL AND NOT uid IN engaged_uids] AS proximal_uids
+     expansion_uids + bridged_candidate_uids AS candidate_uids_raw
+
+// Proximal = adjacent candidates NOT already in current zone, non-null,
+// deduplicated (the Ku-grain expansion and the PS-enabler bridge can both
+// surface the same Ku)
+CALL (candidate_uids_raw, engaged_uids) {
+    UNWIND CASE WHEN size(candidate_uids_raw) = 0 THEN [null]
+           ELSE candidate_uids_raw END AS cuid
+    WITH DISTINCT cuid WHERE cuid IS NOT NULL AND NOT cuid IN engaged_uids
+    RETURN collect(cuid) AS proximal_uids
+}
+WITH task_engaged_uids, habit_engaged_uids, entry_engaged_uids, engaged_uids,
+     proximal_uids
 
 // ── Step 3: Prerequisite graph for readiness scoring ─────────────────────
 // For each proximal KU, find how many prerequisites it has and how many

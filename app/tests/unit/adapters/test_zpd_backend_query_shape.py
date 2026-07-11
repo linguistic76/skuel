@@ -44,11 +44,16 @@ class TestEnablesProximalOnly:
             _ZONE,
         ), "proximal expansion must follow PREREQUISITE_FOR, ENABLES and ENABLES_KNOWLEDGE"
 
-    def test_enabler_edges_appear_only_in_the_proximal_union(self) -> None:
-        """Enabler types may exist ONLY in the single proximal-expansion union."""
-        assert _ZONE.count("PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE") == 1
-        # Both ENABLES substrings live inside that one union — no other site
-        assert _ZONE.count("ENABLES") == 2
+    def test_enabler_edges_appear_only_in_the_proximal_unions(self) -> None:
+        """Enabler types may exist ONLY in the two proximal-expansion unions.
+
+        Site 1: Ku-grain expansion from engaged_uids. Site 2: the PS-level
+        enabler bridge from the raw engaged entities (Codex P2 #600 round 4).
+        Readiness/gap traversals must never gain an enabler type.
+        """
+        assert _ZONE.count("PREREQUISITE_FOR|ENABLES|ENABLES_KNOWLEDGE") == 2
+        # All four ENABLES substrings live inside those two unions — no other site
+        assert _ZONE.count("ENABLES") == 4
 
     def test_readiness_and_gap_traversals_are_incoming_prereq_only(self) -> None:
         """Steps 3 + 5 count incoming prerequisites; no other edge type may gate.
