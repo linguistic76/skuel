@@ -201,6 +201,8 @@ def custom_chart(data_url: str, chart_type: str = "line") -> Div:
 
 ```python
 def filterable_chart():
+    from ui.components import Select  # styled Tailwind <select> (DaisyUI classes are gone)
+
     return Div(
         # Filter controls
         Div(
@@ -209,7 +211,6 @@ def filterable_chart():
                 Option("Month", value="month"),
                 Option("Quarter", value="quarter"),
                 name="period",
-                cls="select select-bordered",
                 hx_get="/partials/completion-chart",
                 hx_trigger="change",
                 hx_target="#chart-container",

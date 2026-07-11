@@ -30,7 +30,6 @@ Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
 
 Key Components:
 - cypher package: Modular Cypher query building (crud, semantic, domain, relationship, intelligence)
-- QueryPatterns: Generic graph traversal patterns for all services
 - QueryIntent: Semantic query understanding
 - IndexStrategy: Neo4j index optimization strategies
 - QueryBuildRequest: Declarative query construction
@@ -40,16 +39,6 @@ Key Components:
 **Pure Cypher Architecture (October 20, 2025)** - No APOC dependencies!
 
 Usage Examples:
-
-    # QueryPatterns - Generic graph patterns
-    from adapters.persistence.neo4j.query import QueryPatterns
-
-    # Get user's mastered knowledge
-    query, params = QueryPatterns.get_user_entities(
-        "Entity", user_uid,
-        relationship="MASTERED",
-        order_by="r.achieved_at DESC"
-    )
 
     # Dynamic queries from model introspection
     from adapters.persistence.neo4j.query import build_search_query
@@ -207,9 +196,6 @@ from .cypher_template import (
 # Graph traversal with Pure Cypher
 from .graph_traversal import build_graph_context_query
 
-# Generic query patterns
-from .query_patterns import QueryPatterns
-
 # Pure Cypher schema DDL
 from .schema_ddl import (
     build_create_constraint_ddl,
@@ -261,7 +247,6 @@ __all__ = [
     "QueryIntent",
     "QueryOptimizationResult",
     "QueryOptimizationStrategy",
-    "QueryPatterns",
     "QueryPlan",
     "QueryResult",
     "QuerySort",

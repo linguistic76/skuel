@@ -175,14 +175,17 @@ def build_search_visibility_clause(
     *,
     entity_alias: str = "n",
     has_user: bool,
-) -> str | None:
+) -> tuple[str, dict[str, str]] | None:
     """
     Build the WHERE fragment that scopes search results to their audience.
 
     THE single ownership/visibility mechanism for every search strategy
     (text, tags, graph traversal, faceted) — one composition point so no
     strategy grows its own ad-hoc filter. The fragment references
-    ``$user_uid`` when ``has_user`` is True; callers must add it to params.
+    ``$user_uid`` when ``has_user`` is True; callers must add it to params
+    (they own the value). Constants the clause itself references (the
+    curriculum scope literal) come back in the returned params dict —
+    merge it into the query params verbatim.
 
     Semantics per SearchVisibility:
         None: no declaration — falls back to OWNER_ONLY when a user is
@@ -199,7 +202,8 @@ def build_search_visibility_clause(
             CURRICULUM survives — shared content is the fail-closed floor.
 
     Returns:
-        Parenthesized WHERE fragment, or None when no scoping applies.
+        ``(fragment, params)`` — a parenthesized WHERE fragment plus the
+        parameters it introduces — or None when no scoping applies.
     """
     if visibility is None:
         visibility = SearchVisibility.OWNER_ONLY if has_user else None
@@ -212,12 +216,15 @@ def build_search_visibility_clause(
     if visibility is SearchVisibility.OWNER_ONLY:
         if not has_user:
             return None
-        return f"({alias}.user_uid = $user_uid)"
+        return f"({alias}.user_uid = $user_uid)", {}
 
-    # SCOPE_AWARE
-    curriculum = f"{alias}.scope = '{ExerciseScope.CURRICULUM.value}'"
+    # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
+    # identifiers that Cypher cannot parameterize, like relationship types
+    # and labels, are interpolated — property VALUES never are).
+    scope_params = {"visibility_curriculum_scope": ExerciseScope.CURRICULUM.value}
+    curriculum = f"{alias}.scope = $visibility_curriculum_scope"
     if not has_user:
-        return f"({curriculum})"
+        return f"({curriculum})", scope_params
     owns = RelationshipName.OWNS.value
     shares = RelationshipName.SHARES_WITH.value
     member_of = RelationshipName.MEMBER_OF.value
@@ -228,7 +235,8 @@ def build_search_visibility_clause(
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{owns}]->({alias}) }}"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{shares}]->({alias}) }}"
         f" OR EXISTS {{ MATCH (:User {{uid: $user_uid}})-[:{member_of}]->"
-        f"(:{group_label})<-[:{shared_with_group}]-({alias}) }})"
+        f"(:{group_label})<-[:{shared_with_group}]-({alias}) }})",
+        scope_params,
     )
 
 
@@ -306,11 +314,13 @@ def build_text_search_query(
     where_clause = f"({' OR '.join(where_clauses)})"
 
     params: dict[str, Neo4jValue] = {"query": query, "limit": limit}
-    visibility_clause = build_search_visibility_clause(
+    visibility_scope = build_search_visibility_clause(
         visibility, entity_alias="n", has_user=user_uid is not None
     )
-    if visibility_clause:
+    if visibility_scope:
+        visibility_clause, visibility_params = visibility_scope
         where_clause = f"{visibility_clause} AND {where_clause}"
+        params.update(visibility_params)
         if user_uid is not None:
             params["user_uid"] = user_uid
 
@@ -500,11 +510,13 @@ def build_graph_aware_search_query(
     text_where = f"({' OR '.join(text_where_clauses)})"
 
     params: dict[str, Neo4jValue] = {"source_uid": source_uid, "query": query, "limit": limit}
-    visibility_clause = build_search_visibility_clause(
+    visibility_scope = build_search_visibility_clause(
         visibility, entity_alias="target", has_user=user_uid is not None
     )
-    if visibility_clause:
+    if visibility_scope:
+        visibility_clause, visibility_params = visibility_scope
         text_where = f"{visibility_clause} AND {text_where}"
+        params.update(visibility_params)
         if user_uid is not None:
             params["user_uid"] = user_uid
 
@@ -654,11 +666,13 @@ def build_array_any_match_query(
 
     result_values: list[str | int | float] = list(values)
     params: dict[str, Neo4jValue] = {"values": result_values, "limit": limit}
-    visibility_clause = build_search_visibility_clause(
+    visibility_scope = build_search_visibility_clause(
         visibility, entity_alias="n", has_user=user_uid is not None
     )
-    if visibility_clause:
+    if visibility_scope:
+        visibility_clause, visibility_params = visibility_scope
         match_where = f"{visibility_clause} AND {match_where}"
+        params.update(visibility_params)
         if user_uid is not None:
             params["user_uid"] = user_uid
 

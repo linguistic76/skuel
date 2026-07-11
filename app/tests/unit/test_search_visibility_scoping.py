@@ -55,8 +55,9 @@ class TestVisibilityClause:
         assert build_search_visibility_clause(SearchVisibility.PUBLIC, has_user=False) is None
 
     def test_owner_only_property_scope(self) -> None:
-        clause = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
+        clause, params = build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=True)
         assert clause == "(n.user_uid = $user_uid)"
+        assert params == {}
 
     def test_owner_only_without_user_applies_no_clause(self) -> None:
         # External surfaces (SearchRouter) fail-closed skip instead;
@@ -64,28 +65,34 @@ class TestVisibilityClause:
         assert build_search_visibility_clause(SearchVisibility.OWNER_ONLY, has_user=False) is None
 
     def test_scope_aware_with_user_covers_all_access_paths(self) -> None:
-        clause = build_search_visibility_clause(SearchVisibility.SCOPE_AWARE, has_user=True)
-        assert clause is not None
+        scope = build_search_visibility_clause(SearchVisibility.SCOPE_AWARE, has_user=True)
+        assert scope is not None
+        clause, params = scope
         assert clause.startswith("(") and clause.endswith(")")
-        assert "n.scope = 'curriculum'" in clause
+        # Scope value rides as a parameter, never a string literal (SKUEL021).
+        assert "n.scope = $visibility_curriculum_scope" in clause
+        assert params == {"visibility_curriculum_scope": "curriculum"}
         assert "-[:OWNS]->" in clause
         assert "-[:SHARES_WITH]->" in clause
         assert "-[:MEMBER_OF]->" in clause
         assert "<-[:SHARED_WITH_GROUP]-" in clause
 
     def test_scope_aware_without_user_is_curriculum_only(self) -> None:
-        clause = build_search_visibility_clause(SearchVisibility.SCOPE_AWARE, has_user=False)
-        assert clause == "(n.scope = 'curriculum')"
+        clause, params = build_search_visibility_clause(
+            SearchVisibility.SCOPE_AWARE, has_user=False
+        )
+        assert clause == "(n.scope = $visibility_curriculum_scope)"
+        assert params == {"visibility_curriculum_scope": "curriculum"}
 
     def test_none_with_user_defaults_to_owner_only(self) -> None:
         # Scoping-by-default: a caller passing a user gets a scoped query
         # unless the domain explicitly declares PUBLIC.
-        clause = build_search_visibility_clause(None, has_user=True)
+        clause, _params = build_search_visibility_clause(None, has_user=True)
         assert clause == "(n.user_uid = $user_uid)"
         assert build_search_visibility_clause(None, has_user=False) is None
 
     def test_entity_alias_is_respected_and_validated(self) -> None:
-        clause = build_search_visibility_clause(
+        clause, _params = build_search_visibility_clause(
             SearchVisibility.OWNER_ONLY, entity_alias="target", has_user=True
         )
         assert clause == "(target.user_uid = $user_uid)"
@@ -160,7 +167,8 @@ class TestQueryBuilderComposition:
             visibility=SearchVisibility.SCOPE_AWARE,
             user_uid=None,
         )
-        assert "(n.scope = 'curriculum') AND (" in cypher
+        assert "(n.scope = $visibility_curriculum_scope) AND (" in cypher
+        assert params["visibility_curriculum_scope"] == "curriculum"
         assert "user_uid" not in params
 
 
