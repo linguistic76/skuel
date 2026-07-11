@@ -31,7 +31,7 @@ from core.models.enums import (
     LearningLevel,
     SELCategory,
 )
-from core.models.search_request import SearchResponse
+from core.models.search_request import FacetCount, SearchResponse
 from ui.components import (
     Button,
     ButtonT,
@@ -394,22 +394,30 @@ def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> t
     return mobile_trigger, backdrop, panel
 
 
+# Type dropdown vocabulary — SHORT aliases (EntityType.from_string resolves
+# them server-side). Also consumed by _render_domain_breakdown to translate
+# the results' _domain stamp (full EntityType values) into clickable tokens.
+_ENTITY_TYPE_OPTIONS = [
+    ("", "All Types"),
+    ("ku", "Knowledge Units"),
+    ("ps", "Path Steps"),
+    ("lp", "Learning Paths"),
+    ("task", "Tasks"),
+    ("goal", "Goals"),
+    ("habit", "Habits"),
+    ("event", "Events"),
+    ("choice", "Choices"),
+    ("principle", "Principles"),
+    ("user_entry", "My Entries"),
+]
+
+# _domain stamp (EntityType value) → Type dropdown token, where they differ.
+_DOMAIN_TO_TYPE_OPTION = {"path_step": "ps", "learning_path": "lp"}
+
+
 def _render_entity_type_select() -> Any:
     """Entity Type dropdown for the primary filter row."""
-    entity_types = [
-        ("", "All Types"),
-        ("ku", "Knowledge Units"),
-        ("ps", "Path Steps"),
-        ("lp", "Learning Paths"),
-        ("task", "Tasks"),
-        ("goal", "Goals"),
-        ("habit", "Habits"),
-        ("event", "Events"),
-        ("choice", "Choices"),
-        ("principle", "Principles"),
-        ("user_entry", "My Entries"),
-    ]
-    return _filter_select("entity_type", entity_types, x_model="entityType")
+    return _filter_select("entity_type", _ENTITY_TYPE_OPTIONS, x_model="entityType")
 
 
 def _render_nous_select(nous_topics: list[str]) -> Any:
@@ -795,10 +803,66 @@ def _render_search_input(ask_enabled: bool = False) -> Div:
 # ============================================================================
 
 
+def _render_capacity_banner(warnings: dict[str, Any]) -> Any | None:
+    """Slim advisory strip above the results when the user is stretched.
+
+    Fed by ``SearchResponse.capacity_warnings`` (warm-UserContext-cache only —
+    see SearchRouter._peek_capacity_warnings). Empty warnings → no banner.
+    """
+    messages = [w["message"] for w in warnings.values() if isinstance(w, dict) and w.get("message")]
+    if not messages:
+        return None
+    return Div(
+        Span("⚠️", aria_hidden="true"),
+        Span(" · ".join(messages)),
+        cls=(
+            "flex items-start gap-2 rounded-md border border-yellow-200 bg-yellow-50 "
+            "text-yellow-800 text-sm px-3 py-2 mb-4"
+        ),
+    )
+
+
+def _render_domain_breakdown(response: SearchResponse) -> Any | None:
+    """Clickable per-type breakdown chips for a cross-domain result set.
+
+    Fed by ``SearchResponse.facet_counts['entity_type']`` (counts within the
+    returned window). Rendered only when the results span more than one type —
+    clicking a chip narrows the Type filter (``searchFilters.setEntityType``
+    sets the select and re-fires the search).
+    """
+    entity_counts = response.facet_counts.get("entity_type", [])
+    if len(entity_counts) < 2:
+        return None
+
+    # Clickable only when the _domain value maps to a real dropdown token —
+    # assigning an unknown value to the <select> would CLEAR it (reset to
+    # "All Types") instead of narrowing.
+    dropdown_tokens = {value for value, _ in _ENTITY_TYPE_OPTIONS if value}
+
+    def _chip(fc: FacetCount) -> Any:
+        label = f"{fc.display_name or fc.facet_value} {fc.count}"
+        token = _DOMAIN_TO_TYPE_OPTION.get(fc.facet_value, fc.facet_value)
+        if token not in dropdown_tokens:
+            return Badge(label, variant=BadgeT.neutral)
+        attrs: dict[str, Any] = {"x-on:click": f"setEntityType('{token}')"}
+        return Badge(
+            label,
+            variant=BadgeT.neutral,
+            cls="cursor-pointer hover:bg-accent",
+            role="button",
+            title=f"Show only {fc.display_name or fc.facet_value}",
+            **attrs,
+        )
+
+    chips = [_chip(fc) for fc in entity_counts]
+    return Div(*chips, cls="flex flex-wrap items-center gap-1.5 mt-2")
+
+
 def render_search_results(response: SearchResponse) -> Any:
     """Render search results with calm design."""
     if not response.has_results():
         return Div(
+            _render_capacity_banner(response.capacity_warnings),
             Div(
                 P("🔍", cls="text-center text-5xl mb-4"),
                 P(
@@ -817,6 +881,7 @@ def render_search_results(response: SearchResponse) -> Any:
     page_info = response.get_page_info()
 
     return Div(
+        _render_capacity_banner(response.capacity_warnings),
         # Results header — count summary only. Sort lives in the persistent filter
         # bar (_render_sort_select): a second sort_order <select> here would sit
         # INSIDE #search-results — resetting to its default on every swap and
@@ -832,6 +897,7 @@ def render_search_results(response: SearchResponse) -> Any:
                 f"Search completed in {response.search_time_ms:.0f}ms",
                 cls="text-muted-foreground text-xs",
             ),
+            _render_domain_breakdown(response),
             cls="mb-6",
         ),
         # Results grid with generous spacing

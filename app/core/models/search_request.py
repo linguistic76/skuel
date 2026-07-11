@@ -858,4 +858,58 @@ class SearchResponse(BaseModel):
     )
 
 
-__all__ = ["FacetCount", "SearchRequest", "SearchResponse"]
+def build_facet_counts(results: list[dict[str, Any]]) -> dict[str, list[FacetCount]]:
+    """Facet-value counts across the returned result window.
+
+    Derived from the results actually returned (post-limit), NOT a separate
+    count query — cheap enough for the keystroke-driven ``/search`` path and
+    consistent with the window-scoped ``total`` (issue #555 defers true
+    corpus-wide counts). Two facets today:
+
+    - ``entity_type`` — from the ``_domain`` stamp every SearchRouter
+      producer path writes (EntityType values, one vocabulary)
+    - ``nous`` — the topic array on curriculum results (Ku/PathStep)
+
+    Counts are sorted descending so the UI can render the dominant facet
+    first. Empty results → empty dict (the field's default).
+    """
+    from collections import Counter
+
+    domain_counts: Counter[str] = Counter()
+    nous_counts: Counter[str] = Counter()
+    for result in results:
+        domain = result.get("_domain")
+        if domain:
+            domain_counts[str(domain)] += 1
+        nous = result.get("nous") or ()
+        if isinstance(nous, str):
+            nous = (nous,)
+        for topic in nous:
+            if topic:
+                nous_counts[str(topic)] += 1
+
+    counts: dict[str, list[FacetCount]] = {}
+    if domain_counts:
+        counts["entity_type"] = [
+            FacetCount(
+                facet_type="entity_type",
+                facet_value=value,
+                count=count,
+                display_name=value.replace("_", " ").title(),
+            )
+            for value, count in domain_counts.most_common()
+        ]
+    if nous_counts:
+        counts["nous"] = [
+            FacetCount(
+                facet_type="nous",
+                facet_value=value,
+                count=count,
+                display_name=value.title(),
+            )
+            for value, count in nous_counts.most_common()
+        ]
+    return counts
+
+
+__all__ = ["FacetCount", "SearchRequest", "SearchResponse", "build_facet_counts"]

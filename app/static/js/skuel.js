@@ -427,6 +427,16 @@
                     }
                 },
 
+                // Narrow the Type filter from a result-breakdown chip: set the
+                // select and dispatch change — x-model picks up the new state
+                // and hx-trigger="change" re-fires the search, one event for both.
+                setEntityType: function(value) {
+                    var select = this.$root.querySelector('[name="entity_type"]');
+                    if (!select) return;
+                    select.value = value;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+
                 clearAllFilters: function() {
                     this.entityType = '';
                     this.showAdvanced = false;

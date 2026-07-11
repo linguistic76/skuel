@@ -749,9 +749,23 @@ pass — that keeps the search box fast.
 Context-based scoring exists on the API paths that already carry a
 `UserContext`: `intelligent_search()` and `advanced_search()` call
 `SearchRouter._score_results()`, which applies the unified per-domain scorers
-(next section). `SearchResponse.facet_counts` and
-`SearchResponse.capacity_warnings` are reserved fields — no producer
-populates them today; treat any doc or UI that claims otherwise as stale.
+(next section).
+
+Two response fields are populated by `faceted_search()` itself, both
+zero-extra-query by design (July 2026):
+
+- **`facet_counts`** — `build_facet_counts()` (`core/models/search_request.py`)
+  counts `entity_type` (the `_domain` stamp) and `nous` values across the
+  RETURNED window. Window-scoped like `total` (#555), not a corpus count.
+  The UI renders the entity-type breakdown as clickable chips in the results
+  header (`_render_domain_breakdown`) when results span multiple types.
+- **`capacity_warnings`** — `SearchRouter._peek_capacity_warnings()` reads
+  the WARM `UserContext` cache only (`UserService.peek_cached_context` —
+  cache-hit-only, never builds), then `UserContext.get_capacity_warnings()`
+  produces at most `workload` (score ≥ 0.8) and `overdue_tasks` entries.
+  A cold cache simply yields no warnings; pages that build the rich context
+  (today, daily plan) warm it, and domain events invalidate it. The UI shows
+  a slim advisory strip above the results (`_render_capacity_banner`).
 
 ---
 

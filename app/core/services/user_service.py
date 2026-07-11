@@ -716,6 +716,18 @@ class UserService:
     # RICH CONTEXT (November 22, 2025 - Neo4j Optimization)
     # ========================================================================
 
+    def peek_cached_context(self, user_uid: UserUID) -> RichUserContext | None:
+        """Cache-hit-only context access — NEVER builds (no MEGA-QUERY, ever).
+
+        For latency-sensitive surfaces (the keystroke-driven /search path)
+        that want to enrich opportunistically when a rich context is already
+        warm, and silently do without one when it isn't. Use
+        ``get_rich_unified_context`` when you need a context unconditionally.
+        """
+        if self.activity is None:
+            return None
+        return self.activity.get_valid_context(user_uid)
+
     async def get_rich_unified_context(
         self, user_uid: UserUID, min_confidence: float = 0.7
     ) -> Result[RichUserContext]:
