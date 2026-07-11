@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.query_types import KnowledgeEntryGroundingRow, to_knowledge_entry_grounding_rows
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -169,7 +170,7 @@ class _UserEntryContentMixin:
         self,
         user_uid: UserUID,
         limit: int,
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[KnowledgeEntryGroundingRow]]:
         """Knowledge-pipeline entries with their grounded-Ku chips.
 
         One row per ``pipeline: knowledge`` entry the user OWNS, newest first,
@@ -202,7 +203,7 @@ class _UserEntryContentMixin:
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record) for record in result.value])
+        return Result.ok(to_knowledge_entry_grounding_rows(result.value))
 
     async def get_entries_for_path_step(
         self,

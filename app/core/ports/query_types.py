@@ -841,6 +841,78 @@ class GroundingRemovalRow(TypedDict):
     inferred: bool
 
 
+class GroundedKuChip(TypedDict):
+    """One ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` chip on a knowledge entry.
+
+    ``confidence``/``inferred`` are absent (None) on explicit
+    EXTRACT_ACTIVITIES edges; vector-grounded edges carry both.
+    """
+
+    ku_uid: str
+    ku_title: str | None
+    confidence: float | None
+    inferred: bool | None
+
+
+class KnowledgeEntryGroundingRow(TypedDict):
+    """One ``/submissions/knowledge`` row: a knowledge entry + its chips.
+
+    Read by ``_UserEntryContentMixin.get_knowledge_entries_with_grounding``;
+    ``created_at`` is stringified at the persistence boundary (the renderer's
+    date formatter accepts isoformat text).
+    """
+
+    uid: str
+    title: str | None
+    created_at: str | None
+    grounded_kus: list[GroundedKuChip]
+
+
+def to_knowledge_entry_grounding_rows(
+    records: list[
+        dict[str, Any]
+    ],  # boundary: neo4j-projection — nested collect() map exceeds Neo4jProperties
+) -> list[KnowledgeEntryGroundingRow]:
+    """Narrow raw grounding-list rows to typed rows (uid-less rows dropped)."""
+    rows: list[KnowledgeEntryGroundingRow] = []
+    for record in records:
+        uid = record.get("uid")
+        if not isinstance(uid, str) or not uid:
+            continue
+        raw_chips = record.get("grounded_kus")
+        chips: list[GroundedKuChip] = []
+        if isinstance(raw_chips, list):
+            for chip in raw_chips:
+                ku_uid = chip.get("ku_uid") if isinstance(chip, dict) else None
+                if not isinstance(ku_uid, str) or not ku_uid:
+                    continue
+                confidence = chip.get("confidence")
+                inferred = chip.get("inferred")
+                chips.append(
+                    GroundedKuChip(
+                        ku_uid=ku_uid,
+                        ku_title=str(chip["ku_title"])
+                        if chip.get("ku_title") is not None
+                        else None,
+                        confidence=float(confidence)
+                        if isinstance(confidence, (int, float))
+                        else None,
+                        inferred=bool(inferred) if inferred is not None else None,
+                    )
+                )
+        title = record.get("title")
+        created_at = record.get("created_at")
+        rows.append(
+            KnowledgeEntryGroundingRow(
+                uid=uid,
+                title=str(title) if title is not None else None,
+                created_at=str(created_at) if created_at is not None else None,
+                grounded_kus=chips,
+            )
+        )
+    return rows
+
+
 def to_grounding_entry_rows(records: list[Neo4jProperties]) -> list[GroundingEntryRow]:
     """Narrow raw pending-entry rows to typed ``GroundingEntryRow``s (malformed rows dropped)."""
     rows: list[GroundingEntryRow] = []

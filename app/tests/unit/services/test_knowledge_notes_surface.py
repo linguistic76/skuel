@@ -11,6 +11,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fasthtml.common import to_xml
 
+from core.ports.query_types import (
+    GroundedKuChip,
+    KnowledgeEntryGroundingRow,
+    to_knowledge_entry_grounding_rows,
+)
 from core.services.user_entry.user_entry_service import UserEntryService
 from core.utils.result_simplified import Errors, Result
 from ui.user_entry.knowledge_notes import render_knowledge_notes_list
@@ -20,28 +25,29 @@ def _make_service(backend: MagicMock) -> UserEntryService:
     return UserEntryService(backend=backend)
 
 
-def _row(**overrides) -> dict:
-    row = {
-        "uid": "ue_note_1",
-        "title": "Mindfulness note",
-        "created_at": "2026-07-10T09:00:00",
-        "grounded_kus": [
-            {
-                "ku_uid": "ku.mind.sel",
-                "ku_title": "Sel",
-                "confidence": 0.81,
-                "inferred": True,
-            },
-            {
-                "ku_uid": "ku.mind.explicit",
-                "ku_title": "Explicit Ref",
-                "confidence": None,
-                "inferred": None,
-            },
-        ],
-    }
-    row.update(overrides)
-    return row
+_EXPLICIT_CHIP = GroundedKuChip(
+    ku_uid="ku.mind.explicit",
+    ku_title="Explicit Ref",
+    confidence=None,
+    inferred=None,
+)
+
+
+def _row(grounded_kus: list[GroundedKuChip] | None = None) -> KnowledgeEntryGroundingRow:
+    chips = (
+        grounded_kus
+        if grounded_kus is not None
+        else [
+            GroundedKuChip(ku_uid="ku.mind.sel", ku_title="Sel", confidence=0.81, inferred=True),
+            _EXPLICIT_CHIP,
+        ]
+    )
+    return KnowledgeEntryGroundingRow(
+        uid="ue_note_1",
+        title="Mindfulness note",
+        created_at="2026-07-10T09:00:00",
+        grounded_kus=chips,
+    )
 
 
 class TestListKnowledgeEntriesWithGrounding:
@@ -83,6 +89,55 @@ class TestListKnowledgeEntriesWithGrounding:
         assert result.value == []
 
 
+class TestToKnowledgeEntryGroundingRows:
+    """Raw Neo4j records narrow to typed rows (Codex #611: no Any across the boundary)."""
+
+    def test_narrows_and_casts(self):
+        rows = to_knowledge_entry_grounding_rows(
+            [
+                {
+                    "uid": "ue_1",
+                    "title": "Note",
+                    "created_at": "2026-07-10T09:00:00",
+                    "grounded_kus": [
+                        {"ku_uid": "ku.a", "ku_title": "A", "confidence": 0.9, "inferred": True},
+                        {
+                            "ku_uid": None,
+                            "ku_title": "dropped",
+                            "confidence": None,
+                            "inferred": None,
+                        },
+                    ],
+                },
+                {"uid": None, "title": "uid-less row dropped"},
+            ]
+        )
+        assert len(rows) == 1
+        assert rows[0]["uid"] == "ue_1"
+        assert len(rows[0]["grounded_kus"]) == 1
+        chip = rows[0]["grounded_kus"][0]
+        assert chip["confidence"] == 0.9
+        assert chip["inferred"] is True
+
+    def test_explicit_chip_keeps_none_confidence(self):
+        rows = to_knowledge_entry_grounding_rows(
+            [
+                {
+                    "uid": "ue_1",
+                    "title": None,
+                    "created_at": None,
+                    "grounded_kus": [
+                        {"ku_uid": "ku.a", "ku_title": None, "confidence": None, "inferred": None}
+                    ],
+                }
+            ]
+        )
+        chip = rows[0]["grounded_kus"][0]
+        assert chip["confidence"] is None
+        assert chip["inferred"] is None
+        assert rows[0]["title"] is None
+
+
 class TestKnowledgeNotesRenderer:
     """Chip contract: remove route wiring + confidence display."""
 
@@ -97,16 +152,7 @@ class TestKnowledgeNotesRenderer:
         assert "81%" in html
 
     def test_explicit_chip_shows_no_percent(self):
-        row = _row(
-            grounded_kus=[
-                {
-                    "ku_uid": "ku.mind.explicit",
-                    "ku_title": "Explicit Ref",
-                    "confidence": None,
-                    "inferred": None,
-                }
-            ]
-        )
+        row = _row(grounded_kus=[_EXPLICIT_CHIP])
         html = to_xml(render_knowledge_notes_list([row]))
         assert "%" not in html.split("Explicit Ref")[1].split("</span>")[0]
         assert "Explicit Ref" in html

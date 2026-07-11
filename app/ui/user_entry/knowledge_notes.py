@@ -19,7 +19,7 @@ through the global X-Toast listener.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, P, Span
 
@@ -27,17 +27,20 @@ from ui.components import Card, Icon
 from ui.learning_loop.report import format_date
 from ui.patterns.empty_state import EmptyState
 
+if TYPE_CHECKING:
+    from core.ports.query_types import GroundedKuChip, KnowledgeEntryGroundingRow
 
-def _grounding_chip(entry_uid: str, chip: dict[str, Any]) -> Any:
+
+def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
     """One removable grounded-Ku chip."""
-    ku_uid = str(chip.get("ku_uid") or "")
-    ku_title = str(chip.get("ku_title") or ku_uid)
-    confidence = chip.get("confidence")
+    ku_uid = chip["ku_uid"]
+    ku_title = chip["ku_title"] or ku_uid
+    confidence = chip["confidence"]
 
     confidence_label: Any = None
-    if isinstance(confidence, (int, float)):
+    if confidence is not None:
         confidence_label = Span(
-            f"{round(float(confidence) * 100)}%",
+            f"{round(confidence * 100)}%",
             cls="text-[11px] text-muted-foreground",
         )
 
@@ -72,12 +75,12 @@ def _grounding_chip(entry_uid: str, chip: dict[str, Any]) -> Any:
     )
 
 
-def _entry_row(row: dict[str, Any]) -> Any:
+def _entry_row(row: KnowledgeEntryGroundingRow) -> Any:
     """One knowledge entry: title, date, and its grounded-Ku chips."""
-    uid = str(row.get("uid") or "")
-    title = str(row.get("title") or "Untitled")
-    created_str = format_date(row.get("created_at"))
-    chips = [c for c in (row.get("grounded_kus") or []) if c.get("ku_uid")]
+    uid = row["uid"]
+    title = row["title"] or "Untitled"
+    created_str = format_date(row["created_at"])
+    chips = row["grounded_kus"]
 
     chips_section: Any
     if chips:
@@ -104,7 +107,7 @@ def _entry_row(row: dict[str, Any]) -> Any:
     )
 
 
-def render_knowledge_notes_list(rows: list[dict[str, Any]]) -> Any:
+def render_knowledge_notes_list(rows: list[KnowledgeEntryGroundingRow]) -> Any:
     """The full knowledge-notes list, newest first."""
     if not rows:
         return EmptyState(

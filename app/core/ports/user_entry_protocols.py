@@ -39,7 +39,12 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
-from core.ports.query_types import GroundingEntryRow, GroundingRemovalRow, OrganizerResult
+from core.ports.query_types import (
+    GroundingEntryRow,
+    GroundingRemovalRow,
+    KnowledgeEntryGroundingRow,
+    OrganizerResult,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -439,7 +444,7 @@ class UserEntryContentOperations(Protocol):
         self,
         user_uid: UserUID,
         limit: int,
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[KnowledgeEntryGroundingRow]]:
         """Knowledge-pipeline entries + their APPLIES_KNOWLEDGE chips (confidence-ordered)."""
         ...
 

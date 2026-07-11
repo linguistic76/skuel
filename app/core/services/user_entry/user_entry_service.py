@@ -63,7 +63,7 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import OrganizerResult
+    from core.ports.query_types import KnowledgeEntryGroundingRow, OrganizerResult
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
@@ -469,7 +469,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self,
         user_uid: UserUID,
         limit: int = 500,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[KnowledgeEntryGroundingRow]]:
         """Knowledge-pipeline entries with their grounded-Ku chips.
 
         The read behind the knowledge-notes surface — the user reviews (and
