@@ -2,29 +2,25 @@
 Search UI Components
 ====================
 
-UI components for the search page with horizontal filter layout.
-Extracted from search_routes.py for separation of concerns.
+FastHTML components for the search page: query box (+ optional Ask verb),
+horizontal filter bar (off-canvas drawer on mobile), active-filter badges,
+results grid, and pagination.
 
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
 
-Uses semantic HTML with TailwindCSS.
-
-Usage:
-    from ui.search.components import (
-        render_search_page_with_navbar,
-        render_search_results,
-    )
-
-Version: 3.0.0 - Horizontal filters layout
+Built entirely from the shared component library (ui.components / ui.feedback /
+ui.primitives) — no raw-HTML strings. Two other files key off the markup here:
+`searchFilters` in static/js/skuel.js (Alpine state: drawer, More-filters
+toggle, active-filter count, Ask href) and static/css/search.css (layout hooks:
+.search-filters, .filter-primary, .filter-advanced, .context-filters, ...).
+Keep class names and ``name=`` attributes in sync with both.
 """
 
-__version__ = "3.0"
-
-from html import escape
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, A, Div, NotStr, P, Span
+from fasthtml.common import H3, H4, A, Div, Option, P, Span, Template
+from fasthtml.common import Button as HtmlButton
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -36,13 +32,23 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search_request import SearchResponse
-from ui.components import ButtonT, Card, Icon
+from ui.components import (
+    Button,
+    ButtonT,
+    Card,
+    Checkbox,
+    Icon,
+    Input,
+    Label,
+    Select,
+)
 from ui.enum_helpers import (
     get_content_icon,
     get_educational_icon,
     get_sel_icon,
 )
 from ui.feedback import Badge, BadgeT
+from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
@@ -106,18 +112,17 @@ def _render_search_layout(
     facets (learning progress, graph relationships, semantic search, Tier 2 context
     filters) behind a "More filters" toggle. On narrow viewports that whole filter set
     collapses into an off-canvas drawer opened by a "Filters" button (see search.css
-    `.search-filters`). Faucet markup and every hx-get/hx-include are unchanged — this
-    is layout only. Alpine.js (`searchFilters`) drives the toggle, drawer, and filter
-    visibility.
+    `.search-filters`). Alpine.js (`searchFilters`) drives the toggle, drawer, and
+    filter visibility.
     """
     return Div(
         Div(
             # Search Input (+ Ask verb when FULL tier) — spans the top
-            NotStr(_render_search_input(ask_enabled)),
-            # Filter bar (desktop) / mobile trigger + drawer
-            NotStr(_render_filter_panel(nous_topics, nous_subtopics)),
+            _render_search_input(ask_enabled),
+            # Filter bar (desktop) / mobile trigger + backdrop + drawer
+            *_render_filter_panel(nous_topics, nous_subtopics),
             # Active Filter Badges — below the bar, above the results
-            NotStr(_render_active_filter_badges()),
+            _render_active_filter_badges(),
             # Results — full width
             Div(
                 Div(
@@ -135,7 +140,7 @@ def _render_search_layout(
             cls=f"search-main {Container.WIDE} px-4 py-8",
         ),
         cls="search-container",
-        **{"x-data": "searchFilters()"},
+        x_data="searchFilters()",
     )
 
 
@@ -196,9 +201,52 @@ def _get_hx_include(*exclude: str) -> str:
     return ", ".join(f"[name='{n}']" for n in names)
 
 
-def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> str:
+def _filter_select(
+    name: str,
+    options: list[tuple[str, str]],
+    *,
+    exclude: tuple[str, ...] | None = None,
+    **extra: Any,
+) -> Any:
+    """One faceted-search dropdown: changing it re-runs /search/results.
+
+    HTMX serializes the triggering control itself, so ``hx-include`` carries
+    every OTHER filter (``exclude`` defaults to the control's own name — pass a
+    wider tuple to also drop dependents, e.g. nous drops nous_subtopic).
     """
-    Render the horizontal filter bar (desktop) / off-canvas filter drawer (mobile).
+    return Select(
+        *[Option(label, value=value) for value, label in options],
+        name=name,
+        id=name,
+        hx_get="/search/results",
+        hx_trigger="change",
+        hx_target="#search-results",
+        hx_include=_get_hx_include(*(exclude if exclude is not None else (name,))),
+        **extra,
+    )
+
+
+def _bar_label(text: str, *, fr: str) -> Any:
+    """Uppercase micro-label above a primary filter-bar dropdown."""
+    return Label(
+        Span(text, cls="text-xs font-semibold uppercase tracking-wide"),
+        fr=fr,
+        cls="block py-1",
+    )
+
+
+def _primary_field(label_text: str, control: Any, *, fr: str) -> Div:
+    """Label + control column in the primary filter row."""
+    return Div(
+        _bar_label(label_text, fr=fr),
+        control,
+        cls="space-y-1 flex-1 min-w-[150px]",
+    )
+
+
+def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> tuple[Any, Any, Any]:
+    """
+    Build the filter surface: (mobile trigger, mobile backdrop, filter panel).
 
     One set of filter inputs — never duplicated — so ``hx-include``'s ``[name='…']``
     selectors match each control exactly once (a duplicate would double-submit params).
@@ -213,120 +261,141 @@ def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> s
         Tier 2 context filters; toggled by ``More filters`` on desktop, always shown
         inside the mobile drawer.
     """
-    trigger_icon = Icon("filter", size=16, cls="inline-block")
-    toggle_icon = Icon("sliders-horizontal", size=16, cls="inline-block")
-    return f"""
-    <!-- Mobile: open-filters trigger (hidden on desktop, where the bar is inline) -->
-    <div class="lg:hidden mb-4">
-        <button type="button" class="btn btn-outline btn-sm gap-2" x-on:click="filtersOpen = true">
-            {trigger_icon}
-            <span>Filters</span>
-            <span class="badge badge-primary badge-sm" x-show="filterCount > 0" x-text="filterCount" style="display:none"></span>
-        </button>
-    </div>
+    # Mobile: open-filters trigger (hidden on desktop, where the bar is inline)
+    mobile_trigger = Div(
+        Button(
+            Icon("filter", size=16, cls="inline-block"),
+            Span("Filters"),
+            Badge(
+                variant=BadgeT.primary,
+                size=Size.sm,
+                style="display:none",
+                x_show="filterCount > 0",
+                x_text="filterCount",
+            ),
+            type="button",
+            size="sm",
+            cls=(ButtonT.default, "gap-2"),
+            **{"x-on:click": "filtersOpen = true"},
+        ),
+        cls="lg:hidden mb-4",
+    )
 
-    <!-- Mobile drawer backdrop -->
-    <div class="filters-backdrop lg:hidden" x-show="filtersOpen" x-on:click="filtersOpen = false"
-         x-transition:enter="transition-opacity ease-out duration-200"
-         x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-         x-transition:leave="transition-opacity ease-in duration-150"
-         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-         style="display:none"></div>
+    # Mobile drawer backdrop
+    backdrop = Div(
+        cls="filters-backdrop lg:hidden",
+        style="display:none",
+        x_show="filtersOpen",
+        **{
+            "x-on:click": "filtersOpen = false",
+            "x-transition:enter": "transition-opacity ease-out duration-200",
+            "x-transition:enter-start": "opacity-0",
+            "x-transition:enter-end": "opacity-100",
+            "x-transition:leave": "transition-opacity ease-in duration-150",
+            "x-transition:leave-start": "opacity-100",
+            "x-transition:leave-end": "opacity-0",
+        },
+    )
 
-    <!-- Filter panel: inline bar on desktop, off-canvas drawer on mobile.
-         x-on:change recomputes the active-filter count as any control changes;
-         x-on:htmx:after-swap re-tallies after the dependent sub-topic column is
-         swapped (changing NOUS resets nous_subtopic via an HTMX innerHTML swap,
-         which emits no `change` — without this the count would stay stale). -->
-    <div class="search-filters" :class="{{ 'is-open': filtersOpen }}"
-         x-on:change="updateFilterCount()"
-         x-on:htmx:after-swap="updateFilterCount()">
-        <!-- Drawer header (mobile only) -->
-        <div class="search-filters-header lg:hidden">
-            <span class="text-sm font-semibold uppercase tracking-wide">Filters</span>
-            <button type="button" class="btn btn-ghost btn-sm btn-circle" x-on:click="filtersOpen = false" aria-label="Close filters">✕</button>
-        </div>
+    # Drawer header (mobile only)
+    drawer_header = Div(
+        Span("Filters", cls="text-sm font-semibold uppercase tracking-wide"),
+        Button(
+            "✕",
+            type="button",
+            size="sm",
+            cls=(ButtonT.ghost, "w-8 px-0 rounded-full"),
+            aria_label="Close filters",
+            **{"x-on:click": "filtersOpen = false"},
+        ),
+        cls="search-filters-header lg:hidden",
+    )
 
-        <!-- Primary dropdowns -->
-        <div class="filter-primary">
-            <div class="space-y-1 flex-1 min-w-[150px]">
-                <label class="label py-1">
-                    <span class="text-xs font-semibold uppercase tracking-wide">Type</span>
-                </label>
-                {_render_entity_type_select()}
-            </div>
+    # Primary dropdowns + the desktop More-filters disclosure
+    primary_row = Div(
+        _primary_field("Type", _render_entity_type_select(), fr="entity_type"),
+        _primary_field("Nous", _render_nous_select(nous_topics), fr="nous"),
+        _render_nous_subtopic_select(nous_subtopics),
+        _primary_field("Sort", _render_sort_select(), fr="sort_order"),
+        # Desktop: reveal/hide the advanced facets (mobile drawer always shows them)
+        Button(
+            Icon("sliders-horizontal", size=16, cls="inline-block"),
+            Span("More filters", x_text="moreFilters ? 'Fewer filters' : 'More filters'"),
+            type="button",
+            size="sm",
+            cls=(ButtonT.ghost, "more-filters-toggle gap-2 shrink-0"),
+            style="display:none",
+            x_show="isDesktop",
+            **{"x-on:click": "moreFilters = !moreFilters"},
+        ),
+        cls="filter-primary",
+    )
 
-            <div class="space-y-1 flex-1 min-w-[150px]">
-                <label class="label py-1">
-                    <span class="text-xs font-semibold uppercase tracking-wide">Nous</span>
-                </label>
-                {_render_nous_select(nous_topics)}
-            </div>
+    # Advanced facets: desktop toggles via moreFilters; mobile drawer always shows.
+    advanced = Div(
+        Div(
+            _advanced_group("Learning Progress", _learning_progress_checkboxes()),
+            _advanced_group("Graph Relationships", _relationship_checkboxes()),
+            _advanced_group(
+                "Semantic Search",
+                _semantic_search_checkboxes(),
+                badge=Badge("NEW", variant=BadgeT.primary, size=Size.xs, cls="ml-1"),
+            ),
+            cls="grid grid-cols-1 md:grid-cols-3 gap-6",
+        ),
+        _render_context_filters(),
+        cls="filter-advanced",
+        style="display:none",
+        x_show="isDesktop ? moreFilters : true",
+        **{
+            "x-transition:enter": "transition ease-out duration-200",
+            "x-transition:enter-start": "opacity-0 -translate-y-1",
+            "x-transition:enter-end": "opacity-100 translate-y-0",
+        },
+    )
 
-            {_render_nous_subtopic_select(nous_subtopics)}
+    # Drawer footer (mobile only)
+    drawer_footer = Div(
+        Button(
+            "Clear all",
+            type="button",
+            size="sm",
+            cls=(ButtonT.ghost, "text-destructive"),
+            **{"x-on:click": "clearAllFilters()"},
+        ),
+        Button(
+            "Show results",
+            type="button",
+            size="sm",
+            cls=(ButtonT.primary, "flex-1"),
+            **{"x-on:click": "filtersOpen = false"},
+        ),
+        cls="search-filters-footer lg:hidden",
+    )
 
-            <div class="space-y-1 flex-1 min-w-[150px]">
-                <label class="label py-1">
-                    <span class="text-xs font-semibold uppercase tracking-wide">Sort</span>
-                </label>
-                {_render_sort_select()}
-            </div>
+    # Filter panel: inline bar on desktop, off-canvas drawer on mobile.
+    # x-on:change recomputes the active-filter count as any control changes;
+    # x-on:htmx:after-swap re-tallies after the dependent sub-topic column is
+    # swapped (changing NOUS resets nous_subtopic via an HTMX innerHTML swap,
+    # which emits no `change` — without this the count would stay stale).
+    panel = Div(
+        drawer_header,
+        primary_row,
+        advanced,
+        drawer_footer,
+        cls="search-filters",
+        **{
+            ":class": "{ 'is-open': filtersOpen }",
+            "x-on:change": "updateFilterCount()",
+            "x-on:htmx:after-swap": "updateFilterCount()",
+        },
+    )
 
-            <!-- Desktop: reveal/hide the advanced facets (mobile drawer always shows them) -->
-            <button type="button" class="more-filters-toggle btn btn-ghost btn-sm gap-2 shrink-0"
-                    x-show="isDesktop" x-on:click="moreFilters = !moreFilters" style="display:none">
-                {toggle_icon}
-                <span x-text="moreFilters ? 'Fewer filters' : 'More filters'">More filters</span>
-            </button>
-        </div>
-
-        <!-- Advanced facets: desktop toggles via moreFilters; mobile drawer always shows. -->
-        <div class="filter-advanced" x-show="isDesktop ? moreFilters : true" style="display:none"
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 -translate-y-1"
-             x-transition:enter-end="opacity-100 translate-y-0">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Learning Progress -->
-                <div>
-                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Learning Progress</div>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1">
-                        {_render_learning_progress_checkboxes()}
-                    </div>
-                </div>
-
-                <!-- Graph Relationships -->
-                <div>
-                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Graph Relationships</div>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1">
-                        {_render_relationship_checkboxes()}
-                    </div>
-                </div>
-
-                <!-- Semantic Search -->
-                <div>
-                    <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Semantic Search
-                        <span class="inline-flex items-center rounded-full border font-medium text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20 ml-1">NEW</span>
-                    </div>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1">
-                        {_render_semantic_search_checkboxes()}
-                    </div>
-                </div>
-            </div>
-
-            {_render_context_filters()}
-        </div>
-
-        <!-- Drawer footer (mobile only) -->
-        <div class="search-filters-footer lg:hidden">
-            <button type="button" class="btn btn-ghost btn-sm text-error" x-on:click="clearAllFilters()">Clear all</button>
-            <button type="button" class="btn btn-primary btn-sm flex-1" x-on:click="filtersOpen = false">Show results</button>
-        </div>
-    </div>
-    """
+    return mobile_trigger, backdrop, panel
 
 
-def _render_entity_type_select() -> str:
-    """Entity Type dropdown for horizontal bar."""
+def _render_entity_type_select() -> Any:
+    """Entity Type dropdown for the primary filter row."""
     entity_types = [
         ("", "All Types"),
         ("ku", "Knowledge Units"),
@@ -340,57 +409,30 @@ def _render_entity_type_select() -> str:
         ("principle", "Principles"),
         ("user_entry", "My Entries"),
     ]
-
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in entity_types
-    )
-
-    return f"""
-    <select name="entity_type" class="select select-bordered select-sm w-full"
-            hx-get="/search/results"
-            hx-trigger="change"
-            hx-target="#search-results"
-            hx-include="{_get_hx_include("entity_type")}"
-            x-model="entityType">
-        {options}
-    </select>
-    """
+    return _filter_select("entity_type", entity_types, x_model="entityType")
 
 
-def _render_nous_select(nous_topics: list[str]) -> str:
+def _render_nous_select(nous_topics: list[str]) -> Any:
     """NOUS topic dropdown for Tier 1 filter bar.
 
     Options are DERIVED from the graph (KuService.list_nous_topics), never
     hardcoded — the facet cannot drift from the vault vocabulary.
 
     Changing NOUS fires TWO concurrent HTMX requests: this select re-runs
-    ``/search/results`` (below) AND the dependent sub-topic column re-fetches
+    ``/search/results`` AND the dependent sub-topic column re-fetches
     ``/search/subtopics`` (via ``change from:[name='nous']``). This request
     EXCLUDES ``nous_subtopic`` from its include set on purpose — a new NOUS
     topic invalidates the old sub-topic, so results must re-scope by NOUS alone
     rather than carry a now-orphaned sub-topic value while the column resets.
     """
-    sections = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in sections
-    )
-    return f"""
-    <select name="nous" class="select select-bordered select-sm w-full"
-            hx-get="/search/results"
-            hx-trigger="change"
-            hx-target="#search-results"
-            hx-include="{_get_hx_include("nous", "nous_subtopic")}">
-        {options}
-    </select>
-    """
+    options = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
+    return _filter_select("nous", options, exclude=("nous", "nous_subtopic"))
 
 
 NOUS_SUBTOPIC_COLUMN_ID = "nous-subtopic-column"
 
 
-def render_nous_subtopic_inner(nous_subtopics: list[str]) -> str:
+def render_nous_subtopic_inner(nous_subtopics: list[str]) -> tuple[Any, Any]:
     """Inner label + select for the sub-topic column (the HTMX-swapped fragment).
 
     Options are DERIVED from the graph, never hardcoded (content boundary). The
@@ -402,28 +444,16 @@ def render_nous_subtopic_inner(nous_subtopics: list[str]) -> str:
     — the column stays present and stable so the dependent HTMX target never
     vanishes mid-interaction, it simply has nothing to narrow by.
     """
-    sections = [("", "All Sub-topics")] + [
+    options = [("", "All Sub-topics")] + [
         (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
     ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in sections
+    return (
+        _bar_label("Sub-topic", fr="nous_subtopic"),
+        _filter_select("nous_subtopic", options),
     )
-    return f"""
-        <label class="label py-1">
-            <span class="text-xs font-semibold uppercase tracking-wide">Sub-topic</span>
-        </label>
-        <select name="nous_subtopic" class="select select-bordered select-sm w-full"
-                hx-get="/search/results"
-                hx-trigger="change"
-                hx-target="#search-results"
-                hx-include="{_get_hx_include("nous_subtopic")}">
-            {options}
-        </select>
-    """
 
 
-def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
+def _render_nous_subtopic_select(nous_subtopics: list[str]) -> Any | None:
     """NOUS sub-topic column (2nd taxonomy level), dependent on the NOUS topic.
 
     DERIVED from the graph (KuService.list_nous_subtopics / nous_subtopic_map),
@@ -438,22 +468,21 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> str:
     trap). ``hx-include`` carries only ``nous`` so the endpoint can scope.
     """
     if not nous_subtopics:
-        return ""
-    return f"""
-    <!-- Nous Sub-topic (dependent on Nous topic) -->
-    <div id="{NOUS_SUBTOPIC_COLUMN_ID}" class="space-y-2 flex-1 min-w-[150px]"
-         hx-get="/search/subtopics"
-         hx-trigger="change from:[name='nous']"
-         hx-target="#{NOUS_SUBTOPIC_COLUMN_ID}"
-         hx-swap="innerHTML"
-         hx-include="[name='nous']">
-        {render_nous_subtopic_inner(nous_subtopics)}
-    </div>
-    """
+        return None
+    return Div(
+        *render_nous_subtopic_inner(nous_subtopics),
+        id=NOUS_SUBTOPIC_COLUMN_ID,
+        cls="space-y-2 flex-1 min-w-[150px]",
+        hx_get="/search/subtopics",
+        hx_trigger="change from:[name='nous']",
+        hx_target=f"#{NOUS_SUBTOPIC_COLUMN_ID}",
+        hx_swap="innerHTML",
+        hx_include="[name='nous']",
+    )
 
 
-def _render_sort_select() -> str:
-    """Sort order dropdown for horizontal bar."""
+def _render_sort_select() -> Any:
+    """Sort order dropdown for the primary filter row."""
     sort_options = [
         ("relevance", "Relevance"),
         ("created_desc", "Newest First"),
@@ -464,341 +493,194 @@ def _render_sort_select() -> str:
         ("progress_desc", "Most Progress"),
         ("streak_desc", "Longest Streak"),
     ]
+    return _filter_select("sort_order", sort_options)
 
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in sort_options
+
+# ----------------------------------------------------------------------------
+# Tier 2 context filters — shown per entity type (Alpine isFilterVisible())
+# ----------------------------------------------------------------------------
+
+_STATUS_OPTIONS = [
+    ("", "All"),
+    ("draft", "Draft"),
+    ("scheduled", "Scheduled"),
+    ("in_progress", "In Progress"),
+    ("completed", "Completed"),
+    ("cancelled", "Cancelled"),
+]
+
+_PRIORITY_OPTIONS = [
+    ("", "All"),
+    ("low", "Low"),
+    ("medium", "Medium"),
+    ("high", "High"),
+    ("critical", "Critical"),
+]
+
+_FREQUENCY_OPTIONS = [
+    ("", "All"),
+    ("daily", "Daily"),
+    ("2-3x_week", "2-3x/Week"),
+    ("weekly", "Weekly"),
+    ("bi_weekly", "Bi-weekly"),
+    ("monthly", "Monthly"),
+]
+
+_EVENT_TYPE_OPTIONS = [
+    ("", "All"),
+    ("meeting", "Meeting"),
+    ("deadline", "Deadline"),
+    ("milestone", "Milestone"),
+    ("practice", "Practice"),
+    ("review", "Review"),
+]
+
+_URGENCY_OPTIONS = [
+    ("", "All"),
+    ("low", "Low"),
+    ("medium", "Medium"),
+    ("high", "High"),
+    ("critical", "Critical"),
+]
+
+_STRENGTH_OPTIONS = [
+    ("", "All"),
+    ("exploring", "Exploring"),
+    ("developing", "Developing"),
+    ("strong", "Strong"),
+    ("core", "Core"),
+]
+
+
+def _sel_category_options() -> list[tuple[str, str]]:
+    """SEL Category options with emoji icons (curriculum filter)."""
+    return [("", "All")] + [
+        (cat.value, f"{get_sel_icon(cat.value)} {cat.value.replace('_', ' ').title()}")
+        for cat in SELCategory
+    ]
+
+
+def _learning_level_options() -> list[tuple[str, str]]:
+    """Learning Level options (curriculum filter)."""
+    return [("", "All")] + [(level.value, level.value.capitalize()) for level in LearningLevel]
+
+
+def _content_type_options() -> list[tuple[str, str]]:
+    """Content Type options with emoji icons (curriculum filter)."""
+    return [("", "All")] + [
+        (ctype.value, f"{get_content_icon(ctype.value)} {ctype.value.capitalize()}")
+        for ctype in ContentType
+    ]
+
+
+def _educational_level_options() -> list[tuple[str, str]]:
+    """Educational Level options with emoji icons (curriculum filter)."""
+    return [("", "All")] + [
+        (
+            level.value,
+            f"{get_educational_icon(level.value)} {level.value.replace('_', ' ').title()}",
+        )
+        for level in EducationalLevel
+    ]
+
+
+def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -> Div:
+    """One Tier 2 context filter: label + select, visible per Alpine filter group."""
+    return Div(
+        Label(label_text, fr=name, cls="block py-0.5"),
+        _filter_select(name, options),
+        cls="space-y-2 min-w-[140px]",
+        x_show=f"isFilterVisible('{name}')",
+        **{"x-transition": True},
     )
 
-    return f"""
-    <select name="sort_order" class="select select-bordered select-sm w-full"
-            hx-get="/search/results"
-            hx-trigger="change"
-            hx-target="#search-results"
-            hx-include="{_get_hx_include("sort_order")}">
-        {options}
-    </select>
-    """
 
-
-def _render_context_filters() -> str:
+def _render_context_filters() -> Div:
     """
     Render Tier 2: Context filters based on entity type selection.
 
-    Shows different filters depending on whether Activity or Curriculum domain.
+    Shows different filters depending on whether Activity or Curriculum domain
+    (Alpine ``isFilterVisible`` keys each column to the selected entity type).
     """
-    return f"""
-    <!-- Context Filters (shown based on entity type) — nested inside .filter-advanced -->
-    <div class="context-filters mt-6 pt-4 border-t border-border"
-         x-show="showContextFilters"
-         x-transition:enter="transition ease-out duration-200"
-         x-transition:enter-start="opacity-0 -translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0"
-         x-transition:leave="transition ease-in duration-150"
-         x-transition:leave-start="opacity-100 translate-y-0"
-         x-transition:leave-end="opacity-0 -translate-y-2">
-
-        <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-            <span x-text="contextFilterLabel">Filters</span>
-        </div>
-
-        <div class="flex flex-wrap gap-4">
-            <!-- Common Filters (Activity domains) -->
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('status')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Status</span>
-                </label>
-                {_render_status_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('priority')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Priority</span>
-                </label>
-                {_render_priority_select()}
-            </div>
-
-            <!-- Domain-Specific -->
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('frequency')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Frequency</span>
-                </label>
-                {_render_frequency_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('event_type')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Event Type</span>
-                </label>
-                {_render_event_type_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('urgency')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Urgency</span>
-                </label>
-                {_render_urgency_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('strength')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Strength</span>
-                </label>
-                {_render_strength_select()}
-            </div>
-
-            <!-- Knowledge Filters (Curriculum domains) -->
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('sel_category')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">SEL Category</span>
-                </label>
-                {_render_sel_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('learning_level')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Learning Level</span>
-                </label>
-                {_render_learning_level_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('content_type')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Content Type</span>
-                </label>
-                {_render_content_type_select()}
-            </div>
-
-            <div class="space-y-2 min-w-[140px]" x-show="isFilterVisible('educational_level')" x-transition>
-                <label class="label py-0.5">
-                    <span class="text-sm font-medium">Educational Level</span>
-                </label>
-                {_render_educational_level_select()}
-            </div>
-        </div>
-    </div>
-    """
-
-
-def _render_status_select() -> str:
-    """Status dropdown for context filters."""
-    statuses = [
-        ("", "All"),
-        ("draft", "Draft"),
-        ("scheduled", "Scheduled"),
-        ("in_progress", "In Progress"),
-        ("completed", "Completed"),
-        ("cancelled", "Cancelled"),
+    fields = [
+        # Common Filters (Activity domains)
+        _context_field("status", "Status", _STATUS_OPTIONS),
+        _context_field("priority", "Priority", _PRIORITY_OPTIONS),
+        # Domain-Specific
+        _context_field("frequency", "Frequency", _FREQUENCY_OPTIONS),
+        _context_field("event_type", "Event Type", _EVENT_TYPE_OPTIONS),
+        _context_field("urgency", "Urgency", _URGENCY_OPTIONS),
+        _context_field("strength", "Strength", _STRENGTH_OPTIONS),
+        # Knowledge Filters (Curriculum domains)
+        _context_field("sel_category", "SEL Category", _sel_category_options()),
+        _context_field("learning_level", "Learning Level", _learning_level_options()),
+        _context_field("content_type", "Content Type", _content_type_options()),
+        _context_field("educational_level", "Educational Level", _educational_level_options()),
     ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in statuses
+    return Div(
+        Div(
+            Span("Filters", x_text="contextFilterLabel"),
+            cls="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3",
+        ),
+        Div(*fields, cls="flex flex-wrap gap-4"),
+        cls="context-filters mt-6 pt-4 border-t border-border",
+        x_show="showContextFilters",
+        **{
+            "x-transition:enter": "transition ease-out duration-200",
+            "x-transition:enter-start": "opacity-0 -translate-y-2",
+            "x-transition:enter-end": "opacity-100 translate-y-0",
+            "x-transition:leave": "transition ease-in duration-150",
+            "x-transition:leave-start": "opacity-100 translate-y-0",
+            "x-transition:leave-end": "opacity-0 -translate-y-2",
+        },
     )
-    return f"""
-    <select name="status" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("status")}">
-        {options}
-    </select>
-    """
 
 
-def _render_priority_select() -> str:
-    """Priority dropdown for context filters."""
-    priorities = [
-        ("", "All"),
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-        ("critical", "Critical"),
-    ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in priorities
+# ----------------------------------------------------------------------------
+# Advanced checkbox facets
+# ----------------------------------------------------------------------------
+
+
+def _filter_checkbox(name: str, label_text: str, *, tight: bool = False) -> Any:
+    """One boolean facet: checking it re-runs /search/results with all filters."""
+    return Label(
+        Checkbox(
+            name=name,
+            value="true",
+            hx_get="/search/results",
+            hx_trigger="change",
+            hx_target="#search-results",
+            hx_include=_get_hx_include(name),
+        ),
+        Span(label_text, cls="text-sm font-medium"),
+        cls=f"flex cursor-pointer items-center gap-2 {'py-0.5' if tight else 'py-1'}",
     )
-    return f"""
-    <select name="priority" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("priority")}">
-        {options}
-    </select>
-    """
 
 
-def _render_frequency_select() -> str:
-    """Frequency dropdown for Habits."""
-    frequencies = [
-        ("", "All"),
-        ("daily", "Daily"),
-        ("2-3x_week", "2-3x/Week"),
-        ("weekly", "Weekly"),
-        ("bi_weekly", "Bi-weekly"),
-        ("monthly", "Monthly"),
-    ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in frequencies
+def _advanced_group(title: str, checkboxes: list[Any], badge: Any = None) -> Div:
+    """Titled column of boolean facets in the advanced filter grid."""
+    return Div(
+        Div(
+            title,
+            badge,
+            cls="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2",
+        ),
+        Div(*checkboxes, cls="flex flex-wrap gap-x-4 gap-y-1"),
     )
-    return f"""
-    <select name="frequency" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("frequency")}">
-        {options}
-    </select>
-    """
 
 
-def _render_event_type_select() -> str:
-    """Event Type dropdown for Events."""
-    event_types = [
-        ("", "All"),
-        ("meeting", "Meeting"),
-        ("deadline", "Deadline"),
-        ("milestone", "Milestone"),
-        ("practice", "Practice"),
-        ("review", "Review"),
-    ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in event_types
-    )
-    return f"""
-    <select name="event_type" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("event_type")}">
-        {options}
-    </select>
-    """
-
-
-def _render_urgency_select() -> str:
-    """Urgency dropdown for Choices."""
-    urgencies = [
-        ("", "All"),
-        ("low", "Low"),
-        ("medium", "Medium"),
-        ("high", "High"),
-        ("critical", "Critical"),
-    ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in urgencies
-    )
-    return f"""
-    <select name="urgency" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("urgency")}">
-        {options}
-    </select>
-    """
-
-
-def _render_strength_select() -> str:
-    """Strength dropdown for Principles."""
-    strengths = [
-        ("", "All"),
-        ("exploring", "Exploring"),
-        ("developing", "Developing"),
-        ("strong", "Strong"),
-        ("core", "Core"),
-    ]
-    options = "\n".join(
-        f'<option value="{escape(value, quote=True)}">{escape(label)}</option>'
-        for value, label in strengths
-    )
-    return f"""
-    <select name="strength" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("strength")}">
-        {options}
-    </select>
-    """
-
-
-def _render_sel_select() -> str:
-    """SEL Category dropdown for curriculum."""
-    options = '<option value="">All</option>\n'
-    for cat in SELCategory:
-        icon = get_sel_icon(cat.value)
-        options += (
-            f'<option value="{cat.value}">{icon} {cat.value.replace("_", " ").title()}</option>\n'
-        )
-    return f"""
-    <select name="sel_category" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("sel_category")}">
-        {options}
-    </select>
-    """
-
-
-def _render_learning_level_select() -> str:
-    """Learning Level dropdown for curriculum."""
-    options = '<option value="">All</option>\n'
-    for level in LearningLevel:
-        options += f'<option value="{level.value}">{level.value.capitalize()}</option>\n'
-    return f"""
-    <select name="learning_level" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("learning_level")}">
-        {options}
-    </select>
-    """
-
-
-def _render_content_type_select() -> str:
-    """Content Type dropdown for curriculum."""
-    options = '<option value="">All</option>\n'
-    for ctype in ContentType:
-        icon = get_content_icon(ctype.value)
-        options += f'<option value="{ctype.value}">{icon} {ctype.value.capitalize()}</option>\n'
-    return f"""
-    <select name="content_type" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("content_type")}">
-        {options}
-    </select>
-    """
-
-
-def _render_educational_level_select() -> str:
-    """Educational Level dropdown for curriculum."""
-    options = '<option value="">All</option>\n'
-    for level in EducationalLevel:
-        icon = get_educational_icon(level.value)
-        options += f'<option value="{level.value}">{icon} {level.value.replace("_", " ").title()}</option>\n'
-    return f"""
-    <select name="educational_level" class="select select-bordered select-sm w-full"
-            hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-            hx-include="{_get_hx_include("educational_level")}">
-        {options}
-    </select>
-    """
-
-
-def _render_learning_progress_checkboxes() -> str:
-    """Learning progress checkboxes."""
+def _learning_progress_checkboxes() -> list[Any]:
+    """Learning progress facets (pedagogical tracking)."""
     filters = [
         ("not_yet_viewed", "Not yet seen"),
         ("viewed_not_mastered", "In progress"),
         ("ready_to_review", "Ready to review"),
     ]
-
-    result = ""
-    for name, label in filters:
-        result += f"""
-        <label class="label cursor-pointer justify-start gap-2 py-1">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-primary checkbox-sm"
-                   hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-                   hx-include="{_get_hx_include(name)}">
-            <span class="text-sm font-medium">{label}</span>
-        </label>
-        """
-    return result
+    return [_filter_checkbox(name, label) for name, label in filters]
 
 
-def _render_relationship_checkboxes() -> str:
-    """Graph relationship checkboxes."""
+def _relationship_checkboxes() -> list[Any]:
+    """Graph relationship facets (traversal-backed filters)."""
     filters = [
         ("ready_to_learn", "Ready to learn"),
         ("builds_on_mastered", "Builds on known"),
@@ -809,80 +691,61 @@ def _render_relationship_checkboxes() -> str:
         ("aligned_with_principles", "Aligned with values"),
         ("next_logical_step", "Next logical step"),
     ]
-
-    result = ""
-    for name, label in filters:
-        result += f"""
-        <label class="label cursor-pointer justify-start gap-2 py-0.5">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-primary checkbox-sm"
-                   hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-                   hx-include="{_get_hx_include(name)}">
-            <span class="text-sm font-medium">{label}</span>
-        </label>
-        """
-    return result
+    return [_filter_checkbox(name, label, tight=True) for name, label in filters]
 
 
-def _render_semantic_search_checkboxes() -> str:
-    """
-    Semantic search checkboxes.
-
-    Enables semantic relationship boosting and learning-aware search.
-    """
+def _semantic_search_checkboxes() -> list[Any]:
+    """Semantic enhancement facets (embedding-boosted, learning-aware search)."""
     filters = [
         ("enable_semantic_boost", "Semantic boost"),
         ("enable_learning_aware", "Learning-aware"),
         ("prefer_unmastered", "Prefer new content"),
     ]
-
-    result = ""
-    for name, label in filters:
-        result += f"""
-        <label class="label cursor-pointer justify-start gap-2 py-0.5">
-            <input type="checkbox" name="{name}" value="true" class="checkbox checkbox-primary checkbox-sm"
-                   hx-get="/search/results" hx-trigger="change" hx-target="#search-results"
-                   hx-include="{_get_hx_include(name)}">
-            <span class="text-sm font-medium">{label}</span>
-        </label>
-        """
-    return result
+    return [_filter_checkbox(name, label, tight=True) for name, label in filters]
 
 
-def _render_active_filter_badges() -> str:
+def _render_active_filter_badges() -> Div:
     """
     Render active filter badges with clear buttons.
 
-    Shows pill badges for all non-default filter values.
+    Shows pill badges for non-default filter values (Alpine-driven).
     """
-    return """
-    <!-- Active Filter Badges -->
-    <div class="active-filters mb-4" x-show="hasActiveFilters" x-transition>
-        <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs text-muted-foreground">Active filters:</span>
+    return Div(
+        Div(
+            Span("Active filters:", cls="text-xs text-muted-foreground"),
+            # Entity Type Badge
+            Template(
+                Badge(
+                    Span(x_text="getFilterLabel('entity_type', entityType)"),
+                    HtmlButton(
+                        "×",
+                        type="button",
+                        cls="ml-1 leading-none opacity-70 hover:opacity-100 hover:text-destructive",
+                        **{"x-on:click": "clearFilter('entity_type')"},
+                    ),
+                    variant=BadgeT.primary,
+                    cls="gap-1",
+                ),
+                x_if="entityType",
+            ),
+            # Clear All Button
+            Button(
+                "Clear All",
+                type="button",
+                size="sm",
+                cls=(ButtonT.ghost, "text-destructive"),
+                x_show="hasActiveFilters",
+                **{"x-on:click": "clearAllFilters()"},
+            ),
+            cls="flex flex-wrap items-center gap-2",
+        ),
+        cls="active-filters mb-4",
+        x_show="hasActiveFilters",
+        **{"x-transition": True},
+    )
 
-            <!-- Entity Type Badge -->
-            <template x-if="entityType">
-                <span class="inline-flex items-center rounded-full border font-medium text-xs px-2 py-0.5 bg-primary/10 text-primary border-primary/20 gap-1">
-                    <span x-text="getFilterLabel('entity_type', entityType)"></span>
-                    <button type="button" class="hover:text-error" x-on:click="clearFilter('entity_type')">×</button>
-                </span>
-            </template>
 
-            <!-- Dynamic filter badges would be added here via JavaScript -->
-
-            <!-- Clear All Button -->
-            <button type="button"
-                    class="inline-flex items-center justify-center font-medium transition-colors h-8 px-3 text-sm rounded-md hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-error"
-                    x-on:click="clearAllFilters()"
-                    x-show="hasActiveFilters">
-                Clear All
-            </button>
-        </div>
-    </div>
-    """
-
-
-def _render_search_input(ask_enabled: bool = False) -> str:
+def _render_search_input(ask_enabled: bool = False) -> Div:
     """
     Render the main search input, with an optional "Ask" verb beside "Find".
 
@@ -890,41 +753,41 @@ def _render_search_input(ask_enabled: bool = False) -> str:
     (FULL tier only) hands the current query + nous facet to scoped Askesis via a
     full-page navigation to /askesis?question=&nous= — see ``searchFilters.askHref``.
     """
-    hx_include = _get_hx_include("query")
-
-    ask_button = ""
+    ask_button = None
     if ask_enabled:
-        ask_button = f"""
-            <button type="button"
-                    class="btn btn-primary gap-2 shrink-0"
-                    x-on:click="window.location.href = askHref()"
-                    title="Ask Askesis with your query and topic scope">
-                {Icon("sparkles", size=18, cls="inline-block")}
-                <span>Ask</span>
-            </button>
-        """
+        ask_button = Button(
+            Icon("sparkles", size=18, cls="inline-block"),
+            Span("Ask"),
+            type="button",
+            cls=(ButtonT.primary, "gap-2 shrink-0"),
+            title="Ask Askesis with your query and topic scope",
+            **{"x-on:click": "window.location.href = askHref()"},
+        )
 
-    return f"""
-    <!-- Search Input -->
-    <div class="search-input-container panel-surface p-4">
-        <div class="flex items-center gap-2">
-            <div class="relative flex-1">
-                <span class="absolute inset-y-0 left-3 flex items-center text-foreground/40">
-                    {Icon("search", size=20, cls="inline-block")}
-                </span>
-                <input type="text"
-                       name="query"
-                       placeholder="Search across all your knowledge..."
-                       class="input input-bordered w-full pl-10 pr-4"
-                       hx-get="/search/results"
-                       hx-trigger="keyup changed delay:500ms"
-                       hx-target="#search-results"
-                       hx-include="{hx_include}">
-            </div>
-            {ask_button}
-        </div>
-    </div>
-    """
+    return Div(
+        Div(
+            Div(
+                Span(
+                    Icon("search", size=20, cls="inline-block"),
+                    cls="absolute inset-y-0 left-3 flex items-center text-foreground/40 pointer-events-none",
+                ),
+                Input(
+                    type="text",
+                    name="query",
+                    placeholder="Search across all your knowledge...",
+                    cls="pl-10 pr-4",
+                    hx_get="/search/results",
+                    hx_trigger="keyup changed delay:500ms",
+                    hx_target="#search-results",
+                    hx_include=_get_hx_include("query"),
+                ),
+                cls="relative flex-1",
+            ),
+            ask_button,
+            cls="flex items-center gap-2",
+        ),
+        cls="search-input-container panel-surface p-4",
+    )
 
 
 # ============================================================================
@@ -954,10 +817,10 @@ def render_search_results(response: SearchResponse) -> Any:
     page_info = response.get_page_info()
 
     return Div(
-        # Results header — count summary only. Sort lives in the persistent left
-        # rail (_render_sort_select): a second sort_order <select> here would sit
+        # Results header — count summary only. Sort lives in the persistent filter
+        # bar (_render_sort_select): a second sort_order <select> here would sit
         # INSIDE #search-results — resetting to its default on every swap and
-        # colliding with the rail's control on hx-include (duplicate sort_order
+        # colliding with the bar's control on hx-include (duplicate sort_order
         # param, first-wins in Starlette). One control, outside the swap target.
         Div(
             H3(f"Found {response.total} results", cls="text-xl font-bold"),
@@ -978,7 +841,7 @@ def render_search_results(response: SearchResponse) -> Any:
         ),
         # Pagination — shown whenever the result set spans more than one page, so
         # the LAST page still offers Previous (has_more_pages() is False there).
-        _render_pagination(response) if response.get_page_info()["total_pages"] > 1 else None,
+        _render_pagination(response) if page_info["total_pages"] > 1 else None,
         id="search-results",
         cls="mt-4",
     )
@@ -1159,25 +1022,18 @@ def _render_pagination(response: SearchResponse) -> Any:
     Each control re-runs ``/search/results`` for the target page's offset,
     passed via ``hx-vals`` (reliably included on GET) plus EVERY active filter
     via ``hx-include`` — so paging preserves the query and all facets.
-
-    The previous version was inert: it put the offset in an ``href`` that
-    ``hx-get`` ignores (so the page never advanced), named a non-existent
-    ``domain`` field in ``hx-include`` while dropping most real filters, and the
-    numbered page links carried no ``hx-get`` at all.
     """
     page_info = response.get_page_info()
     current_page = page_info["current_page"]
     total_pages = page_info["total_pages"]
     include = _get_hx_include()  # all filters — pagination must carry every facet
 
-    # SKUEL button class strings (mirror ui.components.Button + ButtonT, size="sm").
+    # Compose from the shared button vocabulary: ButtonT carries the style
+    # variant; the sm geometry string mirrors ui.components.Button size="sm".
     btn_sm = (
         "inline-flex items-center justify-center font-medium transition-colors h-8 px-3 "
         "text-sm rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     )
-    btn_outline = "border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-    btn_primary = "bg-primary text-primary-foreground hover:bg-primary/90"
-    btn_disabled = "pointer-events-none opacity-50"
 
     def page_link(
         label: str, offset: int, *, disabled: bool = False, current: bool = False
@@ -1185,16 +1041,16 @@ def _render_pagination(response: SearchResponse) -> Any:
         """One pagination control. Current page and disabled ends are inert Spans;
         the rest are HTMX links that swap #search-results for the target offset."""
         if current:
-            return Span(label, cls=f"{btn_sm} {btn_primary}")
+            return Span(label, cls=f"{btn_sm} {ButtonT.primary}")
         if disabled:
-            return Span(label, cls=f"{btn_sm} {btn_disabled}")
+            return Span(label, cls=f"{btn_sm} pointer-events-none opacity-50")
         return A(
             label,
             hx_get="/search/results",
             hx_vals=f'{{"offset": {offset}}}',
             hx_include=include,
             hx_target="#search-results",
-            cls=f"{btn_sm} {btn_outline}",
+            cls=f"{btn_sm} {ButtonT.default}",
         )
 
     return Div(

@@ -56,9 +56,9 @@ def _hx_trigger_values(xml: str) -> str:
 
 
 def test_ask_button_gated_to_full_tier() -> None:
-    enabled = _render_search_input(ask_enabled=True)
+    enabled = to_xml(_render_search_input(ask_enabled=True))
     assert "askHref()" in enabled
     assert ">Ask<" in enabled or "<span>Ask</span>" in enabled
 
-    disabled = _render_search_input(ask_enabled=False)
+    disabled = to_xml(_render_search_input(ask_enabled=False))
     assert "askHref()" not in disabled

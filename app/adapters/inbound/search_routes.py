@@ -2,23 +2,21 @@
 Search Routes — Configuration-Driven Registration
 ===================================================
 
-FastHTML routes for the search page with calm sidebar design.
+FastHTML routes for the search page (query box + horizontal filter bar).
 
 Security:
 - All search routes require authentication (January 2026 hardening)
 - No fallback to default user - search is user-scoped
 
 Architecture:
-    - UI Components: /components/search_components.py
+    - UI Components: /ui/search/components.py
     - CSS: /static/css/search.css
-    - JavaScript: /static/js/search_sidebar.js
+    - JavaScript: `searchFilters` Alpine component in /static/js/skuel.js
 
 Philosophy: "Users can handle complexity, but they need visual calm to process it."
 """
 
 from typing import TYPE_CHECKING, Any, Literal, cast
-
-from fasthtml.common import NotStr
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
@@ -115,7 +113,7 @@ def create_search_api_routes(
 
     @rt("/search/subtopics")
     @boundary_handler()
-    async def search_subtopics(request: Request, nous: str | None = None) -> NotStr:
+    async def search_subtopics(request: Request, nous: str | None = None) -> Any:
         """Re-render the sub-topic select scoped to the chosen NOUS topic.
 
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
@@ -138,7 +136,7 @@ def create_search_api_routes(
             if flat_result.is_ok and flat_result.value:
                 subtopics = flat_result.value
 
-        return NotStr(render_nous_subtopic_inner(subtopics))
+        return render_nous_subtopic_inner(subtopics)
 
     @rt("/search/results")
     @boundary_handler()
