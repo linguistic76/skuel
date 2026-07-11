@@ -1,6 +1,6 @@
 """Principles API routes.
 
-Provides HTMX-compatible endpoints for principle status updates and hierarchy queries.
+Provides HTMX-compatible endpoints for principle status/priority updates and hierarchy queries.
 
 Hierarchy (ownership-verified):
     GET  /api/principles/children     — Direct subprinciples of a parent principle
@@ -26,8 +26,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -62,7 +64,7 @@ def create_principles_api_routes(
 ) -> list[Any]:
     """Register Principles API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Principle]:
+    async def update_status(uid: str, new_status: str) -> Result[Principle]:
         # Mirror tasks_api/choices_api: go through the facade contract with a typed intent
         # (ADR-066), not past it into .core with a raw dict. The facade funnels through the
         # core's PrincipleUpdated-firing update path.
@@ -70,14 +72,24 @@ def create_principles_api_routes(
             uid, PrincipleUpdateIntent(status=new_status)
         )
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Principle]:
+        return await principles_service.update_principle(
+            uid, PrincipleUpdateIntent(priority=new_priority)
+        )
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="principles",
             singular="principle",
             service=principles_service,
-            update_status=update,
             card_fn=PrincipleCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=update_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -492,7 +504,7 @@ def create_principles_api_routes(
         )
 
     return [
-        *status_routes,
+        *field_routes,
         principle_children,
         principle_parent,
         principle_hierarchy,

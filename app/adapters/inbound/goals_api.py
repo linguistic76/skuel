@@ -1,6 +1,6 @@
 """Goals API routes.
 
-Provides HTMX-compatible endpoints for goal status updates and hierarchy queries.
+Provides HTMX-compatible endpoints for goal status/priority updates and hierarchy queries.
 
 The transition dispatch (activate / complete / archive / cancel with their
 per-state side effects) lives in ``GoalsService.set_status``; this route is
@@ -39,8 +39,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -53,6 +55,7 @@ from core.models.entity_requests import (
 )
 from core.models.goal.goal import Goal
 from core.models.goal.goal_request import GoalCreateRequest
+from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from ui.activities.goals_views import GoalCard
 
@@ -73,14 +76,22 @@ def create_goals_api_routes(
 ) -> list[Any]:
     """Register Goals API routes."""
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Goal]:
+        return await goals_service.update_goal(uid, GoalUpdateIntent(priority=new_priority))
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="goals",
             singular="goal",
             service=goals_service,
-            update_status=goals_service.set_status,
             card_fn=GoalCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=goals_service.set_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -423,7 +434,7 @@ def create_goals_api_routes(
         )
 
     return [
-        *status_routes,
+        *field_routes,
         goal_children,
         goal_parent,
         goal_hierarchy,

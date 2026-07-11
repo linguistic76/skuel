@@ -1,6 +1,6 @@
 """Events API routes.
 
-Provides HTMX-compatible endpoints for event status updates and hierarchy queries.
+Provides HTMX-compatible endpoints for event status/priority updates and hierarchy queries.
 
 Hierarchy (ownership-verified):
     GET  /api/events/children     — Direct subevents of a parent event
@@ -26,8 +26,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -56,17 +58,25 @@ def create_events_api_routes(
 ) -> list[Any]:
     """Register Events API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Event]:
+    async def update_status(uid: str, new_status: str) -> Result[Event]:
         return await events_service.update_event(uid, EventUpdateIntent(status=new_status))
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Event]:
+        return await events_service.update_event(uid, EventUpdateIntent(priority=new_priority))
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="events",
             singular="event",
             service=events_service,
-            update_status=update,
             card_fn=EventCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=update_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -259,7 +269,7 @@ def create_events_api_routes(
         )
 
     return [
-        *status_routes,
+        *field_routes,
         event_children,
         event_parent,
         event_hierarchy,

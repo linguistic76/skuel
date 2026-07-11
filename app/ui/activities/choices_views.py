@@ -19,7 +19,13 @@ from fasthtml.common import (
     Ul,
 )
 
-from ui.activities._shared import ActivityList, ConnectionBadges, MetadataField, safe_id
+from ui.activities._shared import (
+    ActivityList,
+    ConnectionBadges,
+    MetadataField,
+    PriorityBadgeDropdown,
+    safe_id,
+)
 from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
@@ -114,8 +120,14 @@ def ChoiceCard(
     badges: list[Any] = []
     if choice.choice_type:
         badges.append(Badge(str(choice.choice_type.value).title(), variant=BadgeT.primary))
-    if choice.priority:
-        badges.append(PriorityBadge(str(choice.priority)))
+    badges.append(
+        PriorityBadgeDropdown(
+            choice.uid,
+            str(choice.priority) if choice.priority else None,
+            domain="choices",
+            singular="choice",
+        )
+    )
     if choice.status:
         badges.append(StatusBadge(str(choice.status)))
     if choice.options:

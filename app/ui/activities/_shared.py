@@ -4,16 +4,19 @@ Extracted from the 6 Activity Domain view files to eliminate duplication.
 Domain-specific logic stays in each domain's *_views.py file.
 
 Usage:
-    from ui.activities._shared import safe_id, PRIORITY_ORDER, ConnectionBadges, ConnectionSummary
+    from ui.activities._shared import safe_id, PRIORITY_ORDER, PriorityBadgeDropdown, ConnectionBadges
 """
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Small, Span
+from fasthtml.common import A, Button, Div, Small, Span
 
+from core.models.enums import Priority
 from ui.components import Icon
+from ui.feedback import Badge, BadgeT, PriorityBadge
 from ui.patterns.empty_state import EmptyState
+from ui.primitives import dropdown_menu
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -33,6 +36,83 @@ def safe_id(uid: str) -> str:
 
 
 PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def PriorityBadgeDropdown(
+    uid: str,
+    priority: str | None,
+    domain: str,
+    singular: str,
+) -> "FT":
+    """Interactive priority badge: click opens a dropdown of the 4 priority levels.
+
+    Alpine owns the open/close state (inline ``x-data``); picking a level does
+    ``POST /api/{domain}/{uid}/priority`` via HTMX and swaps the re-rendered
+    card (``#{singular}-{safe_id(uid)}`` — the id every Activity card uses)
+    back in, mirroring the status-toggle pattern.
+
+    Args:
+        uid: Entity UID.
+        priority: Current priority value (e.g. ``"high"``), or None if unset.
+        domain: Plural URL path segment, e.g. ``"tasks"``.
+        singular: Singular card-id prefix, e.g. ``"task"``.
+    """
+    current = Priority.from_value(priority) if priority else None
+    card_target = f"#{singular}-{safe_id(uid)}"
+
+    badge = (
+        PriorityBadge(current.value)
+        if current is not None
+        else Badge("Priority", variant=BadgeT.ghost)
+    )
+    trigger = Button(
+        badge,
+        Icon("chevron-down", size=12, cls="inline text-muted-foreground"),
+        type="button",
+        cls="inline-flex items-center gap-0.5 border-0 bg-transparent p-0 cursor-pointer",
+        title="Change priority",
+        aria_label="Change priority",
+        **{"@click": "open = !open"},
+    )
+
+    options: list[Any] = []
+    for level in Priority:
+        is_current = level == current
+        options.append(
+            Button(
+                Span(
+                    cls="w-2 h-2 rounded-full flex-none",
+                    style=f"background-color: {level.get_color()}",
+                ),
+                Span(level.value.title(), cls="flex-1 text-left text-sm"),
+                Icon("check", size=14, cls="flex-none text-blue-600") if is_current else None,
+                type="button",
+                cls=(
+                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-[8px] border-0 "
+                    "text-left cursor-pointer transition-colors "
+                    + ("bg-blue-50" if is_current else "bg-transparent hover:bg-slate-100")
+                ),
+                hx_post=f"/api/{domain}/{uid}/priority",
+                hx_vals=f'{{"priority": "{level.value}"}}',
+                hx_target=card_target,
+                hx_swap="outerHTML",
+                **{"@click": "open = false"},
+            )
+        )
+
+    return Div(
+        trigger,
+        dropdown_menu(
+            *options,
+            cls="w-36 right-auto",
+            **{"x-show": "open"},
+            **{"x-cloak": True},
+        ),
+        x_data="{ open: false }",
+        cls="relative inline-flex",
+        **{"@click.outside": "open = false"},
+    )
+
 
 # Universal icon + href mapping for cross-domain connection badges.
 # Covers all Activity Domains + Curriculum types.

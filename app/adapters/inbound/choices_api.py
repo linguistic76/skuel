@@ -1,6 +1,6 @@
 """Choices API routes.
 
-Provides HTMX-compatible endpoints for choice status updates and hierarchy queries.
+Provides HTMX-compatible endpoints for choice status/priority updates and hierarchy queries.
 
 Hierarchy (ownership-verified):
     GET  /api/choices/children     — Direct subchoices of a parent choice
@@ -28,8 +28,10 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import (
-    ActivityStatusApiConfig,
-    create_activity_status_api_routes,
+    PRIORITY_VALUES,
+    ActivityFieldApiConfig,
+    FieldUpdateSpec,
+    create_activity_field_api_routes,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -61,20 +63,28 @@ def create_choices_api_routes(
 ) -> list[Any]:
     """Register Choices API routes."""
 
-    async def update(uid: str, new_status: str) -> Result[Choice]:
+    async def update_status(uid: str, new_status: str) -> Result[Choice]:
         # Mirror tasks_api: go through the facade contract with a typed intent (ADR-066),
         # not past it into .core with a raw dict. The facade funnels through the core's
         # validated, ChoiceUpdated-firing update path.
         return await choices_service.update_choice(uid, ChoiceUpdateIntent(status=new_status))
 
-    status_routes = create_activity_status_api_routes(
+    async def update_priority(uid: str, new_priority: str) -> Result[Choice]:
+        return await choices_service.update_choice(uid, ChoiceUpdateIntent(priority=new_priority))
+
+    field_routes = create_activity_field_api_routes(
         rt,
-        ActivityStatusApiConfig(
+        ActivityFieldApiConfig(
             domain_name="choices",
             singular="choice",
             service=choices_service,
-            update_status=update,
             card_fn=ChoiceCard,
+            fields=(
+                FieldUpdateSpec(field="status", apply=update_status),
+                FieldUpdateSpec(
+                    field="priority", apply=update_priority, allowed_values=PRIORITY_VALUES
+                ),
+            ),
         ),
     )
 
@@ -325,7 +335,7 @@ def create_choices_api_routes(
         )
 
     return [
-        *status_routes,
+        *field_routes,
         choice_children,
         choice_parent,
         choice_hierarchy,

@@ -238,12 +238,17 @@ Priority-specific badge with predefined styling.
 - "medium", "normal" → Warning (yellow)
 - "low" → Success (green)
 
+### PriorityBadgeDropdown(uid, priority, domain, singular)
+
+Interactive variant for Activity Domain **cards** (`ui/activities/_shared.py`): the badge is a button that opens an Alpine dropdown of the 4 `Priority` levels; picking one POSTs `/api/{domain}/{uid}/priority` via HTMX and swaps the re-rendered card back in. Unset priority renders a ghost "Priority" badge so it can be set inline. Detail pages keep the static `PriorityBadge`.
+
 ### Badge selection convention
 
 | What you're displaying | Component | Example |
 |---|---|---|
 | EntityStatus value | `StatusBadge(status)` | `StatusBadge("active")` |
 | Priority value | `PriorityBadge(priority)` | `PriorityBadge("high")` |
+| Priority on an Activity card (inline-editable) | `PriorityBadgeDropdown(uid, priority, domain, singular)` | `PriorityBadgeDropdown(task.uid, "high", domain="tasks", singular="task")` |
 | Category with a BadgeT match | `Badge(label, variant=BadgeT.xxx)` | `Badge("Ku", variant=BadgeT.accent)` |
 | Category with a custom color | `Badge(label, variant=None, cls="...")` | `Badge("Path Step", variant=None, cls="bg-teal-100 text-teal-800 border-teal-200")` |
 
