@@ -24,7 +24,7 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div, Request, Script
+from fasthtml.common import FT, Div, Request, Script
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
@@ -61,8 +61,6 @@ from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-
-    from fasthtml.common import FT
 
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.ports.form_protocols import FormSubmissionOperations
