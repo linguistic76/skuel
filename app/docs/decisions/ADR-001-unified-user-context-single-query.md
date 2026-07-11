@@ -375,6 +375,7 @@ Large dataset (10K nodes): 350ms
 | 2025-11-16 | Strategic Quality Initiative | Initial ADR creation | 1.0 |
 | 2026-01-20 | Context Integration | Extended MEGA_QUERY with user_properties, life_path, MOCs, progress_counts sections; added 6 new populate methods to close field mapping gaps | 1.1 |
 | 2026-03-06 | Context Integration | Extended MEGA_QUERY with submission_stats section (10 fields); added populate_submission_stats(); daily planning reads context.unsubmitted_exercises instead of service call | 1.2 |
+| 2026-07-11 | Preferences Wiring Fix | Removed the user_properties section — it read flat :User node properties no writer ever set (preferences live in a JSON-string blob). Preference fields now populate from the parsed User.preferences model in both build paths (populate_user_preferences) | 1.3 |
 
 ---
 
