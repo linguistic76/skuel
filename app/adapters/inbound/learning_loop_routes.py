@@ -478,10 +478,14 @@ def create_learning_loop_detail_routes(
         engaged = set(assessment.current_zone)
         groups: list[NextStepRelatedGroup] = []
         for ku_uid in assessment.top_proximal_ku_uids(next_step_ku_limit):
-            title = ku_uid
+            # Proximal candidates aren't guaranteed Ku-grain — the zone's
+            # COMPLEMENTARY_TO / ORGANIZES arms collect generic :Entity
+            # targets. The Ku lookup doubles as the grain filter: a non-Ku
+            # candidate is skipped rather than rendered as a dead Ku chip.
             ku_result = await orchestrator.get_ku(ku_uid)
-            if ku_result.is_ok and ku_result.value is not None:
-                title = getattr(ku_result.value, "title", "") or ku_uid
+            if ku_result.is_error or ku_result.value is None:
+                continue
+            title = getattr(ku_result.value, "title", "") or ku_uid
             related = await _related_fragment("Ku", ku_uid, "ps-next-step-fragment")
             groups.append(
                 NextStepRelatedGroup(

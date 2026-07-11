@@ -305,18 +305,24 @@ async def test_empty_proximal_zone_collapses() -> None:
     assert "Related to your next step" not in html
 
 
-async def test_ku_title_falls_back_to_uid_when_lookup_fails() -> None:
+async def test_non_ku_proximal_candidate_is_skipped_not_rendered() -> None:
+    """Proximal candidates aren't guaranteed Ku-grain (Codex P2 #600 round 6).
+
+    The zone's COMPLEMENTARY_TO / ORGANIZES arms collect generic :Entity
+    targets — a candidate whose Ku lookup fails must be skipped, never
+    rendered as a chip linking to a not-found Ku page.
+    """
     orchestrator = MagicMock()
     orchestrator.get_ku = AsyncMock(
-        return_value=Result.fail(Errors.not_found(resource="Ku", identifier="ku.a"))
+        return_value=Result.fail(Errors.not_found(resource="Ku", identifier="ps.not.a-ku"))
     )
     handler = _handler(
-        zpd_service=_zpd(["ku.a"]),
+        zpd_service=_zpd(["ps.not.a-ku"]),
         vector_search_service=_vector_service([]),
         orchestrator=orchestrator,
     )
 
     html = to_xml(await handler(_authed_request()))
 
-    assert 'href="/explore/ku/ku.a"' in html
-    assert "ku.a" in html
+    assert "ps.not.a-ku" not in html
+    assert "Related to your next step" not in html  # sole candidate skipped → section collapses
