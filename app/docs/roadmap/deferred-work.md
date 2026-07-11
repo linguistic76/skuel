@@ -36,21 +36,24 @@ Stale prior steps this replaced: there is no stubbed `SemanticAnalysisService` t
 enable, and no `POST /api/ingest/domain/ku` embedding trigger — embeddings are
 post-persist events (ADR-074), not an ingestion side effect.
 
-**Still deferred (NOT search — separate consumers):** the remainder was
-product-APPROVED 2026-07-10 (all three items below) as a follow-up arc after
-Discovery Analytics Phase 1 — no longer awaiting a decision, awaiting its turn.
-The old TextAnalysisService/readability recipe was buried outright (One Path
-Forward ruling, same date):
+**Remainder — ✅ ALL THREE SHIPPED 2026-07-10** (the old TextAnalysisService/readability
+recipe was buried outright, One Path Forward ruling, same date):
 
-1. **Concept clustering** — cross-KU similarity graph ("you studied X — here's Y using
-   the same core concept"). Needs a clustering algorithm + a surface to show it; the
-   embeddings exist, the grouping does not.
-2. **Prerequisite inference** — deriving `PREREQUISITE_FOR` edges from content
-   similarity rather than authored Edge YAML.
-3. **Askesis gap-detection feed** — routing semantic neighbours into ZPD gap analysis.
+1. **Concept clustering** — #598: "Related concepts" chips on Ku + PS detail pages
+   (on-demand `find_similar_to_node`, `ku_similar_min_score=0.72` full-corpus-derived;
+   read-time lens, no persistence, no auto-created edges).
+2. **Prerequisite inference** — #599: mid-band candidates → LLM judge →
+   `/admin/prereq-suggestions` queue → approve writes one Edge YAML into the content
+   vault's `edges/` (authored edges stay canonical; suggestions never auto-write).
+3. **Askesis/ZPD gap feed** — #600 (shipped-as-scoped): ONE UserContextBuilder (the
+   capstone now reaches the daily-plan path), ENABLES-proximal (both enabler
+   vocabularies + the PS-enabler bridge; enablers never gate), "Related to your next
+   step" chips. **Deferred residue**: semantic expansion of the recommendation pool
+   itself waits on engagement data (`APPLIES_KNOWLEDGE`/`REINFORCES_KNOWLEDGE` edges —
+   the entry-enrichment capability is the fuel arc).
 
-**Enable when**: picked up after the Discovery Analytics Phase 1 arc completes
-(approved; not gated on KU count or any data threshold).
+**Enable when** (residue): entry-enrichment ships and engagement edges exist — then
+revisit semantic pool expansion (see `SEMANTIC_ANALYSIS_ROADMAP.md`).
 
 ---
 
@@ -312,7 +315,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 
 | Item | Trigger | Check |
 |------|---------|-------|
-| Semantic Analysis (clustering/inference/ZPD-feed remainder) | APPROVED 2026-07-10 — next arc after Discovery Phase 1 | Sequencing, not a threshold |
+| Semantic Analysis residue (ZPD semantic pool expansion; 3-item remainder SHIPPED #598–#600) | Engagement edges exist (entry-enrichment arc) | Ku engagement edge count > 0 |
 | Discovery Analytics Phases 2+ (logging shipped 2026-07-10) | Search events ≥ 1,000 | `MATCH (e:SearchEvent) RETURN count(e)` |
 | Real-time Intelligence | DAU ≥ 10 for 2+ weeks | Grafana `skuel_daily_active_users` |
 | Per-user intelligence tier | Billing model defined | Business decision |

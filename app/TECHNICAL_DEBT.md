@@ -58,7 +58,7 @@ Documented, scoped, with clear prerequisites. Not active debt — intentionally 
 
 | Feature | Doc | Prerequisite | Effort |
 |---------|-----|-------------|--------|
-| Semantic Analysis remainder (clustering / prereq inference / ZPD gap feed; search-wiring shipped #538, readability recipe buried) | `docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md` | Approved 2026-07-10 — sequenced after Discovery Phase 1 | 1 PR each |
+| Semantic Analysis — SHIPPED #598–#600 (chips / prereq suggestions / ZPD feed); residue: ZPD semantic pool expansion | `docs/intelligence/SEMANTIC_ANALYSIS_ROADMAP.md` | Engagement edges exist (entry-enrichment arc) | small |
 | Discovery Analytics Phases 2+ (Phase 1 logging + `/admin/analytics` gap surface shipped 2026-07-10) | `docs/intelligence/DISCOVERY_ANALYTICS_ROADMAP.md` | 1000+ `:SearchEvent` nodes (accumulating) | 2-3 days |
 | Real-time Intelligence | `docs/intelligence/REALTIME_INTELLIGENCE_ROADMAP.md` | 10+ daily active users | 3-4 days |
 
