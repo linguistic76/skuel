@@ -73,6 +73,7 @@ class InvalidationReason:
     HABIT_PRACTICED = "habit_practiced"
     KNOWLEDGE_MASTERED = "knowledge_mastered"
     KNOWLEDGE_VIEWED = "knowledge_viewed"
+    PREFERENCES_UPDATED = "preferences_updated"
     MANUAL = "manual"
     CACHE_EXPIRED = "cache_expired"
 

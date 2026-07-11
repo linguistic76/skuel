@@ -305,7 +305,7 @@ class UserContextQueryExecutor:
 |--------|-------------------|------|
 | `populate_standard_fields()` | `active_task_uids`, `active_goal_uids`, `habit_streaks`, `in_progress_knowledge_uids`, etc. | Both |
 | `populate_entities_rich()` | `entities_rich` dict (9 keys) | Rich only |
-| `populate_user_properties()` | `learning_level`, `preferred_time`, `energy_level`, etc. | Both |
+| `populate_user_preferences()` | `learning_level`, `preferred_time`, `available_minutes_daily` — from the parsed `User.preferences` model (the :User node stores a JSON-string blob, not flat preference properties) | Both |
 | `populate_life_path()` | `life_path_uid`, `life_path_alignment_score` | Both |
 | `populate_progress_metrics()` | `overall_progress` | Both |
 | `populate_derived_fields()` | `tasks_by_goal`, `at_risk_habits`, `blocked_task_uids` | Rich only |

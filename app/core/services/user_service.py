@@ -38,7 +38,7 @@ from core.services.user import UserContext
 from core.services.user.device_service import DeviceService
 from core.services.user.intelligence import UserContextIntelligenceFactory
 from core.services.user.unified_user_context import RichUserContext
-from core.services.user.user_activity_service import UserActivityService
+from core.services.user.user_activity_service import InvalidationReason, UserActivityService
 from core.services.user.user_context_builder import UserContextBuilder
 from core.services.user.user_core_service import UserCoreService
 from core.services.user.user_progress_recorder_service import UserProgressRecorderService
@@ -215,8 +215,19 @@ class UserService:
     async def update_preferences(
         self, user_uid: UserUID, preferences_update: dict[str, Any]
     ) -> Result[User]:
-        """Update user preferences (convenience method)."""
-        return await self.core.update_preferences(user_uid, preferences_update)
+        """Update user preferences (convenience method).
+
+        Invalidates the cached UserContext immediately on success — preference
+        fields (available_minutes_daily → workload capacity, preferred_time,
+        learning_level) feed the context, so a Settings save must be visible
+        on the next context read, not after the 5-minute TTL.
+        """
+        result = await self.core.update_preferences(user_uid, preferences_update)
+        if result.is_ok:
+            await self.activity.invalidate_context(
+                user_uid, reason=InvalidationReason.PREFERENCES_UPDATED, immediate=True
+            )
+        return result
 
     async def append_dual_track_checkin(  # skuel-lint: disable=SKUEL005 -- facade delegation to the safe-by-design store_callback (ADR-030)
         self,

@@ -1174,15 +1174,6 @@ RETURN {
         learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL],
         path_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
     },
-    user_properties: {
-        learning_level: user.learning_level,
-        preferred_time: user.preferred_time_of_day,
-        energy_level: user.energy_level,
-        available_minutes: user.available_minutes_daily,
-        preferred_personality: user.preferred_personality,
-        preferred_tone: user.preferred_tone,
-        preferred_guidance: user.preferred_guidance
-    },
     life_path: {
         uid: life_path_uid,
         designated_at: life_path_designated_at,

@@ -282,6 +282,11 @@ class UserContextBuilder:
             knowledge_checkins=user.knowledge_checkins or {},
         )
 
+        # Populate preferences from the parsed User model — the :User node
+        # stores them as a JSON-string blob, so the resolved User (not node
+        # properties) is the authoritative source.
+        self._populator.populate_user_preferences(context, user.preferences)
+
         # Execute consolidated query
         query_result = await self._query_executor.execute_consolidated_query(user_uid)
         if query_result.is_error:
@@ -370,6 +375,11 @@ class UserContextBuilder:
             knowledge_checkins=user.knowledge_checkins or {},
         )
 
+        # Populate preferences from the parsed User model — the :User node
+        # stores them as a JSON-string blob, so the resolved User (not node
+        # properties) is the authoritative source.
+        self._populator.populate_user_preferences(context, user.preferences)
+
         # Compute activity window — always passed to MEGA-QUERY.
         # Active entities always included regardless of window; completed
         # entities included if touched within the lookback window.
@@ -393,7 +403,6 @@ class UserContextBuilder:
         #     "entities": {tasks, goals, habits, events, choices, principles,
         #                  learning_paths, path_steps},  <- LP/PS normalized here
         #     "rich": {knowledge, learning_paths, path_steps},  <- curriculum only (backward compat)
-        #     "user_properties": {preferences, role, settings},
         #     "life_path": {uid, alignment_score, dimensions},
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
@@ -452,9 +461,6 @@ class UserContextBuilder:
 
         # Populate MOC fields from uids section (Priority 3)
         self._populator.populate_moc_fields(context, uids_data)
-
-        # Populate user properties from user_properties section (Priority 1)
-        self._populator.populate_user_properties(context, mega_data.get("user_properties", {}))
 
         # Populate life path fields (Priority 2)
         self._populator.populate_life_path(context, mega_data.get("life_path", {}))
