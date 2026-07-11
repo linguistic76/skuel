@@ -642,7 +642,7 @@ async def ingest_directory(
         # (inside reconcile_deletions) covers the everything-vanished case;
         # this covers e.g. all *.md deleted while tracked *.yaml files survive.
         empty_errors: list[dict[str, Any]] = [{"message": "No files found"}]
-        empty_warnings: list[str] = []
+        empty_warnings: list[str] = list(collection_skips.warnings)
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
@@ -738,7 +738,7 @@ async def ingest_directory(
         edges_deleted = 0
         stale_metadata_removed = 0
         reconcile_errors: list[dict[str, Any]] = []
-        reconcile_warnings: list[str] = []
+        reconcile_warnings: list[str] = list(collection_skips.warnings)
         if tracker is not None and not dry_run:
             reconcile_result = await tracker.reconcile_deletions(
                 directory,
@@ -854,7 +854,9 @@ async def ingest_directory(
     # only under the label the edge will look for, so a mis-labelled reference
     # (uses_kus pointing at a same-sync PathStep) still warns rather than silently
     # dropping.
-    validation_warnings: list[str] = []
+    # Seeded with per-file collection skips (je_pro consent gate) so the
+    # "add pipeline: knowledge to promote" hint reaches the sync UI/API.
+    validation_warnings: list[str] = list(collection_skips.warnings)
     if validate_targets and write_backend is not None:
         known_uids_by_label: dict[str, set[str]] = {}
         for etype, ents in entities_by_type.items():

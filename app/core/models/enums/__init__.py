@@ -116,8 +116,8 @@ from .metadata_enums import (
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
 
-# Pipeline + ReportSource (ADR-054) — replaces ProcessorType
-from .pipeline import Pipeline, ReportSource
+# Pipeline + ReportSource (ADR-054) — replaces ProcessorType; JeUse scopes je_pro files
+from .pipeline import JeUse, Pipeline, ReportSource
 
 # Principle enums
 from .principle_enums import (
@@ -202,6 +202,7 @@ __all__ = [
     "JournalMode",
     "JournalTier",
     "KnowledgeStatus",
+    "JeUse",
     "KnowledgeType",
     "KuComplexity",
     "LearningLevel",

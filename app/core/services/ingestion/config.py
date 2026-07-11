@@ -20,9 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from core.constants import SYSTEM_USER_UID
 from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityStatus, EntityType, NonKuDomain
+from core.models.enums.pipeline import JeUse
 from core.models.ps_content.content_chunks import (
     DEFAULT_CHUNKING_PARAMS,
     ChunkingParams,
@@ -34,6 +37,7 @@ from core.models.relationship_registry import (
     LABEL_TO_DEFAULT_ENTITY_TYPE,
 )
 from core.models.type_hints import UserUID
+from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.services.ingestion.config")
@@ -448,32 +452,160 @@ def diverged_chunk_version_by_label() -> dict[str, str]:
 # Code-defined "doorway" folders — the SINGLE SOURCE OF TRUTH for what a personal
 # vault syncs (no env knob; sourcing this from ambient env let a stale exported var
 # shadow .env). The deliberate "what I want SKUEL to know" channel (ADR-073). These
-# are the ONLY folders a personal vault syncs; everything else (je_* staging,
-# templates, loose notes) stays walled off without any configuration, fail-closed.
+# are the ONLY folders a personal vault syncs; everything else (je_in/je_out/
+# je_raw staging, templates, loose notes) stays walled off without any
+# configuration, fail-closed. je_pro is a doorway folder but a CONDITIONAL one:
+# collection includes it, and the per-file ingestion gate (explicit ``pipeline:``
+# frontmatter + compatible ``je_use:``) decides what actually ingests.
 _DEFAULT_SYNC_SUBDIRS: tuple[str, ...] = (
     "periodic_notes",
     "personal_notes",
     "activity_notes",
     "knowledge",
+    "je_pro",
 )
 
 # Pipeline staging folders that are NEVER vault content, in any configuration.
-# je_in/je_out/je_raw/je_pro hold journal transcription artifacts — je_out in
+# je_in/je_out/je_raw hold journal transcription artifacts — je_out in
 # particular holds generated transcripts that must never auto-sync. These are
 # excluded UNCONDITIONALLY at the ingestion chokepoint, beneath and independent of
 # the SyncAllowlist privacy wall, so they stay walled even in the single-vault
 # fallback where no allowlist is built (build_sync_allowlist → None).
-STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
+# je_pro is NOT here (ADR-073 amendment): it is a conditional doorway — files
+# there ingest only with explicit ``pipeline:`` frontmatter and a compatible
+# ``je_use:``; the gate lives in the per-file ingestion path, not the path wall.
+STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw"})
 
 
 def is_staging_path(path: Path, excluded: frozenset[str] = STAGING_EXCLUDED_DIRS) -> bool:
-    """True if any path component names a pipeline staging folder (je_*).
+    """True if any path component names a pipeline staging folder (je_in/je_out/je_raw).
 
     Component-exact match (``je_output`` does not match ``je_out``), mirroring the
     historical vault-sync exclusion. Keeps staging artifacts out of ingestion on
-    every path, independent of the privacy allowlist.
+    every path, independent of the privacy allowlist. je_pro is not staging — it
+    is a frontmatter-gated doorway (see ``STAGING_EXCLUDED_DIRS``).
     """
     return any(part in excluded for part in path.parts)
+
+
+_JE_PRO_DIRNAME = "je_pro"
+
+# Bounded read window for the je_pro consent gate: generous for any real
+# frontmatter block, tiny next to the parser's 10 MB file cap — the gate runs
+# per-file per-sync and must never load a huge exemplar wholesale.
+_JE_PRO_GATE_READ_CHARS = 64 * 1024
+
+
+def _in_je_pro_scope(path: Path, allowlist: "SyncAllowlist | None") -> bool:
+    """Whether the je_pro consent gate applies to ``path``.
+
+    Personal vaults only. With an allowlist, the gate applies inside the
+    governed root — and only when the allowlist gates je_pro at all: the
+    CONTENT vault's own allowlist sets ``gates_je_pro=False`` (Codex #608),
+    so a curriculum folder that happens to be named ``je_pro`` ingests
+    normally under its own descriptor — the same posture as paths outside
+    a personal wall. Without an allowlist (single-vault fallback)
+    the whole vault is personal, so any ``je_pro`` component counts.
+    """
+    if allowlist is None:
+        return _JE_PRO_DIRNAME in path.parts
+    if not allowlist.gates_je_pro:
+        return False
+    located = path.parent.resolve() / path.name
+    if not located.is_relative_to(allowlist.governed_root):
+        return False
+    return _JE_PRO_DIRNAME in located.relative_to(allowlist.governed_root).parts
+
+
+def je_pro_skip_reason(path: Path) -> str | None:
+    """Frontmatter consent verdict for a ``je_pro/`` doorway file (ADR-073).
+
+    je_pro is a CONDITIONAL doorway: placement alone is not consent. A file
+    ingests only when its frontmatter declares an explicit ``pipeline:`` AND
+    its ``je_use:`` is not exemplar-only. Returns ``None`` when the file may
+    ingest, else a human-readable per-file reason for the sync warning surface.
+
+    Because this feeds ``is_ingestible_path`` — the predicate deletion
+    reconciliation shares — a stored je_pro entry whose file later loses its
+    ``pipeline:`` or flips to ``je_use: exemplar`` reads as not-collectible and
+    is retracted on the next sync (consent narrowing is honored).
+
+    An unreadable file is NOT a consent verdict: we defer to the parse-level
+    error surface rather than skip, so deletion reconciliation never retracts
+    a stored entry over a transient I/O failure.
+
+    The read is BOUNDED (Codex #608): this runs for every je_pro file on every
+    sync, before the parser's file-size guard, so a huge exemplar must never be
+    fully loaded here. Consent frontmatter lives in the first bytes; a file
+    whose frontmatter does not close inside the window cannot legitimately
+    carry consent, so it fails closed (with an explicit reason).
+    """
+    try:
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            text = fh.read(_JE_PRO_GATE_READ_CHARS)
+    except OSError:
+        return None
+    if path.suffix.lower() in (".yaml", ".yml"):
+        try:
+            loaded = yaml.safe_load(text)
+        except yaml.YAMLError:
+            # Includes truncation of an oversized YAML entry — a je_pro YAML
+            # that large is pathological; fail closed, the warning says why.
+            loaded = None
+        data: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
+    else:
+        if text.startswith("---") and split_frontmatter(text)[0] is None:
+            return (
+                "frontmatter block does not close within the first "
+                f"{_JE_PRO_GATE_READ_CHARS // 1024} KB — consent cannot be read "
+                "(fail-closed); fix or shrink the frontmatter"
+            )
+        data, _ = parse_frontmatter(text)
+    raw_pipeline = data.get("pipeline")
+    if raw_pipeline is None or not str(raw_pipeline).strip():
+        return (
+            "no explicit 'pipeline:' frontmatter — the file stays a style "
+            "exemplar only; add 'type: user_entry' + 'pipeline: knowledge' "
+            "frontmatter (the knowledge/ contract) to promote it into "
+            "SKUEL's understanding"
+        )
+    je_use = JeUse.from_string(data.get("je_use"))
+    if je_use is None:
+        return (
+            f"unrecognized 'je_use: {data.get('je_use')}' — expected one of: "
+            f"{', '.join(u.value for u in JeUse)}. Treated as no consent (fail-closed)"
+        )
+    if je_use is JeUse.EXEMPLAR:
+        reason = "'je_use: exemplar' — style exemplar only, never ingested"
+        if not _has_je_raw_twin(path):
+            # Gentle nudge, not silence: an exemplar-only file with no
+            # stem-matched je_raw twin is used in NEITHER direction.
+            reason += (
+                "; note: no je_raw file shares this stem, so it will not be "
+                "used as a style exemplar either until you add its raw twin"
+            )
+        return reason
+    return None
+
+
+def _has_je_raw_twin(path: Path) -> bool:
+    """Whether a je_pro file has a stem-matched je_raw sibling (exemplar pair).
+
+    Mirrors the exemplar loader's pairing rule (filename stem, text
+    extensions). Unscannable/absent je_raw reads as no twin.
+    """
+    parts = path.parts
+    if _JE_PRO_DIRNAME not in parts:
+        return False
+    je_raw_dir = Path(*parts[: parts.index(_JE_PRO_DIRNAME)]) / "je_raw"
+    try:
+        entries = list(je_raw_dir.iterdir()) if je_raw_dir.is_dir() else []
+    except OSError:
+        return False
+    return any(
+        p.stem == path.stem and p.suffix.lower() in {".txt", ".md", ".rst"} and p.is_file()
+        for p in entries
+    )
 
 
 @dataclass(frozen=True)
@@ -510,6 +642,11 @@ class SyncAllowlist:
     # every sync attempt. Checked before allowed_dirs, so an excluded dir wins
     # even when nested under an allowed one.
     excluded_dirs: frozenset[Path] = frozenset()
+    # Whether the je_pro frontmatter consent gate applies inside this governed
+    # root. True for personal vaults (the ADR-073 doorway); the CONTENT vault's
+    # allowlist sets False so a curriculum folder merely named ``je_pro``
+    # ingests normally under its own descriptor (Codex #608).
+    gates_je_pro: bool = True
 
     def permits(self, path: Path) -> bool:
         """Whether ``path`` is allowed by this wall (True = keep).
@@ -559,6 +696,7 @@ def build_sync_allowlist(
     allowed_dirs: str | None = None,
     content_root: Path | None = None,
     excluded_dirs: frozenset[Path] = frozenset(),
+    gates_je_pro: bool = True,
 ) -> SyncAllowlist:
     """Build the fail-closed vault-sync allowlist for ``governed_root``.
 
@@ -583,13 +721,19 @@ def build_sync_allowlist(
       such entries are dropped (with a warning) — fail-closed on misconfiguration.
     - **``allowed_dirs`` unset, distinct personal vault** → a minimal wall allowing
       only the default doorway folders (``_DEFAULT_SYNC_SUBDIRS`` under
-      ``governed_root`` — periodic/personal/activity notes + knowledge), so an
-      un-opted-in folder stays private without configuration.
+      ``governed_root`` — periodic/personal/activity notes + knowledge + je_pro),
+      so an un-opted-in folder stays private without configuration.
     - **``allowed_dirs`` unset, single-vault** (``content_root`` is / is under the
       governed root) → allow the *whole vault* (``allowed_dirs = {governed_root}``)
       so curriculum still ingests; only the ``je_*`` staging floor (scoped inside
       ``permits``) applies. ``governs()`` is still true here, so full-mode
       reprocesses retract stale staging rows like the routine incremental paths.
+
+    ``gates_je_pro``: pass ``False`` when building the CONTENT vault's own
+    allowlist — the je_pro consent gate is a personal-vault concept and must
+    not gate a curriculum folder that happens to share the name (Codex #608).
+    A combined personal+content root keeps the default (its je_pro IS the
+    personal doorway).
     """
     governed = governed_root.resolve()
     resolved_excluded = frozenset(d.resolve() for d in excluded_dirs)
@@ -606,7 +750,10 @@ def build_sync_allowlist(
                 governed,
             )
         return SyncAllowlist(
-            governed_root=governed, allowed_dirs=valid, excluded_dirs=resolved_excluded
+            governed_root=governed,
+            allowed_dirs=valid,
+            excluded_dirs=resolved_excluded,
+            gates_je_pro=gates_je_pro,
         )
 
     # Var unset. Single-vault (content vault is / is under the governed root):
@@ -619,12 +766,14 @@ def build_sync_allowlist(
                 governed_root=governed,
                 allowed_dirs=frozenset({governed}),
                 excluded_dirs=resolved_excluded,
+                gates_je_pro=gates_je_pro,
             )
     # Distinct personal vault: fail-closed default to the doorway folders only.
     return SyncAllowlist(
         governed_root=governed,
         allowed_dirs=frozenset(governed / subdir for subdir in _DEFAULT_SYNC_SUBDIRS),
         excluded_dirs=resolved_excluded,
+        gates_je_pro=gates_je_pro,
     )
 
 
@@ -637,7 +786,7 @@ def is_ingestible_path(path: Path, allowlist: SyncAllowlist | None) -> bool:
     collected for ingestion. Does NOT check on-disk existence — ``collect_files``
     globs existing files; ``reconcile_deletions`` checks existence separately.
 
-    Three rules, in order:
+    Four rules, in order:
 
     1. **No symlinks.** A symlink's target may resolve outside the vault, so the
        link's in-vault name is not a safe proxy for its content. Rejecting them
@@ -649,12 +798,22 @@ def is_ingestible_path(path: Path, allowlist: SyncAllowlist | None) -> bool:
        an unrelated content tree is unaffected.
     3. **No allowlist** (single-vault fallback — no distinct content tree) → the
        whole vault is personal, so the ``je_*`` staging floor applies globally.
+    4. **je_pro consent gate** (``je_pro_skip_reason``): a personal-vault file
+       under ``je_pro/`` ingests only with explicit consent frontmatter. Living
+       here — in the shared predicate — is what makes consent narrowing work:
+       a stored entry whose file withdraws consent reads as not-collectible and
+       deletion reconciliation retracts it. This rule reads the file's
+       frontmatter (the one content-aware rule); the docstring caveat above
+       still holds — a missing file falls through the gate's I/O guard.
     """
     if path.is_symlink():
         return False
     if allowlist is not None:
-        return allowlist.permits(path)
-    return not is_staging_path(path)
+        if not allowlist.permits(path):
+            return False
+    elif is_staging_path(path):
+        return False
+    return not (_in_je_pro_scope(path, allowlist) and je_pro_skip_reason(path) is not None)
 
 
 def _file_mtime(path: Path) -> float:
@@ -667,15 +826,20 @@ class FileCollectionSkips:
     """Skip-reason bookkeeping for a directory scan (G10 honest counts).
 
     ``walled``: files matching the supported patterns that the vault
-    exclusions rejected (allowlist wall, je_* staging floor, or symlink).
+    exclusions rejected (allowlist wall, je_* staging floor, symlink, or the
+    je_pro consent gate).
     ``unsupported``: non-hidden files in the tree whose extension the
     ingestion engine does not read at all (only counted for the recursive
     all-files patterns — a targeted pattern scan makes no claim about the
     rest of the tree).
+    ``warnings``: per-file actionable messages for skips the author should
+    hear about (today: je_pro files missing consent frontmatter) — merged
+    into sync-stats warnings by the batch door so they reach the UI/API.
     """
 
     walled: int = 0
     unsupported: int = 0
+    warnings: tuple[str, ...] = ()
 
 
 _SUPPORTED_SUFFIXES = frozenset({".md", ".yaml", ".yml"})
@@ -722,6 +886,25 @@ def collect_files_detailed(
         1 for f in collected if not _is_hidden(f, directory)
     )
 
+    # je_pro consent skips get a per-file actionable warning: unlike a walled
+    # folder (deliberately silent), a bare je_pro file is one frontmatter line
+    # away from ingesting — tell the author how. Only files that passed every
+    # PATH wall qualify, so the warning never fires for path-rejected files.
+    collected_set = set(collected)
+    je_pro_warnings: list[str] = []
+    for f in matched:
+        if f in collected_set or not _in_je_pro_scope(f, allowlist):
+            continue
+        if f.is_symlink() or (allowlist is not None and not allowlist.permits(f)):
+            continue
+        reason = je_pro_skip_reason(f)
+        if reason is not None:
+            try:
+                display = f.relative_to(directory).as_posix()
+            except ValueError:
+                display = f.name
+            je_pro_warnings.append(f"je_pro file skipped ({display}): {reason}")
+
     unsupported = 0
     if pattern in ("*", "**/*"):
         unsupported = sum(
@@ -734,7 +917,9 @@ def collect_files_detailed(
 
     return (
         sorted(collected, key=_file_mtime, reverse=True),
-        FileCollectionSkips(walled=walled, unsupported=unsupported),
+        FileCollectionSkips(
+            walled=walled, unsupported=unsupported, warnings=tuple(je_pro_warnings)
+        ),
     )
 
 
@@ -783,6 +968,7 @@ __all__ = [
     "generate_ingestion_relationship_config",
     "is_ingestible_path",
     "is_staging_path",
+    "je_pro_skip_reason",
     "diverged_chunk_version_by_label",
     "resolve_chunking_params",
     "resolve_chunking_params_for_label",

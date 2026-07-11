@@ -1289,6 +1289,9 @@ async def compose_services(
             _content_root,
             content_root=_content_root,
             excluded_dirs=frozenset({_content_root / "Resources"}),
+            # The je_pro consent gate is a personal-vault concept — a content
+            # folder merely named je_pro is curriculum, not a doorway.
+            gates_je_pro=False,
         )
 
         _content_descriptor = VaultDescriptor(
@@ -1309,7 +1312,7 @@ async def compose_services(
         def _build_personal_descriptor(owner_uid: UserUID, root: Path) -> VaultDescriptor:
             """One user's personal vault: per-root doorway wall + root-bound bridge.
 
-            The wall is fail-closed (knowledge/ + notes doorway folders) and
+            The wall is fail-closed (knowledge/ + notes + je_pro doorway folders) and
             code-sourced — NOT read from the ambient SKUEL_VAULT_SYNC_ALLOWED_DIRS
             env var, which used to shadow .env and silently wall off a folder.
 

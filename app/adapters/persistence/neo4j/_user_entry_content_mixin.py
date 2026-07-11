@@ -121,9 +121,9 @@ class _UserEntryContentMixin:
 
         ``pipeline = 'journal'`` (root vault notes) and ``pipeline = 'knowledge'``
         (developed files the user shares to teach SKUEL — the ``knowledge/``
-        doorway) are returned. Reference-archive entries (``je_raw/``,
-        ``je_pro/``) stay excluded by the pipeline filter. Content is truncated
-        to 300 chars so the digest stays compact.
+        doorway, plus frontmatter-consented ``je_pro/`` entries per the ADR-073
+        amendment) are returned. Content is truncated to 300 chars so the
+        digest stays compact.
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity {entity_type: 'user_entry'})

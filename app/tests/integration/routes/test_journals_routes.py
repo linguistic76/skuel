@@ -536,6 +536,91 @@ class TestJournalExemplarLoading:
 
         assert _build_exemplar_preamble([]) == ""
 
+    def test_understanding_only_je_pro_file_never_used_as_exemplar(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # ADR-073 amendment: `je_use: understanding` scopes the file to the
+        # ingestion channel only — the loader must skip it even with a raw twin.
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "private.md").write_text("RAW BODY")
+        (pro / "private.md").write_text(
+            "---\npipeline: knowledge\nje_use: understanding\n---\nABOUT ME"
+        )
+
+        assert _load_journal_exemplars() == []
+
+    def test_garbled_je_use_skips_exemplar_use(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Unrecognized je_use is honored in neither direction (fail-closed
+        # both ways — the ingestion gate skips it too).
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "typo.md").write_text("RAW BODY")
+        (pro / "typo.md").write_text("---\nje_use: exmplar\n---\nSTYLED")
+
+        assert _load_journal_exemplars() == []
+
+    def test_frontmatter_stripped_from_exemplar_text(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # A consented je_pro file carries YAML frontmatter — consent metadata,
+        # not style. It must never reach the LLM as exemplar text.
+        from adapters.inbound.journals_routes import _load_journal_exemplars
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "pair.md").write_text("RAW BODY")
+        (pro / "pair.md").write_text(
+            "---\ntype: user_entry\npipeline: knowledge\nje_use: both\n---\nSTYLED BODY"
+        )
+
+        pairs = _load_journal_exemplars()
+        assert pairs == [("RAW BODY", "STYLED BODY")]
+
+    def test_unterminated_frontmatter_fails_closed(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Codex #608: an opening fence whose close falls OUTSIDE the bounded
+        # read must skip the file — parsing the truncated text would default
+        # je_use to BOTH and inject raw YAML into the prompt as style.
+        from adapters.inbound.journals_routes import (
+            _EXEMPLAR_FRONTMATTER_HEADROOM,
+            _EXEMPLAR_MAX_CHARS,
+            _load_journal_exemplars,
+        )
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "big.md").write_text("RAW BODY")
+        oversized = "---\nje_use: understanding\npad: " + "z" * (
+            _EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM
+        )
+        (pro / "big.md").write_text(oversized + "\n---\nSTYLED")
+
+        assert _load_journal_exemplars() == []
+
+    def test_frontmatter_headroom_preserves_content_budget(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # The frontmatter block must not eat into the exemplar's char budget.
+        from adapters.inbound.journals_routes import (
+            _EXEMPLAR_MAX_CHARS,
+            _load_journal_exemplars,
+        )
+
+        raw, pro = self._wire(monkeypatch, tmp_path)
+        (raw / "big.md").write_text("R" * (_EXEMPLAR_MAX_CHARS + 500))
+        (pro / "big.md").write_text(
+            "---\npipeline: knowledge\n---\n" + "P" * (_EXEMPLAR_MAX_CHARS + 500)
+        )
+
+        (raw_body, pro_body) = _load_journal_exemplars()[0]
+        assert len(raw_body) == _EXEMPLAR_MAX_CHARS
+        assert len(pro_body) == _EXEMPLAR_MAX_CHARS
+        assert pro_body == "P" * _EXEMPLAR_MAX_CHARS
+
 
 class TestJournalExemplarInjection:
     """Exemplars reach the LLM prompt and still persist nothing."""

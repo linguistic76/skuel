@@ -27,7 +27,8 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
 from core.config import get_settings
-from core.models.enums.pipeline import Pipeline
+from core.models.enums.pipeline import JeUse, Pipeline
+from core.utils.frontmatter import parse_frontmatter, split_frontmatter
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
@@ -57,11 +58,16 @@ def _je_out() -> Path:
     return get_settings().vault.vault_path / "je_out"
 
 
-# je_raw/je_pro hold curated example input→output pairs. They are read *off disk at
-# processing time* as few-shot exemplars that shape journal-processing STYLE — never
-# ingested, never written to Neo4j, never treated as facts about the user (ADR-073 §4).
-# The vault's fail-closed SyncAllowlist + STAGING_EXCLUDED_DIRS wall them off from
-# ingestion unconditionally; this is a read-only, in-memory use.
+# je_raw/je_pro hold curated example input→output pairs, read *off disk at
+# processing time* as few-shot exemplars that shape journal-processing STYLE.
+# je_raw stays workshop: never ingested, walled unconditionally
+# (STAGING_EXCLUDED_DIRS). je_pro is a CONDITIONAL doorway (ADR-073 amendment):
+# a je_pro file with explicit `type: user_entry` + `pipeline:` frontmatter (and
+# a compatible `je_use:`) ingests as a stored understanding entry; a bare file
+# stays exemplar-only. The `je_use:` enum scopes dual duty — `exemplar` (style
+# only, never ingested), `understanding` (ingested, never used as a style
+# exemplar), `both`/absent (default). This loader is the second consumer that
+# must respect it (the ingestion gate `je_pro_skip_reason` is the first).
 def _je_raw() -> Path:
     return get_settings().vault.vault_path / "je_raw"
 
@@ -77,6 +83,10 @@ _LLM_MAX_TOKENS = 4000
 # Bound token cost of injected exemplars: at most N pairs, each side truncated.
 _EXEMPLAR_MAX_PAIRS = 3
 _EXEMPLAR_MAX_CHARS = 2000
+# Extra read headroom so a je_pro file's YAML frontmatter block (stripped
+# before injection — YAML is consent metadata, not style) doesn't eat into the
+# exemplar's content budget.
+_EXEMPLAR_FRONTMATTER_HEADROOM = 2048
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +162,13 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
     These teach the pipeline *how the user likes journals processed* (style), never
     facts about the user. Missing/empty folders yield ``[]`` — the caller degrades to
     today's no-exemplar behavior.
+
+    ``je_use`` scoping (ADR-073 amendment): a je_pro file whose frontmatter
+    resolves to UNDERSTANDING is never used as a style exemplar; an
+    unrecognized ``je_use`` value also skips (garbled scoping intent is
+    honored in neither direction — the ingestion gate skips it too). Any YAML
+    frontmatter block is stripped before injection: it is consent metadata,
+    not processing style.
     """
 
     def _text_files(directory: Path) -> dict[str, Path]:
@@ -162,17 +179,29 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
             return {}
         return {p.stem: p for p in entries if p.is_file() and p.suffix.lower() in _TEXT_EXTENSIONS}
 
-    def _read_prefix(path: Path) -> str | None:
-        # Read only the bounded prefix — never load an oversized exemplar fully.
+    def _read_exemplar(path: Path) -> tuple[dict[str, Any], str] | None:
+        # Read only a bounded prefix — never load an oversized exemplar fully.
+        # Frontmatter headroom keeps the stripped body at full budget.
         # UnicodeDecodeError (a UnicodeError, NOT an OSError) must be caught here
         # too, or an undecodable file would abort the whole request instead of
         # being skipped.
         try:
             with path.open(encoding="utf-8") as fh:
-                return fh.read(_EXEMPLAR_MAX_CHARS)
+                raw_text = fh.read(_EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM)
         except (OSError, UnicodeError) as e:  # unreadable/undecodable — skip it
             logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
             return None
+        if raw_text.startswith("---") and split_frontmatter(raw_text)[0] is None:
+            # An opening fence with no close inside the bounded read: parsing
+            # would silently default je_use to BOTH and inject the raw YAML as
+            # style (Codex #608) — fail closed, skip the file.
+            logger.warning(
+                f"Skipping journal exemplar {path.name!r}: frontmatter does not "
+                "close within the bounded read"
+            )
+            return None
+        frontmatter, body = parse_frontmatter(raw_text)
+        return frontmatter, body[:_EXEMPLAR_MAX_CHARS]
 
     raw_by_stem = _text_files(_je_raw())
     pro_by_stem = _text_files(_je_pro())
@@ -180,10 +209,16 @@ def _load_journal_exemplars() -> list[tuple[str, str]]:
     for stem in sorted(raw_by_stem.keys() & pro_by_stem.keys()):
         if len(pairs) >= _EXEMPLAR_MAX_PAIRS:
             break
-        raw = _read_prefix(raw_by_stem[stem])
-        pro = _read_prefix(pro_by_stem[stem])
-        if raw is None or pro is None:
+        pro_read = _read_exemplar(pro_by_stem[stem])
+        if pro_read is None:
             continue
+        pro_frontmatter, pro = pro_read
+        if JeUse.from_string(pro_frontmatter.get("je_use")) not in (JeUse.BOTH, JeUse.EXEMPLAR):
+            continue  # understanding-only (or garbled scoping) — never style
+        raw_read = _read_exemplar(raw_by_stem[stem])
+        if raw_read is None:
+            continue
+        _, raw = raw_read
         if raw.strip() and pro.strip():
             pairs.append((raw, pro))
     return pairs

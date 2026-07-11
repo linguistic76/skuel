@@ -417,3 +417,240 @@ def test_excluded_dirs_default_empty_keeps_behavior(tmp_path: Path) -> None:
     wall = build_sync_allowlist(root, content_root=root)
     assert wall.excluded_dirs == frozenset()
     assert wall.permits(root / "Resources" / "book.md") is True
+
+
+# ---------------------------------------------------------------------------
+# je_pro conditional doorway — frontmatter consent gate (ADR-073 amendment)
+# ---------------------------------------------------------------------------
+
+_JE_PRO_CONSENTED = "---\ntype: user_entry\npipeline: knowledge\n---\nA developed thought.\n"
+
+
+def _je_pro_vault(tmp_path: Path) -> tuple[Path, SyncAllowlist]:
+    """A personal vault with its default wall (je_pro is a default doorway now)."""
+    root = tmp_path / "vault"
+    (root / "je_pro").mkdir(parents=True)
+    wall = build_sync_allowlist(root, content_root=tmp_path / "0vault")
+    return root, wall
+
+
+def test_default_wall_opens_je_pro_path(tmp_path: Path) -> None:
+    # je_pro is in the default doorway set and out of the staging floor; the
+    # PATH wall permits it — consent is decided per-file by the gate below.
+    root = tmp_path / "vault"
+    wall = build_sync_allowlist(root, content_root=tmp_path / "0vault")
+    assert wall.permits(root / "je_pro" / "note.md") is True
+    # The workshop trio stays unconditionally walled.
+    assert wall.permits(root / "je_raw" / "note.md") is False
+    assert wall.permits(root / "je_out" / "note.md") is False
+    assert wall.permits(root / "je_in" / "note.md") is False
+
+
+def test_je_pro_bare_file_skipped_with_promotion_warning(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    bare = root / "je_pro" / "styled-output.md"
+    bare.write_text("No frontmatter — exemplar half only.", encoding="utf-8")
+
+    collected, skips = collect_files_detailed(root, allowlist=wall)
+    assert bare.resolve() not in {p.resolve() for p in collected}
+    assert len(skips.warnings) == 1
+    assert "pipeline: knowledge" in skips.warnings[0]  # the promotion hint
+    assert "styled-output.md" in skips.warnings[0]
+
+
+def test_je_pro_consented_file_collected(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    consented = root / "je_pro" / "promoted.md"
+    consented.write_text(_JE_PRO_CONSENTED, encoding="utf-8")
+
+    collected, skips = collect_files_detailed(root, allowlist=wall)
+    assert consented.resolve() in {p.resolve() for p in collected}
+    assert skips.warnings == ()
+
+
+def test_je_pro_exemplar_only_skipped_with_twin_note(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    exemplar = root / "je_pro" / "style-only.md"
+    exemplar.write_text(
+        "---\ntype: user_entry\npipeline: knowledge\nje_use: exemplar\n---\nStyle.\n",
+        encoding="utf-8",
+    )
+
+    collected, skips = collect_files_detailed(root, allowlist=wall)
+    assert collected == []
+    assert len(skips.warnings) == 1
+    assert "exemplar" in skips.warnings[0]
+    # No je_raw twin shares the stem → gentle unpaired note.
+    assert "raw twin" in skips.warnings[0]
+
+
+def test_je_pro_exemplar_with_raw_twin_omits_twin_note(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    (root / "je_raw").mkdir()
+    (root / "je_raw" / "style-only.txt").write_text("raw half", encoding="utf-8")
+    exemplar = root / "je_pro" / "style-only.md"
+    exemplar.write_text("---\npipeline: knowledge\nje_use: exemplar\n---\nS.\n", encoding="utf-8")
+
+    _, skips = collect_files_detailed(root, allowlist=wall)
+    assert len(skips.warnings) == 1
+    assert "raw twin" not in skips.warnings[0]
+
+
+def test_je_pro_understanding_file_collected(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    understanding = root / "je_pro" / "about-me.md"
+    understanding.write_text(
+        "---\ntype: user_entry\npipeline: knowledge\nje_use: understanding\n---\nMe.\n",
+        encoding="utf-8",
+    )
+
+    collected, skips = collect_files_detailed(root, allowlist=wall)
+    assert understanding.resolve() in {p.resolve() for p in collected}
+    assert skips.warnings == ()
+
+
+def test_je_pro_garbled_je_use_fails_closed(tmp_path: Path) -> None:
+    from core.services.ingestion.config import collect_files_detailed
+
+    root, wall = _je_pro_vault(tmp_path)
+    garbled = root / "je_pro" / "typo.md"
+    garbled.write_text("---\npipeline: knowledge\nje_use: exmplar\n---\nX.\n", encoding="utf-8")
+
+    collected, skips = collect_files_detailed(root, allowlist=wall)
+    assert collected == []
+    assert len(skips.warnings) == 1
+    assert "unrecognized" in skips.warnings[0].lower()
+
+
+def test_je_pro_consent_narrowing_flips_ingestibility(tmp_path: Path) -> None:
+    # THE consent-narrowing hook: is_ingestible_path is the exact predicate
+    # deletion reconciliation uses ("a tracked row survives iff its file would
+    # still be collected"), so flipping a stored file to exemplar-only must
+    # flip this predicate — the reconciler then deletes the node for free.
+    from core.services.ingestion.config import is_ingestible_path
+
+    root, wall = _je_pro_vault(tmp_path)
+    note = root / "je_pro" / "shared-then-withdrawn.md"
+    note.write_text(_JE_PRO_CONSENTED, encoding="utf-8")
+    assert is_ingestible_path(note, wall) is True
+
+    note.write_text(
+        "---\ntype: user_entry\npipeline: knowledge\nje_use: exemplar\n---\nA developed thought.\n",
+        encoding="utf-8",
+    )
+    assert is_ingestible_path(note, wall) is False
+
+    # Dropping pipeline: entirely also withdraws consent.
+    note.write_text("---\ntype: user_entry\n---\nA developed thought.\n", encoding="utf-8")
+    assert is_ingestible_path(note, wall) is False
+
+
+def test_content_vault_je_pro_is_ungoverned(tmp_path: Path) -> None:
+    # The consent gate is scoped to the governed personal vault — a content
+    # tree folder that happens to be NAMED je_pro ingests normally (same
+    # scoping as the staging floor).
+    from core.services.ingestion.config import is_ingestible_path
+
+    personal = tmp_path / "skuel"
+    content = tmp_path / "0vault"
+    (content / "je_pro").mkdir(parents=True)
+    bare = content / "je_pro" / "lesson.md"
+    bare.write_text("no frontmatter", encoding="utf-8")
+
+    wall = build_sync_allowlist(personal, content_root=content)
+    assert is_ingestible_path(bare, wall) is True
+
+
+def test_content_vaults_own_allowlist_does_not_gate_je_pro(tmp_path: Path) -> None:
+    # Codex #608: the content vault's OWN descriptor governs the content root
+    # (whole-vault-open allowlist), so without gates_je_pro=False a curriculum
+    # folder named je_pro would be consent-gated under its own descriptor.
+    from core.services.ingestion.config import is_ingestible_path
+
+    content = tmp_path / "0vault"
+    (content / "je_pro").mkdir(parents=True)
+    bare = content / "je_pro" / "lesson.md"
+    bare.write_text("type: Ku\nno pipeline needed here", encoding="utf-8")
+
+    content_wall = build_sync_allowlist(content, content_root=content, gates_je_pro=False)
+    assert content_wall.gates_je_pro is False
+    assert is_ingestible_path(bare, content_wall) is True
+    # A combined personal+content root keeps the gate (default True).
+    combined_wall = build_sync_allowlist(content, content_root=content)
+    assert combined_wall.gates_je_pro is True
+    assert is_ingestible_path(bare, combined_wall) is False
+
+
+def test_je_pro_gate_read_is_bounded_and_unterminated_frontmatter_fails_closed(
+    tmp_path: Path,
+) -> None:
+    # Codex #608: the gate runs per-file per-sync BEFORE the parser's size
+    # guard — it must never load a huge file wholesale, and a frontmatter
+    # block that does not close inside the bounded window is unreadable
+    # consent → fail closed with an explicit reason.
+    from core.services.ingestion.config import (
+        _JE_PRO_GATE_READ_CHARS,
+        is_ingestible_path,
+        je_pro_skip_reason,
+    )
+
+    root, wall = _je_pro_vault(tmp_path)
+    monster = root / "je_pro" / "unterminated.md"
+    monster.write_text(
+        "---\npipeline: knowledge\nnotes: " + "x" * (_JE_PRO_GATE_READ_CHARS + 1024),
+        encoding="utf-8",
+    )
+
+    reason = je_pro_skip_reason(monster)
+    assert reason is not None
+    assert "does not close" in reason
+    assert is_ingestible_path(monster, wall) is False
+
+    # A big BODY after well-formed frontmatter is fine — only the window
+    # matters for consent, the parser's 10 MB cap governs the rest.
+    big_body = root / "je_pro" / "big-but-consented.md"
+    big_body.write_text(
+        _JE_PRO_CONSENTED + "y" * (_JE_PRO_GATE_READ_CHARS + 1024), encoding="utf-8"
+    )
+    assert je_pro_skip_reason(big_body) is None
+    assert is_ingestible_path(big_body, wall) is True
+
+
+def test_single_vault_fallback_gates_je_pro(tmp_path: Path) -> None:
+    # No allowlist (single-vault fallback): the whole vault is personal, so the
+    # je_pro consent gate applies there too.
+    from core.services.ingestion.config import is_ingestible_path
+
+    root = tmp_path / "vault"
+    (root / "je_pro").mkdir(parents=True)
+    bare = root / "je_pro" / "bare.md"
+    bare.write_text("no frontmatter", encoding="utf-8")
+    consented = root / "je_pro" / "promoted.md"
+    consented.write_text(_JE_PRO_CONSENTED, encoding="utf-8")
+
+    assert is_ingestible_path(bare, None) is False
+    assert is_ingestible_path(consented, None) is True
+
+
+def test_je_pro_yaml_file_gated_too(tmp_path: Path) -> None:
+    # .yaml je_pro files carry fields at top level (no --- fences).
+    from core.services.ingestion.config import is_ingestible_path
+
+    root, wall = _je_pro_vault(tmp_path)
+    consented = root / "je_pro" / "entry.yaml"
+    consented.write_text("type: user_entry\npipeline: knowledge\ntitle: T\n", encoding="utf-8")
+    bare = root / "je_pro" / "loose.yaml"
+    bare.write_text("title: no pipeline\n", encoding="utf-8")
+
+    assert is_ingestible_path(consented, wall) is True
+    assert is_ingestible_path(bare, wall) is False

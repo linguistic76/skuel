@@ -61,7 +61,7 @@ Members: `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `UserEntry`, `
 - `Pipeline.EXTRACT_ACTIVITIES` — DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069)
 - `Pipeline.TEACHER_REVIEW` — no processing; waits in a teacher review queue via `SHARED_WITH_GROUP`
 - `Pipeline.JOURNAL` — journals domain entry; processing driven by JournalTier (FOUNDER: DNWF, STANDARD: single-response)
-- `Pipeline.REFERENCE` — archive/training material (je_raw/, je_pro/); stored as-is, excluded from UserContext counts
+- `Pipeline.REFERENCE` — RESERVED (no producer): the planned per-user *stored* journal-exemplar layer; je_raw/je_pro exemplars stay disk-only (ADR-073 §4), and a frontmatter-consented je_pro file ingests as KNOWLEDGE, not REFERENCE
 
 New user-authored flows arrive as new pipeline variants, not as new EntityTypes (ADR-054).
 
