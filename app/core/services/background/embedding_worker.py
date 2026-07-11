@@ -65,6 +65,7 @@ from core.events import (
     ResourceEmbeddingRequested,
     RevisedExerciseEmbeddingRequested,
     TaskEmbeddingRequested,
+    UserEntryEmbeddingRequested,
 )
 from core.events.embedding_events import EmbeddingRequested
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -185,6 +186,10 @@ class EmbeddingBackgroundWorker:
         self.event_bus.subscribe(PathStepEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(LearningPathEmbeddingRequested, self._queue_request)
         self.event_bus.subscribe(RevisedExerciseEmbeddingRequested, self._queue_request)
+
+        # UserEntry — pipeline-scoped at the publisher (UserEntryService gates
+        # on pipeline=knowledge), so everything that arrives here embeds.
+        self.event_bus.subscribe(UserEntryEmbeddingRequested, self._queue_request)
 
         # Subscribe to chunk embedding requests (separate queue). Both the
         # curriculum and canon reference variants share the queue and the

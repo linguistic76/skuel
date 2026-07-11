@@ -125,6 +125,24 @@ class TestBuildEmbeddingTextFromDict:
         result = build_embedding_text(EntityType.PRINCIPLE, data)
         assert result == "Integrity\nBe honest\nAlways tell truth"
 
+    def test_user_entry_embeds_content_body(self):
+        # Knowledge entries hold their body in `content`; `processed_content`
+        # is pipeline-specific output. `original_filename` is metadata, not
+        # semantics — deliberately excluded from the map.
+        data = {
+            "title": "Reflections on Stoicism",
+            "content": "Body of my note",
+            "processed_content": "Structured output",
+            "original_filename": "note-2026-07-11.md",
+        }
+        result = build_embedding_text(EntityType.USER_ENTRY, data)
+        assert result == "Reflections on Stoicism\nBody of my note\nStructured output"
+
+    def test_user_entry_content_only_no_processed(self):
+        data = {"title": "Note", "content": "Just the body"}
+        result = build_embedding_text(EntityType.USER_ENTRY, data)
+        assert result == "Note\nJust the body"
+
     def test_ku_with_all_fields_uses_double_newlines(self):
         # "content" is deliberately absent from the PATH_STEP map (ADR-074):
         # the entity vector covers frontmatter fields only — body semantics

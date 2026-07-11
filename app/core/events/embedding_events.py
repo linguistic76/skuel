@@ -147,3 +147,18 @@ class RevisedExerciseEmbeddingRequested(EmbeddingRequested):
     @property
     def event_type(self) -> str:
         return "revised_exercise.embedding_requested"
+
+
+@dataclass(frozen=True)
+class UserEntryEmbeddingRequested(EmbeddingRequested):
+    """UserEntry-specific embedding request.
+
+    Pipeline-scoped at the publisher: only ``pipeline=knowledge`` entries
+    (knowledge/ + consented je_pro/ notes) publish — UserEntryService gates
+    before calling the chokepoint, so exercise turn-ins, teacher-review
+    submissions, and LLM outputs never embed.
+    """
+
+    @property
+    def event_type(self) -> str:
+        return "user_entry.embedding_requested"

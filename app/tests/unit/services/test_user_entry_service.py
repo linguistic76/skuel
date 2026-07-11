@@ -909,3 +909,86 @@ class TestDeleteEntryAsTeacher:
         result = await service.delete_entry_as_teacher("ue_test_1", teacher_uid="teacher_1")
         assert result.is_error
         backend.delete.assert_not_called()
+
+
+class TestEmbeddingPublishGate:
+    """Post-persist embedding events are pipeline-scoped: knowledge entries
+    only (knowledge/ + consented je_pro/ notes). Turn-ins, teacher-review
+    submissions, and LLM outputs never publish UserEntryEmbeddingRequested."""
+
+    class _CapturingBus:
+        def __init__(self) -> None:
+            self.published: list = []
+
+        async def publish_async(self, event) -> None:
+            self.published.append(event)
+
+    def _embed_events(self, bus) -> list:
+        from core.events.embedding_events import UserEntryEmbeddingRequested
+
+        return [e for e in bus.published if isinstance(e, UserEntryEmbeddingRequested)]
+
+    def _service_with_bus(self, entry: UserEntry):
+        bus = self._CapturingBus()
+        service = UserEntryService(backend=_make_backend(entry), event_bus=bus)
+        return service, bus
+
+    @pytest.mark.asyncio
+    async def test_knowledge_create_publishes_embedding_event(self):
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Body of my note")
+        service, bus = self._service_with_bus(entry)
+        request = UserEntryCreateRequest(
+            title="Entry", pipeline=Pipeline.KNOWLEDGE, content="Body of my note"
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        events = self._embed_events(bus)
+        assert len(events) == 1
+        assert events[0].entity_uid == entry.uid
+        assert "Body of my note" in events[0].embedding_text
+
+    @pytest.mark.asyncio
+    async def test_non_knowledge_create_does_not_publish(self):
+        entry = _make_entry(pipeline=Pipeline.NONE, content="Body")
+        service, bus = self._service_with_bus(entry)
+        request = UserEntryCreateRequest(title="Entry", pipeline=Pipeline.NONE, content="Body")
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_knowledge_content_update_publishes(self):
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Edited body")
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_entry(
+            "ue_test_1", "user_1", UserEntryUpdateRequest(content="Edited body")
+        )
+        assert result.is_ok
+        assert len(self._embed_events(bus)) == 1
+
+    @pytest.mark.asyncio
+    async def test_knowledge_tags_only_update_does_not_publish(self):
+        """The changed_fields gate: a tags-only edit feeds no embedding field."""
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Body")
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_entry(
+            "ue_test_1", "user_1", UserEntryUpdateRequest(tags=["stoicism"])
+        )
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_non_knowledge_processed_content_update_does_not_publish(self):
+        entry = _make_entry(pipeline=Pipeline.LLM_SUMMARY, processed_content="Structured")
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_processed_content("ue_test_1", "Structured")
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_knowledge_processed_content_update_publishes(self):
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, processed_content="Structured")
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_processed_content("ue_test_1", "Structured")
+        assert result.is_ok
+        assert len(self._embed_events(bus)) == 1
