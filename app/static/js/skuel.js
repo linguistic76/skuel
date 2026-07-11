@@ -318,7 +318,8 @@
                 isDesktop: true,      // ≥1024px — set from matchMedia in init()
                 filterCount: 0,       // active facets, shown on the mobile trigger badge
 
-                // Entity type to filter group mapping
+                // Entity type to filter group mapping — keys mirror the Type
+                // dropdown values in ui/search/components.py (_render_entity_type_select)
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],
                     'goal': ['common', 'status', 'priority'],
@@ -327,9 +328,9 @@
                     'choice': ['common', 'status', 'urgency'],
                     'principle': ['common', 'status', 'strength'],
                     'ku': ['knowledge', 'sel_category', 'learning_level', 'content_type', 'educational_level'],
-                    'ls': ['knowledge', 'sel_category', 'learning_level'],
+                    'ps': ['knowledge', 'sel_category', 'learning_level'],
                     'lp': ['knowledge', 'sel_category', 'learning_level'],
-                    'moc': ['knowledge', 'sel_category']
+                    'user_entry': []
                 },
 
                 // Entity type labels for badges
@@ -341,9 +342,9 @@
                     'choice': 'Choices',
                     'principle': 'Principles',
                     'ku': 'Knowledge Units',
-                    'ls': 'Learning Steps',
+                    'ps': 'Path Steps',
                     'lp': 'Learning Paths',
-                    'moc': 'Maps of Content'
+                    'user_entry': 'My Entries'
                 },
 
                 // Computed: should show context filters row
@@ -354,7 +355,7 @@
                 // Computed: label for context filter section
                 get contextFilterLabel() {
                     if (!this.entityType) return 'Filters';
-                    var isKnowledge = ['ku', 'ls', 'lp', 'moc'].indexOf(this.entityType) !== -1;
+                    var isKnowledge = ['ku', 'ps', 'lp'].indexOf(this.entityType) !== -1;
                     return isKnowledge ? 'Knowledge Filters' : 'Activity Filters';
                 },
 

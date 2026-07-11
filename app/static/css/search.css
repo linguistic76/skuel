@@ -9,16 +9,17 @@
  * opened by a "Filters" button, keeping the small screen focused on results.
  */
 
-/* Main container - full width, tinted backdrop */
+/* Main container - full width, tinted backdrop.
+   Tokens are the shadcn-style hsl vars owned by input.css (ADR-071). */
 .search-container {
     min-height: calc(100vh - 64px);
     margin-top: 64px;
-    background: oklch(var(--b2));
+    background: hsl(var(--muted) / 0.4);
 }
 
 /* Shared panel surface — used by .search-input-container (and .search-filters on desktop) */
 .panel-surface {
-    background: oklch(var(--b1));
+    background: hsl(var(--card));
     border-radius: 0.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -51,7 +52,7 @@
     flex-direction: column;
     gap: 1rem;
     padding: 1rem;
-    background: oklch(var(--b1));
+    background: hsl(var(--card));
     box-shadow: -4px 0 24px rgba(0, 0, 0, 0.18);
     overflow-y: auto;
     transform: translateX(100%);
@@ -73,8 +74,8 @@
     align-items: center;
     justify-content: space-between;
     padding-bottom: 0.75rem;
-    background: oklch(var(--b1));
-    border-bottom: 1px solid oklch(var(--bc) / 0.1);
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
 }
 
 .search-filters-footer {
@@ -86,8 +87,8 @@
     gap: 0.5rem;
     margin-top: auto;
     padding-top: 0.75rem;
-    background: oklch(var(--b1));
-    border-top: 1px solid oklch(var(--bc) / 0.1);
+    background: hsl(var(--card));
+    border-top: 1px solid hsl(var(--border));
 }
 
 /* Backdrop behind the mobile drawer — dims the content area between the chrome
@@ -111,7 +112,7 @@
 
 .filter-advanced {
     padding-top: 1rem;
-    border-top: 1px solid oklch(var(--bc) / 0.1);
+    border-top: 1px solid hsl(var(--border));
 }
 
 /* Desktop: dissolve the drawer into a static, inline horizontal bar. */
@@ -152,25 +153,9 @@
     }
 }
 
-/* Active filter badges */
+/* Active filter badges (badge internals are Tailwind utilities on the markup) */
 .active-filters {
     padding: 0.25rem 0 0.75rem;
-}
-
-.active-filters .badge {
-    font-weight: 500;
-}
-
-.active-filters .badge button {
-    margin-left: 0.25rem;
-    font-size: 1rem;
-    line-height: 1;
-    opacity: 0.7;
-    transition: opacity 0.15s;
-}
-
-.active-filters .badge button:hover {
-    opacity: 1;
 }
 
 /* Filter dropdowns */
@@ -179,26 +164,7 @@
     font-size: 0.875rem;
 }
 
-/* Result cards */
-#search-results .card {
-    transition: box-shadow 0.2s ease;
-}
-
-#search-results .card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Graph context badges */
-.badge {
-    font-weight: 500;
-}
-
 /* Smooth transitions for filter visibility */
 [x-show] {
     transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* Filter labels */
-.label-text {
-    color: oklch(var(--bc) / 0.7);
 }

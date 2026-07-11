@@ -106,14 +106,14 @@ class TestScopedChunkRetrievalHonorsSubtopic:
 
 class TestFaucetFailsSoft:
     def test_search_subtopic_select_renders_control_when_vocab_present(self) -> None:
-        html = _render_nous_subtopic_select(["nervous-system", "sleep"])
+        html = to_xml(_render_nous_subtopic_select(["nervous-system", "sleep"]))
 
         assert 'name="nous_subtopic"' in html
         assert "Nervous System" in html
         assert "Sleep" in html
 
     def test_search_subtopic_select_renders_nothing_when_empty(self) -> None:
-        assert _render_nous_subtopic_select([]) == ""
+        assert _render_nous_subtopic_select([]) is None
 
     def test_askesis_subtopic_selector_renders_when_vocab_present(self) -> None:
         xml = to_xml(render_askesis_shell(nous_subtopics=["nervous-system"]))
@@ -153,15 +153,15 @@ class TestPathStepNousSubtopicField:
 
 
 def test_nous_subtopic_select_escapes_option_values() -> None:
-    """Graph-derived sub-topic strings are HTML-escaped before interpolation — a
+    """Graph-derived sub-topic strings are HTML-escaped by the FT renderer — a
     malicious authored value can't inject stored XSS on /search (Kody #546)."""
-    html = _render_nous_subtopic_select(['"><script>alert(1)</script>'])
+    html = to_xml(_render_nous_subtopic_select(['"><script>alert(1)</script>']))
 
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
 
     # The re-rendered fragment (HTMX swap target of /search/subtopics) escapes too.
-    inner = render_nous_subtopic_inner(['"><script>alert(1)</script>'])
+    inner = to_xml(render_nous_subtopic_inner(['"><script>alert(1)</script>']))
     assert "<script>" not in inner
     assert "&lt;script&gt;" in inner
 
@@ -176,7 +176,7 @@ class TestNousSubtopicDependentDropdown:
     """
 
     def test_subtopic_column_wires_dependent_htmx(self) -> None:
-        html = _render_nous_subtopic_select(["nervous-system"])
+        html = to_xml(_render_nous_subtopic_select(["nervous-system"]))
 
         assert 'id="nous-subtopic-column"' in html
         assert 'hx-get="/search/subtopics"' in html
@@ -187,14 +187,14 @@ class TestNousSubtopicDependentDropdown:
     def test_nous_select_excludes_subtopic_from_results_include(self) -> None:
         # Switching NOUS invalidates the old sub-topic — results must re-scope by
         # NOUS alone while the column concurrently resets its options.
-        html = _render_nous_select(["body", "investment"])
+        html = to_xml(_render_nous_select(["body", "investment"]))
 
         assert "[name='nous_subtopic']" not in html
 
     def test_inner_fragment_omits_column_wrapper(self) -> None:
         # /search/subtopics returns ONLY the inner label+select (innerHTML swap);
         # the container wrapper with its HTMX trigger must persist, not nest.
-        inner = render_nous_subtopic_inner(["breath"])
+        inner = to_xml(render_nous_subtopic_inner(["breath"]))
 
         assert 'name="nous_subtopic"' in inner
         assert "nous-subtopic-column" not in inner
@@ -202,7 +202,7 @@ class TestNousSubtopicDependentDropdown:
     def test_inner_fragment_fail_soft_empty_keeps_all_option(self) -> None:
         # A NOUS topic with no authored sub-topics → just "All Sub-topics" (the
         # column stays present so the HTMX target never vanishes mid-interaction).
-        inner = render_nous_subtopic_inner([])
+        inner = to_xml(render_nous_subtopic_inner([]))
 
         assert "All Sub-topics" in inner
         assert 'name="nous_subtopic"' in inner

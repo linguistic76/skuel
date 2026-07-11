@@ -15,6 +15,7 @@ from ui.components.card import Card, CardBody, CardFooter, CardHeader, CardTitle
 from ui.components.divider import Divider, DividerLine, DividerSplit, DividerT
 from ui.components.feedback import Alert, AlertT, Loading, Progress
 from ui.components.form import (
+    Checkbox,
     Input,
     Label,
     LabelCheckbox,
@@ -66,6 +67,7 @@ __all__ = [
     "Loading",
     "Progress",
     # Form
+    "Checkbox",
     "Input",
     "Label",
     "LabelCheckbox",

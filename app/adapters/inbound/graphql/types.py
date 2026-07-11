@@ -41,7 +41,7 @@ class KnowledgeNode:
         """
         Get prerequisite knowledge units.
 
-        Uses GraphQLQueryHelpers with QueryPatterns + DataLoader batching.
+        Uses GraphQLQueryHelpers with DataLoader batching.
         """
         return await GraphQLQueryHelpers.get_prerequisites(info.context, self.uid)
 
@@ -50,7 +50,7 @@ class KnowledgeNode:
         """
         Get knowledge units enabled by this one.
 
-        Uses GraphQLQueryHelpers with QueryPatterns + DataLoader batching.
+        Uses GraphQLQueryHelpers with DataLoader batching.
         """
         return await GraphQLQueryHelpers.get_enables(info.context, self.uid)
 
@@ -76,7 +76,7 @@ class Task:
         Get the knowledge unit associated with this task.
 
         GRAPH-NATIVE: Queries relationships instead of stored field.
-        Uses GraphQLQueryHelpers with QueryPatterns + DataLoader batching.
+        Uses GraphQLQueryHelpers with DataLoader batching.
         """
         return await GraphQLQueryHelpers.get_task_knowledge(info.context, self.uid)
 

@@ -37,6 +37,21 @@ UnifiedQueryBuilder  ← THE single entry point (fluent API)
 
 These aren't three ways to do the same thing — they're three categories of query (data access, graph traversal, optimized templates) behind one discoverable API. `UnifiedQueryBuilder` IS the consolidation.
 
+### Where Search Actually Flows (orientation)
+
+A common misreading of this doc: the builders above are NOT the search path.
+The `/search` page flows `SearchRouter.faceted_search()` →
+`BaseService.graph_aware_faceted_search()` → `backend.faceted_search_raw()`
+(`adapters/persistence/neo4j/_search_raw_mixin.py`), which composes its Cypher
+from the plain builder *functions* in
+`adapters/persistence/neo4j/query/cypher/crud_queries.py`
+(`build_text_search_query`, `build_search_visibility_clause`, ...) plus the
+relationship-filter fragments — no `UnifiedQueryBuilder` involved.
+
+Use this doc when writing CRUD, analytics, traversal, or optimization
+queries; use [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md)
+(§ "One Search, End to End") to understand what a user-facing search runs.
+
 ### Supporting Infrastructure (Leaf-Level Utilities)
 
 These are consumed by the query builders above, not alternative query paths:

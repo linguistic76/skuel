@@ -369,11 +369,13 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         # 2. WHERE clause for property filters
         where_clauses = ["1=1"]
         if scope_aware:
-            scope_clause = build_search_visibility_clause(
+            visibility_scope = build_search_visibility_clause(
                 visibility, entity_alias="entity", has_user=True
             )
-            if scope_clause:
+            if visibility_scope:
+                scope_clause, scope_params = visibility_scope
                 where_clauses.append(scope_clause)
+                params.update(scope_params)
         for field, value in property_filters.items():
             param_name = f"filter_{field}"
             if isinstance(value, list):
