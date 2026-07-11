@@ -1309,7 +1309,7 @@ async def compose_services(
         def _build_personal_descriptor(owner_uid: UserUID, root: Path) -> VaultDescriptor:
             """One user's personal vault: per-root doorway wall + root-bound bridge.
 
-            The wall is fail-closed (knowledge/ + notes doorway folders) and
+            The wall is fail-closed (knowledge/ + notes + je_pro doorway folders) and
             code-sourced — NOT read from the ambient SKUEL_VAULT_SYNC_ALLOWED_DIRS
             env var, which used to shadow .env and silently wall off a folder.
 

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
-from core.models.enums.pipeline import Pipeline
+from core.models.enums.pipeline import JeUse, Pipeline
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
@@ -155,6 +155,28 @@ def _parse_status(raw: Any) -> Result[EntityStatus | None]:
     return Result.ok(status)
 
 
+def _parse_je_use(raw: Any) -> Result[JeUse]:
+    """Validate the optional ``je_use:`` field (je_pro dual-duty scoping).
+
+    The consent gate itself lives at collection level (``je_pro_skip_reason``
+    in ingestion config) — a je_pro file reaching this builder has already
+    consented, and the ``je_use`` value governs the DISK-side exemplar loader,
+    not the graph node. This validator exists to fail loudly on a typo'd
+    value anywhere in the doorway folders — the honest alternative to
+    silently ignoring an authored scoping intent.
+    """
+    je_use = JeUse.from_string(raw)
+    if je_use is None:
+        return Result.fail(
+            Errors.validation(
+                f"Unrecognized je_use '{raw}'. Expected one of: "
+                f"{', '.join(u.value for u in JeUse)}.",
+                field="je_use",
+            )
+        )
+    return Result.ok(je_use)
+
+
 def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Result[None]:
     """Validate the optional ``ownership:`` / ``user_uid:`` frontmatter claim.
 
@@ -218,6 +240,10 @@ async def build_user_entry_request(
     if status_result.is_error:
         return Result.fail(status_result)
     authored_status = status_result.value
+
+    je_use_result = _parse_je_use(data.get("je_use"))
+    if je_use_result.is_error:
+        return Result.fail(je_use_result)
 
     audience_result = _parse_audience(data.get("audience"))
     if audience_result.is_error:

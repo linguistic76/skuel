@@ -552,9 +552,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """Vault-synced personal notes for the journal context digest.
 
         Returns up to ``limit`` notes (title + 300-char snippet) ordered by
-        most-recently-updated. Only entries with ``pipeline=journal`` and
-        ``vault_file_path`` in metadata are returned — the reference archive
-        (``je_raw/``, ``je_pro/``) is excluded by the pipeline filter.
+        most-recently-updated. Only entries with ``pipeline`` journal or
+        knowledge AND ``vault_file_path`` in metadata are returned — so
+        vault-synced doorway notes qualify (including consented ``je_pro/``
+        entries, which carry ``pipeline=knowledge``), while journal sessions
+        and other pipelines stay out.
 
         Backend: _UserEntryContentMixin.get_vault_notes_for_context.
         """

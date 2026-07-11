@@ -41,8 +41,12 @@ class Pipeline(StrEnum):
                                     processing, excluded from UserContext /
                                     Askesis). Has no producer today: je_raw/ +
                                     je_pro/ are read *off disk* as few-shot
-                                    processing-style exemplars and persist ZERO
-                                    (ADR-073 §4). This value stores the future
+                                    processing-style exemplars; exemplar use
+                                    persists ZERO (ADR-073 §4). (A je_pro file
+                                    may separately consent to ingestion via
+                                    frontmatter — that stores a KNOWLEDGE
+                                    entry, not a REFERENCE one; 2026-07-11
+                                    amendment.) This value stores the future
                                     #2b split — per-user styled exemplars stored
                                     privately — distinct from the #1 global
                                     (product-default) exemplar set. Registered
@@ -84,6 +88,46 @@ class Pipeline(StrEnum):
             Pipeline.JOURNAL,
             Pipeline.REFERENCE,
         )
+
+
+class JeUse(StrEnum):
+    """
+    Dual-duty scoping for a ``je_pro/`` vault file (ADR-073 § je_pro doorway).
+
+    je_pro files serve two roles: the processed half of stem-matched few-shot
+    exemplar pairs (with ``je_raw/``), and — when frontmatter-consented — a
+    stored understanding channel. ONE enum field scopes both (two booleans were
+    rejected: they can self-contradict). TWO consumers must respect it:
+    the exemplar loader (``_load_journal_exemplars``) skips UNDERSTANDING
+    files, and the ingestion gate (``je_pro_skip_reason``) skips EXEMPLAR
+    files.
+
+    Values:
+        BOTH           — exemplar AND understanding (the default when absent)
+        EXEMPLAR       — processing-style exemplar only; never ingested
+                         ("learn nothing about me from this")
+        UNDERSTANDING  — understanding channel only; never used as a
+                         processing-style exemplar
+    """
+
+    BOTH = "both"
+    EXEMPLAR = "exemplar"
+    UNDERSTANDING = "understanding"
+
+    @classmethod
+    def from_string(cls, value: object) -> JeUse | None:
+        """Parse a frontmatter ``je_use:`` value.
+
+        Absent/empty → BOTH (the documented default). Unrecognized → ``None``
+        so callers decide the failure mode (the ingestion gate fails closed —
+        garbled consent is not consent; the exemplar loader also skips).
+        """
+        if value is None or not str(value).strip():
+            return cls.BOTH
+        try:
+            return cls(str(value).strip().lower())
+        except ValueError:
+            return None
 
 
 class ReportSource(StrEnum):

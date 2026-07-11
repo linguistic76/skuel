@@ -62,6 +62,7 @@ from .config import (
     ENTITY_CONFIGS,
     SyncAllowlist,
     is_ingestible_path,
+    je_pro_skip_reason,
     resolve_chunking_params,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
@@ -677,6 +678,17 @@ class UnifiedIngestionService:
         # file gets the content staging floor rather than the personal wall —
         # consistent with the directory / reconciler paths.
         if not is_ingestible_path(file_path, self._resolve_allowlist(file_path, None)):
+            # je_pro consent skips get the actionable hint (one frontmatter
+            # line away from ingesting); path-wall rejects keep the generic
+            # boundary message.
+            je_pro_reason = je_pro_skip_reason(file_path) if "je_pro" in file_path.parts else None
+            if je_pro_reason is not None:
+                return Result.fail(
+                    Errors.validation(
+                        f"je_pro file not ingested: {je_pro_reason}",
+                        field="path",
+                    )
+                )
             return Result.fail(
                 Errors.validation(
                     "File is excluded by the vault sync boundary (symlink, je_* "

@@ -65,6 +65,7 @@ async def test_personal_vault_yields_relative_sorted_doorway_folders(tmp_path: P
     assert description.whole_vault_open is False
     assert description.allowed_folders == (
         "activity_notes",
+        "je_pro",
         "knowledge",
         "periodic_notes",
         "personal_notes",

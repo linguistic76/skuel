@@ -731,3 +731,36 @@ class TestReconcileDeletionsWall:
         assert result.is_ok
         assert not result.value.mass_deletion_refused
         assert result.value.entities_deleted == 2
+
+    @pytest.mark.asyncio
+    async def test_je_pro_consent_narrowing_deletes_stored_entry(self, tmp_path) -> None:
+        # ADR-073 amendment: a stored je_pro entry whose file flips to
+        # `je_use: exemplar` (or loses `pipeline:`) withdraws consent — the file
+        # is on disk but reads as not-collectible, so the node is retracted.
+        (tmp_path / "je_pro").mkdir()
+        (tmp_path / "knowledge").mkdir()
+        narrowed = tmp_path / "je_pro" / "withdrawn.md"
+        narrowed.write_text(
+            "---\ntype: user_entry\npipeline: knowledge\nje_use: exemplar\n---\nBody.\n"
+        )
+        still_consented = tmp_path / "je_pro" / "kept.md"
+        still_consented.write_text("---\ntype: user_entry\npipeline: knowledge\n---\nBody.\n")
+        alive = tmp_path / "knowledge" / "note.md"
+        alive.write_text("x")
+
+        tracker, backend = _tracker_with_tracked(
+            [
+                {"file_path": str(narrowed), "entity_uid": "ue_withdrawn"},
+                {"file_path": str(still_consented), "entity_uid": "ue_kept"},
+                {"file_path": str(alive), "entity_uid": "ue_alive"},
+            ]
+        )
+        result = await tracker.reconcile_deletions(
+            tmp_path,
+            allowlist=self._wall(tmp_path, tmp_path / "je_pro", tmp_path / "knowledge"),
+        )
+        assert result.is_ok
+        assert not result.value.mass_deletion_refused
+        assert result.value.entities_deleted == 1
+        items = backend.delete_entities_with_metadata.await_args.args[0]
+        assert items == [{"file_path": str(narrowed), "entity_uid": "ue_withdrawn"}]

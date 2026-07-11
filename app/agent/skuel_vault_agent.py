@@ -78,7 +78,7 @@ from core.ports.vault_bridge_protocol import (  # noqa: E402
     apply_task_updates,
 )
 
-AGENT_VERSION = "0.1.0"
+AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
 
 # Must match adapters/inbound/device_routes.py PROTOCOL_VERSION — the agent
 # hard-fails on mismatch (ADR-075 Consequences: version skew is a real category).
@@ -95,6 +95,7 @@ AGENT_SIGNATURE_DOMAIN = b"skuel-vault-agent-v1"
 # not imported (that module drags the full ingestion dependency chain).
 DEFAULT_ALLOWED_FOLDERS: tuple[str, ...] = (
     "activity_notes",
+    "je_pro",
     "knowledge",
     "periodic_notes",
     "personal_notes",
@@ -102,8 +103,11 @@ DEFAULT_ALLOWED_FOLDERS: tuple[str, ...] = (
 
 # The unconditional je_* staging floor (ADR-073): journal artifacts never cross
 # the wire even inside an allowed folder. Mirror of ingestion config's
-# STAGING_EXCLUDED_DIRS (contract-tested).
-STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw", "je_pro"})
+# STAGING_EXCLUDED_DIRS (contract-tested). je_pro left the floor with the
+# 2026-07-11 ADR-073 amendment — it is a conditional doorway now; the
+# per-file frontmatter consent gate is SERVER-side (ingestion), the agent
+# just serves the folder.
+STAGING_EXCLUDED_DIRS: frozenset[str] = frozenset({"je_in", "je_out", "je_raw"})
 
 # What list_changed_since reports — mirrors the server-side collect discipline.
 INGESTIBLE_SUFFIXES: frozenset[str] = frozenset({".md", ".yaml", ".yml"})

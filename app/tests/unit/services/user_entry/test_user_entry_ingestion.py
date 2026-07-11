@@ -47,6 +47,29 @@ class TestBuildUserEntryRequest:
         assert "pipeline" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
+    async def test_garbled_je_use_rejected(self):
+        # A typo'd je_use is an authored scoping intent we can't honor — fail
+        # loudly (mirrors the collection-level gate's fail-closed posture).
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "je_use": "exmplar"},
+            file_path=Path("thought.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        assert "je_use" in str(result.expect_error()).lower()
+
+    @pytest.mark.asyncio
+    async def test_valid_je_use_accepted(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "je_use": "understanding", "title": "Me"},
+            file_path=Path("thought.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+
+    @pytest.mark.asyncio
     async def test_audio_pipeline_rejected(self):
         result = await build_user_entry_request(
             data={"pipeline": "transcribe_and_structure"},

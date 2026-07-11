@@ -2,6 +2,10 @@
 
 **Status:** Accepted — PR 1 (text sessions + allowlist), PR 2 (upload/transcription, decision A),
 and PR 3 (disk-only exemplars) shipped (see *Implementation Status*).
+**Amended 2026-07-11 (§2/§3/§4):** `je_pro/` split from the workshop wall into a **conditional
+doorway** — a stored understanding channel gated on explicit frontmatter consent, scoped by the
+`je_use:` enum. `je_in`/`je_out`/`je_raw` stay unconditionally walled. Part of the
+entry-enrichment arc (je_pro doorway → UserEntry embeddings → entry→Ku grounding).
 **Date:** 2026-06-30
 **Related:** ADR-054 (UserEntry collapse), ADR-069 (EXTRACT_ACTIVITIES pipeline + EntryReport), ADR-070 (bidirectional VaultBridge), PR #475 (SyncAllowlist fail-closed vault privacy wall)
 
@@ -42,15 +46,15 @@ The journal never writes to SKUEL's model of the user and never creates domain e
 Entity creation is exclusively the EXTRACT_ACTIVITIES path (ADR-069), reached only through a
 doorway folder marked `pipeline: extract_activities`.
 
-### 2. Folder taxonomy
+### 2. Folder taxonomy *(amended 2026-07-11: je_pro split out of the workshop wall)*
 
-**Workshop — `je_*` folders. SKUEL persists nothing from any of these; none are a doorway.**
+**Workshop — `je_in`/`je_out`/`je_raw`. SKUEL persists nothing from these; none are a doorway.**
 
 | Folder | Who writes | What SKUEL does with it | Enters model of user? |
 |---|---|---|---|
 | `je_in/` | User (raw journal / audio) | Reads once to process, then forgets | ❌ never |
-| `je_out/` | **SKUEL** (processed output for download) | **Write-only** — never read back | ❌ never |
-| `je_raw/` + `je_pro/` | User (curated example input→output pairs) | Read **only to shape processing *style*** (few-shot exemplars for new `je_in`), never as facts about the user | ❌ never |
+| `je_out/` | **SKUEL** (processed output for download) | **Write-only** — never read back. ALL processed outputs land here (plain transcripts and intimately-processed files alike — the app never distinguishes) | ❌ never |
+| `je_raw/` | User (raw half of curated example pairs) | Read **only to shape processing *style*** (few-shot exemplars for new `je_in`), never as facts about the user | ❌ never |
 
 **Doorway — the ONLY channel into SKUEL's understanding of the user.**
 
@@ -59,6 +63,36 @@ doorway folder marked `pipeline: extract_activities`.
 | `periodic_notes/` | `extract_activities` or `journal` | Task extraction and/or soft context |
 | `personal_notes/` | `journal` (soft context) or `extract_activities` | Feeds UserContext / Askesis |
 | `activity_notes/` | `extract_activities` (typical) | Notes tied to the 6 Activity Domains |
+| `knowledge/` | `knowledge` | "Developed files" — the user's own notes, shared to teach SKUEL about them |
+| `je_pro/` | **Conditional** — see below | Frontmatter-gated understanding channel + processed half of exemplar pairs |
+
+**`je_pro/` is a *conditional* doorway (dual duty).** A je_pro file serves as the processed
+half of a stem-matched `je_raw`↔`je_pro` exemplar pair, and — only with explicit frontmatter —
+as a stored understanding entry. **Consent = placement AND frontmatter**: a file ingests only
+when it declares an explicit `pipeline:` (`type: user_entry` + `pipeline: knowledge` is the
+expected/knowledge-contract form) and a compatible `je_use:`. A bare je_pro file stays
+exemplar-only — exactly the pre-amendment behavior.
+
+The `je_use:` frontmatter enum scopes the dual duty (ONE field — two booleans were rejected as
+self-contradictable):
+
+| `je_use:` | Style exemplar? | Ingested (understanding)? |
+|---|---|---|
+| absent / `both` | ✅ | ✅ (iff `pipeline:` declared) |
+| `exemplar` | ✅ | ❌ never ("learn nothing about me") |
+| `understanding` | ❌ never | ✅ (iff `pipeline:` declared) |
+
+Two consumers must respect it: the exemplar loader (`_load_journal_exemplars` skips
+`understanding` files and strips frontmatter from exemplar text) and the ingestion gate
+(`je_pro_skip_reason` skips `exemplar` files and bare files, with a per-file sync warning
+telling the author how to promote). An unrecognized `je_use` value is honored in *neither*
+direction (fail-closed both ways) and warned. An `exemplar` file with no stem-matched je_raw
+twin gets a gentle sync warning — it is used in neither direction.
+
+**Consent narrowing is honored:** the gate lives inside `is_ingestible_path()` — the single
+predicate collection AND deletion reconciliation share — so a stored je_pro entry whose file
+later loses its `pipeline:` or flips to `je_use: exemplar` reads as not-collectible and is
+**deleted from the graph on the next sync**.
 
 Everything else in the vault is **walled off by default** (fail-closed `SyncAllowlist`).
 
@@ -70,6 +104,10 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
   in-app (`/journals/{uid}/note`). This is a valued feature, distinct from a brainstorm session.
 - **Doorway notes**: ingested on sync as `UserEntry`; `journal`-mode notes feed the context
   digest, `extract_activities`-mode notes create real entities (ADR-069).
+- **je_pro entries** *(amended 2026-07-11)*: a frontmatter-consented je_pro file ingests as a
+  stored `UserEntry` exactly like a `knowledge/` doorway note. Withdrawing consent in the file
+  (dropping `pipeline:` or flipping to `je_use: exemplar`) deletes the stored node on the next
+  sync — the graph never holds a je_pro entry whose file no longer consents.
 
 ### 4. Exemplar-guided processing (new capability)
 
@@ -77,7 +115,10 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
 shape how the pipeline processes a new `je_in` item — teaching SKUEL *how the user likes
 journals processed* without teaching it anything *about* the user. When used, the exemplars
 are sent to the AI provider for that one request, same as any AI feature (they are the user's
-own examples). They are never ingested as personal memory.
+own examples). *(Amended 2026-07-11:)* exemplar use itself still persists nothing, but a
+je_pro file may **separately** consent to ingestion via frontmatter (§2); `je_use:` scopes
+which duties apply, and the loader strips any frontmatter block before injecting exemplar
+text (consent metadata is not style).
 
 **Shipped as disk-only (PR 3).** Matched `je_raw`↔`je_pro` pairs (by filename stem, bounded to a
 few small pairs) are read *off disk at processing time* and injected into the STANDARD
@@ -109,8 +150,9 @@ Progress against target (PR 1 + PR 2 shipped; PR 3 remains):
 |---|---|---|
 | Journal session persistence | Writes `UserEntry` | ✅ **Zero** — process → return inline / `je_out/` file |
 | File upload + transcription | Writes `UserEntry` (+ manual processing) | ✅ **Zero** — process → `je_out/` file (decision A) |
-| Sync allowlist default | `periodic_notes/` only | ✅ `periodic_notes/`, `personal_notes/`, `activity_notes/` |
-| `je_raw/`/`je_pro/` | Unconditionally excluded, inert | ✅ **Disk-only** — read at processing time as few-shot exemplars; never ingested |
+| Sync allowlist default | `periodic_notes/` only | ✅ `periodic_notes/`, `personal_notes/`, `activity_notes/`, `knowledge/`, `je_pro/` (conditional) |
+| `je_raw/` | Unconditionally excluded, inert | ✅ **Disk-only** — read at processing time as few-shot exemplars; never ingested |
+| `je_pro/` | Unconditionally excluded, inert | ✅ **Dual duty** (2026-07-11) — disk-only exemplar half AND frontmatter-gated understanding channel, scoped by `je_use:`; delete-on-narrow |
 | Periodic notes | Stored + in-app editable | **Unchanged (kept)** |
 | Model-feeding read (`get_vault_notes_for_context`) | Filters `pipeline='journal'` + `vault_file_path` | Unchanged; already excludes journal sessions |
 
@@ -145,8 +187,11 @@ The "stores zero / reads zero" contract is enforceable by tests, not policy alon
    `je_*` folder or a journal session; only doorway notes appear.
 3. **Fail-closed wall** — `SyncAllowlist` ingests a file under a doorway folder and walls off
    an identical file placed anywhere else.
-4. **Unconditional `je_*` exclusion** — `is_staging_path()` keeps every `je_*` component out
-   of ingestion regardless of allowlist configuration.
+4. **Unconditional workshop exclusion** — `is_staging_path()` keeps every
+   `je_in`/`je_out`/`je_raw` component out of ingestion regardless of allowlist configuration.
+5. **je_pro consent gate** *(2026-07-11)* — a bare je_pro file is skipped (with a promotion
+   hint), a `pipeline:`-consented one ingests, a `je_use: exemplar` one is skipped, and
+   flipping a stored file to `je_use: exemplar` deletes its node on the next sync.
 
 ## Consequences
 
