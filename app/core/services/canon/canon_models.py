@@ -178,6 +178,38 @@ class CanonContext:
             f"{body}"
         )
 
+    def to_teaching_block(self) -> str:
+        """Render passages to GROUND Socratic guidance — cite, quote sparingly, keep the method.
+
+        The teaching-time counterpart to ``to_discussion_block`` (Askesis-canon
+        integration, ADR-077): passages from the readings a learning step cites,
+        framed to sharpen the guide's questions rather than hand over answers.
+        Carries the ADR-076 faithfulness contract verbatim — quote only the
+        text below, cite only the location shown, never fabricate. ``""`` if
+        no passage.
+        """
+        if not self.passages:
+            return ""
+        entries = [
+            f"### {p.citation_line()}\n\n{p.text.strip()}" for p in self.passages if p.text.strip()
+        ]
+        if not entries:
+            return ""
+        body = "\n\n".join(entries)
+        return (
+            "## Readings for This Step\n\n"
+            "These passages are from the readings this learning step cites. Ground your Socratic "
+            "guidance in them — let a passage sharpen the question you ask, the analogy you offer, "
+            "the distinction you draw. When you lean on a specific idea, name its book and cite the "
+            "location shown. Quote **verbatim and sparingly** — only the text below, never from "
+            "memory — when the exact words matter.\n\n"
+            "Do not surrender the method: a passage that states the answer is a reason to ask a "
+            "better question, not to recite it. If the readings hold nothing on the learner's point, "
+            "guide from the curriculum and say so — never invent a passage, chapter, or section.\n\n"
+            "These are reflowable e-books: cite by chapter/section (shown), never by page number.\n\n"
+            f"{body}"
+        )
+
     def sources(self) -> tuple[CanonSource, ...]:
         """Structured per-book sources for the discussion path — for UI rendering.
 

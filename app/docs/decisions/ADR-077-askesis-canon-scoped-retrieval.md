@@ -1,7 +1,9 @@
 # ADR-077: Companion Grounding via a Shared Corpus-Scope Seam — Askesis (PS-scoped) & Journals (vault-scoped) Share One Retrieve-and-Cite Contract
 
-**Status:** Proposed — design confirmed with Mike's locked decisions + the vault-scope
-sharpening (2026-07-09); implementation pending review (no code yet).
+**Status:** Accepted (Mike, 2026-07-11) — Phase 1 in flight per
+`plans/askesis-canon-phase1-implementation.md`: PR-A (scoped retrieval seam +
+`to_teaching_block` framing) shipped 2026-07-11; PR-B (Askesis consumer + citation
+surface) pending.
 **Date:** 2026-07-09
 **Related:** ADR-076 (canon may quote & cite), ADR-073 (journals zero-persistence),
 ADR-074 (post-persist embedding events), ADR-070 (Obsidian VaultBridge — the personal vault),

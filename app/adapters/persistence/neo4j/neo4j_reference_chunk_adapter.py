@@ -170,69 +170,112 @@ class Neo4jReferenceChunkAdapter:
         query_embedding: list[float],
         limit: int,
         threshold: float,
+        resource_uids: list[str] | None = None,
     ) -> list[ReferenceChunkHit]:
         """Vector-search the canon shelf for passages nearest the query embedding.
 
-        Targets the walled ``referencechunk_embedding_idx`` (NOT
-        ``contentchunk_embedding_idx``) and joins each hit back to its owning
-        :Resource for the book title. This is the ONLY read against that index —
-        keeping it here, off the shared ``VectorSearchBackend``, is the structural
-        guarantee that canon stays invisible to SearchRouter (frozen by
-        ``tests/unit/adapters/test_reference_chunk_isolation.py``).
+        Two branches on ``resource_uids``:
 
-        A ``candidate_limit`` of ``2 * limit`` widens the neighbor pool so the
-        ``threshold`` cut still leaves ``limit`` survivors in the common case
-        (mirrors ``VectorSearchBackend.semantic_search_chunks``' unscoped 2x
-        pass).
+        - ``None`` (whole shelf): targets the walled
+          ``referencechunk_embedding_idx`` (NOT ``contentchunk_embedding_idx``)
+          and joins each hit back to its owning :Resource for the book title. A
+          ``candidate_limit`` of ``2 * limit`` widens the neighbor pool so the
+          ``threshold`` cut still leaves ``limit`` survivors in the common case
+          (mirrors ``VectorSearchBackend.semantic_search_chunks``' unscoped 2x
+          pass).
+        - a list (scoped): scores every chunk under the given Resources with an
+          exact ``vector.similarity.cosine`` scan — no index, so no recall loss
+          from over-fetch + post-filter. Cost tracks chunks in the *cited* books
+          (~105/book today), not shelf size, so the exact scan is the
+          shelf-growth-proof branch. ``[]`` short-circuits to no hits (empty
+          scope ≠ whole shelf).
+
+        This adapter holds the ONLY reads against the reference vectors —
+        keeping both branches here, off the shared ``VectorSearchBackend``, is
+        the structural guarantee that canon stays invisible to SearchRouter
+        (frozen by ``tests/unit/adapters/test_reference_chunk_isolation.py``).
 
         Fails OPEN (empty list on read error) — a canon miss must degrade the
-        journal to a normal one, never break it.
+        caller's session to a normal one, never break it.
 
         Args:
             query_embedding: The query text's embedding vector.
             limit: Maximum passages to return.
             threshold: Minimum cosine similarity for a passage to count.
+            resource_uids: ``None`` = whole shelf; list = scoped to those
+                Resources; ``[]`` = empty scope, returns ``[]``.
 
         Returns:
             ``ReferenceChunkHit`` rows ordered by descending similarity. Empty
-            on no match or error.
+            on no match, empty scope, or error.
         """
-        query = """
-        CALL db.index.vector.queryNodes(
-            'referencechunk_embedding_idx',
-            $candidate_limit,
-            $query_embedding
-        ) YIELD node AS chunk, score
-        WHERE score >= $threshold
-        MATCH (r:Resource)-[rel:HAS_REFERENCE_CHUNK]->(chunk)
-        RETURN chunk.uid AS chunk_uid,
-               chunk.text AS text,
-               chunk.context_window AS context_window,
-               chunk.heading AS heading,
-               chunk.section_path AS section_path,
-               rel.sequence AS sequence,
-               score AS similarity_score,
-               r.uid AS resource_uid,
-               r.title AS book_title
-        ORDER BY score DESC
-        LIMIT $limit
-        """
+        if resource_uids is not None and not resource_uids:
+            return []
+
+        if resource_uids is None:
+            query = """
+            CALL db.index.vector.queryNodes(
+                'referencechunk_embedding_idx',
+                $candidate_limit,
+                $query_embedding
+            ) YIELD node AS chunk, score
+            WHERE score >= $threshold
+            MATCH (r:Resource)-[rel:HAS_REFERENCE_CHUNK]->(chunk)
+            RETURN chunk.uid AS chunk_uid,
+                   chunk.text AS text,
+                   chunk.context_window AS context_window,
+                   chunk.heading AS heading,
+                   chunk.section_path AS section_path,
+                   rel.sequence AS sequence,
+                   score AS similarity_score,
+                   r.uid AS resource_uid,
+                   r.title AS book_title
+            ORDER BY score DESC
+            LIMIT $limit
+            """
+            params: dict[str, Any] = {
+                "query_embedding": query_embedding,
+                "candidate_limit": limit * 2,
+                "threshold": threshold,
+                "limit": limit,
+            }
+        else:
+            # Exact cosine over the scoped set — no candidate_limit: a full
+            # scan of the in-scope chunks needs no over-fetch (that 2x pass
+            # exists only to survive the index's threshold cut).
+            query = """
+            MATCH (r:Resource)-[rel:HAS_REFERENCE_CHUNK]->(chunk:ReferenceChunk)
+            WHERE r.uid IN $resource_uids AND chunk.embedding IS NOT NULL
+            WITH chunk, r, rel,
+                 vector.similarity.cosine(chunk.embedding, $query_embedding) AS score
+            WHERE score >= $threshold
+            RETURN chunk.uid AS chunk_uid,
+                   chunk.text AS text,
+                   chunk.context_window AS context_window,
+                   chunk.heading AS heading,
+                   chunk.section_path AS section_path,
+                   rel.sequence AS sequence,
+                   score AS similarity_score,
+                   r.uid AS resource_uid,
+                   r.title AS book_title
+            ORDER BY score DESC
+            LIMIT $limit
+            """
+            params = {
+                "query_embedding": query_embedding,
+                "resource_uids": resource_uids,
+                "threshold": threshold,
+                "limit": limit,
+            }
+
         try:
-            result = await self.neo4j.execute_query(
-                query,
-                {
-                    "query_embedding": query_embedding,
-                    "candidate_limit": limit * 2,
-                    "threshold": threshold,
-                    "limit": limit,
-                },
-            )
+            result = await self.neo4j.execute_query(query, params)
         except NEO4J_EXCEPTIONS as e:
             logger.error(f"Reference chunk vector search failed: {e}")
             return []
 
-        return [
-            ReferenceChunkHit(
+        def to_hit(row: dict[str, Any]) -> ReferenceChunkHit:
+            return ReferenceChunkHit(
                 chunk_uid=row["chunk_uid"],
                 text=row["text"],
                 context_window=row.get("context_window"),
@@ -243,8 +286,17 @@ class Neo4jReferenceChunkAdapter:
                 resource_uid=row["resource_uid"],
                 book_title=row["book_title"] or "",
             )
-            for row in (result or [])
-        ]
+
+        hits = [to_hit(row) for row in (result or [])]
+        if resource_uids is not None:
+            # Growth tripwire: data for a future measurement pass on the exact
+            # scan (P3 escape hatch = chunk-count threshold -> index fallback).
+            logger.debug(
+                "Scoped canon search: %d resource(s) in scope, %d hit(s)",
+                len(resource_uids),
+                len(hits),
+            )
+        return hits
 
     async def get_chunk_embedding_freshness(self, chunk_uids: list[str]) -> list[dict[str, Any]]:
         """

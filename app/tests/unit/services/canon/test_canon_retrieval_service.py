@@ -141,3 +141,35 @@ class TestRetrieveHappyPath:
         assert kwargs["limit"] == CANON_RETRIEVAL_LIMIT
         assert kwargs["threshold"] == CANON_RETRIEVAL_MIN_SCORE
         assert kwargs["query_embedding"] == [0.1]
+        # Default scope is the whole shelf — journal behaviour unchanged.
+        assert kwargs["resource_uids"] is None
+
+    @pytest.mark.asyncio
+    async def test_empty_scope_short_circuits_before_embedding(self):
+        # An empty scope is a guaranteed miss: ok-empty, and neither the
+        # embedding call nor the search is spent (Codex P2 on #612).
+        embeddings = MagicMock()
+        embeddings.create_embedding = AsyncMock()
+        search = MagicMock()
+        search.search_reference_chunks = AsyncMock()
+        service = CanonRetrievalService(reference_search=search, embeddings_service=embeddings)
+
+        result = await service.retrieve("q", resource_uids=[])
+
+        assert result.is_ok
+        assert result.value.has_passages is False
+        embeddings.create_embedding.assert_not_called()
+        search.search_reference_chunks.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_resource_uids_pass_through_to_search(self):
+        embeddings = MagicMock()
+        embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1]))
+        search = MagicMock()
+        search.search_reference_chunks = AsyncMock(return_value=[])
+        service = CanonRetrievalService(reference_search=search, embeddings_service=embeddings)
+
+        await service.retrieve("q", resource_uids=["resource.hms", "resource.other"])
+
+        kwargs = search.search_reference_chunks.await_args.kwargs
+        assert kwargs["resource_uids"] == ["resource.hms", "resource.other"]

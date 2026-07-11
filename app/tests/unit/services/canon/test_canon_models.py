@@ -156,6 +156,51 @@ class TestDiscussionBlock:
         assert CanonContext(passages=(_passage("  ", "HMS"),)).to_discussion_block() == ""
 
 
+class TestTeachingBlock:
+    def test_block_grounds_guidance_with_citation_and_text(self):
+        ctx = CanonContext(
+            passages=(
+                _passage(
+                    "HTML is a hypermedia.",
+                    "Hypermedia Systems",
+                    heading="A Reintroduction",
+                    section_path="Hypermedia Concepts",
+                ),
+            )
+        )
+        block = ctx.to_teaching_block()
+        assert "## Readings for This Step" in block
+        # The exact passage text is present (quotable verbatim)…
+        assert "HTML is a hypermedia." in block
+        # …labelled with its citation_line so a citation is exact.
+        assert "Hypermedia Systems — Hypermedia Concepts > A Reintroduction" in block
+
+    def test_block_keeps_the_socratic_method(self):
+        ctx = CanonContext(passages=(_passage("An answer, stated plainly.", "HMS"),))
+        block = ctx.to_teaching_block()
+        # The method survives the readings: answers become better questions.
+        assert "Do not surrender the method" in block
+        # The ADR-076 faithfulness contract: no fabricated passages/anchors,
+        # sparing verbatim quotes, chapter/section citations only.
+        assert "never invent a passage, chapter, or section" in block
+        assert "verbatim and sparingly" in block
+        assert "never by page number" in block
+
+    def test_block_empty_when_no_passages(self):
+        assert CanonContext.empty().to_teaching_block() == ""
+
+    def test_block_empty_when_all_text_blank(self):
+        assert CanonContext(passages=(_passage("   ", "HMS"),)).to_teaching_block() == ""
+
+    def test_block_carries_only_passage_text(self):
+        ctx = CanonContext(passages=(_passage("The one real passage.", "HMS"),))
+        block = ctx.to_teaching_block()
+        # Everything after the framing preamble is exactly the passage entries —
+        # no text that isn't in `passages` can leak into the readings body.
+        body = block.split("never by page number.\n\n", 1)[1]
+        assert body == "### HMS\n\nThe one real passage."
+
+
 class TestSources:
     def test_sources_carry_book_uid_and_location(self):
         ctx = CanonContext(

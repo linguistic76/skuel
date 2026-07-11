@@ -52,6 +52,7 @@ class CanonRetrievalService:
         *,
         limit: int = CANON_RETRIEVAL_LIMIT,
         min_score: float = CANON_RETRIEVAL_MIN_SCORE,
+        resource_uids: list[str] | None = None,
     ) -> Result[CanonContext]:
         """Return canon passages nearest ``query_text``.
 
@@ -63,9 +64,11 @@ class CanonRetrievalService:
 
         Args:
             query_text: The text to find resonant canon passages for (the raw
-                journal entry).
+                journal entry, or a learner's question).
             limit: Maximum passages to draw.
             min_score: Minimum cosine similarity for a passage to count.
+            resource_uids: Restrict the draw to these Resources (e.g. a
+                PathStep's cited books); ``None`` = the whole shelf.
 
         Returns:
             ``Result.ok(CanonContext)`` on success (possibly empty), or
@@ -81,6 +84,11 @@ class CanonRetrievalService:
             )
         if not query_text or not query_text.strip():
             return Result.fail(Errors.validation("Query text cannot be empty", field="query_text"))
+        if resource_uids is not None and not resource_uids:
+            # Empty scope is a guaranteed miss — don't spend an embedding call
+            # on it (the adapter would short-circuit to [] anyway).
+            logger.debug("Canon draw: empty resource scope — skipping retrieval")
+            return Result.ok(CanonContext.empty())
 
         embedding_result = await self._embeddings.create_embedding(query_text)
         if embedding_result.is_error:
@@ -90,6 +98,7 @@ class CanonRetrievalService:
             query_embedding=embedding_result.value,
             limit=limit,
             threshold=min_score,
+            resource_uids=resource_uids,
         )
         if not hits:
             logger.debug("Canon draw: no passage cleared min_score=%.3f", min_score)
