@@ -28,6 +28,13 @@ Available templates (core/prompts/templates/):
     askesis_guided_scaffold       — EXPLORATORY/SCAFFOLD system prompt
     askesis_guided_connection     — EXPLORATORY/SURFACE_CONNECTION system prompt
     askesis_guided_practice       — ENCOURAGING/ENCOURAGE_PRACTICE system prompt
+    askesis_guided_direct         — DIRECT baseline system prompt
+    askesis_journal_reflection    — Askesis journal-reflection turn
+    askesis_ku_bridge             — Askesis Ku-bridge turn
+    askesis_scaffold_entry        — Askesis scaffolded-entry turn
+    askesis_socratic_turn         — Askesis Socratic turn
+    prereq_edge_judge             — Ku-pair prerequisite classification (PrereqSuggestionService)
+    entry_ku_grounding_judge      — Entry→Ku engagement filter (EntryGroundingService)
 """
 
 from pathlib import Path

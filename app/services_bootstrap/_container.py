@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from core.services.content_enrichment_service import ContentEnrichmentService
     from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.embeddings_service import EmbeddingsService
+    from core.services.entry_grounding_service import EntryGroundingService
     from core.services.events_service import EventsService
     from core.services.finance_service import FinanceService
     from core.services.goals_service import GoalsService
@@ -319,6 +320,8 @@ class Services:
     admin_orchestrator: "AdminOrchestrator | None" = None
     # Prerequisite-edge suggestion queue (Discovery Analytics PR 4) — admin surface
     prereq_suggestions: "PrereqSuggestionService | None" = None
+    # Entry→Ku grounding (Entry-Enrichment PR 3) — post-sync pass + removal route
+    entry_grounding: "EntryGroundingService | None" = None
     profile_orchestrator: "ProfileOrchestrator | None" = None
     user_entry_orchestrator: "UserEntryOrchestrator | None" = None
     explore_orchestrator: "ExploreOrchestrator | None" = None

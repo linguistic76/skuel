@@ -27,6 +27,7 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
     api_factory=create_user_entry_api_routes,
     api_related_services={
         "processing_service": "user_entry_processor",
+        "grounding_service": "entry_grounding",
     },
     ui_factory=create_user_entry_ui_routes,
     ui_related_services={

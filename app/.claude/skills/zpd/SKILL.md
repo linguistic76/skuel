@@ -130,7 +130,7 @@ class ZoneEvidence:
     best_submission_score: float = 0.0
     habit_reinforcement: bool = False
     task_application: bool = False
-    entry_application: bool = False   # (UserEntry)-[:APPLIES_KNOWLEDGE] — ADR-069
+    entry_application: bool = False   # (UserEntry)-[:APPLIES_KNOWLEDGE] — ADR-069 @ku() refs + inferred grounding edges (EntryGroundingService)
 
     @property
     def signal_count(self) -> int: ...     # count of active signal types (0-4)

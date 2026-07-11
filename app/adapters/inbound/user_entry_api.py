@@ -49,6 +49,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.services.entry_grounding_service import EntryGroundingService
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -62,6 +63,7 @@ def create_user_entry_api_routes(
     rt: Any,
     user_entry_service: UserEntryService,
     processing_service: UserEntryProcessingService | None = None,
+    grounding_service: EntryGroundingService | None = None,
 ) -> list[Any]:
     """Register UserEntry REST API routes.
 
@@ -71,6 +73,8 @@ def create_user_entry_api_routes(
         user_entry_service: UserEntryService facade (required)
         processing_service: UserEntryProcessingService dispatcher (optional —
             POST /process returns a clear error when missing)
+        grounding_service: EntryGroundingService (optional — the grounding
+            remove route returns a clear error when missing)
     """
     if not user_entry_service:
         raise ValueError("user_entry_service is required for user_entry API routes")
@@ -421,6 +425,42 @@ def create_user_entry_api_routes(
             return Result.fail(result)
         return Result.ok({"uid": uid, "deleted": bool(result.value)})
 
+    # =========================================================================
+    # GROUNDING — remove one APPLIES_KNOWLEDGE edge (Entry-Enrichment PR 3)
+    # =========================================================================
+
+    @rt("/api/user-entries/grounding/remove", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def remove_grounded_knowledge_route(
+        request: Request, uid: str, ku_uid: str
+    ) -> Result[dict[str, Any]]:
+        """Remove one ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned entry.
+
+        The user is editor, not approver (Mike's ruling 2026-07-11): inferred
+        grounding edges write eagerly and are removed here — each removal is
+        recorded on the entry so no future pass re-infers the pair, and logged
+        as threshold-calibration data. POST (not DELETE) matches this file's
+        mutation convention. Not owned / edge absent → 404, never 403.
+        """
+        user_uid = require_authenticated_user(request)
+        if grounding_service is None:
+            return Result.fail(
+                Errors.unavailable(
+                    feature="entry_grounding",
+                    reason="Entry grounding service is not wired.",
+                    operation="remove_grounded_knowledge",
+                )
+            )
+        result = await grounding_service.remove(uid, ku_uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(resource="UserEntry knowledge link", identifier=f"{uid}→{ku_uid}")
+            )
+        return Result.ok({"uid": uid, "ku_uid": ku_uid, "removed": True})
+
     logger.info("UserEntry API routes created successfully")
 
     return [
@@ -431,4 +471,5 @@ def create_user_entry_api_routes(
         get_user_entry_route,
         list_user_entries_route,
         delete_user_entry_route,
+        remove_grounded_knowledge_route,
     ]
