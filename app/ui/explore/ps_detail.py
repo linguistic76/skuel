@@ -38,6 +38,8 @@ from ui.library.resource_chip import resource_chip
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
+    from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
+
 _COLUMN_CLS = "mx-auto max-w-[760px] px-5 pt-8 pb-20"
 
 
@@ -511,7 +513,7 @@ def _related_placeholder(uid: str) -> "FT":
     )
 
 
-def render_ps_related_concepts(related: list[dict]) -> "FT":
+def render_ps_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
     """Related concepts — vector-similar PathSteps as reader chips.
 
     Read-time lens over embeddings: no edges exist or are created for these
@@ -572,7 +574,7 @@ def _next_step_related_placeholder() -> "FT":
     )
 
 
-def render_ps_next_step_related(groups: list[dict]) -> "FT":
+def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
     """ "Related to your next step" — ZPD-recommended Kus + vector neighbours.
 
     Each group is ``{"ku": {uid, title}, "related": [node dicts]}``: the
@@ -583,11 +585,11 @@ def render_ps_next_step_related(groups: list[dict]) -> "FT":
 
     Empty input collapses to an empty div so the section vanishes entirely.
     """
-    items = [g for g in groups if (g.get("ku") or {}).get("uid")]
+    items = [g for g in groups if g["ku"]["uid"]]
     if not items:
         return Div(id="ps-next-step-fragment")
 
-    def _chip(node: dict, *, emphasis: bool = False) -> "FT":
+    def _chip(node: "RelatedConceptChip", *, emphasis: bool = False) -> "FT":
         base = (
             "inline-flex items-center px-3 py-1.5 rounded-full border "
             "text-[13px] font-medium hover:bg-accent hover:text-accent-foreground "
@@ -597,14 +599,12 @@ def render_ps_next_step_related(groups: list[dict]) -> "FT":
             if emphasis
             else "border-border bg-muted/40 text-foreground"
         )
-        return A(
-            node.get("title") or node["uid"], href=f"/explore/ku/{node['uid']}", cls=base + tone
-        )
+        return A(node["title"] or node["uid"], href=f"/explore/ku/{node['uid']}", cls=base + tone)
 
     rows = []
     for group in items:
         ku = group["ku"]
-        related = [r for r in (group.get("related") or []) if r.get("uid")]
+        related = [r for r in group["related"] if r["uid"]]
         rows.append(
             Div(
                 _chip(ku, emphasis=True),

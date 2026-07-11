@@ -48,6 +48,7 @@ from ui.explore.ps_detail import (
 )
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
+from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 from ui.learning_loop.embedded_forms import (
     render_embedded_forms,
     render_embedded_forms_error,
@@ -60,6 +61,8 @@ from ui.patterns.loading import content_loading_placeholder
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from fasthtml.common import FT
 
     from core.orchestrator.explore_orchestrator import ExploreOrchestrator
     from core.ports.form_protocols import FormSubmissionOperations
@@ -227,12 +230,14 @@ def create_learning_loop_detail_routes(
     # GET /explore/{ku,ps}/{uid}/related — Related concepts fragments
     # -----------------------------------------------------------------
 
-    async def _related_fragment(label: str, uid: str, fragment_id: str) -> list[dict[str, Any]]:
+    async def _related_fragment(label: str, uid: str, fragment_id: str) -> list[RelatedConceptChip]:
         """Fetch vector-similar neighbours for a Related-concepts fragment.
 
         Fail-soft by design (#538 precedent): CORE tier (service is None),
         lookup errors, and missing embeddings all collapse to an empty list —
-        the section is simply absent, never an error banner.
+        the section is simply absent, never an error banner. Raw vector-search
+        node dicts are narrowed to the chip contract (uid/title) HERE, so the
+        embedding payload never travels past the route boundary.
         """
         if vector_search_service is None:
             return []
@@ -246,10 +251,19 @@ def create_learning_loop_detail_routes(
                 result.expect_error().message,
             )
             return []
-        return [r["node"] for r in (result.value or [])]
+        chips: list[RelatedConceptChip] = []
+        for row in result.value or []:
+            node = row["node"]
+            node_uid = str(node.get("uid") or "")
+            if not node_uid:
+                continue
+            chips.append(
+                RelatedConceptChip(uid=node_uid, title=str(node.get("title") or "") or node_uid)
+            )
+        return chips
 
     @rt("/explore/ku/{uid}/related")
-    async def explore_ku_related_fragment(request: Request, uid: str) -> Any:
+    async def explore_ku_related_fragment(request: Request, uid: str) -> "FT":
         """HTMX fragment: Related concepts — vector-similar Kus (read-time lens)."""
         related = await _related_fragment("Ku", uid, "ku-related-fragment")
         return render_ku_related_concepts(related)
@@ -419,7 +433,7 @@ def create_learning_loop_detail_routes(
         )
 
     @rt("/explore/ps/{uid}/related")
-    async def explore_ps_related_fragment(request: Request, uid: str) -> Any:
+    async def explore_ps_related_fragment(request: Request, uid: str) -> "FT":
         """HTMX fragment: Related concepts — vector-similar PathSteps (read-time lens)."""
         related = await _related_fragment("PathStep", uid, "ps-related-fragment")
         return render_ps_related_concepts(related)
@@ -433,7 +447,7 @@ def create_learning_loop_detail_routes(
     next_step_ku_limit = 2
 
     @rt("/explore/next-step/related")
-    async def explore_next_step_related_fragment(request: Request) -> Any:
+    async def explore_next_step_related_fragment(request: Request) -> "FT":
         """HTMX fragment: ZPD next-step Kus + their undirected vector neighbours.
 
         User-scoped (not PS-scoped): the next-step Kus come from the viewer's
@@ -462,7 +476,7 @@ def create_learning_loop_detail_routes(
 
         assessment = zone_result.value
         engaged = set(assessment.current_zone)
-        groups: list[dict[str, Any]] = []
+        groups: list[NextStepRelatedGroup] = []
         for ku_uid in assessment.top_proximal_ku_uids(next_step_ku_limit):
             title = ku_uid
             ku_result = await orchestrator.get_ku(ku_uid)
@@ -470,10 +484,10 @@ def create_learning_loop_detail_routes(
                 title = getattr(ku_result.value, "title", "") or ku_uid
             related = await _related_fragment("Ku", ku_uid, "ps-next-step-fragment")
             groups.append(
-                {
-                    "ku": {"uid": ku_uid, "title": title},
-                    "related": [r for r in related if r.get("uid") not in engaged],
-                }
+                NextStepRelatedGroup(
+                    ku=RelatedConceptChip(uid=ku_uid, title=title),
+                    related=[r for r in related if r["uid"] not in engaged],
+                )
             )
         return render_ps_next_step_related(groups)
 
