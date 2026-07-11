@@ -230,8 +230,13 @@ class TestSearchResultsEnrichmentUI:
             render_search_results(
                 _response(
                     capacity_warnings={
-                        "workload": {"message": "You're near your daily capacity."},
-                        "overdue_tasks": {"message": "2 tasks overdue."},
+                        "workload": {
+                            "level": "high",
+                            "score": 0.9,
+                            "active_items": 12,
+                            "message": "You're near your daily capacity.",
+                        },
+                        "overdue_tasks": {"count": 2, "message": "2 tasks overdue."},
                     }
                 )
             )
@@ -247,7 +252,7 @@ class TestSearchResultsEnrichmentUI:
                 _response(
                     results=[],
                     total=0,
-                    capacity_warnings={"overdue_tasks": {"message": "1 task overdue."}},
+                    capacity_warnings={"overdue_tasks": {"count": 1, "message": "1 task overdue."}},
                 )
             )
         )

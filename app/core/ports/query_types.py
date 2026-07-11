@@ -606,6 +606,41 @@ class GraphContextResult(TypedDict, total=False):
     total_relationships: int
 
 
+class WorkloadWarning(TypedDict):
+    """Workload capacity warning entry.
+
+    Producer: ``UserContext.get_capacity_warnings`` (reads the
+    builder-computed ``current_workload_score``).
+    """
+
+    level: Literal["high", "at_capacity"]
+    score: float
+    active_items: int
+    message: str
+
+
+class OverdueTasksWarning(TypedDict):
+    """Overdue-backlog warning entry.
+
+    Producer: ``UserContext.get_capacity_warnings`` (from ``overdue_task_uids``).
+    """
+
+    count: int
+    message: str
+
+
+class CapacityWarnings(TypedDict, total=False):
+    """Advisory capacity warnings for surfaces that offer NEW work.
+
+    Empty dict = no concerns. Producer: ``UserContext.get_capacity_warnings``;
+    consumers: ``SearchResponse.capacity_warnings`` (wire field) and the
+    /search advisory banner (``_render_capacity_banner``).
+    """
+
+    workload: WorkloadWarning
+    overdue_tasks: OverdueTasksWarning
+
+
 class NousSubtopicPair(TypedDict):
     """A single (NOUS topic, sub-topic) co-occurrence pair.
 
@@ -2853,7 +2888,10 @@ __all__ = [
     "OrderBySpec",
     "PaginationSpec",
     # Response/Context Types
+    "CapacityWarnings",
     "GraphContextResult",
+    "OverdueTasksWarning",
+    "WorkloadWarning",
     "ProgressResult",
     "IntelligenceResult",
     "ListContext",

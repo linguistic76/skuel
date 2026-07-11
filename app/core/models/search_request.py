@@ -74,6 +74,7 @@ from core.models.enums import (
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_filters import RelationshipFilters
 from core.models.type_hints import UserUID
+from core.ports.query_types import CapacityWarnings
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.models.search_request")
@@ -798,10 +799,11 @@ class SearchResponse(BaseModel):
 
     timestamp: datetime = Field(default_factory=datetime.now, description="Response timestamp")
 
-    # P5: Capacity warnings for user-aware search
-    capacity_warnings: dict[str, Any] = Field(
-        default_factory=dict,
-        description="User capacity warnings (workload, energy, time constraints)",
+    # Capacity warnings for user-aware search — payload shapes in
+    # core/ports/query_types.py; produced by SearchRouter._peek_capacity_warnings
+    capacity_warnings: CapacityWarnings = Field(
+        default_factory=CapacityWarnings,
+        description="User capacity warnings (workload, overdue backlog)",
     )
 
     def has_results(self) -> bool:

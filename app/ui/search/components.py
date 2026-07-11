@@ -17,6 +17,7 @@ toggle, active-filter count, Ask href) and static/css/search.css (layout hooks:
 Keep class names and ``name=`` attributes in sync with both.
 """
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, A, Div, Option, P, Span, Template
@@ -803,7 +804,7 @@ def _render_search_input(ask_enabled: bool = False) -> Div:
 # ============================================================================
 
 
-def _render_capacity_banner(warnings: dict[str, Any]) -> Any | None:
+def _render_capacity_banner(warnings: Mapping[str, Any]) -> Any | None:
     """Slim advisory strip above the results when the user is stretched.
 
     Fed by ``SearchResponse.capacity_warnings`` (warm-UserContext-cache only —

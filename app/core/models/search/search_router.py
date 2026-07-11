@@ -83,7 +83,11 @@ from core.utils.sort_functions import get_combined_score, get_dict_score
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
     from core.models.search_request import SearchRequest, SearchResponse
-    from core.ports.query_types import NousSubtopicPair, SemanticSearchChunkResult
+    from core.ports.query_types import (
+        CapacityWarnings,
+        NousSubtopicPair,
+        SemanticSearchChunkResult,
+    )
     from core.services.user import UserContext
     from services_bootstrap import Services
 
@@ -686,13 +690,13 @@ class SearchRouter:
             self.logger.error(f"Faceted search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
-    def _peek_capacity_warnings(self, user_uid: UserUID) -> dict[str, Any]:
+    def _peek_capacity_warnings(self, user_uid: UserUID) -> "CapacityWarnings":
         """Capacity warnings from the WARM UserContext cache — never builds.
 
         Cache-hit-only by design: search must not pay MEGA-QUERY latency
         (SEARCH_ARCHITECTURE § Personalization). A cold cache yields no
-        warnings; surfaces that build the rich context (today, daily plan)
-        warm it, and domain events keep it honest via invalidation.
+        warnings; surfaces that build the rich context (profile, personal
+        header) warm it, and domain events keep it honest via invalidation.
         """
         user_service = getattr(self.services, "user", None)
         if user_service is None:
