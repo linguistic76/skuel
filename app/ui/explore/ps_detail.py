@@ -585,7 +585,9 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
 
     Empty input collapses to an empty div so the section vanishes entirely.
     """
-    items = [g for g in groups if g["ku"]["uid"]]
+    # Fail-soft like every layer of this fragment: a malformed group (missing
+    # or empty ku/uid) collapses out rather than 500ing the PS detail page.
+    items = [g for g in groups if g.get("ku", {}).get("uid")]
     if not items:
         return Div(id="ps-next-step-fragment")
 
@@ -604,7 +606,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
     rows = []
     for group in items:
         ku = group["ku"]
-        related = [r for r in group["related"] if r["uid"]]
+        related = [r for r in group.get("related", []) if r.get("uid")]
         rows.append(
             Div(
                 _chip(ku, emphasis=True),

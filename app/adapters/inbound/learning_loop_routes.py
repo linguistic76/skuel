@@ -48,7 +48,6 @@ from ui.explore.ps_detail import (
 )
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
-from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 from ui.learning_loop.embedded_forms import (
     render_embedded_forms,
     render_embedded_forms_error,
@@ -56,6 +55,7 @@ from ui.learning_loop.embedded_forms import (
 )
 from ui.learning_loop.exercise_status import render_exercise_list
 from ui.learning_loop.submissions_section import render_ps_submissions_and_feedback
+from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 from ui.patterns.error_banner import render_inline_error
 from ui.patterns.loading import content_loading_placeholder
 

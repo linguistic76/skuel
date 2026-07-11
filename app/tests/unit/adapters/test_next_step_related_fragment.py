@@ -16,7 +16,7 @@ are hints, never curriculum order — the section must say so.
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 from fasthtml.common import to_xml
@@ -25,14 +25,19 @@ from adapters.inbound.learning_loop_routes import create_learning_loop_detail_ro
 from core.models.zpd.zpd_assessment import ZPDAssessment
 from core.utils.result_simplified import Errors, Result
 from ui.explore.ps_detail import render_ps_detail_content, render_ps_next_step_related
+from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 
 # ============================================================================
 # Section renderer
 # ============================================================================
 
 
-def _group(ku_uid: str, ku_title: str, related: list[dict] | None = None) -> dict:
-    return {"ku": {"uid": ku_uid, "title": ku_title}, "related": related or []}
+def _group(
+    ku_uid: str, ku_title: str, related: "list[RelatedConceptChip] | None" = None
+) -> "NextStepRelatedGroup":
+    return NextStepRelatedGroup(
+        ku=RelatedConceptChip(uid=ku_uid, title=ku_title), related=related or []
+    )
 
 
 class TestRenderNextStepRelated:
@@ -75,7 +80,10 @@ class TestRenderNextStepRelated:
         assert "Related to your next step" not in html
 
     def test_groups_without_ku_uid_are_filtered(self) -> None:
-        html = to_xml(render_ps_next_step_related([{"ku": {}, "related": []}]))
+        # Deliberately malformed input — the renderer's fail-soft contract
+        # collapses it instead of raising (Codex P2 #600).
+        malformed = cast("NextStepRelatedGroup", {"ku": {}, "related": []})
+        html = to_xml(render_ps_next_step_related([malformed]))
 
         assert "Related to your next step" not in html
 
