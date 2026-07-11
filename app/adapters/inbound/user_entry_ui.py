@@ -6,7 +6,7 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 ``submissions_ui``, ``submissions_hub_routes``, and ``journals_ui`` surfaces.
 
 Routes:
-- GET  /submissions                      — MOC root: links to all 4 sub-pages (no sidebar)
+- GET  /submissions                      — MOC root: links to all 5 sub-pages (no sidebar)
 - GET  /submissions/exercise             — Exercise worksheet upload form (canonical)
 - GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
 - GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
@@ -16,6 +16,7 @@ Routes:
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
+- GET  /submissions/knowledge            — Knowledge notes + grounded-Ku chips (5th slot)
 
 Journal upload routes (POST /journals/upload, POST /journals/folder-process,
 GET /journals/browse) live in journals_routes.py. Those paths are
@@ -54,6 +55,7 @@ from ui.patterns.hub import HubSection, hub_cards_from_organizers
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form, upload_form_script
+from ui.user_entry.knowledge_notes import render_knowledge_notes_list
 from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
@@ -279,6 +281,13 @@ def create_user_entry_ui_routes(
                     "clock",
                     "bg-amber-50",
                 ),
+                _moc_card(
+                    "Knowledge",
+                    "Review your knowledge notes and the concepts SKUEL grounded them to.",
+                    "/submissions/knowledge",
+                    "brain",
+                    "bg-rose-50",
+                ),
                 cls="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6",
             ),
         )
@@ -469,6 +478,44 @@ def create_user_entry_ui_routes(
             return render_error_banner("Failed to delete submission", str(delete_result.error))
 
         return Div()
+
+    # =========================================================================
+    # KNOWLEDGE NOTES — grounded-Ku chips, visible + removable (PR 4)
+    # =========================================================================
+
+    @rt("/submissions/knowledge")
+    async def submissions_knowledge(request: Request) -> Any:
+        """Knowledge notes with their grounded-Ku chips.
+
+        The review surface for eager grounding writes (ruling 2026-07-11):
+        every ``pipeline: knowledge`` entry, each chip removable in place via
+        ``POST /api/user-entries/grounding/remove``.
+        """
+        user_uid = require_authenticated_user(request)
+
+        notes_content: Any
+        result = await orchestrator.list_knowledge_entries_with_grounding(user_uid)
+        if result.is_error:
+            logger.error(f"Error loading knowledge notes: {result.error}")
+            notes_content = render_error_banner("Failed to load knowledge notes", str(result.error))
+        else:
+            notes_content = render_knowledge_notes_list(result.value or [])
+
+        content = Div(
+            PageHeader(
+                "Knowledge Notes",
+                subtitle=(
+                    "Your knowledge-pipeline notes and the concepts SKUEL "
+                    "grounded them to — remove any chip that misses the mark"
+                ),
+            ),
+            notes_content,
+        )
+        return await render_submissions_sidebar_page(
+            content=content,
+            active="knowledge",
+            request=request,
+        )
 
     # =========================================================================
     # JOURNALS  (download only — upload/browse live in journals_routes.py)
@@ -780,6 +827,7 @@ def create_user_entry_ui_routes(
         submissions_history,
         history_list,
         delete_submission,
+        submissions_knowledge,
         download_journal,
         respond_to_entry,
         gradebook_moc,

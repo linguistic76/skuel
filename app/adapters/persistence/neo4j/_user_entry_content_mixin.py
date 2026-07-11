@@ -4,7 +4,8 @@ UserEntry Content Enrichment Mixin
 
 Journal processing context + exercise-instruction enrichment reads.
 Covers journal temporal/thematic/goal linking, exercise-instruction
-set CRUD, and path-step entry listings.
+set CRUD, path-step entry listings, and the knowledge-notes grounding
+list (entries + their APPLIES_KNOWLEDGE chips).
 
 Consolidated from the legacy ``_SubmissionContentMixin`` into a single
 standalone mixin (ADR-054).
@@ -20,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.query_types import KnowledgeEntryGroundingRow, to_knowledge_entry_grounding_rows
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -163,6 +165,45 @@ class _UserEntryContentMixin:
         if result.is_error:
             return Result.fail(result)
         return Result.ok([dict(record["e"]) for record in result.value])
+
+    async def get_knowledge_entries_with_grounding(
+        self,
+        user_uid: UserUID,
+        limit: int,
+    ) -> Result[list[KnowledgeEntryGroundingRow]]:
+        """Knowledge-pipeline entries with their grounded-Ku chips.
+
+        One row per ``pipeline: knowledge`` entry the user OWNS, newest first,
+        each carrying a ``grounded_kus`` list built from its outgoing
+        ``APPLIES_KNOWLEDGE`` edges (both writers: EXTRACT_ACTIVITIES explicit
+        refs and vector grounding). Chips are ordered by edge confidence;
+        explicit edges have no ``confidence`` property and sort first
+        (coalesced to 1.0 — an explicit reference outranks any inference).
+        """
+        query = f"""
+        MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: $entry_type}})
+        WHERE e.pipeline = 'knowledge'
+        OPTIONAL MATCH (e)-[r:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity:Ku)
+        WITH e, r, ku
+        ORDER BY coalesce(r.confidence, 1.0) DESC, ku.title
+        WITH e, [g IN collect({{
+            ku_uid: ku.uid,
+            ku_title: ku.title,
+            confidence: r.confidence,
+            inferred: r.inferred
+        }}) WHERE g.ku_uid IS NOT NULL] AS grounded_kus
+        RETURN e.uid AS uid, e.title AS title, e.created_at AS created_at,
+               grounded_kus
+        ORDER BY e.created_at DESC
+        LIMIT $limit
+        """
+        result = await self.execute_query(
+            query,
+            {"user_uid": user_uid, "entry_type": _USER_ENTRY, "limit": limit},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(to_knowledge_entry_grounding_rows(result.value))
 
     async def get_entries_for_path_step(
         self,

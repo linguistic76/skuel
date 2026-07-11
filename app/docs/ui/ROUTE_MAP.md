@@ -61,7 +61,7 @@ is a "Self-Assessment" section on each activity detail page → `POST /{domain}/
 
 ### `/home` — Post-Login Landing Hub
 
-Legacy hub superseded. `/submissions`, `/gradebook`, and `/library` are now standalone MOC root pages (sidebar-free 2×2 card grids). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
+Legacy hub superseded. `/submissions`, `/gradebook`, and `/library` are now standalone MOC root pages (sidebar-free card grids). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
 
 Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path.
 
@@ -109,12 +109,13 @@ MOC root page (no sidebar) — four cards linking to the four Library sub-pages.
 
 ### `/submissions`
 
-MOC root page (no sidebar) — four cards linking to the four Submissions sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
+MOC root page (no sidebar) — five cards linking to the five Submissions sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
 - `/submissions/exercise` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon). Legacy `/submit` 302-redirects here.
 - `/submissions/journal` — journal file-upload UX (Processing → Source → Browse → Process); alternative entry point to `/journals`.
 - `/submissions/sync` — Obsidian bidirectional sync (primary personal-data ingestion path). Shows the privacy wall ("What SKUEL can see"): the exact vault folders a sync may read, from the live allowlist via `VaultReconciler.describe()`; users without a personal vault get a "no vault configured" note instead of the sync button. A secondary "Preview sync" button (`/settings/vault/preview`) reports what a sync WOULD do — ingest/delete counts with vault-relative examples — without writing anything (dry run; shares the sync consent gate). Legacy `/settings/vault` 301-redirects here; HTMX POST targets remain at `/settings/vault/sync`, `/settings/vault/preview`, and `/settings/vault/consent`.
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
+- `/submissions/knowledge` — knowledge notes (`pipeline: knowledge` entries) with their grounded-Ku chips; each chip links to the Ku reading page and carries a per-chip remove (`POST /api/user-entries/grounding/remove`) — the review surface for eager grounding writes (Entry-Enrichment PR 4). Renderer in `ui/user_entry/knowledge_notes.py`.
 
 All four sub-pages use the Submissions sidebar (Exercise → Journal → Sync → History).
 
