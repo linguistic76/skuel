@@ -151,7 +151,12 @@ This **splits** the arc; it does not extend it.
 ### Future rungs (not scheduled)
 
 - **Auto-summon** — replace the checkbox with prefs/heuristics inside `_maybe_summon_canon`.
-- **Askesis** — call `CanonRetrievalService` from the Askesis path (capability already reusable).
+- ~~**Askesis** — call `CanonRetrievalService` from the Askesis path~~ → **✅ SHIPPED 2026-07-11
+  (ADR-077 Phase 1, #612 + #613):** the guided pipeline retrieves PS-scoped readings
+  (`retrieve(resource_uids=…)`), grounds guidance via the mode-aware
+  `CanonContext.to_teaching_block()`, and renders sources through the shared
+  `ui/canon/CanonSourcesBlock`. Lights up wherever a PS cites a shelved book —
+  growing that overlap is content authoring (the "More books" rung below).
 - **More books** — content authoring only (Phase 1 EPUB→pandoc→clean → Phase 2 ingest).
 - **"What's on the shelf" view** — a read-only surface listing shelved books so you
   can see the canon and jump to a book/Resource to interact with it. **Confirmed
