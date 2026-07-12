@@ -443,12 +443,13 @@ return await SidebarPage(
     item_renderer=None,                 # Custom render function
     title_href="",                      # Link on sidebar title
     title_icon="",                      # Lucide icon name replacing text title (e.g. "graduation-cap")
+    content_max_width="max-w-6xl",      # Content column cap; "max-w-none" for fluid pages (calendar grids)
 )
 ```
 
 ### Layout Behavior
 
-**Desktop (lg: 1024px+):** Fixed left sidebar (256px) with collapse toggle → collapses to 48px edge.
+**Desktop (lg: 1024px+):** Fixed left sidebar (256px) with collapse toggle → collapses to 48px edge. Content reflows into the freed space (collapse applies `lg:!ml-12` — the `!` is required because the static `lg:ml-64` can't be removed by Alpine's `:class` and wins on CSS order otherwise). Content is centered and capped at `content_max_width` (default `max-w-6xl`); pass `"max-w-none"` for pages that should fill the viewport — the calendar month/week grids do this.
 
 **Mobile:** Hidden sidebar; horizontal `tabs tabs-bordered` replace it. No drawer, no hamburger overlay.
 
