@@ -89,6 +89,8 @@ Vault notes come from `self._user_entry` (always present) via `get_vault_notes_f
 Discriminator: `pipeline IN [journal, knowledge]` + `"vault_file_path"` in metadata (stamps set at ingestion). `knowledge` = developed files in the `knowledge/` doorway, shared to teach SKUEL.
 Injected into Stage 2 + Stage 3 system prompts and STANDARD prompts.
 Stage 1 deliberately receives no context.
-**Vault dial de-dup (canon P3):** `summon_vault=True` passes `include_vault_notes=False` —
-the semantic vault block (`retrieve_vault`, owner-scoped + private-excluded) replaces the
-shallow snippets; both dials + digest never double-inject the same corpus.
+**Vault dial de-dup (canon P3):** when the semantic vault block (`retrieve_vault`,
+owner-scoped + private-excluded) actually lands, the digest is built with
+`include_vault_notes=False` — never both reads of the same corpus in one prompt. A
+retrieval miss (fail-soft) keeps the shallow snippets, so the dial never grounds below
+its off state.

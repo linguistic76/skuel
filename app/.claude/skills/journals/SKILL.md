@@ -57,8 +57,9 @@ without interactive review, producing a single markdown document with all three 
    (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`; notes
    marked `private: true` are excluded). Stage 1 receives no context (sparse by design —
    fidelity requires restraint). Stages 2 and 3 receive the digest. **Vault-dial de-dup
-   (canon P3):** when `summon_vault=True`, `_build_context_summary(include_vault_notes=False)`
-   drops the shallow note snippets — the semantic vault block replaces them, never both.
+   (canon P3):** when the vault dial's semantic block actually lands (`vault.has_passages`),
+   the digest drops the shallow note snippets — never both reads of one corpus; a retrieval
+   miss keeps them (fail-soft floor: dial-on never grounds below dial-off).
 
 4a. **Two grounding dials (FOUNDER, both off by default)** — `summon_canon` (curated shelf,
    ADR-076) and `summon_vault` (the user's own vault-minus-private, canon P3 / ADR-077) are
