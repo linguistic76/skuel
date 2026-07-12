@@ -642,7 +642,7 @@ class UnifiedIngestionService:
             ]
         return []
 
-    async def _resolve_prior_user_entry_uid(self, file_path: Path) -> str | None:
+    async def _resolve_prior_user_entry_uid(self, file_path: Path, user_uid: UserUID) -> str | None:
         """Path-keyed identity: the tracker's prior uid for a vault UserEntry file.
 
         A uid-less knowledge note mints a random ``ue_`` uid on first sync; the
@@ -652,12 +652,23 @@ class UnifiedIngestionService:
         doors converge on ``ingest_file``'s USER_ENTRY branch, so this single
         lookup covers the reconciler sync path and the direct door alike.
 
-        Returns None when no tracker is wired (minimal composes / tests) or the
-        file is new — both cases fall back to minting a fresh uid, exactly as
-        before. The gating that protects turn-in files and uploads lives in
-        ``build_user_entry_request``; this method only supplies the candidate.
+        The tracker row is keyed by **path**, so a file previously ingested as a
+        different entity type (or an edge) and later re-typed to ``user_entry``
+        without an authored uid would carry that FOREIGN identity (e.g. a
+        ``ku.*`` node uid or an ``edge:`` identity). Reuse it only after
+        confirming it still names a ``:UserEntry`` owned by this user — otherwise
+        mint fresh. Without this guard a foreign uid would either collide with
+        the ``:Entity.uid`` uniqueness constraint (failing every sync) or, for an
+        ``edge:`` identity that names no node, create a ``:UserEntry`` with an
+        edge id (Codex #616).
+
+        Returns None when no tracker/service is wired (minimal composes / tests),
+        the file is new, or the tracked uid is not this user's UserEntry — all
+        fall back to minting a fresh uid. The gating that protects turn-in files
+        and uploads lives in ``build_user_entry_request``; this method only
+        supplies a validated candidate.
         """
-        if self.ingestion_backend is None:
+        if self.ingestion_backend is None or self.user_entry_service is None:
             return None
         tracker = IngestionTracker(self.ingestion_backend)
         meta_result = await tracker.get_ingestion_metadata([file_path])
@@ -665,7 +676,15 @@ class UnifiedIngestionService:
             return None
         # One path queried → at most one row; take it regardless of key form.
         row = next(iter(meta_result.value.values()), None)
-        return str(row.entity_uid) if row is not None else None
+        if row is None:
+            return None
+        prior_uid = str(row.entity_uid)
+        # Label + ownership guard: get_entry reads through the UserEntry-scoped
+        # backend (MATCH on :UserEntry), so a foreign uid / edge identity → None.
+        existing = await self.user_entry_service.get_entry(prior_uid, user_uid)
+        if existing.is_error or existing.value is None:
+            return None
+        return prior_uid
 
     # ========================================================================
     # SINGLE FILE INGESTION
@@ -789,7 +808,7 @@ class UnifiedIngestionService:
             # prior uid so re-syncs upsert in place instead of orphaning the old
             # node. Hard-gated inside build_user_entry_request (authored uid
             # wins; turn-ins and uploads never honor it).
-            prior_uid = await self._resolve_prior_user_entry_uid(file_path)
+            prior_uid = await self._resolve_prior_user_entry_uid(file_path, effective_user_uid)
             ue_result = await ingest_user_entry(
                 data=data,
                 file_path=file_path,

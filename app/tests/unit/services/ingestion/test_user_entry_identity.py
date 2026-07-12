@@ -45,6 +45,9 @@ def _user_entry_service(entry: UserEntry) -> MagicMock:
     resolver.validate = MagicMock(return_value=Result.ok(None))
     service.audience_resolver = resolver
     service.create_entry = AsyncMock(return_value=Result.ok((entry, ShareOutcome())))
+    # Default: the tracked prior uid names this very UserEntry (label+ownership
+    # guard passes → reuse proceeds). Foreign-uid tests override this.
+    service.get_entry = AsyncMock(return_value=Result.ok(entry))
     return service
 
 
@@ -111,6 +114,23 @@ async def test_prior_uid_flows_into_create_entry_request(tmp_path: Path) -> None
 async def test_first_sync_without_tracker_row_mints_fresh(tmp_path: Path) -> None:
     """No prior row → request.uid None so the service mints a fresh random uid."""
     svc, service = _ingestion_service(_entry("ue_new"), prior_uid=None)
+    note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")
+
+    result = await svc.ingest_file(note, user_uid="user_1")
+
+    assert result.is_ok, result.expect_error()
+    request = service.create_entry.await_args.kwargs["request"]
+    assert request.uid is None
+
+
+@pytest.mark.asyncio
+async def test_foreign_prior_uid_is_not_reused(tmp_path: Path) -> None:
+    """A tracker row whose uid names a non-UserEntry (a re-typed file's old Ku
+    uid, or an ``edge:`` identity) must NOT be reused — get_entry returns None,
+    so the note mints a fresh uid instead of colliding / creating an edge-id
+    UserEntry (Codex #616)."""
+    svc, service = _ingestion_service(_entry("ue_new"), prior_uid="ku.foo.bar")
+    service.get_entry = AsyncMock(return_value=Result.ok(None))  # not a UserEntry
     note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")
 
     result = await svc.ingest_file(note, user_uid="user_1")

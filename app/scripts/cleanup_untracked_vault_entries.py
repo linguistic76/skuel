@@ -119,20 +119,63 @@ async def _fetch_edge_breakdown(driver: Any, uids: list[str]) -> Counter[str]:
     return Counter({str(r["rel_type"]): int(r["cnt"]) for r in result.records})
 
 
-async def _delete_orphans(driver: Any, uids: list[str]) -> int:
+async def _fetch_content_subtree_count(driver: Any, uids: list[str]) -> int:
+    """Count :Content/:ContentChunk/:ContentMetadata nodes hanging off the orphans.
+
+    The orphans hold 0 chunks today (retrieval is clean), but a blind
+    ``DETACH DELETE`` of only the entry node would orphan any subtree in the
+    vector index — the report surfaces the real count so the migration is honest.
+    """
+    if not uids:
+        return 0
+    result = await driver.execute_query(
+        """
+        MATCH (u:UserEntry)-[:HAS_CONTENT]->(content:Content)
+        WHERE u.uid IN $uids
+        OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
+        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
+        RETURN count(DISTINCT content) + count(DISTINCT chunk) + count(DISTINCT meta) AS n
+        """,
+        uids=uids,
+    )
+    return int(result.records[0]["n"]) if result.records else 0
+
+
+async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
+    """Delete the orphans AND their content subtree, leaf-first.
+
+    Mirrors ``Neo4jContentAdapter.delete_content_subtree`` /
+    ``IngestionBackend.delete_entities_with_metadata``: deleting the entry alone
+    would leave :Content/:ContentChunk orphaned in the vector index and the
+    chunk-regeneration scans. Returns ``(entries_deleted, subtree_nodes_deleted)``.
+    """
     result = await driver.execute_query(
         """
         MATCH (u:UserEntry)
         WHERE u.uid IN $uids
+        OPTIONAL MATCH (u)-[:HAS_CONTENT]->(content:Content)
+        OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
+        OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
+        WITH u, collect(DISTINCT content) AS contents,
+             collect(DISTINCT chunk) AS chunks, collect(DISTINCT meta) AS metas
+        FOREACH (c IN chunks | DETACH DELETE c)
+        FOREACH (m IN metas | DETACH DELETE m)
+        FOREACH (co IN contents | DETACH DELETE co)
         DETACH DELETE u
-        RETURN count(u) AS deleted
+        RETURN count(u) AS deleted,
+               size(contents) + size(chunks) + size(metas) AS subtree
         """,
         uids=uids,
     )
-    return int(result.records[0]["deleted"]) if result.records else 0
+    if not result.records:
+        return 0, 0
+    rec = result.records[0]
+    return int(rec["deleted"]), int(rec["subtree"])
 
 
-def _print_report(orphans: list[dict[str, Any]], edge_breakdown: Counter[str]) -> None:
+def _print_report(
+    orphans: list[dict[str, Any]], edge_breakdown: Counter[str], subtree_nodes: int
+) -> None:
     print(f"\nUntracked vault UserEntry orphans: {len(orphans)}\n")
 
     by_pipeline: Counter[str] = Counter(str(o.get("pipeline")) for o in orphans)
@@ -144,6 +187,8 @@ def _print_report(orphans: list[dict[str, Any]], edge_breakdown: Counter[str]) -
     print(f"\nEdge-type breakdown ({total_edges} edges total):")
     for rel_type, count in sorted(edge_breakdown.items(), key=lambda kv: (-kv[1], kv[0])):
         print(f"  {rel_type:<24} {count}")
+
+    print(f"\nContent subtree nodes (:Content/:ContentChunk/:ContentMetadata): {subtree_nodes}")
 
 
 async def main() -> int:
@@ -165,8 +210,9 @@ async def main() -> int:
         orphans = select_orphans(user_entry_rows, tracked_uids)
         uids = [str(o["uid"]) for o in orphans]
         edge_breakdown = await _fetch_edge_breakdown(driver, uids)
+        subtree_nodes = await _fetch_content_subtree_count(driver, uids)
 
-        _print_report(orphans, edge_breakdown)
+        _print_report(orphans, edge_breakdown, subtree_nodes)
 
         if not orphans:
             print("\nNothing to clean up — graph is already free of vault orphans.")
@@ -176,8 +222,11 @@ async def main() -> int:
             print("\n[DRY-RUN] No changes made. Re-run with --apply to DETACH DELETE.")
             return 0
 
-        deleted = await _delete_orphans(driver, uids)
-        print(f"\n[APPLIED] DETACH DELETEd {deleted} orphan UserEntry node(s).")
+        deleted, subtree_deleted = await _delete_orphans(driver, uids)
+        print(
+            f"\n[APPLIED] DETACH DELETEd {deleted} orphan UserEntry node(s) "
+            f"+ {subtree_deleted} content subtree node(s)."
+        )
         return 0
     finally:
         await driver.close()
