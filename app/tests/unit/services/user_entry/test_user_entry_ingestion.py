@@ -241,6 +241,85 @@ class TestBuildUserEntryRequest:
         assert "pipeline" in str(result.expect_error()).lower()
 
 
+class TestPriorUidReuse:
+    """Path-keyed identity: the tracker's prior uid gives uid-less vault notes a
+    stable identity so they upsert in place instead of orphaning the old node.
+    Contract: /plans/uidless-vault-entry-identity-upsert.md."""
+
+    @pytest.mark.asyncio
+    async def test_uidless_knowledge_note_reuses_prior_uid(self):
+        """A uid-less knowledge note on an absolute (vault) path adopts the
+        prior uid → routes to the MERGE-on-uid living-entry channel."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Nous"},
+            file_path=Path("/vault/knowledge/nous.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            prior_uid="ue_prior_abc",
+        )
+        assert result.is_ok
+        assert result.value.uid == "ue_prior_abc"
+
+    @pytest.mark.asyncio
+    async def test_no_prior_uid_mints_random(self):
+        """First sync (no tracker row) → uid None so the service mints fresh."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Nous"},
+            file_path=Path("/vault/knowledge/nous.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            prior_uid=None,
+        )
+        assert result.is_ok
+        assert result.value.uid is None
+
+    @pytest.mark.asyncio
+    async def test_authored_uid_wins_over_prior_uid(self):
+        """An authored ``uid:`` is identity — never overridden by the tracker."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Nous", "uid": "ku:mine:nous"},
+            file_path=Path("/vault/knowledge/nous.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            prior_uid="ue_prior_abc",
+        )
+        assert result.is_ok
+        # colon → dot normalization on authored uids; prior uid ignored.
+        assert result.value.uid == "ku.mine.nous"
+
+    @pytest.mark.asyncio
+    async def test_fulfills_exercise_blocks_reuse(self):
+        """CRITICAL gate: a turn-in file must NOT receive a uid — injecting one
+        silently kills the turn-in channel (frozen copy, edge, revision)."""
+        result = await build_user_entry_request(
+            data={
+                "pipeline": "knowledge",
+                "title": "Turn-in",
+                "fulfills_exercise_uid": "ex_1",
+            },
+            file_path=Path("/vault/knowledge/turnin.md"),
+            user_uid="user_1",
+            audience_resolver=_channel_resolver(),
+            prior_uid="ue_prior_abc",
+        )
+        assert result.is_ok
+        assert result.value.uid is None  # turn-in path preserved
+
+    @pytest.mark.asyncio
+    async def test_non_absolute_path_blocks_reuse(self):
+        """Uploads pass a temp/relative path — they must keep minting fresh
+        uids, never adopt a vault tracker row."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Upload"},
+            file_path=Path("upload.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+            prior_uid="ue_prior_abc",
+        )
+        assert result.is_ok
+        assert result.value.uid is None
+
+
 class TestAuthoredStatusDescriptionOwnership:
     """The door must not silently drop authored frontmatter it understands."""
 

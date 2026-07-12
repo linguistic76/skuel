@@ -144,7 +144,14 @@ The door does not silently drop authored frontmatter it understands:
   next sync — the upsert null-removes the entity embedding and the ingest
   door's unconditional chunk step takes the clear path (deletes the stale
   `:Content`/`:ContentChunk` subtree). Removing the marker restores
-  retrievability on the next sync the same way.
+  retrievability on the next sync the same way. Retraction depends on the flip
+  landing on the **same node**: this holds for authored/periodic uids and, via
+  the path-keyed identity above, for uid-less notes too (before that fix a flip
+  minted a fresh private node and the old public copy kept its chunks).
+  `APPLIES_KNOWLEDGE` grounding edges are deliberately **not** retracted on a
+  private flip — `private:` is a companion-*retrieval* opt-out, not an evidence
+  opt-out; ZPD grounding is owner-scoped signal about the owner's own learning.
+  The retraction surface is chunks (the canon retrieval substrate).
 - **Default retrievable:** an absent marker means the (knowledge-pipeline)
   note participates in companion grounding.
 - **Scope:** gates companion retrieval ONLY. Orthogonal to `audience`/
@@ -191,6 +198,33 @@ join key, never type information (ADR-013 never-sniff; the entity kind is
 whatever `type:` says). The *derived* periodic UIDs in the table above are
 deliberately NOT normalized — their colon form is the calendar routes' join
 contract.
+
+### Path-keyed identity for uid-less vault entries
+
+A vault knowledge note with **no** authored `uid:` and no periodic
+`entry_kind:` still gets a stable identity — from its **file path**. On first
+sync it mints a random `ue_<...>` uid; the ingestion tracker records the
+`path → uid` row (the same row that drives deletion propagation). Every later
+sync of that path resolves the prior uid and reuses it, routing the note
+through the **MERGE-on-uid upsert channel** so an edit updates the node in
+place instead of orphaning it. Path *is* identity — the deletion contract and
+the update contract now agree.
+
+Resolved once at `UnifiedIngestionService.ingest_file`'s USER_ENTRY branch
+(both ingest doors converge there, so the reconciler sync path is covered) and
+passed to `build_user_entry_request`, which honors it only when **all** hold:
+
+- no authored/periodic `uid:` (an explicit identity always wins);
+- no `fulfills_exercise_uid:` — a turn-in file must keep minting fresh nodes;
+  injecting a uid would silently kill the turn-in channel (frozen copy, edge,
+  revision, teacher routing);
+- an absolute file path — `/upload` callers pass a temp/relative path and must
+  keep minting fresh uids.
+
+**Accepted trade-off:** a moved/renamed file is a new path → identity loss
+(delete + recreate), identical to today's deletion semantics. Hash-assisted
+move detection is a possible later layer, not part of this contract. See:
+`plans/uidless-vault-entry-identity-upsert.md`.
 
 ### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
 

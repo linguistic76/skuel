@@ -67,6 +67,7 @@ from .config import (
     resolve_chunking_params,
 )
 from .detector import detect_entity_type, detect_format, is_edge_type
+from .ingestion_tracker import IngestionTracker
 from .moc_links import extract_moc_link_suffixes, frontmatter_organizes_targets
 from .parser import parse_markdown, parse_yaml
 from .preparer import (
@@ -641,6 +642,31 @@ class UnifiedIngestionService:
             ]
         return []
 
+    async def _resolve_prior_user_entry_uid(self, file_path: Path) -> str | None:
+        """Path-keyed identity: the tracker's prior uid for a vault UserEntry file.
+
+        A uid-less knowledge note mints a random ``ue_`` uid on first sync; the
+        tracker's ``IngestionMetadata`` path→uid row lets every later sync reuse
+        it so the note upserts in place instead of orphaning the old node
+        (contract: /plans/uidless-vault-entry-identity-upsert.md). Both ingest
+        doors converge on ``ingest_file``'s USER_ENTRY branch, so this single
+        lookup covers the reconciler sync path and the direct door alike.
+
+        Returns None when no tracker is wired (minimal composes / tests) or the
+        file is new — both cases fall back to minting a fresh uid, exactly as
+        before. The gating that protects turn-in files and uploads lives in
+        ``build_user_entry_request``; this method only supplies the candidate.
+        """
+        if self.ingestion_backend is None:
+            return None
+        tracker = IngestionTracker(self.ingestion_backend)
+        meta_result = await tracker.get_ingestion_metadata([file_path])
+        if meta_result.is_error:
+            return None
+        # One path queried → at most one row; take it regardless of key form.
+        row = next(iter(meta_result.value.values()), None)
+        return str(row.entity_uid) if row is not None else None
+
     # ========================================================================
     # SINGLE FILE INGESTION
     # ========================================================================
@@ -759,6 +785,11 @@ class UnifiedIngestionService:
                     )
                 )
             effective_user_uid = self._resolve_owner(file_path, user_uid)
+            # Path-keyed identity for uid-less vault notes: reuse the tracker's
+            # prior uid so re-syncs upsert in place instead of orphaning the old
+            # node. Hard-gated inside build_user_entry_request (authored uid
+            # wins; turn-ins and uploads never honor it).
+            prior_uid = await self._resolve_prior_user_entry_uid(file_path)
             ue_result = await ingest_user_entry(
                 data=data,
                 file_path=file_path,
@@ -767,6 +798,7 @@ class UnifiedIngestionService:
                 user_service=self.user_service,
                 body=body,
                 user_entry_processor=self.user_entry_processor,
+                prior_uid=prior_uid,
             )
             # MOC edge pass — the user-entry door bypasses prepare_entity_data,
             # so link extraction happens here. The batch door defers to
