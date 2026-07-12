@@ -155,7 +155,7 @@ Journal domain — zero-persistence workshop (ADR-073). Landing at `/journals`. 
 **FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
 
 **Routes:**
-- `GET  /journals` — tier-aware landing (Tasks+ sidebar); upload form for file/folder
+- `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar's "New Journal" reset stays hidden until a session swap has replaced `#journal-workspace` — on a fresh load there is nothing to reset
 - `POST /journals/start` — run the workflow on typed text; returns the response **inline** (`HX-Retarget` `#journal-workspace`) — no `UserEntry`, no redirect
 - `POST /journals/upload` — file/multi-file upload; transcribes/compiles to the user's own `je_out/` folder and returns an inline download fragment (no `UserEntry`). FOUNDER audio → transcript review → Scribe
 - `POST /journals/folder-process` — batch-process `je_in/` → `je_out/` (shares the upload batch engine)
