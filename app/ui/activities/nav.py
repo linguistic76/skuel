@@ -43,6 +43,7 @@ async def render_activity_sidebar_page(
     extra_css: list[str] | None = None,
     title: str = "Tasks+",
     active_page: str = "activity",
+    content_max_width: str = "max-w-6xl",
 ) -> "FT":
     """Wrap content in Activity Domain sidebar page.
 
@@ -53,6 +54,8 @@ async def render_activity_sidebar_page(
         extra_css: Additional CSS file paths to include in the page head.
         title: Browser/page title; defaults to "Tasks+" for activity domain pages.
         active_page: Top-nav active key passed to BasePage; defaults to "activity".
+        content_max_width: Tailwind max-width class for the content column;
+            "max-w-none" lets fluid pages (calendar) fill the available width.
     """
     return await SidebarPage(
         content=content,
@@ -63,4 +66,5 @@ async def render_activity_sidebar_page(
         request=request,
         active_page=active_page,
         extra_css=extra_css,
+        content_max_width=content_max_width,
     )

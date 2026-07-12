@@ -440,6 +440,7 @@ async def SidebarPage(
     sidebar_width: str = "w-64",
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
+    content_max_width: str = "max-w-6xl",
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -449,6 +450,9 @@ async def SidebarPage(
     Args:
         alpine_state: Optional Alpine x-data placed on the wrapper div so sidebar
             and content can share state (e.g. "{ section: 'pending' }").
+        content_max_width: Tailwind max-width class for the content column.
+            Pass "max-w-none" for fluid pages (e.g. calendar grids) that should
+            fill the space freed when the sidebar collapses.
 
     See: /docs/patterns/UI_COMPONENT_PATTERNS.md
     """
@@ -483,13 +487,17 @@ async def SidebarPage(
         Div(
             Div(
                 content,
-                cls="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6",
+                cls=f"{content_max_width} mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6",
             ),
             cls=f"{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')} lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
             id="sidebar-content",
             **{
                 "x-data": f"collapsibleSidebar('{storage_key}', {collapsed_default})",
-                ":class": f"collapsed ? 'lg:ml-12' : '{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')}'",
+                # !important variant: Alpine's :class can't REMOVE the static
+                # margin class, and lg:ml-64 sorts after lg:ml-12 in the
+                # compiled CSS — without the ! the collapsed margin never wins
+                # and content never reflows into the freed space.
+                ":class": "collapsed ? 'lg:!ml-12' : ''",
             },
         ),
         **wrapper_attrs,
