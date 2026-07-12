@@ -248,6 +248,30 @@ class IngestionBackend:
             {"uids": uids},
         )
 
+    async def get_entity_contents(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Last-ingested body (``Entity.content``) for each live entity among ``uids``.
+
+        Feeds the move pre-pass's similarity matching (rename + edit in one
+        sync): the gone row's node still holds the body as it was last
+        ingested, which is compared against new files' resolved on-disk
+        content — no extra fingerprint storage needed. :Entity only — the
+        other uid-bearing shapes (:Group, :Expense) carry no comparable body,
+        so their rows simply never similarity-match (safe delete+create).
+        A returned row doubles as the live-node proof for its uid. Nodes
+        with no ``content`` yield no row; body-chunked types (Ku, PathStep)
+        store content on the :Content subtree, not the node, so they are
+        naturally excluded — they carry authored uids and never need this.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $uids AS uid
+            MATCH (e:Entity {uid: uid})
+            WHERE e.content IS NOT NULL AND trim(e.content) <> ''
+            RETURN uid AS uid, e.content AS content
+            """,
+            {"uids": uids},
+        )
+
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
         """Owner for each user-owned node among ``uids``.
 

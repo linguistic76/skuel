@@ -221,20 +221,25 @@ passed to `build_user_entry_request`, which honors it only when **all** hold:
 - an absolute file path — `/upload` callers pass a temp/relative path and must
   keep minting fresh uids.
 
-**Renames preserve identity too (content-hash move detection).** A pure
+**Renames preserve identity too (content-based move detection).** A
 rename/move of a uid-less note is recognized by the move-detection pre-pass
 (`IngestionTracker.detect_and_apply_moves`, run at the start of every tracked
-directory sync): the gone path's tracker row and the new file share a SHA-256,
-so the row is rewritten (old path → new path, SAME uid) and the resolution
-above reuses the uid — node, grounding edges, MOC/manual links, and
-`created_at` all survive; the sync reports it as `moves_detected`, not a
-delete + a create. Only unambiguous 1:1 matches with non-trivial content
-qualify; ambiguity falls back to delete+create. **Phase 1 boundary:** a rename
-+ edit *in the same sync* changes the hash and still delete+creates — handled
-by the Phase 2 similarity follow-up (see
-`plans/hash-assisted-move-detection.md`); until then, rename → sync, then
-edit → sync. Contracts: `plans/uidless-vault-entry-identity-upsert.md` (#616),
-`plans/hash-assisted-move-detection.md`.
+directory sync), two strategies in sequence. **Exact hash** (pure rename): the
+gone path's tracker row and the new file share a SHA-256, so the row is
+rewritten (old path → new path, SAME uid) and the resolution above reuses the
+uid — node, grounding edges, MOC/manual links, and `created_at` all survive;
+the sync reports it as `moves_detected`, not a delete + a create. **Lexical
+similarity** (rename + edit *in the same sync*): over the exact pass's
+residual, the gone node's last-ingested body (`Entity.content`) is compared
+against each new markdown file's resolved content (frontmatter `content:`
+wins, else the body — the same resolution ingestion applies) with word-shingle
+Jaccard; only a MUTUAL best match at or above `SIMILARITY_MOVE_THRESHOLD`
+moves, and the sync annotates it with its score. Only unambiguous matches with
+non-trivial content qualify; ambiguity (shared hashes, tied similarity) and
+sub-threshold edits fall back to delete+create — a missed move is the safe
+failure, a wrong merge is not. Contracts:
+`plans/uidless-vault-entry-identity-upsert.md` (#616),
+`plans/hash-assisted-move-detection.md` (#617 + Phase 2).
 
 ### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
 

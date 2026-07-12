@@ -784,13 +784,14 @@ async def ingest_directory(
             )
         )
 
-    # Content-hash move pre-pass (uid-less renames): rewrite old-path tracker
-    # rows to the new path BEFORE the ingestion loop (so the path-keyed uid
-    # resolution reuses the uid, #616) and BEFORE deletion reconciliation (so
-    # the old path is never classified a deletion). Exact-hash only — a
-    # rename + edit in one sync falls back to delete+create (Phase 2,
-    # similarity matching). Failure degrades to today's delete+create rather
-    # than failing the sync, surfaced as a warning.
+    # Move pre-pass (uid-less renames): rewrite old-path tracker rows to the
+    # new path BEFORE the ingestion loop (so the path-keyed uid resolution
+    # reuses the uid, #616) and BEFORE deletion reconciliation (so the old
+    # path is never classified a deletion). Exact hash catches pure renames;
+    # mutual-best lexical similarity over the residual catches a rename +
+    # edit in one sync (annotated with its score in the stats). Failure
+    # degrades to today's delete+create rather than failing the sync,
+    # surfaced as a warning.
     moves_detected = 0
     applied_moves: list[str] = []
     move_warnings: list[str] = []
@@ -805,7 +806,9 @@ async def ingest_directory(
         if move_result.is_ok:
             moves_detected = len(move_result.value.applied)
             applied_moves = [
-                f"{move.display_old} → {move.display_new}" for move in move_result.value.applied
+                f"{move.display_old} → {move.display_new}"
+                + (f" (similarity {move.similarity:.2f})" if move.similarity is not None else "")
+                for move in move_result.value.applied
             ]
             if moves_detected:
                 logger.info(
