@@ -234,6 +234,7 @@ async def build_user_entry_request(
     audience_resolver: AudienceResolver,
     user_service: UserService | None = None,
     body: str | None = None,
+    prior_uid: str | None = None,
 ) -> Result[UserEntryCreateRequest]:
     """Validate YAML + build a ``UserEntryCreateRequest`` ready for the service.
 
@@ -247,6 +248,14 @@ async def build_user_entry_request(
     cannot publish portfolio-visible content through YAML upload. The role is
     resolved via ``user_service``; when unavailable the public audience is
     rejected (fail-closed).
+
+    ``prior_uid`` is path-keyed identity for uid-less vault entries: the
+    tracker's prior ``path → uid`` row (resolved by the caller). A knowledge
+    note with no authored ``uid:`` mints a random uid on first sync; reusing
+    that uid on every later sync routes the note through the MERGE-on-uid
+    living-entry channel instead of orphaning the old node. Hard-gated (see
+    below) — an authored/periodic uid, a turn-in file, or an upload never
+    honors it. See: /plans/uidless-vault-entry-identity-upsert.md
     """
     pipeline_result = _parse_pipeline(data.get("pipeline"), file_path.name)
     if pipeline_result.is_error:
@@ -388,6 +397,29 @@ async def build_user_entry_request(
                 )
                 uid_override = f"ue:monthly:{user_uid}:{month_str}"
 
+    # Path-keyed identity for uid-less vault entries (contract:
+    # /plans/uidless-vault-entry-identity-upsert.md). When the file carries no
+    # authored/periodic uid, reuse the tracker's prior uid for this path so the
+    # note upserts in place instead of minting a fresh random uid every sync
+    # (which orphans the old node — 276 stale copies measured 2026-07-12). Path
+    # is already the deletion-propagation identity; updates now honor the same
+    # contract. Three hard gates:
+    #   - ``uid_override is None`` — an authored ``uid:`` or a derived periodic
+    #     uid always wins (never overridden).
+    #   - ``fulfills_exercise_uid is None`` — CRITICAL: injecting a uid into a
+    #     turn-in request silently kills the turn-in channel
+    #     (``user_entry_service.py`` ``turn_in_exercise_uid = None if request.uid
+    #     else …``): no frozen copy, no edge, no revision, no teacher routing.
+    #   - ``file_path.is_absolute()`` — vault-tracked files only; ``/upload``
+    #     callers pass a temp path and must keep minting fresh uids.
+    if (
+        uid_override is None
+        and prior_uid is not None
+        and fulfills_exercise_uid is None
+        and file_path.is_absolute()
+    ):
+        uid_override = prior_uid
+
     request = UserEntryCreateRequest(
         uid=uid_override,
         title=str(title),
@@ -458,6 +490,7 @@ async def ingest_user_entry(
     user_service: UserService | None = None,
     body: str | None = None,
     user_entry_processor: UserEntryProcessingService | None = None,
+    prior_uid: str | None = None,
 ) -> Result[dict[str, Any]]:
     """Ingest a single UserEntry through ``UserEntryService.create_entry()``.
 
@@ -487,6 +520,12 @@ async def ingest_user_entry(
     logged and surfaced in the result dict's ``extraction_error`` field but does
     not fail persistence of the journal node — a re-sync retries.
 
+    ``prior_uid`` (the tracker's prior ``path → uid`` for this file, resolved by
+    the caller) gives uid-less vault notes a stable identity: it is reused as
+    ``request.uid`` so the note upserts in place rather than orphaning the old
+    node each sync. Hard-gated in ``build_user_entry_request`` (authored/periodic
+    uid wins; turn-in files and uploads never honor it).
+
     Returns the standard ingestion result dict (uid, title, entity_type, ...)
     so callers don't need to reach into ``ShareOutcome`` to format a response.
     """
@@ -497,6 +536,7 @@ async def ingest_user_entry(
         audience_resolver=user_entry_service.audience_resolver,
         user_service=user_service,
         body=body,
+        prior_uid=prior_uid,
     )
     if request_result.is_error:
         return Result.fail(request_result)
