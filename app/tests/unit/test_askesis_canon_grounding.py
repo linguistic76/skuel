@@ -244,6 +244,36 @@ def test_guided_prompt_appends_teaching_block_when_passages_exist() -> None:
     assert "Hypermedia Systems" in prompt
 
 
+def test_guided_prompt_direct_mode_gets_answer_framing_not_socratic() -> None:
+    """DIRECT mode promises answers (Codex #613 P2): the readings block grounds
+    the answer — it must NOT instruct the model to ask a better question."""
+    generator = ResponseGenerator()
+    generator._build_direct_prompt = MagicMock(return_value="DIRECT BASE")  # type: ignore[method-assign]
+    guidance = MagicMock()
+    guidance.mode = GuidanceMode.DIRECT
+
+    prompt = generator.build_guided_system_prompt(
+        guidance, MagicMock(), MagicMock(), canon_context=_canon_context()
+    )
+
+    assert prompt.startswith("DIRECT BASE")
+    assert "## Readings for This Step" in prompt
+    assert "Do not surrender the method" not in prompt
+    assert "Answer directly" in prompt
+    # Faithfulness contract holds in both framings
+    assert "never invent a passage, chapter, or section" in prompt
+
+
+def test_guided_prompt_socratic_mode_keeps_the_method() -> None:
+    generator = _make_response_generator()
+
+    prompt = generator.build_guided_system_prompt(
+        _guidance(), MagicMock(), MagicMock(), canon_context=_canon_context()
+    )
+
+    assert "Do not surrender the method" in prompt
+
+
 def test_guided_prompt_unchanged_when_canon_context_empty() -> None:
     generator = _make_response_generator()
 

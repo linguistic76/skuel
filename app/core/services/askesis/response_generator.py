@@ -212,7 +212,10 @@ class ResponseGenerator:
             user_context: User context for personalization
             canon_context: PS-scoped canon readings (ADR-077) — its teaching
                 block is appended to ground guidance in the step's cited
-                readings; None or empty passages append nothing
+                readings; None or empty passages append nothing. Mode-aware
+                framing (Codex #613 P2): DIRECT mode promises answers, so its
+                block grounds the answer instead of instructing the model to
+                ask a better question.
 
         Returns:
             System prompt string for the LLM call
@@ -228,7 +231,9 @@ class ResponseGenerator:
         builder = builders.get(guidance.mode, self._build_direct_prompt)
         prompt = builder(guidance, ps_bundle)
         if canon_context is not None:
-            teaching_block = canon_context.to_teaching_block()  # "" when no passages
+            teaching_block = canon_context.to_teaching_block(  # "" when no passages
+                preserve_method=guidance.mode is not GuidanceMode.DIRECT
+            )
             if teaching_block:
                 prompt += "\n\n" + teaching_block
         return prompt

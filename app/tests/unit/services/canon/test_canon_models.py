@@ -186,6 +186,22 @@ class TestTeachingBlock:
         assert "verbatim and sparingly" in block
         assert "never by page number" in block
 
+    def test_block_direct_framing_drops_the_method_keeps_the_contract(self):
+        """preserve_method=False (DIRECT mode, Codex #613 P2): the block grounds
+        a direct answer instead of instructing the model to ask a better
+        question — but the ADR-076 faithfulness contract is identical."""
+        ctx = CanonContext(passages=(_passage("An answer, stated plainly.", "HMS"),))
+        block = ctx.to_teaching_block(preserve_method=False)
+        assert "Do not surrender the method" not in block
+        assert "ask a better question" not in block
+        assert "Answer directly" in block
+        # Same faithfulness contract as the Socratic framing:
+        assert "never invent a passage, chapter, or section" in block
+        assert "verbatim and sparingly" in block
+        assert "never by page number" in block
+        # Same structure: passage text + citation still present.
+        assert "An answer, stated plainly." in block
+
     def test_block_empty_when_no_passages(self):
         assert CanonContext.empty().to_teaching_block() == ""
 
