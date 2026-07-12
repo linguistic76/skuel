@@ -134,7 +134,11 @@ class TestSimilarityScore:
         assert similarity_score(_LONG_BODY, reflowed) == 1.0
 
     def test_disjoint_text_scores_zero(self) -> None:
-        assert similarity_score(_LONG_BODY, "completely unrelated grocery list items") == 0.0
+        unrelated = (
+            "Sourdough starters need equal weights of flour and water once "
+            "the culture peaks and begins to fall each feeding cycle."
+        )
+        assert similarity_score(_LONG_BODY, unrelated) == 0.0
 
     def test_empty_side_scores_zero(self) -> None:
         assert similarity_score("", _LONG_BODY) == 0.0
@@ -152,10 +156,17 @@ class TestSimilarityScore:
         )
         assert similarity_score(_LONG_BODY, rewrite) < SIMILARITY_MOVE_THRESHOLD
 
-    def test_short_text_unigram_fallback(self) -> None:
-        # Two tokens — below shingle width — still comparable via unigrams.
-        assert similarity_score("alpha beta", "alpha beta") == 1.0
-        assert similarity_score("alpha beta", "gamma delta") == 0.0
+    def test_sub_floor_bodies_abstain(self) -> None:
+        # Codex #618 round 5: a tiny body carries no identity evidence — two
+        # unrelated notes whose stored body is just "done" would score 1.0
+        # and FUSE. Below the token floor the scorer abstains entirely.
+        assert similarity_score("done", "done") == 0.0
+        nine_tokens = "one two three four five six seven eight nine"
+        assert similarity_score(nine_tokens, nine_tokens) == 0.0
+
+    def test_floor_boundary_ten_tokens_scores(self) -> None:
+        ten_tokens = "one two three four five six seven eight nine ten"
+        assert similarity_score(ten_tokens, ten_tokens) == 1.0
 
 
 class TestMatchMovesBySimilarity:

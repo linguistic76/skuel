@@ -126,9 +126,16 @@ def match_moves_by_hash(
 SIMILARITY_MOVE_THRESHOLD = 0.8
 
 # Word-shingle width for the Jaccard scorer. Trigrams capture phrasing and
-# order (resistant to common-word inflation); texts too short for a full
-# shingle fall back to unigram sets.
+# order (resistant to common-word inflation).
 _SHINGLE_SIZE = 3
+
+# Minimum tokens PER SIDE for a similarity score to mean anything (Codex
+# #618): a tiny body ("done", "todo review") carries no identity evidence —
+# two unrelated notes sharing it would score 1.0 and fuse. Below the floor
+# the scorer abstains (0.0) and the sync falls back to delete+create, the
+# safe failure. 10 is well under real notes (shortest in the live-vault
+# measurement: 20 tokens) while killing trivia collisions.
+_MIN_TOKENS = 10
 
 
 @dataclass(frozen=True)
@@ -162,17 +169,17 @@ def similarity_score(a: str, b: str) -> float:
     (explicit ``content:`` wins, else the markdown body) exactly the way
     ingestion does before scoring; this function only normalizes case and
     whitespace (``str.split()`` collapses all whitespace runs, so reflowed
-    markdown scores identically). When either side is too short for a full
-    shingle, BOTH sides fall back to unigram sets so the comparison stays
-    symmetric.
+    markdown scores identically). When either side is shorter than
+    ``_MIN_TOKENS`` the scorer ABSTAINS (returns 0.0): a tiny body carries
+    no identity evidence, and two unrelated notes sharing one would
+    otherwise score 1.0 and fuse.
     """
     tokens_a = a.lower().split()
     tokens_b = b.lower().split()
-    if not tokens_a or not tokens_b:
+    if min(len(tokens_a), len(tokens_b)) < _MIN_TOKENS:
         return 0.0
-    width = _SHINGLE_SIZE if min(len(tokens_a), len(tokens_b)) >= _SHINGLE_SIZE else 1
-    set_a = _shingle_set(tokens_a, width)
-    set_b = _shingle_set(tokens_b, width)
+    set_a = _shingle_set(tokens_a, _SHINGLE_SIZE)
+    set_b = _shingle_set(tokens_b, _SHINGLE_SIZE)
     intersection = len(set_a & set_b)
     if intersection == 0:
         return 0.0
