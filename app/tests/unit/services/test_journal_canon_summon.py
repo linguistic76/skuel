@@ -466,6 +466,39 @@ class TestStageVaultWiring:
         service._user_entry.get_vault_notes_for_context.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_vault_retrieval_failure_keeps_shallow_note_digest(self):
+        # Fail-soft floor: a dial-on retrieval FAILURE must not ground the
+        # stage below its dial-off state — the shallow digest stays.
+        llm = _stub_llm()
+        service, _ = _dual_service(
+            vault_result=Result.fail(Errors.unavailable("vault", "no embeddings")), llm=llm
+        )
+
+        await service.run_stage2(
+            raw_entry="thoughts",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+        service._user_entry.get_vault_notes_for_context.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_vault_retrieval_empty_hit_keeps_shallow_note_digest(self):
+        # Same floor for a clean search with nothing above min_score.
+        llm = _stub_llm()
+        service, _ = _dual_service(vault_result=Result.ok(CanonContext.empty()), llm=llm)
+
+        await service.run_follow_up(
+            original_entry="entry",
+            ai_response="response",
+            user_reply="what did I write about stoicism?",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+        service._user_entry.get_vault_notes_for_context.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_run_compiled_threads_vault_dial_to_both_stages(self):
         llm = _stub_llm("Stage body.")
         service, _ = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)

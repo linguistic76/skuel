@@ -127,7 +127,10 @@ class JournalService:
         ``include_vault_notes=False`` drops the shallow recency-ordered note
         snippets — the vault dial's grounded retrieval block replaces them
         (canon P3 de-dup: never both the shallow and the semantic read of the
-        same corpus in one prompt). Dial off → byte-identical digest.
+        same corpus in one prompt). Callers pass ``False`` only when the
+        grounded block actually landed (``vault.has_passages``) — a dial-on
+        retrieval miss keeps the snippets, so grounding never drops below the
+        dial-off state. Dial off → byte-identical digest.
         """
         lines: list[str] = []
 
@@ -304,13 +307,15 @@ class JournalService:
         same with the user's own non-private vault notes (canon P3) — and
         replaces the digest's shallow note snippets with the grounded block. A
         light "Drawing on" footer is appended when anything infused. Fail-soft:
-        no grounding degrades to a normal Stage 2.
+        no grounding degrades to a normal Stage 2 — a vault retrieval that
+        misses keeps the shallow digest, so the dial never grounds below its
+        off state.
         """
-        context_summary = await self._build_context_summary(
-            user_uid, include_vault_notes=not summon_vault
-        )
         canon = await self._maybe_summon_canon(raw_entry, summon_canon)
         vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not vault.has_passages
+        )
         system_prompt = stage2_system_prompt(
             context_summary, canon.to_prompt_block(), vault.to_prompt_block()
         )
@@ -352,13 +357,13 @@ class JournalService:
         same with the user's own non-private vault notes (canon P3, replacing
         the digest's shallow snippets). A light "Drawing on" footer is appended
         when anything infused. Fail-soft: no grounding degrades to a normal
-        Stage 3.
+        Stage 3 — a vault retrieval that misses keeps the shallow digest.
         """
-        context_summary = await self._build_context_summary(
-            user_uid, include_vault_notes=not summon_vault
-        )
         canon = await self._maybe_summon_canon(raw_entry, summon_canon)
         vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not vault.has_passages
+        )
         system_prompt = stage3_system_prompt(
             context_summary, canon.to_prompt_block(), vault.to_prompt_block()
         )
@@ -517,17 +522,18 @@ class JournalService:
         ``JournalFollowUp`` — the reply text plus structured ``sources``
         (books + notes, concatenated) the route renders as clickable links
         (not a markdown footer, which a plain-text bubble would show
-        literally). Fail-soft: no grounding → empty ``sources``.
+        literally). Fail-soft: no grounding → empty ``sources`` — and a vault
+        retrieval that misses keeps the shallow note digest.
 
         Backend: GoalsService, TasksService, HabitsService (context summary);
                  CanonRetrievalService (shelf + vault); LLMCaller (response
                  generation).
         """
-        context_summary = await self._build_context_summary(
-            user_uid, include_vault_notes=not summon_vault
-        )
         canon = await self._maybe_summon_canon(user_reply, summon_canon)
         vault = await self._maybe_summon_vault(user_reply, user_uid, summon_vault)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not vault.has_passages
+        )
         system_prompt = follow_up_system_prompt(
             context_summary, mode, canon.to_discussion_block(), vault.to_discussion_block()
         )
