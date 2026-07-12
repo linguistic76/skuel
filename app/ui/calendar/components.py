@@ -20,6 +20,7 @@ See: plans/design_handoff_calendar_month/README.md
 
 __version__ = "2.0"
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from itertools import islice
 from typing import Any
@@ -185,6 +186,38 @@ def _item_start(item: CalendarItem) -> datetime:
     return item.start_time
 
 
+def _items_by_date(calendar_data: CalendarData) -> dict[date, list[CalendarItem]]:
+    """Group calendar items onto their days, expanding recurring habits.
+
+    Non-habit items land on ``start_time.date()``. A habit is a single item stamped
+    at ``now()``, so it is expanded into one all-day chip per generated occurrence
+    (title/color reused from the habit item) — otherwise recurring habits would only
+    show on today, and vanish entirely in months that don't include today.
+    """
+    habit_items = {
+        item.source_uid: item
+        for item in calendar_data.items
+        if item.item_type == CalendarItemType.HABIT
+    }
+    by_date: dict[date, list[CalendarItem]] = {}
+    for item in calendar_data.items:
+        if item.item_type == CalendarItemType.HABIT:
+            continue  # expanded from occurrences below (the raw item is a now() stub)
+        by_date.setdefault(item.start_time.date(), []).append(item)
+
+    midnight = datetime.min.time()
+    for occurrences in calendar_data.occurrences.values():
+        for occ in occurrences:
+            base = habit_items.get(occ.calendar_item_uid)
+            if base is None:
+                continue
+            day_start = datetime.combine(occ.date, midnight)
+            by_date.setdefault(occ.date, []).append(
+                replace(base, all_day=True, start_time=day_start, end_time=day_start)
+            )
+    return by_date
+
+
 def _fmt_time(dt: datetime) -> str:
     """12-hour clock without a leading zero (e.g. ``9:30 AM``)."""
     return dt.strftime("%I:%M %p").lstrip("0")
@@ -256,9 +289,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
     """Bordered month grid: ISO-week rail + 7 day columns, one row per week."""
-    items_by_date: dict[date, list[CalendarItem]] = {}
-    for item in calendar_data.items:
-        items_by_date.setdefault(item.start_time.date(), []).append(item)
+    items_by_date = _items_by_date(calendar_data)
 
     # Grid starts on the Monday on/just before the 1st of the month.
     first_day = calendar_data.start_date
@@ -397,9 +428,7 @@ def create_day_cell(
 
 def create_week_grid(calendar_data: CalendarData) -> Div:
     """Seven day-column agenda cards (Mon–Sun), each listing its events as chips."""
-    items_by_date: dict[date, list[CalendarItem]] = {}
-    for item in calendar_data.items:
-        items_by_date.setdefault(item.start_time.date(), []).append(item)
+    items_by_date = _items_by_date(calendar_data)
 
     cards = []
     for offset in range(7):
@@ -448,7 +477,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
 
 def create_day_timeline(calendar_data: CalendarData) -> Div:
     """Vertical agenda: a mono time gutter + a type-accented card per event."""
-    items = sorted(calendar_data.items, key=_item_start)
+    items = sorted(_items_by_date(calendar_data).get(calendar_data.start_date, []), key=_item_start)
     if not items:
         return Div(
             Div("Nothing scheduled", cls="text-[16px] font-semibold text-foreground mb-1.5"),
