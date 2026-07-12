@@ -338,6 +338,43 @@ class TestDetectAndApplyMoves:
         backend.delete_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_whole_folder_rename_still_detects_moves(self, tmp_path) -> None:
+        # Codex #617: renaming EVERY tracked note at once makes all old paths
+        # vanish — the physical-existence mass-deletion valve reads that as an
+        # unmounted vault, but the valves are deletion-only and must not gate
+        # move detection. The disambiguating evidence is the new files on
+        # disk, which a real unmount cannot produce.
+        new_a = tmp_path / "reorg" / "note-a.md"
+        new_b = tmp_path / "reorg" / "note-b.md"
+        new_a.parent.mkdir()
+        new_a.write_text("unique body alpha", encoding="utf-8")
+        new_b.write_text("unique body beta", encoding="utf-8")
+
+        backend = _backend_for_moves(
+            [
+                {
+                    "file_path": str(tmp_path / "note-a.md"),
+                    "entity_uid": "ue_a",
+                    "content_hash": _file_hash(new_a),
+                },
+                {
+                    "file_path": str(tmp_path / "note-b.md"),
+                    "entity_uid": "ue_b",
+                    "content_hash": _file_hash(new_b),
+                },
+            ],
+            live_uids=["ue_a", "ue_b"],
+        )
+        tracker = IngestionTracker(backend)
+
+        result = await tracker.detect_and_apply_moves(tmp_path, [new_a, new_b])
+
+        assert result.is_ok
+        assert {m.entity_uid for m in result.value.applied} == {"ue_a", "ue_b"}
+        assert backend.update_ingestion_metadata.await_count == 2
+        assert backend.delete_ingestion_metadata.await_count == 2
+
+    @pytest.mark.asyncio
     async def test_no_new_files_no_moves(self, tmp_path) -> None:
         anchor = tmp_path / "anchor.md"
         anchor.write_text("anchor", encoding="utf-8")

@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
 from core.models.relationship_names import RelationshipName
@@ -113,6 +113,27 @@ class IngestionDecision:
     needs_ingestion: bool
     reason: str  # "new", "modified", "hash_changed", "unchanged"
     existing_metadata: FileIngestionMetadata | None = None
+
+
+@dataclass(frozen=True)
+class _GoneRowClassification:
+    """Gone-row classification shared by ``plan_deletions`` and the move pre-pass.
+
+    Pattern scope, collectible check, moved/stale split, and owner-scope
+    filtering are applied here; the mass-deletion valves are NOT — they are
+    deletion-only safety devices, applied by ``plan_deletions`` on top. The
+    move pre-pass must see candidates even when a whole-folder rename makes
+    every old path physically vanish (the case the physical-existence valve
+    reads as "unmounted vault"; for MOVES the disambiguating evidence is the
+    new files on disk, which an unmounted vault cannot produce).
+    """
+
+    all_tracked: list[dict[str, Any]]
+    stale_rows: list[dict[str, Any]]
+    # Owner-filtered entity delete candidates (edge rows split out).
+    entity_rows: list[dict[str, Any]]
+    edge_rows: list[dict[str, Any]]
+    ownership_mismatches: list[str]
 
 
 class IngestionTracker:
@@ -348,6 +369,117 @@ class IngestionTracker:
         deleted_count = records[0]["deleted"] if records else 0
         return Result.ok(deleted_count)
 
+    async def _classify_gone_rows(
+        self,
+        directory: Path,
+        pattern: str = "*",
+        *,
+        allowlist: "SyncAllowlist | None" = None,
+        owner_uid: UserUID | None = None,
+    ) -> Result[_GoneRowClassification | None]:
+        """Shared gone-row classification — the valve-free half of ``plan_deletions``.
+
+        Applies pattern scope, the collectible check (``is_ingestible_path`` —
+        wall symmetry with ``collect_files``), the moved/stale split (uid still
+        claimed by a collectible file → stale row, entity survives), the
+        entity/edge split, and the owner-scope filter (fail-closed: an owner
+        lookup error fails the run rather than falling through to an unscoped
+        delete). Returns ``None`` when nothing is tracked in scope or nothing
+        is gone.
+
+        Deliberately does NOT apply the mass-deletion valves: those protect
+        DELETION. The move pre-pass consumes this classification too, and must
+        see candidates even when a whole-folder rename makes every old path
+        vanish at once — the physical-existence valve reads that as an
+        unmounted vault, but a real unmount produces no new files to match, so
+        move detection stays inert there without the valve (Codex #617).
+
+        Backend (reads only): IngestionBackend.get_tracked_files_under /
+        get_entity_owner_uids.
+        """
+        # Trailing separator so /vault/a never matches /vault/abc.
+        prefix = str(directory.resolve()).rstrip("/") + "/"
+        tracked_result = await self.backend.get_tracked_files_under(prefix)
+        if tracked_result.is_error:
+            return Result.fail(tracked_result)
+
+        all_tracked = tracked_result.value or []
+        tracked = [row for row in all_tracked if _matches_pattern(str(row["file_path"]), pattern)]
+        if not tracked:
+            return Result.ok(None)
+
+        def _collectible(row: dict[str, Any]) -> bool:
+            # Survives iff collect_files would still collect it: on disk AND not
+            # excluded by the vault wall (staging floor / allowlist).
+            path = Path(str(row["file_path"]))
+            return path.exists() and is_ingestible_path(path, allowlist)
+
+        # "gone" = deleted from disk OR now walled — both are retracted.
+        gone = [row for row in tracked if not _collectible(row)]
+        if not gone:
+            return Result.ok(None)
+
+        # Identities still claimed by a file that would still be collected =
+        # moves/renames to an allowed location (covers duplicate edge files too).
+        # Claims are checked against ALL tracked rows, not just the pattern scope —
+        # an identity owned by an out-of-scope allowed file must survive.
+        live_uids = {row["entity_uid"] for row in all_tracked if _collectible(row)}
+        stale_rows = [row for row in gone if row["entity_uid"] in live_uids]
+        delete_rows = [row for row in gone if row["entity_uid"] not in live_uids]
+
+        entity_rows = [
+            row for row in delete_rows if not str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
+        ]
+        edge_rows = [
+            row for row in delete_rows if str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
+        ]
+
+        ownership_mismatches: list[str] = []
+        if owner_uid is not None and entity_rows:
+            owners_result = await self.backend.get_entity_owner_uids(
+                [str(row["entity_uid"]) for row in entity_rows]
+            )
+            if owners_result.is_error:
+                # Fail the run rather than fall through to an UNSCOPED delete —
+                # the guard must fail closed.
+                return Result.fail(owners_result)
+            foreign_uids = {
+                str(rec["uid"])
+                for rec in owners_result.value or []
+                if str(rec["user_uid"]) != str(owner_uid)
+            }
+            if foreign_uids:
+                skipped = [row for row in entity_rows if str(row["entity_uid"]) in foreign_uids]
+                entity_rows = [
+                    row for row in entity_rows if str(row["entity_uid"]) not in foreign_uids
+                ]
+                # Mismatch rows surface in the sync UI/API — render paths
+                # relative to the sync root; the log below keeps absolutes.
+                for row in skipped:
+                    ownership_mismatches.append(
+                        f"deletion skipped for {display_path(str(row['file_path']), directory)}: "
+                        f"entity {row['entity_uid']} belongs to a different user than this "
+                        "vault's owner — resolve ownership before deleting"
+                    )
+                self.logger.warning(
+                    "Deletion reconciliation: skipped %d entity deletion(s) under %s "
+                    "owned by a different user than the vault owner %s: %s",
+                    len(skipped),
+                    directory,
+                    owner_uid,
+                    ", ".join(str(row["file_path"]) for row in skipped),
+                )
+
+        return Result.ok(
+            _GoneRowClassification(
+                all_tracked=all_tracked,
+                stale_rows=stale_rows,
+                entity_rows=entity_rows,
+                edge_rows=edge_rows,
+                ownership_mismatches=ownership_mismatches,
+            )
+        )
+
     async def plan_deletions(
         self,
         directory: Path,
@@ -405,27 +537,20 @@ class IngestionTracker:
         Backend (reads only): IngestionBackend.get_tracked_files_under /
         get_entity_owner_uids.
         """
-        # Trailing separator so /vault/a never matches /vault/abc.
-        prefix = str(directory.resolve()).rstrip("/") + "/"
-        tracked_result = await self.backend.get_tracked_files_under(prefix)
-        if tracked_result.is_error:
-            return Result.fail(tracked_result)
-
-        all_tracked = tracked_result.value or []
-        tracked = [row for row in all_tracked if _matches_pattern(str(row["file_path"]), pattern)]
-        if not tracked:
+        classification_result = await self._classify_gone_rows(
+            directory, pattern, allowlist=allowlist, owner_uid=owner_uid
+        )
+        if classification_result.is_error:
+            return Result.fail(classification_result)
+        classification = classification_result.value
+        if classification is None:
             return Result.ok(DeletionPlan())
 
-        def _collectible(row: dict[str, EntityUID]) -> bool:
-            # Survives iff collect_files would still collect it: on disk AND not
-            # excluded by the vault wall (staging floor / allowlist).
-            path = Path(str(row["file_path"]))
-            return path.exists() and is_ingestible_path(path, allowlist)
-
-        # "gone" = deleted from disk OR now walled — both are retracted.
-        gone = [row for row in tracked if not _collectible(row)]
-        if not gone:
-            return Result.ok(DeletionPlan())
+        all_tracked = classification.all_tracked
+        stale_rows = classification.stale_rows
+        entity_rows = classification.entity_rows
+        edge_rows = classification.edge_rows
+        ownership_mismatches = list(classification.ownership_mismatches)
 
         # Mass-deletion valve is PHYSICAL-existence only (mount detection), so a
         # wall change that leaves files on disk still purges them.
@@ -441,57 +566,6 @@ class IngestionTracker:
             )
             self.logger.warning("%s [vault root: %s]", warning, directory)
             return Result.ok(DeletionPlan(mass_deletion_refused=True, refusal_warning=warning))
-
-        # Identities still claimed by a file that would still be collected =
-        # moves/renames to an allowed location (covers duplicate edge files too).
-        # Claims are checked against ALL tracked rows, not just the pattern scope —
-        # an identity owned by an out-of-scope allowed file must survive.
-        live_uids = {row["entity_uid"] for row in all_tracked if _collectible(row)}
-        stale_rows = [row for row in gone if row["entity_uid"] in live_uids]
-        delete_rows = [row for row in gone if row["entity_uid"] not in live_uids]
-
-        entity_rows = [
-            row for row in delete_rows if not str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
-        ]
-        edge_rows = [
-            row for row in delete_rows if str(row["entity_uid"]).startswith(EDGE_UID_PREFIX)
-        ]
-
-        ownership_mismatches: list[str] = []
-        if owner_uid is not None and entity_rows:
-            owners_result = await self.backend.get_entity_owner_uids(
-                [str(row["entity_uid"]) for row in entity_rows]
-            )
-            if owners_result.is_error:
-                # Fail the run rather than fall through to an UNSCOPED delete —
-                # the guard must fail closed.
-                return Result.fail(owners_result)
-            foreign_uids = {
-                str(rec["uid"])
-                for rec in owners_result.value or []
-                if str(rec["user_uid"]) != str(owner_uid)
-            }
-            if foreign_uids:
-                skipped = [row for row in entity_rows if str(row["entity_uid"]) in foreign_uids]
-                entity_rows = [
-                    row for row in entity_rows if str(row["entity_uid"]) not in foreign_uids
-                ]
-                # Mismatch rows surface in the sync UI/API — render paths
-                # relative to the sync root; the log below keeps absolutes.
-                for row in skipped:
-                    ownership_mismatches.append(
-                        f"deletion skipped for {display_path(str(row['file_path']), directory)}: "
-                        f"entity {row['entity_uid']} belongs to a different user than this "
-                        "vault's owner — resolve ownership before deleting"
-                    )
-                self.logger.warning(
-                    "Deletion reconciliation: skipped %d entity deletion(s) under %s "
-                    "owned by a different user than the vault owner %s: %s",
-                    len(skipped),
-                    directory,
-                    owner_uid,
-                    ", ".join(str(row["file_path"]) for row in skipped),
-                )
 
         # Split edge rows by parseability up front: an unparseable identity only
         # ever gets its tracking row cleaned (metadata-only, no graph data), so
@@ -598,43 +672,49 @@ class IngestionTracker:
         - ambiguity (2+ gone rows or 2+ new files sharing a hash) → skip;
         - trivial content (empty / whitespace-only) → never matched;
         - only rows whose uid names a live node are rewritten (mirrors #616);
-        - foreign-owned rows never qualify (``plan_deletions`` owner scope).
+        - foreign-owned rows never qualify (shared owner-scope filter).
 
-        Move-source candidates are exactly ``plan_deletions``' entity
-        deletions — rows deletion reconciliation WOULD delete — so a move can
-        only ever REDUCE the delete set. Authored-uid files don't need this
-        pass (the uid-based moved/stale split already preserves them) but
-        pass through harmlessly: rewriting to the same authored uid is what
-        ingestion would stamp anyway.
+        Move-source candidates come from ``_classify_gone_rows`` — the same
+        valve-free classification ``plan_deletions`` builds on — so a move can
+        only ever REDUCE the delete set. The mass-deletion valves deliberately
+        do NOT gate this pass (Codex #617): a whole-folder rename makes every
+        old path vanish at once, which the physical-existence valve reads as
+        an unmounted vault — but a real unmount produces no new files to
+        match, so move detection is naturally inert there, while a genuine
+        reorganization gets its identities preserved. Authored-uid files don't
+        need this pass (the uid-based moved/stale split already preserves
+        them) but pass through harmlessly: rewriting to the same authored uid
+        is what ingestion would stamp anyway.
 
         The rewritten row carries pending markers (empty hash, mtime 0): the
         current run's ingest re-stamps it on success, and if that ingest
         fails the next sync re-processes the file instead of hash-skipping a
         node whose path metadata never updated.
 
-        Backend: IngestionBackend.get_tracked_files_under (via plan) /
-        get_live_entity_uids / update_ingestion_metadata /
+        Backend: IngestionBackend.get_tracked_files_under (via the shared
+        classification) / get_live_entity_uids / update_ingestion_metadata /
         delete_ingestion_metadata.
         """
         if not files_to_process:
             return Result.ok(MovePlan())
 
-        plan_result = await self.plan_deletions(
+        classification_result = await self._classify_gone_rows(
             directory, pattern, allowlist=allowlist, owner_uid=owner_uid
         )
-        if plan_result.is_error:
-            return Result.fail(plan_result)
-        # A threshold-valve refusal still carries entity_deletions — applying
-        # moves is exactly what shrinks the delete set below the valve. The
-        # physical-existence valve returns an empty plan (no candidates).
+        if classification_result.is_error:
+            return Result.fail(classification_result)
+        classification = classification_result.value
+        if classification is None:
+            return Result.ok(MovePlan())
+
         candidates = [
             MoveCandidate(
-                file_path=planned.file_path,
-                entity_uid=planned.entity_uid,
-                content_hash=planned.content_hash or "",
+                file_path=str(row["file_path"]),
+                entity_uid=str(row["entity_uid"]),
+                content_hash=str(row["content_hash"]),
             )
-            for planned in plan_result.value.entity_deletions
-            if planned.content_hash
+            for row in classification.entity_rows
+            if row.get("content_hash")
         ]
         if not candidates:
             return Result.ok(MovePlan())
