@@ -36,6 +36,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
+from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.move_detection import (
     MoveCandidate,
     NewFileCandidate,
@@ -123,7 +124,18 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
         # Valid-YAML-but-not-a-mapping frontmatter (e.g. a list): the file
         # will fail ingestion's own validation — never a move destination.
         return None
-    if EntityType.from_string(str(frontmatter.get("type", ""))) is not EntityType.USER_ENTRY:
+    if not isinstance(frontmatter.get("type", ""), str):
+        return None  # malformed type value — ingestion's detection would choke
+    try:
+        detected = detect_entity_type(frontmatter, file_path)
+    except ValueError:
+        # THE detector's own verdict, not an approximation: undetectable or
+        # ADR-054-retired types (je_input/je_output/exercise_submission —
+        # which EntityType.from_string would happily alias back to
+        # USER_ENTRY) will fail ingestion's detection, so a rewritten row
+        # pointing at such a file could never be honored.
+        return None
+    if detected is not EntityType.USER_ENTRY:
         return None
     # Mirror the prior-uid gate's None checks exactly (not key presence): a
     # bare ``uid:`` parses to YAML null and build_user_entry_request treats

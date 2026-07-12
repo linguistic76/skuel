@@ -872,6 +872,23 @@ class TestDetectAndApplyMoves:
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_retired_alias_type_never_a_destination(self, tmp_path) -> None:
+        # Codex #618 round 4: ADR-054-retired type aliases (je_input,
+        # je_output, exercise_submission) alias back to USER_ENTRY via
+        # EntityType.from_string, but the ingestion detector REJECTS them —
+        # such a file fails ingestion, so a rewritten row toward it would
+        # keep the gone node alive forever. The gate uses the detector's own
+        # verdict.
+        result, backend = await self._similarity_case(
+            tmp_path,
+            "legacy-submission.md",
+            f"---\ntype: exercise_submission\n---\n{_LONG_BODY} Small addition.",
+        )
+        assert result.is_ok
+        assert result.value.applied == ()
+        backend.update_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_authored_uid_gone_row_never_a_source(self, tmp_path) -> None:
         # Codex #618 P1, other direction: a gone AUTHORED/periodic identity
         # (here a derived periodic uid) is stable across paths — bridging it
