@@ -24,6 +24,7 @@ Usage:
 """
 
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatch
@@ -31,14 +32,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
+from core.services.ingestion.detector import detect_entity_type
 from core.services.ingestion.move_detection import (
     MoveCandidate,
     NewFileCandidate,
     match_moves_by_hash,
+    match_moves_by_similarity,
 )
+from core.services.ingestion.parser import parse_markdown
 from core.services.ingestion.types import (
     AppliedMove,
     DeletionPlan,
@@ -77,6 +82,83 @@ def parse_edge_identity(identity: str) -> tuple[str, str, str] | None:
     if len(parts) != 3 or not all(parts):
         return None
     return parts[0], parts[1], parts[2]
+
+
+# A minted uid-less UserEntry uid: UIDGenerator.generate_random_uid("ue") =
+# "ue_" + uuid4().hex[:8]. Similarity move SOURCES are restricted to this
+# shape — an authored or periodic uid (ue:daily:…, moc.worldview) is stable
+# across paths and must never be similarity-bridged: this is a provenance
+# check (minted vs authored spelling), not a type sniff (ADR-013).
+_MINTED_UE_UID = re.compile(r"ue_[0-9a-f]{8}\Z")
+
+# metadata.entry_kind values that derive a periodic uid in
+# build_user_entry_request — such files never honor a prior (rewritten) uid.
+_PERIODIC_ENTRY_KINDS = frozenset({"daily", "weekly", "monthly"})
+
+
+def _similarity_candidate_content(file_path: Path) -> str | None:
+    """Resolve a new file's comparison content — ``None`` if not a candidate.
+
+    A similarity rewrite is only safe when the file will actually HONOR the
+    rewritten row's uid, i.e. when it routes through the user-entry pipeline
+    and passes ``build_user_entry_request``'s prior-uid hard gates (Codex
+    #618). A file that would ignore the prior uid (authored ``uid:``,
+    derived periodic uid, turn-in ``fulfills_exercise_uid:``, non-user_entry
+    ``type:``) must not be matched: ingestion would re-stamp the row with
+    its own uid — or fuse the note into the gone node's identity — while
+    deletion reconciliation no longer sees the old path, orphaning the gone
+    node. Exclusion falls back to delete+create, the safe failure.
+
+    Deliberately mirrored here are ONLY the conditions that change which
+    uid a *successful* ingest honors — not ingestion's full validation
+    (pipeline/status/audience/ownership, some DB-dependent). A gated-in
+    file that then FAILS ingest is a designed-for state, not a hole: the
+    rewritten row's pending markers force a retry (and the file's error is
+    re-reported) every sync; fixing the file ingests with the preserved
+    identity, and deleting it leaves the uid unclaimed so reconciliation
+    deletes the gone node normally (Codex #618 round 6, considered).
+
+    For candidates, the returned content is resolved the way ingestion
+    resolves it — explicit frontmatter ``content:`` wins (key presence, not
+    truthiness), else the markdown body — because the gone node's ``content``
+    is the RESOLVED body: comparing raw file text would dilute the score
+    with frontmatter noise. Unparseable / oversized files, non-mapping
+    frontmatter, and empty resolved content return ``None``.
+    """
+    parsed = parse_markdown(file_path)
+    if parsed.is_error:
+        return None
+    frontmatter, body = parsed.value
+    if not isinstance(frontmatter, dict):
+        # Valid-YAML-but-not-a-mapping frontmatter (e.g. a list): the file
+        # will fail ingestion's own validation — never a move destination.
+        return None
+    if not isinstance(frontmatter.get("type", ""), str):
+        return None  # malformed type value — ingestion's detection would choke
+    try:
+        detected = detect_entity_type(frontmatter, file_path)
+    except ValueError:
+        # THE detector's own verdict, not an approximation: undetectable or
+        # ADR-054-retired types (je_input/je_output/exercise_submission —
+        # which EntityType.from_string would happily alias back to
+        # USER_ENTRY) will fail ingestion's detection, so a rewritten row
+        # pointing at such a file could never be honored.
+        return None
+    if detected is not EntityType.USER_ENTRY:
+        return None
+    # Mirror the prior-uid gate's None checks exactly (not key presence): a
+    # bare ``uid:`` parses to YAML null and build_user_entry_request treats
+    # it as no override — that file still honors the rewritten uid and is
+    # safe to bridge. ``uid: ""`` is NOT None, fails the gate there, and
+    # mints fresh — so it stays excluded here too.
+    if frontmatter.get("uid") is not None or frontmatter.get("fulfills_exercise_uid") is not None:
+        return None
+    metadata = frontmatter.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("entry_kind") in _PERIODIC_ENTRY_KINDS:
+        return None
+    content = frontmatter.get("content", body)
+    text = "" if content is None else str(content)
+    return text if text.strip() else None
 
 
 def _matches_pattern(path_str: str, pattern: str) -> bool:
@@ -666,12 +748,19 @@ class IngestionTracker:
         ingestion loop and deletion reconciliation — later, and the new path
         has already minted a fresh uid or the old node is already gone.
 
-        Phase 1 is exact-hash only: a rename + edit in the same sync changes
-        the hash and falls back to delete+create (the Phase 2 similarity
-        follow-up consumes ``HashMatchResult``'s residual). Safety rails:
-        - ambiguity (2+ gone rows or 2+ new files sharing a hash) → skip;
+        Two matching strategies in sequence. **Exact hash** catches pure
+        renames. **Lexical similarity** over the exact pass's residual
+        catches a rename + edit in the same sync: the gone node's
+        last-ingested body (``Entity.content``) is compared against each new
+        markdown file's resolved on-disk content (word-shingle Jaccard), and
+        only a MUTUAL best match at or above
+        ``SIMILARITY_MOVE_THRESHOLD`` is applied — logged distinctly with
+        its score. Safety rails:
+        - ambiguity (2+ candidates sharing a hash, or a tied similarity
+          top score) → skip, delete+create;
         - trivial content (empty / whitespace-only) → never matched;
-        - only rows whose uid names a live node are rewritten (mirrors #616);
+        - only rows whose uid names a live node are rewritten (mirrors #616;
+          for similarity the content fetch itself is the live-node proof);
         - foreign-owned rows never qualify (shared owner-scope filter).
 
         Move-source candidates come from ``_classify_gone_rows`` — the same
@@ -692,8 +781,8 @@ class IngestionTracker:
         node whose path metadata never updated.
 
         Backend: IngestionBackend.get_tracked_files_under (via the shared
-        classification) / get_live_entity_uids / update_ingestion_metadata /
-        delete_ingestion_metadata.
+        classification) / get_live_entity_uids / get_entity_contents /
+        update_ingestion_metadata / delete_ingestion_metadata.
         """
         if not files_to_process:
             return Result.ok(MovePlan())
@@ -751,62 +840,176 @@ class IngestionTracker:
         match = match_moves_by_hash(candidates, new_files)
         for message in match.ambiguous:
             self.logger.info("Move detection: %s", message)
-        if not match.pairs:
-            return Result.ok(MovePlan())
 
-        # Live-node guard (mirrors #616): a stale row pointing at a deleted
-        # node is not a move source.
-        live_result = await self.backend.get_live_entity_uids(
-            [pair.row.entity_uid for pair in match.pairs]
+        applied: list[AppliedMove] = []
+        if match.pairs:
+            # Live-node guard (mirrors #616): a stale row pointing at a deleted
+            # node is not a move source.
+            live_result = await self.backend.get_live_entity_uids(
+                [pair.row.entity_uid for pair in match.pairs]
+            )
+            if live_result.is_error:
+                return Result.fail(live_result)
+            live_uids = {str(record["uid"]) for record in live_result.value or []}
+
+            for pair in match.pairs:
+                if pair.row.entity_uid not in live_uids:
+                    self.logger.info(
+                        "Move detection: skipping %s → %s — entity %s no longer exists",
+                        pair.row.file_path,
+                        pair.new_file.file_path,
+                        pair.row.entity_uid,
+                    )
+                    continue
+                rewrite_result = await self._rewrite_move_row(
+                    pair.row, pair.new_file, directory, similarity=None
+                )
+                if rewrite_result.is_error:
+                    return Result.fail(rewrite_result)
+                applied.append(rewrite_result.value)
+
+        similarity_result = await self._detect_similarity_moves(
+            match.residual_rows, match.residual_files, directory
         )
-        if live_result.is_error:
-            return Result.fail(live_result)
-        live_uids = {str(record["uid"]) for record in live_result.value or []}
+        if similarity_result.is_error:
+            return Result.fail(similarity_result)
+        applied.extend(similarity_result.value)
+
+        return Result.ok(MovePlan(applied=tuple(applied)))
+
+    async def _detect_similarity_moves(
+        self,
+        residual_rows: tuple[MoveCandidate, ...],
+        residual_files: tuple[NewFileCandidate, ...],
+        directory: Path,
+    ) -> Result[list[AppliedMove]]:
+        """Similarity pass over the exact-hash residual (rename + edit in one sync).
+
+        Comparison source is the gone node's own last-ingested body
+        (``Entity.content`` — already in the graph, no new storage) vs each
+        new markdown file's resolved on-disk content; scoring is cheap
+        synchronous lexical similarity (word-shingle Jaccard), CORE-tier-safe
+        — deliberately NOT embeddings. Only a mutual best match at or above
+        ``SIMILARITY_MOVE_THRESHOLD`` is applied; a tied top score abstains.
+        The content fetch is also the live-node guard: a hand-deleted node
+        yields no content row, so its row can never be a move source.
+
+        Candidacy is gated to the uid-less UserEntry world on BOTH sides
+        (Codex #618): sources must carry a MINTED ``ue_`` uid (an authored or
+        periodic uid is stable across paths — the uid-based moved/stale
+        split owns those, and bridging one here would fuse identities or
+        orphan the gone node), and destinations must be markdown files that
+        will honor the rewritten uid (``_similarity_candidate_content``'s
+        gates — uid-less notes are markdown; YAML entity files author their
+        uids and have no body to compare).
+        """
+        candidate_rows = [row for row in residual_rows if _MINTED_UE_UID.fullmatch(row.entity_uid)]
+        if not candidate_rows or not residual_files:
+            return Result.ok([])
+        markdown_files = [
+            new_file
+            for new_file in residual_files
+            if Path(new_file.file_path).suffix.lower() == ".md"
+        ]
+        if not markdown_files:
+            return Result.ok([])
+
+        contents_result = await self.backend.get_entity_contents(
+            [row.entity_uid for row in candidate_rows]
+        )
+        if contents_result.is_error:
+            return Result.fail(contents_result)
+        content_by_uid = {
+            record["uid"]: record["content"]
+            for record in contents_result.value or []
+            if record["content"].strip()
+        }
+        rows_with_content = [
+            (row, content_by_uid[row.entity_uid])
+            for row in candidate_rows
+            if row.entity_uid in content_by_uid
+        ]
+        if not rows_with_content:
+            return Result.ok([])
+
+        files_with_content: list[tuple[NewFileCandidate, str]] = []
+        for new_file in markdown_files:
+            resolved = _similarity_candidate_content(Path(new_file.file_path))
+            if resolved is not None:
+                files_with_content.append((new_file, resolved))
+        if not files_with_content:
+            return Result.ok([])
+
+        match = match_moves_by_similarity(rows_with_content, files_with_content)
+        for message in match.ambiguous:
+            self.logger.info("Move detection: %s", message)
 
         applied: list[AppliedMove] = []
         for pair in match.pairs:
-            if pair.row.entity_uid not in live_uids:
-                self.logger.info(
-                    "Move detection: skipping %s → %s — entity %s no longer exists",
-                    pair.row.file_path,
-                    pair.new_file.file_path,
-                    pair.row.entity_uid,
-                )
-                continue
-            # Upsert the new-path row FIRST, then drop the old one — a crash
-            # between the two leaves both rows claiming one uid, which the
-            # uid-based moved/stale split resolves as a stale row, never a
-            # node deletion.
-            upsert_result = await self.backend.update_ingestion_metadata(
-                {
-                    "file_path": pair.new_file.file_path,
-                    "content_hash": "",  # pending marker — see docstring
-                    "file_mtime": 0.0,
-                    "entity_uid": pair.row.entity_uid,
-                }
+            rewrite_result = await self._rewrite_move_row(
+                pair.row, pair.new_file, directory, similarity=pair.score
             )
-            if upsert_result.is_error:
-                return Result.fail(upsert_result)
-            delete_result = await self.backend.delete_ingestion_metadata([pair.row.file_path])
-            if delete_result.is_error:
-                return Result.fail(delete_result)
+            if rewrite_result.is_error:
+                return Result.fail(rewrite_result)
+            applied.append(rewrite_result.value)
+        return Result.ok(applied)
+
+    async def _rewrite_move_row(
+        self,
+        row: MoveCandidate,
+        new_file: NewFileCandidate,
+        directory: Path,
+        *,
+        similarity: float | None,
+    ) -> Result[AppliedMove]:
+        """Rewrite one tracker row old path → new path under the same uid.
+
+        Upserts the new-path row FIRST, then drops the old one — a crash
+        between the two leaves both rows claiming one uid, which the
+        uid-based moved/stale split resolves as a stale row, never a node
+        deletion. The new row carries pending markers (empty hash, mtime 0)
+        so a failed ingest this run still retries next sync. ``similarity``
+        is the Jaccard score for a similarity match (logged distinctly),
+        ``None`` for an exact-hash match.
+        """
+        upsert_result = await self.backend.update_ingestion_metadata(
+            {
+                "file_path": new_file.file_path,
+                "content_hash": "",  # pending marker — see docstring
+                "file_mtime": 0.0,
+                "entity_uid": row.entity_uid,
+            }
+        )
+        if upsert_result.is_error:
+            return Result.fail(upsert_result)
+        delete_result = await self.backend.delete_ingestion_metadata([row.file_path])
+        if delete_result.is_error:
+            return Result.fail(delete_result)
+        if similarity is None:
             self.logger.info(
                 "Move detected (content hash): %s → %s (uid %s)",
-                pair.row.file_path,
-                pair.new_file.file_path,
-                pair.row.entity_uid,
+                row.file_path,
+                new_file.file_path,
+                row.entity_uid,
             )
-            applied.append(
-                AppliedMove(
-                    old_path=pair.row.file_path,
-                    new_path=pair.new_file.file_path,
-                    entity_uid=pair.row.entity_uid,
-                    display_old=display_path(pair.row.file_path, directory),
-                    display_new=display_path(pair.new_file.file_path, directory),
-                )
+        else:
+            self.logger.info(
+                "Move detected (similarity %.3f): %s → %s (uid %s)",
+                similarity,
+                row.file_path,
+                new_file.file_path,
+                row.entity_uid,
             )
-
-        return Result.ok(MovePlan(applied=tuple(applied)))
+        return Result.ok(
+            AppliedMove(
+                old_path=row.file_path,
+                new_path=new_file.file_path,
+                entity_uid=row.entity_uid,
+                display_old=display_path(row.file_path, directory),
+                display_new=display_path(new_file.file_path, directory),
+                similarity=similarity,
+            )
+        )
 
     async def reconcile_deletions(
         self,

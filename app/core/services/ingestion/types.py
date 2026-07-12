@@ -299,11 +299,14 @@ class DeletionPlan:
 class AppliedMove:
     """One tracker-row rewrite applied by the move-detection pre-pass.
 
-    A gone tracked path and a new untracked file shared a content hash 1:1,
-    so the row moved ``old_path → new_path`` under the SAME ``entity_uid`` —
-    the node, its edges, and ``created_at`` all survive the rename. Absolute
-    paths key the tracker; ``display_*`` are the vault-relative renderings
-    (#525) for user-facing surfaces.
+    A gone tracked path and a new untracked file matched — an exact content
+    hash 1:1 (pure rename) or a mutual-best lexical similarity (rename +
+    edit in one sync) — so the row moved ``old_path → new_path`` under the
+    SAME ``entity_uid``: the node, its edges, and ``created_at`` all survive
+    the rename. Absolute paths key the tracker; ``display_*`` are the
+    vault-relative renderings (#525) for user-facing surfaces.
+    ``similarity`` is the Jaccard score for a similarity match, ``None`` for
+    an exact-hash match — the two are surfaced distinctly.
     """
 
     old_path: str
@@ -311,11 +314,12 @@ class AppliedMove:
     entity_uid: str
     display_old: str
     display_new: str
+    similarity: float | None = None
 
 
 @dataclass(frozen=True)
 class MovePlan:
-    """Outcome of ``IngestionTracker.detect_and_apply_moves`` (Phase 1, exact hash)."""
+    """Outcome of ``IngestionTracker.detect_and_apply_moves`` (exact hash + similarity)."""
 
     applied: tuple[AppliedMove, ...] = ()
 

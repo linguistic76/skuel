@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
     from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_names import RelationshipName
+    from core.ports.query_types import EntityContentRow
 
 
 @runtime_checkable
@@ -82,6 +83,8 @@ class IngestionBackendOperations(Protocol):
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]: ...
 
     async def get_live_entity_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_entity_contents(self, uids: list[str]) -> Result[list[EntityContentRow]]: ...
 
     async def delete_entities_with_metadata(
         self, items: list[dict[str, str]]

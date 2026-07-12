@@ -2907,6 +2907,19 @@ class CleanupStats(TypedDict):
     bytes_freed: int
 
 
+class EntityContentRow(TypedDict):
+    """One live entity's last-ingested body, keyed by uid.
+
+    Return row of ``IngestionBackendOperations.get_entity_contents`` — the
+    move pre-pass's similarity comparison source. Both fields are guaranteed:
+    the query only returns rows for live :Entity nodes with non-empty
+    ``content``.
+    """
+
+    uid: str
+    content: str
+
+
 # ============================================================================
 # PS AI SERVICE RESULT TYPES
 # ============================================================================
@@ -3183,6 +3196,8 @@ __all__ = [
     "RelationshipGraphRow",
     # Journal Result Types
     "CleanupStats",
+    # Ingestion Result Types
+    "EntityContentRow",
     # PS AI Service Result Types
     "StepApplicationsResult",
     "StepLearningSequenceItem",
