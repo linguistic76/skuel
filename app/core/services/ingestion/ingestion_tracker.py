@@ -109,6 +109,15 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     deletion reconciliation no longer sees the old path, orphaning the gone
     node. Exclusion falls back to delete+create, the safe failure.
 
+    Deliberately mirrored here are ONLY the conditions that change which
+    uid a *successful* ingest honors — not ingestion's full validation
+    (pipeline/status/audience/ownership, some DB-dependent). A gated-in
+    file that then FAILS ingest is a designed-for state, not a hole: the
+    rewritten row's pending markers force a retry (and the file's error is
+    re-reported) every sync; fixing the file ingests with the preserved
+    identity, and deleting it leaves the uid unclaimed so reconciliation
+    deletes the gone node normally (Codex #618 round 6, considered).
+
     For candidates, the returned content is resolved the way ingestion
     resolves it — explicit frontmatter ``content:`` wins (key presence, not
     truthiness), else the markdown body — because the gone node's ``content``
