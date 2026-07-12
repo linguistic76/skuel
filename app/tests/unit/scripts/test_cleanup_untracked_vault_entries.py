@@ -29,7 +29,7 @@ def test_tracked_path_is_deletable():
     """Positive orphan signal: the path is tracked to a live entry → DELETE."""
     rows = [_row("ue_orphan", path="/vault/note.md")]
     deletable, ambiguous = select_orphans(
-        rows, tracked_uids=set(), tracked_paths={"/vault/note.md"}
+        rows, tracked_uids=set(), live_ue_paths={"/vault/note.md"}
     )
     assert [o["uid"] for o in deletable] == ["ue_orphan"]
     assert deletable[0]["vault_file_path"] == "/vault/note.md"
@@ -39,7 +39,7 @@ def test_tracked_path_is_deletable():
 def test_untracked_path_is_ambiguous_not_deletable():
     """No tracked entry at this path → REVIEW-only, never auto-deleted."""
     rows = [_row("ue_lonely", path="/vault/lonely.md")]
-    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), tracked_paths=set())
+    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())
     assert deletable == []
     assert [o["uid"] for o in ambiguous] == ["ue_lonely"]
 
@@ -48,7 +48,7 @@ def test_tracked_entry_is_kept_entirely():
     """A tracked (live) entry is neither deletable nor ambiguous."""
     rows = [_row("ue_live", path="/vault/note.md")]
     deletable, ambiguous = select_orphans(
-        rows, tracked_uids={"ue_live"}, tracked_paths={"/vault/note.md"}
+        rows, tracked_uids={"ue_live"}, live_ue_paths={"/vault/note.md"}
     )
     assert deletable == []
     assert ambiguous == []
@@ -57,7 +57,7 @@ def test_tracked_entry_is_kept_entirely():
 def test_turn_in_copy_is_kept():
     """Belt-and-braces: a FULFILLS_EXERCISE-bearing entry is never a candidate."""
     rows = [_row("ue_turnin", path="/vault/t.md", has_fulfills=True)]
-    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), tracked_paths={"/vault/t.md"})
+    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths={"/vault/t.md"})
     assert deletable == []
     assert ambiguous == []
 
@@ -65,7 +65,7 @@ def test_turn_in_copy_is_kept():
 def test_entry_without_vault_path_is_kept():
     """A non-vault UserEntry (no vault_file_path key) is out of scope entirely."""
     rows = [_row("ue_form", vault=False)]
-    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), tracked_paths=set())
+    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())
     assert deletable == []
     assert ambiguous == []
 
@@ -75,7 +75,7 @@ def test_null_or_malformed_metadata_is_kept():
         {"uid": "ue_none", "metadata": None, "pipeline": "knowledge", "has_fulfills": False},
         {"uid": "ue_bad", "metadata": "{not json", "pipeline": "knowledge", "has_fulfills": False},
     ]
-    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), tracked_paths=set())
+    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())
     assert deletable == []
     assert ambiguous == []
 
@@ -91,7 +91,7 @@ def test_substring_only_match_is_not_a_hit():
             "has_fulfills": False,
         }
     ]
-    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), tracked_paths=set())
+    deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())
     assert deletable == []
     assert ambiguous == []
 
@@ -105,7 +105,7 @@ def test_mixed_batch_splits_correctly():
     deletable, ambiguous = select_orphans(
         rows,
         tracked_uids={"ue_live"},
-        tracked_paths={"/vault/a.md", "/vault/c.md"},
+        live_ue_paths={"/vault/a.md", "/vault/c.md"},
     )
     assert [o["uid"] for o in deletable] == ["ue_super"]
     assert [o["uid"] for o in ambiguous] == ["ue_lonely"]

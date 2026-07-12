@@ -53,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def select_orphans(
     user_entry_rows: list[dict[str, Any]],
     tracked_uids: set[str],
-    tracked_paths: set[str],
+    live_ue_paths: set[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Split uid-less vault UserEntry candidates into (deletable, ambiguous).
 
@@ -64,8 +64,13 @@ def select_orphans(
       - it has no outgoing ``FULFILLS_EXERCISE`` edge (``has_fulfills`` False).
 
     A candidate is **deletable** only with the positive orphan signal (Codex
-    #616 P1): its ``vault_file_path`` ∈ ``tracked_paths`` — a live tracked entry
-    at the same file supersedes it. Otherwise it is **ambiguous** (a possible
+    #616 P1): its ``vault_file_path`` ∈ ``live_ue_paths`` — the file is tracked
+    to a **live** ``:UserEntry`` with a different (current) uid, so this untracked
+    copy is provably superseded. ``live_ue_paths`` is deliberately restricted to
+    tracker rows whose ``entity_uid`` still resolves to a live UserEntry (Codex
+    #616 P1 round 2): a stale row, a row pointing at a deleted node, or one
+    pointing at a different entity type / edge for the same file is NOT a
+    supersession signal. Otherwise the candidate is **ambiguous** (a possible
     legitimate single-file ingest or an orphan of a deleted file) and returned
     separately for report-only review — never auto-deleted.
 
@@ -95,7 +100,7 @@ def select_orphans(
         if not isinstance(parsed, dict) or "vault_file_path" not in parsed:
             continue
         candidate = {**row, "vault_file_path": parsed["vault_file_path"]}
-        if parsed["vault_file_path"] in tracked_paths:
+        if parsed["vault_file_path"] in live_ue_paths:
             deletable.append(candidate)
         else:
             ambiguous.append(candidate)
@@ -103,18 +108,30 @@ def select_orphans(
 
 
 async def _fetch_tracked(driver: Any) -> tuple[set[str], set[str]]:
-    """Return ``(tracked_uids, tracked_file_paths)`` from IngestionMetadata."""
+    """Return ``(tracked_uids, live_ue_paths)`` from IngestionMetadata.
+
+    ``tracked_uids`` — every tracked ``entity_uid`` (used to exclude a candidate
+    that is itself the live tracked entry). ``live_ue_paths`` — only the file
+    paths whose tracker row points at a **live** ``:UserEntry`` (a genuine
+    supersession signal; a stale row / deleted node / other entity type does not
+    qualify, Codex #616 P1).
+    """
     result = await driver.execute_query(
-        "MATCH (im:IngestionMetadata) RETURN im.entity_uid AS entity_uid, im.file_path AS file_path"
+        """
+        MATCH (im:IngestionMetadata)
+        OPTIONAL MATCH (u:UserEntry {uid: im.entity_uid})
+        RETURN im.entity_uid AS entity_uid, im.file_path AS file_path,
+               u IS NOT NULL AS is_live_ue
+        """
     )
     uids: set[str] = set()
-    paths: set[str] = set()
+    live_ue_paths: set[str] = set()
     for r in result.records:
         if r["entity_uid"] is not None:
             uids.add(str(r["entity_uid"]))
-        if r["file_path"] is not None:
-            paths.add(str(r["file_path"]))
-    return uids, paths
+        if r["is_live_ue"] and r["file_path"] is not None:
+            live_ue_paths.add(str(r["file_path"]))
+    return uids, live_ue_paths
 
 
 async def _fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
@@ -175,8 +192,13 @@ async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
     Mirrors ``Neo4jContentAdapter.delete_content_subtree`` /
     ``IngestionBackend.delete_entities_with_metadata``: deleting the entry alone
     would leave :Content/:ContentChunk orphaned in the vector index and the
-    chunk-regeneration scans. Returns ``(entries_deleted, subtree_nodes_deleted)``.
+    chunk-regeneration scans. The subtree is counted up front (single aggregate
+    row, no per-entry grouping — Codex #616 P2) so the ``[APPLIED]`` audit total
+    is exact regardless of per-entry subtree size; the delete then runs
+    leaf-first (chunk/meta → content → entry) mirroring the adapter's proven
+    pattern. Returns ``(entries_deleted, subtree_nodes_deleted)``.
     """
+    subtree = await _fetch_content_subtree_count(driver, uids)
     result = await driver.execute_query(
         """
         MATCH (u:UserEntry)
@@ -184,21 +206,17 @@ async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
         OPTIONAL MATCH (u)-[:HAS_CONTENT]->(content:Content)
         OPTIONAL MATCH (content)-[:HAS_CHUNK]->(chunk:ContentChunk)
         OPTIONAL MATCH (content)-[:HAS_METADATA]->(meta:ContentMetadata)
-        WITH u, collect(DISTINCT content) AS contents,
-             collect(DISTINCT chunk) AS chunks, collect(DISTINCT meta) AS metas
-        FOREACH (c IN chunks | DETACH DELETE c)
-        FOREACH (m IN metas | DETACH DELETE m)
-        FOREACH (co IN contents | DETACH DELETE co)
+        DETACH DELETE chunk, meta
+        WITH DISTINCT u, content
+        DETACH DELETE content
+        WITH DISTINCT u
         DETACH DELETE u
-        RETURN count(u) AS deleted,
-               size(contents) + size(chunks) + size(metas) AS subtree
+        RETURN count(u) AS deleted
         """,
         uids=uids,
     )
-    if not result.records:
-        return 0, 0
-    rec = result.records[0]
-    return int(rec["deleted"]), int(rec["subtree"])
+    deleted = int(result.records[0]["deleted"]) if result.records else 0
+    return deleted, subtree
 
 
 def _print_report(
@@ -246,9 +264,9 @@ async def main() -> int:
     conn = Neo4jConnection()
     driver = await conn.connect()
     try:
-        tracked_uids, tracked_paths = await _fetch_tracked(driver)
+        tracked_uids, live_ue_paths = await _fetch_tracked(driver)
         user_entry_rows = await _fetch_user_entry_rows(driver)
-        deletable, ambiguous = select_orphans(user_entry_rows, tracked_uids, tracked_paths)
+        deletable, ambiguous = select_orphans(user_entry_rows, tracked_uids, live_ue_paths)
         uids = [str(o["uid"]) for o in deletable]
         edge_breakdown = await _fetch_edge_breakdown(driver, uids)
         subtree_nodes = await _fetch_content_subtree_count(driver, uids)
