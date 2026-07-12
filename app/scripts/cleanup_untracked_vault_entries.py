@@ -1,28 +1,36 @@
-"""One-time cleanup: delete uid-less vault UserEntry orphans.
+"""One-time cleanup: delete provably-superseded uid-less vault UserEntry orphans.
 
 Contract: /plans/uidless-vault-entry-identity-upsert.md
 
 Before the path-keyed-upsert door fix, a knowledge note without ``uid:``
 frontmatter minted a fresh random ``ue_`` uid on every re-ingest while the
 ingestion tracker's ``path → uid`` row was simply overwritten — orphaning the
-old node forever. 276 such orphans accumulated (measured 2026-07-12): they
-hold ZERO chunks (retrieval is clean today) but carry ~660 edges, including
-380 of 502 ``APPLIES_KNOWLEDGE`` grounding edges (76%), so the ZPD 4th signal
-counts the same note 3–4×. Deduped baseline ≈ 122 edges / 37 Kus.
+old node forever. Orphans hold ZERO chunks (retrieval is clean) but carry
+``APPLIES_KNOWLEDGE`` grounding edges, so the ZPD 4th signal counts the same
+note 3–4×.
 
-Criterion (surgical, verified on the live graph): a ``:UserEntry`` whose
-``metadata`` JSON carries a ``vault_file_path`` key AND whose uid is claimed
-by NO ``IngestionMetadata`` row AND which has no outgoing ``FULFILLS_EXERCISE``
-edge (belt-and-braces — frozen submission copies never carry
-``vault_file_path``). Matched entries are ``DETACH DELETE``d.
+**Positive orphan signal (Codex #616 P1).** An untracked entry is only DELETED
+when its ``vault_file_path`` is *also* tracked — i.e. a live ``IngestionMetadata``
+row points a DIFFERENT (current) uid at the same file. That proves the untracked
+copy is a superseded duplicate. An untracked entry whose path is NOT tracked is
+**ambiguous** — it could be a legitimate single-file-ingested entry (the
+``/api/ingest/file`` door reads but never writes the tracker) or an orphan of a
+now-deleted file — so it is REPORT-ONLY and never auto-deleted.
 
-``metadata`` is persisted as a JSON string, so the ``vault_file_path`` check is
-a real structured parse in Python (``json.loads`` → key membership), not a
-Cypher ``CONTAINS`` substring heuristic.
+Criterion for each candidate (untracked, has ``vault_file_path``, no
+``FULFILLS_EXERCISE`` — frozen copies never carry ``vault_file_path``):
+  - **DELETE**  → its ``vault_file_path`` ∈ tracked file paths (superseded).
+  - **REVIEW**  → its ``vault_file_path`` ∉ tracked file paths (ambiguous).
 
-Dry-run by default: prints per-pipeline counts + the edge-type breakdown and
-deletes nothing. ``--apply`` executes only after the dry-run has been reviewed
-(destructive-migration sign-off, per the contract).
+``metadata`` is persisted as a JSON string, so ``vault_file_path`` is a real
+structured parse in Python (``json.loads`` → key lookup), not a Cypher
+``CONTAINS`` heuristic. Live-graph split on 2026-07-12: 276 candidates →
+241 DELETE, 35 REVIEW.
+
+Dry-run by default: prints both categories (+ per-pipeline / edge-type
+breakdown for the DELETE set) and deletes nothing. ``--apply`` deletes ONLY the
+DELETE set (entry + content subtree, leaf-first), after the dry-run has been
+reviewed (destructive-migration sign-off, per the contract).
 
 Usage:
     uv run python scripts/cleanup_untracked_vault_entries.py           # dry-run
@@ -45,20 +53,28 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def select_orphans(
     user_entry_rows: list[dict[str, Any]],
     tracked_uids: set[str],
-) -> list[dict[str, Any]]:
-    """Filter UserEntry rows to the uid-less vault orphans (pure — unit-tested).
+    tracked_paths: set[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split uid-less vault UserEntry candidates into (deletable, ambiguous).
 
-    A row qualifies when ALL hold:
+    A row is a *candidate* when ALL hold:
       - its ``metadata`` JSON parses to a mapping carrying a ``vault_file_path``
         key (structured parse, not a substring match);
       - its uid is NOT in ``tracked_uids`` (no live ``IngestionMetadata`` row);
       - it has no outgoing ``FULFILLS_EXERCISE`` edge (``has_fulfills`` False).
 
+    A candidate is **deletable** only with the positive orphan signal (Codex
+    #616 P1): its ``vault_file_path`` ∈ ``tracked_paths`` — a live tracked entry
+    at the same file supersedes it. Otherwise it is **ambiguous** (a possible
+    legitimate single-file ingest or an orphan of a deleted file) and returned
+    separately for report-only review — never auto-deleted.
+
     Each input row must carry ``uid``, ``metadata`` (JSON string or None),
-    ``pipeline``, and ``has_fulfills`` (bool). Returns the qualifying rows with
-    the resolved ``vault_file_path`` attached for the report.
+    ``pipeline``, and ``has_fulfills`` (bool). Returns ``(deletable, ambiguous)``
+    with the resolved ``vault_file_path`` attached to each row.
     """
-    orphans: list[dict[str, Any]] = []
+    deletable: list[dict[str, Any]] = []
+    ambiguous: list[dict[str, Any]] = []
     for row in user_entry_rows:
         if row.get("has_fulfills"):
             continue
@@ -78,15 +94,27 @@ def select_orphans(
             continue
         if not isinstance(parsed, dict) or "vault_file_path" not in parsed:
             continue
-        orphans.append({**row, "vault_file_path": parsed["vault_file_path"]})
-    return orphans
+        candidate = {**row, "vault_file_path": parsed["vault_file_path"]}
+        if parsed["vault_file_path"] in tracked_paths:
+            deletable.append(candidate)
+        else:
+            ambiguous.append(candidate)
+    return deletable, ambiguous
 
 
-async def _fetch_tracked_uids(driver: Any) -> set[str]:
+async def _fetch_tracked(driver: Any) -> tuple[set[str], set[str]]:
+    """Return ``(tracked_uids, tracked_file_paths)`` from IngestionMetadata."""
     result = await driver.execute_query(
-        "MATCH (im:IngestionMetadata) RETURN im.entity_uid AS entity_uid"
+        "MATCH (im:IngestionMetadata) RETURN im.entity_uid AS entity_uid, im.file_path AS file_path"
     )
-    return {str(r["entity_uid"]) for r in result.records if r["entity_uid"] is not None}
+    uids: set[str] = set()
+    paths: set[str] = set()
+    for r in result.records:
+        if r["entity_uid"] is not None:
+            uids.add(str(r["entity_uid"]))
+        if r["file_path"] is not None:
+            paths.add(str(r["file_path"]))
+    return uids, paths
 
 
 async def _fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
@@ -174,11 +202,16 @@ async def _delete_orphans(driver: Any, uids: list[str]) -> tuple[int, int]:
 
 
 def _print_report(
-    orphans: list[dict[str, Any]], edge_breakdown: Counter[str], subtree_nodes: int
+    deletable: list[dict[str, Any]],
+    ambiguous: list[dict[str, Any]],
+    edge_breakdown: Counter[str],
+    subtree_nodes: int,
 ) -> None:
-    print(f"\nUntracked vault UserEntry orphans: {len(orphans)}\n")
+    print("\n" + "=" * 72)
+    print(f"DELETE — provably-superseded orphans (path tracked to a live entry): {len(deletable)}")
+    print("=" * 72)
 
-    by_pipeline: Counter[str] = Counter(str(o.get("pipeline")) for o in orphans)
+    by_pipeline: Counter[str] = Counter(str(o.get("pipeline")) for o in deletable)
     print("Per-pipeline counts:")
     for pipeline, count in sorted(by_pipeline.items()):
         print(f"  {pipeline:<24} {count}")
@@ -187,8 +220,15 @@ def _print_report(
     print(f"\nEdge-type breakdown ({total_edges} edges total):")
     for rel_type, count in sorted(edge_breakdown.items(), key=lambda kv: (-kv[1], kv[0])):
         print(f"  {rel_type:<24} {count}")
-
     print(f"\nContent subtree nodes (:Content/:ContentChunk/:ContentMetadata): {subtree_nodes}")
+
+    print("\n" + "=" * 72)
+    print(f"REVIEW — ambiguous, NOT auto-deleted (path not tracked): {len(ambiguous)}")
+    print("=" * 72)
+    print("Possible legitimate single-file ingests OR orphans of deleted files —")
+    print("inspect before deciding. These are left untouched by --apply.")
+    for o in sorted(ambiguous, key=lambda r: str(r.get("vault_file_path"))):
+        print(f"  {o['uid']}  {o.get('vault_file_path')}")
 
 
 async def main() -> int:
@@ -196,7 +236,8 @@ async def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="DETACH DELETE the matched orphans. Run the dry-run and get sign-off first.",
+        help="DETACH DELETE the provably-superseded orphans (DELETE set only; "
+        "REVIEW set is never touched). Run the dry-run and get sign-off first.",
     )
     args = parser.parse_args()
 
@@ -205,27 +246,29 @@ async def main() -> int:
     conn = Neo4jConnection()
     driver = await conn.connect()
     try:
-        tracked_uids = await _fetch_tracked_uids(driver)
+        tracked_uids, tracked_paths = await _fetch_tracked(driver)
         user_entry_rows = await _fetch_user_entry_rows(driver)
-        orphans = select_orphans(user_entry_rows, tracked_uids)
-        uids = [str(o["uid"]) for o in orphans]
+        deletable, ambiguous = select_orphans(user_entry_rows, tracked_uids, tracked_paths)
+        uids = [str(o["uid"]) for o in deletable]
         edge_breakdown = await _fetch_edge_breakdown(driver, uids)
         subtree_nodes = await _fetch_content_subtree_count(driver, uids)
 
-        _print_report(orphans, edge_breakdown, subtree_nodes)
+        _print_report(deletable, ambiguous, edge_breakdown, subtree_nodes)
 
-        if not orphans:
-            print("\nNothing to clean up — graph is already free of vault orphans.")
+        if not deletable:
+            print("\nNothing to delete — no provably-superseded orphans found.")
             return 0
 
         if not args.apply:
-            print("\n[DRY-RUN] No changes made. Re-run with --apply to DETACH DELETE.")
+            print(
+                "\n[DRY-RUN] No changes made. Re-run with --apply to DETACH DELETE the DELETE set."
+            )
             return 0
 
         deleted, subtree_deleted = await _delete_orphans(driver, uids)
         print(
-            f"\n[APPLIED] DETACH DELETEd {deleted} orphan UserEntry node(s) "
-            f"+ {subtree_deleted} content subtree node(s)."
+            f"\n[APPLIED] DETACH DELETEd {deleted} superseded orphan UserEntry node(s) "
+            f"+ {subtree_deleted} content subtree node(s). REVIEW set untouched."
         )
         return 0
     finally:
