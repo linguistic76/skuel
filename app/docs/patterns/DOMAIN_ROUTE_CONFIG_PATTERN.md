@@ -824,7 +824,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 **Key features:**
 - **Minimal config:** the calendar wires no related services — both factories take only `(app, rt, calendar_service)`. All three views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`.
-- **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load.
+- **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as type filters (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps).
 - **Redirect entry point:** `GET /events/calendar` issues a `RedirectResponse` to `/events/month/{y}/{m}` for the current month.
 - **Item-details modal:** event chips carry `hx_get=/events/calendar/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.
 

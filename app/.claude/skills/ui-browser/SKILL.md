@@ -205,7 +205,7 @@ All Alpine components live in `/static/js/skuel.js` (centralized, not inline):
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
 | `searchFilters()` | Search filter bar (nous/subtopic faucets, Ask href) | `entityType`, `showAdvanced` |
-| `calendarPage()` | Modal + drag-drop | `open`, `datetime`, `draggedItemId` |
+| `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |
 | `timelineVis(url)` | Vis.js Timeline | `timeline`, `loading`, `error` |
