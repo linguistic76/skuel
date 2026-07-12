@@ -279,6 +279,64 @@ class TestBatchDoorHonorsPerDomainParams:
         assert kwargs["params"] == ku_params
 
 
+class TestBatchDoorInlineBodyOwnership:
+    """The batch door must tell the adapter who owns the parent's inline body:
+    popped-body domains (Ku/PS) may clear a legacy inline ``content`` property;
+    everything else (UserEntry — canon P3 additive substrate) keeps it
+    load-bearing, so a version-bump re-chunk sweep must never strip it
+    (Codex P1 #615)."""
+
+    @pytest.mark.anyio
+    async def test_popped_body_label_clears_inline_body(self) -> None:
+        rows = [{"uid": "ku:test:1", "body": "content", "format": "markdown", "entity_label": "Ku"}]
+        adapter = _make_adapter(success=True)
+        service = BatchChunkingService(
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            chunking_service=_make_chunking_service(success=True),
+            content_adapter=adapter,
+        )
+
+        assert (await service.regenerate_chunks()).is_ok
+        _, kwargs = adapter.store_content_with_chunks.call_args
+        assert kwargs["clear_inline_body"] is True
+
+    @pytest.mark.anyio
+    async def test_user_entry_label_preserves_inline_body(self) -> None:
+        rows = [
+            {
+                "uid": "ue_note_1",
+                "body": "content",
+                "format": "markdown",
+                "entity_label": "UserEntry",
+            }
+        ]
+        adapter = _make_adapter(success=True)
+        service = BatchChunkingService(
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            chunking_service=_make_chunking_service(success=True),
+            content_adapter=adapter,
+        )
+
+        assert (await service.regenerate_chunks()).is_ok
+        _, kwargs = adapter.store_content_with_chunks.call_args
+        assert kwargs["clear_inline_body"] is False
+
+    @pytest.mark.anyio
+    async def test_unknown_label_preserves_inline_body(self) -> None:
+        # Parentless/legacy candidate — never destroy data we can't classify.
+        rows = [{"uid": "x:1", "body": "content", "format": "markdown"}]
+        adapter = _make_adapter(success=True)
+        service = BatchChunkingService(
+            backend=BatchChunkingBackend(_make_driver_returning(rows)),
+            chunking_service=_make_chunking_service(success=True),
+            content_adapter=adapter,
+        )
+
+        assert (await service.regenerate_chunks()).is_ok
+        _, kwargs = adapter.store_content_with_chunks.call_args
+        assert kwargs["clear_inline_body"] is False
+
+
 class TestBatchDoorStalenessIsPerDomain:
     """Candidate *selection* (not just re-chunking) must compare each unit against
     its own domain's expected tag. Otherwise a diverged domain's default-tagged

@@ -84,6 +84,10 @@ async def test_knowledge_note_chunks_with_body(tmp_path: Path) -> None:
     assert args[0] == "ue_probe"
     assert "The body of the note." in args[1]
     assert args[2] == "markdown"
+    # Inline body stays load-bearing (/gradebook, journal digest) — the chunk
+    # subtree is additive, never a body takeover (Codex P1 #615).
+    kwargs = svc._chunk_entity_content.await_args.kwargs  # type: ignore[attr-defined]
+    assert kwargs["preserve_entity_body"] is True
     assert result.value["chunks_generated"] is True
 
 

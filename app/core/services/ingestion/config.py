@@ -424,6 +424,22 @@ def resolve_chunking_params_for_label(label: str | None) -> ChunkingParams:
     return resolve_chunking_params(entity_type) if entity_type else DEFAULT_CHUNKING_PARAMS
 
 
+def clears_inline_body_for_label(label: str | None) -> bool:
+    """Batch door: may persisting a re-chunk clear the parent's inline body?
+
+    ``True`` only for ``chunks_body_content`` domains (PathStep, Ku) — their
+    body was popped at ingest, so the :Content subtree is THE source of truth
+    and a lingering inline ``content`` property is legacy to remove. Every
+    other chunked parent (UserEntry — canon P3 additive substrate) keeps
+    ``Entity.content`` load-bearing, so a re-chunk must never strip it.
+    Unknown/absent label → ``False`` (preserve; never destroy data for a
+    parent we can't classify).
+    """
+    entity_type = LABEL_TO_DEFAULT_ENTITY_TYPE.get(label) if label else None
+    cfg = ENTITY_CONFIGS.get(entity_type) if entity_type else None
+    return bool(cfg and cfg.chunks_body_content)
+
+
 def diverged_chunk_version_by_label() -> dict[str, str]:
     """Neo4j domain label → expected chunk-version tag, for domains whose
     ``ChunkingParams`` diverge from the default.

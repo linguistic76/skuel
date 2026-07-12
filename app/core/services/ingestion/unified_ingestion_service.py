@@ -441,11 +441,20 @@ class UnifiedIngestionService:
         file_format: str,
         source_path: str,
         params: ChunkingParams,
+        *,
+        preserve_entity_body: bool = False,
     ) -> bool:
         """
         The shared body-chunk step — both ingest doors, all
         ``chunks_body_content`` entity types (PathStep, Ku), plus non-private
         knowledge UserEntries (canon P3 — additive substrate, body NOT popped).
+
+        ``preserve_entity_body=True`` (UserEntry) keeps the inline
+        ``Entity.content`` property intact — it stays load-bearing for
+        /gradebook and the journal digest; the chunk subtree is purely
+        additive. Default ``False`` follows the popped-body contract
+        (Ku/PathStep): persisting the subtree also clears any legacy inline
+        body so no stale copy can be served.
 
         Chunk the popped content body, persist it as :Content + :ContentChunk
         nodes, and publish ``ChunkEmbeddingRequested`` for the background
@@ -496,7 +505,9 @@ class UnifiedIngestionService:
             return True
 
         # Persist chunks to Neo4j so retrieval can target them
-        stored = await self.content_adapter.store_content_with_chunks(uid, content)
+        stored = await self.content_adapter.store_content_with_chunks(
+            uid, content, clear_inline_body=not preserve_entity_body
+        )
         if not stored:
             self.logger.warning(f"Chunk persistence failed for {uid}")
             return False
@@ -786,6 +797,7 @@ class UnifiedIngestionService:
                     file_format,
                     str(file_path),
                     resolve_chunking_params(EntityType.USER_ENTRY),
+                    preserve_entity_body=True,
                 )
             return ue_result
 
