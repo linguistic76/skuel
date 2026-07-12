@@ -125,7 +125,12 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
         return None
     if EntityType.from_string(str(frontmatter.get("type", ""))) is not EntityType.USER_ENTRY:
         return None
-    if "uid" in frontmatter or "fulfills_exercise_uid" in frontmatter:
+    # Mirror the prior-uid gate's None checks exactly (not key presence): a
+    # bare ``uid:`` parses to YAML null and build_user_entry_request treats
+    # it as no override — that file still honors the rewritten uid and is
+    # safe to bridge. ``uid: ""`` is NOT None, fails the gate there, and
+    # mints fresh — so it stays excluded here too.
+    if frontmatter.get("uid") is not None or frontmatter.get("fulfills_exercise_uid") is not None:
         return None
     metadata = frontmatter.get("metadata")
     if isinstance(metadata, dict) and metadata.get("entry_kind") in _PERIODIC_ENTRY_KINDS:

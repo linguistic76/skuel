@@ -802,6 +802,34 @@ class TestDetectAndApplyMoves:
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_bare_null_uid_still_a_destination(self, tmp_path) -> None:
+        # Codex #618 round 3: a bare `uid:` parses to YAML null, which
+        # build_user_entry_request treats as NO override — the prior
+        # (rewritten) uid is still honored, so the file is safe to bridge.
+        result, _backend = await self._similarity_case(
+            tmp_path,
+            "template-note.md",
+            f"---\ntype: user_entry\nuid:\n---\n{_LONG_BODY} Small addition.",
+        )
+        assert result.is_ok
+        assert len(result.value.applied) == 1
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
+
+    @pytest.mark.asyncio
+    async def test_empty_string_uid_never_a_destination(self, tmp_path) -> None:
+        # `uid: ""` is NOT None — it fails build_user_entry_request's
+        # `uid_override is None` gate and mints a fresh uid, so bridging a
+        # row toward it would orphan the gone node.
+        result, backend = await self._similarity_case(
+            tmp_path,
+            "empty-uid-note.md",
+            f'---\ntype: user_entry\nuid: ""\n---\n{_LONG_BODY} Small addition.',
+        )
+        assert result.is_ok
+        assert result.value.applied == ()
+        backend.update_ingestion_metadata.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_periodic_new_file_never_a_destination(self, tmp_path) -> None:
         # A periodic note derives its uid (ue:daily:{user}:{date}) — it never
         # honors a prior uid, so rewriting a row toward it would orphan the
