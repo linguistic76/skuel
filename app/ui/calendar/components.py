@@ -23,7 +23,7 @@ __version__ = "2.0"
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from itertools import islice
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H1, H2, A, Div, P, Span
 
@@ -37,6 +37,9 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
 from ui.primitives import ButtonLink
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 
 # Legend / switcher vocabulary — the calendar's five item types, in display order.
 _LEGEND_TYPES: tuple[CalendarItemType, ...] = (
@@ -454,7 +457,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
         )
 
         if day_items:
-            body_children: list[Any] = [_event_chip(item, large=True) for item in day_items]
+            body_children: list[FT] = [_event_chip(item, large=True) for item in day_items]
         else:
             body_children = [Div("No events", cls="text-[12px] text-muted-foreground/60 p-1.5")]
         body = Div(*body_children, cls="p-2 flex flex-col gap-1.5 flex-1")
@@ -682,7 +685,7 @@ def create_item_details_modal(item: Any) -> Div:
         )
 
     # Actions — Close + a type-appropriate edit/action
-    action_buttons: list[Any] = [
+    action_buttons: list[FT] = [
         Button(
             "Close",
             cls=ButtonT.ghost,

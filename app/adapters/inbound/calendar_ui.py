@@ -18,7 +18,7 @@ Routes:
 import calendar as cal
 from calendar import monthrange
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H2,
@@ -29,6 +29,9 @@ from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import (
@@ -114,7 +117,7 @@ async def _calendar_shell(
     content_route: str,
     content_id: str,
     max_width: str = "",
-) -> Any:
+) -> "FT":
     """Assemble the shared calendar chrome (header + toolbar) around an HTMX-loaded grid.
 
     The grid loads lazily via ``content_loading_placeholder`` so each view renders its
