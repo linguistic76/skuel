@@ -239,7 +239,24 @@ to the uid-less UserEntry world on both sides: sources must carry a minted
 `ue_<8hex>` uid, destinations must be `type: user_entry` markdown files with
 no authored `uid:`, no periodic `entry_kind`, and no `fulfills_exercise_uid:`
 — a file that would not honor the rewritten uid must never be bridged (it
-would fuse identities or orphan the gone node). Only unambiguous matches with
+would fuse identities or orphan the gone node).
+
+**Threshold rationale (`SIMILARITY_MOVE_THRESHOLD = 0.8`).** Measured
+2026-07-12 by scoring all 81 real vault notes (≥10 tokens) pairwise:
+genuinely unrelated notes score ≤ 0.08, but **near-duplicate note families**
+(draft copies of one note, e.g. two hypermedia drafts at 0.768) are the real
+false-positive band — one deleted + one added in a sync is exactly the shape
+a wrong merge takes. Realistic rename+edit lands above: one added sentence
+scores 0.75–0.81 on short notes (56–80 tokens), ≥ 0.83 on longer ones,
+median 0.97 across the vault. There is no clean separation on short notes —
+any T in [0.75, 0.85] trades duplicate fusion against short-note misses —
+so 0.8 sits just above the observed duplicate band and the design bias
+settles the trade: a wrong merge silently fuses two notes' identities, a
+missed move only delete+creates. Two related guards: the scorer abstains
+entirely below 10 tokens per side (a tiny body is no identity evidence),
+and matching requires MUTUAL best agreement, so one lucky score can't
+merge. Re-measure before changing T — the duplicate band is a property of
+the vault's authoring habits, not of the algorithm. Only unambiguous matches with
 non-trivial content qualify; ambiguity (shared hashes, tied similarity) and
 sub-threshold edits fall back to delete+create — a missed move is the safe
 failure, a wrong merge is not. Contracts:

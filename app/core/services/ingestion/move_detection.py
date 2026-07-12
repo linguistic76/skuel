@@ -122,7 +122,13 @@ def match_moves_by_hash(
 
 # Phase 2 crux — bias HIGH: a false positive silently fuses two notes'
 # identities, a false negative just falls back to delete+create (today's
-# behavior). Tuned empirically during runtime verification, not guessed.
+# behavior). Tuned on the live vault, not guessed: the real false-positive
+# band is near-duplicate note FAMILIES (draft copies of one note), which
+# score up to ~0.77 — genuinely unrelated notes stay ≤ ~0.08 — while a
+# one-added-sentence edit scores ~0.75-0.81 on short notes and ≥ ~0.83 on
+# longer ones. 0.8 sits just above the duplicate band; the price is missed
+# moves on heavily-edited short notes, the safe failure. Full measurement:
+# /docs/patterns/UNIFIED_INGESTION_GUIDE.md § "Threshold rationale".
 SIMILARITY_MOVE_THRESHOLD = 0.8
 
 # Word-shingle width for the Jaccard scorer. Trigrams capture phrasing and
