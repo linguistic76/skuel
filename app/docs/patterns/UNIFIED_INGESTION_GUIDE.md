@@ -221,10 +221,20 @@ passed to `build_user_entry_request`, which honors it only when **all** hold:
 - an absolute file path — `/upload` callers pass a temp/relative path and must
   keep minting fresh uids.
 
-**Accepted trade-off:** a moved/renamed file is a new path → identity loss
-(delete + recreate), identical to today's deletion semantics. Hash-assisted
-move detection is a possible later layer, not part of this contract. See:
-`plans/uidless-vault-entry-identity-upsert.md`.
+**Renames preserve identity too (content-hash move detection).** A pure
+rename/move of a uid-less note is recognized by the move-detection pre-pass
+(`IngestionTracker.detect_and_apply_moves`, run at the start of every tracked
+directory sync): the gone path's tracker row and the new file share a SHA-256,
+so the row is rewritten (old path → new path, SAME uid) and the resolution
+above reuses the uid — node, grounding edges, MOC/manual links, and
+`created_at` all survive; the sync reports it as `moves_detected`, not a
+delete + a create. Only unambiguous 1:1 matches with non-trivial content
+qualify; ambiguity falls back to delete+create. **Phase 1 boundary:** a rename
++ edit *in the same sync* changes the hash and still delete+creates — handled
+by the Phase 2 similarity follow-up (see
+`plans/hash-assisted-move-detection.md`); until then, rename → sync, then
+edit → sync. Contracts: `plans/uidless-vault-entry-identity-upsert.md` (#616),
+`plans/hash-assisted-move-detection.md`.
 
 ### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
 

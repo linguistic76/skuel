@@ -34,9 +34,16 @@ from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
+from core.services.ingestion.move_detection import (
+    MoveCandidate,
+    NewFileCandidate,
+    match_moves_by_hash,
+)
 from core.services.ingestion.types import (
+    AppliedMove,
     DeletionPlan,
     DeletionReconciliation,
+    MovePlan,
     PlannedEdgeDeletion,
     PlannedEntityDeletion,
 )
@@ -545,6 +552,9 @@ class IngestionTracker:
                         file_path=str(row["file_path"]),
                         entity_uid=str(row["entity_uid"]),
                         display_path=display_path(str(row["file_path"]), directory),
+                        content_hash=(
+                            str(row["content_hash"]) if row.get("content_hash") else None
+                        ),
                     )
                     for row in entity_rows
                 ),
@@ -556,6 +566,167 @@ class IngestionTracker:
                 refusal_warning=refusal_warning,
             )
         )
+
+    async def detect_and_apply_moves(
+        self,
+        directory: Path,
+        files_to_process: list[Path],
+        pattern: str = "*",
+        *,
+        allowlist: "SyncAllowlist | None" = None,
+        owner_uid: UserUID | None = None,
+    ) -> Result[MovePlan]:
+        """Content-hash move pre-pass: turn uid-less renames into row rewrites.
+
+        A uid-less vault file's identity is path-keyed (#616), so a rename is
+        a new path — without this pass the sync mints a fresh uid at the new
+        path and deletion reconciliation deletes the old node, losing the
+        uid, grounding edges, manual/MOC links, and ``created_at``. A pure
+        rename preserves content, so the old row and the new file share a
+        SHA-256: for each unambiguous 1:1 match this pass rewrites the
+        tracker row (old path → new path, SAME uid), after which
+        ``_resolve_prior_user_entry_uid`` reuses the uid (in-place upsert)
+        and reconciliation sees no row for the old path (no deletion).
+
+        MUST run after ``files_to_process`` is collected and BEFORE both the
+        ingestion loop and deletion reconciliation — later, and the new path
+        has already minted a fresh uid or the old node is already gone.
+
+        Phase 1 is exact-hash only: a rename + edit in the same sync changes
+        the hash and falls back to delete+create (the Phase 2 similarity
+        follow-up consumes ``HashMatchResult``'s residual). Safety rails:
+        - ambiguity (2+ gone rows or 2+ new files sharing a hash) → skip;
+        - trivial content (empty / whitespace-only) → never matched;
+        - only rows whose uid names a live node are rewritten (mirrors #616);
+        - foreign-owned rows never qualify (``plan_deletions`` owner scope).
+
+        Move-source candidates are exactly ``plan_deletions``' entity
+        deletions — rows deletion reconciliation WOULD delete — so a move can
+        only ever REDUCE the delete set. Authored-uid files don't need this
+        pass (the uid-based moved/stale split already preserves them) but
+        pass through harmlessly: rewriting to the same authored uid is what
+        ingestion would stamp anyway.
+
+        The rewritten row carries pending markers (empty hash, mtime 0): the
+        current run's ingest re-stamps it on success, and if that ingest
+        fails the next sync re-processes the file instead of hash-skipping a
+        node whose path metadata never updated.
+
+        Backend: IngestionBackend.get_tracked_files_under (via plan) /
+        get_live_entity_uids / update_ingestion_metadata /
+        delete_ingestion_metadata.
+        """
+        if not files_to_process:
+            return Result.ok(MovePlan())
+
+        plan_result = await self.plan_deletions(
+            directory, pattern, allowlist=allowlist, owner_uid=owner_uid
+        )
+        if plan_result.is_error:
+            return Result.fail(plan_result)
+        # A threshold-valve refusal still carries entity_deletions — applying
+        # moves is exactly what shrinks the delete set below the valve. The
+        # physical-existence valve returns an empty plan (no candidates).
+        candidates = [
+            MoveCandidate(
+                file_path=planned.file_path,
+                entity_uid=planned.entity_uid,
+                content_hash=planned.content_hash or "",
+            )
+            for planned in plan_result.value.entity_deletions
+            if planned.content_hash
+        ]
+        if not candidates:
+            return Result.ok(MovePlan())
+
+        # New files = files this sync will process that have NO tracker row
+        # (identity unclaimed). Queried directly — not derived from the smart-
+        # mode "changed" flags — so force runs classify identically.
+        meta_result = await self.get_ingestion_metadata(files_to_process)
+        if meta_result.is_error:
+            return Result.fail(meta_result)
+        tracked_paths = set(meta_result.value)
+
+        new_files: list[NewFileCandidate] = []
+        for file_path in files_to_process:
+            canonical = self._canonical(file_path)
+            if canonical in tracked_paths:
+                continue
+            try:
+                data = file_path.read_bytes()
+            except OSError:
+                continue
+            if not data.strip():
+                # Trivial content: empty-note hash collisions are meaningless.
+                continue
+            new_files.append(
+                NewFileCandidate(
+                    file_path=canonical,
+                    content_hash=hashlib.sha256(data).hexdigest(),
+                )
+            )
+        if not new_files:
+            return Result.ok(MovePlan())
+
+        match = match_moves_by_hash(candidates, new_files)
+        for message in match.ambiguous:
+            self.logger.info("Move detection: %s", message)
+        if not match.pairs:
+            return Result.ok(MovePlan())
+
+        # Live-node guard (mirrors #616): a stale row pointing at a deleted
+        # node is not a move source.
+        live_result = await self.backend.get_live_entity_uids(
+            [pair.row.entity_uid for pair in match.pairs]
+        )
+        if live_result.is_error:
+            return Result.fail(live_result)
+        live_uids = {str(record["uid"]) for record in live_result.value or []}
+
+        applied: list[AppliedMove] = []
+        for pair in match.pairs:
+            if pair.row.entity_uid not in live_uids:
+                self.logger.info(
+                    "Move detection: skipping %s → %s — entity %s no longer exists",
+                    pair.row.file_path,
+                    pair.new_file.file_path,
+                    pair.row.entity_uid,
+                )
+                continue
+            # Upsert the new-path row FIRST, then drop the old one — a crash
+            # between the two leaves both rows claiming one uid, which the
+            # uid-based moved/stale split resolves as a stale row, never a
+            # node deletion.
+            upsert_result = await self.backend.update_ingestion_metadata(
+                {
+                    "file_path": pair.new_file.file_path,
+                    "content_hash": "",  # pending marker — see docstring
+                    "file_mtime": 0.0,
+                    "entity_uid": pair.row.entity_uid,
+                }
+            )
+            if upsert_result.is_error:
+                return Result.fail(upsert_result)
+            delete_result = await self.backend.delete_ingestion_metadata([pair.row.file_path])
+            if delete_result.is_error:
+                return Result.fail(delete_result)
+            self.logger.info(
+                "Move detected (content hash): %s → %s (uid %s)",
+                pair.row.file_path,
+                pair.new_file.file_path,
+                pair.row.entity_uid,
+            )
+            applied.append(
+                AppliedMove(
+                    old_path=pair.row.file_path,
+                    new_path=pair.new_file.file_path,
+                    entity_uid=pair.row.entity_uid,
+                    display_old=display_path(pair.row.file_path, directory),
+                    display_new=display_path(pair.new_file.file_path, directory),
+                )
+            )
+
+        return Result.ok(MovePlan(applied=tuple(applied)))
 
     async def reconcile_deletions(
         self,

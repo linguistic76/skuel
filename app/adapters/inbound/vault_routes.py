@@ -213,6 +213,7 @@ def _sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     failed = stats_dict.get("files_failed", 0)
     walled = stats_dict.get("files_walled", 0)
     unsupported = stats_dict.get("files_unsupported", 0)
+    moved = stats_dict.get("moves_detected", 0)
     errors: list[str] = stats_dict.get("errors", [])
     warnings: list[str] = stats_dict.get("warnings", [])
 
@@ -221,6 +222,13 @@ def _sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         Li(Span(f"{injected}", cls="font-semibold"), " task IDs injected into vault"),
         Li(Span(f"{done}", cls="font-semibold"), " tasks marked done in vault"),
     ]
+    if moved:
+        items.append(
+            Li(
+                Span(f"{moved}", cls="font-semibold"),
+                " renamed/moved notes recognized (identity preserved)",
+            )
+        )
     if failed:
         items.append(Li(Span(f"{failed}", cls="font-semibold text-error"), " files failed"))
     if walled:
