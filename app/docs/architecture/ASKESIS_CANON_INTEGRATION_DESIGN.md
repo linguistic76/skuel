@@ -229,8 +229,13 @@ method** on the existing frozen dataclass, alongside `to_prompt_block` / `to_dis
 2. It passes the resulting `CanonContext` into `build_guided_system_prompt`, which **appends `canon_context.to_teaching_block()`** to the assembled system prompt (empty string when no passages — the existing `has_passages` gate).
 
 This keeps `ResponseGenerator` the single prompt-assembly point and touches no template files.
-It applies uniformly to SOCRATIC / EXPLORATORY / ENCOURAGING modes; DIRECT out-of-scope /
-redirect modes simply retrieve nothing relevant and the block is empty.
+
+**As shipped (PR-B #613, Codex P2):** the block is **mode-aware**, not fully uniform.
+SOCRATIC / EXPLORATORY / ENCOURAGING keep the "do not surrender the method" paragraph;
+DIRECT mode — which promises answers, including the user's explicit mode override — gets a
+direct-answer grounding paragraph instead (`to_teaching_block(preserve_method=False)`), so
+the readings ground the answer rather than contradict the mode. The faithfulness contract
+is identical in both framings.
 
 ---
 
