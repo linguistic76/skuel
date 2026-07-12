@@ -809,29 +809,24 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",  # services.calendar
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
-    api_related_services={},
-    ui_related_services={
-        "habits_service": "habits",  # habits_service=services.habits (optional)
-    },
 )
 ```
 
-**API Routes:** (`calendar_api.py` - 3 routes)
-- `POST /api/calendar/quick-create` — Uses `@app.post` (not `@rt`), returns dict/tuple directly
+**API Routes:** (`calendar_api.py` - 1 route)
 - `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
-- `PATCH /api/events/calendar/reschedule` — Returns raw `Response` with `HX-Refresh` header
 
-**UI Routes:** (`calendar_ui.py` - 7 routes)
-- 4 page views: `/events`, `/events/month/{y}/{m}`, `/events/week/{date}`, `/events/day/{date}`
-- 3 HTMX fragments: quick-create form, habit recording, item-details modal
-- Module-level helpers: page wrapper, navigation (prev/next month/week/day), modal renderer
+**UI Routes:** (`calendar_ui.py` - 8 routes)
+- 1 redirect: `/events/calendar` → the current month
+- 3 page shells: `/events/month/{y}/{m}`, `/events/week/{date}`, `/events/day/{date}` (chrome renders immediately; the grid loads via HTMX)
+- 3 HTMX content fragments: month grid, week agenda, day agenda
+- 1 HTMX fragment: item-details modal
+- Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week/day)
 
 **Key features:**
-- **UI optional dependency:** `habits_service` wired via `ui_related_services`. The UI factory receives it as an explicit kwarg with a `None` default, keeping the dependency visible. The route guards usage with `if habits_service:` and provides a development fallback.
-- **`@app.post` vs `@rt`:** `quick_create` uses `@app.post` because it returns a plain dict (not an FT component). The API factory receives `app` as its first param specifically for this case.
-- **Raw Response:** `reschedule_item` imports `Response` inline and returns it directly (no `@boundary_handler`). The `HX-Refresh: true` header triggers a full page reload after drag-drop reschedule.
-- **Internal call pattern:** `calendar_default` (`GET /events`) calls `calendar_month` directly instead of issuing a redirect. `calendar_month` is defined first in the factory so the reference is unambiguous.
-- **848 → 34 lines** (96% reduction) — largest single-file reduction in the migration series.
+- **Minimal config:** the calendar wires no related services — both factories take only `(app, rt, calendar_service)`. All three views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`.
+- **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load.
+- **Redirect entry point:** `GET /events/calendar` issues a `RedirectResponse` to `/events/month/{y}/{m}` for the current month.
+- **Item-details modal:** event chips carry `hx_get=/events/calendar/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.
 
 **Migration:** 2026-02-03 (Phase 5)
 

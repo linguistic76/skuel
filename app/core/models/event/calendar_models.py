@@ -44,6 +44,33 @@ class CalendarItemType(StrEnum):
         }
         return icons.get(self, "📅")
 
+    def get_color(self) -> str:
+        """Hex color for this type — chip fill/accent/dot and legend swatch.
+
+        The calendar's per-type palette (Dynamic Enum Pattern): color communicates
+        the KIND of item, so the legend stays truthful across month/week/day.
+        These are item-data hex values (CalendarItem.color), not CSS tokens.
+        """
+        colors = {
+            CalendarItemType.EVENT: "#2563eb",
+            CalendarItemType.TASK_WORK: "#6366f1",
+            CalendarItemType.TASK_DEADLINE: "#e11d48",
+            CalendarItemType.HABIT: "#16a34a",
+            CalendarItemType.MILESTONE: "#9333ea",
+        }
+        return colors.get(self, "#3B82F6")
+
+    def get_label(self) -> str:
+        """Human label for this type — legend + item-detail type pill."""
+        labels = {
+            CalendarItemType.EVENT: "Event",
+            CalendarItemType.TASK_WORK: "Task",
+            CalendarItemType.TASK_DEADLINE: "Deadline",
+            CalendarItemType.HABIT: "Habit",
+            CalendarItemType.MILESTONE: "Milestone",
+        }
+        return labels.get(self, "Event")
+
 
 class CalendarView(StrEnum):
     """Calendar view modes"""

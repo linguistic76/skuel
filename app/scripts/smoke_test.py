@@ -109,7 +109,6 @@ _JS_ERROR_MARKERS = (
 # here fails the smoke test.
 _REGISTRY_COMPONENTS = (
     "searchFilters",
-    "calendarPage",
     "collapsible(true)",
     "collapsibleSidebar('k', false)",
     "chartVis('/x.json', 'bar')",

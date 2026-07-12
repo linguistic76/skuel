@@ -137,26 +137,6 @@ Drives the `/search` facet bar: a horizontal filter bar on desktop (with a
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
 - `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
 
-### calendarPage()
-
-Combined modal and drag-drop functionality for calendar views.
-
-**State:**
-- `open`: boolean - Modal visibility
-- `datetime`: string - ISO datetime for quick-add
-- `draggedItemId`: string|null - Currently dragged item
-
-**Methods:**
-- `openQuickAdd(defaultDate, defaultHour)` - Open modal with date/time
-- `closeQuickAdd()` - Close modal
-- `handleDragStart(event, itemId)` - Start drag operation
-- `handleDragOver(event)` - Allow drop
-- `handleDrop(event, newDateTime)` - Complete reschedule
-
-### calendarModal()
-
-Standalone modal component (when drag-drop not needed).
-
 ### timelineViewer(src)
 
 Markwhen timeline integration with filtering and URL history.
