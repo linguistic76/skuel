@@ -551,19 +551,6 @@ def error_response(error_message: Any) -> Div:
     )
 
 
-def calendar_item_to_dict(item: CalendarItem) -> dict[str, Any]:
-    """Convert a calendar item to a dictionary for JSON responses."""
-    return {
-        "uid": item.uid,
-        "title": item.title,
-        "start_time": item.start_time.isoformat(),
-        "end_time": item.end_time.isoformat(),
-        "color": item.color,
-        "icon": item.icon,
-        "type": item.item_type.value,
-    }
-
-
 def _format_datetime(dt: datetime) -> str:
     """Format datetime for display."""
     return dt.strftime("%b %d, %I:%M %p")
