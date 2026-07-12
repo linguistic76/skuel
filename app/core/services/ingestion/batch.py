@@ -784,6 +784,40 @@ async def ingest_directory(
             )
         )
 
+    # Content-hash move pre-pass (uid-less renames): rewrite old-path tracker
+    # rows to the new path BEFORE the ingestion loop (so the path-keyed uid
+    # resolution reuses the uid, #616) and BEFORE deletion reconciliation (so
+    # the old path is never classified a deletion). Exact-hash only — a
+    # rename + edit in one sync falls back to delete+create (Phase 2,
+    # similarity matching). Failure degrades to today's delete+create rather
+    # than failing the sync, surfaced as a warning.
+    moves_detected = 0
+    applied_moves: list[str] = []
+    move_warnings: list[str] = []
+    if tracker is not None and not dry_run:
+        move_result = await tracker.detect_and_apply_moves(
+            directory,
+            files_to_process,
+            pattern,
+            allowlist=allowlist,
+            owner_uid=deletion_owner_scope,
+        )
+        if move_result.is_ok:
+            moves_detected = len(move_result.value.applied)
+            applied_moves = [
+                f"{move.display_old} → {move.display_new}" for move in move_result.value.applied
+            ]
+            if moves_detected:
+                logger.info(
+                    f"Move detection: {moves_detected} renamed file(s) preserved "
+                    f"identity — {', '.join(applied_moves)}"
+                )
+        else:
+            move_warnings.append(
+                f"Move detection failed ({move_result.error}); renamed files "
+                "may be treated as delete + create this sync"
+            )
+
     logger.info(
         f"Processing {len(files_to_process)} files from {directory} (max_concurrent={max_concurrent})"
     )
@@ -855,8 +889,9 @@ async def ingest_directory(
     # (uses_kus pointing at a same-sync PathStep) still warns rather than silently
     # dropping.
     # Seeded with per-file collection skips (je_pro consent gate) so the
-    # "add pipeline: knowledge to promote" hint reaches the sync UI/API.
-    validation_warnings: list[str] = list(collection_skips.warnings)
+    # "add pipeline: knowledge to promote" hint reaches the sync UI/API,
+    # plus any move-detection degradation from the pre-pass above.
+    validation_warnings: list[str] = list(collection_skips.warnings) + move_warnings
     if validate_targets and write_backend is not None:
         known_uids_by_label: dict[str, set[str]] = {}
         for etype, ents in entities_by_type.items():
@@ -1330,6 +1365,8 @@ async def ingest_directory(
                 entities_deleted=entities_deleted,
                 edges_deleted=edges_deleted,
                 stale_metadata_removed=stale_metadata_removed,
+                moves_detected=moves_detected,
+                moves=applied_moves,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
                 warnings=validation_warnings,

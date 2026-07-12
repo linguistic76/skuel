@@ -133,11 +133,20 @@ class _FakeIngestionBackend:
     async def get_tracked_files_under(self, prefix: str) -> Result[list[dict[str, Any]]]:
         return Result.ok(
             [
-                {"file_path": row["file_path"], "entity_uid": row["entity_uid"]}
+                {
+                    "file_path": row["file_path"],
+                    "entity_uid": row["entity_uid"],
+                    "content_hash": row.get("content_hash"),
+                }
                 for row in self.metadata.values()
                 if row["file_path"].startswith(prefix)
             ]
         )
+
+    async def get_live_entity_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        # Every tracked uid is "live" in this double — the move-detection
+        # pre-pass live-node guard is exercised in test_move_detection.py.
+        return Result.ok([{"uid": uid} for uid in uids])
 
     async def delete_entities_with_metadata(
         self, items: list[dict[str, Any]]

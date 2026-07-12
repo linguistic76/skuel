@@ -208,19 +208,44 @@ class IngestionBackend:
         )
 
     async def get_tracked_files_under(self, path_prefix: str) -> Result[list[dict[str, Any]]]:
-        """List all tracked (file_path, entity_uid) pairs under a directory prefix.
+        """List all tracked (file_path, entity_uid, content_hash) rows under a directory prefix.
 
         Used by deletion reconciliation: tracked files that no longer exist on
-        disk are vault deletions to propagate. The prefix must end with the
-        path separator so /vault/a doesn't match /vault/abc.
+        disk are vault deletions to propagate. ``content_hash`` feeds the
+        move-detection pre-pass — a gone row and a new file sharing a hash is
+        a rename, not a delete+create. The prefix must end with the path
+        separator so /vault/a doesn't match /vault/abc.
         """
         return await self._executor.execute_query(
             """
             MATCH (s:IngestionMetadata)
             WHERE s.file_path STARTS WITH $path_prefix
-            RETURN s.file_path AS file_path, s.entity_uid AS entity_uid
+            RETURN s.file_path AS file_path, s.entity_uid AS entity_uid,
+                   s.content_hash AS content_hash
             """,
             {"path_prefix": path_prefix},
+        )
+
+    async def get_live_entity_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Which of ``uids`` name a live node, across the three uid-bearing shapes.
+
+        Mirrors the shapes ``delete_entities_with_metadata`` can delete
+        (:Entity multi-label, :Group, :Expense). Used by the move-detection
+        pre-pass as its live-node guard: a stale tracker row whose uid names
+        no node is not a move source — rewriting it would attach a
+        hand-deleted entity's identity to the new path.
+        """
+        return await self._executor.execute_query(
+            """
+            UNWIND $uids AS uid
+            OPTIONAL MATCH (e:Entity {uid: uid})
+            OPTIONAL MATCH (g:Group {uid: uid})
+            OPTIONAL MATCH (x:Expense {uid: uid})
+            WITH uid, e, g, x
+            WHERE e IS NOT NULL OR g IS NOT NULL OR x IS NOT NULL
+            RETURN uid AS uid
+            """,
+            {"uids": uids},
         )
 
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:

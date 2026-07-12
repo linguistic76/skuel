@@ -175,6 +175,10 @@ class IncrementalStats:
     entities_deleted: int = 0
     edges_deleted: int = 0  # deleted Edge YAMLs: relationship removed
     stale_metadata_removed: int = 0  # moved/renamed files: old tracking row only
+    # Content-hash move detection: uid-less renames recognized as moves
+    # (tracker row rewritten, identity preserved) instead of delete+create.
+    moves_detected: int = 0
+    moves: list[str] = field(default_factory=list)  # vault-relative "old → new" lines
     # Skip-reason bookkeeping (G10): files the scan saw but did not process —
     # walled = supported files excluded by the vault wall (allowlist/staging/
     # symlink); unsupported = non-hidden files with unsupported extensions.
@@ -247,11 +251,15 @@ class PlannedEntityDeletion:
     ``file_path`` is the absolute tracked path (the execute phase keys backend
     deletes on it); ``display_path`` is the vault-relative rendering (#525
     sanitization policy) — the ONLY form that may reach user-facing surfaces.
+    ``content_hash`` is the last-ingested SHA-256 — the move-detection
+    pre-pass matches it against new files' on-disk hashes to turn a pure
+    rename into a tracker-row rewrite instead of a delete+create.
     """
 
     file_path: str
     entity_uid: str
     display_path: str
+    content_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -285,6 +293,31 @@ class DeletionPlan:
     ownership_mismatches: tuple[str, ...] = ()
     mass_deletion_refused: bool = False
     refusal_warning: str | None = None
+
+
+@dataclass(frozen=True)
+class AppliedMove:
+    """One tracker-row rewrite applied by the move-detection pre-pass.
+
+    A gone tracked path and a new untracked file shared a content hash 1:1,
+    so the row moved ``old_path → new_path`` under the SAME ``entity_uid`` —
+    the node, its edges, and ``created_at`` all survive the rename. Absolute
+    paths key the tracker; ``display_*`` are the vault-relative renderings
+    (#525) for user-facing surfaces.
+    """
+
+    old_path: str
+    new_path: str
+    entity_uid: str
+    display_old: str
+    display_new: str
+
+
+@dataclass(frozen=True)
+class MovePlan:
+    """Outcome of ``IngestionTracker.detect_and_apply_moves`` (Phase 1, exact hash)."""
+
+    applied: tuple[AppliedMove, ...] = ()
 
 
 @dataclass
@@ -356,8 +389,10 @@ class IngestionError:
 
 
 __all__ = [
+    "AppliedMove",
     "BundleStats",
     "DeletionPlan",
+    "MovePlan",
     "DeletionReconciliation",
     "DirectoryValidationResult",
     "DryRunPreview",

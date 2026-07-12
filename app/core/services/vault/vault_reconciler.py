@@ -737,6 +737,8 @@ def _merge_ingest_stats(
     if isinstance(ingest, IncrementalStats):
         stats.entities_deleted = int(ingest.entities_deleted or 0)
         stats.edges_deleted = int(ingest.edges_deleted or 0)
+        stats.moves_detected = int(ingest.moves_detected or 0)
+        stats.moves = [strip_root_prefix(move, vault_root) for move in ingest.moves]
 
 
 def _format_ingest_error(error: dict[str, Any], vault_root: Path) -> str:

@@ -164,6 +164,10 @@ class VaultSyncStats:
     files_unsupported: int = 0
     entities_deleted: int = 0
     edges_deleted: int = 0
+    # Content-hash move detection: uid-less renames whose identity survived
+    # (tracker row rewritten in place — not a delete + a create).
+    moves_detected: int = 0
+    moves: list[str] = field(default_factory=list)  # vault-relative "old → new" lines
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     first_run_notice: bool = False
