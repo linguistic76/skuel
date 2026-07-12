@@ -28,6 +28,33 @@
     }
 }
 
+/*
+ * Legend type filters (calendarLegend Alpine component, skuel.js).
+ * The shell wrapper carries cal-hide-* / cal-spot-* classes; items carry
+ * data-item-type (chips in month/week, gutter+card rows in day view).
+ * Pure CSS so filters keep applying to HTMX-swapped grid content.
+ */
+.cal-hide-event [data-item-type="event"],
+.cal-hide-task_work [data-item-type="task_work"],
+.cal-hide-task_deadline [data-item-type="task_deadline"],
+.cal-hide-habit [data-item-type="habit"],
+.cal-hide-milestone [data-item-type="milestone"] {
+    display: none;
+}
+
+/* Hovering a legend swatch spotlights its type: everything else dims. */
+[data-item-type] {
+    transition: opacity 0.15s ease-out;
+}
+
+.cal-spot-event [data-item-type]:not([data-item-type="event"]),
+.cal-spot-task_work [data-item-type]:not([data-item-type="task_work"]),
+.cal-spot-task_deadline [data-item-type]:not([data-item-type="task_deadline"]),
+.cal-spot-habit [data-item-type]:not([data-item-type="habit"]),
+.cal-spot-milestone [data-item-type]:not([data-item-type="milestone"]) {
+    opacity: 0.25;
+}
+
 /* Item Details Modal */
 #item-details-modal {
     animation: fadeIn 0.2s ease-out;

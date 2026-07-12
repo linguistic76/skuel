@@ -26,6 +26,7 @@ from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H1, H2, A, Div, P, Span
+from fasthtml.common import Button as HtmlButton
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -64,15 +65,35 @@ _NO_BOOST = {"hx-boost": "false"}
 
 
 def create_calendar_legend() -> Div:
-    """Five type swatches (color square + label), read from the enum palette."""
+    """Five type swatches (color square + label) doubling as filter controls.
+
+    Each swatch is a toggle button: click hides/shows that type on the grid,
+    hover spotlights it (dims the others). State + CSS classes live on the
+    ``calendarLegend`` Alpine component bound to the calendar shell
+    (``_wrap_calendar_page``), so filters survive HTMX content swaps; the
+    hiding itself is pure CSS (``calendar.css``) keyed off ``data-item-type``.
+    """
     swatches = [
-        Div(
+        HtmlButton(
             Span(
                 cls="w-[9px] h-[9px] rounded-[3px]",
                 style=f"background-color: {item_type.get_color()}",
             ),
             Span(item_type.get_label(), cls="text-[11px] font-medium text-muted-foreground"),
-            cls="flex items-center gap-1.5",
+            type="button",
+            aria_label=f"Show or hide {item_type.get_label()} items",
+            cls=(
+                "flex items-center gap-1.5 cursor-pointer rounded-md px-1 py-0.5 -mx-1"
+                " transition-opacity hover:bg-accent"
+                " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            ),
+            **{
+                "@click": f"toggleType('{item_type.value}')",
+                "@mouseenter": f"spotlight = '{item_type.value}'",
+                "@mouseleave": "spotlight = null",
+                ":class": f"isHidden('{item_type.value}') && 'opacity-40'",
+                ":aria-pressed": f"String(!isHidden('{item_type.value}'))",
+            },
         )
         for item_type in _LEGEND_TYPES
     ]
@@ -286,6 +307,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             cls=f"calendar-item px-2.5 py-2 rounded-lg{cursor}",
             style=chip_style,
             title=item.title,
+            data_item_type=item.item_type.value,
             **interactive,
         )
 
@@ -298,6 +320,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         ),
         style=chip_style,
         title=item.title,
+        data_item_type=item.item_type.value,
         **interactive,
     )
 
@@ -325,8 +348,7 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
             week_cells.append(
                 create_day_cell(
                     current_date,
-                    day_items[:3],
-                    more_count=max(0, len(day_items) - 3),
+                    day_items,
                     is_current_month=current_date.month == first_day.month,
                     is_weekend=weekday_index >= 5,
                 )
@@ -381,11 +403,15 @@ def create_day_cell(
     cell_date: date,
     items: list[CalendarItem],
     *,
-    more_count: int,
     is_current_month: bool,
     is_weekend: bool,
 ) -> Div:
-    """A single month-grid day cell: date number/pill + up to 3 chips + overflow."""
+    """A single month-grid day cell: date number/pill + one chip per item.
+
+    ALL of the day's items render (no truncation): the legend type filters hide
+    chips client-side, so a chip that isn't in the DOM could never reappear when
+    the types occluding it are toggled off. Busy days stretch their grid row.
+    """
     is_today = cell_date == date.today()
     daily_href = f"/journals/daily/{cell_date.isoformat()}"
 
@@ -411,11 +437,6 @@ def create_day_cell(
         )
 
     chips = [_event_chip(item) for item in items]
-    more_el = (
-        Div(f"+{more_count} more", cls="text-[11px] font-medium text-muted-foreground px-1.5 pt-px")
-        if more_count > 0
-        else None
-    )
 
     cell_cls = "border-r border-b border-border min-h-[120px] px-[7px] pt-1.5 pb-2.5 relative overflow-hidden "
     cell_style = None
@@ -434,7 +455,7 @@ def create_day_cell(
     # in HTMX-swapped content without an Alpine re-init.
     return Div(
         Div(date_el, cls="flex items-center min-h-[24px] mb-[5px]"),
-        Div(*chips, more_el, cls="flex flex-col gap-[3px]"),
+        Div(*chips, cls="flex flex-col gap-[3px]"),
         cls=cell_cls,
         style=cell_style,
         onclick=f"if(event.target===this)window.location.href='{daily_href}'",
@@ -552,7 +573,15 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
             start_label,
             cls="w-[72px] flex-none text-right pt-3.5 font-mono text-[12px] text-muted-foreground",
         )
-        rows.append(Div(gutter, card, cls="flex gap-4 items-stretch"))
+        # data-item-type on the row so the time gutter hides with its card.
+        rows.append(
+            Div(
+                gutter,
+                card,
+                cls="flex gap-4 items-stretch",
+                data_item_type=item.item_type.value,
+            )
+        )
 
     return Div(*rows, cls="flex flex-col gap-2.5")
 
