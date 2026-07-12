@@ -26,11 +26,16 @@ async def _create_intelligence_hub(
     context_builder: Any,
     user_service: Any,
     askesis_core_service: Any,
+    canon_service: Any = None,
 ) -> None:
     """Create UserContextIntelligence factory, ZPD service, and Askesis.
 
     Mutates ``services``, ``context_builder``, and ``user_service`` to wire the
     intelligence hub into the running application.
+
+    ``canon_service`` is the CanonRetrievalService built in compose_services —
+    forwarded into Askesis for PS-scoped readings grounding (ADR-077). None when
+    embeddings are absent (guided pipeline degrades canon-free).
     """
     from adapters.persistence.neo4j.analytics_relationship_backend import (
         AnalyticsRelationshipBackend,
@@ -210,6 +215,7 @@ async def _create_intelligence_hub(
             zpd_service=zpd_service,
             ps_engagement_service=services.ps_engagement,
             citation_service=citation_service,
+            canon_service=canon_service,
         )
         logger.info(
             "✅ Askesis service created with intelligence_factory (13-domain synthesis + ZPD)"

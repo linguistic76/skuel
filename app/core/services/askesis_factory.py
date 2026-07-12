@@ -14,6 +14,7 @@ from core.services.askesis_service import AskesisDeps, AskesisService
 if TYPE_CHECKING:
     from core.ports.askesis_protocols import AskesisCoreOperations
     from core.ports.zpd_protocols import ZPDOperations
+    from core.services.canon import CanonRetrievalService
     from core.services.user.intelligence import UserContextIntelligenceFactory
 
 
@@ -27,6 +28,7 @@ def create_askesis_service(
     zpd_service: ZPDOperations,
     ps_engagement_service: Any,
     citation_service: AskesisCitationService,
+    canon_service: CanonRetrievalService | None = None,
 ) -> AskesisService:
     """Build AskesisService from bootstrap-level service dicts.
 
@@ -46,6 +48,9 @@ def create_askesis_service(
         ps_engagement_service: PsEngagementService — required for engagement-aware
             bundle loading (ADR-059). Always wired in FULL tier.
         citation_service: AskesisCitationService — formats graph citations for responses.
+        canon_service: CanonRetrievalService — PS-scoped readings grounding for the
+            guided pipeline (ADR-077). None when embeddings are absent; the pipeline
+            degrades canon-free.
     """
     deps = AskesisDeps(
         intelligence_factory=intelligence_factory,
@@ -62,6 +67,7 @@ def create_askesis_service(
         zpd_service=zpd_service,
         ps_engagement_service=ps_engagement_service,
         citation_service=citation_service,
+        canon_service=canon_service,
         # PS bundle dependencies for ContextRetriever
         ku_service=learning_services.get("atomic_ku_service"),
         lp_service=learning_services.get("learning_paths"),

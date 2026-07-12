@@ -1860,6 +1860,7 @@ async def compose_services(
             context_builder=context_builder,
             user_service=user_service,
             askesis_core_service=askesis_core_service,
+            canon_service=canon_retrieval_service,
         )
 
         # ========================================================================

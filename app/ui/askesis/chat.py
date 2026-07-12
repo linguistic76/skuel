@@ -6,11 +6,15 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 """
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Textarea
 
+from ui.canon import CanonSourcesBlock
 from ui.components import Icon
+
+if TYPE_CHECKING:
+    from core.services.canon import CanonSource
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PUBLIC: full chat shell
@@ -77,13 +81,24 @@ def render_user_message(text: str) -> Any:
     )
 
 
-def render_assistant_message(text: str, sources: list[dict] | None = None) -> Any:
-    """Left-aligned AI message with avatar, optional sources accordion, and action bar."""
+def render_assistant_message(
+    text: str,
+    sources: list[dict] | None = None,
+    canon_sources: "tuple[CanonSource, ...] | None" = None,
+) -> Any:
+    """Left-aligned AI message with avatar, optional sources accordion, and action bar.
+
+    ``canon_sources`` (ADR-077) renders the shared ``CanonSourcesBlock`` — the
+    readings the guided prompt drew on, linked to their Resource pages. A
+    distinct block from ``_sources_accordion`` (graph-prereq "Sources & Evidence").
+    """
     content_nodes: list[Any] = [
         Div(text, cls="text-[15px] leading-[1.75] text-foreground/80"),
     ]
     if sources:
         content_nodes.append(_sources_accordion(sources))
+    if canon_sources:
+        content_nodes.append(CanonSourcesBlock(canon_sources, cls="mt-4"))
     content_nodes.append(_action_bar())
 
     return Div(

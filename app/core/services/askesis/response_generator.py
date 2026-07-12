@@ -36,6 +36,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.models.askesis.ps_bundle import PsBundle
     from core.services.askesis.intent_classifier import GuidanceDetermination
+    from core.services.canon import CanonContext
     from core.services.user import UserContext
 
 logger = get_logger(__name__)
@@ -197,6 +198,7 @@ class ResponseGenerator:
         guidance: GuidanceDetermination,
         ps_bundle: PsBundle,
         user_context: UserContext,
+        canon_context: CanonContext | None = None,
     ) -> str:
         """Build a system prompt based on the guidance determination.
 
@@ -208,6 +210,9 @@ class ResponseGenerator:
             guidance: GuidanceDetermination with mode and pedagogical detail
             ps_bundle: Complete PS bundle (scoped context)
             user_context: User context for personalization
+            canon_context: PS-scoped canon readings (ADR-077) — its teaching
+                block is appended to ground guidance in the step's cited
+                readings; None or empty passages append nothing
 
         Returns:
             System prompt string for the LLM call
@@ -221,7 +226,12 @@ class ResponseGenerator:
             GuidanceMode.ENCOURAGING: self._build_encouraging_prompt,
         }
         builder = builders.get(guidance.mode, self._build_direct_prompt)
-        return builder(guidance, ps_bundle)
+        prompt = builder(guidance, ps_bundle)
+        if canon_context is not None:
+            teaching_block = canon_context.to_teaching_block()  # "" when no passages
+            if teaching_block:
+                prompt += "\n\n" + teaching_block
+        return prompt
 
     def _build_direct_prompt(
         self,
