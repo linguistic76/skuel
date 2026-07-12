@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.ports.query_types import EntityContentRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -248,7 +249,7 @@ class IngestionBackend:
             {"uids": uids},
         )
 
-    async def get_entity_contents(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+    async def get_entity_contents(self, uids: list[str]) -> Result[list[EntityContentRow]]:
         """Last-ingested body (``Entity.content``) for each live entity among ``uids``.
 
         Feeds the move pre-pass's similarity matching (rename + edit in one
@@ -262,7 +263,7 @@ class IngestionBackend:
         store content on the :Content subtree, not the node, so they are
         naturally excluded — they carry authored uids and never need this.
         """
-        return await self._executor.execute_query(
+        result = await self._executor.execute_query(
             """
             UNWIND $uids AS uid
             MATCH (e:Entity {uid: uid})
@@ -270,6 +271,16 @@ class IngestionBackend:
             RETURN uid AS uid, e.content AS content
             """,
             {"uids": uids},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        # Narrow the raw Cypher rows at the adapter boundary — the query
+        # guarantees both keys, str() makes the guarantee explicit to MyPy.
+        return Result.ok(
+            [
+                EntityContentRow(uid=str(record["uid"]), content=str(record["content"]))
+                for record in result.value or []
+            ]
         )
 
     async def get_entity_owner_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:

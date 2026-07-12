@@ -894,9 +894,9 @@ class IngestionTracker:
         if contents_result.is_error:
             return Result.fail(contents_result)
         content_by_uid = {
-            str(record["uid"]): str(record["content"])
+            record["uid"]: record["content"]
             for record in contents_result.value or []
-            if str(record["content"] or "").strip()
+            if record["content"].strip()
         }
         rows_with_content = [
             (row, content_by_uid[row.entity_uid])
