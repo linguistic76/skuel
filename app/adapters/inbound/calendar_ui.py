@@ -57,7 +57,6 @@ from ui.calendar.components import (
 )
 from ui.components import Button, ButtonT
 from ui.feedback import Alert, AlertT
-from ui.layout import Container
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 from ui.patterns.page_header import PageHeader
@@ -84,6 +83,9 @@ async def _wrap_calendar_page(request: Request, content: Any, title: str = "Cale
         active="events",
         request=request,
         extra_css=["/static/css/calendar.css"],
+        # Fluid width: the calendar grid should fill the content area and
+        # absorb the space freed when the sidebar collapses.
+        content_max_width="max-w-none",
     )
 
 
@@ -120,48 +122,46 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         prev_y, prev_m = _get_prev_month(year, month)
         next_y, next_m = _get_next_month(year, month)
         content = Div(
-            Container(
+            Div(
+                PageHeader(f"{month_name} {year}"),
+                create_view_switcher("month", first_day),
                 Div(
-                    PageHeader(f"{month_name} {year}"),
-                    create_view_switcher("month", first_day),
-                    Div(
-                        ButtonLink(
-                            "← Previous",
-                            href=f"/events/month/{prev_y}/{prev_m}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "Today",
-                            href="/events/calendar",
-                            cls=(ButtonT.primary, "mx-2"),
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "Next →",
-                            href=f"/events/month/{next_y}/{next_m}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "📝",
-                            href=f"/journals/monthly/{year}/{month}",
-                            cls=(ButtonT.ghost, "ml-4"),
-                            size="sm",
-                            title="Monthly Note",
-                        ),
-                        cls="flex justify-center items-center mb-6",
+                    ButtonLink(
+                        "← Previous",
+                        href=f"/events/month/{prev_y}/{prev_m}",
+                        cls=ButtonT.ghost,
+                        size="sm",
                     ),
-                    cls="mb-6",
+                    ButtonLink(
+                        "Today",
+                        href="/events/calendar",
+                        cls=(ButtonT.primary, "mx-2"),
+                        size="sm",
+                    ),
+                    ButtonLink(
+                        "Next →",
+                        href=f"/events/month/{next_y}/{next_m}",
+                        cls=ButtonT.ghost,
+                        size="sm",
+                    ),
+                    ButtonLink(
+                        "📝",
+                        href=f"/journals/monthly/{year}/{month}",
+                        cls=(ButtonT.ghost, "ml-4"),
+                        size="sm",
+                        title="Monthly Note",
+                    ),
+                    cls="flex justify-center items-center mb-6",
                 ),
-                content_loading_placeholder(
-                    f"/events/month/{year}/{month}/content",
-                    "calendar-month-content",
-                    loading_text="Loading calendar...",
-                ),
-                create_reschedule_form(),
+                cls="mb-6",
             ),
-            cls="max-w-7xl mx-auto p-6",
+            content_loading_placeholder(
+                f"/events/month/{year}/{month}/content",
+                "calendar-month-content",
+                loading_text="Loading calendar...",
+            ),
+            create_reschedule_form(),
+            cls="w-full",
         )
         return await _wrap_calendar_page(request, content, f"{month_name} {year}")
 
@@ -191,41 +191,39 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             target_date = date.today()
         week_start, _ = week_bounds(target_date)
         content = Div(
-            Container(
+            Div(
+                PageHeader(f"Week of {week_start.strftime('%B %d, %Y')}"),
+                create_view_switcher("week", week_start),
                 Div(
-                    PageHeader(f"Week of {week_start.strftime('%B %d, %Y')}"),
-                    create_view_switcher("week", week_start),
-                    Div(
-                        ButtonLink(
-                            "← Previous Week",
-                            href=f"/events/week/{_get_prev_week(week_start)}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "This Week",
-                            href=f"/events/week/{date.today().isoformat()}",
-                            cls=(ButtonT.primary, "mx-2"),
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "Next Week →",
-                            href=f"/events/week/{_get_next_week(week_start)}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        cls="flex justify-center mb-6",
+                    ButtonLink(
+                        "← Previous Week",
+                        href=f"/events/week/{_get_prev_week(week_start)}",
+                        cls=ButtonT.ghost,
+                        size="sm",
                     ),
-                    cls="mb-6",
+                    ButtonLink(
+                        "This Week",
+                        href=f"/events/week/{date.today().isoformat()}",
+                        cls=(ButtonT.primary, "mx-2"),
+                        size="sm",
+                    ),
+                    ButtonLink(
+                        "Next Week →",
+                        href=f"/events/week/{_get_next_week(week_start)}",
+                        cls=ButtonT.ghost,
+                        size="sm",
+                    ),
+                    cls="flex justify-center mb-6",
                 ),
-                content_loading_placeholder(
-                    f"/events/week/{date_str}/content",
-                    "calendar-week-content",
-                    loading_text="Loading calendar...",
-                ),
-                create_reschedule_form(),
+                cls="mb-6",
             ),
-            cls="max-w-7xl mx-auto p-6",
+            content_loading_placeholder(
+                f"/events/week/{date_str}/content",
+                "calendar-week-content",
+                loading_text="Loading calendar...",
+            ),
+            create_reschedule_form(),
+            cls="w-full",
         )
         return await _wrap_calendar_page(
             request, content, f"Week of {week_start.strftime('%B %d, %Y')}"
@@ -258,42 +256,42 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             target_date = date.fromisoformat(date_str)
         except ValueError:
             target_date = date.today()
+        # Day view is a vertical timeline of text cards — unlike the month/week
+        # grids it reads better with a centered cap than at full fluid width.
         content = Div(
-            Container(
+            Div(
+                PageHeader(target_date.strftime("%A, %B %d, %Y")),
+                create_view_switcher("day", target_date),
                 Div(
-                    PageHeader(target_date.strftime("%A, %B %d, %Y")),
-                    create_view_switcher("day", target_date),
-                    Div(
-                        ButtonLink(
-                            "← Previous Day",
-                            href=f"/events/day/{_get_prev_day(target_date)}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "Today",
-                            href=f"/events/day/{date.today().isoformat()}",
-                            cls=(ButtonT.primary, "mx-2"),
-                            size="sm",
-                        ),
-                        ButtonLink(
-                            "Next Day →",
-                            href=f"/events/day/{_get_next_day(target_date)}",
-                            cls=ButtonT.ghost,
-                            size="sm",
-                        ),
-                        cls="flex justify-center mb-6",
+                    ButtonLink(
+                        "← Previous Day",
+                        href=f"/events/day/{_get_prev_day(target_date)}",
+                        cls=ButtonT.ghost,
+                        size="sm",
                     ),
-                    cls="mb-6",
+                    ButtonLink(
+                        "Today",
+                        href=f"/events/day/{date.today().isoformat()}",
+                        cls=(ButtonT.primary, "mx-2"),
+                        size="sm",
+                    ),
+                    ButtonLink(
+                        "Next Day →",
+                        href=f"/events/day/{_get_next_day(target_date)}",
+                        cls=ButtonT.ghost,
+                        size="sm",
+                    ),
+                    cls="flex justify-center mb-6",
                 ),
-                content_loading_placeholder(
-                    f"/events/day/{date_str}/content",
-                    "calendar-day-content",
-                    loading_text="Loading calendar...",
-                ),
-                create_reschedule_form(),
+                cls="mb-6",
             ),
-            cls="max-w-7xl mx-auto p-6",
+            content_loading_placeholder(
+                f"/events/day/{date_str}/content",
+                "calendar-day-content",
+                loading_text="Loading calendar...",
+            ),
+            create_reschedule_form(),
+            cls="w-full max-w-5xl mx-auto",
         )
         return await _wrap_calendar_page(request, content, target_date.strftime("%A, %B %d, %Y"))
 
