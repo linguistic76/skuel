@@ -42,7 +42,18 @@ def JournalsLandingPage(user: "User") -> Any:
         ),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
-        **{"x-data": "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false' }"},
+        # sessionActive: "New Journal" is a reset button. /journals/start swaps the
+        # conversation into #journal-workspace with the URL still /journals, so the
+        # only signal that a reset has anything to reset is that swap event.
+        **{
+            "x-data": (
+                "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false',"
+                " sessionActive: false }"
+            ),
+            "@htmx:after-swap.window": (
+                "if ($event.detail.target.id === 'journal-workspace') sessionActive = true"
+            ),
+        },
     )
 
 
@@ -265,7 +276,11 @@ def journal_sidebar(user: "User") -> Any:
                 ),
                 type="button",
                 aria_label="New Journal",
-                **{"@click": "window.location.href='/journals'"},
+                **{
+                    "@click": "window.location.href='/journals'",
+                    "x-show": "sessionActive",
+                    "x-cloak": True,
+                },
             ),
             Div(cls="flex-1"),
             Div(
@@ -318,6 +333,7 @@ def _sb_new_journal_btn() -> Any:
             ),
         ),
         cls="px-3 pb-3",
+        **{"x-show": "sessionActive", "x-cloak": True},
     )
 
 
