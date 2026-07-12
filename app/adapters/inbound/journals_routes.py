@@ -137,16 +137,19 @@ async def _compile_text(
     journal_service: Any,
     processing_service: Any,
     summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Compile raw text to processed output — statelessly. Returns ``Result[str]``.
 
     FOUNDER runs the full DNWF compile (``run_compiled``); everyone else runs a
     single LLM pass over the text with the supplied instructions. Neither path
-    touches Neo4j. ``summon_canon`` reaches the FOUNDER compile only (canon-free
-    single passes have no stages to infuse).
+    touches Neo4j. ``summon_canon`` / ``summon_vault`` reach the FOUNDER compile
+    only (ungrounded single passes have no stages to infuse).
     """
     if is_founder and journal_service is not None:
-        return await journal_service.run_compiled(text, user_uid, summon_canon=summon_canon)
+        return await journal_service.run_compiled(
+            text, user_uid, summon_canon=summon_canon, summon_vault=summon_vault
+        )
     return await _call_llm_with_instructions(text, instructions, processing_service)
 
 
@@ -286,6 +289,7 @@ async def _process_single_upload(
     batch_transcription_service: Any,
     processing_service: Any,
     summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Process one uploaded file to ``je_out/`` and return an inline fragment.
 
@@ -335,6 +339,7 @@ async def _process_single_upload(
             journal_service=journal_service,
             processing_service=processing_service,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
@@ -783,10 +788,11 @@ def create_journals_routes(
             # keeps its result in #upload-status (Codex #478).
             retarget_workspace = bool(form.get("workspace_target"))
 
-            # Canon "summon" dial for the file path (FOUNDER instructions_only):
+            # Grounding dials for the file path (FOUNDER instructions_only):
             # the compile has no review gate to check, so the intent rides the
-            # upload form. Absent/anything-but-"true" → canon-free (default).
+            # upload form. Absent/anything-but-"true" → ungrounded (default).
             summon_canon = str(form.get("summon_canon", "")).strip().lower() == "true"
+            summon_vault = str(form.get("summon_vault", "")).strip().lower() == "true"
 
             if len(uploaded_files) == 1:
                 uploaded_file = uploaded_files[0]
@@ -806,6 +812,7 @@ def create_journals_routes(
                     batch_transcription_service=batch_transcription_service,
                     processing_service=processing_service,
                     summon_canon=summon_canon,
+                    summon_vault=summon_vault,
                 )
 
             # Multiple files — write to a temp dir and run the shared batch engine
@@ -1237,6 +1244,7 @@ def create_journals_routes(
         title: str = "",
         journal_mode: str = "",
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Any:
         """Continue a journal conversation.
 
@@ -1259,17 +1267,20 @@ def create_journals_routes(
         if journal_service is None:
             return FollowUpErrorFragment("Journal AI features are not available (CORE tier).")
 
-        # Canon is a FOUNDER entitlement — the composer dial is hidden for other
-        # tiers, but a POST flag is forgeable, so gate it server-side (Codex #572
-        # P1). Only load the user when a summon is actually requested (no cost on
-        # the common canon-free follow-up).
-        if summon_canon:
+        # Both dials are FOUNDER entitlements — the composer dials are hidden
+        # for other tiers, but a POST flag is forgeable, so gate them
+        # server-side (Codex #572 P1). One user resolve covers both; only load
+        # the user when a summon is actually requested (no cost on the common
+        # ungrounded follow-up).
+        if summon_canon or summon_vault:
             user_result = await user_service.get_user(user_uid)
-            summon_canon = (
+            is_founder = (
                 user_result.is_ok
                 and user_result.value is not None
                 and user_result.value.journal_tier.is_founder()
             )
+            summon_canon = summon_canon and is_founder
+            summon_vault = summon_vault and is_founder
 
         mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_follow_up(
@@ -1279,6 +1290,7 @@ def create_journals_routes(
             user_uid=user_uid,
             mode=mode,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
@@ -1350,6 +1362,7 @@ def create_journals_routes(
         scribe_output: str = "",
         review_notes: str = "",
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Any:
         from ui.journals import ErrorFragment, Stage2Fragment
 
@@ -1370,6 +1383,7 @@ def create_journals_routes(
             review_notes=review_notes,
             user_uid=user_uid,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if result.is_error:
             logger.error("Stage 2 failed for %s: %s", user_uid, result.expect_error())
@@ -1396,6 +1410,7 @@ def create_journals_routes(
         thought_partner_output: str = "",
         review_notes: str = "",
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Any:
         from ui.journals import ErrorFragment, Stage3Fragment
 
@@ -1416,6 +1431,7 @@ def create_journals_routes(
             review_notes=review_notes,
             user_uid=user_uid,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if result.is_error:
             logger.error("Stage 3 failed for %s: %s", user_uid, result.expect_error())

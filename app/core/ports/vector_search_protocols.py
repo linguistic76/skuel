@@ -53,10 +53,14 @@ class VectorSearchBackendOperations(Protocol):
         chunk_types: list[str] | None = None,
         parent_uid: str | None = None,
         parent_filters: FilterParams | None = None,
+        owner_uid: str | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across :ContentChunk nodes for precise RAG retrieval.
 
         ``parent_filters`` scopes results to chunks whose owning Entity matches
-        the active facets (nous, learning_level, ...).
+        the active facets (nous, learning_level, ...). ``owner_uid`` restricts
+        to chunks whose parent the given user OWNS and that is not marked
+        ``private`` (canon P3 vault retrieval) — the scoped rows additionally
+        carry ``parent_metadata``.
         """
         ...

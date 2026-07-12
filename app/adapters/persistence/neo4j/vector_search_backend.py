@@ -14,7 +14,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -112,6 +115,7 @@ class VectorSearchBackend:
         chunk_types: list[str] | None = None,
         parent_uid: str | None = None,
         parent_filters: FilterParams | None = None,
+        owner_uid: str | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across :ContentChunk nodes for precise RAG retrieval.
 
@@ -124,6 +128,16 @@ class VectorSearchBackend:
         — the same facet→property mapping faceted search applies to entities, now
         applied to the chunk's parent so body hits honor the facets instead of
         leaking across topics. List-vs-scalar membership matches `_search_raw_mixin`.
+
+        ``owner_uid`` is the canon-P3 vault scope: only chunks whose parent the
+        given user OWNS and that is not marked ``private: true`` survive. The
+        owner rides the parent's OWNS edge — chunks never carry an owner
+        property — and the private gate is belt-and-suspenders (a private note
+        structurally has no chunks; the WHERE guarantees it anyway). Scoped
+        rows additionally return ``parent_metadata`` (the raw metadata JSON,
+        carrying ``vault_file_path`` for citations). With ``owner_uid=None``
+        the emitted Cypher is byte-identical to the unscoped query — guarded by
+        ``test_unscoped_query_is_single_pass_and_unchanged``.
         """
         parts = [
             """CALL db.index.vector.queryNodes(
@@ -151,11 +165,18 @@ class VectorSearchBackend:
             "chunk_types": chunk_types,
             "parent_uid": parent_uid,
         }
+        scope_clauses: list[str] = []
+        # Owner scope (canon P3): OWNS edge on the parent + the hard private
+        # exclusion. Ordered ahead of the facet clauses so the cheap edge
+        # check prunes before property comparisons.
+        if owner_uid:
+            scope_clauses.append("EXISTS { MATCH (parent)<-[:OWNS]-(:User {uid: $owner_uid}) }")
+            scope_clauses.append("coalesce(parent.private, false) = false")
+            params["owner_uid"] = owner_uid
         # Parent-facet scope on the owning Entity — mirrors the list-vs-scalar
         # membership `_search_raw_mixin` applies to entity property filters, so
         # `nous` (array) and scalar facets behave identically across both paths.
         if parent_filters:
-            scope_clauses = []
             for field, value in parent_filters.items():
                 pname = f"pf_{field}"
                 if isinstance(value, list):
@@ -167,9 +188,11 @@ class VectorSearchBackend:
                         f"ELSE parent.{field} = ${pname} END)"
                     )
                 params[pname] = value
+        if scope_clauses:
             parts.append("WHERE " + " AND ".join(scope_clauses))
+        metadata_return = ",\n            parent.metadata as parent_metadata" if owner_uid else ""
         parts.append(
-            """RETURN
+            f"""RETURN
             chunk.uid as chunk_uid,
             chunk.chunk_type as chunk_type,
             chunk.text as text,
@@ -177,16 +200,17 @@ class VectorSearchBackend:
             score as similarity_score,
             parent.uid as parent_uid,
             parent.title as parent_title,
-            parent.entity_type as parent_entity_type
+            parent.entity_type as parent_entity_type{metadata_return}
         ORDER BY score DESC
         LIMIT $limit"""
         )
         cypher = "\n".join(parts)
 
         # Escalate the candidate pool until `limit` in-scope chunks survive the
-        # parent-facet filter (unscoped → single 2x pass, unchanged). Each pass
-        # is a strict superset of the last, so the final result stands alone.
-        schedule = _SCOPED_CANDIDATE_SCHEDULE if parent_filters else (2,)
+        # scope filter (unscoped → single 2x pass, unchanged). Each pass is a
+        # strict superset of the last, so the final result stands alone.
+        scoped = bool(parent_filters or owner_uid)
+        schedule = _SCOPED_CANDIDATE_SCHEDULE if scoped else (2,)
         # boundary: query_executor returns dict rows; the Cypher's RETURN
         # clause matches SemanticSearchChunkResult by construction.
         last: Result[list[Any]] = Result.ok([])
@@ -195,6 +219,15 @@ class VectorSearchBackend:
             last = await self._executor.execute_query(cypher, params)
             if last.is_error or len(last.value) >= limit:
                 break
+        if scoped and last.is_ok:
+            # Growth tripwire: when the ceiling pass still under-fills, the
+            # corpus has outgrown the schedule — time for pre-filtered search.
+            logger.debug(
+                "Scoped chunk search: %d candidates → %d in-scope (limit=%d)",
+                params["candidate_limit"],
+                len(last.value),
+                limit,
+            )
         return cast("Result[list[SemanticSearchChunkResult]]", last)
 
     async def get_learning_states_batch(

@@ -549,7 +549,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if processed_file_path:
             updates["processed_file_path"] = processed_file_path
         result = await self.backend.update(uid, updates)
-        if result.is_ok and result.value.pipeline == Pipeline.KNOWLEDGE and not result.value.private:
+        if (
+            result.is_ok
+            and result.value.pipeline == Pipeline.KNOWLEDGE
+            and not result.value.private
+        ):
             # Post-persist embedding refresh (ADR-074) — non-private knowledge
             # entries only
             await publish_embedding_requested(
@@ -588,7 +592,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(Errors.validation("No updatable fields provided", field="request"))
         updates["updated_at"] = datetime.now()
         result = await self.backend.update(uid, updates)
-        if result.is_ok and result.value.pipeline == Pipeline.KNOWLEDGE and not result.value.private:
+        if (
+            result.is_ok
+            and result.value.pipeline == Pipeline.KNOWLEDGE
+            and not result.value.private
+        ):
             # Post-persist embedding refresh (ADR-074) — non-private knowledge
             # entries only; the changed_fields gate skips tag/metadata-only edits.
             await publish_embedding_requested(

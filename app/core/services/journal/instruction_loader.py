@@ -58,12 +58,15 @@ def stage1_system_prompt() -> str:
     return _load("main")
 
 
-def stage2_system_prompt(user_context_summary: str, canon_context: str = "") -> str:
+def stage2_system_prompt(
+    user_context_summary: str, canon_context: str = "", vault_context: str = ""
+) -> str:
     """System prompt for Stage 2 — Thought Partner.
 
     ``canon_context`` (when non-empty) is the ``CanonContext.to_prompt_block()``
     of summoned canon passages, appended as its own section — same mechanism as
-    the user-context block.
+    the user-context block. ``vault_context`` is the vault dial's counterpart
+    (canon P3), appended after the canon block.
     """
     parts = [
         _load("main"),
@@ -75,20 +78,27 @@ def stage2_system_prompt(user_context_summary: str, canon_context: str = "") -> 
         parts.append(f"## Current User Context\n\n{user_context_summary}")
     if canon_context:
         parts.append(canon_context)
+    if vault_context:
+        parts.append(vault_context)
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 
-def stage3_system_prompt(user_context_summary: str, canon_context: str = "") -> str:
+def stage3_system_prompt(
+    user_context_summary: str, canon_context: str = "", vault_context: str = ""
+) -> str:
     """System prompt for Stage 3 — What Is Related.
 
     ``canon_context`` (when non-empty) is the ``CanonContext.to_prompt_block()``
-    of summoned canon passages, appended as its own section.
+    of summoned canon passages, appended as its own section. ``vault_context``
+    is the vault dial's counterpart (canon P3), appended after the canon block.
     """
     parts = [_load("main")]
     if user_context_summary:
         parts.append(f"## Current User Context\n\n{user_context_summary}")
     if canon_context:
         parts.append(canon_context)
+    if vault_context:
+        parts.append(vault_context)
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 
@@ -159,6 +169,7 @@ def follow_up_system_prompt(
     user_context_summary: str,
     mode: "JournalMode | None" = None,
     canon_context: str = "",
+    vault_context: str = "",
 ) -> str:
     """System prompt for a follow-up turn in a journal conversation.
 
@@ -168,7 +179,8 @@ def follow_up_system_prompt(
 
     ``canon_context`` (when non-empty) is ``CanonContext.to_discussion_block()``
     — the follow-up is the quote-on-demand surface (ADR-076), so the model may
-    name and quote the shelf passages, not merely infuse them.
+    name and quote the shelf passages, not merely infuse them. ``vault_context``
+    is the vault dial's counterpart (canon P3), appended after the canon block.
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -179,6 +191,8 @@ def follow_up_system_prompt(
         parts.append(f"## User's Active Context\n\n{user_context_summary}")
     if canon_context:
         parts.append(canon_context)
+    if vault_context:
+        parts.append(vault_context)
     return "\n\n".join(parts)
 
 

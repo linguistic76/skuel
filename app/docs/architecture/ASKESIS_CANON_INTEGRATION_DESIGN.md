@@ -365,14 +365,26 @@ source: `clean_reference_book.py` → `ingest_canon_book.py --resource-uid …`.
 authoring on the unchanged pipeline; makes phase 1 progressively useful. Track which PS-cited
 Resources are shelvable vs. pointer-only.
 
-**Phase 3 — vault-minus-private scope for Journals (the sibling realization).** Elevate the
-journal companion's shallow `_build_context_summary` (≤8 note snippets) into **owner-scoped,
-weighted content retrieval** satisfying the same corpus-scope contract — over the existing
-`contentchunk_embedding_idx` path (`VectorSearchBackend.semantic_search_chunks`), scoped by the
-user's `SearchVisibility`/`OWNS` and **gated by private-marking**. This is where the weighting
-foundation first pays off: land the `weight` field (uniform default) + the private gate. Depends
-on confirming the private-marking mechanism (VaultBridge allowlist / frontmatter flag) and the
-owner-scoped chunk-retrieval entry point.
+**Phase 3 — vault-minus-private scope for Journals (the sibling realization).** SHIPPED
+2026-07-12 (`plans/canon-p3-vault-scope-implementation.md`; ADR-077 amendment). The Journals
+personal cell of the 2×2 is realized:
+
+- **Substrate:** knowledge-pipeline UserEntries are chunked at the ingest door
+  (`_chunk_entity_content`, additive — the body stays on the entity); `private: true`
+  frontmatter → never embedded/chunked at all + hard WHERE in every retrieval Cypher;
+  flip retracts on the next sync. Backfill via `./dev vault-sync --force`.
+- **Retrieval shape:** `CanonRetrievalService.retrieve_vault(query_text, user_uid, *, limit,
+  min_score)` — the sibling of `retrieve` over the OTHER port
+  (`VectorSearchBackendOperations.semantic_search_chunks(owner_uid=…, parent_filters=
+  {"pipeline": "knowledge"})`): OWNS-edge owner scope + `coalesce(parent.private,false)=false`
+  in the one content-index Cypher; the unscoped query is byte-identical (guarded).
+- **Contract:** the same `CanonPassage`/`CanonContext` family with a `SourceKind` discriminator
+  (VAULT reinterprets `book_title` := note title, `resource_uid` := entry uid; `vault_path` is
+  the locator); `weight: float = 1.0` landed (uniform, contract letter). Citations link to the
+  owner-verified `/gradebook/{uid}` via the shared `CanonSourcesBlock` (kind-aware).
+- **Dial:** second independent FOUNDER toggle `summon_vault` (Stages 2/3 absorb; follow-up may
+  name/quote; compile threads both). When on, the grounded block **replaces** the shallow
+  `_build_context_summary` note snippets (de-dup); off → byte-identical prior behavior.
 
 **Later (deferred).**
 - **Past-PS spaced repetition.** Union-scope across prior PSs during review (§9). Same seam,
@@ -389,7 +401,8 @@ owner-scoped chunk-retrieval entry point.
 
 **One retrieval capability, genuinely scope-agnostic — unified at the contract, not the index.**
 Every grounding surface calls one **corpus-scope contract** (`retrieve(query, *, scope, …)`):
-journal (whole shelf), Askesis (PS-scoped), and later the vault-minus-private personal corpus.
+journal (whole shelf), Askesis (PS-scoped), and the vault-minus-private personal corpus
+(`retrieve_vault`, shipped P3).
 For the reference shelf the difference is a single optional `resource_uids` argument and which
 Cypher branch runs inside the one adapter; the vault scope is the same contract over the existing
 owner-scoped content path. The unification lives in the **contract + the `to_teaching_block`

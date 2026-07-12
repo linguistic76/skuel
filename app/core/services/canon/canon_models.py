@@ -1,9 +1,15 @@
 """Canon retrieval value objects — the passages a journal stage draws on.
 
 Frozen, domain-agnostic. ``CanonRetrievalService`` builds a ``CanonContext`` from
-the reference shelf; a caller (today: ``JournalService``) turns it into two
-plain-text pieces — a system-prompt block that voice-infuses the LLM's reasoning
-and a light attribution footer appended to the visible output.
+the reference shelf (``retrieve``) or the user's own vault notes
+(``retrieve_vault`` — canon P3); a caller (today: ``JournalService``) turns it
+into two plain-text pieces — a system-prompt block that voice-infuses the LLM's
+reasoning and a light attribution footer appended to the visible output.
+
+``SourceKind`` discriminates the two corpora on ONE value-object family (ADR-077:
+one contract, two substrates — never a parallel model family). A VAULT passage
+reinterprets the book fields: ``book_title`` is the note title, ``resource_uid``
+is the UserEntry uid, and ``vault_path`` replaces the in-book location trail.
 
 Nothing here is persisted (ADR-073): a ``CanonContext`` is ephemeral prompt
 context that lives for one stage call and is dropped.
@@ -12,17 +18,60 @@ context that lives for one stage call and is dropped.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
+
+
+class SourceKind(StrEnum):
+    """Which corpus a passage/source came from — canon shelf or personal vault."""
+
+    CANON = "canon"
+    VAULT = "vault"
+
+
+def _footer_line(titles: list[str]) -> str:
+    """The shared "Drawing on" footer body for a list of source titles.
+
+    Italic label + italic titles kept as *separate* emphasis spans — a single
+    wrapping span (``*Drawing on: *HMS**``) collides asterisks and renders
+    inconsistently across markdown engines. ``""`` for no titles.
+    """
+    if not titles:
+        return ""
+    rendered = ", ".join(f"*{title}*" for title in titles)
+    return f"\n\n---\n*Drawing on:* {rendered}"
+
+
+def merged_attribution_footer(*contexts: CanonContext) -> str:
+    """THE light "Drawing on" footer — one line across any number of contexts.
+
+    Mirrors the shape of ``CitationBundle.format_for_askesis`` but far lighter:
+    a single italic line naming the sources the response leaned on, set off by
+    a rule — never two rules when a stage draws on both corpora.
+    Order-preserving de-dupe across the contexts' drawn titles; ``""`` when
+    nothing infused anywhere.
+    """
+    seen: dict[str, None] = {}
+    for context in contexts:
+        for title in context.books():
+            seen.setdefault(title, None)
+    return _footer_line(list(seen.keys()))
 
 
 @dataclass(frozen=True)
 class CanonPassage:
-    """One retrieved canon passage, tagged with the book and its in-book location.
+    """One retrieved passage, tagged with its source and in-source location.
 
     ``text`` is the exact chunk body — quotable verbatim (ADR-076). ``book_title``
     drives attribution; ``heading`` / ``section_path`` / ``sequence`` give the
     structural anchor a citation points to (chapter/section trail + position).
     An EPUB is reflowable, so there is no page number — ``locator`` is the honest
     best-practice anchor.
+
+    VAULT passages (canon P3) reinterpret the book fields: ``book_title`` is the
+    note title, ``resource_uid`` is the owning UserEntry uid (it builds the
+    ``/gradebook/{uid}`` citation link), and ``vault_path`` — the vault-relative
+    display path — is the locator. ``weight`` is the ADR-077 contract letter for
+    per-source weighting: uniform ``1.0`` today, nothing reads it yet.
     """
 
     text: str
@@ -32,25 +81,32 @@ class CanonPassage:
     heading: str | None = None
     section_path: str | None = None
     sequence: int | None = None
+    source_kind: SourceKind = SourceKind.CANON
+    vault_path: str | None = None
+    weight: float = 1.0
 
     @property
     def locator(self) -> str:
-        """Human location trail: ``section_path`` + immediate ``heading``.
+        """Human location trail: in-book section trail, or the vault path.
 
-        E.g. ``"Hypermedia Concepts > Hypermedia: A Reintroduction > A Brief
-        History of Hypermedia"``. Empty when the passage has no heading context
-        (front matter / unstructured) — the caller then cites the book + position
-        only. ``section_path`` already excludes the immediate heading, so the two
-        never duplicate.
+        CANON: ``section_path`` + immediate ``heading``, e.g. ``"Hypermedia
+        Concepts > Hypermedia: A Reintroduction > A Brief History of
+        Hypermedia"``. Empty when the passage has no heading context (front
+        matter / unstructured) — the caller then cites the book + position
+        only. ``section_path`` already excludes the immediate heading, so the
+        two never duplicate. VAULT: the vault-relative file path
+        (``knowledge/foo.md``), empty when unavailable.
         """
+        if self.source_kind is SourceKind.VAULT:
+            return self.vault_path or ""
         return " > ".join(p for p in (self.section_path, self.heading) if p)
 
     def citation_line(self) -> str:
-        """One-line source label for citing this passage: book + location trail.
+        """One-line source label for citing this passage: title + location trail.
 
-        E.g. ``"Hypermedia Systems — Hypermedia Concepts > Hypermedia: A
-        Reintroduction"``. Falls back to the book title alone when the passage
-        has no heading context.
+        CANON e.g. ``"Hypermedia Systems — Hypermedia Concepts > Hypermedia: A
+        Reintroduction"``; VAULT e.g. ``"My Stoicism Notes — knowledge/stoicism.md"``.
+        Falls back to the title alone when the passage has no location context.
         """
         bits = [self.book_title] if self.book_title else []
         loc = self.locator
@@ -61,28 +117,34 @@ class CanonPassage:
 
 @dataclass(frozen=True)
 class CanonSource:
-    """One shelved book a response drew on, with the in-book locations it used.
+    """One source a response drew on, with the in-source locations it used.
 
-    The UI-facing shape of an attribution: a book + the distinct location trails
-    its quoted passages came from + the ``resource_uid`` that builds the link to
-    its Resource page. Kept structured (not markdown) so a plain-text surface can
-    render a real anchor.
+    The UI-facing shape of an attribution: a title + the distinct location
+    trails its quoted passages came from + the ``resource_uid`` that builds the
+    link — the book's Resource page for CANON, the note's ``/gradebook/{uid}``
+    detail for VAULT (``source_kind`` tells the renderer which). Kept
+    structured (not markdown) so a plain-text surface can render a real anchor.
     """
 
     book_title: str
     resource_uid: str
     locators: tuple[str, ...]
+    source_kind: SourceKind = SourceKind.CANON
 
 
 @dataclass(frozen=True)
 class CanonContext:
-    """The canon passages a single journal stage may draw on.
+    """The passages a single journal stage may draw on — canon shelf or vault.
 
-    Domain-agnostic: it knows only "here are ranked passages and the books they
-    came from". The caller decides placement (system-prompt context + footer).
+    Domain-agnostic: it knows only "here are ranked passages and the sources
+    they came from". The caller decides placement (system-prompt context +
+    footer). ``source_kind`` selects the prompt framing: curated books are
+    absorbed background voice; the user's own vault notes are their material,
+    framed as such.
     """
 
     passages: tuple[CanonPassage, ...]
+    source_kind: SourceKind = SourceKind.CANON
 
     @classmethod
     def empty(cls) -> CanonContext:
@@ -122,7 +184,9 @@ class CanonContext:
         Framed as reasoning material, not quotable text: the model is told to let
         these ideas inform its voice and thinking, never to quote or cite them
         inline (the visible attribution is the footer's job). Passages are joined
-        plainly so no single one dominates.
+        plainly so no single one dominates. VAULT passages carry the same absorb
+        contract with own-notes wording — they are the user's material, not a
+        curated shelf.
         """
         if not self.passages:
             return ""
@@ -131,6 +195,16 @@ class CanonContext:
         )
         if not body:
             return ""
+        if self.source_kind is SourceKind.VAULT:
+            return (
+                "## The User's Own Notes to Draw On\n\n"
+                "The following passages are drawn from the user's own vault notes — "
+                "their material, in their words. Let what they have already written "
+                "inform your reasoning and tone — but do NOT quote the passages, name "
+                "the notes, or cite them inline. They are context you have absorbed, "
+                "not sources to attribute.\n\n"
+                f"{body}"
+            )
         return (
             "## Wisdom to Draw On\n\n"
             "The following passages are drawn from a curated shelf of books. Let their "
@@ -152,6 +226,7 @@ class CanonContext:
         Carries the non-negotiable faithfulness contract: quote ONLY the text
         below, cite ONLY the location shown, never invent a quote or an anchor,
         and say plainly when the shelf has nothing on point. ``""`` if no passage.
+        VAULT passages carry the identical contract with note-title/path anchors.
         """
         if not self.passages:
             return ""
@@ -163,6 +238,21 @@ class CanonContext:
         if not entries:
             return ""
         body = "\n\n".join(entries)
+        if self.source_kind is SourceKind.VAULT:
+            return (
+                "## The User's Vault Notes\n\n"
+                "The passages below were retrieved from the user's own vault notes for "
+                "this conversation. You MAY discuss them openly — name the note, engage "
+                "with what the user wrote, and quote it **verbatim** when they want to "
+                "see or verify their own words.\n\n"
+                "Faithfulness (non-negotiable):\n"
+                "- Quote ONLY the text in the passages below — never reconstruct a quote from memory.\n"
+                "- When you quote, attribute it to its note and cite the note title and path shown "
+                "for that passage.\n"
+                "- Never invent a quote, a note, or a path. If these notes hold nothing on the "
+                "user's question, say so plainly rather than fabricate.\n\n"
+                f"{body}"
+            )
         return (
             "## The Canon Shelf\n\n"
             "You have a curated shelf of real books. The passages below were retrieved "
@@ -261,22 +351,7 @@ class CanonContext:
                 book_title=titles[uid],
                 resource_uid=uid,
                 locators=tuple(locators),
+                source_kind=self.source_kind,
             )
             for uid, locators in by_book.items()
         )
-
-    def attribution_footer(self) -> str:
-        """Render the light "Drawing on" footer, or ``""`` if no passages.
-
-        Mirrors the shape of ``CitationBundle.format_for_askesis`` but far
-        lighter: a single italic line naming the books the response leaned on,
-        set off by a rule.
-        """
-        titles = self.books()
-        if not titles:
-            return ""
-        # Italic label + italic titles kept as *separate* emphasis spans — a
-        # single wrapping span (``*Drawing on: *HMS**``) collides asterisks and
-        # renders inconsistently across markdown engines.
-        rendered = ", ".join(f"*{title}*" for title in titles)
-        return f"\n\n---\n*Drawing on:* {rendered}"

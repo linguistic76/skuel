@@ -100,6 +100,77 @@ async def test_list_valued_filter_uses_whole_value_equality() -> None:
 
 
 @pytest.mark.asyncio
+async def test_unscoped_query_never_names_owner_scope() -> None:
+    # The canon-P3 owner branch must be invisible to every unscoped caller:
+    # no OWNS clause, no private clause, no parent_metadata in the RETURN.
+    executor = _FakeExecutor(rows=0)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(query_embedding=[0.1, 0.2], limit=5, threshold=0.6)
+
+    cypher, params = executor.queries[-1]
+    assert ":OWNS" not in cypher
+    assert "private" not in cypher
+    assert "parent_metadata" not in cypher
+    assert "owner_uid" not in params
+
+
+@pytest.mark.asyncio
+async def test_owner_scope_adds_owns_and_private_clauses() -> None:
+    # Canon P3 vault branch: OWNS edge on the parent + hard private exclusion,
+    # scoped candidate schedule, parent_metadata in the RETURN.
+    executor = _FakeExecutor(rows=5)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(
+        query_embedding=[0.1], limit=5, threshold=0.6, owner_uid="user_1"
+    )
+
+    assert len(executor.queries) == 1  # filled on the first scoped tier
+    cypher, params = executor.queries[-1]
+    assert params["owner_uid"] == "user_1"
+    assert params["candidate_limit"] == 50  # 5 * 10 — the scoped schedule
+    assert "EXISTS { MATCH (parent)<-[:OWNS]-(:User {uid: $owner_uid}) }" in cypher
+    assert "coalesce(parent.private, false) = false" in cypher
+    assert "parent.metadata as parent_metadata" in cypher
+
+
+@pytest.mark.asyncio
+async def test_owner_scope_composes_with_pipeline_filter() -> None:
+    # retrieve_vault's exact call shape: owner + {"pipeline": "knowledge"} —
+    # both clauses land in the ONE parent WHERE, joined by AND.
+    executor = _FakeExecutor(rows=5)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(
+        query_embedding=[0.1],
+        limit=4,
+        threshold=0.3,
+        parent_filters={"pipeline": "knowledge"},
+        owner_uid="user_1",
+    )
+
+    cypher, params = executor.queries[-1]
+    assert params["owner_uid"] == "user_1"
+    assert params["pf_pipeline"] == "knowledge"
+    scope_segment = cypher.split("MATCH (chunk)<-[:HAS_CHUNK]-(content:Content)")[-1]
+    assert scope_segment.count("WHERE") == 1
+    assert "$owner_uid" in scope_segment
+    assert "coalesce(parent.private, false) = false" in scope_segment
+    assert "parent.pipeline" in scope_segment
+
+
+@pytest.mark.asyncio
+async def test_underfilled_owner_scope_escalates_candidate_pool() -> None:
+    # A sparse vault behaves like a narrow facet: widen through the schedule.
+    executor = _FakeExecutor(rows=0)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(
+        query_embedding=[0.1], limit=4, threshold=0.3, owner_uid="user_1"
+    )
+
+    candidate_limits = [p["candidate_limit"] for _, p in executor.queries]
+    assert candidate_limits == [40, 160, 640]
+
+
+@pytest.mark.asyncio
 async def test_multiple_facets_are_anded() -> None:
     executor = _FakeExecutor(rows=5)
     backend = VectorSearchBackend(executor)

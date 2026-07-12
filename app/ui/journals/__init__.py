@@ -163,23 +163,41 @@ def _Composer(
                 ),
             ),
             Div(
-                # FOUNDER canon dial (ADR-076): checked → this follow-up may quote
-                # + cite the shelf; unchecked/absent → FastHTML binds
-                # summon_canon=False (a normal follow-up). A plain Span placeholder
-                # when not FOUNDER keeps the send button right-aligned.
+                # FOUNDER grounding dials: canon (ADR-076) → this follow-up may
+                # quote + cite the shelf; vault (canon P3) → may quote + cite
+                # the user's own non-private notes. Unchecked/absent → FastHTML
+                # binds the flag False (a normal follow-up). A plain Span
+                # placeholder when not FOUNDER keeps the send button
+                # right-aligned.
                 (
-                    Label(
-                        Input(
-                            type="checkbox",
-                            name="summon_canon",
-                            value="true",
-                            cls="mr-1.5 align-middle",
+                    Div(
+                        Label(
+                            Input(
+                                type="checkbox",
+                                name="summon_canon",
+                                value="true",
+                                cls="mr-1.5 align-middle",
+                            ),
+                            "Summon the canon shelf",
+                            cls=(
+                                "flex items-center text-[13px] text-muted-foreground"
+                                " cursor-pointer select-none"
+                            ),
                         ),
-                        "Summon the canon shelf",
-                        cls=(
-                            "flex items-center text-[13px] text-muted-foreground"
-                            " cursor-pointer select-none"
+                        Label(
+                            Input(
+                                type="checkbox",
+                                name="summon_vault",
+                                value="true",
+                                cls="mr-1.5 align-middle",
+                            ),
+                            "Draw on my vault",
+                            cls=(
+                                "flex items-center text-[13px] text-muted-foreground"
+                                " cursor-pointer select-none"
+                            ),
                         ),
+                        cls="flex items-center gap-4",
                     )
                     if is_founder
                     else Span()
@@ -780,10 +798,11 @@ def _ReviewGate(
             ),
             cls="mb-4",
         ),
-        # Canon "summon" dial: unchecked → the param is omitted from the POST and
-        # FastHTML binds summon_canon=False (a normal, canon-free stage). Checked →
-        # curated book passages voice-infuse the response. hx_include="closest
-        # form" (on the button below) carries it. Wired once here for both stages.
+        # Grounding dials: unchecked → the param is omitted from the POST and
+        # FastHTML binds the flag False (a normal, ungrounded stage). Canon →
+        # curated book passages voice-infuse the response (ADR-076); vault →
+        # the user's own non-private notes do (canon P3). hx_include="closest
+        # form" (on the button below) carries them. Wired once here for both stages.
         Label(
             Input(
                 type="checkbox",
@@ -792,6 +811,16 @@ def _ReviewGate(
                 cls="mr-2 align-middle",
             ),
             "Summon the canon shelf",
+            cls="flex items-center text-sm text-muted-foreground mb-2 cursor-pointer",
+        ),
+        Label(
+            Input(
+                type="checkbox",
+                name="summon_vault",
+                value="true",
+                cls="mr-2 align-middle",
+            ),
+            "Draw on my vault",
             cls="flex items-center text-sm text-muted-foreground mb-4 cursor-pointer",
         ),
         StyledButton(

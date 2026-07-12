@@ -1,6 +1,11 @@
-"""Tests for canon value objects — prompt block, footer, book de-dupe, empty."""
+"""Tests for canon value objects — prompt block, footer, book de-dupe, empty, VAULT kind."""
 
-from core.services.canon import CanonContext, CanonPassage
+from core.services.canon import (
+    CanonContext,
+    CanonPassage,
+    SourceKind,
+    merged_attribution_footer,
+)
 
 
 def _passage(
@@ -34,7 +39,7 @@ class TestCanonContextEmpty:
         assert CanonContext.empty().to_prompt_block() == ""
 
     def test_empty_renders_no_footer(self):
-        assert CanonContext.empty().attribution_footer() == ""
+        assert merged_attribution_footer(CanonContext.empty()) == ""
 
     def test_empty_books_is_empty(self):
         assert CanonContext.empty().books() == []
@@ -87,7 +92,7 @@ class TestAttributionFooter:
                 _passage("b", "Book B"),
             )
         )
-        footer = ctx.attribution_footer()
+        footer = merged_attribution_footer(ctx)
         assert footer == "\n\n---\n*Drawing on:* *Hyper Media Systems*, *Book B*"
 
     def test_footer_dedupes_books(self):
@@ -97,7 +102,7 @@ class TestAttributionFooter:
                 _passage("b", "HMS"),
             )
         )
-        assert ctx.attribution_footer() == "\n\n---\n*Drawing on:* *HMS*"
+        assert merged_attribution_footer(ctx) == "\n\n---\n*Drawing on:* *HMS*"
 
     def test_footer_empty_when_all_text_blank(self):
         # A blank-text passage is dropped from the prompt block, so it must not
@@ -105,7 +110,7 @@ class TestAttributionFooter:
         ctx = CanonContext(passages=(_passage("   ", "HMS"),))
         assert ctx.to_prompt_block() == ""
         assert ctx.books() == []
-        assert ctx.attribution_footer() == ""
+        assert merged_attribution_footer(ctx) == ""
 
 
 class TestPassageLocation:
@@ -249,3 +254,130 @@ class TestSources:
 
     def test_sources_empty_when_no_passages(self):
         assert CanonContext.empty().sources() == ()
+
+
+def _vault_passage(
+    text: str,
+    title: str,
+    uid: str = "ue_note",
+    score: float = 0.9,
+    *,
+    vault_path: str | None = "knowledge/note.md",
+) -> CanonPassage:
+    return CanonPassage(
+        text=text,
+        book_title=title,
+        resource_uid=uid,
+        similarity_score=score,
+        source_kind=SourceKind.VAULT,
+        vault_path=vault_path,
+    )
+
+
+class TestVaultPassage:
+    """Canon P3: VAULT passages reinterpret the book fields on the ONE family."""
+
+    def test_defaults_are_canon_and_uniform_weight(self):
+        p = _passage("text", "Book")
+        assert p.source_kind is SourceKind.CANON
+        assert p.vault_path is None
+        # ADR-077 contract letter: weight exists, defaults 1.0, nothing reads it.
+        assert p.weight == 1.0
+
+    def test_vault_locator_is_the_path(self):
+        p = _vault_passage("text", "My Note", vault_path="knowledge/stoicism.md")
+        assert p.locator == "knowledge/stoicism.md"
+        assert p.citation_line() == "My Note — knowledge/stoicism.md"
+
+    def test_vault_locator_empty_without_path(self):
+        p = _vault_passage("text", "My Note", vault_path=None)
+        assert p.locator == ""
+        assert p.citation_line() == "My Note"
+
+    def test_vault_locator_ignores_book_heading_fields(self):
+        p = CanonPassage(
+            text="t",
+            book_title="Note",
+            resource_uid="ue_1",
+            similarity_score=0.5,
+            heading="Should not appear",
+            section_path="Nor this",
+            source_kind=SourceKind.VAULT,
+            vault_path="knowledge/n.md",
+        )
+        assert p.locator == "knowledge/n.md"
+
+
+class TestVaultRenderBlocks:
+    def test_vault_prompt_block_uses_own_notes_framing(self):
+        ctx = CanonContext(
+            passages=(_vault_passage("A thought I wrote.", "My Note"),),
+            source_kind=SourceKind.VAULT,
+        )
+        block = ctx.to_prompt_block()
+        assert "The User's Own Notes to Draw On" in block
+        assert "own vault notes" in block
+        assert "do NOT quote" in block
+        assert "A thought I wrote." in block
+        # Never the canon-shelf framing.
+        assert "curated shelf" not in block
+
+    def test_vault_discussion_block_carries_faithfulness_contract(self):
+        ctx = CanonContext(
+            passages=(_vault_passage("Exact words here.", "My Note"),),
+            source_kind=SourceKind.VAULT,
+        )
+        block = ctx.to_discussion_block()
+        assert "The User's Vault Notes" in block
+        assert "Faithfulness (non-negotiable):" in block
+        assert "never reconstruct a quote from memory" in block
+        assert "say so plainly rather than fabricate" in block
+        assert "My Note — knowledge/note.md" in block
+        assert "Exact words here." in block
+        # Book-anchor phrasing must not leak into the vault framing.
+        assert "chapter/section" not in block
+
+    def test_canon_blocks_unchanged_by_default_kind(self):
+        ctx = CanonContext(passages=(_passage("Canon text.", "Book"),))
+        assert "Wisdom to Draw On" in ctx.to_prompt_block()
+        assert "The Canon Shelf" in ctx.to_discussion_block()
+
+    def test_vault_sources_carry_kind(self):
+        ctx = CanonContext(
+            passages=(_vault_passage("t", "My Note", uid="ue_9"),),
+            source_kind=SourceKind.VAULT,
+        )
+        sources = ctx.sources()
+        assert len(sources) == 1
+        assert sources[0].source_kind is SourceKind.VAULT
+        assert sources[0].resource_uid == "ue_9"
+        assert sources[0].locators == ("knowledge/note.md",)
+
+
+class TestMergedFooter:
+    def test_merges_both_corpora_into_one_line(self):
+        canon = CanonContext(passages=(_passage("a", "Book A"),))
+        vault = CanonContext(
+            passages=(_vault_passage("b", "My Note"),), source_kind=SourceKind.VAULT
+        )
+        footer = merged_attribution_footer(canon, vault)
+        assert footer.count("---") == 1  # one rule, never two
+        assert "*Book A*" in footer
+        assert "*My Note*" in footer
+
+    def test_dedupes_titles_across_contexts(self):
+        a = CanonContext(passages=(_passage("a", "Same Title"),))
+        b = CanonContext(
+            passages=(_vault_passage("b", "Same Title"),), source_kind=SourceKind.VAULT
+        )
+        footer = merged_attribution_footer(a, b)
+        assert footer.count("Same Title") == 1
+
+    def test_empty_when_nothing_infused(self):
+        assert merged_attribution_footer(CanonContext.empty(), CanonContext.empty()) == ""
+
+    def test_single_context_renders_the_plain_footer(self):
+        canon = CanonContext(passages=(_passage("a", "Book A"),))
+        assert merged_attribution_footer(canon, CanonContext.empty()) == (
+            "\n\n---\n*Drawing on:* *Book A*"
+        )

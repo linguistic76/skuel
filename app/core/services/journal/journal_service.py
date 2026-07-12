@@ -45,13 +45,15 @@ logger = get_logger("skuel.services.journal")
 
 @dataclass(frozen=True)
 class JournalFollowUp:
-    """A follow-up turn's result — the reply text plus structured canon sources.
+    """A follow-up turn's result — the reply text plus structured sources.
 
     ``text`` is the conversational reply (with the model's inline quotes/citations
-    when the canon was summoned). ``sources`` are the shelf books it drew on, kept
-    structured so the plain-text journal bubble can render a real, clickable link
-    to each book's Resource page (ADR-076; Codex #572 P2) rather than literal
-    markdown. Empty ``sources`` on a canon-free follow-up.
+    when a corpus was summoned). ``sources`` are the shelf books and/or vault
+    notes it drew on (``CanonSource.source_kind`` discriminates), kept structured
+    so the plain-text journal bubble can render a real, clickable link to each —
+    the book's Resource page or the note's ``/gradebook/{uid}`` detail (ADR-076;
+    Codex #572 P2) rather than literal markdown. Empty ``sources`` on an
+    ungrounded follow-up.
     """
 
     text: str
@@ -93,7 +95,9 @@ class JournalService:
         # the "Suggested activities" panel. None on CORE tier (no panel).
         self._dsl_bridge = dsl_bridge
         # Optional canon shelf — voice-infuses a summoned Stage 2/3 with curated
-        # book passages. None when unwired (CORE tier / no embeddings).
+        # book passages. None when unwired (CORE tier / no embeddings). The same
+        # service carries the vault side (retrieve_vault, canon P3) behind the
+        # second dial.
         self._canon = canon_retrieval_service
 
     def _resolve_model(self) -> str:
@@ -115,8 +119,16 @@ class JournalService:
     # User-context summary (used by Stage 2 and Stage 3 prompts)
     # ------------------------------------------------------------------
 
-    async def _build_context_summary(self, user_uid: UserUID) -> str:
-        """Return a short text digest of the user's active goals/tasks/habits/vault notes."""
+    async def _build_context_summary(
+        self, user_uid: UserUID, include_vault_notes: bool = True
+    ) -> str:
+        """Return a short text digest of the user's active goals/tasks/habits/vault notes.
+
+        ``include_vault_notes=False`` drops the shallow recency-ordered note
+        snippets — the vault dial's grounded retrieval block replaces them
+        (canon P3 de-dup: never both the shallow and the semantic read of the
+        same corpus in one prompt). Dial off → byte-identical digest.
+        """
         lines: list[str] = []
 
         if self._goals:
@@ -137,15 +149,16 @@ class JournalService:
                 titles = [h.title for h in habits_result.value[:6]]
                 lines.append("Active habits: " + ", ".join(titles))
 
-        notes_result = await self._user_entry.get_vault_notes_for_context(user_uid)
-        if not notes_result.is_error and notes_result.value:
-            note_lines = []
-            for note in notes_result.value:
-                title = note.get("title", "")
-                snippet = (note.get("snippet") or "").strip()
-                entry = f"  [{title}]" + (f" {snippet}" if snippet else "")
-                note_lines.append(entry)
-            lines.append("Personal project notes:\n" + "\n".join(note_lines))
+        if include_vault_notes:
+            notes_result = await self._user_entry.get_vault_notes_for_context(user_uid)
+            if not notes_result.is_error and notes_result.value:
+                note_lines = []
+                for note in notes_result.value:
+                    title = note.get("title", "")
+                    snippet = (note.get("snippet") or "").strip()
+                    entry = f"  [{title}]" + (f" {snippet}" if snippet else "")
+                    note_lines.append(entry)
+                lines.append("Personal project notes:\n" + "\n".join(note_lines))
 
         return "\n".join(lines)
 
@@ -235,6 +248,23 @@ class JournalService:
         result = await self._canon.retrieve(raw_entry)
         return result.value if result.is_ok else CanonContext.empty()
 
+    async def _maybe_summon_vault(
+        self, query_text: str, user_uid: UserUID, summon: bool
+    ) -> CanonContext:
+        """Resolve the vault context for a stage — the second dial's branch point.
+
+        The canon P3 sibling of ``_maybe_summon_canon``: owner-scoped retrieval
+        over the user's non-private knowledge notes. Same fail-soft contract —
+        dial off, no canon service, or a retrieval failure all collapse to an
+        empty ``CanonContext`` so the stage proceeds ungrounded.
+        """
+        from core.services.canon import CanonContext
+
+        if not summon or self._canon is None:
+            return CanonContext.empty()
+        result = await self._canon.retrieve_vault(query_text, user_uid)
+        return result.value if result.is_ok else CanonContext.empty()
+
     # ------------------------------------------------------------------
     # Stage 1 — Scribe
     # ------------------------------------------------------------------
@@ -265,16 +295,25 @@ class JournalService:
         review_notes: str,
         user_uid: UserUID,
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Result[str]:
         """Stage 2: Thought Partner response across four roles.
 
         When ``summon_canon`` is set (FULL tier), curated book passages resonant
-        with the raw entry voice-infuse the reasoning and a light "Drawing on"
-        footer is appended. Fail-soft: no canon degrades to a normal Stage 2.
+        with the raw entry voice-infuse the reasoning; ``summon_vault`` does the
+        same with the user's own non-private vault notes (canon P3) — and
+        replaces the digest's shallow note snippets with the grounded block. A
+        light "Drawing on" footer is appended when anything infused. Fail-soft:
+        no grounding degrades to a normal Stage 2.
         """
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not summon_vault
+        )
         canon = await self._maybe_summon_canon(raw_entry, summon_canon)
-        system_prompt = stage2_system_prompt(context_summary, canon.to_prompt_block())
+        vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
+        system_prompt = stage2_system_prompt(
+            context_summary, canon.to_prompt_block(), vault.to_prompt_block()
+        )
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 1 — Scribe Record\n\n{scribe_output}\n\n"
@@ -291,7 +330,7 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal Stage 2 LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Stage 2 failed: {exc}"))
-        return self._append_canon_footer(result, canon)
+        return self._append_grounding_footer(result, canon, vault)
 
     # ------------------------------------------------------------------
     # Stage 3 — What Is Related
@@ -304,16 +343,25 @@ class JournalService:
         review_notes: str,
         user_uid: UserUID,
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Result[str]:
         """Stage 3: propose graph connections to knowledge, goals, tasks, and habits.
 
         When ``summon_canon`` is set (FULL tier), curated book passages resonant
-        with the raw entry voice-infuse the reasoning and a light "Drawing on"
-        footer is appended. Fail-soft: no canon degrades to a normal Stage 3.
+        with the raw entry voice-infuse the reasoning; ``summon_vault`` does the
+        same with the user's own non-private vault notes (canon P3, replacing
+        the digest's shallow snippets). A light "Drawing on" footer is appended
+        when anything infused. Fail-soft: no grounding degrades to a normal
+        Stage 3.
         """
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not summon_vault
+        )
         canon = await self._maybe_summon_canon(raw_entry, summon_canon)
-        system_prompt = stage3_system_prompt(context_summary, canon.to_prompt_block())
+        vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
+        system_prompt = stage3_system_prompt(
+            context_summary, canon.to_prompt_block(), vault.to_prompt_block()
+        )
         user_message = (
             f"# Raw Daily Note\n\n{raw_entry}\n\n"
             f"# Stage 2 — What Is Emerging\n\n{thought_partner_output}\n\n"
@@ -330,18 +378,23 @@ class JournalService:
         except LLM_EXCEPTIONS as exc:
             logger.error("Journal Stage 3 LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Stage 3 failed: {exc}"))
-        return self._append_canon_footer(result, canon)
+        return self._append_grounding_footer(result, canon, vault)
 
     @staticmethod
-    def _append_canon_footer(result: Result[str], canon: CanonContext) -> Result[str]:
-        """Append the "Drawing on" footer to a successful stage output.
+    def _append_grounding_footer(
+        result: Result[str], canon: CanonContext, vault: CanonContext
+    ) -> Result[str]:
+        """Append ONE "Drawing on" footer to a successful stage output.
 
-        No-op when the stage errored or no canon passage was drawn — the footer
-        only ever appears when the response was genuinely voice-infused.
+        No-op when the stage errored or nothing was drawn from either corpus —
+        the footer only ever appears when the response was genuinely infused.
+        Both dials on → a single merged line, never two rules.
         """
-        if result.is_error or not canon.has_passages:
+        from core.services.canon import merged_attribution_footer
+
+        if result.is_error or not (canon.has_passages or vault.has_passages):
             return result
-        return Result.ok(result.value + canon.attribution_footer())
+        return Result.ok(result.value + merged_attribution_footer(canon, vault))
 
     # ------------------------------------------------------------------
     # Standard workflow
@@ -380,7 +433,11 @@ class JournalService:
     # ------------------------------------------------------------------
 
     async def run_compiled(
-        self, raw_entry: str, user_uid: UserUID, summon_canon: bool = False
+        self,
+        raw_entry: str,
+        user_uid: UserUID,
+        summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Result[str]:
         """Run all three DNWF stages in sequence and return a single compiled document.
 
@@ -389,8 +446,9 @@ class JournalService:
         review notes between stages.
 
         ``summon_canon`` (FULL tier) draws curated book passages into Stages 2 and
-        3 — the file path's parallel to the interactive "summon" dial, since there
-        is no review gate to check. Fail-soft: no canon degrades to a normal
+        3; ``summon_vault`` draws the user's own non-private vault notes (canon
+        P3) — the file path's parallels to the interactive dials, since there is
+        no review gate to check. Fail-soft: no grounding degrades to a normal
         compile.
         """
         stage1 = await self.run_stage1(raw_entry, user_uid)
@@ -404,6 +462,7 @@ class JournalService:
             review_notes="",
             user_uid=user_uid,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if stage2.is_error:
             return stage2
@@ -415,6 +474,7 @@ class JournalService:
             review_notes="",
             user_uid=user_uid,
             summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
         if stage3.is_error:
             return stage3
@@ -440,6 +500,7 @@ class JournalService:
         user_uid: UserUID,
         mode: JournalMode | None = None,
         summon_canon: bool = False,
+        summon_vault: bool = False,
     ) -> Result[JournalFollowUp]:
         """Respond to the user's follow-up without re-running the full analysis template.
 
@@ -450,17 +511,26 @@ class JournalService:
         The follow-up is the **quote-on-demand** surface (ADR-076): when
         ``summon_canon`` is set (FULL tier), canon passages resonant with the
         user's *question* (``user_reply``, not the raw entry) are injected via
-        ``to_discussion_block()`` so the model may name + quote the shelf. Returns a
-        ``JournalFollowUp`` — the reply text plus structured ``sources`` the route
-        renders as clickable links (not a markdown footer, which a plain-text
-        bubble would show literally). Fail-soft: no canon → empty ``sources``.
+        ``to_discussion_block()`` so the model may name + quote the shelf.
+        ``summon_vault`` (canon P3) does the same with the user's own
+        non-private vault notes, keyed on the same question. Returns a
+        ``JournalFollowUp`` — the reply text plus structured ``sources``
+        (books + notes, concatenated) the route renders as clickable links
+        (not a markdown footer, which a plain-text bubble would show
+        literally). Fail-soft: no grounding → empty ``sources``.
 
         Backend: GoalsService, TasksService, HabitsService (context summary);
-                 CanonRetrievalService (shelf); LLMCaller (response generation).
+                 CanonRetrievalService (shelf + vault); LLMCaller (response
+                 generation).
         """
-        context_summary = await self._build_context_summary(user_uid)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not summon_vault
+        )
         canon = await self._maybe_summon_canon(user_reply, summon_canon)
-        system_prompt = follow_up_system_prompt(context_summary, mode, canon.to_discussion_block())
+        vault = await self._maybe_summon_vault(user_reply, user_uid, summon_vault)
+        system_prompt = follow_up_system_prompt(
+            context_summary, mode, canon.to_discussion_block(), vault.to_discussion_block()
+        )
         user_message = (
             f"# Original Note\n\n{original_entry}\n\n"
             f"# Previous Response\n\n{ai_response}\n\n"
@@ -478,4 +548,6 @@ class JournalService:
             return Result.fail(Errors.integration("llm", f"Follow-up failed: {exc}"))
         if result.is_error:
             return Result.fail(result)
-        return Result.ok(JournalFollowUp(text=result.value, sources=canon.sources()))
+        return Result.ok(
+            JournalFollowUp(text=result.value, sources=canon.sources() + vault.sources())
+        )

@@ -282,3 +282,286 @@ class TestFollowUpCanonWiring:
         assert result.value.text == "Plain reply."
         assert result.value.sources == ()
         assert "The Canon Shelf" not in llm.generate.await_args.kwargs["system_prompt"]
+
+
+# ---------------------------------------------------------------------------
+# Vault dial (canon P3) — mirrors the canon matrix on the second corpus
+# ---------------------------------------------------------------------------
+
+
+def _vault_context() -> CanonContext:
+    from core.services.canon import SourceKind
+
+    return CanonContext(
+        passages=(
+            CanonPassage(
+                text="I already wrote about this tension.",
+                book_title="My Stoicism Notes",
+                resource_uid="ue_note_1",
+                similarity_score=0.85,
+                source_kind=SourceKind.VAULT,
+                vault_path="knowledge/stoicism.md",
+            ),
+        ),
+        source_kind=SourceKind.VAULT,
+    )
+
+
+def _dual_service(canon_result=None, vault_result=None, llm=None):
+    """Service whose canon mock answers both retrieve and retrieve_vault."""
+    canon = MagicMock()
+    canon.retrieve = AsyncMock(
+        return_value=canon_result if canon_result is not None else Result.ok(CanonContext.empty())
+    )
+    canon.retrieve_vault = AsyncMock(
+        return_value=vault_result if vault_result is not None else Result.ok(CanonContext.empty())
+    )
+    service = _make_service(llm=llm, canon=canon)
+    return service, canon
+
+
+def _stub_llm(reply: str = "Response body."):
+    llm = MagicMock()
+    llm.is_model_supported = MagicMock(return_value=True)
+    llm.generate = AsyncMock(return_value=Result.ok(reply))
+    return llm
+
+
+class TestMaybeSummonVault:
+    @pytest.mark.asyncio
+    async def test_dial_off_returns_empty_and_never_retrieves(self):
+        service, canon = _dual_service(vault_result=Result.ok(_vault_context()))
+        ctx = await service._maybe_summon_vault("entry", "user_mike", summon=False)
+        assert ctx.has_passages is False
+        canon.retrieve_vault.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_canon_service_returns_empty(self):
+        service = _make_service(canon=None)
+        ctx = await service._maybe_summon_vault("entry", "user_mike", summon=True)
+        assert ctx.has_passages is False
+
+    @pytest.mark.asyncio
+    async def test_retrieval_failure_returns_empty(self):
+        service, _ = _dual_service(
+            vault_result=Result.fail(Errors.unavailable("vault", "no embeddings"))
+        )
+        ctx = await service._maybe_summon_vault("entry", "user_mike", summon=True)
+        assert ctx.has_passages is False
+
+    @pytest.mark.asyncio
+    async def test_success_returns_passages(self):
+        service, _ = _dual_service(vault_result=Result.ok(_vault_context()))
+        ctx = await service._maybe_summon_vault("entry", "user_mike", summon=True)
+        assert ctx.has_passages is True
+        assert ctx.books() == ["My Stoicism Notes"]
+
+    @pytest.mark.asyncio
+    async def test_retrieves_for_exactly_the_acting_user(self):
+        # The service seam is the cross-user boundary: retrieval must be called
+        # with the acting user_uid and nothing else.
+        service, canon = _dual_service(vault_result=Result.ok(_vault_context()))
+        await service._maybe_summon_vault("entry", "user_mike", summon=True)
+        canon.retrieve_vault.assert_awaited_once_with("entry", "user_mike")
+
+
+class TestStageVaultWiring:
+    @pytest.mark.asyncio
+    async def test_stage2_vault_summon_infuses_prompt_and_appends_footer(self):
+        llm = _stub_llm("The emerging theme is clarity.")
+        service, canon = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        result = await service.run_stage2(
+            raw_entry="stoic thoughts",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        assert result.value.endswith("*Drawing on:* *My Stoicism Notes*")
+        system_prompt = llm.generate.await_args.kwargs["system_prompt"]
+        assert "The User's Own Notes to Draw On" in system_prompt
+        assert "I already wrote about this tension." in system_prompt
+        # The vault dial retrieves on the raw entry, scoped to the acting user.
+        canon.retrieve_vault.assert_awaited_once_with("stoic thoughts", "user_mike")
+        # Canon dial off → the shelf is never touched.
+        canon.retrieve.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stage3_vault_summon_appends_footer(self):
+        llm = _stub_llm("Related connections here.")
+        service, _ = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        result = await service.run_stage3(
+            raw_entry="stoic thoughts",
+            thought_partner_output="emerging",
+            review_notes="",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        assert result.value.endswith("*Drawing on:* *My Stoicism Notes*")
+
+    @pytest.mark.asyncio
+    async def test_both_dials_merge_into_one_footer(self):
+        llm = _stub_llm()
+        service, _ = _dual_service(
+            canon_result=Result.ok(_populated_context()),
+            vault_result=Result.ok(_vault_context()),
+            llm=llm,
+        )
+
+        result = await service.run_stage2(
+            raw_entry="thoughts",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+            summon_canon=True,
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        # ONE merged footer line, never two rules.
+        assert result.value.count("---") == 1
+        assert result.value.count("Drawing on") == 1
+        assert "*Hyper Media Systems*" in result.value
+        assert "*My Stoicism Notes*" in result.value
+        # Both blocks in the prompt, canon first.
+        system_prompt = llm.generate.await_args.kwargs["system_prompt"]
+        assert "Wisdom to Draw On" in system_prompt
+        assert "The User's Own Notes to Draw On" in system_prompt
+        assert system_prompt.index("Wisdom to Draw On") < system_prompt.index(
+            "The User's Own Notes to Draw On"
+        )
+
+    @pytest.mark.asyncio
+    async def test_vault_dial_suppresses_shallow_note_digest(self):
+        # De-dup: the grounded block replaces the shallow recency snippets.
+        llm = _stub_llm()
+        service, _ = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        await service.run_stage2(
+            raw_entry="thoughts",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+        service._user_entry.get_vault_notes_for_context.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dial_off_keeps_shallow_note_digest(self):
+        llm = _stub_llm()
+        service, _ = _dual_service(llm=llm)
+
+        await service.run_stage2(
+            raw_entry="thoughts",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+        )
+        service._user_entry.get_vault_notes_for_context.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_run_compiled_threads_vault_dial_to_both_stages(self):
+        llm = _stub_llm("Stage body.")
+        service, _ = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        result = await service.run_compiled(
+            raw_entry="stoic thoughts", user_uid="user_mike", summon_vault=True
+        )
+
+        assert result.is_ok
+        assert "*Drawing on:* *My Stoicism Notes*" in result.value
+        summoned_prompts = [
+            call.kwargs["system_prompt"]
+            for call in llm.generate.await_args_list
+            if "The User's Own Notes to Draw On" in call.kwargs["system_prompt"]
+        ]
+        assert len(summoned_prompts) == 2  # Stage 2 and Stage 3, never Stage 1
+
+    @pytest.mark.asyncio
+    async def test_no_passages_no_footer_even_when_summoned(self):
+        llm = _stub_llm("Response body.")
+        service, _ = _dual_service(vault_result=Result.ok(CanonContext.empty()), llm=llm)
+
+        result = await service.run_stage2(
+            raw_entry="nothing resonant",
+            scribe_output="scribe",
+            review_notes="",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        assert result.value == "Response body."
+
+
+class TestFollowUpVaultWiring:
+    @pytest.mark.asyncio
+    async def test_vault_summon_injects_discussion_block_and_sources(self):
+        llm = _stub_llm("You wrote exactly that.")
+        service, canon = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        result = await service.run_follow_up(
+            original_entry="my note",
+            ai_response="prior response",
+            user_reply="What did I write about stoicism?",
+            user_uid="user_mike",
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        system_prompt = llm.generate.await_args.kwargs["system_prompt"]
+        assert "The User's Vault Notes" in system_prompt
+        assert "verbatim" in system_prompt
+        # Keyed on the user's question, scoped to the acting user.
+        canon.retrieve_vault.assert_awaited_once_with(
+            "What did I write about stoicism?", "user_mike"
+        )
+        turn = result.value
+        assert len(turn.sources) == 1
+        assert turn.sources[0].resource_uid == "ue_note_1"
+        assert turn.sources[0].locators == ("knowledge/stoicism.md",)
+
+    @pytest.mark.asyncio
+    async def test_both_dials_concatenate_sources_canon_first(self):
+        llm = _stub_llm()
+        service, _ = _dual_service(
+            canon_result=Result.ok(_located_context()),
+            vault_result=Result.ok(_vault_context()),
+            llm=llm,
+        )
+
+        result = await service.run_follow_up(
+            original_entry="my note",
+            ai_response="prior",
+            user_reply="q",
+            user_uid="user_mike",
+            summon_canon=True,
+            summon_vault=True,
+        )
+
+        assert result.is_ok
+        sources = result.value.sources
+        assert [s.resource_uid for s in sources] == ["resource_hms", "ue_note_1"]
+
+    @pytest.mark.asyncio
+    async def test_no_summon_is_vault_free(self):
+        llm = _stub_llm("Plain reply.")
+        service, canon = _dual_service(vault_result=Result.ok(_vault_context()), llm=llm)
+
+        result = await service.run_follow_up(
+            original_entry="my note",
+            ai_response="prior",
+            user_reply="tell me more",
+            user_uid="user_mike",
+        )
+
+        assert result.is_ok
+        assert result.value.sources == ()
+        canon.retrieve_vault.assert_not_called()
+        assert "The User's Vault Notes" not in llm.generate.await_args.kwargs["system_prompt"]

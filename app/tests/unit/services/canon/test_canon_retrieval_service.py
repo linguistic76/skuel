@@ -1,11 +1,12 @@
-"""Tests for CanonRetrievalService — fail-soft + happy-path retrieval."""
+"""Tests for CanonRetrievalService — fail-soft + happy-path retrieval (shelf + vault)."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.ports.query_types import ReferenceChunkHit
-from core.services.canon import CanonRetrievalService
+from core.ports.query_types import ReferenceChunkHit, SemanticSearchChunkResult
+from core.services.canon import CanonRetrievalService, SourceKind
 from core.utils.result_simplified import Errors, Result
 
 
@@ -173,3 +174,170 @@ class TestRetrieveHappyPath:
 
         kwargs = search.search_reference_chunks.await_args.kwargs
         assert kwargs["resource_uids"] == ["resource.hms", "resource.other"]
+
+
+# ---------------------------------------------------------------------------
+# retrieve_vault — the canon-P3 owner-scoped sibling
+# ---------------------------------------------------------------------------
+
+
+def _vault_hit(
+    text: str,
+    title: str,
+    uid: str = "ue_note_1",
+    score: float = 0.8,
+    *,
+    metadata: str | None = None,
+) -> SemanticSearchChunkResult:
+    hit = SemanticSearchChunkResult(
+        chunk_uid="cc_1",
+        chunk_type="content",
+        text=text,
+        context_window=None,
+        similarity_score=score,
+        parent_uid=uid,
+        parent_title=title,
+        parent_entity_type="user_entry",
+    )
+    hit["parent_metadata"] = metadata
+    return hit
+
+
+def _vault_service(hits: list[SemanticSearchChunkResult] | None = None):
+    embeddings = MagicMock()
+    embeddings.create_embedding = AsyncMock(return_value=Result.ok([0.1, 0.2]))
+    chunk_search = MagicMock()
+    chunk_search.semantic_search_chunks = AsyncMock(return_value=Result.ok(hits or []))
+    service = CanonRetrievalService(
+        reference_search=MagicMock(),
+        embeddings_service=embeddings,
+        content_chunk_search=chunk_search,
+    )
+    return service, embeddings, chunk_search
+
+
+class TestRetrieveVaultFailSoft:
+    @pytest.mark.asyncio
+    async def test_no_embeddings_fails(self):
+        service = CanonRetrievalService(
+            reference_search=MagicMock(),
+            embeddings_service=None,
+            content_chunk_search=MagicMock(),
+        )
+        result = await service.retrieve_vault("stoicism", "user_1")
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_no_content_chunk_search_fails(self):
+        embeddings = MagicMock()
+        embeddings.create_embedding = AsyncMock()
+        service = CanonRetrievalService(reference_search=MagicMock(), embeddings_service=embeddings)
+        result = await service.retrieve_vault("stoicism", "user_1")
+        assert result.is_error
+        embeddings.create_embedding.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_blank_query_fails(self):
+        service, embeddings, _ = _vault_service()
+        result = await service.retrieve_vault("   ", "user_1")
+        assert result.is_error
+        embeddings.create_embedding.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_embedding_error_propagates(self):
+        service, embeddings, _ = _vault_service()
+        embeddings.create_embedding = AsyncMock(
+            return_value=Result.fail(Errors.integration("embeddings", "boom"))
+        )
+        result = await service.retrieve_vault("q", "user_1")
+        assert result.is_error
+
+    @pytest.mark.asyncio
+    async def test_search_error_propagates(self):
+        service, _, chunk_search = _vault_service()
+        chunk_search.semantic_search_chunks = AsyncMock(
+            return_value=Result.fail(Errors.database("chunk_search", "neo4j down"))
+        )
+        result = await service.retrieve_vault("q", "user_1")
+        assert result.is_error
+
+
+class TestRetrieveVaultHappyPath:
+    @pytest.mark.asyncio
+    async def test_no_hits_returns_empty_context(self):
+        service, _, _ = _vault_service()
+        result = await service.retrieve_vault("no resonance", "user_1")
+        assert result.is_ok
+        assert result.value.has_passages is False
+
+    @pytest.mark.asyncio
+    async def test_scopes_to_acting_user_and_knowledge_pipeline(self):
+        from core.constants import CANON_RETRIEVAL_LIMIT, CANON_RETRIEVAL_MIN_SCORE
+
+        service, _, chunk_search = _vault_service()
+
+        await service.retrieve_vault("q", "user_1")
+
+        chunk_search.semantic_search_chunks.assert_awaited_once()
+        kwargs = chunk_search.semantic_search_chunks.await_args.kwargs
+        assert kwargs["owner_uid"] == "user_1"
+        assert kwargs["parent_filters"] == {"pipeline": "knowledge"}
+        assert kwargs["limit"] == CANON_RETRIEVAL_LIMIT
+        assert kwargs["threshold"] == CANON_RETRIEVAL_MIN_SCORE
+
+    @pytest.mark.asyncio
+    async def test_builds_vault_context_with_paths(self):
+        metadata = json.dumps(
+            {"vault_file_path": "/home/mike/0bsidian/skuel/knowledge/stoicism.md"}
+        )
+        service, _, _ = _vault_service(
+            [_vault_hit("Virtue is the only good.", "My Stoicism Notes", metadata=metadata)]
+        )
+
+        result = await service.retrieve_vault("stoicism", "user_1")
+
+        assert result.is_ok
+        ctx = result.value
+        assert ctx.source_kind is SourceKind.VAULT
+        passage = ctx.passages[0]
+        assert passage.source_kind is SourceKind.VAULT
+        assert passage.book_title == "My Stoicism Notes"
+        assert passage.resource_uid == "ue_note_1"
+        # Display path is doorway-relative — the absolute host prefix never leaks.
+        assert passage.vault_path == "knowledge/stoicism.md"
+        assert passage.locator == "knowledge/stoicism.md"
+        assert passage.citation_line() == "My Stoicism Notes — knowledge/stoicism.md"
+
+    @pytest.mark.asyncio
+    async def test_malformed_metadata_keeps_passage_without_path(self):
+        service, _, _ = _vault_service(
+            [
+                _vault_hit("Text A.", "Note A", metadata="{not json"),
+                _vault_hit("Text B.", "Note B", uid="ue_2", metadata=None),
+                _vault_hit("Text C.", "Note C", uid="ue_3", metadata=json.dumps({"other": 1})),
+            ]
+        )
+
+        result = await service.retrieve_vault("q", "user_1")
+
+        assert result.is_ok
+        for passage in result.value.passages:
+            assert passage.vault_path is None
+        # Citation degrades to the note title alone, never a failed passage.
+        assert result.value.passages[0].citation_line() == "Note A"
+
+    @pytest.mark.asyncio
+    async def test_logs_titles_and_scores_never_text(self, capsys):
+        # ADR-073: the retrieval log is titles + scores only — never passage
+        # text (which is the user's own note content). The skuel logger writes
+        # structured lines to stdout (propagate=False), so capture stdout.
+        service, _, _ = _vault_service(
+            [_vault_hit("The secret passage body text.", "My Note", score=0.91)]
+        )
+
+        await service.retrieve_vault("q", "user_1")
+
+        log_text = capsys.readouterr().out
+        assert "My Note" in log_text
+        assert "0.910" in log_text
+        assert "secret passage body" not in log_text

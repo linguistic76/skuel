@@ -51,7 +51,7 @@ Date Added: January 2026 (Type Safety Improvements)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
 from core.models.type_hints import Neo4jProperties, UserUID
 
@@ -2690,7 +2690,11 @@ class SemanticSearchChunkResult(TypedDict):
     Entity. Both PathStep and Ku lesson bodies are chunked (the
     `chunks_body_content` ingestion configs, #535), so `parent_entity_type` is
     `"path_step"` or `"ku"` — callers stamp it as the result `_domain` to route
-    the parent card through entity_detail_href.
+    the parent card through entity_detail_href. The owner-scoped branch
+    (``owner_uid`` set — canon P3 vault retrieval) additionally returns the
+    parent's raw ``metadata`` JSON string as ``parent_metadata`` so the caller
+    can surface ``vault_file_path`` in citations; the unscoped query is
+    byte-identical to before and never returns the key.
     """
 
     chunk_uid: str
@@ -2701,6 +2705,7 @@ class SemanticSearchChunkResult(TypedDict):
     parent_uid: str
     parent_title: str
     parent_entity_type: str
+    parent_metadata: NotRequired[str | None]
 
 
 class ReferenceChunkHit(TypedDict):

@@ -155,9 +155,15 @@ breaks. Quoted passages stay ephemeral prompt context (ADR-073 unaffected).
 - **P1 — PS-scoped reference seam** (uniform, no weight machinery): scope arg + exact-cosine
   branch + `to_teaching_block` + Askesis wiring + shared citation block. Verify end-to-end.
 - **P2 — grow the shelf** (content, not code).
-- **P3 — vault-minus-private scope for Journals**: elevate `_build_context_summary` to
-  owner-scoped weighted content retrieval satisfying the same contract; land the private gate +
-  the weight field (uniform default). This is where the weighting foundation first pays off.
+- **P3 — vault-minus-private scope for Journals** — SHIPPED 2026-07-12 per
+  `plans/canon-p3-vault-scope-implementation.md`: knowledge UserEntries chunked at the ingest
+  door (write substrate) + `private:` marker; `retrieve_vault` sibling on
+  `CanonRetrievalService` over the owner-scoped content index
+  (`semantic_search_chunks(owner_uid=…)` — OWNS edge + hard private WHERE); `SourceKind`
+  discriminator on the `CanonPassage`/`CanonContext` family (VAULT framing, note-title/path
+  citations to `/gradebook/{uid}`); second FOUNDER dial `summon_vault` on Stages 2/3, compile,
+  and follow-up, replacing the shallow `_build_context_summary` note snippets when on; `weight`
+  field landed (uniform 1.0, contract letter).
 - **Later (deferred):** past-PS spaced repetition (same seam, union scope); the learner's
   own-work personal scope for Askesis (the Askesis peer of the vault); non-book source kinds.
 
@@ -179,8 +185,10 @@ breaks. Quoted passages stay ephemeral prompt context (ADR-073 unaffected).
 - The adapter's reference method now holds two Cypher branches (the index cannot pre-filter).
 - Phase-1 usefulness is **corpus-bound**: it lights up only where a PS cites an already-shelved
   book (today, effectively *Hypermedia Systems*). A content ramp, not a code gap.
-- The vault scope (P3) depends on confirming the private-marking mechanism (VaultBridge
-  allowlist / frontmatter flag) and the exact owner-scoped chunk-retrieval entry point.
+- ~~The vault scope (P3) depends on confirming the private-marking mechanism (VaultBridge
+  allowlist / frontmatter flag) and the exact owner-scoped chunk-retrieval entry point.~~
+  Resolved (2026-07-12 amendment above): `private: true` frontmatter → never embedded/chunked +
+  hard WHERE; entry point is `VectorSearchBackend.semantic_search_chunks(owner_uid=…)`.
 
 ## Alternatives considered
 

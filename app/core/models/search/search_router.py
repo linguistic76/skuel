@@ -729,7 +729,13 @@ class SearchRouter:
         Backend: Neo4jVectorSearchService.find_similar_chunks_by_text →
         VectorSearchBackend.semantic_search_chunks.
         """
-        del user_uid  # reserved: future owner-scoped chunk visibility (parity with faceted_search)
+        # Reserved: future owner-scoped chunk VISIBILITY (parity with
+        # faceted_search — curriculum chunks visible to all + the user's own).
+        # Deliberately NOT wired to semantic_search_chunks(owner_uid=...): that
+        # parameter is the canon-P3 vault scope (OWNS-only + private-excluded),
+        # which would EXCLUDE ownerless curriculum chunks and break Askesis.
+        # Different feature, different clause.
+        del user_uid
 
         vector_search = getattr(self.services, "vector_search_service", None)
         if vector_search is None:
