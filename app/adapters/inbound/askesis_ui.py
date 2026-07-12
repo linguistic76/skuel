@@ -185,6 +185,7 @@ def create_askesis_ui_routes(
         )
 
         ai_response: str
+        canon_sources: tuple[Any, ...] = ()
         try:
             result = await _askesis_service.answer_user_question(
                 user_uid, message, preferred_mode=preferred_mode, scope=scope
@@ -198,11 +199,16 @@ def create_askesis_ui_routes(
                 )
             else:
                 ai_response = result.value.get("answer", "No response generated.")
+                # Canon readings the guided prompt drew on (ADR-077) — CanonSource
+                # is a core dataclass, fine to carry across to the renderer.
+                canon_sources = tuple(result.value.get("canon_sources") or ())
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Unexpected AI service error: {e}", exc_info=True)
             ai_response = "I'm having trouble right now. Please try again."
 
-        return render_user_message(message), render_assistant_message(ai_response)
+        return render_user_message(message), render_assistant_message(
+            ai_response, canon_sources=canon_sources
+        )
 
     routes.append(submit_message)
 

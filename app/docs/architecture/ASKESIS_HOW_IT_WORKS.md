@@ -142,7 +142,7 @@ The decision tree always tutors to the **weakest** KU's evidence level. If the u
 
 ### Step 8: Build System Prompt
 
-`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)` constructs a mode-specific system prompt. Each mode has its own builder:
+`ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context=None)` constructs a mode-specific system prompt, then appends the PS-scoped canon readings block when passages were drawn (ADR-077 — mode-aware: DIRECT gets answer-grounding framing, the other modes keep the Socratic method paragraph). Each mode has its own builder:
 
 - **DIRECT:** Three sub-cases: redirect to unread curriculum (`askesis_guided_redirect`), out-of-scope warm redirect (`askesis_guided_out_of_scope`), or user-overridden in-scope direct answer (`askesis_guided_direct`).
 - **SOCRATIC:** "Ask the learner to explain. Do NOT give answers. Test understanding."

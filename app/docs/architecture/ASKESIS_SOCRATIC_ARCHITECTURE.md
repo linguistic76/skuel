@@ -42,7 +42,7 @@ IntentClassifier.determine_guidance_mode(question, ps_bundle, zone_evidence, ku_
         |
 GuidanceDetermination (mode + pedagogical_detail + evidence)
         |
-ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context)
+ResponseGenerator.build_guided_system_prompt(guidance, ps_bundle, user_context, canon_context)
         |
 LLMService.generate(prompt=question, system_prompt=guided_prompt)
         |

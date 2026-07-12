@@ -46,6 +46,7 @@ from core.models.enums import GuidanceMode, MessageRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
+from core.services.canon import CanonContext
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -60,6 +61,7 @@ if TYPE_CHECKING:
     from core.services.askesis.intent_classifier import IntentClassifier
     from core.services.askesis.response_generator import ResponseGenerator
     from core.services.askesis_citation_service import AskesisCitationService
+    from core.services.canon import CanonRetrievalService, CanonSource
     from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.llm_service import LLMService
     from core.services.user.unified_user_context import UserContext
@@ -130,6 +132,7 @@ class QueryProcessor:
         graph_intel: GraphIntelligenceService,
         zpd_service: ZPDOperations,
         citation_service: AskesisCitationService | None = None,
+        canon_service: CanonRetrievalService | None = None,
         conversation_context: ConversationContext | None = None,
     ) -> None:
         """
@@ -145,6 +148,8 @@ class QueryProcessor:
             graph_intel: GraphIntelligenceService for graph intelligence queries
             zpd_service: ZPDService for targeted KU readiness assessment
             citation_service: AskesisCitationService for source and evidence transparency (optional)
+            canon_service: CanonRetrievalService for PS-scoped readings grounding
+                (ADR-077, optional — None in CORE tier, guidance degrades canon-free)
         """
         self.intent_classifier = intent_classifier
         self.response_generator = response_generator
@@ -155,6 +160,7 @@ class QueryProcessor:
         self.graph_intel = graph_intel
         self.zpd_service = zpd_service
         self.citation_service = citation_service
+        self.canon_service = canon_service
         self.conversation_context = conversation_context or ConversationContext()
         # Holds references to fire-and-forget persistence tasks so they aren't GC'd.
         self._background_tasks: set[asyncio.Task[None]] = set()
@@ -303,11 +309,19 @@ class QueryProcessor:
         # current PS bundle — which would otherwise re-introduce unscoped curriculum
         # context and make the topic selection a silent no-op for guided users.
         if scope is not None and scope.to_property_filters():
-            guided_system_prompt, guidance_mode, ps_bundle = None, None, None
-        else:
-            guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
-                user_uid, question, user_context, preferred_mode
+            guided_system_prompt, guidance_mode, ps_bundle, canon_context = (
+                None,
+                None,
+                None,
+                CanonContext.empty(),
             )
+        else:
+            (
+                guided_system_prompt,
+                guidance_mode,
+                ps_bundle,
+                canon_context,
+            ) = await self._run_guided_pipeline(user_uid, question, user_context, preferred_mode)
 
         # Step 8: Generate answer (guided or context-aware)
         if guided_system_prompt:
@@ -358,6 +372,7 @@ class QueryProcessor:
             is_guided=guided_system_prompt is not None,
             guidance_mode=guidance_mode,
             session_id=session_id,
+            canon_sources=canon_context.sources(),
         )
 
         logger.info(
@@ -458,9 +473,14 @@ class QueryProcessor:
         intent = intent_result.value
 
         # Step 4: Run guided pipeline (ZPD + guidance mode)
-        guided_system_prompt, guidance_mode, ps_bundle = await self._run_guided_pipeline(
-            user_uid, query_message, user_context
-        )
+        # canon_context: grounded prompt only in this path — sources surface is
+        # answer_user_question's (P1)
+        (
+            guided_system_prompt,
+            guidance_mode,
+            ps_bundle,
+            _canon_context,
+        ) = await self._run_guided_pipeline(user_uid, query_message, user_context)
 
         # Step 5: Generate response (guided or context-aware)
         current_knowledge = context_data["knowledge_units"]
@@ -526,7 +546,7 @@ class QueryProcessor:
         question: str,
         user_context: Any,
         preferred_mode: GuidanceMode | None = None,
-    ) -> tuple[str | None, str | None, Any]:
+    ) -> tuple[str | None, str | None, Any, CanonContext]:
         """
         Load PS bundle and compute guided system prompt + guidance mode.
 
@@ -534,13 +554,31 @@ class QueryProcessor:
         preserving the pedagogical intent and zone evidence for system prompt building.
 
         Returns:
-            (guided_system_prompt, guidance_mode, ps_bundle) — all None if no bundle available.
+            (guided_system_prompt, guidance_mode, ps_bundle, canon_context) — the
+            first three None if no bundle available; canon_context is always a
+            CanonContext (empty when no canon service, no cited Resources, or
+            no resonant passage — fail-soft, ADR-077).
         """
         bundle_result = await self.context_retriever.load_ps_bundle(user_uid, user_context)
         if bundle_result.is_error:
-            return None, None, None
+            return None, None, None, CanonContext.empty()
 
         ps_bundle = bundle_result.value
+
+        # PS-scoped canon readings (FULL-tier, fail-soft). Scope = the PS's cited
+        # Resources (focus PS + its Kus + related steps, already loaded on the
+        # bundle). Keyed on the learner's QUESTION, mirroring the journal keying
+        # on user_reply.
+        canon_context = CanonContext.empty()
+        if self.canon_service is not None:
+            resource_uids: list[str] = [r.uid for r in ps_bundle.resources]
+            if resource_uids:
+                canon_result = await self.canon_service.retrieve(
+                    question, resource_uids=resource_uids
+                )
+                if not canon_result.is_error:
+                    canon_context = canon_result.value
+
         target_ku_uids = self.entity_extractor.extract_from_bundle(question, ps_bundle)
 
         zone_evidence: dict[str, Any] = {}
@@ -564,9 +602,9 @@ class QueryProcessor:
 
             guidance = replace(guidance, mode=preferred_mode)
         guided_system_prompt = self.response_generator.build_guided_system_prompt(
-            guidance, ps_bundle, user_context
+            guidance, ps_bundle, user_context, canon_context=canon_context
         )
-        return guided_system_prompt, guidance.mode.value, ps_bundle
+        return guided_system_prompt, guidance.mode.value, ps_bundle, canon_context
 
     async def _generate_guided_answer(
         self,
@@ -615,6 +653,7 @@ class QueryProcessor:
         is_guided: bool,
         guidance_mode: str | None,
         session_id: str | None,
+        canon_sources: tuple[CanonSource, ...] = (),
     ) -> dict[str, Any]:
         """Build the response dict for answer_user_question."""
         final_answer = answer + citations_text if citations_text else answer
@@ -630,6 +669,8 @@ class QueryProcessor:
             "confidence": confidence,
             "mode": "guided" if is_guided else "llm_generated",
             "has_citations": bool(citations_text),
+            # Canon readings the guided prompt drew on (ADR-077) — [] when none.
+            "canon_sources": list(canon_sources),
         }
         if guidance_mode:
             response["guidance_mode"] = guidance_mode

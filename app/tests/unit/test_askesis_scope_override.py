@@ -11,13 +11,16 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from core.models.search_request import SearchRequest
+from core.services.canon import CanonContext
 from tests.unit.test_askesis_enrollment_gate import _make_processor, _make_user_context
 
 
 async def test_explicit_scope_bypasses_guided_pipeline() -> None:
     # An active Path Step would normally trigger the guided pipeline...
     processor, llm_mock = _make_processor(_make_user_context(current_ps_uids={"ps.test.step"}))
-    guided = AsyncMock(return_value=("GUIDED PROMPT", "socratic", MagicMock()))
+    guided = AsyncMock(
+        return_value=("GUIDED PROMPT", "socratic", MagicMock(), CanonContext.empty())
+    )
     retrieve = AsyncMock(return_value={})
 
     with (
@@ -44,7 +47,8 @@ async def test_explicit_scope_bypasses_guided_pipeline() -> None:
 async def test_no_scope_runs_guided_pipeline() -> None:
     # Negative control: with no scope, the guided pipeline runs as before.
     processor, _ = _make_processor(_make_user_context(current_ps_uids={"ps.test.step"}))
-    guided = AsyncMock(return_value=(None, None, None))  # no guided prompt → context-aware branch
+    # no guided prompt → context-aware branch
+    guided = AsyncMock(return_value=(None, None, None, CanonContext.empty()))
 
     with patch.object(processor, "_run_guided_pipeline", guided):
         result = await processor.answer_user_question("user_test", "What should I learn?")

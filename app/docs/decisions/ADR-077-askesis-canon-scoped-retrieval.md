@@ -1,9 +1,15 @@
 # ADR-077: Companion Grounding via a Shared Corpus-Scope Seam — Askesis (PS-scoped) & Journals (vault-scoped) Share One Retrieve-and-Cite Contract
 
-**Status:** Accepted (Mike, 2026-07-11) — Phase 1 in flight per
+**Status:** Accepted (Mike, 2026-07-11) — Phase 1 shipped per
 `plans/askesis-canon-phase1-implementation.md`: PR-A (scoped retrieval seam +
-`to_teaching_block` framing) shipped 2026-07-11; PR-B (Askesis consumer + citation
-surface) pending.
+`to_teaching_block` framing) shipped 2026-07-11 (#612); PR-B (Askesis consumer + citation
+surface) shipped 2026-07-11 (#613).
+**Amendment (2026-07-11, Codex #613 P2):** the teaching block is **mode-aware**, not
+mode-orthogonal as Decision 6 originally stated — `to_teaching_block(preserve_method=)`
+keeps the Socratic method paragraph for SOCRATIC/EXPLORATORY/ENCOURAGING but swaps it
+for a direct-answer framing in DIRECT mode (which promises answers; the original
+"ask a better question, not recite" wording contradicted the user's explicit mode
+choice). The ADR-076 faithfulness contract is identical in both framings.
 **Date:** 2026-07-09
 **Related:** ADR-076 (canon may quote & cite), ADR-073 (journals zero-persistence),
 ADR-074 (post-persist embedding events), ADR-070 (Obsidian VaultBridge — the personal vault),
@@ -102,8 +108,10 @@ faithfulness contract verbatim, with a **Socratic stance** (ground questions in 
 cite book + structural anchor; quote verbatim and sparingly; *do not surrender the method* — a
 passage stating the answer is a reason to ask a better question). `to_prompt_block` (silent) and
 `to_discussion_block` (open discussion) unchanged. Injected by
-`ResponseGenerator.build_guided_system_prompt` appending the block — orthogonal to GuidanceMode,
-empty when no passages.
+`ResponseGenerator.build_guided_system_prompt` appending the block — empty when no passages.
+*Amended in PR-B (see header): the framing is mode-aware — DIRECT mode gets a
+direct-answer grounding paragraph via `preserve_method=False` instead of the Socratic
+method paragraph; the faithfulness contract is unchanged.*
 
 **7. Citation surface: two provenance blocks, one renderer each.** Askesis's existing
 "Sources & Evidence" footer (prerequisite-knowledge provenance via `CitationBundle`) stays. A

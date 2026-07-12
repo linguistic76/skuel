@@ -60,6 +60,8 @@ if TYPE_CHECKING:
         AskesisInsight,
         AskesisRecommendation,
     )
+    from core.services.askesis_citation_service import AskesisCitationService
+    from core.services.canon import CanonRetrievalService
     from core.services.user import UserContext
     from core.services.user.intelligence import UserContextIntelligenceFactory
     from core.services.user.unified_user_context import RichUserContext
@@ -98,7 +100,11 @@ class AskesisDeps:
     # See: core/services/ps_engagement/ps_engagement_service.py
     ps_engagement_service: Any  # boundary: PsEngagementService
     # Citation service — formats graph citations for Askesis responses
-    citation_service: Any | None = None
+    citation_service: AskesisCitationService | None = None
+    # Canon retrieval — PS-scoped readings grounding for the guided pipeline
+    # (ADR-077). FULL-tier: None when embeddings are absent; Askesis is
+    # FULL-tier only, so in practice non-None wherever Askesis exists.
+    canon_service: CanonRetrievalService | None = None
     # PS bundle dependencies for ContextRetriever — None is valid when not available
     ku_service: Any | None = None
     lp_service: Any | None = None
@@ -229,6 +235,7 @@ class AskesisService:
             graph_intel=deps.graph_intel,
             zpd_service=deps.zpd_service,
             citation_service=deps.citation_service,
+            canon_service=deps.canon_service,
             conversation_context=self.conversation_context,
         )
 

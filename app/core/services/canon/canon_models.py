@@ -178,7 +178,7 @@ class CanonContext:
             f"{body}"
         )
 
-    def to_teaching_block(self) -> str:
+    def to_teaching_block(self, *, preserve_method: bool = True) -> str:
         """Render passages to GROUND Socratic guidance — cite, quote sparingly, keep the method.
 
         The teaching-time counterpart to ``to_discussion_block`` (Askesis-canon
@@ -187,6 +187,12 @@ class CanonContext:
         Carries the ADR-076 faithfulness contract verbatim — quote only the
         text below, cite only the location shown, never fabricate. ``""`` if
         no passage.
+
+        ``preserve_method=False`` (Codex #613 P2) swaps the "ask a better
+        question, not recite" paragraph for a direct-answer framing — used when
+        the guidance mode PROMISES direct answers (DIRECT), so the readings
+        ground the answer instead of contradicting the mode. The faithfulness
+        contract is identical in both framings.
         """
         if not self.passages:
             return ""
@@ -196,16 +202,34 @@ class CanonContext:
         if not entries:
             return ""
         body = "\n\n".join(entries)
+        if preserve_method:
+            grounding = (
+                "Ground your Socratic guidance in them — let a passage sharpen the question you "
+                "ask, the analogy you offer, the distinction you draw."
+            )
+            method_paragraph = (
+                "Do not surrender the method: a passage that states the answer is a reason to "
+                "ask a better question, not to recite it. If the readings hold nothing on the "
+                "learner's point, guide from the curriculum and say so — never invent a passage, "
+                "chapter, or section."
+            )
+        else:
+            grounding = (
+                "Ground your answer in them — let a passage sharpen the explanation you give, "
+                "the analogy you offer, the distinction you draw."
+            )
+            method_paragraph = (
+                "Answer directly, drawing on these readings when they cover the learner's "
+                "point. If they hold nothing on it, answer from the curriculum and say so — "
+                "never invent a passage, chapter, or section."
+            )
         return (
             "## Readings for This Step\n\n"
-            "These passages are from the readings this learning step cites. Ground your Socratic "
-            "guidance in them — let a passage sharpen the question you ask, the analogy you offer, "
-            "the distinction you draw. When you lean on a specific idea, name its book and cite the "
-            "location shown. Quote **verbatim and sparingly** — only the text below, never from "
-            "memory — when the exact words matter.\n\n"
-            "Do not surrender the method: a passage that states the answer is a reason to ask a "
-            "better question, not to recite it. If the readings hold nothing on the learner's point, "
-            "guide from the curriculum and say so — never invent a passage, chapter, or section.\n\n"
+            f"These passages are from the readings this learning step cites. {grounding} "
+            "When you lean on a specific idea, name its book and cite the location shown. Quote "
+            "**verbatim and sparingly** — only the text below, never from memory — when the "
+            "exact words matter.\n\n"
+            f"{method_paragraph}\n\n"
             "These are reflowable e-books: cite by chapter/section (shown), never by page number.\n\n"
             f"{body}"
         )
