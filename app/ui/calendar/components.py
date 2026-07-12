@@ -235,22 +235,39 @@ def _time_range_label(item: CalendarItem) -> str:
     return f"{start} – {end}" if end != start else start
 
 
+def _opens_detail_modal(item: CalendarItem) -> bool:
+    """Whether a chip should open the item-details modal on click.
+
+    Habit chips are per-occurrence overlays synthesized from a single now()-stamped
+    habit item, so ``get_item`` can't reconstruct the clicked day — they render as
+    display-only chips (matching the pre-redesign occurrence overlay) rather than
+    linking to a modal that would always show today.
+    """
+    return item.item_type != CalendarItemType.HABIT
+
+
 def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
-    """A clickable event chip colored by item type.
+    """An event chip colored by item type.
 
     Fill = type color at ~10% alpha (8-digit hex ``1a``); a 3px left accent bar +
     leading dot in the full color. ``large`` (week/day) adds a mono time label.
-    Click opens the item-details modal via the existing HTMX endpoint.
+    Non-habit chips open the item-details modal via the existing HTMX endpoint;
+    habit-occurrence chips are display-only (see ``_opens_detail_modal``).
     """
     color = item.color
     dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
-    htmx = {
-        "data_item_id": item.uid,
-        "hx_get": f"/events/calendar/item-details/{item.uid}",
-        "hx_target": "body",
-        "hx_swap": "beforeend",
-    }
     chip_style = f"background-color: {color}1a; border-left: 3px solid {color}"
+    interactive: dict[str, str] = (
+        {
+            "data_item_id": item.uid,
+            "hx_get": f"/events/calendar/item-details/{item.uid}",
+            "hx_target": "body",
+            "hx_swap": "beforeend",
+        }
+        if _opens_detail_modal(item)
+        else {}
+    )
+    cursor = " cursor-pointer" if interactive else ""
 
     if large:
         return Div(
@@ -266,10 +283,10 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
                 _time_range_label(item),
                 cls="text-[11px] text-muted-foreground font-mono mt-[3px]",
             ),
-            cls="calendar-item px-2.5 py-2 rounded-lg cursor-pointer",
+            cls=f"calendar-item px-2.5 py-2 rounded-lg{cursor}",
             style=chip_style,
             title=item.title,
-            **htmx,
+            **interactive,
         )
 
     return Div(
@@ -277,11 +294,11 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         Span(item.title, cls="flex-1 min-w-0 truncate"),
         cls=(
             "calendar-item flex items-center gap-1.5 px-[7px] py-0.5 rounded-md"
-            " text-[11.5px] font-medium leading-[1.5] text-foreground cursor-pointer"
+            f" text-[11.5px] font-medium leading-[1.5] text-foreground{cursor}"
         ),
         style=chip_style,
         title=item.title,
-        **htmx,
+        **interactive,
     )
 
 
@@ -501,6 +518,18 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
             style=f"background-color: {color}1f; color: {color}",
         )
         dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
+        # Habit occurrences are display-only overlays (see _opens_detail_modal).
+        interactive: dict[str, str] = (
+            {
+                "data_item_id": item.uid,
+                "hx_get": f"/events/calendar/item-details/{item.uid}",
+                "hx_target": "body",
+                "hx_swap": "beforeend",
+            }
+            if _opens_detail_modal(item)
+            else {}
+        )
+        cursor = " cursor-pointer" if interactive else ""
         card = Div(
             Div(
                 dot,
@@ -515,12 +544,9 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
             Div(item.description, cls="text-[13px] text-muted-foreground mt-1.5 leading-[1.5]")
             if item.description
             else None,
-            cls="calendar-item flex-1 bg-card border border-border rounded-[10px] px-4 py-3.5 cursor-pointer",
+            cls=f"calendar-item flex-1 bg-card border border-border rounded-[10px] px-4 py-3.5{cursor}",
             style=f"border-left: 4px solid {color}",
-            data_item_id=item.uid,
-            hx_get=f"/events/calendar/item-details/{item.uid}",
-            hx_target="body",
-            hx_swap="beforeend",
+            **interactive,
         )
         gutter = Div(
             start_label,
