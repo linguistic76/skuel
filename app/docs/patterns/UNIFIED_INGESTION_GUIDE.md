@@ -234,7 +234,12 @@ residual, the gone node's last-ingested body (`Entity.content`) is compared
 against each new markdown file's resolved content (frontmatter `content:`
 wins, else the body — the same resolution ingestion applies) with word-shingle
 Jaccard; only a MUTUAL best match at or above `SIMILARITY_MOVE_THRESHOLD`
-moves, and the sync annotates it with its score. Only unambiguous matches with
+moves, and the sync annotates it with its score. Similarity candidacy is gated
+to the uid-less UserEntry world on both sides: sources must carry a minted
+`ue_<8hex>` uid, destinations must be `type: user_entry` markdown files with
+no authored `uid:`, no periodic `entry_kind`, and no `fulfills_exercise_uid:`
+— a file that would not honor the rewritten uid must never be bridged (it
+would fuse identities or orphan the gone node). Only unambiguous matches with
 non-trivial content qualify; ambiguity (shared hashes, tied similarity) and
 sub-threshold edits fall back to delete+create — a missed move is the safe
 failure, a wrong merge is not. Contracts:

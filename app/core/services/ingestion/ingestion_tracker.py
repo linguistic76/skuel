@@ -24,6 +24,7 @@ Usage:
 """
 
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from fnmatch import fnmatch
@@ -31,6 +32,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from core.constants import MASS_DELETION_MAX_FRACTION, MASS_DELETION_MIN_COUNT
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
 from core.services.ingestion.config import is_ingestible_path
@@ -81,21 +83,53 @@ def parse_edge_identity(identity: str) -> tuple[str, str, str] | None:
     return parts[0], parts[1], parts[2]
 
 
-def _resolve_markdown_comparison_content(file_path: Path) -> str | None:
-    """Resolve a new file's on-disk content to the form ingestion will persist.
+# A minted uid-less UserEntry uid: UIDGenerator.generate_random_uid("ue") =
+# "ue_" + uuid4().hex[:8]. Similarity move SOURCES are restricted to this
+# shape — an authored or periodic uid (ue:daily:…, moc.worldview) is stable
+# across paths and must never be similarity-bridged: this is a provenance
+# check (minted vs authored spelling), not a type sniff (ADR-013).
+_MINTED_UE_UID = re.compile(r"ue_[0-9a-f]{8}\Z")
 
-    The gone node's ``content`` is the RESOLVED body — explicit frontmatter
-    ``content:`` wins (key presence, not truthiness), else the markdown body
-    (mirrors ``build_user_entry_request``) — while the on-disk file includes
-    its YAML frontmatter block. Comparing raw file text against the node's
-    body would dilute the similarity score with frontmatter noise, so the
-    file is resolved the same way before scoring. Unparseable / oversized
-    files and empty resolved content return ``None`` (not candidates).
+# metadata.entry_kind values that derive a periodic uid in
+# build_user_entry_request — such files never honor a prior (rewritten) uid.
+_PERIODIC_ENTRY_KINDS = frozenset({"daily", "weekly", "monthly"})
+
+
+def _similarity_candidate_content(file_path: Path) -> str | None:
+    """Resolve a new file's comparison content — ``None`` if not a candidate.
+
+    A similarity rewrite is only safe when the file will actually HONOR the
+    rewritten row's uid, i.e. when it routes through the user-entry pipeline
+    and passes ``build_user_entry_request``'s prior-uid hard gates (Codex
+    #618). A file that would ignore the prior uid (authored ``uid:``,
+    derived periodic uid, turn-in ``fulfills_exercise_uid:``, non-user_entry
+    ``type:``) must not be matched: ingestion would re-stamp the row with
+    its own uid — or fuse the note into the gone node's identity — while
+    deletion reconciliation no longer sees the old path, orphaning the gone
+    node. Exclusion falls back to delete+create, the safe failure.
+
+    For candidates, the returned content is resolved the way ingestion
+    resolves it — explicit frontmatter ``content:`` wins (key presence, not
+    truthiness), else the markdown body — because the gone node's ``content``
+    is the RESOLVED body: comparing raw file text would dilute the score
+    with frontmatter noise. Unparseable / oversized files, non-mapping
+    frontmatter, and empty resolved content return ``None``.
     """
     parsed = parse_markdown(file_path)
     if parsed.is_error:
         return None
     frontmatter, body = parsed.value
+    if not isinstance(frontmatter, dict):
+        # Valid-YAML-but-not-a-mapping frontmatter (e.g. a list): the file
+        # will fail ingestion's own validation — never a move destination.
+        return None
+    if EntityType.from_string(str(frontmatter.get("type", ""))) is not EntityType.USER_ENTRY:
+        return None
+    if "uid" in frontmatter or "fulfills_exercise_uid" in frontmatter:
+        return None
+    metadata = frontmatter.get("metadata")
+    if isinstance(metadata, dict) and metadata.get("entry_kind") in _PERIODIC_ENTRY_KINDS:
+        return None
     content = frontmatter.get("content", body)
     text = "" if content is None else str(content)
     return text if text.strip() else None
@@ -833,10 +867,18 @@ class IngestionTracker:
         ``SIMILARITY_MOVE_THRESHOLD`` is applied; a tied top score abstains.
         The content fetch is also the live-node guard: a hand-deleted node
         yields no content row, so its row can never be a move source.
-        Markdown files only — uid-less notes are markdown; YAML entity files
-        author their uids and have no body to compare.
+
+        Candidacy is gated to the uid-less UserEntry world on BOTH sides
+        (Codex #618): sources must carry a MINTED ``ue_`` uid (an authored or
+        periodic uid is stable across paths — the uid-based moved/stale
+        split owns those, and bridging one here would fuse identities or
+        orphan the gone node), and destinations must be markdown files that
+        will honor the rewritten uid (``_similarity_candidate_content``'s
+        gates — uid-less notes are markdown; YAML entity files author their
+        uids and have no body to compare).
         """
-        if not residual_rows or not residual_files:
+        candidate_rows = [row for row in residual_rows if _MINTED_UE_UID.fullmatch(row.entity_uid)]
+        if not candidate_rows or not residual_files:
             return Result.ok([])
         markdown_files = [
             new_file
@@ -847,7 +889,7 @@ class IngestionTracker:
             return Result.ok([])
 
         contents_result = await self.backend.get_entity_contents(
-            [row.entity_uid for row in residual_rows]
+            [row.entity_uid for row in candidate_rows]
         )
         if contents_result.is_error:
             return Result.fail(contents_result)
@@ -858,7 +900,7 @@ class IngestionTracker:
         }
         rows_with_content = [
             (row, content_by_uid[row.entity_uid])
-            for row in residual_rows
+            for row in candidate_rows
             if row.entity_uid in content_by_uid
         ]
         if not rows_with_content:
@@ -866,7 +908,7 @@ class IngestionTracker:
 
         files_with_content: list[tuple[NewFileCandidate, str]] = []
         for new_file in markdown_files:
-            resolved = _resolve_markdown_comparison_content(Path(new_file.file_path))
+            resolved = _similarity_candidate_content(Path(new_file.file_path))
             if resolved is not None:
                 files_with_content.append((new_file, resolved))
         if not files_with_content:
