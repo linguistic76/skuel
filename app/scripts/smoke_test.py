@@ -111,6 +111,7 @@ _REGISTRY_COMPONENTS = (
     "searchFilters",
     "collapsible(true)",
     "collapsibleSidebar('k', false)",
+    "calendarLegend",
     "chartVis('/x.json', 'bar')",
     "timelineVis('/x.json')",
     "toastManager",

@@ -26,6 +26,7 @@ from itertools import islice
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H1, H2, A, Div, P, Span
+from fasthtml.common import Button as HtmlButton
 
 from core.models.event.calendar_models import (
     CalendarData,
@@ -64,15 +65,35 @@ _NO_BOOST = {"hx-boost": "false"}
 
 
 def create_calendar_legend() -> Div:
-    """Five type swatches (color square + label), read from the enum palette."""
+    """Five type swatches (color square + label) doubling as filter controls.
+
+    Each swatch is a toggle button: click hides/shows that type on the grid,
+    hover spotlights it (dims the others). State + CSS classes live on the
+    ``calendarLegend`` Alpine component bound to the calendar shell
+    (``_wrap_calendar_page``), so filters survive HTMX content swaps; the
+    hiding itself is pure CSS (``calendar.css``) keyed off ``data-item-type``.
+    """
     swatches = [
-        Div(
+        HtmlButton(
             Span(
                 cls="w-[9px] h-[9px] rounded-[3px]",
                 style=f"background-color: {item_type.get_color()}",
             ),
             Span(item_type.get_label(), cls="text-[11px] font-medium text-muted-foreground"),
-            cls="flex items-center gap-1.5",
+            type="button",
+            aria_label=f"Show or hide {item_type.get_label()} items",
+            cls=(
+                "flex items-center gap-1.5 cursor-pointer rounded-md px-1 py-0.5 -mx-1"
+                " transition-opacity hover:bg-accent"
+                " focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            ),
+            **{
+                "@click": f"toggleType('{item_type.value}')",
+                "@mouseenter": f"spotlight = '{item_type.value}'",
+                "@mouseleave": "spotlight = null",
+                ":class": f"isHidden('{item_type.value}') && 'opacity-40'",
+                ":aria-pressed": f"String(!isHidden('{item_type.value}'))",
+            },
         )
         for item_type in _LEGEND_TYPES
     ]
@@ -286,6 +307,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             cls=f"calendar-item px-2.5 py-2 rounded-lg{cursor}",
             style=chip_style,
             title=item.title,
+            data_item_type=item.item_type.value,
             **interactive,
         )
 
@@ -298,6 +320,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         ),
         style=chip_style,
         title=item.title,
+        data_item_type=item.item_type.value,
         **interactive,
     )
 
@@ -552,7 +575,15 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
             start_label,
             cls="w-[72px] flex-none text-right pt-3.5 font-mono text-[12px] text-muted-foreground",
         )
-        rows.append(Div(gutter, card, cls="flex gap-4 items-stretch"))
+        # data-item-type on the row so the time gutter hides with its card.
+        rows.append(
+            Div(
+                gutter,
+                card,
+                cls="flex gap-4 items-stretch",
+                data_item_type=item.item_type.value,
+            )
+        )
 
     return Div(*rows, cls="flex flex-col gap-2.5")
 

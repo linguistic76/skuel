@@ -127,6 +127,9 @@ async def _calendar_shell(
     chrome immediately. ``max_width`` narrows/centers the inner content (Day agenda);
     Month/Week stay fluid at full page width.
     """
+    # calendarLegend (skuel.js) owns the legend's type filters: it toggles
+    # cal-hide-*/cal-spot-* classes here, on the persistent shell, so the pure-CSS
+    # hiding (calendar.css) survives HTMX grid swaps without any re-init.
     content = Div(
         create_calendar_header(title),
         create_calendar_toolbar(
@@ -143,6 +146,8 @@ async def _calendar_shell(
             loading_text="Loading calendar...",
         ),
         cls=f"w-full {max_width}".strip(),
+        x_data="calendarLegend",
+        **{":class": "filterClasses()"},
     )
     return await _wrap_calendar_page(request, content, title)
 

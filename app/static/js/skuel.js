@@ -534,6 +534,74 @@
         });
 
         // ---------------------------------------------------------------------
+        // Calendar Legend Filters Component
+        // ---------------------------------------------------------------------
+        /**
+         * Calendar legend type filters: click a swatch to hide/show that item
+         * type, hover to spotlight it (dim the others). Bound to the calendar
+         * shell (outside the HTMX-swapped grid), it only toggles cal-hide-* /
+         * cal-spot-* classes there — the hiding itself is pure CSS keyed off
+         * data-item-type (calendar.css), so filters survive grid swaps with no
+         * re-init. Hidden types persist in localStorage across views/sessions.
+         *
+         * @example
+         * <div x-data="calendarLegend" :class="filterClasses()">
+         *   <button @click="toggleType('event')" @mouseenter="spotlight = 'event'">
+         * </div>
+         */
+        Alpine.data('calendarLegend', function() {
+            var STORAGE_KEY = 'skuel-calendar-hidden-types';
+            return {
+                hidden: [],
+                spotlight: null,
+
+                init: function() {
+                    try {
+                        var stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                        if (Array.isArray(stored)) {
+                            this.hidden = stored.filter(function(t) {
+                                return typeof t === 'string';
+                            });
+                        }
+                    } catch (e) {
+                        // Corrupted stored value — start unfiltered.
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
+                },
+
+                isHidden: function(type) {
+                    return this.hidden.indexOf(type) !== -1;
+                },
+
+                toggleType: function(type) {
+                    var idx = this.hidden.indexOf(type);
+                    if (idx === -1) {
+                        this.hidden.push(type);
+                    } else {
+                        this.hidden.splice(idx, 1);
+                    }
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.hidden));
+                    if (window.SKUEL && window.SKUEL.announce) {
+                        var state = idx === -1 ? 'hidden' : 'shown';
+                        window.SKUEL.announce(type.replace('_', ' ') + ' items ' + state);
+                    }
+                },
+
+                // Class string for the shell wrapper: one cal-hide-* per hidden
+                // type, plus cal-spot-* while hovering a visible swatch.
+                filterClasses: function() {
+                    var classes = this.hidden.map(function(t) {
+                        return 'cal-hide-' + t;
+                    });
+                    if (this.spotlight && !this.isHidden(this.spotlight)) {
+                        classes.push('cal-spot-' + this.spotlight);
+                    }
+                    return classes.join(' ');
+                }
+            };
+        });
+
+        // ---------------------------------------------------------------------
         // Chart.js Visualization Component
         // ---------------------------------------------------------------------
         // Renders Chart.js charts from API data
