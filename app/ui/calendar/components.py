@@ -348,8 +348,7 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
             week_cells.append(
                 create_day_cell(
                     current_date,
-                    day_items[:3],
-                    more_count=max(0, len(day_items) - 3),
+                    day_items,
                     is_current_month=current_date.month == first_day.month,
                     is_weekend=weekday_index >= 5,
                 )
@@ -404,11 +403,15 @@ def create_day_cell(
     cell_date: date,
     items: list[CalendarItem],
     *,
-    more_count: int,
     is_current_month: bool,
     is_weekend: bool,
 ) -> Div:
-    """A single month-grid day cell: date number/pill + up to 3 chips + overflow."""
+    """A single month-grid day cell: date number/pill + one chip per item.
+
+    ALL of the day's items render (no truncation): the legend type filters hide
+    chips client-side, so a chip that isn't in the DOM could never reappear when
+    the types occluding it are toggled off. Busy days stretch their grid row.
+    """
     is_today = cell_date == date.today()
     daily_href = f"/journals/daily/{cell_date.isoformat()}"
 
@@ -434,11 +437,6 @@ def create_day_cell(
         )
 
     chips = [_event_chip(item) for item in items]
-    more_el = (
-        Div(f"+{more_count} more", cls="text-[11px] font-medium text-muted-foreground px-1.5 pt-px")
-        if more_count > 0
-        else None
-    )
 
     cell_cls = "border-r border-b border-border min-h-[120px] px-[7px] pt-1.5 pb-2.5 relative overflow-hidden "
     cell_style = None
@@ -457,7 +455,7 @@ def create_day_cell(
     # in HTMX-swapped content without an Alpine re-init.
     return Div(
         Div(date_el, cls="flex items-center min-h-[24px] mb-[5px]"),
-        Div(*chips, more_el, cls="flex flex-col gap-[3px]"),
+        Div(*chips, cls="flex flex-col gap-[3px]"),
         cls=cell_cls,
         style=cell_style,
         onclick=f"if(event.target===this)window.location.href='{daily_href}'",
