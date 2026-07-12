@@ -110,7 +110,8 @@ See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap
 
 Activity Domains support authoring through per-domain create/edit forms and Obsidian vault sync (`/submissions/sync`). All 6 domains share a collapsible
 Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`)
-linking back to `/profile`. Activity Domains content lives on the `/profile`
+linking back to `/profile` — except the Events calendar month/week/day views,
+which are navbar-only full-width pages. Activity Domains content lives on the `/profile`
 Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
 
 ```

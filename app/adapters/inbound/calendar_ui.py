@@ -43,7 +43,6 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
-from ui.activities.nav import render_activity_sidebar_page
 from ui.calendar.components import (
     create_calendar_header,
     create_calendar_toolbar,
@@ -54,6 +53,8 @@ from ui.calendar.components import (
     error_response,
 )
 from ui.components import Button, ButtonT
+from ui.layouts.base_page import BasePage
+from ui.layouts.page_types import PageType
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 
@@ -66,21 +67,23 @@ logger = get_logger("skuel.routes.calendar")
 
 
 async def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
-    """Wrap calendar content in the activity sidebar page layout.
+    """Wrap calendar content in a navbar-only, full-width page.
 
-    title is intentionally not forwarded to render_activity_sidebar_page — that
-    param controls the sidebar heading, which should stay "Tasks+" for consistency
-    with the other activity domain pages. The period-specific title is already
-    rendered by PageHeader inside content.
+    Calendar views skip the activity sidebar — the legend/chips already surface
+    the activity domains, and the freed width goes to the grid. BasePage(CUSTOM)
+    provides no container padding, so the wrapper supplies the same padding the
+    sidebar layout used to.
     """
-    return await render_activity_sidebar_page(
-        content=Div(content),
-        active="events",
+    return await BasePage(
+        content=Div(content, cls="w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-6"),
+        title=title,
+        page_type=PageType.CUSTOM,
         request=request,
+        # "tasks" lights the Tasks+ navbar item — the calendar's nav family now
+        # that the sidebar no longer carries the active state ("activity"
+        # matched no top-nav key).
+        active_page="tasks",
         extra_css=["/static/css/calendar.css"],
-        # Fluid width: the calendar grid should fill the content area and
-        # absorb the space freed when the sidebar collapses.
-        content_max_width="max-w-none",
     )
 
 
@@ -122,7 +125,7 @@ async def _calendar_shell(
 
     The grid loads lazily via ``content_loading_placeholder`` so each view renders its
     chrome immediately. ``max_width`` narrows/centers the inner content (Day agenda);
-    Month/Week stay fluid within the sidebar page.
+    Month/Week stay fluid at full page width.
     """
     content = Div(
         create_calendar_header(title),

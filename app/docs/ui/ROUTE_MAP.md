@@ -73,7 +73,7 @@ Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Four tabs selected by `?tab=` (default `submissions`), mirroring the loop (study / live it / submit / grade): **Curriculum** (former Library blocks), **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Exercises, Journals, Sync, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/events/calendar` + calendar views, `/choices`, `/principles`, `/journals`) links back to `/profile`.
+Four tabs selected by `?tab=` (default `submissions`), mirroring the loop (study / live it / submit / grade): **Curriculum** (former Library blocks), **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Exercises, Journals, Sync, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/events/calendar`, month/week/day) are navbar-only full-width pages — the sidebar's Events item still links there, but the calendar itself surfaces the activity domains via its legend/chips instead of the sidebar.
 
 ### `/profile/shared` — Shared With Me
 
