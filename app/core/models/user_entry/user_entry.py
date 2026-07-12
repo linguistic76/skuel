@@ -91,6 +91,12 @@ class UserEntry(UserOwnedEntity):
     # PROCESSING
     # =========================================================================
     pipeline: Pipeline = Pipeline.NONE  # Dispatch discriminator
+    # ``private: true`` frontmatter — the note never grows a vector: no entity
+    # embedding, no :ContentChunk subtree, plus a hard WHERE exclusion in every
+    # companion-retrieval Cypher (canon P3). Gates companion retrieval ONLY —
+    # orthogonal to ``visibility`` (sharing) and ``je_use`` (ingestion consent);
+    # the owner's own surfaces (/gradebook, search) still show private notes.
+    private: bool = False
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
     processing_error: str | None = None

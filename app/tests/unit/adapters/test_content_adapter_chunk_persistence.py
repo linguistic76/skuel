@@ -124,6 +124,35 @@ async def test_delete_and_create_are_one_atomic_statement():
 
 
 @pytest.mark.asyncio
+async def test_default_store_clears_inline_body():
+    """Popped-body domains (Ku/PS): the :Content subtree is THE body source
+    of truth, so the upsert removes any legacy inline content property."""
+    conn = _FakeConnection(responses=_create_responses(2))
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_content_with_chunks("ps:test:doc", _content(2))
+
+    upsert_query, _ = conn.queries[0]
+    assert "REMOVE ku.content" in upsert_query
+
+
+@pytest.mark.asyncio
+async def test_clear_inline_body_false_preserves_entity_content():
+    """UserEntry (canon P3): Entity.content stays load-bearing for /gradebook
+    and the journal digest — the upsert must never strip it (Codex P1 #615)."""
+    conn = _FakeConnection(responses=_create_responses(2))
+    adapter = Neo4jContentAdapter(conn)
+
+    assert await adapter.store_content_with_chunks(
+        "ue_note_abc123", _content(2), clear_inline_body=False
+    )
+
+    upsert_query, _ = conn.queries[0]
+    assert "REMOVE" not in upsert_query
+    assert "ku.content" not in upsert_query
+
+
+@pytest.mark.asyncio
 async def test_zero_chunk_result_still_clears_stale_chunks():
     """An empty chunk list must still run the delete side of the combined
     statement (UNWIND [] yields no create rows; the DETACH DELETE precedes it)."""

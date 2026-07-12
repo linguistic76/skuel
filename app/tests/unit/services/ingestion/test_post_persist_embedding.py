@@ -386,9 +386,13 @@ class _FakeContentAdapter:
     def __init__(self) -> None:
         self.stored: list[tuple[str, Any]] = []
         self.cleared: list[str] = []
+        self.clear_inline_flags: list[bool] = []
 
-    async def store_content_with_chunks(self, uid: str, content: Any) -> bool:
+    async def store_content_with_chunks(
+        self, uid: str, content: Any, *, clear_inline_body: bool = True
+    ) -> bool:
         self.stored.append((uid, content))
+        self.clear_inline_flags.append(clear_inline_body)
         return True
 
     async def delete_content_subtree(self, uid: str) -> bool:
@@ -464,6 +468,40 @@ async def test_chunk_step_core_tier_persists_chunks_without_publishing():
     )
 
     assert [u for u, _ in adapter.stored] == [uid]
+
+
+@pytest.mark.asyncio
+async def test_chunk_step_default_clears_inline_body():
+    """Popped-body domains (Ku/PS): the store carries clear_inline_body=True —
+    the :Content subtree is the body source of truth."""
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(None, adapter)
+
+    generated = await service._chunk_entity_content(
+        "ps.x", _PS_BODY, "markdown", "x.md", DEFAULT_CHUNKING_PARAMS
+    )
+    assert generated is True
+    assert adapter.clear_inline_flags == [True]
+
+
+@pytest.mark.asyncio
+async def test_chunk_step_preserve_entity_body_keeps_inline_content():
+    """UserEntry (canon P3): preserve_entity_body=True must reach the adapter
+    as clear_inline_body=False — the inline body stays load-bearing for
+    /gradebook and the journal digest (Codex P1 #615)."""
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(None, adapter)
+
+    generated = await service._chunk_entity_content(
+        "ue_note",
+        _PS_BODY,
+        "markdown",
+        "x.md",
+        DEFAULT_CHUNKING_PARAMS,
+        preserve_entity_body=True,
+    )
+    assert generated is True
+    assert adapter.clear_inline_flags == [False]
 
 
 @pytest.mark.asyncio

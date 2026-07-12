@@ -70,6 +70,15 @@ class UserEntryCreateRequest(CreateRequestBase):
         default=Pipeline.NONE,
         description="Processing pipeline — dispatch discriminator",
     )
+    private: bool = Field(
+        default=False,
+        description=(
+            "Companion-retrieval opt-out (``private: true`` frontmatter). The "
+            "note is never embedded or chunked and is hard-excluded from every "
+            "companion-retrieval query. Orthogonal to `visibility` (sharing) "
+            "and `je_use` (ingestion consent)."
+        ),
+    )
     modality: SubmissionModality | None = Field(
         default=None, description="How the entry was created (FILE_UPLOAD, STRUCTURED_FORM, ...)"
     )

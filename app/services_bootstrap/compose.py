@@ -1170,17 +1170,23 @@ async def compose_services(
             logger.info("⏭️  DSL bridge skipped (intelligence tier: CORE) — parser-only extraction")
 
         # Canon retrieval: draws curated book passages from the walled reference
-        # shelf to voice-infuse a summoned journal stage (Phase 3). FULL tier only
-        # — without embeddings there is no query vector, so it stays None and the
-        # journal degrades to canon-free. The adapter is NOT wired into
-        # SearchRouter (that omission is the isolation guarantee).
+        # shelf to voice-infuse a summoned journal stage (Phase 3), and the
+        # user's own non-private vault notes via the owner-scoped content chunk
+        # index (canon P3 — two substrates, two ports, one contract). FULL tier
+        # only — without embeddings there is no query vector, so it stays None
+        # and the journal degrades to ungrounded. The reference adapter is NOT
+        # wired into SearchRouter (that omission is the isolation guarantee).
         canon_retrieval_service = None
         if embeddings_service is not None:
+            from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
             from core.services.canon import CanonRetrievalService
 
             canon_retrieval_service = CanonRetrievalService(
                 reference_search=reference_chunk_adapter,
                 embeddings_service=embeddings_service,
+                # Stateless executor wrapper — a second instance is free
+                # (precedented by the semantic-search wiring below).
+                content_chunk_search=VectorSearchBackend(executor=query_executor),
             )
             logger.info("✅ CanonRetrievalService created (canon journaling companion)")
 

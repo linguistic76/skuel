@@ -177,6 +177,27 @@ def _parse_je_use(raw: Any) -> Result[JeUse]:
     return Result.ok(je_use)
 
 
+def _parse_private(raw: Any) -> Result[bool]:
+    """Validate the optional ``private:`` field (companion-retrieval opt-out).
+
+    Absent → ``False`` (default retrievable). Only a genuine YAML boolean is
+    accepted — a quoted ``"true"``, a stray string, or any other type fails
+    loudly (mirroring ``_parse_je_use``): silently ignoring an authored
+    privacy intent would be the one unacceptable failure mode here.
+    """
+    if raw is None:
+        return Result.ok(False)
+    if isinstance(raw, bool):
+        return Result.ok(raw)
+    return Result.fail(
+        Errors.validation(
+            f"private must be a YAML boolean (true/false), got {type(raw).__name__} "
+            f"'{raw}'. Quoted values like 'true' are strings — remove the quotes.",
+            field="private",
+        )
+    )
+
+
 def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Result[None]:
     """Validate the optional ``ownership:`` / ``user_uid:`` frontmatter claim.
 
@@ -244,6 +265,11 @@ async def build_user_entry_request(
     je_use_result = _parse_je_use(data.get("je_use"))
     if je_use_result.is_error:
         return Result.fail(je_use_result)
+
+    private_result = _parse_private(data.get("private"))
+    if private_result.is_error:
+        return Result.fail(private_result)
+    private = private_result.value
 
     audience_result = _parse_audience(data.get("audience"))
     if audience_result.is_error:
@@ -371,6 +397,7 @@ async def build_user_entry_request(
         tags=tags,
         metadata=ingestion_metadata,
         pipeline=pipeline,
+        private=private,
         instructions=data.get("instructions"),
         fulfills_exercise_uid=fulfills_exercise_uid,
         transforms_of_uid=transforms_of_uid,
@@ -553,6 +580,11 @@ async def ingest_user_entry(
                 + len(outcome.shared_users)
                 + (1 if (is_turn_in or submitted_copy_uid) else 0)
             ),
+            # The ingest_file USER_ENTRY branch runs the shared chunk step off
+            # these two flags (canon P3 substrate) and overwrites
+            # chunks_generated with the real outcome.
+            "pipeline": entry.pipeline.value,
+            "private": entry.private,
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
             "submitted_copy_uid": submitted_copy_uid,

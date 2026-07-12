@@ -124,12 +124,15 @@ class _UserEntryContentMixin:
         ``pipeline = 'journal'`` (root vault notes) and ``pipeline = 'knowledge'``
         (developed files the user shares to teach SKUEL — the ``knowledge/``
         doorway, plus frontmatter-consented ``je_pro/`` entries per the ADR-073
-        amendment) are returned. Content is truncated to 300 chars so the
-        digest stays compact.
+        amendment) are returned. Notes marked ``private: true`` are excluded —
+        this read feeds journal prompts, so it carries the companion-retrieval
+        gate (canon P3); the owner's own surfaces still show private notes.
+        Content is truncated to 300 chars so the digest stays compact.
         """
         cypher = """
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity {entity_type: 'user_entry'})
         WHERE e.pipeline IN ['journal', 'knowledge']
+          AND coalesce(e.private, false) = false
           AND e.metadata IS NOT NULL
           AND e.metadata CONTAINS '"vault_file_path"'
         RETURN e.title AS title, left(coalesce(e.content, ''), 300) AS snippet

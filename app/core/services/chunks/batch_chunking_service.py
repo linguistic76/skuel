@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
 from core.services.ingestion.config import (
+    clears_inline_body_for_label,
     diverged_chunk_version_by_label,
     resolve_chunking_params_for_label,
 )
@@ -206,7 +207,13 @@ class BatchChunkingService:
             return
 
         content, _metadata = chunk_result.value
-        stored = await self.content_adapter.store_content_with_chunks(parent_uid, content)
+        # Popped-body domains (Ku/PS) may clear a legacy inline body; every
+        # other parent (UserEntry) keeps Entity.content load-bearing.
+        stored = await self.content_adapter.store_content_with_chunks(
+            parent_uid,
+            content,
+            clear_inline_body=clears_inline_body_for_label(candidate.get("entity_label")),
+        )
         if not stored:
             stats.failed += 1
             stats.errors[parent_uid] = "store_content_with_chunks returned False"

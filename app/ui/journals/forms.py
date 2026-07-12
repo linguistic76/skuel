@@ -239,34 +239,33 @@ def _build_footer() -> Any:
     )
 
 
-def _build_canon_toggle(*, compact: bool = False) -> Any:
-    """FOUNDER-only "Summon the canon shelf" checkbox for the file compile.
+def _build_summon_toggle(field_name: str, label: str, *, compact: bool = False) -> Any:
+    """FOUNDER-only grounding checkbox for the file compile (shared shape).
 
-    The file path has no per-stage review gate, so the canon dial rides the
+    The file path has no per-stage review gate, so the grounding dials ride the
     upload form here. Shown only in ``instructions_only`` mode with a single
     file selected (``fileCount <= 1``) — the sole upload shape that reaches the
     FOUNDER DNWF compile (``run_compiled``). A multi-file / folder upload takes
     the batch path (``_run_batch_over_dir``), which never reaches
-    ``run_compiled``, so the toggle hides itself rather than submit a
-    ``summon_canon`` the server would silently ignore. Unchecked → the field is
-    omitted and the compile is canon-free (default). Rendered ONLY when the
-    caller is FOUNDER. Mirrors the review-gate checkbox on the interactive
-    stages.
+    ``run_compiled``, so the toggle hides itself rather than submit a flag the
+    server would silently ignore. Unchecked → the field is omitted and the
+    compile is ungrounded (default). Rendered ONLY when the caller is FOUNDER.
+    Mirrors the review-gate checkboxes on the interactive stages.
     """
     supported = "processingMode === 'instructions_only' && fileCount <= 1"
     return Label(
         Input(
             type="checkbox",
-            name="summon_canon",
+            name=field_name,
             value="true",
             cls="mr-2 align-middle",
             # Disable (not just hide) when unsupported: a display:none checkbox
             # still POSTs its value, so a box checked then invalidated by adding
-            # files would leak summon_canon=true onto the ignored batch path.
+            # files would leak the flag onto the ignored batch path.
             # Same x-show + :disabled pairing the file inputs above use.
             **{":disabled": f"!({supported})"},  # boundary: fasthtml-elements
         ),
-        "Summon the canon shelf",
+        label,
         cls=(
             "flex items-center text-sm text-muted-foreground cursor-pointer "
             + ("mt-3" if compact else "mb-1")
@@ -276,6 +275,16 @@ def _build_canon_toggle(*, compact: bool = False) -> Any:
             "x-cloak": True,  # boundary: fasthtml-elements
         },
     )
+
+
+def _build_canon_toggle(*, compact: bool = False) -> Any:
+    """The "Summon the canon shelf" dial (curated books — ADR-076)."""
+    return _build_summon_toggle("summon_canon", "Summon the canon shelf", compact=compact)
+
+
+def _build_vault_toggle(*, compact: bool = False) -> Any:
+    """The "Draw on my vault" dial (own non-private notes — canon P3)."""
+    return _build_summon_toggle("summon_vault", "Draw on my vault", compact=compact)
 
 
 # ---------------------------------------------------------------------------
@@ -356,7 +365,7 @@ def render_upload_form(exercises: list[Any] | None = None, *, is_founder: bool =
                 _build_processing_section(),
                 _build_source_section(),
                 _build_browse_area(),
-                *([_build_canon_toggle()] if is_founder else []),
+                *([_build_canon_toggle(), _build_vault_toggle()] if is_founder else []),
                 _build_footer(),
                 hx_post="/journals/upload",
                 hx_target="#upload-status",
@@ -627,7 +636,11 @@ def render_right_panel(*, is_founder: bool = False) -> Any:
             _build_compact_processing_section(),
             _build_compact_source_section(),
             _build_compact_browse_area(),
-            *([_build_canon_toggle(compact=True)] if is_founder else []),
+            *(
+                [_build_canon_toggle(compact=True), _build_vault_toggle(compact=True)]
+                if is_founder
+                else []
+            ),
             _build_compact_process_btn(),
             # Signals that this layout has a #journal-workspace (landing centre
             # column), so a successful single-file upload should retarget its

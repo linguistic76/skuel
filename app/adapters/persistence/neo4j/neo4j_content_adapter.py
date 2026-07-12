@@ -82,6 +82,8 @@ class Neo4jContentAdapter:
         self,
         uid: str,
         content: CurriculumContent,
+        *,
+        clear_inline_body: bool = True,
     ) -> bool:
         """
         Store content with its semantic chunks for RAG retrieval.
@@ -101,26 +103,36 @@ class Neo4jContentAdapter:
         matches an old chunk's ``embedding_source_text`` inherits that
         embedding — the worker's freshness pre-check then skips it.
 
+        ``clear_inline_body`` says who owns the body. ``True`` (Ku/PathStep —
+        ``chunks_body_content`` types whose body was popped at ingest): the
+        :Content subtree is THE body source of truth, so any legacy inline
+        ``content`` property is removed. ``False`` (UserEntry, canon P3): the
+        inline ``Entity.content`` stays load-bearing (/gradebook, the journal
+        digest) and the subtree is an additive retrieval substrate — the
+        entity property is never touched.
+
         Args:
             uid: Knowledge unit UID,
             content: CurriculumContent with chunks
+            clear_inline_body: Remove the entity's inline ``content`` property
+                (the popped-body contract); ``False`` preserves it.
 
         Returns:
             True if successful
         """
         try:
-            query = """
+            # The :Content subtree is THE body source of truth for popped-body
+            # entities — drop any legacy inline body so the inline-first read
+            # (ContextOperationsMixin.get_with_content) can't serve a stale
+            # copy (`n += props` upserts never remove properties). Skipped for
+            # entities whose inline body stays load-bearing (UserEntry).
+            remove_inline = "REMOVE ku.content\n" if clear_inline_body else ""
+            query = f"""
             // Match the knowledge unit
-            MATCH (ku:Entity {uid: $uid})
-
-            // The :Content subtree is now THE body source of truth for this
-            // entity — drop any legacy inline body so the inline-first read
-            // (ContextOperationsMixin.get_with_content) can't serve a stale
-            // copy (`n += props` upserts never remove properties).
-            REMOVE ku.content
-
+            MATCH (ku:Entity {{uid: $uid}})
+            {remove_inline}
             // Create or merge Content node
-            MERGE (c:Content {uid: $uid})
+            MERGE (c:Content {{uid: $uid}})
             SET c.body = $body
             SET c.format = $format
             SET c.word_count = $word_count

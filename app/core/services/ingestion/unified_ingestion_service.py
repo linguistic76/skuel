@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from core.services.vault.vault_descriptor import VaultRegistry
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.pipeline import Pipeline
 from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -440,10 +441,20 @@ class UnifiedIngestionService:
         file_format: str,
         source_path: str,
         params: ChunkingParams,
+        *,
+        preserve_entity_body: bool = False,
     ) -> bool:
         """
         The shared body-chunk step — both ingest doors, all
-        ``chunks_body_content`` entity types (PathStep, Ku).
+        ``chunks_body_content`` entity types (PathStep, Ku), plus non-private
+        knowledge UserEntries (canon P3 — additive substrate, body NOT popped).
+
+        ``preserve_entity_body=True`` (UserEntry) keeps the inline
+        ``Entity.content`` property intact — it stays load-bearing for
+        /gradebook and the journal digest; the chunk subtree is purely
+        additive. Default ``False`` follows the popped-body contract
+        (Ku/PathStep): persisting the subtree also clears any legacy inline
+        body so no stale copy can be served.
 
         Chunk the popped content body, persist it as :Content + :ContentChunk
         nodes, and publish ``ChunkEmbeddingRequested`` for the background
@@ -494,7 +505,9 @@ class UnifiedIngestionService:
             return True
 
         # Persist chunks to Neo4j so retrieval can target them
-        stored = await self.content_adapter.store_content_with_chunks(uid, content)
+        stored = await self.content_adapter.store_content_with_chunks(
+            uid, content, clear_inline_body=not preserve_entity_body
+        )
         if not stored:
             self.logger.warning(f"Chunk persistence failed for {uid}")
             return False
@@ -764,6 +777,28 @@ class UnifiedIngestionService:
                 )
                 if ue_moc_warnings:
                     ue_result.value["moc_warnings"] = ue_moc_warnings
+            # Chunk substrate for companion retrieval (canon P3): non-private
+            # knowledge notes get :ContentChunk children; everything else takes
+            # the shared step's explicit clear path (empty body → subtree
+            # delete), so a pipeline- or private-flip retracts stale chunks on
+            # the next sync — unconditionally, per synced file. Deliberately
+            # NOT a ``chunks_body_content`` config: the body stays on
+            # ``UserEntry.content`` (load-bearing); chunks are additive.
+            if ue_result.is_ok:
+                chunkable = ue_result.value.get(
+                    "pipeline"
+                ) == Pipeline.KNOWLEDGE.value and not ue_result.value.get("private")
+                # Explicit ``content:`` wins even when falsy — same resolution
+                # build_user_entry_request applies to the persisted content.
+                effective_content = data.get("content", body)
+                ue_result.value["chunks_generated"] = await self._chunk_entity_content(
+                    str(ue_result.value["uid"]),
+                    str(effective_content or "") if chunkable else "",
+                    file_format,
+                    str(file_path),
+                    resolve_chunking_params(EntityType.USER_ENTRY),
+                    preserve_entity_body=True,
+                )
             return ue_result
 
         # Validate UID format before preparation (early fail-fast)

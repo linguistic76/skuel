@@ -9,7 +9,7 @@ between layers. Replaces `SubmissionDTO`, `ExerciseSubmissionDTO`,
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── UserEntryDTO(UserOwnedDTO) +14 user-entry fields
+        └── UserEntryDTO(UserOwnedDTO) +15 user-entry fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -36,8 +36,8 @@ class UserEntryDTO(UserOwnedDTO):
 
     Extends `UserOwnedDTO` with:
     - File (4): original_filename, file_path, file_size, file_type
-    - Processing (8): pipeline, timestamps, error, content, file, instructions,
-                      max_retention
+    - Processing (9): pipeline, private, timestamps, error, content, file,
+                      instructions, max_retention
     - Modality (1): modality
     """
 
@@ -56,6 +56,7 @@ class UserEntryDTO(UserOwnedDTO):
     # PROCESSING
     # =========================================================================
     pipeline: Pipeline = Pipeline.NONE
+    private: bool = False  # companion-retrieval opt-out (see UserEntry docstring)
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
     processing_error: str | None = None

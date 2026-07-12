@@ -26,9 +26,9 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Stage 1 — Scribe | `run_stage1(raw_entry, user_uid)` | `data/instructions/dnwf 1.md` | 4000 |
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
-| Compiled (file upload) | `run_compiled(raw_entry, user_uid, summon_canon=False)` | Chains stage1 → stage2 → stage3; returns single markdown doc. `summon_canon` carries the canon dial (no review gate on this path) | — |
+| Compiled (file upload) | `run_compiled(raw_entry, user_uid, summon_canon=False, summon_vault=False)` | Chains stage1 → stage2 → stage3; returns single markdown doc. `summon_canon` / `summon_vault` carry the grounding dials (no review gate on this path) | — |
 | Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
-| Follow-up (conversation continuation) | `run_follow_up(...) -> Result[JournalFollowUp]` (`…, mode, summon_canon=False`) | `follow_up_system_prompt()` — mode base + continuation directive. Canon **quote-on-demand** surface (ADR-076): `summon_canon` (FOUNDER-gated server-side) retrieves on `user_reply`, injects `CanonContext.to_discussion_block()` (name + quote the shelf verbatim, faithfulness contract). Returns `JournalFollowUp(text, sources)`; `sources` render as clickable Resource links in `FollowUpFragment` (structured, not markdown, since the bubble is plain-text) | 4000 |
+| Follow-up (conversation continuation) | `run_follow_up(...) -> Result[JournalFollowUp]` (`…, mode, summon_canon=False, summon_vault=False`) | `follow_up_system_prompt()` — mode base + continuation directive. The **quote-on-demand** surface (ADR-076): each dial (FOUNDER-gated server-side) retrieves on `user_reply` and injects its `to_discussion_block()` (name + quote verbatim, faithfulness contract) — canon shelf and/or the user's vault-minus-private (canon P3). Returns `JournalFollowUp(text, sources)` with canon + vault sources concatenated; kind-aware clickable links in `FollowUpFragment` (Resource page / `/gradebook/{uid}`) | 4000 |
 | Suggested activities (panel) | `suggest_activities(content, user_uid)` | LLM bridge (`transform_with_context`) → `@context()` lines re-rendered to checkbox DSL via `suggestion.py` (bridge tags preserved verbatim) | — |
 
 FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
@@ -54,9 +54,23 @@ without interactive review, producing a single markdown document with all three 
 
 4. **Context digest, not full UserContext** — `_build_context_summary()` extracts up to 6
    active titles each from Goals, Tasks, and Habits, plus up to 8 vault-synced personal notes
-   (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`). Stage 1
-   receives no context (sparse by design — fidelity requires restraint). Stages 2 and 3
-   receive the digest.
+   (title + 300-char snippet via `UserEntryService.get_vault_notes_for_context()`; notes
+   marked `private: true` are excluded). Stage 1 receives no context (sparse by design —
+   fidelity requires restraint). Stages 2 and 3 receive the digest. **Vault-dial de-dup
+   (canon P3):** when the vault dial's semantic block actually lands (`vault.has_passages`),
+   the digest drops the shallow note snippets — never both reads of one corpus; a retrieval
+   miss keeps them (fail-soft floor: dial-on never grounds below dial-off).
+
+4a. **Two grounding dials (FOUNDER, both off by default)** — `summon_canon` (curated shelf,
+   ADR-076) and `summon_vault` (the user's own vault-minus-private, canon P3 / ADR-077) are
+   independent flags on `run_stage2`/`run_stage3`/`run_compiled`/`run_follow_up`. Both ride
+   `_maybe_summon_canon` / `_maybe_summon_vault` (fail-soft → `CanonContext.empty()`); vault
+   retrieval is `CanonRetrievalService.retrieve_vault(query_text, user_uid)` — owner-scoped
+   (OWNS + hard private WHERE), Stages 2/3 keyed on the raw entry, follow-up on `user_reply`.
+   Both dials on → ONE merged "Drawing on" footer (`merged_attribution_footer`); follow-up
+   `sources` concatenate canon + vault (`CanonSource.source_kind` drives the kind-aware link:
+   Resource page vs `/gradebook/{uid}` in the shared `CanonSourcesBlock`). Routes force both
+   flags off server-side for non-FOUNDERs (forgeable-flag gate, one user resolve).
 
 5. **Privacy-first** — `Pipeline.JOURNAL.allows_sharing()` returns `False`. No audience
    picker, no sharing, no teacher visibility. Enforced at the ingestion layer too

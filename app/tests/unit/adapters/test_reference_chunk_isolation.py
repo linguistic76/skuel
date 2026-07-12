@@ -58,6 +58,27 @@ def test_semantic_search_chunks_targets_only_content_index() -> None:
     )
 
 
+def test_reference_adapter_never_queries_content_index() -> None:
+    """Symmetric wall (canon P3): the reference adapter must not READ ContentChunk.
+
+    The vault scope made the content index the owner-scoped retrieval substrate;
+    a reference-adapter read of it would be the same wall breach in the other
+    direction (one Cypher across the two corpora). The adapter legitimately
+    *mentions* ContentChunk in docstrings (documenting the wall) and reuses the
+    ``ContentChunk`` dataclass as its in-memory chunk shape — so the assert
+    targets the QUOTED index literal (what a Cypher/queryNodes call would use)
+    and the Cypher label form, never prose.
+    """
+    import adapters.persistence.neo4j.neo4j_reference_chunk_adapter as adapter_module
+
+    source = _source(adapter_module)
+    for query_form in (f"'{CONTENT_INDEX}'", f'"{CONTENT_INDEX}"', "(chunk:ContentChunk"):
+        assert query_form not in source, (
+            f"The reference chunk adapter contains {query_form!r} — the two corpora "
+            "share a contract, never a query (ADR-077)."
+        )
+
+
 def test_scoped_branch_stays_adapter_only() -> None:
     """The scoped exact-cosine scan lives ONLY in the reference chunk adapter.
 
