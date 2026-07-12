@@ -914,7 +914,9 @@ class TestDeleteEntryAsTeacher:
 class TestEmbeddingPublishGate:
     """Post-persist embedding events are pipeline-scoped: knowledge entries
     only (knowledge/ + consented je_pro/ notes). Turn-ins, teacher-review
-    submissions, and LLM outputs never publish UserEntryEmbeddingRequested."""
+    submissions, and LLM outputs never publish UserEntryEmbeddingRequested.
+    Private notes never publish either (canon P3) — no vector may exist for
+    a ``private: true`` note on any of the three publish paths."""
 
     class _CapturingBus:
         def __init__(self) -> None:
@@ -992,3 +994,46 @@ class TestEmbeddingPublishGate:
         result = await service.update_processed_content("ue_test_1", "Structured")
         assert result.is_ok
         assert len(self._embed_events(bus)) == 1
+
+    @pytest.mark.asyncio
+    async def test_private_knowledge_create_does_not_publish(self):
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Secret body", private=True)
+        service, bus = self._service_with_bus(entry)
+        request = UserEntryCreateRequest(
+            title="Secret", pipeline=Pipeline.KNOWLEDGE, content="Secret body", private=True
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_private_knowledge_content_update_does_not_publish(self):
+        entry = _make_entry(pipeline=Pipeline.KNOWLEDGE, content="Secret body", private=True)
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_entry(
+            "ue_test_1", "user_1", UserEntryUpdateRequest(content="Secret body")
+        )
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_private_knowledge_processed_content_update_does_not_publish(self):
+        entry = _make_entry(
+            pipeline=Pipeline.KNOWLEDGE, processed_content="Structured", private=True
+        )
+        service, bus = self._service_with_bus(entry)
+        result = await service.update_processed_content("ue_test_1", "Structured")
+        assert result.is_ok
+        assert self._embed_events(bus) == []
+
+    @pytest.mark.asyncio
+    async def test_create_threads_private_onto_the_persisted_entry(self):
+        backend = _make_backend(_make_entry(pipeline=Pipeline.KNOWLEDGE, private=True))
+        service = UserEntryService(backend=backend)
+        request = UserEntryCreateRequest(
+            title="Secret", pipeline=Pipeline.KNOWLEDGE, content="Body", private=True
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        entry_passed = backend.create.await_args.args[0]
+        assert entry_passed.private is True

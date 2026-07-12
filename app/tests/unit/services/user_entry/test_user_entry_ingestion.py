@@ -70,6 +70,41 @@ class TestBuildUserEntryRequest:
         assert result.is_ok
 
     @pytest.mark.asyncio
+    async def test_private_true_flows_to_request(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "private": True, "title": "Secret"},
+            file_path=Path("secret.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.private is True
+
+    @pytest.mark.asyncio
+    async def test_private_absent_defaults_retrievable(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Open"},
+            file_path=Path("open.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        assert result.value.private is False
+
+    @pytest.mark.asyncio
+    async def test_garbled_private_rejected(self):
+        # A quoted "true" is a string, not a boolean — silently ignoring an
+        # authored privacy intent is the one unacceptable failure mode here.
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "private": "true", "title": "Secret"},
+            file_path=Path("secret.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        assert "private" in str(result.expect_error()).lower()
+
+    @pytest.mark.asyncio
     async def test_audio_pipeline_rejected(self):
         result = await build_user_entry_request(
             data={"pipeline": "transcribe_and_structure"},
@@ -360,6 +395,34 @@ class TestIngestUserEntry:
         assert payload["success"] is True
         assert payload["relationships_created"] == 1  # one shared group, no exercise
         assert payload["share_outcome"]["shared_groups"] == ["g_a"]
+        # The ingest_file USER_ENTRY branch keys the chunk substrate on these
+        # two flags (canon P3) — they must ride the result dict.
+        assert payload["pipeline"] == "teacher_review"
+        assert payload["private"] is False
+
+    @pytest.mark.asyncio
+    async def test_result_dict_carries_private_flag(self):
+        entry = UserEntry(
+            uid="ue_secret",
+            title="Secret",
+            user_uid="user_1",
+            pipeline=Pipeline.KNOWLEDGE,
+            private=True,
+        )
+        service = MagicMock()
+        service.audience_resolver = _resolver()
+        service.create_entry = AsyncMock(return_value=Result.ok((entry, ShareOutcome())))
+
+        result = await ingest_user_entry(
+            data={"pipeline": "knowledge", "private": True, "title": "Secret"},
+            file_path=Path("secret.md"),
+            user_uid="user_1",
+            user_entry_service=service,
+        )
+
+        assert result.is_ok
+        assert result.value["pipeline"] == "knowledge"
+        assert result.value["private"] is True
 
     @pytest.mark.asyncio
     async def test_validation_error_short_circuits(self):

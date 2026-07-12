@@ -132,6 +132,33 @@ The door does not silently drop authored frontmatter it understands:
   syncing user; a mismatch fails the file honestly instead of the entry
   being claimed by whoever ran the sync. Omitted → no check.
 
+### Optional field: `private` (companion-retrieval opt-out — canon P3)
+
+`private: true` marks a note the journal companion must never draw on:
+
+- The note is **never embedded and never chunked** — no entity vector, no
+  `:ContentChunk` subtree exists for it (structural unreachability), and every
+  companion-retrieval Cypher additionally carries a hard
+  `coalesce(private, false) = false` exclusion (belt and suspenders).
+- **Flip semantics:** editing a synced note to `private: true` retracts on the
+  next sync — the upsert null-removes the entity embedding and the ingest
+  door's unconditional chunk step takes the clear path (deletes the stale
+  `:Content`/`:ContentChunk` subtree). Removing the marker restores
+  retrievability on the next sync the same way.
+- **Default retrievable:** an absent marker means the (knowledge-pipeline)
+  note participates in companion grounding.
+- **Scope:** gates companion retrieval ONLY. Orthogonal to `audience`/
+  `visibility` (sharing) and `je_use` (ingestion consent); the owner's own
+  surfaces (`/gradebook`, `/submissions/knowledge`, search) still show
+  private notes.
+- Must be a genuine YAML boolean — a quoted `"true"` **fails the file** (an
+  authored privacy intent is never silently ignored).
+
+**Backfill campaign:** after a deploy that introduces chunking or changes the
+marker's mechanics, run `./dev vault-sync --user <uid> --force` — force
+re-processing pushes every knowledge note back through the chunk step (and the
+clear path for private ones); the in-process drain embeds the new chunks.
+
 ### Optional field: `uid` (deterministic upsert)
 
 By default a UserEntry is minted a random `ue_<...>` UID and **created**

@@ -10,6 +10,19 @@ keeps the Socratic method paragraph for SOCRATIC/EXPLORATORY/ENCOURAGING but swa
 for a direct-answer framing in DIRECT mode (which promises answers; the original
 "ask a better question, not recite" wording contradicted the user's explicit mode
 choice). The ADR-076 faithfulness contract is identical in both framings.
+**Amendment (2026-07-12, P3 substrate + private marker — settled by Mike 2026-07-11):**
+the P3 open questions in "Consequences" are resolved. (a) **Substrate:** vault notes are
+chunked — knowledge-pipeline UserEntries get `:ContentChunk` children through the existing
+shared chunk step in the ingest door (`_chunk_entity_content`, additive: the body stays on
+`UserEntry.content`, no `chunks_body_content` pop) + ADR-074 event embedding; backfill via
+`./dev vault-sync --force`. (b) **Private marker:** `private: true` frontmatter → a
+`private` property on the UserEntry → the note is **never embedded/chunked at all** (no
+vector exists — the ingest door's unconditional chunk step takes the clear path, and all
+three entity-embedding publishes are gated) PLUS a hard
+`coalesce(private, false) = false` WHERE in every companion-retrieval Cypher.
+Flip-to-private retracts on the next sync; default retrievable. (c) **Weights:** uniform
+first — `weight: float = 1.0` lands on the contract (`CanonPassage`), no live weight
+machinery reads it.
 **Date:** 2026-07-09
 **Related:** ADR-076 (canon may quote & cite), ADR-073 (journals zero-persistence),
 ADR-074 (post-persist embedding events), ADR-070 (Obsidian VaultBridge — the personal vault),

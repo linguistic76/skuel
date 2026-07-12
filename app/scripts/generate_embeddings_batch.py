@@ -79,8 +79,9 @@ EMBEDDABLE_LABELS: dict[str, EntityType] = {
 # entries embed (the event path gates in UserEntryService) — without this the
 # backfill would embed every entry, including exercise turn-ins and
 # teacher-review submissions the event path deliberately never publishes.
+# Private notes never embed either (canon P3) — no vector may exist for them.
 LABEL_EXTRA_FILTERS: dict[str, str] = {
-    "UserEntry": "n.pipeline = 'knowledge'",
+    "UserEntry": "n.pipeline = 'knowledge' AND coalesce(n.private, false) = false",
 }
 
 CHUNK_LABEL = "ContentChunk"
