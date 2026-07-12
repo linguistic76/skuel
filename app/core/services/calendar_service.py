@@ -71,7 +71,6 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
-from core.utils.palette import CalendarFallback
 from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
@@ -488,26 +487,23 @@ class CalendarService:
             start_time = datetime.now()
             end_time = start_time + timedelta(hours=1)
 
-        # Get color dynamically from enum methods
-        # Prefer status color over priority color for better visual feedback
-        if task.status:
-            color = task.status.get_color()
-        elif task.priority:
-            color = Priority(task.priority).get_color()
-        else:
-            color = CalendarFallback.DEFAULT
+        # A due-date-only task is a deadline marker; a scheduled task is work.
+        # Color communicates the type (per-type palette) so the legend is truthful.
+        is_deadline = task.scheduled_date is None and task.due_date is not None
+        item_type = CalendarItemType.TASK_DEADLINE if is_deadline else CalendarItemType.TASK_WORK
+        color = item_type.get_color()
 
         return CalendarItem(
             uid=f"task-{task.uid}",
             source_uid=task.uid,
             title=task.title,
             description=task.description or "",
-            item_type=CalendarItemType.TASK_WORK,
+            item_type=item_type,
             start_time=start_time,
             end_time=end_time,
-            all_day=task.scheduled_date is None and task.due_date is not None,
+            all_day=is_deadline,
             color=color,
-            icon=CalendarItemType.TASK_WORK.get_icon(),
+            icon=item_type.get_icon(),
             priority=Priority(task.priority).to_numeric() if task.priority else 1,
             tags=list(task.tags),
             metadata={
@@ -518,8 +514,8 @@ class CalendarService:
 
     def _event_to_calendar_item(self, event: Event) -> CalendarItem:
         """Convert event to calendar item."""
-        # Get color dynamically from status enum
-        color = event.status.get_color() if event.status else CalendarFallback.DEFAULT
+        # Color by type so the calendar legend stays truthful.
+        color = CalendarItemType.EVENT.get_color()
 
         # Convert Neo4j temporal types to Python types
         start_time_val = convert_neo4j_time(event.start_time)
@@ -584,7 +580,7 @@ class CalendarService:
             start_time=now,
             end_time=now + timedelta(minutes=30),  # Default 30 min for habits
             all_day=False,
-            color=CalendarFallback.HABIT,
+            color=CalendarItemType.HABIT.get_color(),
             icon=CalendarItemType.HABIT.get_icon(),
             priority=1,
             is_recurring=getattr(habit, "recurrence_pattern", "daily") != "none",

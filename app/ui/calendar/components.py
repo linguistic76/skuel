@@ -2,698 +2,510 @@
 Calendar UI Components
 ======================
 
-UI components for calendar views (month, week, day).
-Extracted from calendar_routes.py for separation of concerns.
+UI components for the redesigned calendar views (month, week, day).
 
-Usage:
-    from ui.calendar.components import (
-        create_month_grid,
-        create_week_grid,
-        create_day_timeline,
-        create_quick_add_modal,
-        error_response,
-    )
+All three views share one visual language:
+- eyebrow + large title + a per-type legend (``create_calendar_header``)
+- a segmented Day/Week/Month switcher + Prev/Today/Next + Monthly-note toolbar
+  (``create_view_switcher`` / ``create_calendar_toolbar``)
+- per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
+  the item's type color, fill at ~10% alpha
+
+Month is a bordered grid with an ISO-week rail; Week is 7 day-column agenda cards;
+Day is a vertical agenda list. Colors come from ``CalendarItemType.get_color()`` so
+the legend stays truthful.
+
+See: plans/design_handoff_calendar_month/README.md
 """
 
-__version__ = "1.0"
+__version__ = "2.0"
 
 from datetime import date, datetime, timedelta
 from itertools import islice
 from typing import Any
 
-from fasthtml.common import H2, H3, H4, A, Div, Form, Option, P, Span
+from fasthtml.common import H1, H2, A, Div, P, Span
 
 from core.models.event.calendar_models import (
     CalendarData,
     CalendarItem,
     CalendarItemType,
-    CalendarOccurrence,
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
-from ui.forms import Input, Label, Select
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
 from ui.primitives import ButtonLink
 
+# Legend / switcher vocabulary — the calendar's five item types, in display order.
+_LEGEND_TYPES: tuple[CalendarItemType, ...] = (
+    CalendarItemType.EVENT,
+    CalendarItemType.TASK_WORK,
+    CalendarItemType.TASK_DEADLINE,
+    CalendarItemType.HABIT,
+    CalendarItemType.MILESTONE,
+)
+
+_WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+# 8-column track: a narrow ISO-week rail + 7 equal day columns.
+_MONTH_GRID_COLS = "grid grid-cols-[46px_repeat(7,minmax(0,1fr))]"
+# Force a full browser navigation (journal routes answer with a 302 redirect that
+# HTMX boost would otherwise swap into the current target).
+_NO_BOOST = {"hx-boost": "false"}
+
+
+# ============================================================================
+# SHARED CHROME
+# ============================================================================
+
+
+def create_calendar_legend() -> Div:
+    """Five type swatches (color square + label), read from the enum palette."""
+    swatches = [
+        Div(
+            Span(
+                cls="w-[9px] h-[9px] rounded-[3px]",
+                style=f"background-color: {item_type.get_color()}",
+            ),
+            Span(item_type.get_label(), cls="text-[11px] font-medium text-muted-foreground"),
+            cls="flex items-center gap-1.5",
+        )
+        for item_type in _LEGEND_TYPES
+    ]
+    return Div(*swatches, cls="flex items-center gap-3.5 flex-wrap pb-1")
+
+
+def create_calendar_header(title: str) -> Div:
+    """Eyebrow + period title (left) and the type legend (right)."""
+    return Div(
+        Div(
+            Div(
+                "Calendar",
+                cls="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground",
+            ),
+            H1(title, cls="text-[40px] font-bold tracking-[-0.02em] leading-none mt-1.5"),
+        ),
+        create_calendar_legend(),
+        cls="flex items-end justify-between gap-6 flex-wrap mb-5",
+    )
+
+
+def create_view_switcher(current_view: str, target_date: date) -> Div:
+    """Segmented Day/Week/Month control. Active segment is a non-navigating span."""
+    views = (
+        ("Day", "day", f"/events/day/{target_date.isoformat()}"),
+        ("Week", "week", f"/events/week/{target_date.isoformat()}"),
+        ("Month", "month", f"/events/month/{target_date.year}/{target_date.month}"),
+    )
+    seg_base = "inline-flex items-center h-7 px-4 rounded-md text-[13px] font-semibold"
+    segments = []
+    for label, view, url in views:
+        if view == current_view:
+            segments.append(
+                Span(
+                    label,
+                    cls=f"{seg_base} bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]",
+                )
+            )
+        else:
+            segments.append(
+                A(
+                    label,
+                    href=url,
+                    cls=f"{seg_base} bg-transparent text-muted-foreground hover:text-foreground",
+                )
+            )
+    return Div(*segments, cls="inline-flex p-[3px] bg-muted border border-border rounded-[9px]")
+
+
+def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False) -> A:
+    """A bordered nav pill with a leading (or trailing) Lucide chevron."""
+    icon = Icon(icon_name, cls="w-[15px] h-[15px]")
+    text = Span(label)
+    content = (text, icon) if trailing else (icon, text)
+    return A(
+        *content,
+        href=href,
+        cls=(
+            "inline-flex items-center gap-1.5 h-[34px] px-3 border border-border bg-card"
+            " rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+        ),
+    )
+
+
+def create_calendar_toolbar(
+    current_view: str,
+    target_date: date,
+    prev_href: str,
+    next_href: str,
+    today_href: str,
+    monthly_note_href: str,
+) -> Div:
+    """Segmented switcher (left) + Prev/Today/Next and Monthly-note cluster (right)."""
+    nav = Div(
+        _nav_button("Prev", prev_href, "chevron-left"),
+        A(
+            "Today",
+            href=today_href,
+            cls=(
+                "inline-flex items-center h-[34px] px-4 bg-primary text-primary-foreground"
+                " border border-primary rounded-lg text-[13px] font-semibold hover:opacity-90"
+            ),
+        ),
+        _nav_button("Next", next_href, "chevron-right", trailing=True),
+        Div(cls="w-px h-[22px] bg-border mx-1"),
+        A(
+            Icon("square-pen", cls="w-[15px] h-[15px]"),
+            Span("Monthly note"),
+            href=monthly_note_href,
+            title="Open monthly note",
+            **_NO_BOOST,
+            cls=(
+                "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
+                " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+                " whitespace-nowrap"
+            ),
+        ),
+        cls="flex items-center gap-2",
+    )
+    return Div(
+        create_view_switcher(current_view, target_date),
+        nav,
+        cls="flex items-center justify-between gap-4 flex-wrap mb-5",
+    )
+
+
+# ============================================================================
+# EVENT CHIP (shared across views)
+# ============================================================================
+
+
+def _item_start(item: CalendarItem) -> datetime:
+    """Sort key: an item's start time (chronological ordering within a day)."""
+    return item.start_time
+
+
+def _fmt_time(dt: datetime) -> str:
+    """12-hour clock without a leading zero (e.g. ``9:30 AM``)."""
+    return dt.strftime("%I:%M %p").lstrip("0")
+
+
+def _time_range_label(item: CalendarItem) -> str:
+    """``All day`` for markers, else ``start – end`` (collapsed if equal)."""
+    if item.all_day:
+        return "All day"
+    start = _fmt_time(item.start_time)
+    end = _fmt_time(item.end_time)
+    return f"{start} – {end}" if end != start else start
+
+
+def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
+    """A clickable event chip colored by item type.
+
+    Fill = type color at ~10% alpha (8-digit hex ``1a``); a 3px left accent bar +
+    leading dot in the full color. ``large`` (week/day) adds a mono time label.
+    Click opens the item-details modal via the existing HTMX endpoint.
+    """
+    color = item.color
+    dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
+    htmx = {
+        "data_item_id": item.uid,
+        "hx_get": f"/events/calendar/item-details/{item.uid}",
+        "hx_target": "body",
+        "hx_swap": "beforeend",
+    }
+    chip_style = f"background-color: {color}1a; border-left: 3px solid {color}"
+
+    if large:
+        return Div(
+            Div(
+                dot,
+                Span(
+                    item.title,
+                    cls="flex-1 min-w-0 truncate text-[12.5px] font-semibold text-foreground",
+                ),
+                cls="flex items-center gap-1.5",
+            ),
+            Div(
+                _time_range_label(item),
+                cls="text-[11px] text-muted-foreground font-mono mt-[3px]",
+            ),
+            cls="calendar-item px-2.5 py-2 rounded-lg cursor-pointer",
+            style=chip_style,
+            title=item.title,
+            **htmx,
+        )
+
+    return Div(
+        dot,
+        Span(item.title, cls="flex-1 min-w-0 truncate"),
+        cls=(
+            "calendar-item flex items-center gap-1.5 px-[7px] py-0.5 rounded-md"
+            " text-[11.5px] font-medium leading-[1.5] text-foreground cursor-pointer"
+        ),
+        style=chip_style,
+        title=item.title,
+        **htmx,
+    )
+
+
+# ============================================================================
+# MONTH VIEW
+# ============================================================================
+
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
-    """
-    Create the month view grid showing all days with their calendar items.
-
-    Args:
-        calendar_data: Calendar data containing items and date range
-
-    Returns:
-        Div containing the complete month grid with day headers and week rows
-    """
-    # Group items by date
+    """Bordered month grid: ISO-week rail + 7 day columns, one row per week."""
     items_by_date: dict[date, list[CalendarItem]] = {}
     for item in calendar_data.items:
-        item_date = item.start_time.date()
-        if item_date not in items_by_date:
-            items_by_date[item_date] = []
-        items_by_date[item_date].append(item)
+        items_by_date.setdefault(item.start_time.date(), []).append(item)
 
-    # Get occurrences by date
-    occurrences_by_date: dict[date, list[CalendarOccurrence]] = {}
-    for occurrences in calendar_data.occurrences.values():
-        for occ in occurrences:
-            if occ.date not in occurrences_by_date:
-                occurrences_by_date[occ.date] = []
-            occurrences_by_date[occ.date].append(occ)
-
-    # Calculate calendar grid starting point
-    # Start from the first day of the month, then back up to the previous Monday
+    # Grid starts on the Monday on/just before the 1st of the month.
     first_day = calendar_data.start_date
-    # weekday() returns 0=Monday, 6=Sunday
-    days_to_monday = first_day.weekday()
-    grid_start = first_day - timedelta(days=days_to_monday)
+    grid_start = first_day - timedelta(days=first_day.weekday())
 
-    # Create week rows
     weeks = []
     current_date = grid_start
-
-    # Continue until we've covered the entire month
-    while (
-        current_date <= calendar_data.end_date
-        or current_date.month == calendar_data.start_date.month
-    ):
-        # Each grid row starts on a Monday — same anchor ISO weeks use, so the
-        # first cell's ISO week number labels the whole row.
-        week_start_date = current_date
-        iso_year, iso_week, _ = week_start_date.isocalendar()
-
+    while current_date <= calendar_data.end_date or current_date.month == first_day.month:
+        iso_year, iso_week, _ = current_date.isocalendar()
         week_cells = []
-        for _ in range(7):
-            # Get items for this date
-            date_items = items_by_date.get(current_date, [])
-            date_occurrences = occurrences_by_date.get(current_date, [])
-
-            # Create day cell
+        for weekday_index in range(7):
+            day_items = sorted(items_by_date.get(current_date, []), key=_item_start)
             week_cells.append(
                 create_day_cell(
                     current_date,
-                    date_items[:3],  # Show max 3 items
-                    date_occurrences,
-                    len(date_items) > 3,
-                    is_current_month=(current_date.month == calendar_data.start_date.month),
+                    day_items[:3],
+                    more_count=max(0, len(day_items) - 3),
+                    is_current_month=current_date.month == first_day.month,
+                    is_weekend=weekday_index >= 5,
                 )
             )
-
             current_date += timedelta(days=1)
 
-        # Week-number cell links to the Weekly Note (Obsidian Calendar-style).
-        week_num_cell = A(
+        # Week-number rail → the Weekly Note (Obsidian Calendar-style).
+        rail = A(
             str(iso_week),
             href=f"/journals/weekly/{iso_year}/{iso_week}",
             title=f"Weekly note — W{iso_week}, {iso_year}",
+            **_NO_BOOST,
             cls=(
-                "border-r border-b p-2 flex items-center justify-center text-xs"
-                " text-muted-foreground hover:text-primary hover:bg-muted cursor-pointer"
+                "flex items-center justify-center font-mono text-[11px] text-muted-foreground"
+                " bg-muted/25 border-r border-b border-border hover:text-primary hover:bg-muted/60"
             ),
         )
-        weeks.append(Div(week_num_cell, *week_cells, cls="grid grid-cols-8 gap-0"))
+        weeks.append(Div(rail, *week_cells, cls=_MONTH_GRID_COLS))
 
-        # Stop if we've gone past the end of the month
-        if (
-            current_date.month != calendar_data.start_date.month
-            and current_date > calendar_data.end_date
-        ):
+        if current_date.month != first_day.month and current_date > calendar_data.end_date:
             break
 
-    return Div(
-        # Day headers (leading "W" column for week numbers)
+    header = Div(
         Div(
-            Div(
-                "W",
-                cls="text-center font-semibold py-2 border-b border-r text-xs text-muted-foreground",
+            "Wk",
+            cls=(
+                "flex items-center justify-center py-[11px] text-[10px] font-bold uppercase"
+                " tracking-[0.06em] text-muted-foreground border-b border-r border-border"
             ),
-            *[
-                Div(day, cls="text-center font-semibold py-2 border-b")
-                for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-            ],
-            cls="grid grid-cols-8 gap-0 mb-0",
         ),
-        # Week rows
+        *[
+            Div(
+                label,
+                cls=(
+                    "text-center py-[11px] text-[12px] font-semibold border-b border-border "
+                    + ("text-muted-foreground" if i >= 5 else "text-foreground")
+                ),
+            )
+            for i, label in enumerate(_WEEKDAY_LABELS)
+        ],
+        cls=f"{_MONTH_GRID_COLS} bg-muted/50",
+    )
+
+    return Div(
+        header,
         *weeks,
-        cls="border rounded-lg overflow-hidden",
+        cls="border border-border rounded-xl overflow-hidden bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
     )
 
 
 def create_day_cell(
     cell_date: date,
     items: list[CalendarItem],
-    occurrences: list[CalendarOccurrence],
-    has_more: bool,
-    is_current_month: bool = True,
+    *,
+    more_count: int,
+    is_current_month: bool,
+    is_weekend: bool,
 ) -> Div:
-    """
-    Create a single day cell for month view.
-
-    Args:
-        cell_date: The date for this cell
-        items: Calendar items for this date (max 3)
-        occurrences: Habit occurrences for this date
-        has_more: Whether there are more items than shown
-        is_current_month: Whether this date is in the current month
-
-    Returns:
-        Div containing the day cell UI
-    """
+    """A single month-grid day cell: date number/pill + up to 3 chips + overflow."""
     is_today = cell_date == date.today()
+    daily_href = f"/journals/daily/{cell_date.isoformat()}"
 
-    # Build item elements - using HTMX for modal loading
-    item_elements = [
-        Div(
-            Span(item.icon, cls="mr-1"),
-            Span(item.title[:15] + "..." if len(item.title) > 15 else item.title, cls="text-xs"),
-            cls="calendar-item px-1 py-0.5 rounded text-white mb-1 cursor-pointer hover:opacity-80",
-            style=f"background-color: {item.color}",
+    if is_today:
+        date_el = A(
+            str(cell_date.day),
+            href=daily_href,
+            title="Daily note",
+            **_NO_BOOST,
+            cls=(
+                "inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full"
+                " bg-primary text-primary-foreground text-[12px] font-bold"
+            ),
+        )
+    else:
+        tone = "text-foreground" if is_current_month else "text-muted-foreground/60"
+        date_el = A(
+            str(cell_date.day),
+            href=daily_href,
+            title="Daily note",
+            **_NO_BOOST,
+            cls=f"text-[13px] font-semibold {tone} hover:text-primary",
+        )
+
+    chips = [_event_chip(item) for item in items]
+    more_el = (
+        Div(f"+{more_count} more", cls="text-[11px] font-medium text-muted-foreground px-1.5 pt-px")
+        if more_count > 0
+        else None
+    )
+
+    cell_cls = "border-r border-b border-border min-h-[120px] px-[7px] pt-1.5 pb-2.5 relative overflow-hidden "
+    cell_style = None
+    if is_today:
+        cell_cls += "bg-primary/[0.07]"
+        cell_style = "box-shadow: inset 0 0 0 2px hsl(var(--primary))"
+    elif not is_current_month:
+        cell_cls += "bg-muted/50"
+    elif is_weekend:
+        cell_cls += "bg-muted/30"
+    else:
+        cell_cls += "bg-background"
+
+    # event.target===this replicates Alpine's .self modifier — navigate to the daily
+    # note only when the cell background (not a chip) is clicked. Plain JS so it works
+    # in HTMX-swapped content without an Alpine re-init.
+    return Div(
+        Div(date_el, cls="flex items-center min-h-[24px] mb-[5px]"),
+        Div(*chips, more_el, cls="flex flex-col gap-[3px]"),
+        cls=cell_cls,
+        style=cell_style,
+        onclick=f"if(event.target===this)window.location.href='{daily_href}'",
+    )
+
+
+# ============================================================================
+# WEEK VIEW (agenda — 7 day-column cards)
+# ============================================================================
+
+
+def create_week_grid(calendar_data: CalendarData) -> Div:
+    """Seven day-column agenda cards (Mon–Sun), each listing its events as chips."""
+    items_by_date: dict[date, list[CalendarItem]] = {}
+    for item in calendar_data.items:
+        items_by_date.setdefault(item.start_time.date(), []).append(item)
+
+    cards = []
+    for offset in range(7):
+        day = calendar_data.start_date + timedelta(days=offset)
+        is_today = day == date.today()
+        day_items = sorted(items_by_date.get(day, []), key=_item_start)
+
+        head_tone = (
+            "bg-primary text-primary-foreground"
+            if is_today
+            else "bg-muted/50 text-foreground hover:bg-muted"
+        )
+        head = A(
+            Span(
+                _WEEKDAY_LABELS[offset],
+                cls="text-[10px] font-bold uppercase tracking-[0.06em] opacity-75",
+            ),
+            Span(str(day.day), cls="text-[18px] font-bold leading-none"),
+            href=f"/journals/daily/{day.isoformat()}",
+            title="Daily note",
+            **_NO_BOOST,
+            cls=f"flex flex-col gap-1 px-3 py-2.5 border-b border-border {head_tone}",
+        )
+
+        if day_items:
+            body_children: list[Any] = [_event_chip(item, large=True) for item in day_items]
+        else:
+            body_children = [Div("No events", cls="text-[12px] text-muted-foreground/60 p-1.5")]
+        body = Div(*body_children, cls="p-2 flex flex-col gap-1.5 flex-1")
+
+        cards.append(
+            Div(
+                head,
+                body,
+                cls="border border-border rounded-[11px] overflow-hidden bg-card min-h-[360px] flex flex-col",
+            )
+        )
+
+    return Div(*cards, cls="grid grid-cols-1 sm:grid-cols-7 gap-2.5")
+
+
+# ============================================================================
+# DAY VIEW (agenda list)
+# ============================================================================
+
+
+def create_day_timeline(calendar_data: CalendarData) -> Div:
+    """Vertical agenda: a mono time gutter + a type-accented card per event."""
+    items = sorted(calendar_data.items, key=_item_start)
+    if not items:
+        return Div(
+            Div("Nothing scheduled", cls="text-[16px] font-semibold text-foreground mb-1.5"),
+            Div("This day is clear.", cls="text-[13px] text-muted-foreground"),
+            cls="text-center py-16 px-6",
+        )
+
+    rows = []
+    for item in items:
+        color = item.color
+        start_label = "All day" if item.all_day else _fmt_time(item.start_time)
+        pill = Span(
+            item.item_type.get_label(),
+            cls=(
+                "inline-flex items-center px-[9px] py-0.5 rounded-full text-[10.5px]"
+                " font-semibold uppercase tracking-[0.04em]"
+            ),
+            style=f"background-color: {color}1f; color: {color}",
+        )
+        dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
+        card = Div(
+            Div(
+                dot,
+                Span(item.title, cls="text-[15px] font-semibold text-foreground"),
+                pill,
+                cls="flex items-center gap-2 flex-wrap",
+            ),
+            Div(
+                _time_range_label(item),
+                cls="text-[12.5px] text-muted-foreground font-mono mt-1",
+            ),
+            Div(item.description, cls="text-[13px] text-muted-foreground mt-1.5 leading-[1.5]")
+            if item.description
+            else None,
+            cls="calendar-item flex-1 bg-card border border-border rounded-[10px] px-4 py-3.5 cursor-pointer",
+            style=f"border-left: 4px solid {color}",
             data_item_id=item.uid,
             hx_get=f"/events/calendar/item-details/{item.uid}",
             hx_target="body",
             hx_swap="beforeend",
         )
-        for item in items
-    ]
-
-    # Build occurrence indicators
-    occurrence_elements = []
-    for occ in occurrences:
-        icon = occ.status.get_emoji()
-        occurrence_elements.append(Span(icon, cls="text-xs mr-1", title=occ.notes or ""))
-
-    # More indicator
-    more_element = []
-    if has_more:
-        more_element.append(Div("+more", cls="text-xs text-muted-foreground mt-1"))
-
-    # Date number links to the Daily Note (Obsidian Calendar-style).
-    # hx-boost="false" opts out of HTMX boost so the 302 redirect from
-    # /journals/daily/{date} triggers a full browser navigation instead of
-    # being swapped into the current HTMX target.
-    daily_href = f"/journals/daily/{cell_date.isoformat()}"
-    if is_today:
-        date_header = Div(
-            A(
-                str(cell_date.day),
-                href=daily_href,
-                title="Daily note",
-                **{"hx-boost": "false"},
-                cls="text-lg font-bold text-primary hover:opacity-70",
-            ),
-            Badge("Today", variant=BadgeT.primary, size=Size.sm, cls="ml-2"),
-            cls="flex items-center mb-1",
+        gutter = Div(
+            start_label,
+            cls="w-[72px] flex-none text-right pt-3.5 font-mono text-[12px] text-muted-foreground",
         )
-    else:
-        date_header = A(
-            str(cell_date.day),
-            href=daily_href,
-            title="Daily note",
-            **{"hx-boost": "false"},
-            cls=(
-                "text-sm font-semibold mb-1 block hover:text-primary "
-                f"{'text-foreground' if is_current_month else 'text-foreground/40'}"
-            ),
-        )
+        rows.append(Div(gutter, card, cls="flex gap-4 items-stretch"))
 
-    # Cell styling - more prominent today indicator with ring
-    cell_cls = "border-r border-b p-2 min-h-[100px] cursor-pointer "
-    if is_today:
-        cell_cls += "bg-primary/10 ring-2 ring-primary ring-inset"
-    elif is_current_month:
-        cell_cls += "bg-background"
-    else:
-        cell_cls += "bg-muted"
-
-    # onclick with event.target===this replicates Alpine's .self modifier:
-    # fires only when clicking the cell background, not a child element.
-    # Plain JS (not Alpine x-on) so it works in HTMX-swapped content without
-    # needing Alpine.initTree() to re-process the new DOM nodes.
-    return Div(
-        # Date number (with Today badge if applicable)
-        date_header,
-        # Items
-        *item_elements,
-        # Occurrences
-        Div(*occurrence_elements, cls="flex") if occurrence_elements else None,
-        # More indicator
-        *more_element,
-        cls=cell_cls,
-        onclick=f"if(event.target===this)window.location.href='{daily_href}'",
-    )
+    return Div(*rows, cls="flex flex-col gap-2.5")
 
 
-def create_week_grid(calendar_data: CalendarData) -> Div:
-    """
-    Create the week view grid with time slots.
-
-    Args:
-        calendar_data: Calendar data containing items and date range
-
-    Returns:
-        Div containing the complete week grid with time slots
-    """
-    # Group items by day and time
-    items_by_datetime: dict[tuple[date, int], list[CalendarItem]] = {}
-    for item in calendar_data.items:
-        key = (item.start_time.date(), item.start_time.hour)
-        if key not in items_by_datetime:
-            items_by_datetime[key] = []
-        items_by_datetime[key].append(item)
-
-    # Create time slots (6am to 11pm)
-    time_slots = []
-    for hour in range(6, 24):
-        time_label = f"{hour:02d}:00"
-
-        # Create cells for each day of the week
-        day_cells = []
-        current_date = calendar_data.start_date
-
-        for day_offset in range(7):
-            day_date = current_date + timedelta(days=day_offset)
-            slot_items = items_by_datetime.get((day_date, hour), [])
-            # ISO datetime for this slot (used for drag-drop reschedule)
-            slot_datetime = f"{day_date.isoformat()}T{hour:02d}:00:00"
-
-            day_cells.append(
-                Div(
-                    *[create_week_item(item) for item in slot_items],
-                    cls="border-r border-b p-1 h-16 relative",
-                    # Alpine.js: click opens quick-add modal, drag-drop handlers
-                    **{
-                        "x-on:click": f"openQuickAdd('{day_date.isoformat()}', {hour})",
-                        "x-on:dragover.prevent": "handleDragOver($event)",
-                        "x-on:drop": f"handleDrop($event, '{slot_datetime}')",
-                    },
-                )
-            )
-
-        time_slots.append(
-            Div(
-                Div(time_label, cls="w-16 text-xs text-muted-foreground pr-2 text-right"),
-                *day_cells,
-                cls="grid grid-cols-8 gap-0",
-            )
-        )
-
-    # Day headers
-    days = []
-    current_date = calendar_data.start_date
-    for _ in range(7):
-        days.append(current_date.strftime("%a %d"))
-        current_date += timedelta(days=1)
-
-    return Div(
-        # Header row
-        Div(
-            Div("", cls="w-16"),  # Empty corner
-            *[Div(day, cls="text-center font-semibold py-2 border-b border-r") for day in days],
-            cls="grid grid-cols-8 gap-0",
-        ),
-        # Time slots
-        *time_slots,
-        cls="border rounded-lg overflow-hidden",
-    )
-
-
-def create_week_item(item: CalendarItem) -> Div:
-    """
-    Create a calendar item for week view.
-
-    Args:
-        item: The calendar item to render
-
-    Returns:
-        Div containing the week view item UI
-    """
-    return Div(
-        Span(item.icon, cls="mr-1"),
-        Span(
-            item.title[:10] + "..." if len(item.title) > 10 else item.title,
-            cls="text-xs text-white",
-        ),
-        id=f"calendar-item-{item.uid}",  # ID for potential OOB swap
-        cls="px-1 py-0.5 rounded cursor-move",
-        style=f"background-color: {item.color}",
-        draggable="true",
-        # Alpine.js: drag-and-drop handling
-        **{"x-on:dragstart": f"handleDragStart($event, '{item.uid}')"},
-        # Use HTMX for modal loading instead of JavaScript
-        hx_get=f"/events/calendar/item-details/{item.uid}",
-        hx_target="body",
-        hx_swap="beforeend",
-    )
-
-
-def create_day_timeline(calendar_data: CalendarData) -> Div:
-    """
-    Create the day view timeline.
-
-    Args:
-        calendar_data: Calendar data containing items for the day
-
-    Returns:
-        Div containing the day timeline UI
-    """
-    # Group items by hour
-    items_by_hour: dict[int, list[CalendarItem]] = {}
-    for item in calendar_data.items:
-        hour = item.start_time.hour
-        if hour not in items_by_hour:
-            items_by_hour[hour] = []
-        items_by_hour[hour].append(item)
-
-    # Create timeline (6am to 11pm)
-    timeline_slots = []
-    for hour in range(6, 24):
-        time_label = f"{hour:02d}:00"
-        slot_items = items_by_hour.get(hour, [])
-        # ISO datetime for this slot (used for drag-drop reschedule)
-        slot_datetime = f"{calendar_data.start_date.isoformat()}T{hour:02d}:00:00"
-
-        timeline_slots.append(
-            Div(
-                # Time label
-                Div(time_label, cls="w-20 text-sm text-muted-foreground pr-4 text-right"),
-                # Items for this hour
-                Div(
-                    *[create_timeline_item(item) for item in slot_items],
-                    cls="flex-1 border-l-2 border-border pl-4 min-h-[60px]",
-                    # Alpine.js: click opens quick-add modal, drag-drop handlers
-                    **{
-                        "x-on:click": f"openQuickAdd('{calendar_data.start_date.isoformat()}', {hour})",
-                        "x-on:dragover.prevent": "handleDragOver($event)",
-                        "x-on:drop": f"handleDrop($event, '{slot_datetime}')",
-                    },
-                ),
-                cls="flex mb-0 hover:bg-muted cursor-pointer",
-            )
-        )
-
-    return Div(*timeline_slots, cls="bg-background rounded-lg border p-4")
-
-
-def create_timeline_item(item: CalendarItem) -> Div:
-    """
-    Create a calendar item for day timeline.
-
-    Args:
-        item: The calendar item to render
-
-    Returns:
-        Card containing the timeline item UI
-    """
-    duration = (item.end_time - item.start_time).seconds // 60
-
-    return Card(
-        Div(
-            Span(item.icon, cls="text-lg mr-2"),
-            Span(item.title, cls="font-semibold"),
-            cls="flex items-center mb-1",
-        ),
-        P(
-            f"{item.start_time.strftime('%H:%M')} - {item.end_time.strftime('%H:%M')} ({duration} min)",
-            cls="text-sm text-muted-foreground mb-1",
-        ),
-        P(
-            item.description[:100] + "..." if len(item.description) > 100 else item.description,
-            cls="text-sm text-muted-foreground",
-        )
-        if item.description
-        else None,
-        # Habit occurrence indicator
-        create_habit_check_in(item) if item.item_type == CalendarItemType.HABIT else None,
-        id=f"calendar-item-{item.uid}",  # ID for potential OOB swap
-        cls="bg-background shadow-sm mb-2 p-3 cursor-move",
-        style=f"border-left: 4px solid {item.color}",
-        draggable="true",
-        # Alpine.js: drag-and-drop handling + HTMX for modal loading
-        **{"x-on:dragstart": f"handleDragStart($event, '{item.uid}')"},
-        hx_get=f"/events/calendar/item-details/{item.uid}",
-        hx_target="body",
-        hx_swap="beforeend",
-    )
-
-
-def create_habit_check_in(item: CalendarItem) -> Div:
-    """
-    Create habit check-in UI for day view.
-
-    Uses HTMX for recording habit occurrences.
-
-    Args:
-        item: The habit calendar item
-
-    Returns:
-        Div containing the habit check-in UI
-    """
-    habit_uid = item.source_uid
-    note_input_id = f"habit-note-{habit_uid}"
-
-    return Div(
-        H4("Check in for today:", cls="text-sm font-semibold mt-3 mb-2"),
-        # Status container for HTMX response
-        Div(id=f"habit-status-{habit_uid}"),
-        Div(
-            Input(
-                type="text",
-                name="notes",
-                placeholder="How did it go?",
-                id=note_input_id,
-                cls="flex-1 px-2 py-1 border rounded-l text-sm",
-            ),
-            # HTMX buttons - each posts to different endpoint with status
-            Button(
-                "✅",
-                type="button",
-                cls=ButtonT.primary,
-                size="sm",
-                hx_post=f"/events/calendar/habit/{habit_uid}/record/done",
-                hx_target=f"#habit-status-{habit_uid}",
-                hx_swap="innerHTML",
-                hx_include=f"#{note_input_id}",
-            ),
-            Button(
-                "⏭️",
-                type="button",
-                cls=ButtonT.secondary,
-                size="sm",
-                hx_post=f"/events/calendar/habit/{habit_uid}/record/skipped",
-                hx_target=f"#habit-status-{habit_uid}",
-                hx_swap="innerHTML",
-                hx_include=f"#{note_input_id}",
-            ),
-            Button(
-                "❌",
-                type="button",
-                cls=ButtonT.destructive,
-                size="sm",
-                hx_post=f"/events/calendar/habit/{habit_uid}/record/missed",
-                hx_target=f"#habit-status-{habit_uid}",
-                hx_swap="innerHTML",
-                hx_include=f"#{note_input_id}",
-            ),
-            cls="flex gap-1",
-        ),
-        cls="mt-3 p-2 bg-muted rounded",
-    )
-
-
-def create_quick_add_modal() -> Div:
-    """
-    Create the quick add modal for adding calendar items.
-
-    Uses Alpine.js for modal state and HTMX for form submission.
-
-    Returns:
-        Div containing the quick add modal (Alpine.js controlled visibility)
-    """
-    return AlpineModal(
-        Form(
-            H3("Quick Add", cls="text-xl font-bold mb-4"),
-            # Status container for HTMX response
-            Div(id="quick-add-status"),
-            # Item type selector
-            Div(
-                Label("Type", cls="block text-sm font-medium mb-1"),
-                Select(
-                    Option("Task", value="task"),
-                    Option("Event", value="event"),
-                    Option("Habit", value="habit"),
-                    name="type",
-                    id="quick-add-type",
-                ),
-                cls="mb-4",
-            ),
-            # Title input
-            Div(
-                Label("Title", cls="block text-sm font-medium mb-1"),
-                Input(
-                    type="text",
-                    name="title",
-                    id="quick-add-title",
-                    placeholder="Enter title...",
-                    required=True,
-                ),
-                cls="mb-4",
-            ),
-            # Date/time input - Alpine.js x-model for datetime binding
-            Div(
-                Label("Date & Time", cls="block text-sm font-medium mb-1"),
-                Input(
-                    type="datetime-local",
-                    name="start_time",
-                    id="quick-add-datetime",
-                    required=True,
-                    x_model="datetime",
-                ),
-                cls="mb-4",
-            ),
-            # Duration input
-            Div(
-                Label("Duration (minutes)", cls="block text-sm font-medium mb-1"),
-                Input(
-                    type="number",
-                    name="duration",
-                    id="quick-add-duration",
-                    value="60",
-                ),
-                cls="mb-4",
-            ),
-            # Buttons - Alpine.js for cancel
-            Div(
-                Button(
-                    "Cancel",
-                    type="button",
-                    cls=(ButtonT.ghost, "mr-2"),
-                    **{"x-on:click": "closeQuickAdd()"},  # fasthtml dynamic-attr splat
-                ),
-                Button(
-                    "Create",
-                    type="submit",
-                    cls=ButtonT.primary,
-                ),
-                cls="flex justify-end",
-            ),
-            # HTMX form submission
-            hx_post="/events/calendar/quick-create",
-            hx_target="#quick-add-status",
-            hx_swap="innerHTML",
-        ),
-        show="open",
-        close="closeQuickAdd()",
-        id="quick-add-modal",
-    )
-
-
-def create_reschedule_form() -> Form:
-    """
-    Create hidden HTMX form for drag-drop reschedule.
-
-    This form is triggered by Alpine.js when an item is dropped on a time slot.
-    Uses HTMX to submit the reschedule request and refresh the calendar grid.
-
-    Returns:
-        Hidden form with HTMX attributes for reschedule submission
-    """
-    return Form(
-        Input(type="hidden", name="uid", x_ref="rescheduleUid"),
-        Input(type="hidden", name="new_start", x_ref="rescheduleTime"),
-        id="reschedule-form",
-        style="display: none;",
-        **{
-            "x-ref": "rescheduleForm",
-            "hx-patch": "/api/calendar/reschedule",
-            "hx-target": "#calendar-grid",
-            "hx-swap": "innerHTML",
-            "hx-trigger": "submit",
-        },
-    )
-
-
-def create_view_switcher(current_view: str, target_date: date) -> Div:
-    """
-    Create the day/week/month view switcher using links.
-
-    Args:
-        current_view: Current active view ('day', 'week', or 'month')
-        target_date: The date to use for navigation links
-
-    Returns:
-        Div containing the view switcher links
-    """
-    views = [
-        ("Day", "day", f"/events/day/{target_date.isoformat()}"),
-        ("Week", "week", f"/events/week/{target_date.isoformat()}"),
-        ("Month", "month", f"/events/month/{target_date.year}/{target_date.month}"),
-    ]
-
-    buttons = []
-    for label, view, url in views:
-        is_active = view == current_view
-        cls_extra = ""
-        if view == "day":
-            cls_extra = "rounded-l-lg rounded-r-none"
-        elif view == "month":
-            cls_extra = "rounded-r-lg rounded-l-none"
-        else:
-            cls_extra = "rounded-none"
-
-        if is_active:
-            # Active view - styled span (not clickable)
-            buttons.append(
-                Button(
-                    label,
-                    cls=(ButtonT.primary, f"cursor-default {cls_extra}"),
-                    size="sm",
-                    disabled=True,
-                )
-            )
-        else:
-            # Inactive view - use link
-            buttons.append(
-                ButtonLink(
-                    label,
-                    href=url,
-                    cls=(ButtonT.ghost, cls_extra),
-                    size="sm",
-                )
-            )
-
-    return Div(*buttons, cls="inline-flex mb-4")
-
-
-def create_quick_add_button() -> Div:
-    """
-    Create the floating quick add button.
-
-    Uses Alpine.js to open the quick add modal.
-
-    Returns:
-        Div containing the quick add button
-    """
-    return Div(
-        Button(
-            "+ Add Item",
-            cls=(ButtonT.primary, "fixed bottom-6 right-6 rounded-full shadow-lg"),
-            **{"x-on:click": "openQuickAdd()"},  # fasthtml dynamic-attr splat
-        ),
-    )
+# ============================================================================
+# SHARED HELPERS
+# ============================================================================
 
 
 def error_response(error_message: Any) -> Div:
-    """
-    Create an error response UI.
-
-    Args:
-        error_message: The error message to display
-
-    Returns:
-        Div with the error UI
-    """
+    """Create an error response UI for a failed calendar fetch."""
     return Div(
         Card(
             CardHeader(CardTitle("Error", cls="text-error")),
@@ -711,15 +523,7 @@ def error_response(error_message: Any) -> Div:
 
 
 def calendar_item_to_dict(item: CalendarItem) -> dict[str, Any]:
-    """
-    Convert calendar item to dictionary for JSON response.
-
-    Args:
-        item: The calendar item to convert
-
-    Returns:
-        Dictionary representation of the calendar item
-    """
+    """Convert a calendar item to a dictionary for JSON responses."""
     return {
         "uid": item.uid,
         "title": item.title,
@@ -736,42 +540,48 @@ def _format_datetime(dt: datetime) -> str:
     return dt.strftime("%b %d, %I:%M %p")
 
 
-def create_item_details_modal(item: Any) -> Div:
-    """
-    Render calendar item details as an HTMX modal fragment.
+# ============================================================================
+# ITEM DETAILS MODAL
+# ============================================================================
 
-    Returns server-rendered HTML instead of JSON for HTMX swap.
+
+def create_item_details_modal(item: Any) -> Div:
+    """Render calendar item details as an HTMX modal fragment.
+
+    Header = a type-colored dot + type pill + Lucide close; the body keeps the full
+    schedule / description / event / habit / tags detail. Returns server-rendered
+    HTML (not JSON) for a direct ``beforeend`` swap onto ``body``.
     """
-    # Type badge
-    type_badge = Span(
-        item.item_type.value.replace("_", " ").upper(),
-        cls="px-3 py-1 rounded-full text-xs font-medium",
-        style=f"background-color: {item.color}20; color: {item.color}",
+    color = item.color
+    type_pill = Span(
+        item.item_type.get_label(),
+        cls=(
+            "inline-flex items-center px-[9px] py-0.5 rounded-full text-[10.5px]"
+            " font-semibold uppercase tracking-[0.04em]"
+        ),
+        style=f"background-color: {color}1f; color: {color}",
+    )
+    type_dot = Span(cls="flex-none w-2.5 h-2.5 rounded-full", style=f"background-color: {color}")
+
+    # Close: hide via Alpine, then remove the wrapper after the transition.
+    close_expr = (
+        "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
     )
 
-    # Priority stars
-    priority_stars = ""
-    if item.priority:
-        priority_stars = Span(
-            "⭐" * item.priority,
-            cls="text-sm text-muted-foreground ml-4",
-        )
-
-    # Schedule info
+    # Schedule
     schedule_text = (
         "All Day"
         if item.all_day
         else f"{_format_datetime(item.start_time)} - {_format_datetime(item.end_time)}"
     )
-
     recurrence_info = None
     if item.is_recurring:
         recurrence_info = P(
-            f"🔁 Recurring: {item.recurrence_pattern}",
+            Icon("repeat", cls="w-3.5 h-3.5 inline-block mr-1.5 align-[-2px]"),
+            f"Recurring: {item.recurrence_pattern}",
             cls="text-sm text-muted-foreground mt-1",
         )
 
-    # Description section
     description_section = None
     if item.description:
         description_section = Div(
@@ -780,23 +590,29 @@ def create_item_details_modal(item: Any) -> Div:
             cls="mb-4",
         )
 
-    # Event-specific info (location, attendees)
+    # Event-specific info (location, online, attendees)
     event_info = None
     if item.item_type == CalendarItemType.EVENT:
         event_details = []
         if item.location:
             event_details.append(
                 P(
-                    Span("📍 Location:", cls="font-semibold text-muted-foreground"),
-                    Span(item.location, cls="text-muted-foreground ml-2"),
+                    Icon(
+                        "map-pin",
+                        cls="w-4 h-4 inline-block mr-2 align-[-3px] text-muted-foreground",
+                    ),
+                    Span(item.location, cls="text-muted-foreground"),
                     cls="text-sm mb-2",
                 )
             )
         if item.is_online:
             event_details.append(
                 P(
-                    Span("💻 Format:", cls="font-semibold text-muted-foreground"),
-                    Span("Online Meeting", cls="text-muted-foreground ml-2"),
+                    Icon(
+                        "video",
+                        cls="w-4 h-4 inline-block mr-2 align-[-3px] text-muted-foreground",
+                    ),
+                    Span("Online meeting", cls="text-muted-foreground"),
                     cls="text-sm mb-2",
                 )
             )
@@ -808,11 +624,14 @@ def create_item_details_modal(item: Any) -> Div:
                 )
                 for email in islice(item.attendee_emails, 5)
             ]
+            count_label = f"Attendees ({len(item.attendee_emails)}" + (
+                f"/{item.max_attendees})" if item.max_attendees else ")"
+            )
             event_details.append(
                 Div(
                     P(
-                        f"👥 Attendees ({len(item.attendee_emails)}"
-                        + (f"/{item.max_attendees})" if item.max_attendees else ")"),
+                        Icon("users", cls="w-4 h-4 inline-block mr-2 align-[-3px]"),
+                        count_label,
                         cls="text-sm font-semibold text-muted-foreground mb-1",
                     ),
                     Div(*attendee_badges, cls="flex flex-wrap"),
@@ -822,12 +641,13 @@ def create_item_details_modal(item: Any) -> Div:
         if event_details:
             event_info = Div(*event_details, cls="bg-info/10 p-4 rounded-lg mb-4")
 
-    # Habit streak info
+    # Habit streak
     habit_info = None
     if item.item_type == CalendarItemType.HABIT and item.streak_count is not None:
         habit_info = Div(
             P(
-                f"Current Streak: {item.streak_count} days 🔥",
+                Icon("flame", cls="w-4 h-4 inline-block mr-1.5 align-[-3px]"),
+                f"Current streak: {item.streak_count} days",
                 cls="text-sm font-semibold text-success",
             ),
             cls="bg-success/10 p-4 rounded-lg mb-4",
@@ -845,20 +665,14 @@ def create_item_details_modal(item: Any) -> Div:
             cls="mb-4",
         )
 
-    # Close expression: hide via Alpine, then remove wrapper after transition
-    close_expr = (
-        "open = false; $nextTick(() => document.getElementById('item-details-modal')?.remove())"
-    )
-
-    # Action buttons based on type
-    action_buttons = [
+    # Actions — Close + a type-appropriate edit/action
+    action_buttons: list[Any] = [
         Button(
             "Close",
             cls=ButtonT.ghost,
             **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
         )
     ]
-
     if item.item_type in (CalendarItemType.TASK_WORK, CalendarItemType.TASK_DEADLINE):
         action_buttons.insert(
             0,
@@ -890,40 +704,33 @@ def create_item_details_modal(item: Any) -> Div:
 
     return Div(
         AlpineModal(
-            # Header with title and close button
+            # Header: type dot + pill (left), close (right)
             Div(
-                H2(
-                    Span(item.icon or "📅", cls="mr-2"),
-                    item.title,
-                    cls="text-2xl font-bold flex items-center",
-                ),
+                Div(type_dot, type_pill, cls="flex items-center gap-2.5"),
                 Button(
-                    Icon("x", cls="w-6 h-6"),
-                    cls=(ButtonT.ghost, "text-muted-foreground hover:text-muted-foreground"),
+                    Icon("x", cls="w-5 h-5"),
+                    cls=(ButtonT.ghost, "text-muted-foreground hover:text-foreground"),
                     size="sm",
                     **{"x-on:click": close_expr},  # fasthtml dynamic-attr splat
                 ),
-                cls="flex justify-between items-start mb-4",
+                cls="flex justify-between items-start gap-3 mb-3",
             ),
-            # Type and priority
-            Div(type_badge, priority_stars, cls="flex items-center space-x-4 mb-4"),
+            H2(item.title, cls="text-2xl font-bold leading-tight mb-4"),
             # Schedule
             Div(
-                P("Schedule", cls="text-sm font-semibold text-muted-foreground mb-2"),
-                P(schedule_text, cls="text-sm text-muted-foreground"),
+                P(
+                    "Schedule",
+                    cls="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
+                ),
+                P(schedule_text, cls="text-sm text-foreground"),
                 recurrence_info,
-                cls="bg-muted p-4 rounded-lg mb-4",
+                cls="bg-muted/60 p-4 rounded-lg mb-4",
             ),
-            # Description
             description_section,
-            # Event info
             event_info,
-            # Habit info
             habit_info,
-            # Tags
             tags_section,
-            # Actions
-            Div(*action_buttons, cls="flex pt-4 border-t"),
+            Div(*action_buttons, cls="flex pt-4 border-t border-border"),
             show="open",
             close=close_expr,
             max_width="max-w-2xl",

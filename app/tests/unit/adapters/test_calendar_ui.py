@@ -1,12 +1,12 @@
 """Smoke tests for calendar_ui HTMX/UI route handlers.
 
-Calendar UI routes had 0% coverage. We capture handlers through a fake `rt`
-decorator and exercise the HTMX content fragments (which is where the
-service interaction happens) and the create/read/list-style helpers.
+We capture handlers through a fake `rt` decorator and exercise the HTMX content
+fragments (month/week/day grids, where the service interaction happens) and the
+item-details modal (the "read" code path).
 
 Authentication is satisfied by attaching a fake `session` dict to requests.
 We deliberately do not exercise the page-shell routes (`/events/month/...`)
-because they call `BasePage`, which pulls in the full template stack.
+because they pull in the full sidebar-page template stack.
 """
 
 from datetime import date, datetime
@@ -119,8 +119,6 @@ def test_expected_routes_are_registered(routes_and_service) -> None:
         ("/events/week/{date_str}/content", "GET"),
         ("/events/day/{date_str}", "GET"),
         ("/events/day/{date_str}/content", "GET"),
-        ("/events/calendar/quick-create", "GET"),
-        ("/events/calendar/habit/{habit_uid}/record/{status}", "GET"),
         ("/events/calendar/item-details/{item_id}", "GET"),
     ]
     for key in expected:
@@ -198,105 +196,6 @@ class TestDayContentFragment:
         assert kwargs["end_date"] == date(2026, 5, 20)
         assert kwargs["view_type"] == CalendarView.DAY
         assert "calendar-day-content" in _render(response)
-
-
-# ============================================================================
-# /events/calendar/quick-create  — the "create" code path
-# ============================================================================
-
-
-class TestQuickCreateHTMX:
-    @pytest.mark.asyncio
-    async def test_success_returns_alert_with_reload(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        service.quick_create = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/events/calendar/quick-create")
-
-        request = _make_request(
-            form_data={
-                "type": "task",
-                "title": "Make tea",
-                "start_time": "2026-05-20T10:00:00",
-                "duration": "30",
-            }
-        )
-        response = await handler(request)
-        rendered = _render(response)
-        assert (
-            "Task created successfully" in rendered
-            or "task created successfully" in rendered.lower()
-        )
-        service.quick_create.assert_awaited_once()
-        kwargs = service.quick_create.await_args.kwargs
-        assert kwargs["item_type"] == "task"
-        assert kwargs["title"] == "Make tea"
-        assert kwargs["start_time"] == datetime(2026, 5, 20, 10, 0)
-        assert kwargs["duration"] == 30
-
-    @pytest.mark.asyncio
-    async def test_missing_title_returns_inline_error(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        handler = registry.get("/events/calendar/quick-create")
-        request = _make_request(form_data={"start_time": "2026-05-20T10:00:00"})
-        response = await handler(request)
-        assert "Please enter a title" in _render(response)
-        service.quick_create.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_missing_start_time_returns_inline_error(self, routes_and_service) -> None:
-        registry, _service = routes_and_service
-        handler = registry.get("/events/calendar/quick-create")
-        request = _make_request(form_data={"type": "task", "title": "Brew tea"})
-        response = await handler(request)
-        assert "Please select a date" in _render(response)
-
-    @pytest.mark.asyncio
-    async def test_service_failure_renders_error_alert(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        service.quick_create = AsyncMock(
-            return_value=Result.fail(Errors.business("calendar.full", "Slot taken"))
-        )
-        handler = registry.get("/events/calendar/quick-create")
-        request = _make_request(
-            form_data={
-                "type": "task",
-                "title": "Brew tea",
-                "start_time": "2026-05-20T10:00:00",
-            }
-        )
-        response = await handler(request)
-        assert "Failed to create" in _render(response)
-
-
-# ============================================================================
-# /events/calendar/habit/{habit_uid}/record/{status}
-# ============================================================================
-
-
-class TestRecordHabit:
-    @pytest.mark.asyncio
-    async def test_done_status(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
-        handler = registry.get("/events/calendar/habit/{habit_uid}/record/{status}")
-
-        request = _make_request(form_data={"notes": "Felt great"})
-        response = await handler(request, habit_uid="habit_1", status="done")
-        rendered = _render(response)
-        assert "Recorded as done" in rendered or "recorded" in rendered.lower()
-        kwargs = service.record_habit_occurrence.await_args.kwargs
-        assert kwargs["habit_uid"] == "habit_1"
-        assert kwargs["status"] == "DONE"
-        assert kwargs["notes"] == "Felt great"
-
-    @pytest.mark.asyncio
-    async def test_invalid_status(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        handler = registry.get("/events/calendar/habit/{habit_uid}/record/{status}")
-        request = _make_request(form_data={})
-        response = await handler(request, habit_uid="habit_1", status="bogus")
-        assert "Invalid status" in _render(response)
-        service.record_habit_occurrence.assert_not_called()
 
 
 # ============================================================================

@@ -481,69 +481,6 @@
         });
 
         // ---------------------------------------------------------------------
-        // Calendar Page Component (Combined Modal + Drag-Drop)
-        // ---------------------------------------------------------------------
-        // Unified component for calendar views - modal state and drag-drop
-        Alpine.data('calendarPage', function() {
-            return {
-                // Modal state
-                open: false,
-                datetime: '',
-
-                // Drag-drop state
-                draggedItemId: null,
-
-                // Modal methods
-                openQuickAdd: function(defaultDate, defaultHour) {
-                    this.open = true;
-                    if (defaultDate && defaultHour !== undefined) {
-                        var hour = String(defaultHour).padStart(2, '0');
-                        this.datetime = defaultDate + 'T' + hour + ':00';
-                    } else if (defaultDate) {
-                        this.datetime = defaultDate + 'T09:00';
-                    } else {
-                        var now = new Date();
-                        var local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-                        this.datetime = local.toISOString().slice(0, 16);
-                    }
-                },
-
-                closeQuickAdd: function() {
-                    this.open = false;
-                    // Clear status if present
-                    var status = document.getElementById('quick-add-status');
-                    if (status) status.innerHTML = '';
-                },
-
-                // Drag-drop methods
-                handleDragStart: function(event, itemId) {
-                    this.draggedItemId = itemId;
-                    event.dataTransfer.effectAllowed = 'move';
-                },
-
-                handleDragOver: function(event) {
-                    event.preventDefault();
-                },
-
-                handleDrop: function(event, newDateTime) {
-                    event.preventDefault();
-
-                    if (!this.draggedItemId) return;
-
-                    // Set hidden form values for HTMX submission
-                    this.$refs.rescheduleUid.value = this.draggedItemId;
-                    this.$refs.rescheduleTime.value = newDateTime;
-
-                    // Trigger HTMX form submission
-                    htmx.trigger(this.$refs.rescheduleForm, 'submit');
-
-                    // Clear drag state
-                    this.draggedItemId = null;
-                }
-            };
-        });
-
-        // ---------------------------------------------------------------------
         // Collapsible Section Component
         // ---------------------------------------------------------------------
         // Handles expand/collapse with smooth transitions

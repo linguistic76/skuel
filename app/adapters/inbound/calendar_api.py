@@ -2,29 +2,19 @@
 Calendar API Routes
 ===================
 
-JSON and action endpoints for calendar operations.
+JSON endpoints for calendar operations.
 
 Routes:
-    POST  /api/calendar/quick-create          — Create a calendar item
-    GET   /api/v2/calendar/items/{item_id}    — Get item details
-    PATCH /api/events/calendar/reschedule     — Reschedule via drag-drop
+    GET /api/v2/calendar/items/{item_id}    — Get item details
 """
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
-
-from fasthtml.common import Div
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body, safe_form_string
 from adapters.inbound.result_helpers import require_found
-from core.models.entity_requests import CalendarQuickCreateRequest
 from core.utils.result_simplified import Result
-from ui.calendar.components import calendar_item_to_dict
-from ui.patterns.error_banner import render_inline_error
 
 if TYPE_CHECKING:
     from core.ports import CalendarServiceOperations
@@ -34,33 +24,6 @@ def create_calendar_api_routes(
     app: Any, rt: Any, calendar_service: "CalendarServiceOperations"
 ) -> None:
     """Register calendar API routes."""
-
-    @rt("/api/calendar/quick-create", methods=["POST"])
-    @csrf_protected
-    @boundary_handler(success_status=201)
-    async def quick_create(request: Request) -> Result[dict[str, Any]]:
-        """Quick create a calendar item owned by the authenticated user."""
-        user_uid = require_authenticated_user(request)
-        parsed = await parse_json_body(request, CalendarQuickCreateRequest)
-        if parsed.is_error:
-            return Result.fail(parsed)
-        req = parsed.value
-
-        # Ownership comes from the session, not the client body — drop any
-        # caller-supplied user_uid so it can't collide with the explicit kwarg
-        # (TypeError) or smuggle a different owner.
-        extras = {k: v for k, v in req.extras.items() if k != "user_uid"}
-        result = await calendar_service.quick_create(
-            user_uid=user_uid,
-            item_type=req.type,
-            title=req.title,
-            start_time=datetime.fromisoformat(req.start_time),
-            **extras,
-        )
-
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok({"item": calendar_item_to_dict(result.value)})
 
     @rt("/api/v2/calendar/items/{item_id}")
     @boundary_handler()
@@ -104,48 +67,3 @@ def create_calendar_api_routes(
                 "metadata": item.metadata,
             }
         )
-
-    @rt("/api/events/calendar/reschedule", methods=["PATCH"])
-    @csrf_protected
-    async def reschedule_item(request: Request) -> Any:
-        """
-        Reschedule a calendar item via HTMX drag-drop.
-
-        Reads uid and new_start from form data (HTMX hidden form submission).
-        Returns HX-Refresh header to trigger page reload after successful reschedule.
-
-        Args:
-            request: FastHTML request with form data (uid, new_start)
-
-        Returns:
-            Empty response with HX-Refresh header on success, error message on failure
-        """
-        from starlette.responses import Response
-
-        user_uid = require_authenticated_user(request)
-        form_data = await request.form()
-        uid = safe_form_string(form_data.get("uid"))
-        new_start_str = safe_form_string(form_data.get("new_start"))
-
-        if not uid:
-            return Div(render_inline_error("Missing item uid in request"), id="reschedule-error")
-
-        if not new_start_str:
-            return Div(render_inline_error("Missing new_start in request"), id="reschedule-error")
-
-        result = await calendar_service.reschedule_item(
-            user_uid=user_uid,
-            item_uid=uid,
-            new_start=datetime.fromisoformat(new_start_str),
-        )
-
-        if result.is_ok:
-            return Response(
-                content="",
-                headers={"HX-Refresh": "true"},
-            )
-        else:
-            return Div(
-                render_inline_error(f"Failed to reschedule: {result.error}"),
-                id="reschedule-error",
-            )
