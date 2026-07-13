@@ -514,6 +514,8 @@ def StandardResponseFragment(
     is_founder: bool = False,
     sources: "tuple[CanonSource, ...] | None" = None,
     canon_book_uids: "tuple[str, ...]" = (),
+    summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Growing chat thread — opening discussion response with sticky composer.
 
@@ -529,6 +531,10 @@ def StandardResponseFragment(
     the opening user/assistant pair as ordered ``{role, content}`` JSON. The
     discussion is NOT saved — it lives only client-side until the user presses
     *Save this chat* (the composer's Save affordance).
+
+    ``summon_canon`` / ``summon_vault`` pre-check the composer's dials to match the
+    opening grounding, so a subsequent *Save* records the source selection the
+    door actually used (not an off-by-default one).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -551,6 +557,8 @@ def StandardResponseFragment(
             transcript_json=transcript_json,
             is_founder=is_founder,
             canon_book_uids=canon_book_uids,
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",

@@ -932,6 +932,11 @@ def create_journals_routes(
             is_founder=is_founder,
             sources=ai_result.value.sources,
             canon_book_uids=tuple(canon_book_uids),
+            # Pre-check the composer dials to the opening grounding so a later
+            # *Save* records the source selection the door actually used, not an
+            # off-by-default one (Codex #638 P2).
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
 
         return HTMLResponse(
@@ -1765,16 +1770,28 @@ def create_journals_routes(
         newly saved discussion is prepended to the revisit list via an OOB swap.
         Un-saving is the existing per-session delete on that list.
         """
+        from fasthtml.common import to_xml
+
         from core.models.conversation import CONVERSATION_KIND_DISCUSSION
         from core.models.enums.user_enums import JournalMode
         from ui.journals import FollowUpErrorFragment, SessionBackedComposer
         from ui.journals.chat_page import discussions_revisit_panel
 
+        def _save_error(msg: str) -> Any:
+            # Retarget the error to the thread (append) rather than let the Save
+            # button's #journal-composer/outerHTML swap replace the composer — a
+            # failed save must leave the textarea + transcript_json intact so the
+            # user can retry or keep talking (Codex #638 P2).
+            return HTMLResponse(
+                to_xml(FollowUpErrorFragment(msg)),
+                headers={"HX-Retarget": "#journal-thread", "HX-Reswap": "beforeend"},
+            )
+
         user_uid = require_authenticated_user(request)
 
         pairs = _transcript_to_pairs(_parse_transcript(transcript_json))
         if not pairs:
-            return FollowUpErrorFragment("There's nothing to save yet.")
+            return _save_error("There's nothing to save yet.")
 
         # The composer dials are a FOUNDER entitlement; resolve the tier once (a
         # POST flag is forgeable, so gate server-side) — also used to render the
@@ -1801,7 +1818,7 @@ def create_journals_routes(
         )
         if saved.is_error:
             logger.error("Could not save discussion for %s: %s", user_uid, saved.expect_error())
-            return FollowUpErrorFragment("Could not save your discussion. Please try again.")
+            return _save_error("Could not save your discussion. Please try again.")
         session = saved.value
 
         # Refresh the revisit list so the saved chat appears immediately (its row's

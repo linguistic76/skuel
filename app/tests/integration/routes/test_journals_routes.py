@@ -431,18 +431,22 @@ class TestJournalsSaveOptIn:
         assert 'id="journal-discussions-panel"' in html
         assert "hx-swap-oob" in html
 
-    async def test_save_empty_transcript_persists_nothing(
+    async def test_save_empty_transcript_persists_nothing_and_spares_composer(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         # An empty / whitespace transcript has no pairs to save — nothing reaches
         # the store (guard 7: no session is created without real content).
-        await handlers["/journals/save"](
+        response = await handlers["/journals/save"](
             request=_make_request(form={}),
             transcript_json="",
             title="x",
         )
         mock_services.conversation.save_transcript.assert_not_awaited()
         _assert_understanding_channel_untouched(mock_services)
+        # The error is retargeted to the thread so the Save button's
+        # #journal-composer/outerHTML swap can't destroy the composer (Codex #638).
+        assert response.headers["HX-Retarget"] == "#journal-thread"
+        assert response.headers["HX-Reswap"] == "beforeend"
 
 
 class TestJournalsUploadZeroPersistence:
