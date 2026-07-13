@@ -136,18 +136,25 @@ def mock_services() -> Any:
             )
         )
     )
-    services.conversation.append_turn = AsyncMock(
-        return_value=Result.ok(
-            ConversationTurn(
-                turn_id="ct_000000000001",
-                session_id="cs_abc123abc123",
-                role="user",
-                content="x",
-                timestamp=_now,
-                turn_number=1,
-            )
-        )
+    _pair = (
+        ConversationTurn(
+            turn_id="ct_000000000001",
+            session_id="cs_abc123abc123",
+            role="user",
+            content="x",
+            timestamp=_now,
+            turn_number=1,
+        ),
+        ConversationTurn(
+            turn_id="ct_000000000002",
+            session_id="cs_abc123abc123",
+            role="assistant",
+            content="y",
+            timestamp=_now,
+            turn_number=2,
+        ),
     )
+    services.conversation.append_exchange = AsyncMock(return_value=Result.ok(_pair))
     services.conversation.get_turns = AsyncMock(return_value=Result.ok([]))
     return services
 
@@ -184,14 +191,14 @@ def _assert_understanding_channel_untouched(services: Any) -> None:
 def _assert_discussion_persisted(services: Any) -> None:
     """A successful /journals/start persists the session + opening turn pair."""
     services.conversation.create_session.assert_awaited_once()
-    # Opening user turn + assistant turn.
-    assert services.conversation.append_turn.await_count == 2
+    # Opening user+assistant pair written atomically (one exchange).
+    services.conversation.append_exchange.assert_awaited_once()
 
 
 def _assert_no_discussion_persisted(services: Any) -> None:
     """A failed or empty discussion leaves no session (ADR-078)."""
     services.conversation.create_session.assert_not_awaited()
-    services.conversation.append_turn.assert_not_awaited()
+    services.conversation.append_exchange.assert_not_awaited()
 
 
 def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "user_mike") -> Any:

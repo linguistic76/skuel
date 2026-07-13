@@ -46,7 +46,9 @@ def _turn_row(turn_number: int = 1, role: str = "user") -> dict:
 def _backend(**overrides) -> SimpleNamespace:
     backend = SimpleNamespace(
         create_session=AsyncMock(return_value=Result.ok(_session_row())),
-        append_turn=AsyncMock(return_value=Result.ok(_turn_row())),
+        append_exchange=AsyncMock(
+            return_value=Result.ok([_turn_row(1, "user"), _turn_row(2, "assistant")])
+        ),
         get_session=AsyncMock(return_value=Result.ok(_session_row())),
         list_sessions=AsyncMock(return_value=Result.ok([_session_row()])),
         get_turns=AsyncMock(return_value=Result.ok([_turn_row(1), _turn_row(2, "assistant")])),
@@ -85,23 +87,26 @@ class TestCreateSession:
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
 
 
-class TestAppendTurn:
-    async def test_returns_turn_model_on_success(self) -> None:
+class TestAppendExchange:
+    async def test_returns_turn_pair_on_success(self) -> None:
         service = ConversationService(_backend())
 
-        result = await service.append_turn("cs_abc123abc123", "user_mike", "user", "hi")
+        result = await service.append_exchange(
+            "cs_abc123abc123", "user_mike", "my question", "the reply"
+        )
 
         assert result.is_ok
-        assert result.value.turn_number == 1
-        assert result.value.role == "user"
+        user_turn, assistant_turn = result.value
+        assert (user_turn.turn_number, user_turn.role) == (1, "user")
+        assert (assistant_turn.turn_number, assistant_turn.role) == (2, "assistant")
 
     async def test_non_owner_session_is_not_found_not_forbidden(self) -> None:
         # Backend returns None when the session is absent OR not owned — the
         # service must surface 404, never 403 (SKUEL ownership convention).
-        backend = _backend(append_turn=AsyncMock(return_value=Result.ok(None)))
+        backend = _backend(append_exchange=AsyncMock(return_value=Result.ok(None)))
         service = ConversationService(backend)
 
-        result = await service.append_turn("cs_someoneelse", "user_mike", "user", "hi")
+        result = await service.append_exchange("cs_someoneelse", "user_mike", "hi", "reply")
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND

@@ -72,7 +72,9 @@ def _turn(turn_number: int, role: str, content: str) -> ConversationTurn:
 def _conversation(**overrides: object) -> MagicMock:
     conv = MagicMock()
     conv.create_session = AsyncMock(return_value=Result.ok(_session()))
-    conv.append_turn = AsyncMock(return_value=Result.ok(_turn(1, "user", "x")))
+    conv.append_exchange = AsyncMock(
+        return_value=Result.ok((_turn(1, "user", "x"), _turn(2, "assistant", "y")))
+    )
     conv.get_turns = AsyncMock(
         return_value=Result.ok(
             [_turn(1, "user", "opening"), _turn(2, "assistant", "first response")]
@@ -118,10 +120,11 @@ class TestStartPersistsSession:
 
         assert response.status_code == 200
         conv.create_session.assert_awaited_once()
-        # Opening user turn + assistant turn.
-        assert conv.append_turn.await_count == 2
-        roles = [call.args[2] for call in conv.append_turn.await_args_list]
-        assert roles == ["user", "assistant"]
+        # Opening pair persisted atomically (one exchange call, not two appends).
+        conv.append_exchange.assert_awaited_once()
+        _sid, user_uid, user_content, _assistant = conv.append_exchange.await_args.args
+        assert user_uid == _USER_UID
+        assert user_content == "What's alive today?"
         # The composer carries the session id, not a transcript accumulator.
         body = response.text
         assert 'name="session_id"' in body
@@ -158,8 +161,8 @@ class TestSessionFollowUp:
         kwargs = journal.run_follow_up.await_args.kwargs
         assert "first response" in kwargs["ai_response"]
         assert "opening" in kwargs["original_entry"]
-        # New user + assistant turns appended.
-        assert conv.append_turn.await_count == 2
+        # New user + assistant turns appended atomically (one exchange).
+        conv.append_exchange.assert_awaited_once()
         # Session-backed fragment carries NO OOB accumulator swap.
         assert "hx-swap-oob" not in response.text.lower()
         assert "journal-original-entry" not in response.text
@@ -181,4 +184,4 @@ class TestSessionFollowUp:
         assert response.status_code == 200  # inline error fragment (404-not-403 semantics)
         assert "could not be found" in response.text.lower()
         journal.run_follow_up.assert_not_awaited()
-        conv.append_turn.assert_not_awaited()
+        conv.append_exchange.assert_not_awaited()

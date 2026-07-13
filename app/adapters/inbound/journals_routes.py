@@ -33,6 +33,10 @@ from ui.journals.components import render_upload_status as render_journal_upload
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+    from core.models.conversation import ConversationTurn
+    from core.models.type_hints import UserUID
+    from core.ports import ConversationOperations
+    from core.utils.result_simplified import Result
     from services_bootstrap._container import Services
 
 
@@ -594,48 +598,21 @@ async def _run_batch_over_dir(
 # ---------------------------------------------------------------------------
 
 
-async def _append_turn_pair(
-    conversation_service: Any,
-    *,
-    session_id: str,
-    user_uid: str,
-    user_text: str,
-    assistant_text: str,
-) -> Any:
-    """Append a user turn then the assistant turn to an owned session.
-
-    Returns ``Result[None]``; propagates the first backend failure (a non-owner
-    session surfaces as not-found from ``append_turn``).
-    """
-    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
-    from core.utils.result_simplified import Result
-
-    user_turn = await conversation_service.append_turn(session_id, user_uid, ROLE_USER, user_text)
-    if user_turn.is_error:
-        return Result.fail(user_turn)
-    assistant_turn = await conversation_service.append_turn(
-        session_id, user_uid, ROLE_ASSISTANT, assistant_text
-    )
-    if assistant_turn.is_error:
-        return Result.fail(assistant_turn)
-    return Result.ok(None)
-
-
 async def _create_discussion_session(
-    conversation_service: Any,
+    conversation_service: ConversationOperations,
     *,
-    user_uid: str,
+    user_uid: UserUID,
     title: str,
     canon_book_uids: list[str],
     summon_vault: bool,
     raw_entry: str,
     ai_text: str,
-) -> Any:
+) -> Result[str]:
     """Create an owner-private discussion session + its opening turn pair.
 
     Records the opening source selection (canon shelf books + vault toggle) as
-    JSON so a continued session can restore it (C3, consumed in P3). Returns
-    ``Result[str]`` (the session id) or the first backend failure.
+    JSON so a continued session can restore it (C3, consumed in P3). The opening
+    pair is written atomically. Returns the session id, or the first failure.
     """
     import json
 
@@ -648,20 +625,15 @@ async def _create_discussion_session(
     )
     if created.is_error:
         return Result.fail(created)
-    session_id = created.value.session_id
-    appended = await _append_turn_pair(
-        conversation_service,
-        session_id=session_id,
-        user_uid=user_uid,
-        user_text=raw_entry,
-        assistant_text=ai_text,
+    appended = await conversation_service.append_exchange(
+        created.value.session_id, user_uid, raw_entry, ai_text
     )
     if appended.is_error:
         return Result.fail(appended)
-    return Result.ok(session_id)
+    return Result.ok(created.value.session_id)
 
 
-def _history_to_follow_up_context(turns: list[Any]) -> tuple[str, str]:
+def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, str]:
     """Reconstruct ``(original_entry, ai_response)`` for ``run_follow_up`` from turns.
 
     Replaces the deleted client-side accumulator with the Neo4j turn history:
@@ -1454,12 +1426,8 @@ def create_journals_routes(
                 logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
                 return FollowUpErrorFragment("Could not generate a response. Please try again.")
             ai_text = result.value.text
-            appended = await _append_turn_pair(
-                conversation_service,
-                session_id=session_id,
-                user_uid=user_uid,
-                user_text=reply,
-                assistant_text=ai_text,
+            appended = await conversation_service.append_exchange(
+                session_id, user_uid, reply, ai_text
             )
             if appended.is_error:
                 logger.error(

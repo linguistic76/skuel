@@ -56,20 +56,22 @@ class ConversationBackendOperations(Protocol):
         """
         ...
 
-    async def append_turn(
+    async def append_exchange(
         self,
-        turn_id: str,
+        user_turn_id: str,
+        assistant_turn_id: str,
         session_id: str,
         user_uid: UserUID,
-        role: str,
-        content: str,
+        user_content: str,
+        assistant_content: str,
         now_iso: str,
-    ) -> Result[Neo4jProperties | None]:
-        """Append a ConversationTurn to an OWNED session; touch ``last_activity``.
+    ) -> Result[list[Neo4jProperties] | None]:
+        """Append a user+assistant turn PAIR to an OWNED session, atomically.
 
-        ``turn_number`` is assigned server-side (``COUNT`` of existing turns + 1)
-        and returned in the properties. None when the session does not exist or
-        is not owned by ``user_uid``.
+        Both turns are written in one transaction under the session write-lock,
+        landing as consecutive ``n+1``/``n+2`` ordinals — concurrent exchanges
+        cannot interleave. Returns the two turn property dicts ``[user,
+        assistant]`` in order, or None when the session is absent / not owned.
         """
         ...
 
@@ -108,10 +110,10 @@ class ConversationOperations(Protocol):
         """Create a new owner-private session."""
         ...
 
-    async def append_turn(
-        self, session_id: str, user_uid: UserUID, role: str, content: str
-    ) -> Result[ConversationTurn]:
-        """Append a turn to an owned session (not-found on a non-owner)."""
+    async def append_exchange(
+        self, session_id: str, user_uid: UserUID, user_content: str, assistant_content: str
+    ) -> Result[tuple[ConversationTurn, ConversationTurn]]:
+        """Append a user+assistant turn pair atomically (not-found on a non-owner)."""
         ...
 
     async def get_session(
