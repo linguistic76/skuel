@@ -97,6 +97,7 @@ from core.ports import (
     CalendarServiceOperations,
     Closeable,
     ConnectionFetchOperations,
+    ConversationOperations,
     CrossDomainAnalyticsOperations,
     EntryReportOperations,
     EventBusOperations,
@@ -377,6 +378,10 @@ class Services:
 
     # Journal domain — DNWF three-stage workflow (FULL tier only)
     journal: "JournalService | None" = None
+
+    # Conversation store — owner-private discussion sessions (ADR-078).
+    # Tier-independent (pure persistence); the understanding-agnostic boundary.
+    conversation: "ConversationOperations | None" = None
 
     # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
     intelligence_tier: "IntelligenceTier | None" = None

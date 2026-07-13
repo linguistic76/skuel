@@ -1,0 +1,157 @@
+"""
+ConversationService unit tests — owner-private discussion store (ADR-078).
+
+Covers: props→model conversion for sessions/turns, the not-found mapping on a
+non-owner (backend None → 404-not-403), id minting + kind pass-through, and the
+revisit-list / delete report semantics. Backend is mocked (CI runs unit only;
+the owner-visibility + delete-completeness behaviours are integration guards 1/2
+against a live Docker Neo4j).
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ConversationSession
+from core.services.conversation import ConversationService
+from core.utils.result_simplified import ErrorCategory, Result
+
+
+def _session_row(session_id: str = "cs_abc123abc123", user_uid: str = "user_mike") -> dict:
+    now = datetime.now(UTC)
+    return {
+        "session_id": session_id,
+        "user_uid": user_uid,
+        "kind": CONVERSATION_KIND_DISCUSSION,
+        "started_at": now,
+        "last_activity": now,
+        "title": "On the nature of practice",
+        "source_selection": '{"canon": [], "vault": false}',
+    }
+
+
+def _turn_row(turn_number: int = 1, role: str = "user") -> dict:
+    return {
+        "turn_id": f"ct_00000000000{turn_number}",
+        "session_id": "cs_abc123abc123",
+        "role": role,
+        "content": "What does the canon say about deliberate practice?",
+        "timestamp": datetime.now(UTC),
+        "turn_number": turn_number,
+    }
+
+
+def _backend(**overrides) -> SimpleNamespace:
+    backend = SimpleNamespace(
+        create_session=AsyncMock(return_value=Result.ok(_session_row())),
+        append_turn=AsyncMock(return_value=Result.ok(_turn_row())),
+        get_session=AsyncMock(return_value=Result.ok(_session_row())),
+        list_sessions=AsyncMock(return_value=Result.ok([_session_row()])),
+        get_turns=AsyncMock(return_value=Result.ok([_turn_row(1), _turn_row(2, "assistant")])),
+        delete_session=AsyncMock(return_value=Result.ok(True)),
+    )
+    for key, value in overrides.items():
+        setattr(backend, key, value)
+    return backend
+
+
+class TestCreateSession:
+    async def test_mints_id_and_returns_frozen_model(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.create_session(
+            "user_mike", CONVERSATION_KIND_DISCUSSION, "On practice", "{}"
+        )
+
+        assert result.is_ok
+        session = result.value
+        assert isinstance(session, ConversationSession)
+        assert session.user_uid == "user_mike"
+        assert session.kind == CONVERSATION_KIND_DISCUSSION
+        # The service mints the id and passes it to the backend (cs_ prefix).
+        minted_id = backend.create_session.await_args.args[0]
+        assert minted_id.startswith("cs_")
+
+    async def test_unknown_owner_yields_not_found(self) -> None:
+        backend = _backend(create_session=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.create_session("user_ghost", "discussion", "t", "{}")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestAppendTurn:
+    async def test_returns_turn_model_on_success(self) -> None:
+        service = ConversationService(_backend())
+
+        result = await service.append_turn("cs_abc123abc123", "user_mike", "user", "hi")
+
+        assert result.is_ok
+        assert result.value.turn_number == 1
+        assert result.value.role == "user"
+
+    async def test_non_owner_session_is_not_found_not_forbidden(self) -> None:
+        # Backend returns None when the session is absent OR not owned — the
+        # service must surface 404, never 403 (SKUEL ownership convention).
+        backend = _backend(append_turn=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.append_turn("cs_someoneelse", "user_mike", "user", "hi")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestReadPaths:
+    async def test_get_session_returns_none_when_absent(self) -> None:
+        backend = _backend(get_session=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.get_session("cs_missing", "user_mike")
+
+        assert result.is_ok
+        assert result.value is None
+
+    async def test_list_sessions_converts_rows_and_passes_default_limit(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.list_sessions("user_mike")
+
+        assert result.is_ok
+        assert all(isinstance(s, ConversationSession) for s in result.value)
+        _uid, limit = backend.list_sessions.await_args.args
+        assert limit == 50
+
+    async def test_get_turns_orders_and_converts(self) -> None:
+        service = ConversationService(_backend())
+
+        result = await service.get_turns("cs_abc123abc123", "user_mike")
+
+        assert result.is_ok
+        assert [t.turn_number for t in result.value] == [1, 2]
+        assert [t.role for t in result.value] == ["user", "assistant"]
+
+    async def test_get_turns_on_non_owner_is_not_found(self) -> None:
+        # None (not empty list) distinguishes not-owned from owned-but-empty.
+        backend = _backend(get_turns=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.get_turns("cs_someoneelse", "user_mike")
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestDelete:
+    async def test_reports_whether_a_session_was_deleted(self) -> None:
+        assert (await ConversationService(_backend()).delete_session("cs_x", "user_mike")).value
+
+        backend = _backend(delete_session=AsyncMock(return_value=Result.ok(False)))
+        result = await ConversationService(backend).delete_session("cs_nope", "user_mike")
+        assert result.value is False

@@ -1,0 +1,138 @@
+"""
+Conversation Protocols — Persisted Discussion Sessions (ADR-078)
+================================================================
+
+Protocol Responsibilities
+--------------------------
+    ConversationBackendOperations — persistence-layer operations consumed by
+                                    ConversationService (typed against
+                                    ``self.backend``). Speaks raw property dicts
+                                    keyed on the owner-private graph shape.
+    ConversationOperations        — the route-facing owner-private API the thin
+                                    ``ConversationService`` exposes; every method
+                                    is keyed on ``user_uid`` (404-not-403 on a
+                                    non-owner, SKUEL ownership convention).
+
+``:ConversationSession`` / ``:ConversationTurn`` are conversation-persistence
+infrastructure (like sessions / devices), NOT an EntityType — the backend speaks
+property dicts over the ``(User)-[:HAS_SESSION]->(ConversationSession)
+-[:HAS_TURN]->(ConversationTurn)`` shape; the service converts to the frozen
+``ConversationSession`` / ``ConversationTurn`` models.
+
+Implementation: adapters/persistence/neo4j/backends/conversation_backend.py
+Service:        core/services/conversation/conversation_service.py
+
+See: /docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from core.models.conversation import ConversationSession, ConversationTurn
+    from core.models.type_hints import Neo4jProperties, UserUID
+
+
+@runtime_checkable
+class ConversationBackendOperations(Protocol):
+    """Backend operations consumed by ConversationService (owner-scoped Cypher)."""
+
+    async def create_session(
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        now_iso: str,
+    ) -> Result[Neo4jProperties | None]:
+        """Create the ConversationSession node + HAS_SESSION edge from its owner.
+
+        ``started_at`` and ``last_activity`` both stamp ``now_iso``. None when
+        the owner user does not exist.
+        """
+        ...
+
+    async def append_turn(
+        self,
+        turn_id: str,
+        session_id: str,
+        user_uid: UserUID,
+        role: str,
+        content: str,
+        now_iso: str,
+    ) -> Result[Neo4jProperties | None]:
+        """Append a ConversationTurn to an OWNED session; touch ``last_activity``.
+
+        ``turn_number`` is assigned server-side (``COUNT`` of existing turns + 1)
+        and returned in the properties. None when the session does not exist or
+        is not owned by ``user_uid``.
+        """
+        ...
+
+    async def get_session(
+        self, session_id: str, user_uid: UserUID
+    ) -> Result[Neo4jProperties | None]:
+        """Fetch one OWNED session's properties. None when absent / not owned."""
+        ...
+
+    async def list_sessions(self, user_uid: UserUID, limit: int) -> Result[list[Neo4jProperties]]:
+        """A user's sessions, ``last_activity`` desc — the revisit list."""
+        ...
+
+    async def get_turns(
+        self, session_id: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties] | None]:
+        """Ordered turns of an OWNED session (``turn_number`` asc).
+
+        None when the session is absent / not owned (distinct from an owned
+        session with zero turns, which is an empty list).
+        """
+        ...
+
+    async def delete_session(self, session_id: str, user_uid: UserUID) -> Result[bool]:
+        """DETACH DELETE an OWNED session and all its turns. True if deleted."""
+        ...
+
+
+@runtime_checkable
+class ConversationOperations(Protocol):
+    """Route-facing owner-private API exposed by ConversationService."""
+
+    async def create_session(
+        self, user_uid: UserUID, kind: str, title: str, source_selection: str
+    ) -> Result[ConversationSession]:
+        """Create a new owner-private session."""
+        ...
+
+    async def append_turn(
+        self, session_id: str, user_uid: UserUID, role: str, content: str
+    ) -> Result[ConversationTurn]:
+        """Append a turn to an owned session (not-found on a non-owner)."""
+        ...
+
+    async def get_session(
+        self, session_id: str, user_uid: UserUID
+    ) -> Result[ConversationSession | None]:
+        """Fetch one owned session (None when absent / not owned)."""
+        ...
+
+    async def list_sessions(
+        self, user_uid: UserUID, limit: int = 50
+    ) -> Result[list[ConversationSession]]:
+        """The user's revisit list (most-recent-activity first)."""
+        ...
+
+    async def get_turns(self, session_id: str, user_uid: UserUID) -> Result[list[ConversationTurn]]:
+        """Ordered turns for continue-thread (not-found on a non-owner)."""
+        ...
+
+    async def delete_session(self, session_id: str, user_uid: UserUID) -> Result[bool]:
+        """Delete an owned session + its turns (False when absent / not owned)."""
+        ...
+
+
+__all__ = ["ConversationBackendOperations", "ConversationOperations"]

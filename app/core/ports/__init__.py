@@ -133,6 +133,12 @@ from .base_protocols import (
 # All three have dedicated operations protocols: KuOperations, PsOperations, LpOperations (April 2026)
 # NOTE: MOC is KU-based (January 2026) - no separate MocOperations protocol
 from .connection_fetch_protocols import ConnectionFetchOperations
+
+# Conversation protocols (ADR-078 - persisted discussion sessions)
+from .conversation_protocols import (
+    ConversationBackendOperations,
+    ConversationOperations,
+)
 from .cross_domain_protocols import CrossDomainBackendOperations
 from .curriculum_protocols import (
     CurriculumOperations,
@@ -320,6 +326,8 @@ __all__ = [
     "ChoicesOperations",
     "Closeable",
     "ConnectionFetchOperations",
+    "ConversationBackendOperations",
+    "ConversationOperations",
     "AnalyticsRelationshipOperations",
     "CrossDomainAnalyticsOperations",
     "CrossDomainBackendOperations",

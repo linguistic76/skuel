@@ -403,6 +403,11 @@ class RelationshipName(StrEnum):
     # Graph-native session and auth event tracking
     # =========================================================================
     HAS_SESSION = "HAS_SESSION"  # (user)-[:HAS_SESSION]->(session)
+    # ADR-078 reuses HAS_SESSION for (user)-[:HAS_SESSION]->(ConversationSession):
+    # the ownership edge is companion-neutral by design, and the auth vs.
+    # conversation cases never collide because every query is label-scoped
+    # (:Session vs :ConversationSession). HAS_TURN groups a session's messages.
+    HAS_TURN = "HAS_TURN"  # (:ConversationSession)-[:HAS_TURN {turn_number}]->(:ConversationTurn)
     HAD_AUTH_EVENT = "HAD_AUTH_EVENT"  # (user)-[:HAD_AUTH_EVENT]->(auth_event)
     HAS_RESET_TOKEN = "HAS_RESET_TOKEN"  # (user)-[:HAS_RESET_TOKEN]->(reset_token)
     HAS_DEVICE = "HAS_DEVICE"  # (user)-[:HAS_DEVICE]->(device) - enrolled vault-agent (ADR-075)
