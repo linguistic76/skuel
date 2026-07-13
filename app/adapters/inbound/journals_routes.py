@@ -619,7 +619,15 @@ async def _create_discussion_session(
     from core.models.conversation import CONVERSATION_KIND_DISCUSSION
     from core.utils.result_simplified import Result
 
-    source_selection = json.dumps({"canon": list(canon_book_uids), "vault": bool(summon_vault)})
+    # canon_on == whether canon is summoned; at start that is exactly "any book
+    # checked" (the landing panel has no whole-shelf toggle).
+    source_selection = json.dumps(
+        {
+            "canon": list(canon_book_uids),
+            "canon_on": bool(canon_book_uids),
+            "vault": bool(summon_vault),
+        }
+    )
     created = await conversation_service.create_session(
         user_uid, CONVERSATION_KIND_DISCUSSION, title, source_selection
     )
@@ -659,22 +667,28 @@ def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, s
     return rendered, ai_response
 
 
-def _parse_source_selection(raw: str) -> tuple[list[str], bool]:
-    """Parse a stored ``source_selection`` JSON → (canon book uids, vault on).
+def _parse_source_selection(raw: str) -> tuple[list[str], bool, bool]:
+    """Parse a stored ``source_selection`` JSON → (canon book uids, canon on, vault on).
 
-    Fail-soft: a malformed / empty value restores no sources (all-off), matching
-    a fresh session. The stored shape is ``{"canon": [uid, …], "vault": bool}``.
+    Shape: ``{"canon": [uid, …], "canon_on": bool, "vault": bool}``. The book
+    *scope* (``canon``) is kept independent of the *dial* (``canon_on``) so an
+    ungrounded follow-up never erases the session's book scope (Codex #635 P2).
+    Fail-soft: a malformed / empty value restores nothing. Back-compat: pre-PR3
+    sessions carry no ``canon_on`` — infer it from a non-empty book list.
     """
     import json
 
     try:
         data = json.loads(raw) if raw else {}
     except ValueError, TypeError:
-        return [], False
-    raw_canon = data.get("canon") if isinstance(data, dict) else None
+        return [], False, False
+    if not isinstance(data, dict):
+        return [], False, False
+    raw_canon = data.get("canon")
     canon = [str(u) for u in raw_canon if isinstance(u, str)] if isinstance(raw_canon, list) else []
-    vault = bool(data.get("vault")) if isinstance(data, dict) else False
-    return canon, vault
+    canon_on = bool(data.get("canon_on", bool(canon)))
+    vault = bool(data.get("vault"))
+    return canon, canon_on, vault
 
 
 def _render_discussion_markdown(title: str, turns: list[ConversationTurn]) -> str:
@@ -1349,14 +1363,16 @@ def create_journals_routes(
 
         # Restore the session's last source selection (C3) — FOUNDER-gated, since
         # the composer dials are a FOUNDER entitlement.
-        canon_books, vault_on = _parse_source_selection(session.source_selection)
+        canon_books, canon_on, vault_on = _parse_source_selection(session.source_selection)
         workspace = DiscussionThreadFragment(
             session_id=session_id,
             title=session.title,
             turns=turns_result.value,
             is_founder=is_founder,
+            # Book scope is preserved even when the dial was last off, so
+            # re-enabling canon restores the original books (not the whole shelf).
             canon_book_uids=tuple(canon_books),
-            summon_canon=bool(canon_books) and is_founder,
+            summon_canon=canon_on and is_founder,
             summon_vault=vault_on and is_founder,
         )
 
@@ -1603,11 +1619,21 @@ def create_journals_routes(
                 )
                 return FollowUpErrorFragment("Could not save your message. Please try again.")
             # Persist this follow-up's source selection so a continued session
-            # restores its LAST selection (C3, last-write-wins). Best-effort — a
-            # write miss must not fail the reply the user already received.
+            # restores its LAST selection (C3, last-write-wins). The book *scope*
+            # comes from the composer's hidden field (preserved across turns),
+            # NOT the summon-gated book_uids — so an ungrounded follow-up records
+            # canon_on=false WITHOUT erasing the session's books (Codex #635 P2).
+            # Best-effort: a write miss must not fail the reply already shown.
             import json
 
-            selection = json.dumps({"canon": book_uids or [], "vault": bool(summon_vault)})
+            scope_books = [book for book in canon_book_uids.split(",") if book.strip()]
+            selection = json.dumps(
+                {
+                    "canon": scope_books,
+                    "canon_on": bool(summon_canon),
+                    "vault": bool(summon_vault),
+                }
+            )
             await conversation_service.update_source_selection(session_id, user_uid, selection)
             # combined=None → session-backed fragment (no OOB accumulator).
             return FollowUpFragment(
