@@ -94,23 +94,31 @@ class ConversationService:
         logger.info("Discussion session %s created for %s", session.session_id, user_uid)
         return Result.ok(session)
 
-    async def append_turn(
-        self, session_id: str, user_uid: UserUID, role: str, content: str
-    ) -> Result[ConversationTurn]:
-        """Append a turn to an owned session; touches ``last_activity``.
+    async def append_exchange(
+        self, session_id: str, user_uid: UserUID, user_content: str, assistant_content: str
+    ) -> Result[tuple[ConversationTurn, ConversationTurn]]:
+        """Append a user+assistant turn pair atomically; touches ``last_activity``.
 
-        A session the user does not own is indistinguishable from a missing one
-        (not-found), never a 403.
+        The pair is written in one backend transaction so overlapping exchanges
+        cannot interleave (Codex #634 P2). A session the user does not own is
+        indistinguishable from a missing one (not-found), never a 403.
         """
         now_iso = datetime.now(UTC).isoformat()
-        appended = await self.backend.append_turn(
-            generate_turn_id(), session_id, user_uid, role, content, now_iso
+        appended = await self.backend.append_exchange(
+            generate_turn_id(),
+            generate_turn_id(),
+            session_id,
+            user_uid,
+            user_content,
+            assistant_content,
+            now_iso,
         )
         if appended.is_error:
             return Result.fail(appended)
         if appended.value is None:
             return Result.fail(Errors.not_found("ConversationSession", session_id))
-        return Result.ok(_turn_from_props(appended.value))
+        user_turn, assistant_turn = appended.value
+        return Result.ok((_turn_from_props(user_turn), _turn_from_props(assistant_turn)))
 
     async def get_session(
         self, session_id: str, user_uid: UserUID

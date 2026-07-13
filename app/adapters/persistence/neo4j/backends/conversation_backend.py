@@ -36,6 +36,8 @@ from typing import TYPE_CHECKING, cast
 
 from neo4j.time import DateTime as Neo4jDateTime
 
+from core.models.conversation import ROLE_ASSISTANT as _ROLE_ASSISTANT
+from core.models.conversation import ROLE_USER as _ROLE_USER
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -61,11 +63,9 @@ _SESSION_RETURN = """
                s.title AS title, s.source_selection AS source_selection
 """
 
-_TURN_RETURN = """
-        RETURN t.turn_id AS turn_id, t.session_id AS session_id, t.role AS role,
-               t.content AS content, t.timestamp AS timestamp,
-               t.turn_number AS turn_number
-"""
+# The turn RETURN shape is a map projection inlined at each call site
+# (append_exchange RETURNs two, get_turns collects a list), so no shared
+# constant — the projected key list is identical in all three places.
 
 
 def _to_native_datetime(value: object) -> datetime | None:
@@ -151,40 +151,53 @@ class ConversationBackend:
             logger.error(f"Failed to create conversation session: {e}")
             return Result.fail(Errors.database("create_session", str(e)))
 
-    async def append_turn(
+    async def append_exchange(
         self,
-        turn_id: str,
+        user_turn_id: str,
+        assistant_turn_id: str,
         session_id: str,
         user_uid: UserUID,
-        role: str,
-        content: str,
+        user_content: str,
+        assistant_content: str,
         now_iso: str,
-    ) -> Result[Neo4jProperties | None]:
-        """Append a turn to an OWNED session; assign turn_number; touch activity.
+    ) -> Result[list[Neo4jProperties] | None]:
+        """Append a user+assistant turn PAIR to an OWNED session, atomically.
 
-        ``turn_number`` = existing turn count + 1, computed and persisted in the
-        same write. The ``SET s.last_activity`` is deliberately placed BEFORE the
-        turn count: it takes the write-lock on the session node, so two concurrent
-        appends to the same session (double-submit, retry, two tabs) serialize —
-        the second blocks on the lock, then re-counts against the first's
-        committed turn and gets the next ordinal instead of a duplicate (Codex
-        #633 P2). Ordering the SET after the count would leave that race open.
+        Both turns are created in ONE write (a single implicit transaction) under
+        the session write-lock: ``SET s.last_activity`` is placed BEFORE the turn
+        count, so two concurrent exchanges (double-click, two tabs) serialize —
+        the second blocks on the lock, then counts against the first's committed
+        turns. The pair therefore always lands as consecutive ``n+1`` (user) and
+        ``n+2`` (assistant) ordinals and never interleaves as
+        ``user A, user B, assistant A, assistant B`` (Codex #634 P2).
+
+        Returns the two turn property dicts ``[user, assistant]`` in order, or
+        ``None`` when the session is absent / not owned.
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
         SET s.last_activity = datetime($now)
         WITH s
         OPTIONAL MATCH (s)-[:{_HAS_TURN}]->(existing:{_TURN_LABEL})
-        WITH s, count(existing) + 1 AS next_number
-        CREATE (s)-[:{_HAS_TURN} {{turn_number: next_number}}]->(t:{_TURN_LABEL} {{
-            turn_id: $turn_id,
+        WITH s, count(existing) AS n
+        CREATE (s)-[:{_HAS_TURN} {{turn_number: n + 1}}]->(ut:{_TURN_LABEL} {{
+            turn_id: $user_turn_id,
             session_id: $session_id,
-            role: $role,
-            content: $content,
+            role: $user_role,
+            content: $user_content,
             timestamp: datetime($now),
-            turn_number: next_number
+            turn_number: n + 1
         }})
-        {_TURN_RETURN}
+        CREATE (s)-[:{_HAS_TURN} {{turn_number: n + 2}}]->(at:{_TURN_LABEL} {{
+            turn_id: $assistant_turn_id,
+            session_id: $session_id,
+            role: $assistant_role,
+            content: $assistant_content,
+            timestamp: datetime($now),
+            turn_number: n + 2
+        }})
+        RETURN ut {{.turn_id, .session_id, .role, .content, .timestamp, .turn_number}} AS user_turn,
+               at {{.turn_id, .session_id, .role, .content, .timestamp, .turn_number}} AS assistant_turn
         """
         try:
             async with self.driver.session() as session:
@@ -193,17 +206,27 @@ class ConversationBackend:
                     {
                         "user_uid": user_uid,
                         "session_id": session_id,
-                        "turn_id": turn_id,
-                        "role": role,
-                        "content": content,
+                        "user_turn_id": user_turn_id,
+                        "assistant_turn_id": assistant_turn_id,
+                        "user_role": _ROLE_USER,
+                        "assistant_role": _ROLE_ASSISTANT,
+                        "user_content": user_content,
+                        "assistant_content": assistant_content,
                         "now": now_iso,
                     },
                 )
                 record = await result.single()
-                return Result.ok(_turn_record(dict(record)) if record else None)
+                if record is None:
+                    return Result.ok(None)
+                return Result.ok(
+                    [
+                        _turn_record(dict(record["user_turn"])),
+                        _turn_record(dict(record["assistant_turn"])),
+                    ]
+                )
         except NEO4J_EXCEPTIONS as e:
-            logger.error(f"Failed to append conversation turn: {e}")
-            return Result.fail(Errors.database("append_turn", str(e)))
+            logger.error(f"Failed to append conversation exchange: {e}")
+            return Result.fail(Errors.database("append_exchange", str(e)))
 
     async def get_session(
         self, session_id: str, user_uid: UserUID

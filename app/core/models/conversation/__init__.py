@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from core.models.conversation.models import (
     CONVERSATION_KIND_DISCUSSION,
+    ROLE_ASSISTANT,
+    ROLE_USER,
     ConversationSession,
     ConversationTurn,
     generate_session_id,
@@ -24,6 +26,8 @@ from core.models.conversation.models import (
 
 __all__ = [
     "CONVERSATION_KIND_DISCUSSION",
+    "ROLE_ASSISTANT",
+    "ROLE_USER",
     "ConversationSession",
     "ConversationTurn",
     "generate_session_id",

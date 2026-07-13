@@ -26,7 +26,7 @@ _OWNER_EDGE = "_HAS_SESSION"
 # Every method that touches a specific session/turn set must be owner-scoped.
 _OWNER_SCOPED_METHODS = [
     "create_session",
-    "append_turn",
+    "append_exchange",
     "get_session",
     "list_sessions",
     "get_turns",
@@ -59,5 +59,14 @@ def test_delete_detaches_session_and_its_turns() -> None:
 
 
 def test_append_touches_last_activity() -> None:
-    source = inspect.getsource(ConversationBackend.append_turn)
+    source = inspect.getsource(ConversationBackend.append_exchange)
     assert "s.last_activity = datetime($now)" in source
+
+
+def test_append_exchange_is_one_atomic_pair() -> None:
+    # Both turns are created in ONE query (a single transaction) with consecutive
+    # ordinals, under the SET-before-count session lock — concurrent exchanges
+    # cannot interleave (Codex #634 P2).
+    source = inspect.getsource(ConversationBackend.append_exchange)
+    assert source.count("CREATE (s)-[:{_HAS_TURN}") == 2
+    assert "n + 1" in source and "n + 2" in source

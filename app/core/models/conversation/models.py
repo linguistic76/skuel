@@ -23,6 +23,12 @@ from datetime import datetime
 # this one value.
 CONVERSATION_KIND_DISCUSSION = "discussion"
 
+# Turn roles. The schema stores ``role`` as a plain string (the in-memory
+# MessageRole enum carries a third SYSTEM value discussions never use, so a
+# 2-value literal is the clean fit — ADR-078 §3).
+ROLE_USER = "user"
+ROLE_ASSISTANT = "assistant"
+
 
 def generate_session_id() -> str:
     """Mint a session id: ``cs_<uuid hex[:12]>`` (ADR-078 §3)."""

@@ -1,11 +1,16 @@
-"""Route tests for the Journals zero-persistence contract (ADR-073).
+"""Route tests for the Journals persistence contract (ADR-073 + ADR-078).
 
-The contract: the journal text path (`POST /journals/start`), the file-upload
-path (`POST /journals/upload`), and the suggestions panel
-(`POST /journals/suggest-activities`) run their AI work and return results
-*inline* / to the user's own `je_out/` folder — they must write **nothing** to
-the store. These tests prove that invariant by asserting the persistence methods
-on `user_entry_service` are never awaited, across STANDARD and FOUNDER tiers.
+The understanding wall (ADR-073 §2): the journal paths run their AI work and
+return results *inline* / to the user's own `je_out/` folder — they write
+**nothing** to the understanding channel (`user_entry_service`), across STANDARD
+and FOUNDER tiers. That invariant is unchanged.
+
+ADR-078 narrows ADR-073's "zero persistence" for discussions only: the typed
+`POST /journals/start` door now persists an owner-private `:ConversationSession`
++ its opening turn pair (for revisit/continue) — an understanding-agnostic store
+the wall proves the understanding paths never read. So a successful discussion
+persists to `conversation_service` (never to `user_entry_service`); a failed or
+empty one persists nothing anywhere.
 
 No Neo4j required: services are mocked and only the handler logic is exercised.
 Mirrors the harness in `test_today_routes.py`.
@@ -109,6 +114,48 @@ def mock_services() -> Any:
 
     services.batch_transcription = None
     services.user_entry_processor = None
+
+    # ADR-078 discussion store — a successful /journals/start persists an
+    # owner-private session + opening turn pair here (never to user_entry).
+    from datetime import UTC, datetime
+
+    from core.models.conversation import ConversationSession, ConversationTurn
+
+    _now = datetime.now(UTC)
+    services.conversation = MagicMock()
+    services.conversation.create_session = AsyncMock(
+        return_value=Result.ok(
+            ConversationSession(
+                session_id="cs_abc123abc123",
+                user_uid="user_mike",
+                kind="discussion",
+                started_at=_now,
+                last_activity=_now,
+                title="t",
+                source_selection="{}",
+            )
+        )
+    )
+    _pair = (
+        ConversationTurn(
+            turn_id="ct_000000000001",
+            session_id="cs_abc123abc123",
+            role="user",
+            content="x",
+            timestamp=_now,
+            turn_number=1,
+        ),
+        ConversationTurn(
+            turn_id="ct_000000000002",
+            session_id="cs_abc123abc123",
+            role="assistant",
+            content="y",
+            timestamp=_now,
+            turn_number=2,
+        ),
+    )
+    services.conversation.append_exchange = AsyncMock(return_value=Result.ok(_pair))
+    services.conversation.get_turns = AsyncMock(return_value=Result.ok([]))
     return services
 
 
@@ -130,10 +177,28 @@ def handlers(mock_services: Any) -> dict[str, Any]:
     return registered
 
 
-def _assert_nothing_persisted(services: Any) -> None:
+def _assert_understanding_channel_untouched(services: Any) -> None:
+    """The ADR-073/078 §2 wall: journal paths never write to user_entry.
+
+    Unchanged by ADR-078 — discussion storage is a separate, understanding-
+    agnostic channel (``conversation``); the understanding channel stays silent.
+    """
     services.user_entry.create_entry.assert_not_awaited()
     services.user_entry.update_processed_content.assert_not_awaited()
     services.user_entry.submit_file.assert_not_awaited()
+
+
+def _assert_discussion_persisted(services: Any) -> None:
+    """A successful /journals/start persists the session + opening turn pair."""
+    services.conversation.create_session.assert_awaited_once()
+    # Opening user+assistant pair written atomically (one exchange).
+    services.conversation.append_exchange.assert_awaited_once()
+
+
+def _assert_no_discussion_persisted(services: Any) -> None:
+    """A failed or empty discussion leaves no session (ADR-078)."""
+    services.conversation.create_session.assert_not_awaited()
+    services.conversation.append_exchange.assert_not_awaited()
 
 
 def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "user_mike") -> Any:
@@ -198,7 +263,7 @@ class TestJournalsStartZeroPersistence:
             await handlers["/journals/start"](request=request)
         assert exc.value.status_code == 401
 
-    async def test_standard_opens_discussion_and_persists_nothing(
+    async def test_standard_opens_discussion_persists_session_not_understanding(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         request = _make_request(form={"raw_entry": "What's on my mind today."})
@@ -211,11 +276,14 @@ class TestJournalsStartZeroPersistence:
         _, kwargs = mock_services.journal.run_discussion.call_args
         assert kwargs["summon_canon"] is False
         assert kwargs["summon_vault"] is False
-        # Inline swap retargeted to the workspace — no redirect, no stored entry.
+        # Inline swap retargeted to the workspace — no redirect.
         assert response.status_code == 200
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         assert response.headers["HX-Reswap"] == "outerHTML"
-        _assert_nothing_persisted(mock_services)
+        # ADR-078: the discussion persists to the conversation store, but the
+        # understanding channel stays silent.
+        _assert_discussion_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_founder_opens_discussion_not_dnwf_staging(
         self, handlers: dict[str, Any], mock_services: Any
@@ -229,7 +297,8 @@ class TestJournalsStartZeroPersistence:
         mock_services.journal.run_discussion.assert_awaited_once()
         mock_services.journal.run_stage1.assert_not_awaited()
         assert response.headers["HX-Retarget"] == "#journal-workspace"
-        _assert_nothing_persisted(mock_services)
+        _assert_discussion_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_founder_shelf_selection_scopes_canon(
         self, handlers: dict[str, Any], mock_services: Any
@@ -278,7 +347,8 @@ class TestJournalsStartZeroPersistence:
 
         mock_services.journal.run_discussion.assert_not_awaited()
         mock_services.journal.run_stage1.assert_not_awaited()
-        _assert_nothing_persisted(mock_services)
+        _assert_no_discussion_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_ai_failure_still_persists_nothing(
         self, handlers: dict[str, Any], mock_services: Any
@@ -289,7 +359,9 @@ class TestJournalsStartZeroPersistence:
         request = _make_request(form={"raw_entry": "Trigger an AI failure."})
         await handlers["/journals/start"](request=request)
 
-        _assert_nothing_persisted(mock_services)
+        # A failed discussion leaves no session (persist happens only post-LLM).
+        _assert_no_discussion_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
 
 class TestJournalsUploadZeroPersistence:
@@ -319,7 +391,7 @@ class TestJournalsUploadZeroPersistence:
         assert (tmp_path / "reflection_out.md").read_text() == "# Compiled output"
         # Result is retargeted to the centre workspace, not the right-panel status.
         assert response.headers["HX-Retarget"] == "#journal-workspace"
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_single_upload_without_workspace_does_not_retarget(
         self,
@@ -344,14 +416,14 @@ class TestJournalsUploadZeroPersistence:
         from starlette.responses import HTMLResponse
 
         assert not isinstance(response, HTMLResponse)
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_no_file_persists_nothing(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         request = _make_upload_request([("processing_mode", "instructions_only")])
         await handlers["/journals/upload"](request=request)
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_duplicate_output_stem_batch_is_rejected(
         self, handlers: dict[str, Any], mock_services: Any
@@ -371,7 +443,7 @@ class TestJournalsUploadZeroPersistence:
         from fasthtml.common import to_xml
 
         assert "same je_out/ output" in to_xml(response)
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_empty_audio_batch_reports_error(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -399,7 +471,7 @@ class TestJournalsUploadZeroPersistence:
         from fasthtml.common import to_xml
 
         assert "No supported audio files" in to_xml(response)
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_single_transcribe_and_instructions_preflights_llm(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -426,7 +498,7 @@ class TestJournalsUploadZeroPersistence:
 
         assert "LLM service not available" in to_xml(response)
         mock_services.batch_transcription.transcribe_one.assert_not_awaited()
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_structuring_forces_fresh_transcription(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -462,7 +534,7 @@ class TestJournalsUploadZeroPersistence:
 
         _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
         assert kwargs.get("skip_existing") is False
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_dedup_guard_is_mode_aware(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -499,7 +571,7 @@ class TestJournalsUploadZeroPersistence:
         # Uploads force fresh transcription — never reuse a stale je_out transcript.
         _, kwargs = mock_services.batch_transcription.transcribe_batch.call_args
         assert kwargs.get("skip_existing") is False
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
 
 class TestJournalExemplarLoading:
@@ -723,7 +795,7 @@ class TestJournalExemplarInjection:
         assert "RAW_EXEMPLAR_MARKER" in prompt
         assert "PRO_EXEMPLAR_MARKER" in prompt
         assert "My rough notes." in prompt
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_no_exemplars_leaves_prompt_clean(
         self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
@@ -754,7 +826,7 @@ class TestJournalExemplarInjection:
         _, kwargs = llm.generate.call_args
         # No exemplar block header injected when the folders are absent.
         assert "— raw input" not in kwargs["prompt"]
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
 
 class TestSuggestActivitiesZeroPersistence:
@@ -769,7 +841,7 @@ class TestSuggestActivitiesZeroPersistence:
         mock_services.journal.suggest_activities.assert_awaited_once()
         # No stored entry is read or written.
         mock_services.user_entry.get_entry.assert_not_called()
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
 
     async def test_core_tier_returns_inert_panel_and_persists_nothing(
         self, handlers: dict[str, Any], mock_services: Any
@@ -779,4 +851,4 @@ class TestSuggestActivitiesZeroPersistence:
         response = await handlers["/journals/suggest-activities"](request=request)
 
         assert response is not None
-        _assert_nothing_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)

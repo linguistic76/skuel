@@ -117,22 +117,31 @@ def _AiBubble(label: str, text: str) -> Any:
 
 
 def _Composer(
-    original_entry: str,
-    ai_response: str,
     title: str,
     mode_value: str,
+    *,
+    session_id: str = "",
+    original_entry: str = "",
+    ai_response: str = "",
     is_founder: bool = False,
     canon_book_uids: "tuple[str, ...]" = (),
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
-    Hidden inputs carry IDs so the follow-up route can update them via
-    HTMX out-of-band swaps without resetting the textarea.
+    Two shapes, selected by ``session_id`` (ADR-078):
+
+    - **Session-backed** (``session_id`` set — the typed ``/journals/start``
+      door): the composer carries only the ``session_id``. Conversation memory
+      lives in Neo4j (:ConversationSession/:ConversationTurn), so there is no
+      client-side transcript to accumulate and no OOB swap.
+    - **Stateless** (no ``session_id`` — the file-output / DNWF-stage-3 doors,
+      zero-persistence until P3): the ``original_entry`` / ``ai_response`` hidden
+      inputs carry IDs so the follow-up route grows them via HTMX out-of-band
+      swaps, exactly as before.
 
     ``is_founder`` renders the "Summon the canon shelf" dial — the quote-on-demand
     surface (ADR-076). Because the composer form is never reset between turns
-    (only the textarea is cleared), a checked box persists across follow-ups, so
-    a summoned conversation stays summoned without any OOB re-render.
+    (only the textarea is cleared), a checked box persists across follow-ups.
 
     ``canon_book_uids`` is the discussion's opening book scope (C3); it rides a
     hidden CSV field so every follow-up stays scoped to the same shelf the
@@ -140,19 +149,29 @@ def _Composer(
     """
     from ui.components import Icon
 
+    # Session-backed composers carry only the session id (memory is in Neo4j);
+    # stateless ones carry the accumulator fields the OOB swap grows.
+    context_inputs = (
+        [Input(type="hidden", name="session_id", value=session_id)]
+        if session_id
+        else [
+            Input(
+                id="journal-original-entry",
+                type="hidden",
+                name="original_entry",
+                value=original_entry,
+            ),
+            Input(
+                id="journal-ai-response",
+                type="hidden",
+                name="ai_response",
+                value=ai_response,
+            ),
+        ]
+    )
+
     return Form(
-        Input(
-            id="journal-original-entry",
-            type="hidden",
-            name="original_entry",
-            value=original_entry,
-        ),
-        Input(
-            id="journal-ai-response",
-            type="hidden",
-            name="ai_response",
-            value=ai_response,
-        ),
+        *context_inputs,
         Input(type="hidden", name="title", value=title),
         Input(type="hidden", name="journal_mode", value=mode_value),
         Input(type="hidden", name="canon_book_uids", value=",".join(canon_book_uids)),
@@ -382,7 +401,13 @@ def Stage3Fragment(
                     " transition-colors no-underline"
                 ),
             ),
-            _Composer(raw_entry, related_output, title, resolved.value, is_founder=is_founder),
+            _Composer(
+                title,
+                resolved.value,
+                original_entry=raw_entry,
+                ai_response=related_output,
+                is_founder=is_founder,
+            ),
             cls="flex-shrink-0",
         ),
         id="journal-workspace",
@@ -394,6 +419,7 @@ def StandardResponseFragment(
     raw_entry: str,
     title: str,
     response_output: str,
+    session_id: str,
     mode: "JournalMode | None" = None,
     is_founder: bool = False,
     sources: "tuple[CanonSource, ...] | None" = None,
@@ -408,6 +434,10 @@ def StandardResponseFragment(
     grounded opening drew on) render as a clickable citation block under the
     reply, matching the follow-up surface. ``canon_book_uids`` seeds the
     composer so follow-ups keep the session's book scope (C3).
+
+    ``session_id`` binds the composer to the persisted :ConversationSession
+    (ADR-078) — conversation memory lives in Neo4j, so follow-ups read/write
+    turns server-side instead of accumulating a client-side transcript.
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -425,10 +455,9 @@ def StandardResponseFragment(
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
         _Composer(
-            raw_entry,
-            response_output,
             title,
             resolved.value,
+            session_id=session_id,
             is_founder=is_founder,
             canon_book_uids=canon_book_uids,
         ),
@@ -539,7 +568,13 @@ def FileOutputFragment(
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6",
         ),
-        _Composer(title, response_output, title, resolved_mode.value, is_founder=is_founder),
+        _Composer(
+            title,
+            resolved_mode.value,
+            original_entry=title,
+            ai_response=response_output,
+            is_founder=is_founder,
+        ),
         id="journal-workspace",
         cls="flex flex-col h-full",
     )
@@ -548,38 +583,49 @@ def FileOutputFragment(
 def FollowUpFragment(
     user_reply: str,
     ai_text: str,
-    combined: str,
     title: str,
     mode: "JournalMode",
     sources: "tuple[CanonSource, ...] | None" = None,
+    combined: str | None = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
 
-    Returns a tuple: the chat bubbles (main swap) plus two OOB inputs that update
-    the hidden context fields in #journal-composer without a full replacement.
-    ``sources`` (canon draws) render as a clickable citation block after the reply.
+    Returns the chat bubbles (main swap). ``sources`` (canon draws) render as a
+    clickable citation block after the reply.
+
+    ``combined`` selects the composer's memory model (ADR-078):
+
+    - **Session-backed** (``combined is None`` — the typed door): conversation
+      memory lives in Neo4j, so no OOB swap is emitted; the bubbles alone are
+      appended.
+    - **Stateless** (``combined`` set — file-output / DNWF doors): two OOB inputs
+      grow the sticky composer's accumulator hidden fields, exactly as before.
     """
     label = f"Journal Response — {mode.display_label()}"
+    oob_inputs: tuple[Any, ...] = ()
+    if combined is not None:
+        oob_inputs = (
+            Input(
+                id="journal-original-entry",
+                type="hidden",
+                name="original_entry",
+                value=combined,
+                hx_swap_oob="true",
+            ),
+            Input(
+                id="journal-ai-response",
+                type="hidden",
+                name="ai_response",
+                value=ai_text,
+                hx_swap_oob="true",
+            ),
+        )
     return (
         _UserBubble(user_reply),
         _AiBubble(label, ai_text),
         # Canon sources render aligned under the AI response (past the avatar).
         *((CanonSourcesBlock(sources, cls="ml-[46px] mt-1 mb-3"),) if sources else ()),
-        # OOB: update accumulated conversation context in the sticky composer
-        Input(
-            id="journal-original-entry",
-            type="hidden",
-            name="original_entry",
-            value=combined,
-            hx_swap_oob="true",
-        ),
-        Input(
-            id="journal-ai-response",
-            type="hidden",
-            name="ai_response",
-            value=ai_text,
-            hx_swap_oob="true",
-        ),
+        *oob_inputs,
     )
 
 
