@@ -150,13 +150,13 @@ includes the processed output as context, as the follow-up path does today.
 | Phase | Delivers | Depends on |
 |---|---|---|
 | **P1 — sources from message one** ✅ SHIPPED 2026-07-12 | Source panel (FOUNDER shelf checkboxes via `resource_uids` + vault toggle) on the initial composer; first-message discussion voice for both tiers via `run_discussion` (C3, C4, C5). Founder ruling: typed = discussion (both tiers); DNWF staging moved to the file/audio door. New: `list_shelved_books` port/adapter + `CanonRetrievalService.list_shelf` + `JournalService.list_canon_shelf`/`run_discussion`; `run_standard` + `/journals/respond` removed (One Path Forward) | Nothing — all seams existed; no storage |
-| **P2 — real storage** | **ADR step DELIVERED 2026-07-12** — sibling **ADR-078** (Discussion Sessions Are Stored but Never Understood) written, amends ADR-073 §1/§3; **pending founder confirmation**. Then (storage-implementation, READY once ADR confirmed): sessions/turns, revisit list, continue-thread (replacing the hidden-field accumulator), delete, export-to-md (C1) | P1 useful but not required |
+| **P2 — real storage** | **ADR step DELIVERED + FOUNDER-CONFIRMED 2026-07-13** — sibling **ADR-078** (Discussion Sessions Are Stored but Never Understood) written, amends ADR-073 §1/§3; founder confirmed 2026-07-13, so the gate is cleared. Storage-implementation now **UNBLOCKED** (to build): thin `ConversationBackend` + minimal frozen models, sessions/turns, revisit list, continue-thread (replacing the hidden-field accumulator), per-session delete, export-to-md (C1) | P1 useful but not required |
 | **P3 — convergence & refinement** | File door creates sessions (C6); remembered source selections; file weighting; relevance tuning | P2 |
 
 P1 is independently valuable and small. P2 is where the ADR work lives — doc-first, per the
-canon-arc precedent. **The P2 ADR is now written (ADR-078); storage-implementation PRs are
-gated on founder confirmation of it, per C2's "written and confirmed FIRST, then
-sessions/turns."**
+canon-arc precedent. **The P2 ADR (ADR-078) is written and founder-confirmed 2026-07-13, per
+C2's "written and confirmed FIRST, then sessions/turns." The gate is cleared; the
+storage-implementation PRs are now unblocked to build to the ADR's decided shape.**
 
 ## Out of scope / rejected
 
