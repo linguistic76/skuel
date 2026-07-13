@@ -363,12 +363,17 @@ def _Composer(
         # Follow-up and Save are mutually exclusive: whichever request from this
         # composer is in flight, the other is dropped (Codex #638 P2, both races).
         hx_sync="#journal-composer:drop",
-        # Clear textarea and scroll thread to bottom after each exchange.
+        # After a FOLLOW-UP, clear the textarea and scroll the thread to the
+        # bottom. Guard on the request origin (``event.detail.elt === this``, the
+        # form) so a Save request bubbling through this same form does NOT wipe an
+        # unsent draft when Save fails and keeps the composer (Codex #638 P3).
         # Do NOT call form.reset() — that would clobber the OOB-updated hidden inputs.
         hx_on__after_request=(
+            "if(event.detail.elt===this){"
             "this.querySelector('textarea').value='';"
             "var s=document.getElementById('journal-thread');"
             "if(s){s.scrollTop=s.scrollHeight;}"
+            "}"
         ),
         cls="border-t border-border px-6 py-4 bg-background flex-shrink-0",
         # ``busy`` is the visual mirror of hx-sync: true while EITHER the follow-up
