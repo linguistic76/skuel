@@ -171,7 +171,16 @@ def _SaveAffordance(session_id: str, transcript_json: str) -> Any:
             hx_include="closest form",
             hx_target="#journal-composer",
             hx_swap="outerHTML",
-            **{"hx-disabled-elt": "this"},
+            # Block Save while a follow-up is in flight: its new turn pair only
+            # reaches transcript_json via the later OOB swap, so saving mid-request
+            # would persist a transcript missing the just-sent exchange (Codex
+            # #638 P2). ``followupPending`` is owned by the composer form's Alpine
+            # scope; hx-disabled-elt separately guards Save's own double-click.
+            **{
+                "hx-disabled-elt": "this",
+                "x-bind:disabled": "followupPending",
+                ":style": "followupPending ? 'opacity:0.4;pointer-events:none' : ''",
+            },
             cls=(
                 "text-[13px] text-muted-foreground hover:text-foreground"
                 " underline underline-offset-2 decoration-dotted cursor-pointer"
@@ -351,6 +360,15 @@ def _Composer(
             "if(s){s.scrollTop=s.scrollHeight;}"
         ),
         cls="border-t border-border px-6 py-4 bg-background flex-shrink-0",
+        # followupPending gates the Save button (Codex #638 P2). Toggle only for
+        # requests the FORM itself initiates (the follow-up) — the Save button's
+        # own request bubbles here too but originates from the button, so
+        # ``$event.detail.elt === $el`` keeps it from flipping the flag.
+        **{
+            "x-data": "{ followupPending: false }",
+            "@htmx:before-request": "if ($event.detail.elt === $el) followupPending = true",
+            "@htmx:after-request": "if ($event.detail.elt === $el) followupPending = false",
+        },
     )
 
 

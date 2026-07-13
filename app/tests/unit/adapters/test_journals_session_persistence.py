@@ -1,12 +1,14 @@
-"""Session-backed discussion persistence on the typed door (ADR-078, PR2).
+"""Opt-in discussion persistence on the typed door (ADR-078 §5, P3).
 
-Covers the new `/journals/start` → conversation store wiring and the
-`session_id`-branch of `/journals/follow-up`:
+Covers the ephemeral-by-default `/journals/start`, the explicit `/journals/save`
+gesture, and the `session_id`-branch of `/journals/follow-up`:
 
-- start persists an owner-private session + opening user/assistant turn pair and
-  the returned composer carries the ``session_id`` (no client-side accumulator);
-- a session-backed follow-up reads prior turns from Neo4j, appends the new pair,
-  and returns bubbles WITHOUT the OOB accumulator inputs;
+- start persists NOTHING — it returns an ephemeral composer carrying the
+  ``transcript_json`` accumulator + a *Save this chat* button (no auto-save);
+- save folds the ephemeral transcript into an owner-private session (create +
+  turn pairs) and swaps the composer to its session-backed shape;
+- a session-backed follow-up (a saved chat) reads prior turns from Neo4j,
+  appends the new pair, and returns bubbles WITHOUT the OOB accumulator inputs;
 - a non-owner / missing session (get_turns → not-found) is refused as 404-not-403
   and writes nothing.
 
@@ -80,6 +82,8 @@ def _conversation(**overrides: object) -> MagicMock:
             [_turn(1, "user", "opening"), _turn(2, "assistant", "first response")]
         )
     )
+    conv.save_transcript = AsyncMock(return_value=Result.ok(_session()))
+    conv.list_sessions = AsyncMock(return_value=Result.ok([_session()]))
     conv.update_source_selection = AsyncMock(return_value=Result.ok(True))
     for key, value in overrides.items():
         setattr(conv, key, value)
@@ -113,36 +117,68 @@ def _post(client: TestClient, path: str, data: dict[str, str]) -> httpx2.Respons
     return client.post(path, data=data, headers={CSRF_HEADER_NAME: token})
 
 
-class TestStartPersistsSession:
-    def test_start_creates_session_and_opening_pair(self) -> None:
+class TestStartIsEphemeral:
+    def test_start_persists_nothing_and_returns_savable_transcript(self) -> None:
         client, _journal, conv = _client(_conversation())
 
         response = _post(client, "/journals/start", {"raw_entry": "What's alive today?"})
 
         assert response.status_code == 200
-        conv.create_session.assert_awaited_once()
-        # Opening pair persisted atomically (one exchange call, not two appends).
-        conv.append_exchange.assert_awaited_once()
-        _sid, user_uid, user_content, _assistant = conv.append_exchange.await_args.args
-        assert user_uid == _USER_UID
-        assert user_content == "What's alive today?"
-        # The composer carries the session id, not a transcript accumulator.
+        # Ephemeral by default (ADR-078 §5): opening a chat writes NOTHING.
+        conv.create_session.assert_not_awaited()
+        conv.append_exchange.assert_not_awaited()
+        conv.save_transcript.assert_not_awaited()
+        # The composer carries the structured transcript accumulator + Save, not a
+        # session id and not the flat original_entry accumulator.
+        body = response.text
+        assert 'name="transcript_json"' in body
+        assert "Save this chat" in body
+        assert 'name="session_id"' not in body
+        assert "What's alive today?" in body  # user turn is in the transcript
+
+
+class TestSaveOptIn:
+    def test_save_folds_transcript_and_swaps_to_session_composer(self) -> None:
+        import json
+
+        client, _journal, conv = _client(_conversation())
+        transcript = json.dumps(
+            [
+                {"role": "user", "content": "Opening thought."},
+                {"role": "assistant", "content": "A reply."},
+                {"role": "user", "content": "Follow up."},
+                {"role": "assistant", "content": "Another reply."},
+            ]
+        )
+
+        response = _post(
+            client, "/journals/save", {"transcript_json": transcript, "title": "My chat"}
+        )
+
+        assert response.status_code == 200
+        conv.save_transcript.assert_awaited_once()
+        _uid, _kind, title, _sel, pairs = conv.save_transcript.await_args.args
+        assert title == "My chat"
+        assert pairs == [
+            ("Opening thought.", "A reply."),
+            ("Follow up.", "Another reply."),
+        ]
+        # The composer is swapped to its session-backed ("Saved ✓") shape.
         body = response.text
         assert 'name="session_id"' in body
-        assert 'name="original_entry"' not in body
+        assert "Saved" in body
 
-    def test_start_persist_failure_surfaces_error(self) -> None:
-        conv = _conversation(
-            create_session=AsyncMock(
-                return_value=Result.fail(Errors.database("create_session", "down"))
-            )
-        )
-        client, _journal, _conv = _client(conv)
+    def test_save_empty_transcript_writes_nothing_and_spares_composer(self) -> None:
+        client, _journal, conv = _client(_conversation())
 
-        response = _post(client, "/journals/start", {"raw_entry": "Save me."})
+        response = _post(client, "/journals/save", {"transcript_json": "", "title": "x"})
 
-        assert response.status_code == 200  # inline error fragment, not a 500
-        assert "Could not save your discussion" in response.text
+        assert response.status_code == 200
+        conv.save_transcript.assert_not_awaited()
+        # The error is retargeted to the thread so the Save button's
+        # #journal-composer/outerHTML swap can't destroy the composer.
+        assert response.headers["HX-Retarget"] == "#journal-thread"
+        assert response.headers["HX-Reswap"] == "beforeend"
 
 
 class TestSessionFollowUp:
