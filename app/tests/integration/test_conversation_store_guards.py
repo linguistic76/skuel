@@ -456,7 +456,10 @@ class TestOptInPersistenceGuard:
         )
         html = to_xml(continued)
         assert "opening line" in html and "assistant reply" in html
-        assert "Round trip" in html  # the revisit-list row
+        # Prove *revisit* specifically: the session's own row is in the sidebar
+        # discussions panel (its unique row marker, not just the title — which
+        # also renders in the composer's hidden field). (Codex #640 P2.)
+        assert f'data-discussion-row="{sid}"' in html
 
         # Delete (POST route) drops the whole subtree — session AND turns gone.
         await journal_handlers["/journals/discussion/{session_id}/delete"](
