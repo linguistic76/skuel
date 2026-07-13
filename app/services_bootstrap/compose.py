@@ -227,6 +227,15 @@ async def compose_services(
             f"✅ Fulltext indexes synced: {len(fulltext_summary['created'])} created/verified"
         )
 
+        # Conversation persistence indexes (ADR-078 — discussion sessions).
+        # Missing session_id/turn_id uniqueness would let a MERGE double-create;
+        # missing user_uid index turns the revisit-list query into a label scan.
+        conversation_idx_result = await schema_manager.sync_conversation_indexes()
+        conversation_summary = _check_schema_sync(conversation_idx_result, "conversation indexes")
+        logger.info(
+            f"✅ Conversation indexes synced: {len(conversation_summary['created'])} created/verified"
+        )
+
         # ========================================================================
         # SCHEMA-CHANGE MONITORING (opt-in — NEO4J_SCHEMA_MONITORING)
         # ========================================================================
@@ -1176,6 +1185,17 @@ async def compose_services(
         # only — without embeddings there is no query vector, so it stays None
         # and the journal degrades to ungrounded. The reference adapter is NOT
         # wired into SearchRouter (that omission is the isolation guarantee).
+        # Conversation persistence (ADR-078) — owner-private discussion sessions.
+        # Tier-independent: pure storage, no LLM/embeddings, so it is created in
+        # both CORE and FULL (unlike JournalService below). Thin standalone
+        # backend (mirrors SessionBackend/DeviceBackend), NEVER the universal
+        # Entity path — that is the structural understanding wall.
+        from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
+        from core.services.conversation import ConversationService
+
+        conversation_service = ConversationService(ConversationBackend(driver))
+        logger.info("✅ ConversationService created (ADR-078 discussion store)")
+
         canon_retrieval_service = None
         if embeddings_service is not None:
             from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
@@ -1846,6 +1866,8 @@ async def compose_services(
             context_aware_ai=context_aware_ai,
             # Journal domain — DNWF three-stage workflow (FULL tier only)
             journal=journal_service,
+            # Conversation store — owner-private discussion sessions (ADR-078)
+            conversation=conversation_service,
             # Lateral relationship services (January 2026 - Core graph architecture)
             lateral=lateral_service,
             # Intelligence tier (ADR-043)

@@ -103,11 +103,15 @@ Adapted from the deferred design, reduced to what revisit + continue require.
 
 **Backend placement — RESOLVED *(2026-07-13)*: a dedicated thin `ConversationBackend`, NOT the
 universal Entity path.** `:ConversationSession`/`:ConversationTurn` are **not** `:Entity` nodes
-and are **not** one of the 25 EntityTypes; they follow the thin-backend precedent of Group
-(`NonKuDomain`, `collab_backends.py`). This is not merely a placement preference — routing them
-through `UniversalNeo4jBackend` would auto-wire the search + embedding machinery that §2
-**forbids**. The thin backend keeps the understanding wall structural (the nodes are never in the
-universal path to begin with), not just policy. They carry the domain label alone.
+and are **not** one of the 25 EntityTypes; they follow the thin-backend precedent of
+**`SessionBackend` / `DeviceBackend`** — standalone classes (no superclass) that take the shared
+`AsyncDriver` and run owner-scoped Cypher via `driver.session()`. *(The original draft cited Group
+here, but `GroupBackend` in fact subclasses `UniversalNeo4jBackend` — the exact universal path §3
+says to avoid; `Session`/`Device` are the faithful precedent that delivers the structural wall.)*
+This is not merely a placement preference — routing them through `UniversalNeo4jBackend` would
+auto-wire the search + embedding machinery that §2 **forbids**. The thin backend keeps the
+understanding wall structural (the nodes are never in the universal path to begin with), not just
+policy. They carry the domain label alone.
 
 ```cypher
 (:ConversationSession {

@@ -150,6 +150,15 @@ class NeoLabel(StrEnum):
     DEVICE = "Device"  # Enrolled vault-agent devices (ADR-075) — auth infra, not an Entity
 
     # =========================================================================
+    # Conversation Persistence (ADR-078) — discussion sessions, owner-private
+    # =========================================================================
+    # NeoLabels ONLY — deliberately NOT EntityType members. That non-membership
+    # IS the understanding wall: keyed off EntityType, embeddings / SearchRouter /
+    # context-builder are all structurally blind to these nodes (ADR-078 §2/§6).
+    CONVERSATION_SESSION = "ConversationSession"  # Companion-neutral discussion session
+    CONVERSATION_TURN = "ConversationTurn"  # One message within a session
+
+    # =========================================================================
     # Cross-Cutting Systems
     # =========================================================================
     USER = "User"

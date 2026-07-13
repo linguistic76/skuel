@@ -504,6 +504,41 @@ class Neo4jSchemaManager:
 
         return Result.ok(results)
 
+    async def sync_conversation_indexes(self) -> Result[dict[str, Any]]:
+        """Create constraints + indexes for persisted discussion sessions (ADR-078).
+
+        - UNIQUE on ConversationSession.session_id, ConversationTurn.turn_id
+          (id lookups + MERGE-safe identity)
+        - INDEX on ConversationSession.user_uid (the revisit-list query anchor)
+        - INDEX on ConversationTurn.session_id (turn fan-out per session)
+
+        Idempotent (``IF NOT EXISTS``). These labels are conversation-persistence
+        infrastructure, NOT EntityTypes — they carry no vector/fulltext index, by
+        design (the understanding wall, ADR-078 §2).
+        """
+        results: dict[str, list[str]] = {"created": [], "failed": []}
+
+        async def _constraint(label: NeoLabel, field: str, name: str) -> None:
+            result = await self._create_unique_constraint(label, field)
+            (results["created"] if result.is_ok else results["failed"]).append(name)
+
+        async def _index(label: NeoLabel, field: str, name: str) -> None:
+            result = await self._create_named_index(name, label, field)
+            (results["created"] if result.is_ok else results["failed"]).append(name)
+
+        await _constraint(
+            NeoLabel.CONVERSATION_SESSION, "session_id", "ConversationSession_session_id_unique"
+        )
+        await _constraint(NeoLabel.CONVERSATION_TURN, "turn_id", "ConversationTurn_turn_id_unique")
+        await _index(NeoLabel.CONVERSATION_SESSION, "user_uid", "conversation_session_user_uid_idx")
+        await _index(NeoLabel.CONVERSATION_TURN, "session_id", "conversation_turn_session_id_idx")
+
+        self.logger.info(
+            f"Conversation indexes synced: {len(results['created'])} created/verified, "
+            f"{len(results['failed'])} failed"
+        )
+        return Result.ok(results)
+
     async def sync_vector_indexes(
         self,
         entity_labels: list[str],
