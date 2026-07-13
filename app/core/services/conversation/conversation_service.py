@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from core.models.conversation import (
+    ROLE_ASSISTANT,
+    ROLE_USER,
     ConversationSession,
     ConversationTurn,
     generate_session_id,
@@ -130,18 +132,14 @@ class ConversationService:
     ) -> Result[ConversationSession]:
         """Promote an ephemeral transcript into a saved owner-private session (ADR-078 §5).
 
-        The single explicit *Save this chat* path: create the session, then
-        append each ``(user, assistant)`` pair in order via the atomic
-        ``append_exchange`` primitive — no bulk backend method, one write shape.
-        Returns the created session so the caller can bind the composer to its
-        ``session_id`` and add its revisit row.
-
-        **All-or-nothing.** The promotion is a whole-transcript invariant, so if
-        any append fails midway the just-created session (with any turns written
-        so far) is rolled back via ``delete_session`` before the failure returns —
-        the revisit store never surfaces an empty or truncated discussion (Codex
-        #638 P2). The compensating delete is best-effort; a cleanup miss is logged
-        but the original failure is still what the caller sees.
+        The single explicit *Save this chat* path. The whole transcript is
+        promoted **atomically**: the service mints the session id and every turn's
+        id + ordinal, then the backend writes the session AND all turns in ONE
+        transaction (``backend.save_transcript``). They become visible together,
+        so a concurrent reader never observes an empty or truncated saved
+        discussion (Codex #638 P2) — this is why Save does not create-then-append
+        in separate transactions. Returns the created session so the caller can
+        bind the composer to its ``session_id`` and add its revisit row.
 
         An empty transcript is a validation error — there is nothing to save, and
         (per ADR-078 §7 guard 7) an unsaved discussion must create zero nodes, so
@@ -149,29 +147,35 @@ class ConversationService:
         """
         if not pairs:
             return Result.fail(Errors.validation("Cannot save an empty discussion."))
-        created = await self.create_session(user_uid, kind, title, source_selection)
-        if created.is_error:
-            return Result.fail(created)
-        session = created.value
+        now_iso = datetime.now(UTC).isoformat()
+        turns: list[Neo4jProperties] = []
         for user_content, assistant_content in pairs:
-            appended = await self.append_exchange(
-                session.session_id, user_uid, user_content, assistant_content
+            turns.append(
+                {
+                    "turn_id": generate_turn_id(),
+                    "role": ROLE_USER,
+                    "content": user_content,
+                    "turn_number": len(turns) + 1,
+                }
             )
-            if appended.is_error:
-                cleanup = await self.delete_session(session.session_id, user_uid)
-                if cleanup.is_error:
-                    logger.error(
-                        "Rollback of partial discussion %s for %s failed: %s",
-                        session.session_id,
-                        user_uid,
-                        cleanup.expect_error(),
-                    )
-                return Result.fail(appended)
+            turns.append(
+                {
+                    "turn_id": generate_turn_id(),
+                    "role": ROLE_ASSISTANT,
+                    "content": assistant_content,
+                    "turn_number": len(turns) + 1,
+                }
+            )
+        saved = await self.backend.save_transcript(
+            generate_session_id(), user_uid, kind, title, source_selection, turns, now_iso
+        )
+        if saved.is_error:
+            return Result.fail(saved)
+        if saved.value is None:
+            return Result.fail(Errors.not_found("User", user_uid))
+        session = _session_from_props(saved.value)
         logger.info(
-            "Saved discussion %s for %s (%d turn pairs)",
-            session.session_id,
-            user_uid,
-            len(pairs),
+            "Saved discussion %s for %s (%d turns)", session.session_id, user_uid, len(turns)
         )
         return Result.ok(session)
 

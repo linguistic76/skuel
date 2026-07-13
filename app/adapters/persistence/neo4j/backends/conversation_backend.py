@@ -228,6 +228,75 @@ class ConversationBackend:
             logger.error(f"Failed to append conversation exchange: {e}")
             return Result.fail(Errors.database("append_exchange", str(e)))
 
+    async def save_transcript(
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        turns: list[Neo4jProperties],
+        now_iso: str,
+    ) -> Result[Neo4jProperties | None]:
+        """Create the session AND all its turns in ONE transaction (ADR-078 §5).
+
+        The *Save this chat* write. Because the session node and every turn are
+        created in a single implicit transaction, they become visible together —
+        a concurrent reader (a ``/journals`` reload in another tab) can never
+        observe an empty or truncated saved discussion (Codex #638 P2). This is
+        why Save does NOT reuse create_session + a loop of append_exchange (each a
+        separate transaction, with a partial-visibility window between them).
+
+        ``turns`` is the ordered, id-and-ordinal-stamped payload
+        (``{turn_id, role, content, turn_number}`` per turn) the service builds;
+        all turns share ``now_iso`` as their timestamp. The service guards against
+        an empty transcript (guard 7), so ``turns`` is always non-empty here.
+        Returns the session properties, or ``None`` when the owner does not exist.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})
+        CREATE (u)-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{
+            session_id: $session_id,
+            user_uid: $user_uid,
+            kind: $kind,
+            title: $title,
+            source_selection: $source_selection,
+            started_at: datetime($now),
+            last_activity: datetime($now)
+        }})
+        WITH s
+        UNWIND $turns AS turn
+        CREATE (s)-[:{_HAS_TURN} {{turn_number: turn.turn_number}}]->(:{_TURN_LABEL} {{
+            turn_id: turn.turn_id,
+            session_id: $session_id,
+            role: turn.role,
+            content: turn.content,
+            timestamp: datetime($now),
+            turn_number: turn.turn_number
+        }})
+        WITH DISTINCT s
+        {_SESSION_RETURN}
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {
+                        "user_uid": user_uid,
+                        "session_id": session_id,
+                        "kind": kind,
+                        "title": title,
+                        "source_selection": source_selection,
+                        "turns": turns,
+                        "now": now_iso,
+                    },
+                )
+                record = await result.single()
+                return Result.ok(_session_record(dict(record)) if record else None)
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to save conversation transcript: {e}")
+            return Result.fail(Errors.database("save_transcript", str(e)))
+
     async def update_session_meta(
         self,
         session_id: str,

@@ -27,6 +27,7 @@ _OWNER_EDGE = "_HAS_SESSION"
 _OWNER_SCOPED_METHODS = [
     "create_session",
     "append_exchange",
+    "save_transcript",
     "update_session_meta",
     "get_session",
     "list_sessions",
@@ -71,3 +72,15 @@ def test_append_exchange_is_one_atomic_pair() -> None:
     source = inspect.getsource(ConversationBackend.append_exchange)
     assert source.count("CREATE (s)-[:{_HAS_TURN}") == 2
     assert "n + 1" in source and "n + 2" in source
+
+
+def test_save_transcript_is_one_transaction() -> None:
+    # Save writes the session AND all turns in ONE query (a single implicit
+    # transaction) via UNWIND, so a concurrent reader never observes a partial
+    # session (Codex #638 P2). It must NOT be a create-then-loop shape.
+    source = inspect.getsource(ConversationBackend.save_transcript)
+    assert "CREATE (u)-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL}" in source
+    assert "UNWIND $turns AS turn" in source
+    assert "CREATE (s)-[:{_HAS_TURN}" in source
+    # Single driver.session() block → one transaction for the whole subtree.
+    assert source.count("self.driver.session()") == 1

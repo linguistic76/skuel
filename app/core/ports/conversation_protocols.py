@@ -75,6 +75,24 @@ class ConversationBackendOperations(Protocol):
         """
         ...
 
+    async def save_transcript(
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        turns: list[Neo4jProperties],
+        now_iso: str,
+    ) -> Result[Neo4jProperties | None]:
+        """Create a session AND all its turns in ONE transaction (atomic Save).
+
+        Whole-transcript promotion (ADR-078 §5): session + turns commit together
+        so a concurrent read never sees a partial discussion. None when the owner
+        user does not exist.
+        """
+        ...
+
     async def update_session_meta(
         self,
         session_id: str,

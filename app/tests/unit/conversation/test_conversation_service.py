@@ -49,6 +49,7 @@ def _backend(**overrides) -> SimpleNamespace:
         append_exchange=AsyncMock(
             return_value=Result.ok([_turn_row(1, "user"), _turn_row(2, "assistant")])
         ),
+        save_transcript=AsyncMock(return_value=Result.ok(_session_row())),
         update_session_meta=AsyncMock(return_value=Result.ok(True)),
         get_session=AsyncMock(return_value=Result.ok(_session_row())),
         list_sessions=AsyncMock(return_value=Result.ok([_session_row()])),
@@ -114,7 +115,10 @@ class TestAppendExchange:
 
 
 class TestSaveTranscript:
-    async def test_creates_session_then_appends_each_pair(self) -> None:
+    async def test_delegates_one_atomic_write_with_ordered_turns(self) -> None:
+        # Save promotes the whole transcript in ONE backend transaction — NOT
+        # create_session + a loop of appends (Codex #638 P2). The service mints
+        # the session id + every turn's id/ordinal and hands them over as a batch.
         backend = _backend()
         service = ConversationService(backend)
 
@@ -128,8 +132,17 @@ class TestSaveTranscript:
 
         assert result.is_ok
         assert isinstance(result.value, ConversationSession)
-        backend.create_session.assert_awaited_once()
-        assert backend.append_exchange.await_count == 2
+        backend.save_transcript.assert_awaited_once()
+        # No create-then-append path — that would expose a partial session.
+        backend.create_session.assert_not_awaited()
+        backend.append_exchange.assert_not_awaited()
+        # Ordered, id- and ordinal-stamped turn payload: 2 pairs → 4 turns.
+        sid, uid, _kind, _title, _sel, turns, _now = backend.save_transcript.await_args.args
+        assert sid.startswith("cs_") and uid == "user_mike"
+        assert [t["role"] for t in turns] == ["user", "assistant", "user", "assistant"]
+        assert [t["turn_number"] for t in turns] == [1, 2, 3, 4]
+        assert [t["content"] for t in turns] == ["u1", "a1", "u2", "a2"]
+        assert all(t["turn_id"].startswith("ct_") for t in turns)
 
     async def test_empty_transcript_is_validation_error_no_write(self) -> None:
         backend = _backend()
@@ -139,26 +152,29 @@ class TestSaveTranscript:
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.VALIDATION
-        backend.create_session.assert_not_awaited()
+        backend.save_transcript.assert_not_awaited()
 
-    async def test_append_failure_rolls_back_the_session(self) -> None:
-        # All-or-nothing: a mid-loop append failure deletes the just-created
-        # session so the store never shows a truncated discussion (Codex #638 P2).
+    async def test_unknown_owner_yields_not_found(self) -> None:
+        backend = _backend(save_transcript=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_ghost", "discussion", "t", "{}", [("u", "a")])
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+    async def test_backend_failure_propagates(self) -> None:
         backend = _backend(
-            append_exchange=AsyncMock(
-                return_value=Result.fail(Errors.database("append_exchange", "boom"))
+            save_transcript=AsyncMock(
+                return_value=Result.fail(Errors.database("save_transcript", "boom"))
             )
         )
         service = ConversationService(backend)
 
-        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [("u1", "a1")])
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [("u", "a")])
 
         assert result.is_error
-        # The partial session is rolled back with the same owner scope.
-        backend.delete_session.assert_awaited_once()
-        sid, uid = backend.delete_session.await_args.args
-        assert uid == "user_mike"
-        assert sid.startswith("cs_")
+        assert result.expect_error().category == ErrorCategory.DATABASE
 
 
 class TestReadPaths:
