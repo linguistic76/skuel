@@ -10,34 +10,42 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, P, Span
+from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
 
 if TYPE_CHECKING:
+    from core.models.conversation import ConversationSession
     from core.models.user.user import User
     from core.models.user_entry.user_entry import UserEntry
 
 
-def JournalsLandingPage(user: "User", shelf_books: "list[dict[str, str]] | None" = None) -> Any:
+def JournalsLandingPage(
+    user: "User",
+    shelf_books: "list[dict[str, str]] | None" = None,
+    sessions: "list[ConversationSession] | None" = None,
+    workspace: Any = None,
+) -> Any:
     """3-column journal landing page — Claude.ai project-view style.
 
-    Left: collapsible sidebar (New Journal + identity). Center: chat input with
-    the discussion source panel (FOUNDER canon-shelf checkboxes + vault toggle).
-    Right: compact Processing / Sources / Browse upload panel. No Tasks+ sidebar
-    — uses BasePage(CUSTOM). Journal sessions are zero-persistence (ADR-073), so
-    there is no stored-session history to browse; the workshop opens fresh each
-    time.
+    Left: collapsible sidebar (New Journal + the revisit list of past
+    discussions). Center: chat input with the discussion source panel (FOUNDER
+    canon-shelf checkboxes + vault toggle), or — when ``workspace`` is passed —
+    a rehydrated discussion thread (continue, ADR-078). Right: compact
+    Processing / Sources / Browse upload panel. No Tasks+ sidebar — uses
+    BasePage(CUSTOM).
 
     ``shelf_books`` is the canon shelf (``resource_uid`` + ``title`` per book) —
     the route passes it only for FOUNDERs; empty/omitted renders no picker.
+    ``sessions`` are the user's owned discussion sessions (revisit list, ADR-078);
+    ``workspace`` pre-fills ``#journal-workspace`` for a continued session.
     """
     is_founder = user.journal_tier.is_founder()
     from ui.journals.forms import render_right_panel, upload_form_script
 
     return Div(
-        journal_sidebar(user),
-        _landing_center_column(shelf_books or [], is_founder),
+        journal_sidebar(user, sessions or []),
+        _landing_center_column(shelf_books or [], is_founder, workspace=workspace),
         Div(
             render_right_panel(is_founder=is_founder),
             upload_form_script(),
@@ -53,7 +61,7 @@ def JournalsLandingPage(user: "User", shelf_books: "list[dict[str, str]] | None"
         **{
             "x-data": (
                 "{ sidebarOpen: localStorage.getItem('journal-sidebar') !== 'false',"
-                " sessionActive: false }"
+                f" sessionActive: {'true' if workspace is not None else 'false'} }}"
             ),
             "@htmx:after-swap.window": (
                 "if ($event.detail.target.id === 'journal-workspace') sessionActive = true"
@@ -243,15 +251,14 @@ def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def journal_sidebar(user: "User") -> Any:
+def journal_sidebar(user: "User", sessions: "list[ConversationSession] | None" = None) -> Any:
     return Div(
-        # Full sidebar (shown when open). Journal sessions are zero-persistence
-        # (ADR-073), so there is no session history or search — just the entry
-        # point and identity.
+        # Full sidebar (shown when open): entry point, the revisit list of past
+        # discussions (ADR-078 — owner-private sessions), and identity.
         Div(
             _sb_header(),
             _sb_new_journal_btn(),
-            Div(cls="flex-1"),
+            _sb_discussions_list(sessions or []),
             _sb_identity_footer(user),
             cls="flex flex-col h-full",
             **{"x-show": "sidebarOpen"},
@@ -370,18 +377,132 @@ def _sb_identity_footer(user: "User") -> Any:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Revisit list — past discussions (ADR-078)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _sb_discussions_list(sessions: "list[ConversationSession]") -> Any:
+    """Scrollable list of the user's owned discussions (revisit, ADR-078)."""
+    if not sessions:
+        body: Any = P(
+            "Your past discussions appear here.",
+            cls="text-[12.5px] text-muted-foreground px-4 py-2 leading-snug",
+        )
+    else:
+        body = Div(
+            *[DiscussionRow(session) for session in sessions],
+            id="journal-discussions",
+            cls="flex flex-col gap-0.5 px-2",
+        )
+    return Div(
+        P(
+            "Discussions",
+            cls=(
+                "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                " px-4 pt-3 pb-1"
+            ),
+        ),
+        body,
+        cls="flex-1 overflow-y-auto min-h-0",
+    )
+
+
+def DiscussionRow(session: "ConversationSession") -> Any:
+    """One revisit-list row: title link + hover actions (rename/export/delete).
+
+    Inline rename toggles an Alpine ``editing`` flag local to the row; the rename
+    POST swaps the whole row (``outerHTML``) with the re-rendered fragment.
+    """
+    sid = session.session_id
+    title = session.title or "Untitled discussion"
+    return Div(
+        Div(
+            A(
+                title,
+                href=f"/journals/discussion/{sid}",
+                title=title,
+                cls=(
+                    "flex-1 min-w-0 truncate text-[13.5px] text-foreground/90 no-underline"
+                    " hover:text-foreground py-0.5"
+                ),
+            ),
+            _DiscussionRowActions(sid, title),
+            cls="flex items-center gap-1",
+            **{"x-show": "!editing"},
+        ),
+        Form(
+            Input(
+                name="title",
+                value=title,
+                cls=(
+                    "flex-1 min-w-0 text-[13.5px] px-2 py-1 rounded border border-border"
+                    " bg-background outline-none focus:border-foreground/40"
+                ),
+                **{"x-ref": "titleInput", "@keydown.escape": "editing = false"},
+            ),
+            hx_post=f"/journals/discussion/{sid}/rename",
+            hx_target="closest [data-discussion-row]",
+            hx_swap="outerHTML",
+            cls="flex items-center gap-1",
+            **{"x-show": "editing", "x-cloak": True, "@submit": "editing = false"},
+        ),
+        cls="group px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors",
+        **{"x-data": "{ editing: false }", "data-discussion-row": sid},
+    )
+
+
+def _DiscussionRowActions(sid: str, title: str) -> Any:
+    """Hover-revealed rename / export / delete controls for a discussion row."""
+    btn = (
+        "w-6 h-6 flex items-center justify-center rounded text-muted-foreground"
+        " hover:bg-slate-200 hover:text-foreground opacity-0 group-hover:opacity-100"
+        " transition-opacity"
+    )
+    return Div(
+        Button(
+            Icon("pencil", size=13),
+            type="button",
+            aria_label="Rename discussion",
+            cls=btn,
+            **{"@click": "editing = true; $nextTick(() => $refs.titleInput.focus())"},
+        ),
+        A(
+            Icon("download", size=13),
+            href=f"/journals/discussion/{sid}/export",
+            aria_label="Export discussion",
+            cls=btn + " no-underline",
+        ),
+        Button(
+            Icon("trash-2", size=13),
+            type="button",
+            aria_label="Delete discussion",
+            cls=btn + " hover:text-destructive",
+            hx_post=f"/journals/discussion/{sid}/delete",
+            hx_target="closest [data-discussion-row]",
+            hx_swap="outerHTML",
+            hx_confirm=f"Delete “{title}”? This can't be undone.",
+        ),
+        cls="flex items-center gap-0.5 shrink-0",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Landing page center column
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _landing_center_column(shelf_books: "list[dict[str, str]]", is_founder: bool) -> Any:
+def _landing_center_column(
+    shelf_books: "list[dict[str, str]]", is_founder: bool, workspace: Any = None
+) -> Any:
     # A flex-1 flex-col wrapper whose direct child carries id="journal-workspace".
     # /journals/start retargets here (HX-Retarget) and replaces the child in place
-    # with the response fragment (itself `flex flex-col h-full`) — no stored entry,
-    # no redirect (ADR-073). Journal sessions are zero-persistence, so there is no
-    # recent-sessions list; the workshop opens fresh.
-    return Div(
-        Div(
+    # with the response fragment (itself `flex flex-col h-full`). When ``workspace``
+    # is passed (a continued session, ADR-078), it IS that fragment and is rendered
+    # directly; otherwise the fresh-entry input form opens.
+    if workspace is not None:
+        center = workspace  # already carries id="journal-workspace"
+    else:
+        center = Div(
             Div(
                 Div(
                     P("Journal", cls="text-[22px] font-bold text-foreground"),
@@ -396,7 +517,9 @@ def _landing_center_column(shelf_books: "list[dict[str, str]]", is_founder: bool
             ),
             id="journal-workspace",
             cls="flex-1 overflow-y-auto",
-        ),
+        )
+    return Div(
+        center,
         cls="flex-1 flex flex-col overflow-hidden",
     )
 

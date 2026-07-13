@@ -80,6 +80,7 @@ def _conversation(**overrides: object) -> MagicMock:
             [_turn(1, "user", "opening"), _turn(2, "assistant", "first response")]
         )
     )
+    conv.update_source_selection = AsyncMock(return_value=Result.ok(True))
     for key, value in overrides.items():
         setattr(conv, key, value)
     return conv

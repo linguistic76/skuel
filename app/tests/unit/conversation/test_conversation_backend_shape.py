@@ -27,6 +27,7 @@ _OWNER_EDGE = "_HAS_SESSION"
 _OWNER_SCOPED_METHODS = [
     "create_session",
     "append_exchange",
+    "update_session_meta",
     "get_session",
     "list_sessions",
     "get_turns",
