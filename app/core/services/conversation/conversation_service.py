@@ -20,6 +20,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from core.models.conversation import (
+    ROLE_ASSISTANT,
+    ROLE_USER,
     ConversationSession,
     ConversationTurn,
     generate_session_id,
@@ -119,6 +121,63 @@ class ConversationService:
             return Result.fail(Errors.not_found("ConversationSession", session_id))
         user_turn, assistant_turn = appended.value
         return Result.ok((_turn_from_props(user_turn), _turn_from_props(assistant_turn)))
+
+    async def save_transcript(
+        self,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        pairs: list[tuple[str, str]],
+    ) -> Result[ConversationSession]:
+        """Promote an ephemeral transcript into a saved owner-private session (ADR-078 §5).
+
+        The single explicit *Save this chat* path. The whole transcript is
+        promoted **atomically**: the service mints the session id and every turn's
+        id + ordinal, then the backend writes the session AND all turns in ONE
+        transaction (``backend.save_transcript``). They become visible together,
+        so a concurrent reader never observes an empty or truncated saved
+        discussion (Codex #638 P2) — this is why Save does not create-then-append
+        in separate transactions. Returns the created session so the caller can
+        bind the composer to its ``session_id`` and add its revisit row.
+
+        An empty transcript is a validation error — there is nothing to save, and
+        (per ADR-078 §7 guard 7) an unsaved discussion must create zero nodes, so
+        we never create a session with no turns.
+        """
+        if not pairs:
+            return Result.fail(Errors.validation("Cannot save an empty discussion."))
+        now_iso = datetime.now(UTC).isoformat()
+        turns: list[Neo4jProperties] = []
+        for user_content, assistant_content in pairs:
+            turns.append(
+                {
+                    "turn_id": generate_turn_id(),
+                    "role": ROLE_USER,
+                    "content": user_content,
+                    "turn_number": len(turns) + 1,
+                }
+            )
+            turns.append(
+                {
+                    "turn_id": generate_turn_id(),
+                    "role": ROLE_ASSISTANT,
+                    "content": assistant_content,
+                    "turn_number": len(turns) + 1,
+                }
+            )
+        saved = await self.backend.save_transcript(
+            generate_session_id(), user_uid, kind, title, source_selection, turns, now_iso
+        )
+        if saved.is_error:
+            return Result.fail(saved)
+        if saved.value is None:
+            return Result.fail(Errors.not_found("User", user_uid))
+        session = _session_from_props(saved.value)
+        logger.info(
+            "Saved discussion %s for %s (%d turns)", session.session_id, user_uid, len(turns)
+        )
+        return Result.ok(session)
 
     async def rename_session(self, session_id: str, user_uid: UserUID, title: str) -> Result[bool]:
         """Rename an owned session (False when absent / not owned).

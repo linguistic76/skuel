@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock
 
 from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ConversationSession
 from core.services.conversation import ConversationService
-from core.utils.result_simplified import ErrorCategory, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def _session_row(session_id: str = "cs_abc123abc123", user_uid: str = "user_mike") -> dict:
@@ -49,6 +49,7 @@ def _backend(**overrides) -> SimpleNamespace:
         append_exchange=AsyncMock(
             return_value=Result.ok([_turn_row(1, "user"), _turn_row(2, "assistant")])
         ),
+        save_transcript=AsyncMock(return_value=Result.ok(_session_row())),
         update_session_meta=AsyncMock(return_value=Result.ok(True)),
         get_session=AsyncMock(return_value=Result.ok(_session_row())),
         list_sessions=AsyncMock(return_value=Result.ok([_session_row()])),
@@ -111,6 +112,69 @@ class TestAppendExchange:
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestSaveTranscript:
+    async def test_delegates_one_atomic_write_with_ordered_turns(self) -> None:
+        # Save promotes the whole transcript in ONE backend transaction — NOT
+        # create_session + a loop of appends (Codex #638 P2). The service mints
+        # the session id + every turn's id/ordinal and hands them over as a batch.
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.save_transcript(
+            "user_mike",
+            CONVERSATION_KIND_DISCUSSION,
+            "Saved chat",
+            "{}",
+            [("u1", "a1"), ("u2", "a2")],
+        )
+
+        assert result.is_ok
+        assert isinstance(result.value, ConversationSession)
+        backend.save_transcript.assert_awaited_once()
+        # No create-then-append path — that would expose a partial session.
+        backend.create_session.assert_not_awaited()
+        backend.append_exchange.assert_not_awaited()
+        # Ordered, id- and ordinal-stamped turn payload: 2 pairs → 4 turns.
+        sid, uid, _kind, _title, _sel, turns, _now = backend.save_transcript.await_args.args
+        assert sid.startswith("cs_") and uid == "user_mike"
+        assert [t["role"] for t in turns] == ["user", "assistant", "user", "assistant"]
+        assert [t["turn_number"] for t in turns] == [1, 2, 3, 4]
+        assert [t["content"] for t in turns] == ["u1", "a1", "u2", "a2"]
+        assert all(t["turn_id"].startswith("ct_") for t in turns)
+
+    async def test_empty_transcript_is_validation_error_no_write(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [])
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.VALIDATION
+        backend.save_transcript.assert_not_awaited()
+
+    async def test_unknown_owner_yields_not_found(self) -> None:
+        backend = _backend(save_transcript=AsyncMock(return_value=Result.ok(None)))
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_ghost", "discussion", "t", "{}", [("u", "a")])
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+    async def test_backend_failure_propagates(self) -> None:
+        backend = _backend(
+            save_transcript=AsyncMock(
+                return_value=Result.fail(Errors.database("save_transcript", "boom"))
+            )
+        )
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [("u", "a")])
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.DATABASE
 
 
 class TestReadPaths:

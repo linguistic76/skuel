@@ -154,7 +154,7 @@ now simply operate only on chats the user chose to save.
 
 | PR | Delivers |
 |---|---|
-| **PR1 — ephemeral default + Save (typed door)** | Revert `/journals/start` auto-save; restore the accumulator as a **structured** transcript (decision 1); add the *Save this chat* action → `create_session` + `append_exchange` pairs (decision 2); guard 7 (opt-in persistence) test. Typed door is now ephemeral-by-default + savable. |
+| **PR1 — ephemeral default + Save (typed door)** ✅ **SHIPPED** | Reverted `/journals/start` auto-save; the composer's ephemeral memory is now a **structured** `transcript_json` field (ordered `{role, content}` pairs, decision 1); added `POST /journals/save` → `ConversationService.save_transcript(pairs)` (create_session + append_exchange loop, decision 2); the composer gained a *Save this chat* button (→ "Saved ✓" once session-backed) and an OOB revisit-list refresh. Guard 7 landed as a **route-level** live-Neo4j test (`TestOptInPersistenceGuard`): opening + following-up create **zero** nodes; only save writes. Follow-up route now has three memory paths (session-backed / ephemeral-structured / flat-legacy — the flat path is the file/DNWF door until PR2). |
 | **PR2 — file/audio door joins (ephemeral + Save)** | The file door's follow-up composer uses the same ephemeral substrate + *Save this chat*; a saved file chat records the source→output opening pair (decision 3) and its `source_selection` (decision 4). |
 | **PR3 — reconcile & prove** | End-to-end: unsaved chat persists **nothing** (guard 7 across both doors); saved chat round-trips (revisit/continue/delete/export). Documentation of the two-axis privacy contract lands next to the code. |
 

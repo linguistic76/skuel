@@ -258,7 +258,7 @@ def journal_sidebar(user: "User", sessions: "list[ConversationSession] | None" =
         Div(
             _sb_header(),
             _sb_new_journal_btn(),
-            _sb_discussions_list(sessions or []),
+            discussions_revisit_panel(sessions or []),
             _sb_identity_footer(user),
             cls="flex flex-col h-full",
             **{"x-show": "sidebarOpen"},
@@ -381,8 +381,14 @@ def _sb_identity_footer(user: "User") -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _sb_discussions_list(sessions: "list[ConversationSession]") -> Any:
-    """Scrollable list of the user's owned discussions (revisit, ADR-078)."""
+def discussions_revisit_panel(sessions: "list[ConversationSession]", *, oob: bool = False) -> Any:
+    """Scrollable list of the user's owned discussions (revisit, ADR-078).
+
+    Carries a stable ``id=journal-discussions-panel`` so ``POST /journals/save``
+    can OOB-swap the whole panel (``oob=True``) after a chat is saved — the newly
+    saved discussion appears in the sidebar without a reload, and its per-row
+    delete IS the un-save (ADR-078 §5).
+    """
     if not sessions:
         body: Any = P(
             "Your past discussions appear here.",
@@ -394,6 +400,7 @@ def _sb_discussions_list(sessions: "list[ConversationSession]") -> Any:
             id="journal-discussions",
             cls="flex flex-col gap-0.5 px-2",
         )
+    oob_attr = {"hx_swap_oob": "true"} if oob else {}
     return Div(
         P(
             "Discussions",
@@ -403,7 +410,9 @@ def _sb_discussions_list(sessions: "list[ConversationSession]") -> Any:
             ),
         ),
         body,
+        id="journal-discussions-panel",
         cls="flex-1 overflow-y-auto min-h-0",
+        **oob_attr,
     )
 
 

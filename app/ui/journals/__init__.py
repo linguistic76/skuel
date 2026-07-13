@@ -117,11 +117,86 @@ def _AiBubble(label: str, text: str) -> Any:
     )
 
 
+def SessionBackedComposer(
+    title: str,
+    mode_value: str,
+    *,
+    session_id: str,
+    is_founder: bool = False,
+    canon_book_uids: "tuple[str, ...]" = (),
+    summon_canon: bool = False,
+    summon_vault: bool = False,
+) -> Any:
+    """Just the session-backed composer (``id=journal-composer``) — the *Save* swap.
+
+    ``POST /journals/save`` swaps this in for the ephemeral composer once a chat
+    is saved, so further turns append to the stored session (ADR-078 §5).
+    """
+    return _Composer(
+        title,
+        mode_value,
+        session_id=session_id,
+        is_founder=is_founder,
+        canon_book_uids=canon_book_uids,
+        summon_canon=summon_canon,
+        summon_vault=summon_vault,
+    )
+
+
+def _SaveAffordance(session_id: str, transcript_json: str) -> Any:
+    """The composer's Save control (ADR-078 §5) — one of three states.
+
+    - **Saved** (``session_id`` set): a static "Saved ✓" pill; the chat is
+      already session-backed, so re-saving is a no-op (un-save = the revisit
+      row's delete).
+    - **Save this chat** (``transcript_json`` set, unsaved): the single explicit
+      persistence button — POSTs the ephemeral transcript to ``/journals/save``,
+      which swaps this whole composer for its session-backed shape.
+    - **None** (neither — the flat file/DNWF door, PR1): no Save yet (PR2 adds it).
+    """
+    from ui.components import Icon
+
+    if session_id:
+        return Span(
+            Icon("check", size=14),
+            Span("Saved"),
+            cls="inline-flex items-center gap-1 text-[13px] text-green-600 font-medium",
+        )
+    if transcript_json:
+        return Button(
+            "Save this chat",
+            type="button",
+            aria_label="Save this chat",
+            hx_post="/journals/save",
+            hx_include="closest form",
+            hx_target="#journal-composer",
+            hx_swap="outerHTML",
+            # Save and follow-up are mutually exclusive (Codex #638 P2, both
+            # directions): whichever is in flight, the other is DROPPED —
+            # ``hx-sync`` on the shared #journal-composer slot is the hard
+            # guarantee (a mid-request save can't persist a transcript missing the
+            # just-sent pair; a mid-save follow-up can't be lost to the ephemeral
+            # path). ``busy`` mirrors that as a visual disable of both buttons.
+            hx_sync="#journal-composer:drop",
+            **{
+                "x-bind:disabled": "busy",
+                ":style": "busy ? 'opacity:0.4;pointer-events:none' : ''",
+            },
+            cls=(
+                "text-[13px] text-muted-foreground hover:text-foreground"
+                " underline underline-offset-2 decoration-dotted cursor-pointer"
+                " bg-transparent border-0 p-0"
+            ),
+        )
+    return None
+
+
 def _Composer(
     title: str,
     mode_value: str,
     *,
     session_id: str = "",
+    transcript_json: str = "",
     original_entry: str = "",
     ai_response: str = "",
     is_founder: bool = False,
@@ -131,16 +206,20 @@ def _Composer(
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
-    Two shapes, selected by ``session_id`` (ADR-078):
+    Three memory shapes, selected in priority order (ADR-078 §5):
 
-    - **Session-backed** (``session_id`` set — the typed ``/journals/start``
-      door): the composer carries only the ``session_id``. Conversation memory
-      lives in Neo4j (:ConversationSession/:ConversationTurn), so there is no
-      client-side transcript to accumulate and no OOB swap.
-    - **Stateless** (no ``session_id`` — the file-output / DNWF-stage-3 doors,
-      zero-persistence until P3): the ``original_entry`` / ``ai_response`` hidden
-      inputs carry IDs so the follow-up route grows them via HTMX out-of-band
-      swaps, exactly as before.
+    - **Session-backed** (``session_id`` set — a *saved* discussion): the composer
+      carries only the ``session_id``; memory lives in Neo4j
+      (:ConversationSession/:ConversationTurn) and the footer shows "Saved ✓".
+    - **Ephemeral structured** (``transcript_json`` set, unsaved — the typed
+      ``/journals/start`` door): a hidden ``transcript_json`` field (id
+      ``journal-transcript``) carries the ordered ``{role, content}`` pairs the
+      follow-up route grows via an OOB swap; the footer shows *Save this chat*.
+      This dies on reload — the ephemeral default.
+    - **Stateless flat** (neither — the file-output / DNWF-stage-3 doors, still
+      ephemeral): the ``original_entry`` / ``ai_response`` hidden inputs carry IDs
+      so the follow-up route grows them via OOB swaps, as before. (PR2 migrates
+      these onto the structured substrate + Save.)
 
     ``is_founder`` renders the "Summon the canon shelf" dial — the quote-on-demand
     surface (ADR-076). Because the composer form is never reset between turns
@@ -154,12 +233,22 @@ def _Composer(
     """
     from ui.components import Icon
 
-    # Session-backed composers carry only the session id (memory is in Neo4j);
-    # stateless ones carry the accumulator fields the OOB swap grows.
-    context_inputs = (
-        [Input(type="hidden", name="session_id", value=session_id)]
-        if session_id
-        else [
+    # Saved → session id (memory in Neo4j); unsaved-structured → the transcript_json
+    # accumulator the OOB swap grows; flat → the legacy original_entry/ai_response
+    # accumulator (file/DNWF doors until PR2).
+    if session_id:
+        context_inputs = [Input(type="hidden", name="session_id", value=session_id)]
+    elif transcript_json:
+        context_inputs = [
+            Input(
+                id="journal-transcript",
+                type="hidden",
+                name="transcript_json",
+                value=transcript_json,
+            )
+        ]
+    else:
+        context_inputs = [
             Input(
                 id="journal-original-entry",
                 type="hidden",
@@ -173,7 +262,8 @@ def _Composer(
                 value=ai_response,
             ),
         ]
-    )
+
+    save_affordance = _SaveAffordance(session_id, transcript_json)
 
     return Form(
         *context_inputs,
@@ -193,46 +283,49 @@ def _Composer(
                 ),
             ),
             Div(
-                # FOUNDER grounding dials: canon (ADR-076) → this follow-up may
-                # quote + cite the shelf; vault (canon P3) → may quote + cite
-                # the user's own non-private notes. Unchecked/absent → FastHTML
-                # binds the flag False (a normal follow-up). A plain Span
-                # placeholder when not FOUNDER keeps the send button
-                # right-aligned.
-                (
-                    Div(
-                        Label(
-                            Input(
-                                type="checkbox",
-                                name="summon_canon",
-                                value="true",
-                                checked=summon_canon,
-                                cls="mr-1.5 align-middle",
+                # Left cluster: FOUNDER grounding dials (canon ADR-076 → quote +
+                # cite the shelf; vault → the user's own non-private notes) and
+                # the Save affordance (ADR-078 §5). Unchecked/absent dials →
+                # FastHTML binds the flag False. A plain Span placeholder when not
+                # FOUNDER keeps the cluster (and the Save link) left-aligned.
+                Div(
+                    (
+                        Div(
+                            Label(
+                                Input(
+                                    type="checkbox",
+                                    name="summon_canon",
+                                    value="true",
+                                    checked=summon_canon,
+                                    cls="mr-1.5 align-middle",
+                                ),
+                                "Summon the canon shelf",
+                                cls=(
+                                    "flex items-center text-[13px] text-muted-foreground"
+                                    " cursor-pointer select-none"
+                                ),
                             ),
-                            "Summon the canon shelf",
-                            cls=(
-                                "flex items-center text-[13px] text-muted-foreground"
-                                " cursor-pointer select-none"
+                            Label(
+                                Input(
+                                    type="checkbox",
+                                    name="summon_vault",
+                                    value="true",
+                                    checked=summon_vault,
+                                    cls="mr-1.5 align-middle",
+                                ),
+                                "Draw on my vault",
+                                cls=(
+                                    "flex items-center text-[13px] text-muted-foreground"
+                                    " cursor-pointer select-none"
+                                ),
                             ),
-                        ),
-                        Label(
-                            Input(
-                                type="checkbox",
-                                name="summon_vault",
-                                value="true",
-                                checked=summon_vault,
-                                cls="mr-1.5 align-middle",
-                            ),
-                            "Draw on my vault",
-                            cls=(
-                                "flex items-center text-[13px] text-muted-foreground"
-                                " cursor-pointer select-none"
-                            ),
-                        ),
-                        cls="flex items-center gap-4",
-                    )
-                    if is_founder
-                    else Span()
+                            cls="flex items-center gap-4",
+                        )
+                        if is_founder
+                        else Span()
+                    ),
+                    *((save_affordance,) if save_affordance is not None else ()),
+                    cls="flex items-center gap-4",
                 ),
                 Div(
                     P(
@@ -244,6 +337,13 @@ def _Composer(
                         Icon("arrow-up", size=16, cls="text-white"),
                         type="submit",
                         aria_label="Send follow-up",
+                        # Disabled while a save is in flight so a mid-save reply
+                        # can't slip out on the ephemeral path (Codex #638 P2);
+                        # hx-sync on the form is the hard guarantee behind it.
+                        **{
+                            "x-bind:disabled": "busy",
+                            ":style": "busy ? 'opacity:0.4;pointer-events:none' : ''",
+                        },
                         cls=(
                             "w-[34px] h-[34px] rounded-full flex items-center justify-center"
                             " bg-foreground hover:bg-foreground/80 transition-colors"
@@ -260,14 +360,30 @@ def _Composer(
         hx_target="#journal-thread",
         hx_swap="beforeend",
         hx_indicator="#journal-reply-loading",
-        # Clear textarea and scroll thread to bottom after each exchange.
+        # Follow-up and Save are mutually exclusive: whichever request from this
+        # composer is in flight, the other is dropped (Codex #638 P2, both races).
+        hx_sync="#journal-composer:drop",
+        # After a FOLLOW-UP, clear the textarea and scroll the thread to the
+        # bottom. Guard on the request origin (``event.detail.elt === this``, the
+        # form) so a Save request bubbling through this same form does NOT wipe an
+        # unsent draft when Save fails and keeps the composer (Codex #638 P3).
         # Do NOT call form.reset() — that would clobber the OOB-updated hidden inputs.
         hx_on__after_request=(
+            "if(event.detail.elt===this){"
             "this.querySelector('textarea').value='';"
             "var s=document.getElementById('journal-thread');"
             "if(s){s.scrollTop=s.scrollHeight;}"
+            "}"
         ),
         cls="border-t border-border px-6 py-4 bg-background flex-shrink-0",
+        # ``busy`` is the visual mirror of hx-sync: true while EITHER the follow-up
+        # or the Save request is in flight (both bubble their htmx events to this
+        # form), disabling both the send and Save buttons until it settles.
+        **{
+            "x-data": "{ busy: false }",
+            "@htmx:before-request": "busy = true",
+            "@htmx:after-request": "busy = false",
+        },
     )
 
 
@@ -426,11 +542,13 @@ def StandardResponseFragment(
     raw_entry: str,
     title: str,
     response_output: str,
-    session_id: str,
+    transcript_json: str,
     mode: "JournalMode | None" = None,
     is_founder: bool = False,
     sources: "tuple[CanonSource, ...] | None" = None,
     canon_book_uids: "tuple[str, ...]" = (),
+    summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Growing chat thread — opening discussion response with sticky composer.
 
@@ -442,9 +560,14 @@ def StandardResponseFragment(
     reply, matching the follow-up surface. ``canon_book_uids`` seeds the
     composer so follow-ups keep the session's book scope (C3).
 
-    ``session_id`` binds the composer to the persisted :ConversationSession
-    (ADR-078) — conversation memory lives in Neo4j, so follow-ups read/write
-    turns server-side instead of accumulating a client-side transcript.
+    ``transcript_json`` seeds the composer's ephemeral accumulator (ADR-078 §5):
+    the opening user/assistant pair as ordered ``{role, content}`` JSON. The
+    discussion is NOT saved — it lives only client-side until the user presses
+    *Save this chat* (the composer's Save affordance).
+
+    ``summon_canon`` / ``summon_vault`` pre-check the composer's dials to match the
+    opening grounding, so a subsequent *Save* records the source selection the
+    door actually used (not an off-by-default one).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -464,9 +587,11 @@ def StandardResponseFragment(
         _Composer(
             title,
             resolved.value,
-            session_id=session_id,
+            transcript_json=transcript_json,
             is_founder=is_founder,
             canon_book_uids=canon_book_uids,
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",
@@ -642,23 +767,37 @@ def FollowUpFragment(
     mode: "JournalMode",
     sources: "tuple[CanonSource, ...] | None" = None,
     combined: str | None = None,
+    transcript_json: str | None = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
 
     Returns the chat bubbles (main swap). ``sources`` (canon draws) render as a
     clickable citation block after the reply.
 
-    ``combined`` selects the composer's memory model (ADR-078):
+    The composer's memory model selects which (if any) OOB accumulator swap is
+    emitted (ADR-078 §5):
 
-    - **Session-backed** (``combined is None`` — the typed door): conversation
-      memory lives in Neo4j, so no OOB swap is emitted; the bubbles alone are
-      appended.
-    - **Stateless** (``combined`` set — file-output / DNWF doors): two OOB inputs
-      grow the sticky composer's accumulator hidden fields, exactly as before.
+    - **Session-backed** (both ``None`` — a saved discussion): memory lives in
+      Neo4j, so no OOB swap; the bubbles alone are appended.
+    - **Ephemeral structured** (``transcript_json`` set — the typed door, unsaved):
+      one OOB input replaces the composer's ``#journal-transcript`` hidden field
+      with the grown ``{role, content}`` transcript.
+    - **Stateless flat** (``combined`` set — file-output / DNWF doors): two OOB
+      inputs grow the composer's ``original_entry`` / ``ai_response`` fields.
     """
     label = f"Journal Response — {mode.display_label()}"
     oob_inputs: tuple[Any, ...] = ()
-    if combined is not None:
+    if transcript_json is not None:
+        oob_inputs = (
+            Input(
+                id="journal-transcript",
+                type="hidden",
+                name="transcript_json",
+                value=transcript_json,
+                hx_swap_oob="true",
+            ),
+        )
+    elif combined is not None:
         oob_inputs = (
             Input(
                 id="journal-original-entry",
