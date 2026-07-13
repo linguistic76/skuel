@@ -19,22 +19,27 @@ if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
 
 
-def JournalsLandingPage(user: "User") -> Any:
+def JournalsLandingPage(user: "User", shelf_books: "list[dict[str, str]] | None" = None) -> Any:
     """3-column journal landing page — Claude.ai project-view style.
 
-    Left: collapsible sidebar (New Journal + identity). Center: chat input.
+    Left: collapsible sidebar (New Journal + identity). Center: chat input with
+    the discussion source panel (FOUNDER canon-shelf checkboxes + vault toggle).
     Right: compact Processing / Sources / Browse upload panel. No Tasks+ sidebar
     — uses BasePage(CUSTOM). Journal sessions are zero-persistence (ADR-073), so
     there is no stored-session history to browse; the workshop opens fresh each
     time.
+
+    ``shelf_books`` is the canon shelf (``resource_uid`` + ``title`` per book) —
+    the route passes it only for FOUNDERs; empty/omitted renders no picker.
     """
+    is_founder = user.journal_tier.is_founder()
     from ui.journals.forms import render_right_panel, upload_form_script
 
     return Div(
         journal_sidebar(user),
-        _landing_center_column(),
+        _landing_center_column(shelf_books or [], is_founder),
         Div(
-            render_right_panel(is_founder=user.journal_tier.is_founder()),
+            render_right_panel(is_founder=is_founder),
             upload_form_script(),
             cls=(
                 "w-[320px] flex-shrink-0 border-l border-slate-100 bg-slate-50 overflow-y-auto p-4"
@@ -369,7 +374,7 @@ def _sb_identity_footer(user: "User") -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _landing_center_column() -> Any:
+def _landing_center_column(shelf_books: "list[dict[str, str]]", is_founder: bool) -> Any:
     # A flex-1 flex-col wrapper whose direct child carries id="journal-workspace".
     # /journals/start retargets here (HX-Retarget) and replaces the child in place
     # with the response fragment (itself `flex flex-col h-full`) — no stored entry,
@@ -386,7 +391,7 @@ def _landing_center_column() -> Any:
                     ),
                     cls="mb-6",
                 ),
-                _landing_text_form(),
+                _landing_text_form(shelf_books, is_founder),
                 cls="max-w-[640px] mx-auto pt-10 px-6",
             ),
             id="journal-workspace",
@@ -396,7 +401,76 @@ def _landing_center_column() -> Any:
     )
 
 
-def _landing_text_form() -> Any:
+def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
+    """FOUNDER discussion source picker — canon shelf checkboxes + vault toggle.
+
+    A native ``<details>`` disclosure (no JS) inside the composer form, so the
+    checked ``canon_book_uids`` and ``summon_vault`` POST alongside ``raw_entry``.
+    Per-book checkboxes wire straight through ``retrieve(resource_uids=...)`` —
+    checked-none = no canon, checked-some = scoped, checked-all = whole shelf
+    (C3). Rendered only for FOUNDERs (the canon/vault dials' entitlement).
+    """
+    from fasthtml.common import Details, Input, Label, Summary
+
+    book_rows = [
+        Label(
+            Input(
+                type="checkbox",
+                name="canon_book_uids",
+                value=book["resource_uid"],
+                cls="mr-2 align-middle accent-foreground",
+            ),
+            book["title"] or "(untitled)",
+            cls=(
+                "flex items-center text-[13px] text-foreground/80 cursor-pointer select-none py-0.5"
+            ),
+        )
+        for book in shelf_books
+    ]
+
+    canon_section = (
+        Div(
+            P(
+                "Canon shelf",
+                cls="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1",
+            ),
+            *book_rows,
+            cls="mb-3",
+        )
+        if book_rows
+        else P(
+            "No books are on the shelf yet.",
+            cls="text-[12.5px] text-muted-foreground mb-3",
+        )
+    )
+
+    return Details(
+        Summary(
+            "Sources",
+            cls=(
+                "text-[13px] font-medium text-muted-foreground cursor-pointer select-none"
+                " list-none hover:text-foreground"
+            ),
+        ),
+        Div(
+            canon_section,
+            Label(
+                Input(
+                    type="checkbox",
+                    name="summon_vault",
+                    value="true",
+                    cls="mr-2 align-middle accent-foreground",
+                ),
+                "Draw on my vault",
+                cls=("flex items-center text-[13px] text-foreground/80 cursor-pointer select-none"),
+            ),
+            cls="mt-2 pl-1",
+        ),
+        cls="mt-3 pt-3 border-t border-border",
+    )
+
+
+def _landing_text_form(shelf_books: "list[dict[str, str]]", is_founder: bool) -> Any:
     from fasthtml.common import Form, Textarea
 
     return Div(
@@ -425,6 +499,8 @@ def _landing_text_form() -> Any:
                     ),
                     cls="flex justify-end mt-2",
                 ),
+                # Discussion sources live from message one (FOUNDER dials).
+                _landing_source_panel(shelf_books) if is_founder else None,
                 cls=(
                     "border border-border rounded-[20px] px-[18px] pt-4 pb-3"
                     " bg-background shadow-sm"

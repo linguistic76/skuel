@@ -27,6 +27,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.chunk_protocols import ReferenceChunkSearchOperations
+    from core.ports.query_types import ShelvedBook
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
     from core.services.embeddings_service import EmbeddingsService
 
@@ -245,3 +246,15 @@ class CanonRetrievalService:
             min_score,
         )
         return Result.ok(context)
+
+    async def list_shelf(self) -> Result[list[ShelvedBook]]:
+        """List every book on the canon shelf (title-ordered) for the source picker.
+
+        The shelf's membership read — no embeddings needed, so it works on any
+        tier the reference backend is wired for. Fail-soft: the underlying read
+        fails open to an empty list, and the picker renders nothing rather than
+        breaking the composer.
+
+        Backend: ``ReferenceChunkSearchOperations.list_shelved_books``.
+        """
+        return Result.ok(await self._reference_search.list_shelved_books())

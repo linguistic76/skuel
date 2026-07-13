@@ -1,10 +1,13 @@
-"""Journal service — STANDARD single-response and FOUNDER three-stage DNWF workflows.
+"""Journal service — typed discussion, follow-ups, and the FOUNDER DNWF file path.
 
-STANDARD tier: run_standard() — single response in the requested JournalMode
-(SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED); defaults to THOUGHT_PARTNER.
+Typed door: run_discussion() opens an open, user-led conversation on the first
+message (companion voice, no analysis template), run_follow_up() continues it.
+Both are quote-on-demand surfaces (ADR-076) that ground on UserContext always
+and on the canon shelf / vault behind the FOUNDER dials.
 
-FOUNDER tier: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
-each stage gated by user review. Stage functions are mode-invariant.
+File / audio door: run_stage1/2/3() — Scribe → Thought Partner → What Is Related;
+each stage gated by user review; run_compiled() chains them for batch uploads.
+Stage functions are mode-invariant.
 
 Entry persistence is handled by the ingestion path in the calling route,
 not by this service. See: /docs/decisions/ (ADR forthcoming)
@@ -20,11 +23,11 @@ from core.models.type_hints import UserUID
 from core.services.dsl.grounding import active_goal_titles as fetch_active_goal_titles
 from core.services.dsl.grounding import goals_as_context
 from core.services.journal.instruction_loader import (
+    discussion_system_prompt,
     follow_up_system_prompt,
     stage1_system_prompt,
     stage2_system_prompt,
     stage3_system_prompt,
-    standard_system_prompt,
 )
 from core.services.llm_caller import LLMCallerProtocol
 from core.utils.exception_types import LLM_EXCEPTIONS
@@ -32,6 +35,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.ports.query_types import ShelvedBook
     from core.services.canon import CanonContext, CanonRetrievalService, CanonSource
     from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
     from core.services.goals_service import GoalsService
@@ -67,13 +71,14 @@ _STAGE3_MAX_TOKENS = 3000
 
 
 class JournalService:
-    """Orchestrates journal workflows for both tiers.
+    """Orchestrates journal workflows across both doors.
 
-    STANDARD: run_standard() — one-shot motivating response with context + graph hints.
-    FOUNDER:  run_stage1/2/3() — Scribe → Thought Partner → What Is Related.
+    Typed door: run_discussion() opens a user-led conversation, run_follow_up()
+    continues it. File/audio door: run_stage1/2/3() + run_compiled() (DNWF).
 
     Backend: UserEntryService (persistence); GoalsService/TasksService/HabitsService
-    (user-context summaries); LLMCaller (all AI responses).
+    (user-context summaries); CanonRetrievalService (shelf + vault grounding);
+    LLMCaller (all AI responses).
     """
 
     def __init__(
@@ -235,7 +240,12 @@ class JournalService:
     # Canon shelf (the "summon" dial)
     # ------------------------------------------------------------------
 
-    async def _maybe_summon_canon(self, raw_entry: str, summon: bool) -> CanonContext:
+    async def _maybe_summon_canon(
+        self,
+        raw_entry: str,
+        summon: bool,
+        resource_uids: list[str] | None = None,
+    ) -> CanonContext:
         """Resolve the canon context for a stage — THE single dial branch point.
 
         Fail-soft: dial off, no canon service (CORE tier / no embeddings), or a
@@ -243,12 +253,17 @@ class JournalService:
         proceeds as a normal journal. Graduating the dial to automatic later
         means changing only this method (consult prefs/heuristics here) — the
         call sites stay untouched.
+
+        ``resource_uids`` scopes the draw to the books the discussion picked
+        (C3 shelf checkboxes → ``retrieve(resource_uids=...)``); ``None`` draws
+        the whole shelf (the DNWF stage/compile default). ``summon`` is still
+        the master switch — an off dial returns empty regardless of scope.
         """
         from core.services.canon import CanonContext
 
         if not summon or self._canon is None:
             return CanonContext.empty()
-        result = await self._canon.retrieve(raw_entry)
+        result = await self._canon.retrieve(raw_entry, resource_uids=resource_uids)
         return result.value if result.is_ok else CanonContext.empty()
 
     async def _maybe_summon_vault(
@@ -267,6 +282,19 @@ class JournalService:
             return CanonContext.empty()
         result = await self._canon.retrieve_vault(query_text, user_uid)
         return result.value if result.is_ok else CanonContext.empty()
+
+    async def list_canon_shelf(self) -> Result[list[ShelvedBook]]:
+        """List the books on the canon shelf for the discussion source picker.
+
+        Returns an empty list (not an error) when no canon service is wired
+        (CORE tier / no embeddings) — the composer simply renders no picker.
+        The route calls this only for FOUNDERs (the canon dial's entitlement).
+
+        Backend: CanonRetrievalService.list_shelf.
+        """
+        if self._canon is None:
+            return Result.ok([])
+        return await self._canon.list_shelf()
 
     # ------------------------------------------------------------------
     # Stage 1 — Scribe
@@ -402,36 +430,62 @@ class JournalService:
         return Result.ok(result.value + merged_attribution_footer(canon, vault))
 
     # ------------------------------------------------------------------
-    # Standard workflow
+    # Discussion (first message of an open, user-led conversation)
     # ------------------------------------------------------------------
 
-    async def run_standard(
+    async def run_discussion(
         self,
         raw_entry: str,
         user_uid: UserUID,
         mode: JournalMode | None = None,
-    ) -> Result[str]:
-        """STANDARD tier: single response in the requested JournalMode.
+        summon_canon: bool = False,
+        summon_vault: bool = False,
+        canon_book_uids: list[str] | None = None,
+    ) -> Result[JournalFollowUp]:
+        """Open a journal discussion on the user's first typed message.
 
-        JournalMode selects the function (SCRIBE / THOUGHT_PARTNER / WHAT_IS_RELATED).
-        Defaults to THOUGHT_PARTNER when not supplied.
+        The discussion-first entry point (replaces the removed ``run_standard``):
+        a companion voice that lets the user lead, with no imposed analysis
+        template. UserContext is always-on grounding; ``summon_canon`` /
+        ``summon_vault`` are the FOUNDER dials the route gates server-side.
+
+        Like ``run_follow_up`` (its continuation sibling), it is a
+        quote-on-demand surface (ADR-076): a summoned corpus is injected via
+        ``to_discussion_block()`` so the model may name and quote it.
+        ``canon_book_uids`` scopes the shelf draw to the books the composer's
+        checkboxes selected (C3); ``None`` / empty with the dial on draws the
+        whole shelf. Returns a ``JournalFollowUp`` — reply text plus structured
+        ``sources`` the route renders as clickable citations (canon books +
+        vault notes). Fail-soft: no grounding → empty ``sources``, and a vault
+        miss keeps the shallow note digest.
 
         Backend: GoalsService, TasksService, HabitsService (context summary);
-                 LLMCaller (response generation).
+                 CanonRetrievalService (shelf + vault); LLMCaller (response).
         """
-        context_summary = await self._build_context_summary(user_uid)
-        system_prompt = standard_system_prompt(context_summary, mode)
-        user_message = f"# Daily Note\n\n{raw_entry}\n\nPlease respond as my journal companion."
+        canon = await self._maybe_summon_canon(raw_entry, summon_canon, canon_book_uids)
+        vault = await self._maybe_summon_vault(raw_entry, user_uid, summon_vault)
+        context_summary = await self._build_context_summary(
+            user_uid, include_vault_notes=not vault.has_passages
+        )
+        system_prompt = discussion_system_prompt(
+            context_summary, mode, canon.to_discussion_block(), vault.to_discussion_block()
+        )
+        user_message = raw_entry
         try:
-            return await self._llm.generate(
+            result = await self._llm.generate(
                 prompt=user_message,
                 model=self._resolve_model(),
                 system_prompt=system_prompt,
                 max_tokens=_MAX_TOKENS,
             )
         except LLM_EXCEPTIONS as exc:
-            logger.error("Journal standard response LLM error: %s", exc)
+            logger.error("Journal discussion LLM error: %s", exc)
             return Result.fail(Errors.integration("llm", f"Journal response failed: {exc}"))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            JournalFollowUp(text=result.value, sources=canon.sources() + vault.sources())
+        )
 
     # ------------------------------------------------------------------
     # Compiled output
@@ -506,6 +560,7 @@ class JournalService:
         mode: JournalMode | None = None,
         summon_canon: bool = False,
         summon_vault: bool = False,
+        canon_book_uids: list[str] | None = None,
     ) -> Result[JournalFollowUp]:
         """Respond to the user's follow-up without re-running the full analysis template.
 
@@ -518,7 +573,10 @@ class JournalService:
         user's *question* (``user_reply``, not the raw entry) are injected via
         ``to_discussion_block()`` so the model may name + quote the shelf.
         ``summon_vault`` (canon P3) does the same with the user's own
-        non-private vault notes, keyed on the same question. Returns a
+        non-private vault notes, keyed on the same question. ``canon_book_uids``
+        carries the discussion's book scope (the composer's C3 selection)
+        forward so follow-ups stay scoped to the same shelf the session opened
+        on; ``None`` draws the whole shelf. Returns a
         ``JournalFollowUp`` — the reply text plus structured ``sources``
         (books + notes, concatenated) the route renders as clickable links
         (not a markdown footer, which a plain-text bubble would show
@@ -529,7 +587,7 @@ class JournalService:
                  CanonRetrievalService (shelf + vault); LLMCaller (response
                  generation).
         """
-        canon = await self._maybe_summon_canon(user_reply, summon_canon)
+        canon = await self._maybe_summon_canon(user_reply, summon_canon, canon_book_uids)
         vault = await self._maybe_summon_vault(user_reply, user_uid, summon_vault)
         context_summary = await self._build_context_summary(
             user_uid, include_vault_notes=not vault.has_passages

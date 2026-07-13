@@ -140,3 +140,48 @@ class TestFailOpen:
             [0.1], limit=5, threshold=0.5, resource_uids=["resource.hms"]
         )
         assert hits == []
+
+
+class TestListShelvedBooks:
+    """The shelf's membership read — distinct Resources owning ≥1 reference chunk."""
+
+    @pytest.mark.asyncio
+    async def test_returns_distinct_title_ordered_books(self):
+        conn = FakeConnection(
+            rows=[
+                {"resource_uid": "resource.a", "title": "Antifragile"},
+                {"resource_uid": "resource.h", "title": "Hypermedia Systems"},
+            ]
+        )
+        adapter = Neo4jReferenceChunkAdapter(conn)
+
+        books = await adapter.list_shelved_books()
+
+        assert books == [
+            {"resource_uid": "resource.a", "title": "Antifragile"},
+            {"resource_uid": "resource.h", "title": "Hypermedia Systems"},
+        ]
+        query, _ = conn.calls[0]
+        assert "HAS_REFERENCE_CHUNK" in query
+        assert "DISTINCT" in query
+        assert "ORDER BY title" in query
+
+    @pytest.mark.asyncio
+    async def test_missing_title_coerced_to_empty_string(self):
+        conn = FakeConnection(rows=[{"resource_uid": "resource.x", "title": None}])
+        adapter = Neo4jReferenceChunkAdapter(conn)
+
+        books = await adapter.list_shelved_books()
+
+        assert books == [{"resource_uid": "resource.x", "title": ""}]
+
+    @pytest.mark.asyncio
+    async def test_read_error_fails_open_to_empty(self):
+        from neo4j.exceptions import ServiceUnavailable
+
+        class BrokenConnection:
+            async def execute_query(self, query: str, params: dict[str, Any]) -> None:
+                raise ServiceUnavailable("down")
+
+        adapter = Neo4jReferenceChunkAdapter(BrokenConnection())
+        assert await adapter.list_shelved_books() == []

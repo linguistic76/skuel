@@ -2729,6 +2729,19 @@ class ReferenceChunkHit(TypedDict):
     book_title: str
 
 
+class ShelvedBook(TypedDict):
+    """One book on the canon shelf — the discussion source-picker's row shape.
+
+    "On the shelf" = a :Resource with at least one :ReferenceChunk (chunked =
+    shelved). Return shape for ``list_shelved_books()``; the journal discussion
+    composer renders one checkbox per row (``resource_uid`` is the value fed to
+    ``retrieve(resource_uids=...)``, ``title`` is the label).
+    """
+
+    resource_uid: str
+    title: str
+
+
 class RequiredKnowledgeResult(TypedDict):
     """Return shape for ExerciseBackend.get_required_knowledge()."""
 

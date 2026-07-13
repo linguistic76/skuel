@@ -27,8 +27,8 @@ three-stage Daily Notes Workflow (DNWF) with user review between stages.
 | Stage 2 — Thought Partner | `run_stage2(raw_entry, scribe_output, review_notes, user_uid)` | 4 instruction files + context digest | 4000 |
 | Stage 3 — What Is Related | `run_stage3(raw_entry, thought_partner_output, review_notes, user_uid)` | `dnwf 1.md` + context digest | 3000 |
 | Compiled (file upload) | `run_compiled(raw_entry, user_uid, summon_canon=False, summon_vault=False)` | Chains stage1 → stage2 → stage3; returns single markdown doc. `summon_canon` / `summon_vault` carry the grounding dials (no review gate on this path) | — |
-| Standard (any mode) | `run_standard(raw_entry, user_uid, mode)` | Inline strings in `instruction_loader.py` | 4000 |
-| Follow-up (conversation continuation) | `run_follow_up(...) -> Result[JournalFollowUp]` (`…, mode, summon_canon=False, summon_vault=False`) | `follow_up_system_prompt()` — mode base + continuation directive. The **quote-on-demand** surface (ADR-076): each dial (FOUNDER-gated server-side) retrieves on `user_reply` and injects its `to_discussion_block()` (name + quote verbatim, faithfulness contract) — canon shelf and/or the user's vault-minus-private (canon P3). Returns `JournalFollowUp(text, sources)` with canon + vault sources concatenated; kind-aware clickable links in `FollowUpFragment` (Resource page / `/gradebook/{uid}`) | 4000 |
+| Discussion (typed first message) | `run_discussion(raw_entry, user_uid, mode=None, summon_canon=False, summon_vault=False, canon_book_uids=None) -> Result[JournalFollowUp]` | `discussion_system_prompt()` — companion voice, user leads, no forced headings (same family as follow-up). The **typed door** for BOTH tiers (ruling: typed = discussion; DNWF staging lives on the file/audio door). UserContext always-on; `summon_canon`/`summon_vault` are FOUNDER dials the route gates server-side. Quote-on-demand (`to_discussion_block()`); `canon_book_uids` scopes the shelf draw to the composer's checked books (C3). Returns `JournalFollowUp(text, sources)`; `StandardResponseFragment` renders the sources block | 4000 |
+| Follow-up (conversation continuation) | `run_follow_up(...) -> Result[JournalFollowUp]` (`…, mode, summon_canon=False, summon_vault=False, canon_book_uids=None`) | `follow_up_system_prompt()` — mode base + continuation directive. The **quote-on-demand** surface (ADR-076): each dial (FOUNDER-gated server-side) retrieves on `user_reply` and injects its `to_discussion_block()` (name + quote verbatim, faithfulness contract) — canon shelf and/or the user's vault-minus-private (canon P3). `canon_book_uids` carries the session's book scope forward. Returns `JournalFollowUp(text, sources)` with canon + vault sources concatenated; kind-aware clickable links in `FollowUpFragment` (Resource page / `/gradebook/{uid}`) | 4000 |
 | Suggested activities (panel) | `suggest_activities(content, user_uid)` | LLM bridge (`transform_with_context`) → `@context()` lines re-rendered to checkbox DSL via `suggestion.py` (bridge tags preserved verbatim) | — |
 
 FOUNDER stages run in sequence and are gated at the route layer (`journal_tier.is_founder()`).
@@ -44,8 +44,8 @@ without interactive review, producing a single markdown document with all three 
 
 2. **Mode-invariance of stage logic** — the three FOUNDER stage functions (`stage1_system_prompt`,
    `stage2_system_prompt`, `stage3_system_prompt`) are not parameterized by JournalMode.
-   `JournalMode` shapes the STANDARD tier's inline system prompt; it is not exposed as a user
-   choice in the upload form (no mode selector). The FOUNDER stages are always Scribe → Thought
+   `JournalMode` nudges the discussion/follow-up voice; it is not exposed as a user
+   choice in the composer (no mode selector). The FOUNDER stages are always Scribe → Thought
    Partner → What Is Related regardless of mode.
 
 3. **File-driven FOUNDER prompts** — `instruction_loader.py` loads from `data/instructions/`.
@@ -100,11 +100,12 @@ async def journal_stage1(request: Request) -> FT:
     return stage1_output_fragment(result.value)
 ```
 
-### Extending STANDARD with a new JournalMode
+### Extending the discussion / follow-up voice with a new JournalMode
 
 1. Add the value to `JournalMode` in `core/models/enums/user_enums.py`.
 2. Add a `from_string()` alias if needed.
-3. Add a branch in `_standard_base_for_mode()` in `instruction_loader.py`.
+3. Add a branch in `_discussion_base()` (first message) and/or `_follow_up_base()`
+   (continuation) in `instruction_loader.py`.
 4. Optionally add a `journal_mode_addendum()` branch for upload-pipeline hints.
 
 ### Modifying Stage 2 prompt

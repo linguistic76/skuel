@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, TypedDict, runtime_checkable
 
 if TYPE_CHECKING:
-    from core.ports.query_types import ReferenceChunkHit
+    from core.ports.query_types import ReferenceChunkHit, ShelvedBook
 
 
 class BatchChunkingCandidate(TypedDict):
@@ -120,5 +120,16 @@ class ReferenceChunkSearchOperations(Protocol):
             joined to its owning :Resource (book). Empty on no match, empty
             scope, or read error (fails open — a canon miss must never break
             the caller's session).
+        """
+        ...
+
+    async def list_shelved_books(self) -> list[ShelvedBook]:
+        """List every book on the canon shelf (title-ordered) for the source picker.
+
+        "On the shelf" = a :Resource with at least one :ReferenceChunk (chunked =
+        shelved). Powers the journal discussion composer's per-book checkboxes,
+        whose values feed ``retrieve(resource_uids=...)``. Fails open (empty list
+        on read error) — a missing shelf must degrade to no picker, never break
+        the page.
         """
         ...

@@ -115,3 +115,32 @@ class TestFollowUpSummonGate:
         assert kwargs["summon_vault"] is False
         # No summon requested → no user lookup spent on the common path.
         user_service.get_user.assert_not_awaited()
+
+
+class TestFollowUpCanonBookScope:
+    def test_selected_books_thread_through_as_list(self) -> None:
+        client, journal, _ = _client_for(is_founder=True)
+
+        _post_follow_up(client, {"summon_canon": "true", "canon_book_uids": "res_a,res_b"})
+
+        kwargs = journal.run_follow_up.await_args.kwargs
+        assert kwargs["canon_book_uids"] == ["res_a", "res_b"]
+
+    def test_empty_scope_means_whole_shelf_not_empty_list(self) -> None:
+        # An empty CSV with the dial ON must draw the WHOLE shelf (None), never
+        # [] — an empty resource_uids list is a guaranteed miss in retrieve().
+        client, journal, _ = _client_for(is_founder=True)
+
+        _post_follow_up(client, {"summon_canon": "true", "canon_book_uids": ""})
+
+        kwargs = journal.run_follow_up.await_args.kwargs
+        assert kwargs["canon_book_uids"] is None
+
+    def test_book_scope_ignored_when_canon_dial_off(self) -> None:
+        client, journal, _ = _client_for(is_founder=True)
+
+        _post_follow_up(client, {"canon_book_uids": "res_a"})
+
+        kwargs = journal.run_follow_up.await_args.kwargs
+        assert kwargs["summon_canon"] is False
+        assert kwargs["canon_book_uids"] is None

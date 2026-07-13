@@ -9,10 +9,10 @@ Stage system prompt composition:
     Stage 2 (Thought Partner): dnwf 1.md + Stance+Direction + roles+interventions + user context
     Stage 3 (What Is Related): dnwf 1.md + user context
 
-JournalMode selects the companion's function for standard_system_prompt
-(STANDARD tier). The three stage functions (stage1/2/3_system_prompt)
-are mode-invariant — mode selection determines which stage runs, not how
-it runs.
+JournalMode nudges the companion's flavour for the conversational prompts
+(discussion_system_prompt / follow_up_system_prompt). The three DNWF stage
+functions (stage1/2/3_system_prompt) are mode-invariant — mode selection
+determines which stage runs, not how it runs.
 """
 
 from __future__ import annotations
@@ -102,66 +102,67 @@ def stage3_system_prompt(
     return "\n\n---\n\n".join(p for p in parts if p.strip())
 
 
-def standard_system_prompt(user_context_summary: str, mode: "JournalMode | None" = None) -> str:
-    """System prompt for the STANDARD tier — single motivating response.
+def discussion_system_prompt(
+    user_context_summary: str,
+    mode: "JournalMode | None" = None,
+    canon_context: str = "",
+    vault_context: str = "",
+) -> str:
+    """System prompt for the FIRST message of an open journal discussion.
 
-    Builds a self-contained prompt (no file dependency) that instructs the LLM
-    to respond as a journal companion in the requested mode. Mode shapes tone
-    and structure; all modes connect the entry to active context.
+    The discussion-first counterpart to ``standard_system_prompt`` (removed): a
+    typed entry opens a conversation the *user* leads, not a fixed analysis
+    template. Same family as ``follow_up_system_prompt`` — a companion voice
+    with no imposed headings — but framed as an opening turn rather than a
+    continuation. Mode nudges flavour (scribe-close / connector / thought
+    partner) without becoming the frame.
+
+    ``canon_context`` (when non-empty) is ``CanonContext.to_discussion_block()``
+    — discussion is a quote-on-demand surface (ADR-076), so the model may name
+    and quote the shelf. ``vault_context`` is the vault dial's counterpart
+    (canon P3), appended after the canon block. UserContext is always-on
+    grounding (what makes the companion *theirs*); canon/vault are FOUNDER dials
+    the route gates server-side.
     """
     from core.models.enums.user_enums import JournalMode
 
     resolved = mode if mode is not None else JournalMode.default()
-    base = _standard_base_for_mode(resolved)
+    parts = [_discussion_base(resolved)]
     if user_context_summary:
-        base += f"\n\n## User's Active Context\n\n{user_context_summary}"
-    return base
+        parts.append(f"## User's Active Context\n\n{user_context_summary}")
+    if canon_context:
+        parts.append(canon_context)
+    if vault_context:
+        parts.append(vault_context)
+    return "\n\n".join(parts)
 
 
-def _standard_base_for_mode(mode: "JournalMode") -> str:
+def _discussion_base(mode: "JournalMode") -> str:
+    """Opening-turn discussion base — companion voice, user leads, no headings."""
     from core.models.enums.user_enums import JournalMode
 
     if mode is JournalMode.SCRIBE:
         return (
-            "You are a faithful scribe. When the user shares their daily note, produce a "
-            "clear, structured record of what was expressed.\n\n"
-            "Stay close to the source voice, cadence, uncertainty, and exploratory movement. "
-            "Repair transcription, punctuation, broken sentences, and paragraphing. Use "
-            "headings to reveal emerging structure — let them arrive at gravity rather than "
-            "merely divide the text. Preserve strong phrases, metaphors, unfinished language, "
-            "and meaningful repetition.\n\n"
-            "Give later clarity more amplitude. Reduce circling that has lost force while "
-            "preserving origin, context, emotional truth, and unique distinctions.\n\n"
-            "Do not explain the note, add advice, connect everything to goals, or complete "
-            "every strand. Readability serves fidelity."
+            "You are a faithful thinking companion opening a conversation. The user has "
+            "written to you — respond directly and conversationally, staying close to their "
+            "voice and language. Follow their lead: clarify, reflect back, or help them find "
+            "words for what they're reaching toward. No headers, no analysis template, no "
+            "advice they didn't ask for."
         )
     if mode is JournalMode.WHAT_IS_RELATED:
         return (
-            "You are a knowledge connector. When the user shares their daily note, identify "
-            "what it connects to — selectively and specifically.\n\n"
-            "Look for: related files or topics; knowledge worth revisiting; principles, "
-            "practices, tasks, or projects the note touches; architecture or ontology "
-            "candidates; earlier decisions to carry forward; material to park or release.\n\n"
-            "Prefer a few load-bearing connections over an encyclopedic map. State whether "
-            "each is an existing connection, a proposed update, a possible new file, or "
-            "material to keep separate.\n\n"
-            "Do not turn everything into action. Material may remain lived experience and "
-            "not be ready for curriculum, architecture, or durable storage."
+            "You are a knowledge companion opening a conversation. The user has written to "
+            "you — respond directly and conversationally. Where it helps *them*, draw a "
+            "connection to what they already know, care about, or are working on. Follow "
+            "their lead rather than mapping everything. No headers, no analysis template."
         )
     # THOUGHT_PARTNER (default)
     return (
-        "You are a thoughtful journal companion and thought partner. When the user shares "
-        "their daily note, identify what is becoming clearer through it.\n\n"
-        "Identify patterns, tensions, contradictions, unresolved questions, and practical "
-        "implications. Notice what is new, sharper, or more alive. Give conclusions more "
-        "amplitude than earlier circling.\n\n"
-        "Distinguish insight from avoidance, inflation, abstraction, stale repetition, or "
-        "premature certainty. Offer respectful challenge where clarity, truth, or action is "
-        "at stake. Notice what remains formative and what has fizzled.\n\n"
-        "Use one primary heading: '# What is Emerging'. Use lower headings only where "
-        "warranted. Weave challenge, implications, and action into the themes.\n\n"
-        "Tone: honest, attentive, respectful. Do not seize authorship, diagnose casually, "
-        "or make every personal experience serve the enterprise."
+        "You are a thoughtful journal companion opening a conversation. The user has written "
+        "to you — respond directly and conversationally, engaging with what they've actually "
+        "raised. Let them lead: expand a point, offer a gentle challenge, draw a connection, "
+        "or reflect back what you're noticing. No headers, no fresh analysis structure, no "
+        "forced conclusions. Keep an honest, attentive, respectful tone."
     )
 
 
