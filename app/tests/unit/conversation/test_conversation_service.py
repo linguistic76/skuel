@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock
 
 from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ConversationSession
 from core.services.conversation import ConversationService
-from core.utils.result_simplified import ErrorCategory, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 
 def _session_row(session_id: str = "cs_abc123abc123", user_uid: str = "user_mike") -> dict:
@@ -111,6 +111,54 @@ class TestAppendExchange:
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestSaveTranscript:
+    async def test_creates_session_then_appends_each_pair(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.save_transcript(
+            "user_mike",
+            CONVERSATION_KIND_DISCUSSION,
+            "Saved chat",
+            "{}",
+            [("u1", "a1"), ("u2", "a2")],
+        )
+
+        assert result.is_ok
+        assert isinstance(result.value, ConversationSession)
+        backend.create_session.assert_awaited_once()
+        assert backend.append_exchange.await_count == 2
+
+    async def test_empty_transcript_is_validation_error_no_write(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [])
+
+        assert result.is_error
+        assert result.expect_error().category == ErrorCategory.VALIDATION
+        backend.create_session.assert_not_awaited()
+
+    async def test_append_failure_rolls_back_the_session(self) -> None:
+        # All-or-nothing: a mid-loop append failure deletes the just-created
+        # session so the store never shows a truncated discussion (Codex #638 P2).
+        backend = _backend(
+            append_exchange=AsyncMock(
+                return_value=Result.fail(Errors.database("append_exchange", "boom"))
+            )
+        )
+        service = ConversationService(backend)
+
+        result = await service.save_transcript("user_mike", "discussion", "t", "{}", [("u1", "a1")])
+
+        assert result.is_error
+        # The partial session is rolled back with the same owner scope.
+        backend.delete_session.assert_awaited_once()
+        sid, uid = backend.delete_session.await_args.args
+        assert uid == "user_mike"
+        assert sid.startswith("cs_")
 
 
 class TestReadPaths:

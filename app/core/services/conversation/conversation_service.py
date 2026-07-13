@@ -136,6 +136,13 @@ class ConversationService:
         Returns the created session so the caller can bind the composer to its
         ``session_id`` and add its revisit row.
 
+        **All-or-nothing.** The promotion is a whole-transcript invariant, so if
+        any append fails midway the just-created session (with any turns written
+        so far) is rolled back via ``delete_session`` before the failure returns —
+        the revisit store never surfaces an empty or truncated discussion (Codex
+        #638 P2). The compensating delete is best-effort; a cleanup miss is logged
+        but the original failure is still what the caller sees.
+
         An empty transcript is a validation error — there is nothing to save, and
         (per ADR-078 §7 guard 7) an unsaved discussion must create zero nodes, so
         we never create a session with no turns.
@@ -151,6 +158,14 @@ class ConversationService:
                 session.session_id, user_uid, user_content, assistant_content
             )
             if appended.is_error:
+                cleanup = await self.delete_session(session.session_id, user_uid)
+                if cleanup.is_error:
+                    logger.error(
+                        "Rollback of partial discussion %s for %s failed: %s",
+                        session.session_id,
+                        user_uid,
+                        cleanup.expect_error(),
+                    )
                 return Result.fail(appended)
         logger.info(
             "Saved discussion %s for %s (%d turn pairs)",
