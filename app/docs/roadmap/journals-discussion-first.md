@@ -1,7 +1,8 @@
 # Journals Discussion-First — Design & Choices
 
-**Status:** Draft — fundamental workflow rulings settled with the founder 2026-07-12;
-implementation choices below awaiting confirmation. This document is the arc's source of truth.
+**Status:** Confirmed — fundamental workflow rulings settled with the founder 2026-07-12;
+choices C1–C6 and the P1 → P2 → P3 phasing confirmed by the founder the same day
+(C1 = Option A, Neo4j sessions/turns). This document is the arc's source of truth.
 **Related:** ADR-073 (journals zero-persistence), ADR-076 (canon quotation & citation),
 ADR-077 (scoped canon retrieval), `docs/roadmap/conversation-neo4j-persistence-deferred.md`
 (deferred Askesis conversation storage — reuse candidate).
