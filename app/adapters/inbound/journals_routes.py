@@ -590,6 +590,104 @@ async def _run_batch_over_dir(
 
 
 # ---------------------------------------------------------------------------
+# Discussion persistence helpers (ADR-078) — typed /journals/start door
+# ---------------------------------------------------------------------------
+
+
+async def _append_turn_pair(
+    conversation_service: Any,
+    *,
+    session_id: str,
+    user_uid: str,
+    user_text: str,
+    assistant_text: str,
+) -> Any:
+    """Append a user turn then the assistant turn to an owned session.
+
+    Returns ``Result[None]``; propagates the first backend failure (a non-owner
+    session surfaces as not-found from ``append_turn``).
+    """
+    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+    from core.utils.result_simplified import Result
+
+    user_turn = await conversation_service.append_turn(session_id, user_uid, ROLE_USER, user_text)
+    if user_turn.is_error:
+        return Result.fail(user_turn)
+    assistant_turn = await conversation_service.append_turn(
+        session_id, user_uid, ROLE_ASSISTANT, assistant_text
+    )
+    if assistant_turn.is_error:
+        return Result.fail(assistant_turn)
+    return Result.ok(None)
+
+
+async def _create_discussion_session(
+    conversation_service: Any,
+    *,
+    user_uid: str,
+    title: str,
+    canon_book_uids: list[str],
+    summon_vault: bool,
+    raw_entry: str,
+    ai_text: str,
+) -> Any:
+    """Create an owner-private discussion session + its opening turn pair.
+
+    Records the opening source selection (canon shelf books + vault toggle) as
+    JSON so a continued session can restore it (C3, consumed in P3). Returns
+    ``Result[str]`` (the session id) or the first backend failure.
+    """
+    import json
+
+    from core.models.conversation import CONVERSATION_KIND_DISCUSSION
+    from core.utils.result_simplified import Result
+
+    source_selection = json.dumps({"canon": list(canon_book_uids), "vault": bool(summon_vault)})
+    created = await conversation_service.create_session(
+        user_uid, CONVERSATION_KIND_DISCUSSION, title, source_selection
+    )
+    if created.is_error:
+        return Result.fail(created)
+    session_id = created.value.session_id
+    appended = await _append_turn_pair(
+        conversation_service,
+        session_id=session_id,
+        user_uid=user_uid,
+        user_text=raw_entry,
+        assistant_text=ai_text,
+    )
+    if appended.is_error:
+        return Result.fail(appended)
+    return Result.ok(session_id)
+
+
+def _history_to_follow_up_context(turns: list[Any]) -> tuple[str, str]:
+    """Reconstruct ``(original_entry, ai_response)`` for ``run_follow_up`` from turns.
+
+    Replaces the deleted client-side accumulator with the Neo4j turn history:
+    ``ai_response`` is the most recent assistant turn (the "previous response");
+    ``original_entry`` is a rendered transcript of everything before it. A
+    session always opens with a user/assistant pair, so both are populated.
+    """
+    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+    if not turns:
+        return "", ""
+    split = len(turns)
+    ai_response = ""
+    for index in range(len(turns) - 1, -1, -1):
+        if turns[index].role == ROLE_ASSISTANT:
+            ai_response = turns[index].content
+            split = index
+            break
+    rendered = "\n\n".join(
+        f"# {'You' if turn.role == ROLE_USER else 'Journal'}\n\n{turn.content}"
+        for turn in turns[:split]
+    )
+    return rendered, ai_response
+
+
+# ---------------------------------------------------------------------------
 # Route factory
 # ---------------------------------------------------------------------------
 
@@ -607,6 +705,12 @@ def create_journals_routes(
     user_entry_service = services.user_entry
     batch_transcription_service = services.batch_transcription
     processing_service = services.user_entry_processor
+    # ADR-078 discussion store — tier-independent (present in CORE and FULL), but
+    # only reached at FULL tier since /journals/start requires journal_service.
+    assert services.conversation is not None, (
+        "ConversationService must be wired before journals routes"
+    )
+    conversation_service = services.conversation
 
     # ------------------------------------------------------------------
     # GET /journals — landing page
@@ -734,10 +838,34 @@ def create_journals_routes(
             )
             return _err("Could not generate a response. Please try again.")
 
+        ai_text = ai_result.value.text
+
+        # Persist the discussion (ADR-078): create the owner-private session, then
+        # the opening user/assistant turn pair. The session records the opening
+        # source selection so a continued session (P3) can restore it. Only after
+        # a successful LLM response — a failed discussion leaves no session.
+        session_result = await _create_discussion_session(
+            conversation_service,
+            user_uid=user_uid,
+            title=title,
+            canon_book_uids=canon_book_uids,
+            summon_vault=summon_vault,
+            raw_entry=raw_entry,
+            ai_text=ai_text,
+        )
+        if session_result.is_error:
+            logger.error(
+                "journals_start could not persist discussion for %s: %s",
+                user_uid,
+                session_result.expect_error(),
+            )
+            return _err("Could not save your discussion. Please try again.")
+
         workspace = StandardResponseFragment(
             raw_entry=raw_entry,
             title=title,
-            response_output=ai_result.value.text,
+            response_output=ai_text,
+            session_id=session_result.value,
             mode=JournalMode.default(),
             is_founder=is_founder,
             sources=ai_result.value.sources,
@@ -1232,9 +1360,10 @@ def create_journals_routes(
     @csrf_protected
     async def journals_follow_up(
         request: Request,
-        original_entry: str,
-        ai_response: str,
         user_reply: str,
+        session_id: str = "",
+        original_entry: str = "",
+        ai_response: str = "",
         title: str = "",
         journal_mode: str = "",
         summon_canon: bool = False,
@@ -1243,13 +1372,19 @@ def create_journals_routes(
     ) -> Any:
         """Continue a journal conversation.
 
-        Builds combined context from the previous exchange and calls
-        run_follow_up() so the model responds to the follow-up, not the
-        original note alone.
+        Two memory models, selected by ``session_id`` (ADR-078):
 
-        Returns FollowUpFragment: two chat bubbles appended to #journal-thread
-        plus OOB inputs that update the hidden context fields in #journal-composer.
-        The conversation thread grows without replacing the workspace.
+        - **Session-backed** (``session_id`` set — the typed ``/journals/start``
+          door): prior turns are read from Neo4j (owner-checked — a non-owner
+          session is 404-not-403), context is rebuilt from them, and the new
+          user/assistant pair is appended. No client-side accumulator.
+        - **Stateless** (no ``session_id`` — the file-output / DNWF-stage-3
+          doors, zero-persistence until P3): context comes from the
+          ``original_entry`` / ``ai_response`` hidden fields and grows via OOB
+          swaps, exactly as before.
+
+        Returns FollowUpFragment: chat bubbles appended to #journal-thread (plus
+        the OOB accumulator inputs only on the stateless path).
 
         ``canon_book_uids`` is a CSV of the shelf books the discussion opened on
         (the composer carries it as a hidden field) — it keeps follow-ups scoped
@@ -1290,10 +1425,63 @@ def create_journals_routes(
         )
 
         mode = JournalMode.from_string(journal_mode)
+        reply = user_reply.strip()
+
+        # Session-backed path: rebuild context from stored turns (owner-checked).
+        if session_id:
+            turns_result = await conversation_service.get_turns(session_id, user_uid)
+            if turns_result.is_error:
+                # 404-not-403: a missing OR not-owned session is indistinguishable.
+                logger.warning(
+                    "Follow-up on inaccessible session %s for %s: %s",
+                    session_id,
+                    user_uid,
+                    turns_result.expect_error(),
+                )
+                return FollowUpErrorFragment("This discussion could not be found.")
+            prior_entry, prior_ai = _history_to_follow_up_context(turns_result.value)
+            result = await journal_service.run_follow_up(
+                original_entry=prior_entry,
+                ai_response=prior_ai,
+                user_reply=reply,
+                user_uid=user_uid,
+                mode=mode,
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
+                canon_book_uids=book_uids,
+            )
+            if result.is_error:
+                logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
+                return FollowUpErrorFragment("Could not generate a response. Please try again.")
+            ai_text = result.value.text
+            appended = await _append_turn_pair(
+                conversation_service,
+                session_id=session_id,
+                user_uid=user_uid,
+                user_text=reply,
+                assistant_text=ai_text,
+            )
+            if appended.is_error:
+                logger.error(
+                    "Could not persist follow-up turns for session %s: %s",
+                    session_id,
+                    appended.expect_error(),
+                )
+                return FollowUpErrorFragment("Could not save your message. Please try again.")
+            # combined=None → session-backed fragment (no OOB accumulator).
+            return FollowUpFragment(
+                user_reply=reply,
+                ai_text=ai_text,
+                title=title.strip(),
+                mode=mode,
+                sources=result.value.sources,
+            )
+
+        # Stateless path (file-output / DNWF doors) — context from hidden fields.
         result = await journal_service.run_follow_up(
             original_entry=original_entry.strip(),
             ai_response=ai_response.strip(),
-            user_reply=user_reply.strip(),
+            user_reply=reply,
             user_uid=user_uid,
             mode=mode,
             summon_canon=summon_canon,
@@ -1308,15 +1496,15 @@ def create_journals_routes(
         combined = (
             f"{original_entry.strip()}"
             f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
-            f"\n\n---\n\n# Follow-up\n\n{user_reply.strip()}"
+            f"\n\n---\n\n# Follow-up\n\n{reply}"
         )
         return FollowUpFragment(
-            user_reply=user_reply.strip(),
+            user_reply=reply,
             ai_text=result.value.text,
-            combined=combined,
             title=title.strip(),
             mode=mode,
             sources=result.value.sources,
+            combined=combined,
         )
 
     # ------------------------------------------------------------------
