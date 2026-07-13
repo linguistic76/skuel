@@ -120,6 +120,46 @@ class ConversationService:
         user_turn, assistant_turn = appended.value
         return Result.ok((_turn_from_props(user_turn), _turn_from_props(assistant_turn)))
 
+    async def save_transcript(
+        self,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        pairs: list[tuple[str, str]],
+    ) -> Result[ConversationSession]:
+        """Promote an ephemeral transcript into a saved owner-private session (ADR-078 §5).
+
+        The single explicit *Save this chat* path: create the session, then
+        append each ``(user, assistant)`` pair in order via the atomic
+        ``append_exchange`` primitive — no bulk backend method, one write shape.
+        Returns the created session so the caller can bind the composer to its
+        ``session_id`` and add its revisit row.
+
+        An empty transcript is a validation error — there is nothing to save, and
+        (per ADR-078 §7 guard 7) an unsaved discussion must create zero nodes, so
+        we never create a session with no turns.
+        """
+        if not pairs:
+            return Result.fail(Errors.validation("Cannot save an empty discussion."))
+        created = await self.create_session(user_uid, kind, title, source_selection)
+        if created.is_error:
+            return Result.fail(created)
+        session = created.value
+        for user_content, assistant_content in pairs:
+            appended = await self.append_exchange(
+                session.session_id, user_uid, user_content, assistant_content
+            )
+            if appended.is_error:
+                return Result.fail(appended)
+        logger.info(
+            "Saved discussion %s for %s (%d turn pairs)",
+            session.session_id,
+            user_uid,
+            len(pairs),
+        )
+        return Result.ok(session)
+
     async def rename_session(self, session_id: str, user_uid: UserUID, title: str) -> Result[bool]:
         """Rename an owned session (False when absent / not owned).
 

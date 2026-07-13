@@ -130,6 +130,17 @@ class ConversationOperations(Protocol):
         """Append a user+assistant turn pair atomically (not-found on a non-owner)."""
         ...
 
+    async def save_transcript(
+        self,
+        user_uid: UserUID,
+        kind: str,
+        title: str,
+        source_selection: str,
+        pairs: list[tuple[str, str]],
+    ) -> Result[ConversationSession]:
+        """Promote an ephemeral transcript into a saved session (ADR-078 §5 opt-in Save)."""
+        ...
+
     async def rename_session(self, session_id: str, user_uid: UserUID, title: str) -> Result[bool]:
         """Rename an owned session (False when absent / not owned)."""
         ...

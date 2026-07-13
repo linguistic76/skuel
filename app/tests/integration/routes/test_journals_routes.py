@@ -5,12 +5,15 @@ return results *inline* / to the user's own `je_out/` folder — they write
 **nothing** to the understanding channel (`user_entry_service`), across STANDARD
 and FOUNDER tiers. That invariant is unchanged.
 
-ADR-078 narrows ADR-073's "zero persistence" for discussions only: the typed
-`POST /journals/start` door now persists an owner-private `:ConversationSession`
-+ its opening turn pair (for revisit/continue) — an understanding-agnostic store
-the wall proves the understanding paths never read. So a successful discussion
-persists to `conversation_service` (never to `user_entry_service`); a failed or
-empty one persists nothing anywhere.
+ADR-078 (as amended 2026-07-13) narrows ADR-073's "zero persistence" for
+discussions only, and persistence is **opt-in**: a discussion is ephemeral by
+default and reaches the owner-private `:ConversationSession` store ONLY through
+an explicit `POST /journals/save` (the *Save this chat* gesture). The typed
+`POST /journals/start` door persists **nothing** — it returns an ephemeral,
+client-side transcript (this reverts P2's create-on-first-reply auto-save;
+guard 7, ADR-078 §7). So a save persists to `conversation_service` (never to
+`user_entry_service`); opening or continuing a chat without saving persists
+nothing anywhere.
 
 No Neo4j required: services are mocked and only the handler logic is exercised.
 Mirrors the harness in `test_today_routes.py`.
@@ -156,6 +159,18 @@ def mock_services() -> Any:
     )
     services.conversation.append_exchange = AsyncMock(return_value=Result.ok(_pair))
     services.conversation.get_turns = AsyncMock(return_value=Result.ok([]))
+    # Save this chat (ADR-078 §5) — the only path into the store.
+    _saved_session = ConversationSession(
+        session_id="cs_saved0000001",
+        user_uid="user_mike",
+        kind="discussion",
+        started_at=_now,
+        last_activity=_now,
+        title="Saved chat",
+        source_selection="{}",
+    )
+    services.conversation.save_transcript = AsyncMock(return_value=Result.ok(_saved_session))
+    services.conversation.list_sessions = AsyncMock(return_value=Result.ok([_saved_session]))
     return services
 
 
@@ -188,17 +203,16 @@ def _assert_understanding_channel_untouched(services: Any) -> None:
     services.user_entry.submit_file.assert_not_awaited()
 
 
-def _assert_discussion_persisted(services: Any) -> None:
-    """A successful /journals/start persists the session + opening turn pair."""
-    services.conversation.create_session.assert_awaited_once()
-    # Opening user+assistant pair written atomically (one exchange).
-    services.conversation.append_exchange.assert_awaited_once()
-
-
 def _assert_no_discussion_persisted(services: Any) -> None:
-    """A failed or empty discussion leaves no session (ADR-078)."""
+    """No write to the store — the ADR-078 §7 guard-7 (opt-in) shape at the route.
+
+    Opening or continuing a chat never touches the store; only an explicit
+    ``/journals/save`` does. A create/append/save on any of these paths is the
+    P2 auto-save regression this arc reverts.
+    """
     services.conversation.create_session.assert_not_awaited()
     services.conversation.append_exchange.assert_not_awaited()
+    services.conversation.save_transcript.assert_not_awaited()
 
 
 def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "user_mike") -> Any:
@@ -263,7 +277,7 @@ class TestJournalsStartZeroPersistence:
             await handlers["/journals/start"](request=request)
         assert exc.value.status_code == 401
 
-    async def test_standard_opens_discussion_persists_session_not_understanding(
+    async def test_standard_opens_discussion_is_ephemeral_not_persisted(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         request = _make_request(form={"raw_entry": "What's on my mind today."})
@@ -280,10 +294,17 @@ class TestJournalsStartZeroPersistence:
         assert response.status_code == 200
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         assert response.headers["HX-Reswap"] == "outerHTML"
-        # ADR-078: the discussion persists to the conversation store, but the
-        # understanding channel stays silent.
-        _assert_discussion_persisted(mock_services)
+        # ADR-078 §5: ephemeral by default — opening a chat persists NOTHING (the
+        # transcript rides the response client-side until *Save this chat*).
+        _assert_no_discussion_persisted(mock_services)
         _assert_understanding_channel_untouched(mock_services)
+        # The opening transcript rides the composer as structured JSON (carrying
+        # both the user turn and the assistant reply), with the Save affordance.
+        html = response.body.decode()
+        assert 'name="transcript_json"' in html
+        assert "on my mind today" in html  # user turn is in the transcript
+        assert "A discussion response." in html  # assistant turn too
+        assert "Save this chat" in html
 
     async def test_founder_opens_discussion_not_dnwf_staging(
         self, handlers: dict[str, Any], mock_services: Any
@@ -297,7 +318,8 @@ class TestJournalsStartZeroPersistence:
         mock_services.journal.run_discussion.assert_awaited_once()
         mock_services.journal.run_stage1.assert_not_awaited()
         assert response.headers["HX-Retarget"] == "#journal-workspace"
-        _assert_discussion_persisted(mock_services)
+        # Ephemeral by default — even for FOUNDERs, opening persists nothing.
+        _assert_no_discussion_persisted(mock_services)
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_founder_shelf_selection_scopes_canon(
@@ -361,6 +383,65 @@ class TestJournalsStartZeroPersistence:
 
         # A failed discussion leaves no session (persist happens only post-LLM).
         _assert_no_discussion_persisted(mock_services)
+        _assert_understanding_channel_untouched(mock_services)
+
+
+class TestJournalsSaveOptIn:
+    """`POST /journals/save` is the ONLY path into the store (ADR-078 §5 opt-in)."""
+
+    async def test_save_persists_folded_pairs_not_understanding(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        import json
+
+        from fasthtml.common import to_xml
+
+        transcript = json.dumps(
+            [
+                {"role": "user", "content": "Opening thought."},
+                {"role": "assistant", "content": "A reply."},
+                {"role": "user", "content": "Follow up."},
+                {"role": "assistant", "content": "Another reply."},
+            ]
+        )
+        response = await handlers["/journals/save"](
+            request=_make_request(form={}),
+            transcript_json=transcript,
+            title="My chat",
+        )
+
+        # Saved via the single store path — the ordered transcript folds into
+        # (user, assistant) pairs; no LLM call, no understanding write.
+        mock_services.conversation.save_transcript.assert_awaited_once()
+        args, _ = mock_services.conversation.save_transcript.call_args
+        # positional: (user_uid, kind, title, source_selection, pairs)
+        assert args[2] == "My chat"
+        assert args[4] == [
+            ("Opening thought.", "A reply."),
+            ("Follow up.", "Another reply."),
+        ]
+        mock_services.journal.run_discussion.assert_not_awaited()
+        _assert_understanding_channel_untouched(mock_services)
+
+        # The composer is swapped for its session-backed shape ("Saved ✓"), and
+        # the saved chat is prepended to the revisit list via an OOB swap.
+        html = to_xml(response)
+        assert 'name="session_id"' in html
+        assert "Saved" in html
+        assert 'id="journal-discussions-panel"' in html
+        assert "hx-swap-oob" in html
+
+    async def test_save_empty_transcript_persists_nothing(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # An empty / whitespace transcript has no pairs to save — nothing reaches
+        # the store (guard 7: no session is created without real content).
+        await handlers["/journals/save"](
+            request=_make_request(form={}),
+            transcript_json="",
+            title="x",
+        )
+        mock_services.conversation.save_transcript.assert_not_awaited()
         _assert_understanding_channel_untouched(mock_services)
 
 

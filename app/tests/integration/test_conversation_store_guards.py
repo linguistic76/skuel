@@ -21,6 +21,13 @@ statements about *what actually lands in Neo4j*:
    understanding-agnostic by construction (ADR-078 §2); this proves it against the
    live graph, not just the source.
 
+Guard **7** (added 2026-07-13, ADR-078 §7 opt-in amendment) is the load-bearing
+"not saved by default" proof and lives here too: driving the REAL journals route
+handlers over the REAL store (LLM mocked), opening and continuing a discussion
+creates **zero** ``:ConversationSession`` / ``:ConversationTurn`` nodes — only an
+explicit ``POST /journals/save`` writes. It fails loudly if any door ever
+auto-creates a session again (the exact P2 regression this arc reverts).
+
 These drive the REAL ``ConversationService`` + ``ConversationBackend`` against the
 session-scoped Docker Neo4j container (``tests/integration/conftest.py``). The
 store is CORE-safe — no LLM, no embeddings — so nothing here needs API keys.
@@ -28,17 +35,42 @@ store is CORE-safe — no LLM, no embeddings — so nothing here needs API keys.
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.conversation_backend import ConversationBackend
 from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ROLE_ASSISTANT, ROLE_USER
 from core.services.conversation import ConversationService
-from core.utils.result_simplified import ErrorCategory
+from core.utils.result_simplified import ErrorCategory, Result
 
 # Two distinct owners — the whole point of guard 1 is cross-owner isolation.
 _OWNER = "user_test_conv_owner"
 _OTHER = "user_test_conv_other"
+
+
+def _journal_request(user_uid: str, form: dict[str, str]) -> Any:
+    """A minimal POST request the journals handlers can auth + read a form from."""
+    from starlette.datastructures import FormData
+
+    form_data = FormData(list(form.items()))
+
+    async def _form() -> FormData:
+        return form_data
+
+    return SimpleNamespace(
+        method="POST",
+        session={"user_uid": user_uid},
+        url=SimpleNamespace(path="/journals/save"),
+        query_params={},
+        form=_form,
+        cookies={},
+        headers={},
+    )
 
 
 @pytest.mark.asyncio
@@ -247,3 +279,131 @@ class TestConversationStoreGuards:
         # turns exist) and carries the expected roles.
         turns = (await conversation_service.get_turns(created.session_id, owner)).value
         assert [t.role for t in turns] == [ROLE_USER, ROLE_ASSISTANT]
+
+
+@pytest.mark.asyncio
+class TestOptInPersistenceGuard:
+    """ADR-078 §7 guard 7 — persistence is opt-in; only ``/journals/save`` writes.
+
+    Drives the REAL journals route handlers over the REAL store (only the LLM +
+    user lookup are mocked). Opening (``/journals/start``) and continuing
+    (``/journals/follow-up``) a discussion must leave the store empty; the single
+    explicit ``/journals/save`` is the only writer. This is the operational form
+    of "not saved by default" against a live graph.
+    """
+
+    @pytest_asyncio.fixture
+    async def owner_node(self, neo4j_driver, clean_neo4j):
+        """The owner :User (clean_neo4j preserves :User nodes between tests)."""
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MERGE (u:User {uid: $uid}) "
+                "ON CREATE SET u.title = $uid, u.created_at = datetime()",
+                uid=_OWNER,
+            )
+        yield _OWNER
+        async with neo4j_driver.session() as session:
+            await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=_OWNER)
+
+    @pytest_asyncio.fixture
+    def journal_handlers(self, neo4j_driver, clean_neo4j, monkeypatch) -> dict[str, Any]:
+        """Register the journals routes with a REAL conversation store, LLM mocked."""
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        from adapters.inbound.journals_routes import create_journals_routes
+        from adapters.inbound.rate_limit import reset_buckets_for_testing
+        from core.services.journal.journal_service import JournalFollowUp
+
+        reset_buckets_for_testing()
+
+        services = MagicMock()
+        services.user = MagicMock()
+        user = MagicMock()
+        user.journal_tier.is_founder.return_value = False
+        services.user.get_user = AsyncMock(return_value=Result.ok(user))
+        services.journal = MagicMock()
+        services.journal.run_discussion = AsyncMock(
+            return_value=Result.ok(JournalFollowUp(text="reply-1", sources=()))
+        )
+        services.journal.run_follow_up = AsyncMock(
+            return_value=Result.ok(JournalFollowUp(text="reply-2", sources=()))
+        )
+        services.journal.suggestions_available = True
+        services.batch_transcription = None
+        services.user_entry_processor = None
+        services.user_entry = MagicMock()
+        # The one real collaborator — proves what actually lands in Neo4j.
+        services.conversation = ConversationService(ConversationBackend(neo4j_driver))
+
+        registered: dict[str, Any] = {}
+
+        def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
+            def decorator(fn: Any) -> Any:
+                registered[path] = fn
+                return fn
+
+            return decorator
+
+        create_journals_routes(MagicMock(), rt_collector, services)
+        return registered
+
+    async def _count(self, driver, query: str, **params) -> int:
+        async with driver.session() as session:
+            result = await session.run(query, params)
+            record = await result.single()
+            return int(record["n"]) if record else 0
+
+    async def test_unsaved_creates_zero_nodes_only_save_persists(
+        self, journal_handlers, owner_node, neo4j_driver
+    ) -> None:
+        sessions_q = "MATCH (s:ConversationSession {user_uid: $u}) RETURN count(s) AS n"
+        turns_q = "MATCH (t:ConversationTurn) RETURN count(t) AS n"
+
+        # 1. Open a discussion (typed door). Ephemeral by default — zero nodes.
+        await journal_handlers["/journals/start"](
+            request=_journal_request(_OWNER, {"raw_entry": "First thought."})
+        )
+        assert await self._count(neo4j_driver, sessions_q, u=_OWNER) == 0
+        assert await self._count(neo4j_driver, turns_q) == 0
+
+        # 2. A follow-up on the ephemeral transcript still persists nothing.
+        transcript = json.dumps(
+            [
+                {"role": ROLE_USER, "content": "First thought."},
+                {"role": ROLE_ASSISTANT, "content": "reply-1"},
+            ]
+        )
+        await journal_handlers["/journals/follow-up"](
+            request=_journal_request(_OWNER, {}),
+            user_reply="Tell me more.",
+            transcript_json=transcript,
+        )
+        assert await self._count(neo4j_driver, sessions_q, u=_OWNER) == 0
+        assert await self._count(neo4j_driver, turns_q) == 0
+
+        # 3. Save — the ONLY writer. Now the session + its turn pairs exist.
+        full = json.dumps(
+            [
+                {"role": ROLE_USER, "content": "First thought."},
+                {"role": ROLE_ASSISTANT, "content": "reply-1"},
+                {"role": ROLE_USER, "content": "Tell me more."},
+                {"role": ROLE_ASSISTANT, "content": "reply-2"},
+            ]
+        )
+        await journal_handlers["/journals/save"](
+            request=_journal_request(_OWNER, {}),
+            transcript_json=full,
+            title="Saved discussion",
+        )
+        assert await self._count(neo4j_driver, sessions_q, u=_OWNER) == 1
+        assert await self._count(neo4j_driver, turns_q) == 4
+
+        # The saved turns landed in order with the expected roles (the fold from
+        # transcript → (user, assistant) pairs is faithful).
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (:ConversationSession {user_uid: $u})-[r:HAS_TURN]->(t:ConversationTurn) "
+                "RETURN t.role AS role ORDER BY r.turn_number",
+                u=_OWNER,
+            )
+            roles = [record["role"] async for record in result]
+        assert roles == [ROLE_USER, ROLE_ASSISTANT, ROLE_USER, ROLE_ASSISTANT]

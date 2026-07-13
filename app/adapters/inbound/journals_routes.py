@@ -34,9 +34,6 @@ from ui.journals.components import render_upload_status as render_journal_upload
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.conversation import ConversationTurn
-    from core.models.type_hints import UserUID
-    from core.ports import ConversationOperations
-    from core.utils.result_simplified import Result
     from services_bootstrap._container import Services
 
 
@@ -598,73 +595,115 @@ async def _run_batch_over_dir(
 # ---------------------------------------------------------------------------
 
 
-async def _create_discussion_session(
-    conversation_service: ConversationOperations,
-    *,
-    user_uid: UserUID,
-    title: str,
-    canon_book_uids: list[str],
-    summon_vault: bool,
-    raw_entry: str,
-    ai_text: str,
-) -> Result[str]:
-    """Create an owner-private discussion session + its opening turn pair.
+def _build_source_selection(
+    canon_book_uids: list[str], summon_canon: bool, summon_vault: bool
+) -> str:
+    """Serialize the current source dials to the stored ``source_selection`` JSON.
 
-    Records the opening source selection (canon shelf books + vault toggle) as
-    JSON so a continued session can restore it (C3, consumed in P3). The opening
-    pair is written atomically. Returns the session id, or the first failure.
+    Shape: ``{"canon": [uid, …], "canon_on": bool, "vault": bool}`` (ADR-078 §3).
+    The book *scope* is kept independent of the *dial* so an ungrounded save
+    still records the session's book scope (mirrors the follow-up write, #635 P2).
     """
     import json
 
-    from core.models.conversation import CONVERSATION_KIND_DISCUSSION
-    from core.utils.result_simplified import Result
-
-    # canon_on == whether canon is summoned; at start that is exactly "any book
-    # checked" (the landing panel has no whole-shelf toggle).
-    source_selection = json.dumps(
+    return json.dumps(
         {
             "canon": list(canon_book_uids),
-            "canon_on": bool(canon_book_uids),
+            "canon_on": bool(summon_canon),
             "vault": bool(summon_vault),
         }
     )
-    created = await conversation_service.create_session(
-        user_uid, CONVERSATION_KIND_DISCUSSION, title, source_selection
-    )
-    if created.is_error:
-        return Result.fail(created)
-    appended = await conversation_service.append_exchange(
-        created.value.session_id, user_uid, raw_entry, ai_text
-    )
-    if appended.is_error:
-        return Result.fail(appended)
-    return Result.ok(created.value.session_id)
 
 
-def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, str]:
+def _render_follow_up_context(items: list[tuple[str, str]]) -> tuple[str, str]:
     """Reconstruct ``(original_entry, ai_response)`` for ``run_follow_up`` from turns.
 
-    Replaces the deleted client-side accumulator with the Neo4j turn history:
-    ``ai_response`` is the most recent assistant turn (the "previous response");
-    ``original_entry`` is a rendered transcript of everything before it. A
-    session always opens with a user/assistant pair, so both are populated.
+    Shared by both memory models (ADR-078): the Neo4j turn history (saved,
+    session-backed) and the client-side ``transcript_json`` accumulator
+    (ephemeral, unsaved) both flatten to the same ``(role, content)`` sequence,
+    so context is rebuilt identically from one source of truth. ``ai_response``
+    is the most recent assistant turn (the "previous response"); ``original_entry``
+    is a rendered transcript of everything before it.
     """
     from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
 
-    if not turns:
+    if not items:
         return "", ""
-    split = len(turns)
+    split = len(items)
     ai_response = ""
-    for index in range(len(turns) - 1, -1, -1):
-        if turns[index].role == ROLE_ASSISTANT:
-            ai_response = turns[index].content
+    for index in range(len(items) - 1, -1, -1):
+        if items[index][0] == ROLE_ASSISTANT:
+            ai_response = items[index][1]
             split = index
             break
     rendered = "\n\n".join(
-        f"# {'You' if turn.role == ROLE_USER else 'Journal'}\n\n{turn.content}"
-        for turn in turns[:split]
+        f"# {'You' if role == ROLE_USER else 'Journal'}\n\n{content}"
+        for role, content in items[:split]
     )
     return rendered, ai_response
+
+
+def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, str]:
+    """``_render_follow_up_context`` over a saved session's stored turns."""
+    return _render_follow_up_context([(turn.role, turn.content) for turn in turns])
+
+
+def _parse_transcript(raw: str) -> list[tuple[str, str]]:
+    """Parse the ephemeral ``transcript_json`` hidden field → ordered ``(role, content)``.
+
+    Shape: a JSON list of ``{"role": "user"|"assistant", "content": str}`` — the
+    unsaved (ephemeral-default) conversation memory the composer accumulates
+    client-side via OOB swaps (ADR-078 §5). Fail-soft: a malformed / empty value
+    is an empty transcript. Only the two known roles survive, so a hand-forged
+    field can never inject arbitrary turn shapes.
+    """
+    import json
+
+    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+    try:
+        data = json.loads(raw) if raw else []
+    except ValueError, TypeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    out: list[tuple[str, str]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role in (ROLE_USER, ROLE_ASSISTANT) and isinstance(content, str):
+            out.append((role, content))
+    return out
+
+
+def _serialize_transcript(items: list[tuple[str, str]]) -> str:
+    """Serialize an ordered ``(role, content)`` sequence to the ``transcript_json`` field."""
+    import json
+
+    return json.dumps([{"role": role, "content": content} for role, content in items])
+
+
+def _transcript_to_pairs(items: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Fold an ordered ``(role, content)`` transcript into ``(user, assistant)`` pairs.
+
+    The ephemeral transcript is always grown one ``user``→``assistant`` pair at a
+    time, so a straight two-step fold is faithful; a stray/half turn is skipped
+    rather than paired with a mismatched neighbour (defensive against a forged
+    field). Used only at *Save* — the write path into the store (ADR-078 §5).
+    """
+    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+    pairs: list[tuple[str, str]] = []
+    index = 0
+    while index + 1 < len(items):
+        if items[index][0] == ROLE_USER and items[index + 1][0] == ROLE_ASSISTANT:
+            pairs.append((items[index][1], items[index + 1][1]))
+            index += 2
+        else:
+            index += 1
+    return pairs
 
 
 def _parse_source_selection(raw: str) -> tuple[list[str], bool, bool]:
@@ -874,32 +913,21 @@ def create_journals_routes(
 
         ai_text = ai_result.value.text
 
-        # Persist the discussion (ADR-078): create the owner-private session, then
-        # the opening user/assistant turn pair. The session records the opening
-        # source selection so a continued session (P3) can restore it. Only after
-        # a successful LLM response — a failed discussion leaves no session.
-        session_result = await _create_discussion_session(
-            conversation_service,
-            user_uid=user_uid,
-            title=title,
-            canon_book_uids=canon_book_uids,
-            summon_vault=summon_vault,
-            raw_entry=raw_entry,
-            ai_text=ai_text,
-        )
-        if session_result.is_error:
-            logger.error(
-                "journals_start could not persist discussion for %s: %s",
-                user_uid,
-                session_result.expect_error(),
-            )
-            return _err("Could not save your discussion. Please try again.")
+        # Ephemeral by default (ADR-078 §5, founder realignment 2026-07-13): a
+        # discussion is NOT saved automatically. The opening user/assistant pair
+        # rides the composer as a structured ``transcript_json`` accumulator that
+        # dies on reload; nothing is written to the store until the user presses
+        # *Save this chat* (POST /journals/save). This reverts P2's create-on-
+        # first-reply auto-save (guard 7, ADR-078 §7).
+        from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+        transcript_json = _serialize_transcript([(ROLE_USER, raw_entry), (ROLE_ASSISTANT, ai_text)])
 
         workspace = StandardResponseFragment(
             raw_entry=raw_entry,
             title=title,
             response_output=ai_text,
-            session_id=session_result.value,
+            transcript_json=transcript_json,
             mode=JournalMode.default(),
             is_founder=is_founder,
             sources=ai_result.value.sources,
@@ -1516,6 +1544,7 @@ def create_journals_routes(
         request: Request,
         user_reply: str,
         session_id: str = "",
+        transcript_json: str = "",
         original_entry: str = "",
         ai_response: str = "",
         title: str = "",
@@ -1526,19 +1555,24 @@ def create_journals_routes(
     ) -> Any:
         """Continue a journal conversation.
 
-        Two memory models, selected by ``session_id`` (ADR-078):
+        Three memory models, selected in priority order (ADR-078 §5):
 
-        - **Session-backed** (``session_id`` set — the typed ``/journals/start``
-          door): prior turns are read from Neo4j (owner-checked — a non-owner
-          session is 404-not-403), context is rebuilt from them, and the new
-          user/assistant pair is appended. No client-side accumulator.
-        - **Stateless** (no ``session_id`` — the file-output / DNWF-stage-3
-          doors, zero-persistence until P3): context comes from the
-          ``original_entry`` / ``ai_response`` hidden fields and grows via OOB
-          swaps, exactly as before.
+        - **Session-backed** (``session_id`` set — a *saved* discussion): prior
+          turns are read from Neo4j (owner-checked — a non-owner session is
+          404-not-403), context is rebuilt from them, and the new user/assistant
+          pair is appended to the store.
+        - **Ephemeral structured** (``transcript_json`` set — the typed
+          ``/journals/start`` door, *unsaved*): context is rebuilt from the
+          client-side ``transcript_json`` accumulator (ordered ``{role, content}``
+          pairs) and the new pair is appended to it via an OOB swap. Nothing is
+          persisted — this dies on reload until the user presses *Save this chat*.
+        - **Stateless flat** (neither — the file-output / DNWF-stage-3 doors,
+          still ephemeral): context comes from the ``original_entry`` /
+          ``ai_response`` hidden fields and grows via OOB swaps, as before. (PR2
+          migrates these doors onto the structured substrate.)
 
         Returns FollowUpFragment: chat bubbles appended to #journal-thread (plus
-        the OOB accumulator inputs only on the stateless path).
+        the OOB accumulator input on the two ephemeral paths).
 
         ``canon_book_uids`` is a CSV of the shelf books the discussion opened on
         (the composer carries it as a hidden field) — it keeps follow-ups scoped
@@ -1644,7 +1678,39 @@ def create_journals_routes(
                 sources=result.value.sources,
             )
 
-        # Stateless path (file-output / DNWF doors) — context from hidden fields.
+        # Ephemeral structured path (typed door, unsaved): context + memory live
+        # in the client-side transcript_json accumulator. Nothing is persisted
+        # (ADR-078 §5) — the appended pair rides an OOB swap, gone on reload.
+        if transcript_json:
+            from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+            items = _parse_transcript(transcript_json)
+            prior_entry, prior_ai = _render_follow_up_context(items)
+            result = await journal_service.run_follow_up(
+                original_entry=prior_entry,
+                ai_response=prior_ai,
+                user_reply=reply,
+                user_uid=user_uid,
+                mode=mode,
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
+                canon_book_uids=book_uids,
+            )
+            if result.is_error:
+                logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
+                return FollowUpErrorFragment("Could not generate a response. Please try again.")
+            ai_text = result.value.text
+            updated = _serialize_transcript([*items, (ROLE_USER, reply), (ROLE_ASSISTANT, ai_text)])
+            return FollowUpFragment(
+                user_reply=reply,
+                ai_text=ai_text,
+                title=title.strip(),
+                mode=mode,
+                sources=result.value.sources,
+                transcript_json=updated,
+            )
+
+        # Stateless flat path (file-output / DNWF doors) — context from hidden fields.
         result = await journal_service.run_follow_up(
             original_entry=original_entry.strip(),
             ai_response=ai_response.strip(),
@@ -1672,6 +1738,88 @@ def create_journals_routes(
             mode=mode,
             sources=result.value.sources,
             combined=combined,
+        )
+
+    # ------------------------------------------------------------------
+    # POST /journals/save — persist an ephemeral discussion (ADR-078 §5 opt-in)
+    # ------------------------------------------------------------------
+
+    @rt("/journals/save", methods=["POST"])
+    @csrf_protected
+    @rate_limited(per_user=20, window_s=60)
+    async def journals_save(
+        request: Request,
+        transcript_json: str = "",
+        title: str = "",
+        summon_canon: bool = False,
+        summon_vault: bool = False,
+        canon_book_uids: str = "",
+    ) -> Any:
+        """Save this chat — the single explicit persistence gesture (ADR-078 §5).
+
+        Promotes the current ephemeral ``transcript_json`` accumulator into an
+        owner-private :ConversationSession + its turn pairs. There is no LLM call
+        and no auto-save anywhere: a discussion reaches the store ONLY through
+        this route (guard 7). On success the composer is swapped for its
+        session-backed shape (further turns append to the saved session) and the
+        newly saved discussion is prepended to the revisit list via an OOB swap.
+        Un-saving is the existing per-session delete on that list.
+        """
+        from core.models.conversation import CONVERSATION_KIND_DISCUSSION
+        from core.models.enums.user_enums import JournalMode
+        from ui.journals import FollowUpErrorFragment, SessionBackedComposer
+        from ui.journals.chat_page import discussions_revisit_panel
+
+        user_uid = require_authenticated_user(request)
+
+        pairs = _transcript_to_pairs(_parse_transcript(transcript_json))
+        if not pairs:
+            return FollowUpErrorFragment("There's nothing to save yet.")
+
+        # The composer dials are a FOUNDER entitlement; resolve the tier once (a
+        # POST flag is forgeable, so gate server-side) — also used to render the
+        # session-backed composer's dials.
+        user_result = await user_service.get_user(user_uid)
+        is_founder = (
+            user_result.is_ok
+            and user_result.value is not None
+            and user_result.value.journal_tier.is_founder()
+        )
+        summon_canon = summon_canon and is_founder
+        summon_vault = summon_vault and is_founder
+        # Book scope is stored independent of the dial (an ungrounded save keeps
+        # the session's books), mirroring the follow-up write (#635 P2).
+        scope_books = [b for b in canon_book_uids.split(",") if b.strip()]
+        source_selection = _build_source_selection(scope_books, summon_canon, summon_vault)
+
+        clean_title = (
+            title.strip()[:120] or pairs[0][0].split("\n")[0].strip()[:60] or "Journal Entry"
+        )
+
+        saved = await conversation_service.save_transcript(
+            user_uid, CONVERSATION_KIND_DISCUSSION, clean_title, source_selection, pairs
+        )
+        if saved.is_error:
+            logger.error("Could not save discussion for %s: %s", user_uid, saved.expect_error())
+            return FollowUpErrorFragment("Could not save your discussion. Please try again.")
+        session = saved.value
+
+        # Refresh the revisit list so the saved chat appears immediately (its row's
+        # delete IS the un-save). Fail-soft to just the new session on a read miss.
+        sessions_result = await conversation_service.list_sessions(user_uid)
+        sessions = sessions_result.value if sessions_result.is_ok else [session]
+
+        return (
+            SessionBackedComposer(
+                clean_title,
+                JournalMode.default().value,
+                session_id=session.session_id,
+                is_founder=is_founder,
+                canon_book_uids=tuple(scope_books),
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
+            ),
+            discussions_revisit_panel(sessions, oob=True),
         )
 
     # ------------------------------------------------------------------
