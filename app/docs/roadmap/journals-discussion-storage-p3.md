@@ -165,6 +165,9 @@ No accumulator-deletion PR — the accumulator is retained by design. PR1 carrie
 
 ## Explicitly OUT OF SCOPE (this arc)
 
+> The three follow-on refinements below are tracked with full pick-up context in
+> **`docs/roadmap/journals-discussion-deferred.md`**.
+
 - **Auto-saving anything** — persistence is opt-in, full stop.
 - **File-content prompt weighting** — deferred + dissolved (decision 5).
 - **A per-book shelf picker on the upload form** — UI convergence, separate (decision 4).
