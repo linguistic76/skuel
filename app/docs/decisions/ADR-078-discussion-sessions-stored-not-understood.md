@@ -1,7 +1,9 @@
 # ADR-078: Discussion Sessions Are Stored but Never Understood
 
-**Status:** Accepted (design) — storage/route/service code NOT yet written; this ADR is the
-doc-first gate for P2 of the journals discussion-first arc. Founder confirmation pending.
+**Status:** Accepted — **founder-confirmed 2026-07-13** ("I confirm I abide by the ADR").
+Storage/route/service code NOT yet written; this ADR was the doc-first gate for P2 of the
+journals discussion-first arc, and the gate is now cleared — the storage-implementation PRs
+are unblocked and must be built to the shape decided here.
 **Date:** 2026-07-12
 **Amended 2026-07-13 (§3 + new *Learning from Askesis* section):** founder ruled "neutral seams,
 journals-only build." Backend placement resolved (dedicated thin `ConversationBackend`, NOT the
