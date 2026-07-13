@@ -53,8 +53,12 @@ _OWNER = "user_test_conv_owner"
 _OTHER = "user_test_conv_other"
 
 
-def _journal_request(user_uid: str, form: dict[str, str]) -> Any:
-    """A minimal POST request the journals handlers can auth + read a form from."""
+def _journal_request(user_uid: str, form: dict[str, str], *, hx: bool = False) -> Any:
+    """A minimal request the journals handlers can auth + read a form from.
+
+    ``hx=True`` sets the ``HX-Request`` header so page routes (e.g. continue)
+    return the inline fragment instead of a full ``BasePage``.
+    """
     from starlette.datastructures import FormData
 
     form_data = FormData(list(form.items()))
@@ -69,7 +73,7 @@ def _journal_request(user_uid: str, form: dict[str, str]) -> Any:
         query_params={},
         form=_form,
         cookies={},
-        headers={},
+        headers={"HX-Request": "true"} if hx else {},
     )
 
 
@@ -319,6 +323,10 @@ class TestOptInPersistenceGuard:
         services.user = MagicMock()
         user = MagicMock()
         user.journal_tier.is_founder.return_value = False
+        # Real string identity so the continue route's page render is clean.
+        user.journal_tier.value = "standard"
+        user.display_name = "Owner"
+        user.title = "Owner"
         services.user.get_user = AsyncMock(return_value=Result.ok(user))
         services.journal = MagicMock()
         services.journal.run_discussion = AsyncMock(
@@ -407,3 +415,64 @@ class TestOptInPersistenceGuard:
             )
             roles = [record["role"] async for record in result]
         assert roles == [ROLE_USER, ROLE_ASSISTANT, ROLE_USER, ROLE_ASSISTANT]
+
+    async def test_saved_chat_round_trips_revisit_continue_delete(
+        self, journal_handlers, owner_node, neo4j_driver
+    ) -> None:
+        """The full saved-chat lifecycle end to end through the routes (ADR-078 §5).
+
+        Save → the chat is in the revisit list and its turns rehydrate on continue
+        → delete removes the whole subtree. Proves revisit/continue/delete for a
+        chat the user chose to save, against the live graph.
+        """
+        from fasthtml.common import to_xml
+
+        full = json.dumps(
+            [
+                {"role": ROLE_USER, "content": "opening line"},
+                {"role": ROLE_ASSISTANT, "content": "assistant reply"},
+            ]
+        )
+        await journal_handlers["/journals/save"](
+            request=_journal_request(_OWNER, {}), transcript_json=full, title="Round trip"
+        )
+
+        # The session id is minted server-side; read it back from the graph.
+        async with neo4j_driver.session() as session:
+            record = await (
+                await session.run(
+                    "MATCH (:User {uid: $u})-[:HAS_SESSION]->(s:ConversationSession) "
+                    "RETURN s.session_id AS sid",
+                    u=_OWNER,
+                )
+            ).single()
+        sid = record["sid"]
+        assert sid
+
+        # Continue (GET route, HX fragment) rehydrates the workspace from the
+        # stored turns AND lists the saved chat in the revisit sidebar.
+        continued = await journal_handlers["/journals/discussion/{session_id}"](
+            request=_journal_request(_OWNER, {}, hx=True), session_id=sid
+        )
+        html = to_xml(continued)
+        assert "opening line" in html and "assistant reply" in html
+        # Prove *revisit* specifically: the session's own row is in the sidebar
+        # discussions panel (its unique row marker, not just the title — which
+        # also renders in the composer's hidden field). (Codex #640 P2.)
+        assert f'data-discussion-row="{sid}"' in html
+
+        # Delete (POST route) drops the whole subtree — session AND turns gone.
+        await journal_handlers["/journals/discussion/{session_id}/delete"](
+            request=_journal_request(_OWNER, {}), session_id=sid
+        )
+        assert (
+            await self._count(
+                neo4j_driver,
+                "MATCH (s:ConversationSession {user_uid: $u}) RETURN count(s) AS n",
+                u=_OWNER,
+            )
+            == 0
+        )
+        assert (
+            await self._count(neo4j_driver, "MATCH (t:ConversationTurn) RETURN count(t) AS n") == 0
+        )
