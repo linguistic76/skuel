@@ -6,6 +6,13 @@ and PR 3 (disk-only exemplars) shipped (see *Implementation Status*).
 doorway** — a stored understanding channel gated on explicit frontmatter consent, scoped by the
 `je_use:` enum. `je_in`/`je_out`/`je_raw` stay unconditionally walled. Part of the
 entry-enrichment arc (je_pro doorway → UserEntry embeddings → entry→Ku grounding).
+**Amended 2026-07-12 (§1/§3 — see ADR-078):** the "zero persistence" commitment is narrowed by
+**one** carve-out: owner-private **discussion sessions** persist to Neo4j for revisit/continue
+only. This relaxes persistence (commitment 1) for discussions **without** touching the
+understanding wall (commitment 2) — discussion sessions/turns reach no context builder,
+embedding, search, ZPD, or intelligence surface. Full reconciliation, schema, access model, and
+shifted testability bar live in **ADR-078** (Discussion Sessions Are Stored but Never
+Understood).
 **Date:** 2026-06-30
 **Related:** ADR-054 (UserEntry collapse), ADR-069 (EXTRACT_ACTIVITIES pipeline + EntryReport), ADR-070 (bidirectional VaultBridge), PR #475 (SyncAllowlist fail-closed vault privacy wall)
 
