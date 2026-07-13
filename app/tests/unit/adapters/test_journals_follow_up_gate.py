@@ -61,11 +61,20 @@ def _client_for(*, is_founder: bool) -> tuple[TestClient, MagicMock, MagicMock]:
 
 
 def _post_follow_up(client: TestClient, extra: dict[str, str]) -> httpx2.Response:
+    import json
+
     token = mint_token()
     client.cookies.set(CSRF_COOKIE_NAME, token)
+    # Unsaved (ephemeral) follow-up: memory rides the structured transcript_json
+    # accumulator (ADR-078 §5). The forgeable-flag gate under test runs before the
+    # memory branch, so any valid opening pair exercises it.
     data = {
-        "original_entry": "my note",
-        "ai_response": "prior response",
+        "transcript_json": json.dumps(
+            [
+                {"role": "user", "content": "my note"},
+                {"role": "assistant", "content": "prior response"},
+            ]
+        ),
         "user_reply": "tell me more",
         **extra,
     }

@@ -477,6 +477,16 @@ class TestJournalsUploadZeroPersistence:
         # Result is retargeted to the centre workspace, not the right-panel status.
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         _assert_understanding_channel_untouched(mock_services)
+        # ADR-078 P3 PR2: the file door is ephemeral + savable. The composer opens
+        # on the source→output pair (the file text as the user turn, the compiled
+        # output as the assistant turn) with a Save button — no auto-persist.
+        html = response.body.decode()
+        assert 'name="transcript_json"' in html
+        assert "Ship the site by Friday." in html  # source text = opening user turn
+        assert "# Compiled output" in html  # compiled output = opening assistant turn
+        assert "Save this chat" in html
+        assert 'name="original_entry"' not in html  # flat accumulator is gone
+        mock_services.conversation.save_transcript.assert_not_awaited()
 
     async def test_single_upload_without_workspace_does_not_retarget(
         self,
