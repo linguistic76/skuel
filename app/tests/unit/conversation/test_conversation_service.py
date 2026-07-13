@@ -49,6 +49,7 @@ def _backend(**overrides) -> SimpleNamespace:
         append_exchange=AsyncMock(
             return_value=Result.ok([_turn_row(1, "user"), _turn_row(2, "assistant")])
         ),
+        update_session_meta=AsyncMock(return_value=Result.ok(True)),
         get_session=AsyncMock(return_value=Result.ok(_session_row())),
         list_sessions=AsyncMock(return_value=Result.ok([_session_row()])),
         get_turns=AsyncMock(return_value=Result.ok([_turn_row(1), _turn_row(2, "assistant")])),
@@ -151,6 +152,31 @@ class TestReadPaths:
 
         assert result.is_error
         assert result.expect_error().category == ErrorCategory.NOT_FOUND
+
+
+class TestUpdateMeta:
+    async def test_rename_passes_title_only(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.rename_session("cs_abc123abc123", "user_mike", "New title")
+
+        assert result.is_ok and result.value is True
+        # Rename updates title, leaves source_selection (None → coalesce keeps it).
+        sid, uid, title, source = backend.update_session_meta.await_args.args
+        assert (sid, uid, title, source) == ("cs_abc123abc123", "user_mike", "New title", None)
+
+    async def test_update_source_selection_passes_source_only(self) -> None:
+        backend = _backend()
+        service = ConversationService(backend)
+
+        result = await service.update_source_selection(
+            "cs_abc123abc123", "user_mike", '{"vault": true}'
+        )
+
+        assert result.is_ok
+        _sid, _uid, title, source = backend.update_session_meta.await_args.args
+        assert (title, source) == (None, '{"vault": true}')
 
 
 class TestDelete:

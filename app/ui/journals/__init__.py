@@ -19,6 +19,7 @@ from ui.components import Button as StyledButton
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 
 if TYPE_CHECKING:
+    from core.models.conversation import ConversationTurn
     from core.models.enums.user_enums import JournalMode
     from core.services.canon import CanonSource
     from core.services.journal.suggestion import SuggestedActivity
@@ -125,6 +126,8 @@ def _Composer(
     ai_response: str = "",
     is_founder: bool = False,
     canon_book_uids: "tuple[str, ...]" = (),
+    summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
@@ -145,7 +148,9 @@ def _Composer(
 
     ``canon_book_uids`` is the discussion's opening book scope (C3); it rides a
     hidden CSV field so every follow-up stays scoped to the same shelf the
-    session chose.
+    session chose. ``summon_canon`` / ``summon_vault`` pre-check the dials when a
+    stored session is *continued* (its last selection restored, C3); a fresh
+    session leaves them off.
     """
     from ui.components import Icon
 
@@ -201,6 +206,7 @@ def _Composer(
                                 type="checkbox",
                                 name="summon_canon",
                                 value="true",
+                                checked=summon_canon,
                                 cls="mr-1.5 align-middle",
                             ),
                             "Summon the canon shelf",
@@ -214,6 +220,7 @@ def _Composer(
                                 type="checkbox",
                                 name="summon_vault",
                                 value="true",
+                                checked=summon_vault,
                                 cls="mr-1.5 align-middle",
                             ),
                             "Draw on my vault",
@@ -460,6 +467,54 @@ def StandardResponseFragment(
             session_id=session_id,
             is_founder=is_founder,
             canon_book_uids=canon_book_uids,
+        ),
+        id="journal-workspace",
+        cls="flex flex-col h-full",
+    )
+
+
+def DiscussionThreadFragment(
+    session_id: str,
+    title: str,
+    turns: "list[ConversationTurn]",
+    is_founder: bool = False,
+    canon_book_uids: "tuple[str, ...]" = (),
+    summon_canon: bool = False,
+    summon_vault: bool = False,
+) -> Any:
+    """Rehydrated discussion workspace for *continue* (ADR-078 revisit/continue).
+
+    Renders the full stored turn history as bubbles and a session-backed composer
+    with the session's last source selection restored (C3). Swaps into
+    ``#journal-workspace`` exactly like ``StandardResponseFragment``, so
+    follow-ups append to the same ``#journal-thread``.
+    """
+    from core.models.conversation import ROLE_ASSISTANT
+    from core.models.enums.user_enums import JournalMode
+
+    mode = JournalMode.default()
+    label = f"Journal Response — {mode.display_label()}"
+    bubbles = [
+        _AiBubble(label, turn.content) if turn.role == ROLE_ASSISTANT else _UserBubble(turn.content)
+        for turn in turns
+    ]
+
+    return Div(
+        Div(
+            *bubbles,
+            id="journal-thread",
+            cls="flex-1 overflow-y-auto p-6 space-y-6",
+            # Land at the latest turn on open, like the composer does per reply.
+            **{"x-init": "$el.scrollTop = $el.scrollHeight"},
+        ),
+        _Composer(
+            title,
+            mode.value,
+            session_id=session_id,
+            is_founder=is_founder,
+            canon_book_uids=canon_book_uids,
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",

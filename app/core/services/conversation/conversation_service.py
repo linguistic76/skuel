@@ -120,6 +120,20 @@ class ConversationService:
         user_turn, assistant_turn = appended.value
         return Result.ok((_turn_from_props(user_turn), _turn_from_props(assistant_turn)))
 
+    async def rename_session(self, session_id: str, user_uid: UserUID, title: str) -> Result[bool]:
+        """Rename an owned session (False when absent / not owned).
+
+        Leaves ``last_activity`` untouched — a rename must not reorder the
+        revisit list.
+        """
+        return await self.backend.update_session_meta(session_id, user_uid, title, None)
+
+    async def update_source_selection(
+        self, session_id: str, user_uid: UserUID, source_selection: str
+    ) -> Result[bool]:
+        """Persist the latest source selection on an owned session (last-write-wins)."""
+        return await self.backend.update_session_meta(session_id, user_uid, None, source_selection)
+
     async def get_session(
         self, session_id: str, user_uid: UserUID
     ) -> Result[ConversationSession | None]:

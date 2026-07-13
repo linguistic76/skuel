@@ -150,24 +150,28 @@ Inline submission/feedback status pills (Not Submitted / In Progress / Submitted
 
 ### `/journals`
 
-Journal domain — zero-persistence workshop (ADR-073). Landing at `/journals`. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py` + `ui/journals/chat_page.py`.
+Journal domain. The file/audio door is a zero-persistence workshop (ADR-073); the typed **discussion** door persists owner-private `:ConversationSession` + turns for revisit/continue (ADR-078) — understanding-agnostic (no `UserEntry`). Landing at `/journals`. Routes in `adapters/inbound/journals_routes.py`; UI in `ui/journals/__init__.py` + `ui/journals/chat_page.py`.
 
 **FOUNDER tier** (`linguistic76`) — full three-stage DNWF. STANDARD tier sees a placeholder.
 
 **Routes:**
-- `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar's "New Journal" reset stays hidden until a session swap has replaced `#journal-workspace` — on a fresh load there is nothing to reset
-- `POST /journals/start` — open a discussion on typed text (both tiers; companion voice, user leads); returns the response **inline** (`HX-Retarget` `#journal-workspace`) — no `UserEntry`, no redirect. FOUNDER source panel (canon-shelf checkboxes + vault toggle) grounds from message one
+- `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar carries the **revisit list** of the user's past discussions (ADR-078, owner-private) plus the "New Journal" reset
+- `POST /journals/start` — open a discussion on typed text (both tiers; companion voice, user leads); returns the response **inline** (`HX-Retarget` `#journal-workspace`) and persists an owner-private `:ConversationSession` + opening turn pair (ADR-078 — revisit/continue) but **no `UserEntry`**, no redirect. FOUNDER source panel (canon-shelf checkboxes + vault toggle) grounds from message one
+- `GET  /journals/discussion/{session_id}` — **continue** an owned discussion: rehydrate `#journal-workspace` from stored turns + restored source selection (404-not-403 on a non-owner)
+- `POST /journals/discussion/{session_id}/delete` — delete an owned discussion (session + all turns); removes the revisit-list row (`@csrf_protected`)
+- `GET  /journals/discussion/{session_id}/export` — download an owned discussion as a markdown transcript (a user-ownable copy, not a vault read-back)
+- `POST /journals/discussion/{session_id}/rename` — inline-rename an owned discussion; re-renders the revisit-list row (`@csrf_protected`)
 - `POST /journals/upload` — file/multi-file upload; transcribes/compiles to the user's own `je_out/` folder and returns an inline download fragment (no `UserEntry`). FOUNDER audio → transcript review → Scribe
 - `POST /journals/folder-process` — batch-process `je_in/` → `je_out/` (shares the upload batch engine)
 - `POST /journals/suggest-activities` — inert "Suggested activities" panel; takes reflection content in the body (no stored entry)
-- `GET  /journals/{entry_uid}` — **periodic-notes-only** (`entry_kind` ∈ {daily, weekly, monthly}) → `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav). Any non-periodic uid → 404 (sessions are never stored).
+- `GET  /journals/{entry_uid}` — **periodic-notes-only** (`entry_kind` ∈ {daily, weekly, monthly}) → `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav). Any non-periodic uid → 404 (discussions are served by `/journals/discussion/{session_id}`, not this route).
 - `GET  /journals/je-out/{filename}` — download a flat `je_out/` file (`.md`/`.txt`; single-user-local, path-containment-guarded)
-- `POST /journals/follow-up` — reply to an AI response, keeping the session's canon/vault scope (`@csrf_protected`)
+- `POST /journals/follow-up` — reply to an AI response, keeping the session's canon/vault scope; branches on `session_id` (session-backed reads/appends turns from Neo4j; file/audio doors keep the stateless accumulator) (`@csrf_protected`)
 - `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (FOUNDER file/audio door) (`@csrf_protected`)
 - `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
 - `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
 
-Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` inline on `/journals`. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`. Compiled output is written to the user's own flat `je_out/` folder and surfaced as a download — nothing is persisted to Neo4j (ADR-073).
+Stages 1–3 and follow-up return HTMX fragments that swap `#journal-workspace` inline on `/journals`. `JournalService` (`core/services/journal/`) reads instruction files from `data/instructions/` and builds stage-specific system prompts. FULL tier only (requires `llm_caller`); returns an error fragment when `INTELLIGENCE_TIER=core`. File/DNWF compiled output is written to the user's own flat `je_out/` folder and surfaced as a download — nothing is persisted to Neo4j (ADR-073). Typed **discussions** persist to the owner-private `ConversationService` store (ADR-078) for revisit/continue — understanding-agnostic (never a `UserEntry`, embedding, or search entry).
 
 ### `/tasks`, `/goals`
 

@@ -75,6 +75,20 @@ class ConversationBackendOperations(Protocol):
         """
         ...
 
+    async def update_session_meta(
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        title: str | None,
+        source_selection: str | None,
+    ) -> Result[bool]:
+        """Update an OWNED session's title and/or source selection (coalesce).
+
+        Leaves ``last_activity`` untouched (a rename is not activity). True when
+        an owned session was updated, False when absent / not owned.
+        """
+        ...
+
     async def get_session(
         self, session_id: str, user_uid: UserUID
     ) -> Result[Neo4jProperties | None]:
@@ -114,6 +128,16 @@ class ConversationOperations(Protocol):
         self, session_id: str, user_uid: UserUID, user_content: str, assistant_content: str
     ) -> Result[tuple[ConversationTurn, ConversationTurn]]:
         """Append a user+assistant turn pair atomically (not-found on a non-owner)."""
+        ...
+
+    async def rename_session(self, session_id: str, user_uid: UserUID, title: str) -> Result[bool]:
+        """Rename an owned session (False when absent / not owned)."""
+        ...
+
+    async def update_source_selection(
+        self, session_id: str, user_uid: UserUID, source_selection: str
+    ) -> Result[bool]:
+        """Persist the latest source selection on an owned session (last-write-wins)."""
         ...
 
     async def get_session(

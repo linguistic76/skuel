@@ -80,6 +80,7 @@ def _conversation(**overrides: object) -> MagicMock:
             [_turn(1, "user", "opening"), _turn(2, "assistant", "first response")]
         )
     )
+    conv.update_source_selection = AsyncMock(return_value=Result.ok(True))
     for key, value in overrides.items():
         setattr(conv, key, value)
     return conv
@@ -166,6 +167,29 @@ class TestSessionFollowUp:
         # Session-backed fragment carries NO OOB accumulator swap.
         assert "hx-swap-oob" not in response.text.lower()
         assert "journal-original-entry" not in response.text
+
+    def test_ungrounded_follow_up_preserves_the_book_scope(self) -> None:
+        # Codex #635 P2: a follow-up with canon OFF must record canon_on=false
+        # WITHOUT erasing the session's book scope carried in the hidden field.
+        import json
+
+        client, _journal, conv = _client(_conversation())
+
+        _post(
+            client,
+            "/journals/follow-up",
+            {
+                "user_reply": "just thinking",
+                "session_id": "cs_abc123abc123",
+                "canon_book_uids": "res_a,res_b",  # session scope, dial off
+            },
+        )
+
+        conv.update_source_selection.assert_awaited_once()
+        _sid, _uid, stored = conv.update_source_selection.await_args.args
+        selection = json.loads(stored)
+        assert selection["canon"] == ["res_a", "res_b"]  # scope preserved
+        assert selection["canon_on"] is False  # dial off recorded
 
     def test_non_owner_session_is_refused_and_writes_nothing(self) -> None:
         conv = _conversation(

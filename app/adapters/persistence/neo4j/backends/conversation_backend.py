@@ -228,6 +228,43 @@ class ConversationBackend:
             logger.error(f"Failed to append conversation exchange: {e}")
             return Result.fail(Errors.database("append_exchange", str(e)))
 
+    async def update_session_meta(
+        self,
+        session_id: str,
+        user_uid: UserUID,
+        title: str | None,
+        source_selection: str | None,
+    ) -> Result[bool]:
+        """Update an OWNED session's title and/or source selection (last-write-wins).
+
+        A ``None`` argument leaves that field unchanged (``coalesce``). Returns
+        True when an owned session was updated, False when absent / not owned.
+        Does NOT touch ``last_activity`` — a rename or a source re-pick is not
+        conversational activity and must not reorder the revisit list.
+        """
+        query = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
+        SET s.title = coalesce($title, s.title),
+            s.source_selection = coalesce($source_selection, s.source_selection)
+        RETURN s.session_id AS session_id
+        """
+        try:
+            async with self.driver.session() as session:
+                result = await session.run(
+                    query,
+                    {
+                        "user_uid": user_uid,
+                        "session_id": session_id,
+                        "title": title,
+                        "source_selection": source_selection,
+                    },
+                )
+                record = await result.single()
+                return Result.ok(record is not None)
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to update conversation session meta: {e}")
+            return Result.fail(Errors.database("update_session_meta", str(e)))
+
     async def get_session(
         self, session_id: str, user_uid: UserUID
     ) -> Result[Neo4jProperties | None]:

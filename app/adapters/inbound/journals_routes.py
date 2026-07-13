@@ -619,7 +619,15 @@ async def _create_discussion_session(
     from core.models.conversation import CONVERSATION_KIND_DISCUSSION
     from core.utils.result_simplified import Result
 
-    source_selection = json.dumps({"canon": list(canon_book_uids), "vault": bool(summon_vault)})
+    # canon_on == whether canon is summoned; at start that is exactly "any book
+    # checked" (the landing panel has no whole-shelf toggle).
+    source_selection = json.dumps(
+        {
+            "canon": list(canon_book_uids),
+            "canon_on": bool(canon_book_uids),
+            "vault": bool(summon_vault),
+        }
+    )
     created = await conversation_service.create_session(
         user_uid, CONVERSATION_KIND_DISCUSSION, title, source_selection
     )
@@ -657,6 +665,54 @@ def _history_to_follow_up_context(turns: list[ConversationTurn]) -> tuple[str, s
         for turn in turns[:split]
     )
     return rendered, ai_response
+
+
+def _parse_source_selection(raw: str) -> tuple[list[str], bool, bool]:
+    """Parse a stored ``source_selection`` JSON → (canon book uids, canon on, vault on).
+
+    Shape: ``{"canon": [uid, …], "canon_on": bool, "vault": bool}``. The book
+    *scope* (``canon``) is kept independent of the *dial* (``canon_on``) so an
+    ungrounded follow-up never erases the session's book scope (Codex #635 P2).
+    Fail-soft: a malformed / empty value restores nothing. Back-compat: pre-PR3
+    sessions carry no ``canon_on`` — infer it from a non-empty book list.
+    """
+    import json
+
+    try:
+        data = json.loads(raw) if raw else {}
+    except ValueError, TypeError:
+        return [], False, False
+    if not isinstance(data, dict):
+        return [], False, False
+    raw_canon = data.get("canon")
+    canon = [str(u) for u in raw_canon if isinstance(u, str)] if isinstance(raw_canon, list) else []
+    canon_on = bool(data.get("canon_on", bool(canon)))
+    vault = bool(data.get("vault"))
+    return canon, canon_on, vault
+
+
+def _render_discussion_markdown(title: str, turns: list[ConversationTurn]) -> str:
+    """Render a discussion to a markdown transcript for export (ADR-078 §8).
+
+    A user-ownable copy — NOT a vault read-back folder (ADR-073 has none).
+    """
+    from core.models.conversation import ROLE_USER
+
+    lines = [f"# {title or 'Discussion'}", ""]
+    for turn in turns:
+        lines.append(f"## {'You' if turn.role == ROLE_USER else 'Journal'}")
+        lines.append("")
+        lines.append(turn.content)
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _safe_export_filename(title: str) -> str:
+    """A safe ``.md`` download filename derived from the discussion title."""
+    import re
+
+    slug = re.sub(r"[^A-Za-z0-9._-]+", "-", (title or "discussion").strip()).strip("-")
+    return f"{slug[:60] or 'discussion'}.md"
 
 
 # ---------------------------------------------------------------------------
@@ -711,9 +767,13 @@ def create_journals_routes(
                     for b in shelf_result.value
                 ]
 
-        # Journal sessions are zero-persistence (ADR-073) — there are no stored
-        # sessions to list. The landing page is the workshop entry point only.
-        page_content = JournalsLandingPage(user=user, shelf_books=shelf_books)
+        # Revisit list (ADR-078): the user's owned discussion sessions, most-
+        # recent first. Tier-independent + fail-soft — a read error or CORE tier
+        # (no sessions created) simply renders the empty-state hint.
+        sessions_result = await conversation_service.list_sessions(user_uid)
+        sessions = sessions_result.value if sessions_result.is_ok else []
+
+        page_content = JournalsLandingPage(user=user, shelf_books=shelf_books, sessions=sessions)
 
         if request.headers.get("HX-Request"):
             return page_content
@@ -779,7 +839,9 @@ def create_journals_routes(
             return _err("Could not load your profile.")
 
         is_founder = user_result.value.journal_tier.is_founder()
-        title = raw_entry.split("\n")[0][:80].strip() or "Journal Entry"
+        # Title = first ~60 chars of the opening message, no LLM (ADR-078 refinement
+        # 2) — a deterministic label, inline-editable in the revisit list.
+        title = raw_entry.split("\n")[0].strip()[:60] or "Journal Entry"
 
         # Source dials (FOUNDER entitlements — gated server-side). The canon
         # shelf is per-book checkboxes: the checked ``resource_uids`` scope the
@@ -1268,6 +1330,126 @@ def create_journals_routes(
         return SuggestedActivitiesPanel(items=result.value)
 
     # ------------------------------------------------------------------
+    # Discussion revisit / continue / delete / export / rename (ADR-078)
+    #
+    # Declared before the {entry_uid} catch-all. These carry ≥2 path segments,
+    # so they never collide with the 1-segment periodic-note route; every op is
+    # owner-scoped (a non-owner / missing session is 404, not 403).
+    # ------------------------------------------------------------------
+
+    @rt("/journals/discussion/{session_id}", methods=["GET"])
+    async def journal_continue(request: Request, session_id: str) -> Any:
+        """Continue an owned discussion — rehydrate the workspace from stored turns."""
+        from ui.journals import DiscussionThreadFragment
+        from ui.journals.chat_page import JournalsLandingPage
+
+        user_uid = require_authenticated_user(request)
+        user_result = await user_service.get_user(user_uid)
+        if user_result.is_error or user_result.value is None:
+            return Response("Could not load user", status_code=500)
+        user = user_result.value
+        is_founder = user.journal_tier.is_founder()
+
+        session_result = await conversation_service.get_session(session_id, user_uid)
+        if session_result.is_error:
+            return Response("Service error", status_code=500)
+        if session_result.value is None:
+            return Response("Not found", status_code=404)  # 404-not-403
+        session = session_result.value
+
+        turns_result = await conversation_service.get_turns(session_id, user_uid)
+        if turns_result.is_error:
+            return Response("Not found", status_code=404)
+
+        # Restore the session's last source selection (C3) — FOUNDER-gated, since
+        # the composer dials are a FOUNDER entitlement.
+        canon_books, canon_on, vault_on = _parse_source_selection(session.source_selection)
+        workspace = DiscussionThreadFragment(
+            session_id=session_id,
+            title=session.title,
+            turns=turns_result.value,
+            is_founder=is_founder,
+            # Book scope is preserved even when the dial was last off, so
+            # re-enabling canon restores the original books (not the whole shelf).
+            canon_book_uids=tuple(canon_books),
+            summon_canon=canon_on and is_founder,
+            summon_vault=vault_on and is_founder,
+        )
+
+        sessions_result = await conversation_service.list_sessions(user_uid)
+        sessions = sessions_result.value if sessions_result.is_ok else []
+
+        # The per-book source PICKER lives on the fresh-entry form only; a
+        # continued session reuses its stored book scope via the composer dials.
+        page_content = JournalsLandingPage(
+            user=user, shelf_books=[], sessions=sessions, workspace=workspace
+        )
+
+        if request.headers.get("HX-Request"):
+            return page_content
+
+        from ui.layouts.base_page import BasePage
+        from ui.layouts.page_types import PageType
+
+        return await BasePage(
+            content=page_content,
+            title=session.title or "Discussion",
+            page_type=PageType.CUSTOM,
+            request=request,
+            active_page="journals",
+        )
+
+    @rt("/journals/discussion/{session_id}/delete", methods=["POST"])
+    @csrf_protected
+    async def journal_discussion_delete(request: Request, session_id: str) -> Any:
+        """Delete an owned discussion (session + all turns). Removes the row."""
+        user_uid = require_authenticated_user(request)
+        result = await conversation_service.delete_session(session_id, user_uid)
+        if result.is_error:
+            logger.error("Discussion delete failed for %s: %s", session_id, result.expect_error())
+            return Response("Could not delete", status_code=500)
+        # Empty body + hx-swap="outerHTML" removes the row. A non-owned/missing
+        # session returns False (nothing deleted) — the row still vanishes for
+        # this user, which is harmless since it was never theirs.
+        return HTMLResponse("")
+
+    @rt("/journals/discussion/{session_id}/export", methods=["GET"])
+    async def journal_discussion_export(request: Request, session_id: str) -> Any:
+        """Export an owned discussion as a markdown transcript download (ADR-078 §8)."""
+        user_uid = require_authenticated_user(request)
+        session_result = await conversation_service.get_session(session_id, user_uid)
+        if session_result.is_error or session_result.value is None:
+            return Response("Not found", status_code=404)
+        session = session_result.value
+        turns_result = await conversation_service.get_turns(session_id, user_uid)
+        if turns_result.is_error:
+            return Response("Not found", status_code=404)
+
+        markdown = _render_discussion_markdown(session.title, turns_result.value)
+        filename = _safe_export_filename(session.title)
+        return Response(
+            markdown,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    @rt("/journals/discussion/{session_id}/rename", methods=["POST"])
+    @csrf_protected
+    async def journal_discussion_rename(request: Request, session_id: str, title: str = "") -> Any:
+        """Rename an owned discussion; re-render the revisit-list row."""
+        from ui.journals.chat_page import DiscussionRow
+
+        user_uid = require_authenticated_user(request)
+        new_title = title.strip()[:120] or "Untitled discussion"
+        renamed = await conversation_service.rename_session(session_id, user_uid, new_title)
+        if renamed.is_error or not renamed.value:
+            return Response("Not found", status_code=404)  # not owned / missing
+        session_result = await conversation_service.get_session(session_id, user_uid)
+        if session_result.is_error or session_result.value is None:
+            return Response("Not found", status_code=404)
+        return DiscussionRow(session_result.value)
+
+    # ------------------------------------------------------------------
     # GET /journals/{entry_uid} — dedicated journal session page
     # ------------------------------------------------------------------
 
@@ -1436,6 +1618,23 @@ def create_journals_routes(
                     appended.expect_error(),
                 )
                 return FollowUpErrorFragment("Could not save your message. Please try again.")
+            # Persist this follow-up's source selection so a continued session
+            # restores its LAST selection (C3, last-write-wins). The book *scope*
+            # comes from the composer's hidden field (preserved across turns),
+            # NOT the summon-gated book_uids — so an ungrounded follow-up records
+            # canon_on=false WITHOUT erasing the session's books (Codex #635 P2).
+            # Best-effort: a write miss must not fail the reply already shown.
+            import json
+
+            scope_books = [book for book in canon_book_uids.split(",") if book.strip()]
+            selection = json.dumps(
+                {
+                    "canon": scope_books,
+                    "canon_on": bool(summon_canon),
+                    "vault": bool(summon_vault),
+                }
+            )
+            await conversation_service.update_source_selection(session_id, user_uid, selection)
             # combined=None → session-backed fragment (no OOB accumulator).
             return FollowUpFragment(
                 user_reply=reply,
