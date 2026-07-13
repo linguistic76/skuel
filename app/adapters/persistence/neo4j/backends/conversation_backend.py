@@ -163,11 +163,17 @@ class ConversationBackend:
         """Append a turn to an OWNED session; assign turn_number; touch activity.
 
         ``turn_number`` = existing turn count + 1, computed and persisted in the
-        same write. Journal discussion turns are strictly sequential (user types,
-        waits for the assistant), so the count-then-create is not raced.
+        same write. The ``SET s.last_activity`` is deliberately placed BEFORE the
+        turn count: it takes the write-lock on the session node, so two concurrent
+        appends to the same session (double-submit, retry, two tabs) serialize —
+        the second blocks on the lock, then re-counts against the first's
+        committed turn and gets the next ordinal instead of a duplicate (Codex
+        #633 P2). Ordering the SET after the count would leave that race open.
         """
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
+        SET s.last_activity = datetime($now)
+        WITH s
         OPTIONAL MATCH (s)-[:{_HAS_TURN}]->(existing:{_TURN_LABEL})
         WITH s, count(existing) + 1 AS next_number
         CREATE (s)-[:{_HAS_TURN} {{turn_number: next_number}}]->(t:{_TURN_LABEL} {{
@@ -178,7 +184,6 @@ class ConversationBackend:
             timestamp: datetime($now),
             turn_number: next_number
         }})
-        SET s.last_activity = datetime($now)
         {_TURN_RETURN}
         """
         try:
@@ -252,7 +257,7 @@ class ConversationBackend:
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{_HAS_SESSION}]->(s:{_SESSION_LABEL} {{session_id: $session_id}})
         OPTIONAL MATCH (s)-[:{_HAS_TURN}]->(t:{_TURN_LABEL})
-        WITH s.session_id AS sid, t ORDER BY t.turn_number ASC
+        WITH s.session_id AS sid, t ORDER BY t.turn_number ASC, t.turn_id ASC
         RETURN sid, collect(t {{.turn_id, .session_id, .role, .content, .timestamp, .turn_number}}) AS turns
         """
         try:

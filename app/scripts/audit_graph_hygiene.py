@@ -673,7 +673,7 @@ async def fetch_test_user_rows(
         OPTIONAL MATCH (u)-[r]-()
         WITH u, collect(DISTINCT type(r) +
              CASE WHEN startNode(r) = u THEN ':out' ELSE ':in' END) AS edge_sigs
-        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s)
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
         WITH u, edge_sigs, count(DISTINCT s) AS session_count
         OPTIONAL MATCH (u)-[:HAD_AUTH_EVENT]->(a)
         RETURN u.uid AS uid, u.email AS email, edge_sigs,
@@ -880,8 +880,15 @@ async def apply_test_user_cleanup(driver: Any, plans: list[TestUserPlan]) -> tup
             # the next run, after the shadow anomaly is resolved.
             print(f"    !! {plan.uid}: owned entity delete refused — user kept")
             continue
+        # HAS_SESSION is shared between auth :Session nodes and ADR-078
+        # :ConversationSession nodes (companion-neutral edge). Detach-delete the
+        # HAS_TURN children too, or a test user's saved discussions would leave
+        # orphaned :ConversationTurn nodes (Codex #633 P2). OPTIONAL MATCH keeps
+        # this correct for auth sessions (which have no turns).
         await driver.execute_query(
-            "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s) DETACH DELETE s", uid=plan.uid
+            "MATCH (u:User {uid: $uid})-[:HAS_SESSION]->(s) "
+            "OPTIONAL MATCH (s)-[:HAS_TURN]->(t) DETACH DELETE s, t",
+            uid=plan.uid,
         )
         await driver.execute_query(
             "MATCH (u:User {uid: $uid})-[:HAD_AUTH_EVENT]->(a) DETACH DELETE a", uid=plan.uid
