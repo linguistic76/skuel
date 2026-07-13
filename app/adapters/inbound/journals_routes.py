@@ -303,7 +303,14 @@ async def _process_single_upload(
 
     from fasthtml.common import to_xml
 
+    from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
     from ui.journals import FileOutputFragment, TranscriptReviewFragment
+
+    # canon=[] (whole shelf) — the upload form carries no per-book picker (C3);
+    # the door's coarse booleans ride the composer so a Save records them.
+    def _file_transcript(source_text: str, output: str) -> str:
+        """The source→output opening pair (Option A) as a structured transcript."""
+        return _serialize_transcript([(ROLE_USER, source_text), (ROLE_ASSISTANT, output)])
 
     def _workspace(fragment: Any) -> Any:
         # Success fragments are rooted at ``#journal-workspace``. On the
@@ -350,6 +357,9 @@ async def _process_single_upload(
                 output_filename=out_name,
                 response_output=compiled.value,
                 is_founder=is_founder,
+                transcript_json=_file_transcript(text_content, compiled.value),
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
             )
         )
 
@@ -413,10 +423,15 @@ async def _process_single_upload(
                 output_filename=out_name,
                 response_output=compiled.value,
                 is_founder=is_founder,
+                transcript_json=_file_transcript(transcript, compiled.value),
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
             )
         )
 
-    # transcribe_only (STANDARD) — raw transcript download.
+    # transcribe_only (STANDARD) — raw transcript download. source == output, so
+    # a synthetic "Transcribe: {title}" user turn avoids duplicating the full
+    # transcript in both turns (ADR-078 P3 decision 3, transcribe_only).
     out_name = _write_je_out(stem, ".txt", transcript)
     return _workspace(
         FileOutputFragment(
@@ -424,6 +439,9 @@ async def _process_single_upload(
             output_filename=out_name,
             response_output=transcript,
             is_founder=is_founder,
+            transcript_json=_file_transcript(f"Transcribe: {title}", transcript),
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )
     )
 
@@ -1550,8 +1568,6 @@ def create_journals_routes(
         user_reply: str,
         session_id: str = "",
         transcript_json: str = "",
-        original_entry: str = "",
-        ai_response: str = "",
         title: str = "",
         journal_mode: str = "",
         summon_canon: bool = False,
@@ -1560,21 +1576,17 @@ def create_journals_routes(
     ) -> Any:
         """Continue a journal conversation.
 
-        Three memory models, selected in priority order (ADR-078 §5):
+        Two memory models, selected by ``session_id`` (ADR-078 §5):
 
         - **Session-backed** (``session_id`` set — a *saved* discussion): prior
           turns are read from Neo4j (owner-checked — a non-owner session is
           404-not-403), context is rebuilt from them, and the new user/assistant
           pair is appended to the store.
-        - **Ephemeral structured** (``transcript_json`` set — the typed
-          ``/journals/start`` door, *unsaved*): context is rebuilt from the
-          client-side ``transcript_json`` accumulator (ordered ``{role, content}``
-          pairs) and the new pair is appended to it via an OOB swap. Nothing is
-          persisted — this dies on reload until the user presses *Save this chat*.
-        - **Stateless flat** (neither — the file-output / DNWF-stage-3 doors,
-          still ephemeral): context comes from the ``original_entry`` /
-          ``ai_response`` hidden fields and grows via OOB swaps, as before. (PR2
-          migrates these doors onto the structured substrate.)
+        - **Ephemeral structured** (no ``session_id`` — every unsaved discussion,
+          both doors): context is rebuilt from the client-side ``transcript_json``
+          accumulator (ordered ``{role, content}`` pairs) and the new pair is
+          appended to it via an OOB swap. Nothing is persisted — this dies on
+          reload until the user presses *Save this chat*.
 
         Returns FollowUpFragment: chat bubbles appended to #journal-thread (plus
         the OOB accumulator input on the two ephemeral paths).
@@ -1674,7 +1686,7 @@ def create_journals_routes(
                 }
             )
             await conversation_service.update_source_selection(session_id, user_uid, selection)
-            # combined=None → session-backed fragment (no OOB accumulator).
+            # transcript_json omitted → session-backed fragment (no OOB accumulator).
             return FollowUpFragment(
                 user_reply=reply,
                 ai_text=ai_text,
@@ -1683,42 +1695,17 @@ def create_journals_routes(
                 sources=result.value.sources,
             )
 
-        # Ephemeral structured path (typed door, unsaved): context + memory live
-        # in the client-side transcript_json accumulator. Nothing is persisted
-        # (ADR-078 §5) — the appended pair rides an OOB swap, gone on reload.
-        if transcript_json:
-            from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+        # Ephemeral structured path (every unsaved discussion, both doors): context
+        # + memory live in the client-side transcript_json accumulator. Nothing is
+        # persisted (ADR-078 §5) — the appended pair rides an OOB swap, gone on
+        # reload until the user presses *Save this chat*.
+        from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
 
-            items = _parse_transcript(transcript_json)
-            prior_entry, prior_ai = _render_follow_up_context(items)
-            result = await journal_service.run_follow_up(
-                original_entry=prior_entry,
-                ai_response=prior_ai,
-                user_reply=reply,
-                user_uid=user_uid,
-                mode=mode,
-                summon_canon=summon_canon,
-                summon_vault=summon_vault,
-                canon_book_uids=book_uids,
-            )
-            if result.is_error:
-                logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
-                return FollowUpErrorFragment("Could not generate a response. Please try again.")
-            ai_text = result.value.text
-            updated = _serialize_transcript([*items, (ROLE_USER, reply), (ROLE_ASSISTANT, ai_text)])
-            return FollowUpFragment(
-                user_reply=reply,
-                ai_text=ai_text,
-                title=title.strip(),
-                mode=mode,
-                sources=result.value.sources,
-                transcript_json=updated,
-            )
-
-        # Stateless flat path (file-output / DNWF doors) — context from hidden fields.
+        items = _parse_transcript(transcript_json)
+        prior_entry, prior_ai = _render_follow_up_context(items)
         result = await journal_service.run_follow_up(
-            original_entry=original_entry.strip(),
-            ai_response=ai_response.strip(),
+            original_entry=prior_entry,
+            ai_response=prior_ai,
             user_reply=reply,
             user_uid=user_uid,
             mode=mode,
@@ -1729,20 +1716,15 @@ def create_journals_routes(
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())
             return FollowUpErrorFragment("Could not generate a response. Please try again.")
-
-        # Accumulate conversation context so further follow-ups have the full history.
-        combined = (
-            f"{original_entry.strip()}"
-            f"\n\n---\n\n# Response\n\n{ai_response.strip()}"
-            f"\n\n---\n\n# Follow-up\n\n{reply}"
-        )
+        ai_text = result.value.text
+        updated = _serialize_transcript([*items, (ROLE_USER, reply), (ROLE_ASSISTANT, ai_text)])
         return FollowUpFragment(
             user_reply=reply,
-            ai_text=result.value.text,
+            ai_text=ai_text,
             title=title.strip(),
             mode=mode,
             sources=result.value.sources,
-            combined=combined,
+            transcript_json=updated,
         )
 
     # ------------------------------------------------------------------
@@ -1965,9 +1947,20 @@ def create_journals_routes(
             logger.error("Stage 3 failed for %s: %s", user_uid, result.expect_error())
             return ErrorFragment("Stage 3 failed. Please try again.")
 
+        # Ephemeral composer opens on the source→output pair (the original entry
+        # as the user turn, the Stage 3 output as the assistant turn) + Save; the
+        # run's grounding rides the dials so a Save records it (ADR-078 P3).
+        from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
+
+        transcript_json = _serialize_transcript(
+            [(ROLE_USER, raw_entry), (ROLE_ASSISTANT, result.value)]
+        )
         return Stage3Fragment(
             raw_entry=raw_entry,
             title=title,
             related_output=result.value,
             is_founder=True,  # route is FOUNDER-gated above
+            transcript_json=transcript_json,
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         )

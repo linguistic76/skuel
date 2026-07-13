@@ -197,8 +197,6 @@ def _Composer(
     *,
     session_id: str = "",
     transcript_json: str = "",
-    original_entry: str = "",
-    ai_response: str = "",
     is_founder: bool = False,
     canon_book_uids: "tuple[str, ...]" = (),
     summon_canon: bool = False,
@@ -206,20 +204,17 @@ def _Composer(
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
-    Three memory shapes, selected in priority order (ADR-078 §5):
+    Two memory shapes, selected by ``session_id`` (ADR-078 §5):
 
     - **Session-backed** (``session_id`` set — a *saved* discussion): the composer
       carries only the ``session_id``; memory lives in Neo4j
       (:ConversationSession/:ConversationTurn) and the footer shows "Saved ✓".
-    - **Ephemeral structured** (``transcript_json`` set, unsaved — the typed
-      ``/journals/start`` door): a hidden ``transcript_json`` field (id
-      ``journal-transcript``) carries the ordered ``{role, content}`` pairs the
-      follow-up route grows via an OOB swap; the footer shows *Save this chat*.
-      This dies on reload — the ephemeral default.
-    - **Stateless flat** (neither — the file-output / DNWF-stage-3 doors, still
-      ephemeral): the ``original_entry`` / ``ai_response`` hidden inputs carry IDs
-      so the follow-up route grows them via OOB swaps, as before. (PR2 migrates
-      these onto the structured substrate + Save.)
+    - **Ephemeral structured** (no ``session_id`` — every unsaved discussion, both
+      doors): a hidden ``transcript_json`` field (id ``journal-transcript``)
+      carries the ordered ``{role, content}`` pairs the follow-up route grows via
+      an OOB swap; the footer shows *Save this chat*. This dies on reload — the
+      ephemeral default. (The typed door opens on the entry→reply pair; the
+      file/audio + DNWF doors open on the source→output pair, decision 3.)
 
     ``is_founder`` renders the "Summon the canon shelf" dial — the quote-on-demand
     surface (ADR-076). Because the composer form is never reset between turns
@@ -227,18 +222,18 @@ def _Composer(
 
     ``canon_book_uids`` is the discussion's opening book scope (C3); it rides a
     hidden CSV field so every follow-up stays scoped to the same shelf the
-    session chose. ``summon_canon`` / ``summon_vault`` pre-check the dials when a
-    stored session is *continued* (its last selection restored, C3); a fresh
-    session leaves them off.
+    session chose. ``summon_canon`` / ``summon_vault`` pre-check the dials — the
+    door's opening grounding (so a Save records the true source selection), or a
+    continued session's restored last selection (C3).
     """
     from ui.components import Icon
 
-    # Saved → session id (memory in Neo4j); unsaved-structured → the transcript_json
-    # accumulator the OOB swap grows; flat → the legacy original_entry/ai_response
-    # accumulator (file/DNWF doors until PR2).
+    # Saved → session id (memory in Neo4j); unsaved → the transcript_json
+    # accumulator the OOB swap grows. There is no flat accumulator any more —
+    # every unsaved discussion (both doors) is structured (One Path Forward, PR2).
     if session_id:
         context_inputs = [Input(type="hidden", name="session_id", value=session_id)]
-    elif transcript_json:
+    else:
         context_inputs = [
             Input(
                 id="journal-transcript",
@@ -246,21 +241,6 @@ def _Composer(
                 name="transcript_json",
                 value=transcript_json,
             )
-        ]
-    else:
-        context_inputs = [
-            Input(
-                id="journal-original-entry",
-                type="hidden",
-                name="original_entry",
-                value=original_entry,
-            ),
-            Input(
-                id="journal-ai-response",
-                type="hidden",
-                name="ai_response",
-                value=ai_response,
-            ),
         ]
 
     save_affordance = _SaveAffordance(session_id, transcript_json)
@@ -497,12 +477,18 @@ def Stage3Fragment(
     title: str,
     related_output: str,
     is_founder: bool = False,
+    transcript_json: str = "",
+    summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Fragment returned after Stage 3 — What Is Related completes.
 
-    Now includes a follow-up composer so the user can continue the conversation
-    after the DNWF completes. Context: original entry + Stage 3 output.
-    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
+    Includes an ephemeral follow-up composer (ADR-078 §5) so the user can keep
+    talking after the DNWF completes, and *Save this chat* to keep it. The
+    opening pair is source→output (``transcript_json`` = the original entry as the
+    user turn, the Stage 3 output as the assistant turn — built by the route).
+    ``is_founder`` gates the composer's canon dials; ``summon_canon`` /
+    ``summon_vault`` carry the run's grounding so a Save records it (decision 4).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -527,9 +513,10 @@ def Stage3Fragment(
             _Composer(
                 title,
                 resolved.value,
-                original_entry=raw_entry,
-                ai_response=related_output,
+                transcript_json=transcript_json,
                 is_founder=is_founder,
+                summon_canon=summon_canon,
+                summon_vault=summon_vault,
             ),
             cls="flex-shrink-0",
         ),
@@ -651,6 +638,9 @@ def FileOutputFragment(
     output_filename: str,
     response_output: str,
     is_founder: bool = False,
+    transcript_json: str = "",
+    summon_canon: bool = False,
+    summon_vault: bool = False,
 ) -> Any:
     """Shown after a compiled journal file is processed and saved to je_out/.
 
@@ -658,7 +648,13 @@ def FileOutputFragment(
     displayed inline (it can be very long). The copy button copies to clipboard.
     je_out/ is excluded from vault sync — users decide what enters their vault.
 
-    Includes a follow-up composer for in-session questions about the output.
+    Includes an ephemeral follow-up composer (ADR-078 §5) for in-session
+    questions about the output, and *Save this chat* to keep the conversation.
+    The opening pair is source→output (``transcript_json`` = the file's source
+    text/transcript as the user turn, the compiled ``_out.md`` as the assistant
+    turn — built by the route so the per-mode pairing lives in one place).
+    ``summon_canon`` / ``summon_vault`` carry the upload's coarse grounding so a
+    Save records the source selection the door used (decision 4).
     """
     import json as _json
     import urllib.parse
@@ -751,9 +747,10 @@ def FileOutputFragment(
         _Composer(
             title,
             resolved_mode.value,
-            original_entry=title,
-            ai_response=response_output,
+            transcript_json=transcript_json,
             is_founder=is_founder,
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
         ),
         id="journal-workspace",
         cls="flex flex-col h-full",
@@ -766,7 +763,6 @@ def FollowUpFragment(
     title: str,
     mode: "JournalMode",
     sources: "tuple[CanonSource, ...] | None" = None,
-    combined: str | None = None,
     transcript_json: str | None = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
@@ -774,16 +770,14 @@ def FollowUpFragment(
     Returns the chat bubbles (main swap). ``sources`` (canon draws) render as a
     clickable citation block after the reply.
 
-    The composer's memory model selects which (if any) OOB accumulator swap is
-    emitted (ADR-078 §5):
+    The composer's memory model selects whether an OOB accumulator swap is emitted
+    (ADR-078 §5):
 
-    - **Session-backed** (both ``None`` — a saved discussion): memory lives in
-      Neo4j, so no OOB swap; the bubbles alone are appended.
-    - **Ephemeral structured** (``transcript_json`` set — the typed door, unsaved):
-      one OOB input replaces the composer's ``#journal-transcript`` hidden field
-      with the grown ``{role, content}`` transcript.
-    - **Stateless flat** (``combined`` set — file-output / DNWF doors): two OOB
-      inputs grow the composer's ``original_entry`` / ``ai_response`` fields.
+    - **Session-backed** (``transcript_json is None`` — a saved discussion): memory
+      lives in Neo4j, so no OOB swap; the bubbles alone are appended.
+    - **Ephemeral structured** (``transcript_json`` set — any unsaved discussion,
+      both doors): one OOB input replaces the composer's ``#journal-transcript``
+      hidden field with the grown ``{role, content}`` transcript.
     """
     label = f"Journal Response — {mode.display_label()}"
     oob_inputs: tuple[Any, ...] = ()
@@ -794,23 +788,6 @@ def FollowUpFragment(
                 type="hidden",
                 name="transcript_json",
                 value=transcript_json,
-                hx_swap_oob="true",
-            ),
-        )
-    elif combined is not None:
-        oob_inputs = (
-            Input(
-                id="journal-original-entry",
-                type="hidden",
-                name="original_entry",
-                value=combined,
-                hx_swap_oob="true",
-            ),
-            Input(
-                id="journal-ai-response",
-                type="hidden",
-                name="ai_response",
-                value=ai_text,
                 hx_swap_oob="true",
             ),
         )
