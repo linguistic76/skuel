@@ -1,5 +1,14 @@
 # P2 Storage Implementation — Journals Discussion Sessions
 
+> **⚠️ Superseded default (2026-07-13):** P2 built discussion persistence as **automatic**
+> (create-on-first-reply) and removed the typed door's client-side accumulator. The founder
+> later re-established that **persistence is opt-in** — a chat is ephemeral by default and stored
+> only via an explicit *Save this chat* gesture. ADR-078 is amended (§1/§5/§7) and
+> **`journals-discussion-storage-p3.md` corrects both mistakes.** The store, service, backend,
+> and understanding wall this plan built are all **retained and correct**; only the *trigger*
+> (auto → explicit save) and the accumulator's fate (removed → retained) change. Read this doc as
+> the record of what P2 shipped, not the final persistence contract.
+
 **Contract for the storage-implementation arc.** Founder-confirmed ADR-078 (2026-07-13) is the
 gate — now cleared (PR #631). This plan translates ADR-078 into a concrete, PR-sequenced build.
 

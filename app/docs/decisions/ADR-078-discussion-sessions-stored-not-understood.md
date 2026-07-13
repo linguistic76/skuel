@@ -14,8 +14,19 @@ Grounded in a study of how Askesis persists conversations today — see the new 
 vestigial-field trap this ADR criticizes) and de-stored `turn_count` (derived by `COUNT`-ing
 `HAS_TURN`, not denormalized); and made §6 honest that freeform discussion is *more* sensitive
 than a curated doorway note (same encryption mechanism, but a candidate to prioritize first).
+**Amended 2026-07-13 (§1 + §5 + §7, founder realignment — persistence is OPT-IN, not automatic):**
+the founder re-established the blunt Journals privacy rule that recent work had blurred. A
+discussion is **ephemeral by default** (zero persistence, exactly as ADR-073) and is stored
+**only when the user explicitly chooses to save it**. This reverses the *implemented* auto-save
+(P2 created a session on the first reply) and reverses §5's original "the accumulator is
+removed": the client-side accumulator is **retained** as the ephemeral-default substrate; a
+`:ConversationSession` is created only by an explicit *Save this chat* action. The rationale is
+not only privacy but **signal vs noise** — saving everything forces later weight-sorting of
+noise, whereas saving only what the user deliberately keeps yields a high-signal corpus by
+construction. The understanding wall (§2) is unchanged: a saved chat is still never understood.
 **Amends:** ADR-073 §1 and §3 (see *Relationship to ADR-073* below) — the "zero persistence"
-commitment is narrowed to carve exactly one exception: owner-private discussion sessions.
+commitment is narrowed to carve exactly one exception: owner-private discussion sessions **the
+user chose to save**.
 **Related:** ADR-073 (journals zero-persistence + vault-as-only-memory-channel), ADR-042
 (privacy as a first-class citizen / field-level encryption), ADR-054 (UserEntry collapse),
 ADR-069 (EXTRACT_ACTIVITIES pipeline), ADR-077 (canon scoped retrieval),
@@ -71,11 +82,23 @@ ADR-073 with a one-line carve-out + forward pointer**, keeping ADR-073 honest: z
 ### 1. One narrow exception, precisely bounded
 
 Discussion sessions and their turns persist to Neo4j, **owner-private**, for **exactly two
-purposes**: *revisit* a past discussion and *continue* it. Nothing more. Every other property
-of ADR-073 holds unchanged — the workshop file taxonomy (`je_in`/`je_out`/`je_raw`), the
-`je_pro` conditional doorway, periodic notes, and above all the understanding wall.
+purposes**: *revisit* a past discussion and *continue* it. Nothing more — and **only when the
+user explicitly chooses to save the discussion.** Persistence is **opt-in, never automatic**: by
+default a discussion is ephemeral (zero persistence, exactly as ADR-073), living only in the
+browser for the active session and gone on reload. A `:ConversationSession` exists *only*
+because the user pressed *Save this chat*. This is the chat analogue of the `je_pro` doorway —
+sharing/keeping is always a deliberate gesture, never a side effect. Every other property of
+ADR-073 holds unchanged — the workshop file taxonomy (`je_in`/`je_out`/`je_raw`), the `je_pro`
+conditional doorway, periodic notes, and above all the understanding wall.
 
 This is the whole exception. The rest of this ADR is about making "nothing more" provable.
+
+**Why opt-in, not automatic (the founder's realignment, 2026-07-13).** Two reasons, both blunt
+on purpose. *Privacy:* the Journals domain is private by default; auto-saving every chat silently
+eroded that. *Signal vs noise:* saving everything forces the app to later sort relevance by
+weights — an unbounded noise problem — whereas saving only what the user deliberately keeps
+produces a high-signal corpus for free. Bluntness (a clear save / don't-save line) is a feature:
+it keeps both the privacy contract and the code simple.
 
 ### 2. Stored ≠ understood (the wall this ADR must not breach)
 
@@ -190,20 +213,28 @@ pedagogical fields are not persisted and not modeled.
   owned session and rehydrates the composer — replacing the client-side hidden-field
   accumulator as the source of conversation memory.
 
-### 5. Migration off the client-side accumulator
+### 5. The client-side accumulator is retained (ephemeral default); *Save* promotes to a session
 
-Today's memory lives in hidden form fields (`original_entry`, `ai_response`) accumulated via
-OOB swaps. The storage PR replaces this substrate:
+*(Revised 2026-07-13 — this reverses the original "remove the accumulator" text, which assumed
+auto-save. Persistence is opt-in per §1.)*
 
-1. First user send in the chat door **creates** a `:ConversationSession` and its first
-   user/assistant `:ConversationTurn` pair.
-2. Each subsequent turn **appends** `:ConversationTurn` nodes; the composer no longer needs to
-   carry the full transcript in hidden fields — it carries only the `session_id`.
-3. Continue-thread reads history from Neo4j instead of a growing hidden field.
+Active, unsaved conversation memory lives where it always did: hidden form fields
+(`original_entry` / `ai_response`) accumulated via OOB swaps. This is the **ephemeral default** —
+it dies on reload, which is exactly what "not saved" means. It is **not** removed; it is the
+substrate for every discussion until (and unless) the user saves.
 
-This is a One-Path-Forward replacement: the hidden-field accumulator is **removed**, not kept
-as a fallback. There is no legacy dual-write. (The file door creating sessions on
-processing-complete is **P3/C6**, not this ADR.)
+**Save this chat** is the single, explicit persistence gesture. It promotes the current
+ephemeral transcript into an owner-private `:ConversationSession` + its `:ConversationTurn`
+pairs (the store defined in §3). After saving, the discussion is session-backed: further turns
+append to the saved session, and it appears in the revisit list. An unsaved discussion creates
+**zero** `:ConversationSession` nodes.
+
+There is no auto-create and no dual-write: a chat is either ephemeral (accumulator only) or
+saved (session-backed), and the transition happens exactly once, by explicit user action.
+**P2 shipped the wrong default** — an automatic create-on-first-reply, and it removed the typed
+door's accumulator. **P3 corrects both**: it restores the ephemeral default on the typed door
+and adds the *Save this chat* action to both the typed and file/audio doors. (The file/audio
+door joining the store — **P3/C6** — was always deferred past this ADR.)
 
 ### 6. At-rest encryption joins the existing plan
 
@@ -220,8 +251,9 @@ introduced here.
 ### 7. Testability — the bar shifts from "stores zero" to "stores only the visible, deletable, un-understood"
 
 ADR-073's provable contract was "stores zero / reads zero." For discussions, "stores zero" is
-no longer the claim; the claim is narrower and still fully provable. The storage PR must ship
-these guard tests:
+no longer the *unconditional* claim — but it remains the **default**: persistence is the
+exception, gated on an explicit save (guard 7). The claim is narrower and still fully provable.
+The storage PR must ship these guard tests:
 
 1. **Owner-visibility symmetry** — every `:ConversationSession` a user owns appears in that
    user's revisit list; a session owned by another user is invisible and its direct fetch
@@ -241,9 +273,15 @@ these guard tests:
    registered as a searchable domain.
 6. **No enrichment edges** — creating/continuing a discussion writes **zero** `MENTIONS` /
    enrichment / `APPLIES_KNOWLEDGE` edges from turns to any `:Entity`.
+7. **Opt-in persistence** *(added 2026-07-13)* — an unsaved discussion (the user never pressed
+   *Save this chat*) creates **zero** `:ConversationSession` / `:ConversationTurn` nodes. A
+   session exists only after the explicit save action. This is the load-bearing "not saved by
+   default" guard: it fails loudly if any door ever auto-creates a session again (the exact P2
+   regression this amendment corrects).
 
 Tests 3–6 are the operational form of "stored ≠ understood": the understanding paths provably
-read nothing from the discussion store.
+read nothing from the discussion store. Test 7 is the operational form of "not saved by
+default": nothing reaches the store without a deliberate save.
 
 ### 8. Export to `.md` (design note)
 
@@ -305,9 +343,9 @@ carve-out. ADR-073's wording changes from an unqualified "the journal never writ
 model of the user and **never persists**" to:
 
 > The journal never writes to SKUEL's model of the user. It persists **nothing except
-> owner-private discussion sessions (ADR-078)** — which are stored for revisit/continue only and
-> are, by the same guarantee, *never understood*: they reach no context builder, embedding,
-> search, or intelligence surface.
+> owner-private discussion sessions the user explicitly chose to save (ADR-078)** — stored for
+> revisit/continue only, never automatically, and, by the same guarantee, *never understood*:
+> they reach no context builder, embedding, search, or intelligence surface.
 
 Commitment (2) — zero understanding, vault-doorway-only — is **unchanged and reinforced**.
 ADR-073 receives a matching forward-pointer amendment note (dated 2026-07-12).
@@ -333,10 +371,12 @@ rulings):
 ## Consequences
 
 - **Positive:** discussions become revisitable and continuable (the founder's ruling) without
-  reopening the understanding wall; ONE conversation-persistence shape now exists that Askesis
-  can later adopt (build-on-the-stack); the client-side hidden-field accumulator — fragile,
-  reload-lossy — is deleted (One Path Forward); the privacy contract stays *testable*, just
-  along a shifted axis.
+  reopening the understanding wall **and without eroding the "private by default" contract** —
+  persistence is opt-in; ONE conversation-persistence shape now exists that Askesis can later
+  adopt (build-on-the-stack); the client-side hidden-field accumulator is **retained as the
+  deliberate ephemeral default** (reload-lossy is the point — "not saved" means not saved), and
+  a chat is persisted only by an explicit *Save* gesture; the privacy contract stays *testable*
+  along both axes (never-understood **and** not-saved-by-default).
 - **Cost:** ADR-073's headline "zero-persistence" is now qualified — the honesty is preserved by
   making the exception explicit and narrow, but the one-sentence pitch is longer.
 - **Residual (plaintext at rest):** discussion turn content is plaintext in Neo4j until the

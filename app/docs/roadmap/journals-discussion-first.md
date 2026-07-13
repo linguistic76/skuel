@@ -139,11 +139,20 @@ existing modes become tools the discussion can invoke, not the frame."
 
 ### C6 — Convergence mechanics
 
-With storage (C1), both doors create a session: the chat door on first send; the file door
-when processing completes (the compiled output becomes the session's opening context, as the
-`Stage3Fragment` follow-up composer already sketches). One conversation surface renders
-either. File-content weighting inside the prompt is the deferred refinement — phase 1 simply
-includes the processed output as context, as the follow-up path does today.
+**⚠️ Realigned 2026-07-13 (founder ruling — persistence is opt-in; see ADR-078 §1/§5/§7 amendment
++ `journals-discussion-storage-p3.md`).** The original text below assumed *auto-create* on both
+doors; that inherited P2's drifted default and is superseded. The corrected mechanics: **a chat
+is ephemeral by default on both doors** (client-side accumulator, gone on reload) and becomes a
+`:ConversationSession` **only when the user presses *Save this chat*.** One conversation surface
+renders either door; *Save* promotes the current transcript into the store. File-content
+weighting stays the deferred refinement — and largely dissolves under opt-in (no auto-saved
+noise to weigh).
+
+*Superseded original:* ~~With storage (C1), both doors create a session: the chat door on first
+send; the file door when processing completes (the compiled output becomes the session's opening
+context, as the `Stage3Fragment` follow-up composer already sketches). One conversation surface
+renders either. File-content weighting inside the prompt is the deferred refinement — phase 1
+simply includes the processed output as context, as the follow-up path does today.~~
 
 ## Phasing
 
@@ -151,7 +160,7 @@ includes the processed output as context, as the follow-up path does today.
 |---|---|---|
 | **P1 — sources from message one** ✅ SHIPPED 2026-07-12 | Source panel (FOUNDER shelf checkboxes via `resource_uids` + vault toggle) on the initial composer; first-message discussion voice for both tiers via `run_discussion` (C3, C4, C5). Founder ruling: typed = discussion (both tiers); DNWF staging moved to the file/audio door. New: `list_shelved_books` port/adapter + `CanonRetrievalService.list_shelf` + `JournalService.list_canon_shelf`/`run_discussion`; `run_standard` + `/journals/respond` removed (One Path Forward) | Nothing — all seams existed; no storage |
 | **P2 — real storage** | **ADR step DELIVERED + FOUNDER-CONFIRMED 2026-07-13** — sibling **ADR-078** (Discussion Sessions Are Stored but Never Understood) written, amends ADR-073 §1/§3; founder confirmed 2026-07-13, so the gate is cleared. Storage-implementation now **UNBLOCKED** (to build): thin `ConversationBackend` + minimal frozen models, sessions/turns, revisit list, continue-thread (replacing the hidden-field accumulator), per-session delete, export-to-md (C1) | P1 useful but not required |
-| **P3 — convergence & refinement** | File door creates sessions (C6); remembered source selections; file weighting; relevance tuning | P2 |
+| **P3 — convergence & refinement** | **Realigned 2026-07-13 (opt-in persistence):** ephemeral-by-default on both doors + an explicit *Save this chat* gesture (NOT auto-create); revert P2's typed-door auto-save; remembered source selections. File weighting deferred/dissolved. SoT: `journals-discussion-storage-p3.md` | P2 |
 
 P1 is independently valuable and small. P2 is where the ADR work lives — doc-first, per the
 canon-arc precedent. **The P2 ADR (ADR-078) is written and founder-confirmed 2026-07-13, per
