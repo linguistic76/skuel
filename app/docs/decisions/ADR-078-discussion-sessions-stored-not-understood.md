@@ -3,6 +3,11 @@
 **Status:** Accepted (design) — storage/route/service code NOT yet written; this ADR is the
 doc-first gate for P2 of the journals discussion-first arc. Founder confirmation pending.
 **Date:** 2026-07-12
+**Amended 2026-07-13 (§3 + new *Learning from Askesis* section):** founder ruled "neutral seams,
+journals-only build." Backend placement resolved (dedicated thin `ConversationBackend`, NOT the
+universal Entity path); the ownership edge is the **neutral `HAS_SESSION`** (not `HAS_DISCUSSION`)
+and the session carries a **`kind`** discriminator, so Askesis can adopt one shared store later.
+Grounded in a study of how Askesis persists conversations today — see the new section.
 **Amends:** ADR-073 §1 and §3 (see *Relationship to ADR-073* below) — the "zero persistence"
 commitment is narrowed to carve exactly one exception: owner-private discussion sessions.
 **Related:** ADR-073 (journals zero-persistence + vault-as-only-memory-channel), ADR-042
@@ -88,16 +93,24 @@ breach commitment (2). See *Out of scope / rejected* for the itemized list.
 
 ### 3. Schema — `:ConversationSession` / `:ConversationTurn` (adapted, stripped)
 
-Adapted from the deferred design, reduced to what revisit + continue require. Multi-label
-follows the universal pattern (`:Entity` + domain label) only if these are ever routed through
-`UniversalNeo4jBackend`; if a dedicated thin backend is used they may carry the domain label
-alone — an implementation choice for the storage PR, **provided the SearchRouter non-
-registration in §2 holds regardless**.
+Adapted from the deferred design, reduced to what revisit + continue require.
+
+**Backend placement — RESOLVED *(2026-07-13)*: a dedicated thin `ConversationBackend`, NOT the
+universal Entity path.** `:ConversationSession`/`:ConversationTurn` are **not** `:Entity` nodes
+and are **not** one of the 25 EntityTypes; they follow the thin-backend precedent of Group
+(`NonKuDomain`, `collab_backends.py`). This is not merely a placement preference — routing them
+through `UniversalNeo4jBackend` would auto-wire the search + embedding machinery that §2
+**forbids**. The thin backend keeps the understanding wall structural (the nodes are never in the
+universal path to begin with), not just policy. They carry the domain label alone.
 
 ```cypher
 (:ConversationSession {
     session_id:    string,     // UUID
     user_uid:      string,     // owner FK — the ONLY access key
+    kind:          string,     // companion discriminator — "discussion" (journals). The seam
+                               //   that lets Askesis adopt this store later without a rewrite
+                               //   (its rows would carry a different kind). Journals writes only
+                               //   "discussion"; nothing else reads/branches on kind in phase 1.
     started_at:    datetime,
     last_activity: datetime,
     state:         string,     // "active" | "completed"
@@ -121,20 +134,28 @@ registration in §2 holds regardless**.
 **Relationships — two, both owner-private:**
 
 ```cypher
-(:User)-[:HAS_DISCUSSION {started_at: datetime}]->(:ConversationSession)
+(:User)-[:HAS_SESSION {started_at: datetime}]->(:ConversationSession)
 (:ConversationSession)-[:HAS_TURN {turn_number: integer}]->(:ConversationTurn)
 ```
 
 **Deliberately dropped from the deferred schema:** `guidance_mode`, `anchor_ku_uid`,
 `ANCHORED_TO`, `topic_summary` (LLM), `ku_refs`, `MENTIONS`, `MONITORS`. Each is an
-understanding or teacher-sharing hook (commitment 2 / rejected scope). A distinct edge name
-`HAS_DISCUSSION` (not the deferred `HAS_SESSION`) keeps discussion sessions grep-distinct from
-any future Askesis conversation store and prevents an accidental shared traversal.
+understanding or teacher-sharing hook (commitment 2 / rejected scope).
 
-The existing in-memory `ConversationSession` / `ConversationTurn` dataclasses
-(`core/models/user/conversation.py`, used today by Askesis, not journals) carry pedagogical and
-extraction fields. The persisted journals shape maps only the identity + transcript subset
-above; the pedagogical fields are **not** persisted.
+**Edge naming — neutral `HAS_SESSION`, not `HAS_DISCUSSION` *(amended 2026-07-13)*.** The
+ownership edge is deliberately companion-neutral so a single conversation-persistence store can
+be shared later. Journals-vs-Askesis separation is carried by the `kind` **property**, not by a
+journals-specific edge label — the understanding wall (§2) is enforced by SearchRouter/embedding
+non-registration and the guard tests (§7), not by edge-name obscurity. (This reverses the
+original ADR text, which chose a distinct `HAS_DISCUSSION` for grep-distinctness; the founder's
+"neutral seams" ruling makes shared-adoptability the higher-value property.)
+
+**Do NOT reuse the in-memory model.** The existing in-memory `ConversationSession` /
+`ConversationTurn` dataclasses (`core/models/user/conversation.py`, used today by Askesis, not
+journals) carry ~40 fields of pedagogical / search / analytics state. The *Learning from Askesis*
+section below documents that ~35 of them are vestigial even in Askesis. The storage PR builds
+**new minimal frozen models** mapping only the identity + transcript subset above; the
+pedagogical fields are not persisted and not modeled.
 
 ### 4. Access model — owner-private, delete first-class
 
@@ -210,6 +231,50 @@ choose (the artifact pattern they already have from `je_out/`). Neo4j remains th
 record for in-app revisit/continue; the `.md` export is a user-ownable copy, not a read-back
 folder class (which ADR-073 deliberately does not have). Export is a **design note here**, small
 enough to land in the storage PR or a fast follow — not a separate arc.
+
+## Learning from Askesis (design evidence, 2026-07-13)
+
+Before committing the storage shape, we studied how Askesis — the one component already running
+the in-memory `ConversationSession`/`ConversationTurn` model — persists conversations today. The
+finding shaped every decision above, and it is a **cautionary tale, not a template**: Askesis has
+**three incoherent, half-built conversation representations** and none delivers revisit/continue.
+
+| Representation | Where | Reality (verified) |
+|---|---|---|
+| In-memory `ConversationSession`/`Turn`/`Context` | `core/models/user/conversation.py` | ~40 fields, but only **5 load-bearing** (`session_id`, `user_uid`, `turns`, `turn_count`, `last_activity`) + `to_llm_messages()`. All pedagogical/search/analytics fields are written-never-read or never-written. Evaporates on process restart. |
+| Deferred `:ConversationSession`/`:Turn` schema | `conversation-neo4j-persistence-deferred.md` | Never built. |
+| Shipped `:ConversationMessage` + `(:User)-[:HAS_MESSAGE]->` | `user_backend.py:1021` (`add_conversation_message`) | **Write-only — verified zero read-back at any layer** (create exists at backend/service/port; no `MATCH` reads it anywhere). Fire-and-forget async write. **Flat — no session grouping.** So a restart wipes "persisted" history, and there is no unit to list or delete. |
+
+**What this proves, mapped to the decisions above:**
+
+- **Don't reuse the in-memory model** (§3) — Askesis leaves ~35 of its 40 fields vestigial;
+  reusing it would import that dead weight. New minimal frozen models instead.
+- **Journals must build the read-back Askesis never did** — revisit/continue *is* read-back; the
+  write is the feature, so it is **awaited** in the `Result` chain, not fire-and-forget.
+- **A parent `:ConversationSession` node is required** (§3) — the flat `:ConversationMessage`
+  shape structurally cannot do a revisit-list or a per-session `DETACH DELETE` (§4).
+- **Don't port the dead lifecycle** — `cleanup_inactive_sessions` / `should_summarize` /
+  timeout are all defined-never-called in Askesis; journals sessions are durable + user-deleted.
+
+**The reconciliation that makes a *shared* store possible (why the seams are neutral).** Journals
+and Askesis have **opposite** relationships to understanding: an Askesis conversation is *meant*
+to feed the learner model (ZPD, explored-KUs — the deferred doc's entire purpose); a journal
+discussion is *forbidden* from it (§2). This is not a conflict — it is the constraint that makes
+one store viable: **the storage layer must be understanding-agnostic.** It persists sessions and
+turns and nothing else; all understanding wiring (embeddings, `MENTIONS`, ZPD reads) lives
+*above* the store, opt-in per consumer. Journals opts out entirely (the wall); a future Askesis
+adoption opts in. This independently re-confirms the stripped schema (§2/§3): Askesis is the
+evidence that `guidance_mode`/`anchor_ku_uid`/`topic_summary` go vestigial even for their
+intended owner, so they do not belong in a shared node.
+
+**Scope ruling (founder, 2026-07-13): neutral seams, journals-only build.** The storage PR builds
+the thin `ConversationBackend` + minimal models **for journals only**, but with a companion-
+neutral shape (`kind` discriminator, neutral `HAS_SESSION` edge, understanding-agnostic node) so
+Askesis *can* adopt one shared store later. **Askesis is not touched in this arc** — its
+write-only `:ConversationMessage` path and the vestigial in-memory container stay until a
+separate, consented migration (its own arc, its own confirmation, since it also has to design the
+opt-*in* understanding wiring journals refuses). Consolidating the three representations is the
+prize; this arc lays the one real foundation without over-reaching into a second consumer.
 
 ## Relationship to ADR-073
 
