@@ -122,6 +122,7 @@ def _Composer(
     title: str,
     mode_value: str,
     is_founder: bool = False,
+    canon_book_uids: "tuple[str, ...]" = (),
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
@@ -132,6 +133,10 @@ def _Composer(
     surface (ADR-076). Because the composer form is never reset between turns
     (only the textarea is cleared), a checked box persists across follow-ups, so
     a summoned conversation stays summoned without any OOB re-render.
+
+    ``canon_book_uids`` is the discussion's opening book scope (C3); it rides a
+    hidden CSV field so every follow-up stays scoped to the same shelf the
+    session chose.
     """
     from ui.components import Icon
 
@@ -150,6 +155,7 @@ def _Composer(
         ),
         Input(type="hidden", name="title", value=title),
         Input(type="hidden", name="journal_mode", value=mode_value),
+        Input(type="hidden", name="canon_book_uids", value=",".join(canon_book_uids)),
         Div(
             Textarea(
                 placeholder="Follow up on this response…",
@@ -390,13 +396,18 @@ def StandardResponseFragment(
     response_output: str,
     mode: "JournalMode | None" = None,
     is_founder: bool = False,
+    sources: "tuple[CanonSource, ...] | None" = None,
+    canon_book_uids: "tuple[str, ...]" = (),
 ) -> Any:
-    """Growing chat thread — initial AI response with sticky composer.
+    """Growing chat thread — opening discussion response with sticky composer.
 
-    Replaces the single-swap pattern: the workspace is now a flex column with
-    a scrollable #journal-thread and a sticky #journal-composer. Follow-ups
-    append new bubbles via hx-swap="beforeend" on #journal-thread.
-    ``is_founder`` gates the composer's canon "summon" dial (ADR-076).
+    The workspace is a flex column with a scrollable #journal-thread and a
+    sticky #journal-composer. Follow-ups append new bubbles via
+    hx-swap="beforeend" on #journal-thread. ``is_founder`` gates the composer's
+    canon/vault dials (ADR-076). ``sources`` (canon books + vault notes the
+    grounded opening drew on) render as a clickable citation block under the
+    reply, matching the follow-up surface. ``canon_book_uids`` seeds the
+    composer so follow-ups keep the session's book scope (C3).
     """
     from core.models.enums.user_enums import JournalMode
 
@@ -408,11 +419,19 @@ def StandardResponseFragment(
     return Div(
         Div(
             _AiBubble(label, response_output),
+            *((CanonSourcesBlock(sources, cls="ml-[46px] -mt-2 mb-1"),) if sources else ()),
             SuggestedActivitiesContainer(raw_entry),
             id="journal-thread",
             cls="flex-1 overflow-y-auto p-6 space-y-6",
         ),
-        _Composer(raw_entry, response_output, title, resolved.value, is_founder=is_founder),
+        _Composer(
+            raw_entry,
+            response_output,
+            title,
+            resolved.value,
+            is_founder=is_founder,
+            canon_book_uids=canon_book_uids,
+        ),
         id="journal-workspace",
         cls="flex flex-col h-full",
     )

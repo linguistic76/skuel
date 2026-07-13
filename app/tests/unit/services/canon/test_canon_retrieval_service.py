@@ -341,3 +341,34 @@ class TestRetrieveVaultHappyPath:
         assert "My Note" in log_text
         assert "0.910" in log_text
         assert "secret passage body" not in log_text
+
+
+class TestListShelf:
+    """The shelf source-picker read — no embeddings needed, fail-soft."""
+
+    @pytest.mark.asyncio
+    async def test_delegates_to_backend(self):
+        from core.ports.query_types import ShelvedBook
+
+        books = [ShelvedBook(resource_uid="resource_hms", title="Hypermedia Systems")]
+        search = MagicMock()
+        search.list_shelved_books = AsyncMock(return_value=books)
+        service = CanonRetrievalService(reference_search=search, embeddings_service=None)
+
+        result = await service.list_shelf()
+
+        assert result.is_ok
+        assert result.value == books
+        search.list_shelved_books.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_works_without_embeddings(self):
+        # Shelf membership is a plain graph read — available even on CORE tier.
+        search = MagicMock()
+        search.list_shelved_books = AsyncMock(return_value=[])
+        service = CanonRetrievalService(reference_search=search, embeddings_service=None)
+
+        result = await service.list_shelf()
+
+        assert result.is_ok
+        assert result.value == []

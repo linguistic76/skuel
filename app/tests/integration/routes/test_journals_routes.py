@@ -38,11 +38,25 @@ def _reset_rate_limiter() -> None:
     reset_buckets_for_testing()
 
 
-def _make_request(user_uid: str | None = "user_mike", form: dict[str, str] | None = None) -> Any:
-    session = {"user_uid": user_uid} if user_uid is not None else {}
-    form_data = form or {}
+def _make_request(
+    user_uid: str | None = "user_mike",
+    form: dict[str, str] | None = None,
+    form_items: list[tuple[str, str]] | None = None,
+) -> Any:
+    """Build a POST request whose ``form()`` yields a starlette FormData.
 
-    async def _form() -> dict[str, str]:
+    The journal-start handler reads multi-valued fields via ``form.getlist``
+    (canon-shelf checkboxes), so a plain dict won't do — FormData carries both
+    ``.get`` and ``.getlist``. ``form_items`` lets a test supply repeated keys
+    (e.g. several ``canon_book_uids``); ``form`` is the single-value shorthand.
+    """
+    from starlette.datastructures import FormData
+
+    session = {"user_uid": user_uid} if user_uid is not None else {}
+    items = form_items if form_items is not None else list((form or {}).items())
+    form_data = FormData(items)
+
+    async def _form() -> FormData:
         return form_data
 
     return SimpleNamespace(
@@ -69,8 +83,12 @@ def mock_services() -> Any:
     services.user = MagicMock()
     services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=False)))
 
+    from core.services.journal.journal_service import JournalFollowUp
+
     services.journal = MagicMock()
-    services.journal.run_standard = AsyncMock(return_value=Result.ok("A standard response."))
+    services.journal.run_discussion = AsyncMock(
+        return_value=Result.ok(JournalFollowUp(text="A discussion response.", sources=()))
+    )
     services.journal.run_stage1 = AsyncMock(return_value=Result.ok("A scribe record."))
     services.journal.run_compiled = AsyncMock(return_value=Result.ok("# Compiled output"))
     services.journal.suggestions_available = True
@@ -180,32 +198,77 @@ class TestJournalsStartZeroPersistence:
             await handlers["/journals/start"](request=request)
         assert exc.value.status_code == 401
 
-    async def test_standard_returns_inline_and_persists_nothing(
+    async def test_standard_opens_discussion_and_persists_nothing(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         request = _make_request(form={"raw_entry": "What's on my mind today."})
         response = await handlers["/journals/start"](request=request)
 
-        # Runs the standard workflow, not the founder one.
-        mock_services.journal.run_standard.assert_awaited_once()
+        # Typed text opens a discussion (both tiers), not the DNWF staging.
+        mock_services.journal.run_discussion.assert_awaited_once()
         mock_services.journal.run_stage1.assert_not_awaited()
+        # A STANDARD user can't summon canon/vault — gated off server-side.
+        _, kwargs = mock_services.journal.run_discussion.call_args
+        assert kwargs["summon_canon"] is False
+        assert kwargs["summon_vault"] is False
         # Inline swap retargeted to the workspace — no redirect, no stored entry.
         assert response.status_code == 200
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         assert response.headers["HX-Reswap"] == "outerHTML"
         _assert_nothing_persisted(mock_services)
 
-    async def test_founder_runs_stage1_and_persists_nothing(
+    async def test_founder_opens_discussion_not_dnwf_staging(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
+        # Typed FOUNDER text opens a discussion too (ruling: typed = discussion);
+        # the Scribe staging lives on the file/audio door, never here.
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_request(form={"raw_entry": "Founder brainstorm."})
         response = await handlers["/journals/start"](request=request)
 
-        mock_services.journal.run_stage1.assert_awaited_once()
-        mock_services.journal.run_standard.assert_not_awaited()
+        mock_services.journal.run_discussion.assert_awaited_once()
+        mock_services.journal.run_stage1.assert_not_awaited()
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         _assert_nothing_persisted(mock_services)
+
+    async def test_founder_shelf_selection_scopes_canon(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # Checked shelf books → summon_canon on, scoped to those resource_uids;
+        # the vault toggle rides its own flag. Any book checked means summon.
+        mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
+        request = _make_request(
+            form_items=[
+                ("raw_entry", "Ground me in the shelf."),
+                ("canon_book_uids", "res_a"),
+                ("canon_book_uids", "res_b"),
+                ("summon_vault", "true"),
+            ]
+        )
+        await handlers["/journals/start"](request=request)
+
+        _, kwargs = mock_services.journal.run_discussion.call_args
+        assert kwargs["summon_canon"] is True
+        assert kwargs["summon_vault"] is True
+        assert kwargs["canon_book_uids"] == ["res_a", "res_b"]
+
+    async def test_standard_forged_source_flags_are_ignored(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        # A non-FOUNDER can forge the POST flags; the route must drop them.
+        request = _make_request(
+            form_items=[
+                ("raw_entry", "Trying to summon."),
+                ("canon_book_uids", "res_a"),
+                ("summon_vault", "true"),
+            ]
+        )
+        await handlers["/journals/start"](request=request)
+
+        _, kwargs = mock_services.journal.run_discussion.call_args
+        assert kwargs["summon_canon"] is False
+        assert kwargs["summon_vault"] is False
+        assert kwargs["canon_book_uids"] is None
 
     async def test_empty_entry_short_circuits_with_no_ai_and_no_persistence(
         self, handlers: dict[str, Any], mock_services: Any
@@ -213,14 +276,14 @@ class TestJournalsStartZeroPersistence:
         request = _make_request(form={"raw_entry": "   "})
         await handlers["/journals/start"](request=request)
 
-        mock_services.journal.run_standard.assert_not_awaited()
+        mock_services.journal.run_discussion.assert_not_awaited()
         mock_services.journal.run_stage1.assert_not_awaited()
         _assert_nothing_persisted(mock_services)
 
     async def test_ai_failure_still_persists_nothing(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        mock_services.journal.run_standard = AsyncMock(
+        mock_services.journal.run_discussion = AsyncMock(
             return_value=Result.fail(Errors.integration("llm", "boom"))
         )
         request = _make_request(form={"raw_entry": "Trigger an AI failure."})

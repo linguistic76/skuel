@@ -131,8 +131,8 @@ For FOUNDER-tier journal entries, Stage 1 (`run_stage1()` in `JournalService`) p
 faithful structural record of the raw transcript — preserving voice, repairing transcription
 errors, and revealing structure before any interpretive work begins. This is the format step.
 
-For STANDARD-tier entries, `JournalMode.SCRIBE` serves the same function on demand via
-`run_standard()`.
+On the typed door, `JournalMode.SCRIBE` nudges the discussion voice
+(`run_discussion()`) toward the same close, faithful stance on demand.
 
 The Stage 1 output surfaces in the Journals UI as the Scribe response. It is not yet
 extracted into a `JournalInsight` signal for Askesis (see Phase 2).

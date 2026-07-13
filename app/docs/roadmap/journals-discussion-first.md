@@ -2,7 +2,11 @@
 
 **Status:** Confirmed — fundamental workflow rulings settled with the founder 2026-07-12;
 choices C1–C6 and the P1 → P2 → P3 phasing confirmed by the founder the same day
-(C1 = Option A, Neo4j sessions/turns). This document is the arc's source of truth.
+(C1 = Option A, Neo4j sessions/turns). **P1 shipped 2026-07-12** — with a founder
+ruling that resolved the routing fork below: **typed = discussion for both tiers**
+(`/journals/start` → `run_discussion`); the interactive DNWF staging from typed text
+was removed and now lives on the file/audio door only. This document is the arc's
+source of truth.
 **Related:** ADR-073 (journals zero-persistence), ADR-076 (canon quotation & citation),
 ADR-077 (scoped canon retrieval), `docs/roadmap/conversation-neo4j-persistence-deferred.md`
 (deferred Askesis conversation storage — reuse candidate).
@@ -44,7 +48,7 @@ states beyond the canon-checkbox ruling.
 
 | Surface | Today |
 |---|---|
-| Chat door, first message | `POST /journals/respond` → `run_standard()` — UserContext digest only; **no canon/vault dials** |
+| Chat door, first message | ~~`POST /journals/respond` → `run_standard()`~~ **(P1: now `POST /journals/start` → `run_discussion()` — companion voice, FOUNDER canon-shelf checkboxes + vault toggle, gated server-side)** |
 | Chat door, follow-ups | `POST /journals/follow-up` → `run_follow_up()` — canon + vault dials (FOUNDER-gated server-side), quote-and-cite via `to_discussion_block()` |
 | File door | `POST /journals/upload` → `run_compiled()` — **already carries both `summon_canon`/`summon_vault` form flags** |
 | Canon scoping | `CanonRetrievalService.retrieve(resource_uids=...)` already supports restricting to specific books (built for Askesis, ADR-077 PR-A) — the checkbox picker has an existing seam |
@@ -144,7 +148,7 @@ includes the processed output as context, as the follow-up path does today.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **P1 — sources from message one** | Source panel (shelf checkboxes via `resource_uids` + vault toggle) on the initial composer; first-message discussion voice (C3, C4, C5) | Nothing — all seams exist; no storage |
+| **P1 — sources from message one** ✅ SHIPPED 2026-07-12 | Source panel (FOUNDER shelf checkboxes via `resource_uids` + vault toggle) on the initial composer; first-message discussion voice for both tiers via `run_discussion` (C3, C4, C5). Founder ruling: typed = discussion (both tiers); DNWF staging moved to the file/audio door. New: `list_shelved_books` port/adapter + `CanonRetrievalService.list_shelf` + `JournalService.list_canon_shelf`/`run_discussion`; `run_standard` + `/journals/respond` removed (One Path Forward) | Nothing — all seams existed; no storage |
 | **P2 — real storage** | ADR-073 amendment/sibling ADR (C2) written and confirmed FIRST, then sessions/turns, revisit list, continue-thread (replacing the hidden-field accumulator), delete, export-to-md (C1) | P1 useful but not required |
 | **P3 — convergence & refinement** | File door creates sessions (C6); remembered source selections; file weighting; relevance tuning | P2 |
 

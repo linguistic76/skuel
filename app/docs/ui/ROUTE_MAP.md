@@ -156,15 +156,14 @@ Journal domain — zero-persistence workshop (ADR-073). Landing at `/journals`. 
 
 **Routes:**
 - `GET  /journals` — tier-aware 3-column landing (collapsible journal sidebar · chat input · upload panel; `BasePage(CUSTOM)`, no Tasks+ sidebar). The sidebar's "New Journal" reset stays hidden until a session swap has replaced `#journal-workspace` — on a fresh load there is nothing to reset
-- `POST /journals/start` — run the workflow on typed text; returns the response **inline** (`HX-Retarget` `#journal-workspace`) — no `UserEntry`, no redirect
+- `POST /journals/start` — open a discussion on typed text (both tiers; companion voice, user leads); returns the response **inline** (`HX-Retarget` `#journal-workspace`) — no `UserEntry`, no redirect. FOUNDER source panel (canon-shelf checkboxes + vault toggle) grounds from message one
 - `POST /journals/upload` — file/multi-file upload; transcribes/compiles to the user's own `je_out/` folder and returns an inline download fragment (no `UserEntry`). FOUNDER audio → transcript review → Scribe
 - `POST /journals/folder-process` — batch-process `je_in/` → `je_out/` (shares the upload batch engine)
 - `POST /journals/suggest-activities` — inert "Suggested activities" panel; takes reflection content in the body (no stored entry)
 - `GET  /journals/{entry_uid}` — **periodic-notes-only** (`entry_kind` ∈ {daily, weekly, monthly}) → `PeriodicNotePage` with a compact calendar navigation sidebar (mini month grid, ← Calendar link, prev/next period nav). Any non-periodic uid → 404 (sessions are never stored).
 - `GET  /journals/je-out/{filename}` — download a flat `je_out/` file (`.md`/`.txt`; single-user-local, path-containment-guarded)
-- `POST /journals/respond` — STANDARD tier single AI response (`@csrf_protected`)
-- `POST /journals/follow-up` — reply to an AI response (`@csrf_protected`)
-- `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (`@csrf_protected`)
+- `POST /journals/follow-up` — reply to an AI response, keeping the session's canon/vault scope (`@csrf_protected`)
+- `POST /journals/stage1` — Stage 1 Scribe: faithful structural record of the raw entry (FOUNDER file/audio door) (`@csrf_protected`)
 - `POST /journals/stage2` — Stage 2 Thought Partner: evaluative + reflective response across four roles (`@csrf_protected`)
 - `POST /journals/stage3` — Stage 3 What Is Related: proposed graph connections (`@csrf_protected`)
 

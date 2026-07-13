@@ -1,17 +1,16 @@
-"""Journals domain routes — DNWF three-stage workflow (FOUNDER) and continuous (STANDARD).
+"""Journals domain routes — typed discussion door + the DNWF file/audio door.
 
 Routes:
     GET  /journals                      — 3-column landing page (no Tasks+ sidebar)
-    POST /journals/start                — run workflow on typed text; returns response inline (zero-persistence, ADR-073)
-    POST /journals/upload               — file upload handler
+    POST /journals/start                — open a discussion on typed text; returns response inline (zero-persistence, ADR-073)
+    POST /journals/upload               — file upload handler (DNWF door)
     POST /journals/folder-process       — batch folder processing
     GET  /journals/je-out/{filename}    — download a journal output from je_out/
     GET  /journals/{entry_uid}          — periodic-note page (daily/weekly/monthly)
-    POST /journals/respond              — STANDARD tier single-response workflow (FULL tier)
     POST /journals/follow-up            — conversation continuation (all tiers)
-    POST /journals/stage1               — Stage 1 Scribe (FOUNDER only, FULL tier)
-    POST /journals/stage2               — Stage 2 Thought Partner (FOUNDER only, FULL tier)
-    POST /journals/stage3               — Stage 3 What Is Related (FOUNDER only, FULL tier)
+    POST /journals/stage1               — Stage 1 Scribe (FOUNDER audio door, FULL tier)
+    POST /journals/stage2               — Stage 2 Thought Partner (FOUNDER audio door, FULL tier)
+    POST /journals/stage3               — Stage 3 What Is Related (FOUNDER audio door, FULL tier)
 """
 
 from __future__ import annotations
@@ -624,9 +623,21 @@ def create_journals_routes(
             return Response("Could not load user", status_code=500)
         user = user_result.value
 
+        # The canon shelf source-picker is a FOUNDER dial (like the follow-up
+        # composer's), so only FOUNDERs pay the shelf read. Fail-soft: an empty
+        # list (CORE tier / no canon / read error) renders no picker.
+        shelf_books: list[dict[str, str]] = []
+        if user.journal_tier.is_founder() and journal_service is not None:
+            shelf_result = await journal_service.list_canon_shelf()
+            if shelf_result.is_ok:
+                shelf_books = [
+                    {"resource_uid": b["resource_uid"], "title": b["title"]}
+                    for b in shelf_result.value
+                ]
+
         # Journal sessions are zero-persistence (ADR-073) — there are no stored
         # sessions to list. The landing page is the workshop entry point only.
-        page_content = JournalsLandingPage(user=user)
+        page_content = JournalsLandingPage(user=user, shelf_books=shelf_books)
 
         if request.headers.get("HX-Request"):
             return page_content
@@ -650,24 +661,28 @@ def create_journals_routes(
     @csrf_protected
     @rate_limited(per_user=10, window_s=60)
     async def journals_start(request: Request) -> Any:
-        """Run the journal workflow on typed text and return the response inline.
+        """Open a journal discussion on typed text and return it inline.
 
         Zero-persistence (ADR-073): the journal is a private workshop — nothing is
-        written to the database. STANDARD tier returns ``StandardResponseFragment``;
-        FOUNDER tier returns ``Stage1Fragment`` whose review gate drives the equally
-        stateless Stage 2/3 routes. Follow-ups run through ``/journals/follow-up``.
-        The user keeps whatever they choose to copy; SKUEL stores nothing.
+        written to the database. Both tiers get the same discussion experience
+        (ruling: typed = discussion): a companion voice that lets the user lead
+        (``run_discussion``). UserContext grounds every discussion; the canon
+        shelf checkboxes and the vault toggle are FOUNDER dials, gated
+        server-side (a forgeable POST flag can't unlock them for other tiers).
+        The DNWF Scribe→Thought-Partner→What-Is-Related staging lives on the
+        file/audio door, not here. Follow-ups run through ``/journals/follow-up``.
 
-        On success returns the workspace fragment, retargeted from the form's default
-        ``#start-status`` to ``#journal-workspace`` so it replaces the landing centre
-        in place. On error returns an inline message swapped into ``#start-status``.
+        On success returns ``StandardResponseFragment`` retargeted from the
+        form's default ``#start-status`` to ``#journal-workspace`` so it replaces
+        the landing centre in place. On error returns an inline message swapped
+        into ``#start-status``.
         """
         from fasthtml.common import Div as _Div
         from fasthtml.common import P as _P
         from fasthtml.common import to_xml
 
         from core.models.enums.user_enums import JournalMode
-        from ui.journals import Stage1Fragment, StandardResponseFragment
+        from ui.journals import StandardResponseFragment
 
         def _err(msg: str) -> Any:
             return _Div(_P(msg, cls="text-sm text-destructive"), id="start-status")
@@ -690,12 +705,26 @@ def create_journals_routes(
         is_founder = user_result.value.journal_tier.is_founder()
         title = raw_entry.split("\n")[0][:80].strip() or "Journal Entry"
 
-        if is_founder:
-            ai_result = await journal_service.run_stage1(raw_entry, user_uid)
-        else:
-            ai_result = await journal_service.run_standard(
-                raw_entry, user_uid, JournalMode.default()
-            )
+        # Source dials (FOUNDER entitlements — gated server-side). The canon
+        # shelf is per-book checkboxes: the checked ``resource_uids`` scope the
+        # draw (C3), and any book checked means "summon canon". The vault is a
+        # single toggle. Non-FOUNDERs discuss on UserContext alone.
+        canon_book_uids = (
+            [u for u in form.getlist("canon_book_uids") if isinstance(u, str) and u]
+            if is_founder
+            else []
+        )
+        summon_vault = is_founder and str(form.get("summon_vault", "")).strip().lower() == "true"
+        summon_canon = bool(canon_book_uids)
+
+        ai_result = await journal_service.run_discussion(
+            raw_entry,
+            user_uid,
+            JournalMode.default(),
+            summon_canon=summon_canon,
+            summon_vault=summon_vault,
+            canon_book_uids=canon_book_uids or None,
+        )
 
         if ai_result.is_error:
             logger.error(
@@ -705,14 +734,15 @@ def create_journals_routes(
             )
             return _err("Could not generate a response. Please try again.")
 
-        if is_founder:
-            workspace: Any = Stage1Fragment(
-                raw_entry=raw_entry, title=title, scribe_output=ai_result.value
-            )
-        else:
-            workspace = StandardResponseFragment(
-                raw_entry=raw_entry, title=title, response_output=ai_result.value
-            )
+        workspace = StandardResponseFragment(
+            raw_entry=raw_entry,
+            title=title,
+            response_output=ai_result.value.text,
+            mode=JournalMode.default(),
+            is_founder=is_founder,
+            sources=ai_result.value.sources,
+            canon_book_uids=tuple(canon_book_uids),
+        )
 
         return HTMLResponse(
             to_xml(workspace),
@@ -1195,42 +1225,6 @@ def create_journals_routes(
         )
 
     # ------------------------------------------------------------------
-    # POST /journals/respond — STANDARD tier single-response workflow
-    # ------------------------------------------------------------------
-
-    @rt("/journals/respond", methods=["POST"])
-    @csrf_protected
-    async def journals_respond(
-        request: Request,
-        raw_entry: str,
-        title: str = "",
-        journal_mode: str = "",
-    ) -> Any:
-        from core.models.enums.user_enums import JournalMode
-        from ui.journals import ErrorFragment, StandardResponseFragment
-
-        user_uid = require_authenticated_user(request)
-
-        if not raw_entry or not raw_entry.strip():
-            return ErrorFragment("Please write something before getting a response.")
-
-        if journal_service is None:
-            return ErrorFragment("Journal AI features are not available (CORE tier).")
-
-        mode = JournalMode.from_string(journal_mode)
-        result = await journal_service.run_standard(raw_entry.strip(), user_uid, mode)
-        if result.is_error:
-            logger.error("Journal respond failed for %s: %s", user_uid, result.expect_error())
-            return ErrorFragment("Could not generate a response. Please try again.")
-
-        return StandardResponseFragment(
-            raw_entry=raw_entry.strip(),
-            title=title.strip(),
-            response_output=result.value,
-            mode=mode,
-        )
-
-    # ------------------------------------------------------------------
     # POST /journals/follow-up — conversation continuation
     # ------------------------------------------------------------------
 
@@ -1245,16 +1239,21 @@ def create_journals_routes(
         journal_mode: str = "",
         summon_canon: bool = False,
         summon_vault: bool = False,
+        canon_book_uids: str = "",
     ) -> Any:
         """Continue a journal conversation.
 
         Builds combined context from the previous exchange and calls
-        run_standard() so the model responds to the follow-up, not the
+        run_follow_up() so the model responds to the follow-up, not the
         original note alone.
 
         Returns FollowUpFragment: two chat bubbles appended to #journal-thread
         plus OOB inputs that update the hidden context fields in #journal-composer.
         The conversation thread grows without replacing the workspace.
+
+        ``canon_book_uids`` is a CSV of the shelf books the discussion opened on
+        (the composer carries it as a hidden field) — it keeps follow-ups scoped
+        to the same books the session chose (C3).
         """
         from core.models.enums.user_enums import JournalMode
         from ui.journals import FollowUpErrorFragment, FollowUpFragment
@@ -1282,6 +1281,14 @@ def create_journals_routes(
             summon_canon = summon_canon and is_founder
             summon_vault = summon_vault and is_founder
 
+        # Empty scope must mean "whole shelf" (None), never [] — an empty
+        # resource_uids list is a guaranteed miss in retrieve(). The DNWF
+        # file/audio composer carries no book scope, so its canon dial draws the
+        # whole shelf; a typed discussion carries the books it opened on.
+        book_uids = (
+            ([u for u in canon_book_uids.split(",") if u.strip()] or None) if summon_canon else None
+        )
+
         mode = JournalMode.from_string(journal_mode)
         result = await journal_service.run_follow_up(
             original_entry=original_entry.strip(),
@@ -1291,6 +1298,7 @@ def create_journals_routes(
             mode=mode,
             summon_canon=summon_canon,
             summon_vault=summon_vault,
+            canon_book_uids=book_uids,
         )
         if result.is_error:
             logger.error("Journal follow-up failed for %s: %s", user_uid, result.expect_error())

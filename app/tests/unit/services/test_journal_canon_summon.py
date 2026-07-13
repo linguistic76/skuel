@@ -93,6 +93,106 @@ class TestMaybeSummonCanon:
         assert ctx.has_passages is True
         assert ctx.books() == ["Hyper Media Systems"]
 
+    @pytest.mark.asyncio
+    async def test_resource_uids_scope_is_passed_to_retrieve(self):
+        # C3 shelf checkboxes → retrieve(resource_uids=...); None = whole shelf.
+        canon = _canon_service(Result.ok(_populated_context()))
+        service = _make_service(canon=canon)
+        await service._maybe_summon_canon("entry", summon=True, resource_uids=["res_a", "res_b"])
+        assert canon.retrieve.await_args.kwargs["resource_uids"] == ["res_a", "res_b"]
+
+    @pytest.mark.asyncio
+    async def test_whole_shelf_when_no_scope(self):
+        canon = _canon_service(Result.ok(_populated_context()))
+        service = _make_service(canon=canon)
+        await service._maybe_summon_canon("entry", summon=True)
+        assert canon.retrieve.await_args.kwargs["resource_uids"] is None
+
+
+class TestRunDiscussion:
+    """The typed first message opens a user-led, quote-on-demand discussion."""
+
+    @pytest.mark.asyncio
+    async def test_user_message_is_the_raw_entry(self):
+        # The user leads: the prompt is their words, not a wrapped template.
+        llm = _stub_llm("Let's think about that.")
+        service = _make_service(llm=llm, canon=_canon_service(Result.ok(CanonContext.empty())))
+
+        await service.run_discussion("What's alive for me today?", "user_mike")
+
+        assert llm.generate.await_args.kwargs["prompt"] == "What's alive for me today?"
+
+    @pytest.mark.asyncio
+    async def test_summon_injects_discussion_block_and_returns_sources(self):
+        llm = _stub_llm("Hypermedia Systems puts it this way…")
+        canon = _canon_service(Result.ok(_located_context()))
+        service = _make_service(llm=llm, canon=canon)
+
+        result = await service.run_discussion(
+            "Tell me about hypermedia.", "user_mike", summon_canon=True
+        )
+
+        assert result.is_ok
+        system_prompt = llm.generate.await_args.kwargs["system_prompt"]
+        # Quote-permitting discussion block, not the silent-infusion block.
+        assert "The Canon Shelf" in system_prompt
+        assert "verbatim" in system_prompt
+        assert "Wisdom to Draw On" not in system_prompt
+        # Companion, no forced headings.
+        assert "# What is Emerging" not in system_prompt
+        turn = result.value
+        assert turn.text == "Hypermedia Systems puts it this way…"
+        assert len(turn.sources) == 1
+        assert turn.sources[0].resource_uid == "resource_hms"
+
+    @pytest.mark.asyncio
+    async def test_book_scope_is_passed_through(self):
+        llm = _stub_llm("ok")
+        canon = _canon_service(Result.ok(_located_context()))
+        service = _make_service(llm=llm, canon=canon)
+
+        await service.run_discussion(
+            "ground me", "user_mike", summon_canon=True, canon_book_uids=["res_a"]
+        )
+
+        assert canon.retrieve.await_args.kwargs["resource_uids"] == ["res_a"]
+
+    @pytest.mark.asyncio
+    async def test_no_summon_is_canon_free(self):
+        llm = _stub_llm("Plain companion reply.")
+        service = _make_service(llm=llm, canon=_canon_service(Result.ok(_located_context())))
+
+        result = await service.run_discussion("just thinking out loud", "user_mike")
+
+        assert result.is_ok
+        assert result.value.text == "Plain companion reply."
+        assert result.value.sources == ()
+        assert "The Canon Shelf" not in llm.generate.await_args.kwargs["system_prompt"]
+
+
+class TestListCanonShelf:
+    @pytest.mark.asyncio
+    async def test_no_canon_service_returns_empty_list(self):
+        service = _make_service(canon=None)
+        result = await service.list_canon_shelf()
+        assert result.is_ok
+        assert result.value == []
+
+    @pytest.mark.asyncio
+    async def test_delegates_to_canon_list_shelf(self):
+        from core.ports.query_types import ShelvedBook
+
+        canon = MagicMock()
+        books = [ShelvedBook(resource_uid="res_a", title="Book A")]
+        canon.list_shelf = AsyncMock(return_value=Result.ok(books))
+        service = _make_service(canon=canon)
+
+        result = await service.list_canon_shelf()
+
+        assert result.is_ok
+        assert result.value == books
+        canon.list_shelf.assert_awaited_once()
+
 
 class TestStageCanonWiring:
     @pytest.mark.asyncio

@@ -25,7 +25,7 @@ __version__ = "1.0"
 from typing import Any
 
 from core.models.ps_content.content_chunks import ContentChunk
-from core.ports.query_types import ReferenceChunkHit
+from core.ports.query_types import ReferenceChunkHit, ShelvedBook
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -297,6 +297,30 @@ class Neo4jReferenceChunkAdapter:
                 len(hits),
             )
         return hits
+
+    async def list_shelved_books(self) -> list[ShelvedBook]:
+        """List every shelved book (Resource with ≥1 :ReferenceChunk), title-ordered.
+
+        The shelf's membership read, distinct from the vector search above: no
+        embedding, just the distinct owning :Resource of any reference chunk.
+        Powers the journal discussion composer's per-book source picker. Fails
+        OPEN (empty list on read error) so a missing shelf degrades to no picker
+        rather than breaking the page.
+        """
+        query = """
+        MATCH (r:Resource)-[:HAS_REFERENCE_CHUNK]->(:ReferenceChunk)
+        RETURN DISTINCT r.uid AS resource_uid, r.title AS title
+        ORDER BY title
+        """
+        try:
+            result = await self.neo4j.execute_query(query, {})
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to list shelved books: {e}")
+            return []
+        return [
+            ShelvedBook(resource_uid=row["resource_uid"], title=row["title"] or "")
+            for row in (result or [])
+        ]
 
     async def get_chunk_embedding_freshness(self, chunk_uids: list[str]) -> list[dict[str, Any]]:
         """
