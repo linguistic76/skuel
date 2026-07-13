@@ -8,6 +8,10 @@ journals-only build." Backend placement resolved (dedicated thin `ConversationBa
 universal Entity path); the ownership edge is the **neutral `HAS_SESSION`** (not `HAS_DISCUSSION`)
 and the session carries a **`kind`** discriminator, so Askesis can adopt one shared store later.
 Grounded in a study of how Askesis persists conversations today — see the new section.
+**Amended 2026-07-13 (§3/§6, self-consistency):** dropped `state` (no writer — the exact
+vestigial-field trap this ADR criticizes) and de-stored `turn_count` (derived by `COUNT`-ing
+`HAS_TURN`, not denormalized); and made §6 honest that freeform discussion is *more* sensitive
+than a curated doorway note (same encryption mechanism, but a candidate to prioritize first).
 **Amends:** ADR-073 §1 and §3 (see *Relationship to ADR-073* below) — the "zero persistence"
 commitment is narrowed to carve exactly one exception: owner-private discussion sessions.
 **Related:** ADR-073 (journals zero-persistence + vault-as-only-memory-channel), ADR-042
@@ -112,11 +116,9 @@ universal path to begin with), not just policy. They carry the domain label alon
                                //   (its rows would carry a different kind). Journals writes only
                                //   "discussion"; nothing else reads/branches on kind in phase 1.
     started_at:    datetime,
-    last_activity: datetime,
-    state:         string,     // "active" | "completed"
+    last_activity: datetime,   // touched on each appended turn; the revisit list orders by it
     title:         string,     // user-facing label for the revisit list (user-set or
                                //   first-message-derived — NOT an LLM understanding summary)
-    turn_count:    integer,
     source_selection: string   // JSON: the canon shelf checkboxes + vault toggle used, so a
                                //   continued session restores its own last selection (C3)
 })
@@ -141,6 +143,17 @@ universal path to begin with), not just policy. They carry the domain label alon
 **Deliberately dropped from the deferred schema:** `guidance_mode`, `anchor_ku_uid`,
 `ANCHORED_TO`, `topic_summary` (LLM), `ku_refs`, `MENTIONS`, `MONITORS`. Each is an
 understanding or teacher-sharing hook (commitment 2 / rejected scope).
+
+**Also dropped — `state` and `turn_count` *(amended 2026-07-13, self-consistency fix)*.** The
+first draft carried `state: "active" | "completed"` and a stored `turn_count`. Both are cut: this
+ADR argues at length that Askesis rotted because it kept fields with no live reader/writer, so it
+must not do the same. Nothing in the revisit/continue flow **transitions** a session to
+"completed" — every session is simply the user's owned history, resumable until deleted — so
+`state` has no writer and is exactly the vestigial trap. `turn_count` is a denormalization of what
+`HAS_TURN` already encodes and drifts on every append (Askesis's own `add_turn` bug shape); it is
+**derived** (`COUNT` the `HAS_TURN` edges) at read time, not stored. If a future need for an
+explicit lifecycle state or a cached count appears, add it **then, with its writer** — not
+speculatively now.
 
 **Edge naming — neutral `HAS_SESSION`, not `HAS_DISCUSSION` *(amended 2026-07-13)*.** The
 ownership edge is deliberately companion-neutral so a single conversation-persistence store can
@@ -188,12 +201,15 @@ processing-complete is **P3/C6**, not this ADR.)
 
 ### 6. At-rest encryption joins the existing plan
 
-`:ConversationTurn.content` is plaintext at rest in Neo4j — the **same residual** doorway notes
-and periodic notes already carry (ADR-073 residual gap; ADR-042 field-level-encryption phase).
-Discussion turn content is added to that field-level-encryption backlog; it does **not** get a
-bespoke encryption scheme. Until that phase lands, operator-level DB access can read discussion
-turns exactly as it can read doorway notes today — a known, documented residual, not a
-regression introduced here.
+`:ConversationTurn.content` is plaintext at rest in Neo4j — the **same mechanism** of residual
+doorway notes and periodic notes already carry (ADR-073 residual gap; ADR-042 field-level-
+encryption phase). It does **not** get a bespoke encryption scheme; discussion turn content joins
+that one field-level-encryption backlog. But the *sensitivity* is not equivalent: a doorway note
+is a deliberate, curated artifact, whereas a freeform discussion is more intimate and less
+considered — so discussion turns are a **candidate to prioritize first** within the ADR-042 work,
+not merely lumped in. Until that phase lands, operator-level DB access can read discussion turns
+exactly as it can read doorway notes today — a known, documented residual, not a regression
+introduced here.
 
 ### 7. Testability — the bar shifts from "stores zero" to "stores only the visible, deletable, un-understood"
 
@@ -318,8 +334,9 @@ rulings):
 - **Cost:** ADR-073's headline "zero-persistence" is now qualified — the honesty is preserved by
   making the exception explicit and narrow, but the one-sentence pitch is longer.
 - **Residual (plaintext at rest):** discussion turn content is plaintext in Neo4j until the
-  ADR-042 field-level-encryption phase lands — the same residual as doorway/periodic notes, not
-  a new class of exposure.
+  ADR-042 field-level-encryption phase lands — the same *mechanism* as doorway/periodic notes (not
+  a new class of exposure), though freeform discussion is more sensitive than a curated note, so it
+  is a candidate to prioritize first in that work (§6).
 - **Residual (multi-tenant):** owner-private is enforced by `user_uid` ownership + 404-not-403,
   the same model the rest of SKUEL uses; no new trust-boundary default is introduced. A future
   hosted deployment inherits the same per-user-vault considerations already flagged in ADR-073,
