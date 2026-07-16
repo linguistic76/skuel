@@ -58,7 +58,7 @@ def create_askesis_ui_routes(
         """Fetch the nous→sub-topics dependency map for the composer scope.
 
         Spans BOTH :Ku and :PathStep via SearchRouter (which merges each
-        curriculum domain's own-label positional pairs — cross-domain
+        curriculum domain's own-label co-occurrence pairs — cross-domain
         aggregation in the service layer, not a backend). The composer inlines
         it into Alpine state so the sub-topic selector offers only the chosen
         topic's sub-topics. Fails soft the same way as topics. Empty until the
@@ -89,11 +89,10 @@ def create_askesis_ui_routes(
         # In the no-data fail-soft path the sub-topic selector + chip don't render,
         # so a crafted ?nous_subtopic= would be an INVISIBLE scope silently
         # constraining every answer with no way to see or clear it (Codex #546).
-        # Validation is DEPENDENT, mirroring the selector: a sub-topic only means
-        # something under its parent topic, so it must be authored under the
-        # seeded nous (a sub-topic with no/other nous is dropped). A valid
-        # /search handoff always passes — its dropdown offers exactly these
-        # pairs; only crafted or stale values are dropped.
+        # Validation is DEPENDENT, mirroring the selector: the sub-topic must
+        # co-occur with the seeded nous on ≥1 entity (a pair no content carries
+        # is dropped). A valid /search handoff always passes — its dropdown
+        # offers exactly these pairs; only crafted or stale values are dropped.
         nous = request.query_params.get("nous", "")
         if nous not in nous_topics:
             nous = ""

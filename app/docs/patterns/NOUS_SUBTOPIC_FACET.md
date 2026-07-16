@@ -12,14 +12,16 @@ scope on the curriculum corpus.
 ## How it works
 
 - **Field:** `nous_subtopic: tuple[str, ...]` on `Ku` (`core/models/ku/ku.py`) and
-  `PathStep` (`core/models/pathways/path_step.py`) — mirrors `nous` exactly:
-  multi-valued, kebab-case, empty = deliberately unassigned. Authored in vault YAML
-  directly under the `nous:` block as a **parallel array**: index i names the
-  sub-topic that sits UNDER the nous topic at index i. Pair derivation is therefore
-  positional (`UNWIND range(...)` over both arrays by index, guarded to equal-length
-  arrays), never an element cross-product — a `[body, exercises]` x
-  `[breath, practice-design]` entity authors breath↔body + practice-design↔exercises,
-  NOT breath↔exercises.
+  `PathStep` (`core/models/pathways/path_step.py`) — multi-valued, kebab-case,
+  empty = deliberately unassigned. Authored in vault YAML alongside the `nous:`
+  block; the two lists are fully **independent** — any lengths, any combination.
+  There is deliberately NO alignment/equal-length authoring contract (ruled
+  2026-07-16: no false restrictions — the design goes where whatever there is
+  to share leads).
+- **Pairing is co-occurrence.** A (topic, sub-topic) pair exists once ≥1 entity
+  carries both, so the dependent dropdowns follow wherever the content actually
+  connects them — every offered pair has at least one matching entity, and a
+  sub-topic can surface under multiple topics when shared content links them.
 - **Vocabulary is graph-derived, never hardcoded.** A sub-topic exists (and renders as
   a faucet option) only once ≥1 entity carries it (with a parent `nous`); deleting the
   last carrier removes it.
@@ -56,9 +58,9 @@ scope on the curriculum corpus.
   x-data (`nousSubtopicMap`); the sub-topic `<select>` renders its options client-side
   (`x-for` over `nousSubtopicMap[selectedNous]`, `:selected` re-asserts the seeded value
   after the dynamic options render), is `:disabled` until a topic is picked, and a root
-  `x-effect` clears a sub-topic the moment it isn't authored under the selected topic.
+  `x-effect` clears a sub-topic the moment it no longer co-occurs with the selected topic.
   The `/askesis?nous=…&nous_subtopic=…` handoff params are validated DEPENDENTLY
-  (sub-topic must be authored under the seeded nous) before seeding.
+  (sub-topic must co-occur with the seeded nous on ≥1 entity) before seeding.
 
 ## Authoring & changing the ontology
 

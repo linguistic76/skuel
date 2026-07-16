@@ -267,9 +267,10 @@ class SearchRequest(BaseModel):
     # NOUS sub-topic filter — the 2nd taxonomy level beneath `nous` (e.g.
     # nervous-system under body). Matches membership in the `nous_subtopic`
     # array property on Ku/PathStep. The /search dropdown only offers
-    # sub-topics authored UNDER the chosen nous topic (positional pairing —
-    # SearchRouter.nous_subtopic_map); the filter itself stays independent
-    # array membership, which the scoped UI keeps honest.
+    # sub-topics that CO-OCCUR with the chosen nous topic on ≥1 entity
+    # (SearchRouter.nous_subtopic_map — the dropdown follows the content), so
+    # every offered combination has at least one match; the filter itself is
+    # the same independent array membership.
     nous_subtopic: str | None = Field(
         default=None,
         description="Filter by NOUS sub-topic slug (2nd level, e.g. nervous-system, sleep, education)",

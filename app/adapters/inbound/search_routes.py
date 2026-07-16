@@ -125,10 +125,11 @@ def create_search_api_routes(
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
         changes it fires ``change from:[name='nous']`` at the sub-topic column,
         which fetches this fragment. With a topic selected, only the sub-topics
-        authored UNDER it (graph-derived positional map — the taxonomy never
-        leaves the vault); with no ``nous`` (the "All Nous" option) the control
-        resets to its disabled "Choose a Nous first" state — sub-topics go
-        deeper into ONE topic, so a flat cross-topic list is never offered.
+        that CO-OCCUR with it on ≥1 entity (graph-derived co-occurrence map —
+        the taxonomy never leaves the vault, and every offered pair has at
+        least one match); with no ``nous`` (the "All Nous" option) the control
+        resets to its disabled "Choose a Nous first" state — sub-topics narrow
+        within a chosen topic, so a flat cross-topic list is never offered.
         Fail-soft: an unknown topic yields a disabled "All Sub-topics".
         """
         require_authenticated_user(request)
