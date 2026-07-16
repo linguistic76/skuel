@@ -618,6 +618,16 @@ limit = parse_int_query_param(request.query_params, "limit", 50, minimum=1, maxi
 | `max_steps` / `max_recommendations` | 5 | 1 | 20 | Askesis intelligence |
 | `time_horizon_hours` | 8 | 1 | 168 | Schedule-aware recommendations |
 
+### Float Query Parameters
+
+**Pattern:** `parse_float_query_param()` — same contract as the int helper (default on missing/blank/invalid, optional `minimum`/`maximum` clamping) for ratio-style params.
+
+```python
+from adapters.inbound.route_factories import parse_float_query_param
+
+min_progress = parse_float_query_param(request.query_params, "min_progress", 0.7)
+```
+
 **Anti-Pattern:**
 ```python
 # BAD: Crashes with ValueError on non-numeric input → 500 error
