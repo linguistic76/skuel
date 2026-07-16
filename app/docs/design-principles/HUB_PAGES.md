@@ -31,11 +31,11 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 | Page | Hub Pattern | What It Organizes |
 |------|-------------|-------------------|
-| `/submissions` | MOC root (sidebar-free card hub) | Exercise, Journal, Sync, History |
+| `/submissions` | MOC root (sidebar-free card hub) | Sync, Exercise, Journal, History, Knowledge |
 | `/gradebook` | MOC root (sidebar-free card hub) | Entry Reports, Activity Reports, Revised Exercises |
 | `/library` | MOC root (sidebar-free card hub) | Exercises, Resources, Ku, Path Steps |
 | `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
-| `/profile` | Personal overview | Focus/Velocity, Activity Domains (6 HTMX blocks) |
+| `/profile` | Personal overview | 4 tabs: Activities (default), Curriculum, Submissions, Reports |
 
 ### MOC Root Pages (`/submissions`, `/gradebook`, `/library`)
 

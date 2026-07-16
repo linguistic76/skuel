@@ -223,12 +223,19 @@ def create_user_entry_ui_routes(
 
     @rt("/submissions")
     async def submissions_moc(request: Request) -> Any:
-        """Submissions MOC — links to all 4 sub-pages, no sidebar."""
+        """Submissions MOC — links to all 5 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
         content = Div(
             PageHeader("Submissions", subtitle="Choose how you want to submit or sync your work"),
             Div(
+                MocCard(
+                    "Sync",
+                    "Pull your Obsidian Daily Notes into SKUEL and write completions back.",
+                    "/submissions/sync",
+                    "refresh-cw",
+                    "bg-emerald-50",
+                ),
                 MocCard(
                     "Exercise",
                     "Upload a completed exercise worksheet for teacher or AI feedback.",
@@ -242,13 +249,6 @@ def create_user_entry_ui_routes(
                     "/submissions/journal",
                     "book-open",
                     "bg-violet-50",
-                ),
-                MocCard(
-                    "Sync",
-                    "Pull your Obsidian Daily Notes into SKUEL and write completions back.",
-                    "/submissions/sync",
-                    "refresh-cw",
-                    "bg-emerald-50",
                 ),
                 MocCard(
                     "History",

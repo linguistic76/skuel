@@ -19,7 +19,7 @@ This document covers *how to build one*.
 
 **`/submissions`**, **`/gradebook`**, and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`ui/home_hub.py`) is retired; these three routes are now independent `BasePage(STANDARD)` pages.
 
-**Profile** (`/profile`) is the **personal overview hub** — four tabs (Curriculum / Activities / Submissions / Reports, `?tab=` selected, default `submissions`). Curriculum, Activities, and Reports show HTMX lazy-loaded preview blocks (`LIBRARY_BLOCKS` / `ACTIVITY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+**Profile** (`/profile`) is the **personal overview hub** — four tabs (Activities / Curriculum / Submissions / Reports, `?tab=` selected, default `activities`). Activities, Curriculum, and Reports show HTMX lazy-loaded preview blocks (`ACTIVITY_BLOCKS` / `LIBRARY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel (Sync first) mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
 Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
 

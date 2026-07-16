@@ -116,7 +116,7 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 | `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
 | `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
 | `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
-| `/submissions` | Submissions MOC root | `STANDARD` | Sidebar-free 2×2 card hub linking to Exercise, Journal, Sync, History |
+| `/submissions` | Submissions MOC root | `STANDARD` | Sidebar-free card hub linking to Sync, Exercise, Journal, History, Knowledge |
 
 ```python
 from ui.layouts.page_types import PageType
@@ -462,7 +462,7 @@ When building a new SKUEL page or feature, verify:
 | `ui/feedback.py`, `ui/layout.py`, `ui/navigation.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`, `ui/cards.py`, `ui/text.py` deleted (PR E). `ButtonLink` from `ui/primitives.py`. |
 | `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range` — bare `Checkbox` is exported from `ui.forms` only), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `TabContainer`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
 | `/static/js/skuel.js` | All Alpine.data() components |
-| `/ui/profile/hub.py` | `ProfileHubView` — 4-tab hub (Curriculum / Activities / Submissions / Reports); Curriculum/Reports render `HubAccordionBlockList` (native `<details>` accordions, lazy `intersect once` previews) |
+| `/ui/profile/hub.py` | `ProfileHubView` — 4-tab hub (Activities / Curriculum / Submissions / Reports, default Activities); Activities/Curriculum/Reports render `HubAccordionBlockList` (native `<details>` accordions, lazy `intersect once` previews) |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
 | `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/workbench/hub.py` | `SubmissionsTabPanel` — Submissions tab on `/profile` (4 link buttons mirroring the sidebar) |
