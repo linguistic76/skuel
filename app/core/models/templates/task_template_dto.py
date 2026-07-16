@@ -18,6 +18,7 @@ from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
+from core.models.templates.offset_helpers import jsonable_to_offset, offset_to_jsonable
 from core.models.templates.relative_offset import RelativeOffset
 
 # Names of fields that hold a RelativeOffset value. Centralised so adding a
@@ -27,34 +28,6 @@ _OFFSET_FIELDS: tuple[str, ...] = (
     "scheduled_offset",
     "recurrence_end_offset",
 )
-
-
-def _offset_to_jsonable(offset: RelativeOffset | None) -> dict[str, int] | None:
-    """Render a RelativeOffset as a JSON-friendly dict (or None)."""
-    if offset is None:
-        return None
-    return {"days": offset.days, "hours": offset.hours, "minutes": offset.minutes}
-
-
-def _jsonable_to_offset(raw: object) -> RelativeOffset | None:
-    """Inverse of :func:`_offset_to_jsonable` — accepts dict, JSON string, or None."""
-    if raw is None:
-        return None
-    if isinstance(raw, RelativeOffset):
-        return raw
-    data: object = raw
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except json.JSONDecodeError, TypeError:
-            return None
-    if not isinstance(data, dict):
-        return None
-    return RelativeOffset(
-        days=int(data.get("days", 0) or 0),
-        hours=int(data.get("hours", 0) or 0),
-        minutes=int(data.get("minutes", 0) or 0),
-    )
 
 
 @dataclass
@@ -103,7 +76,7 @@ class TaskTemplateDTO(EntityDTO):
         for name in _OFFSET_FIELDS:
             offset_value = getattr(self, name)
             data[name] = (
-                json.dumps(_offset_to_jsonable(offset_value)) if offset_value is not None else None
+                json.dumps(offset_to_jsonable(offset_value)) if offset_value is not None else None
             )
         return data
 
@@ -115,7 +88,7 @@ class TaskTemplateDTO(EntityDTO):
         # receives a value of the declared type.
         for name in _OFFSET_FIELDS:
             if name in data:
-                data[name] = _jsonable_to_offset(data[name])
+                data[name] = jsonable_to_offset(data[name])
         return dto_from_dict(
             cls,
             data,
@@ -137,7 +110,7 @@ class TaskTemplateDTO(EntityDTO):
         coerced: dict[str, Any] = dict(updates)
         for name in _OFFSET_FIELDS:
             if name in coerced and not isinstance(coerced[name], RelativeOffset):
-                coerced[name] = _jsonable_to_offset(coerced[name])
+                coerced[name] = jsonable_to_offset(coerced[name])
 
         update_from_dict(
             self,
