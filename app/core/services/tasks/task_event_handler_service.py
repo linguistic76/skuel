@@ -32,6 +32,7 @@ from core.models.enums import Priority
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.services.insight import persist_principle_alignment_insight
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_mapper import coerce_float, coerce_int
@@ -58,19 +59,17 @@ def _categorize_priority_change(old: str, new: str) -> str:
     Returns:
         Change type: "escalation", "de-escalation", or "lateral"
     """
-    priority_order = ["low", "medium", "high", "critical"]
-
     try:
-        old_idx = priority_order.index(old.lower())
-        new_idx = priority_order.index(new.lower())
-
-        if new_idx > old_idx:
-            return "escalation"
-        elif new_idx < old_idx:
-            return "de-escalation"
-        else:
-            return "lateral"
+        old_rank = Priority(old.lower()).to_numeric()
+        new_rank = Priority(new.lower()).to_numeric()
     except ValueError:
+        return "lateral"
+
+    if new_rank > old_rank:
+        return "escalation"
+    elif new_rank < old_rank:
+        return "de-escalation"
+    else:
         return "lateral"
 
 
@@ -405,29 +404,16 @@ class TaskEventHandlerService:
             )
 
             # Persist principle alignment insight
-            if self.insight_store:
-                insight = PersistedInsight(
-                    uid=PersistedInsight.generate_uid(
-                        InsightType.PRINCIPLE_ALIGNMENT, EntityUID(event.task_uid)
-                    ),
-                    user_uid=event.user_uid,
-                    insight_type=InsightType.PRINCIPLE_ALIGNMENT,
-                    domain="tasks",
-                    title="Task Aligned with Principles",
-                    description=f"Completed task contributes to {len(principle_uids)} principle(s).",
-                    confidence=0.8,
-                    impact=InsightImpact.LOW,
-                    entity_uid=EntityUID(event.task_uid),
-                    related_entities={"principles": principle_uids[:5]},
-                    supporting_data={
-                        "principle_count": len(principle_uids),
-                    },
-                )
-                create_result = await self.insight_store.create_insight(insight)
-                if create_result.is_error:
-                    self.logger.warning(
-                        f"Failed to persist alignment insight: {create_result.error}"
-                    )
+            await persist_principle_alignment_insight(
+                self.insight_store,
+                self.logger,
+                user_uid=event.user_uid,
+                entity_uid=EntityUID(event.task_uid),
+                domain="tasks",
+                title="Task Aligned with Principles",
+                description=f"Completed task contributes to {len(principle_uids)} principle(s).",
+                principle_uids=principle_uids,
+            )
 
     async def _detect_priority_inflation(self, event: TaskPriorityChanged) -> None:
         """Detect if user has too many high/critical priority tasks.

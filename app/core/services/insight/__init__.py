@@ -15,6 +15,7 @@ Usage:
     insights = await store.get_active_insights(user_uid)
 """
 
+from core.services.insight.alignment_insight import persist_principle_alignment_insight
 from core.services.insight.insight_store import InsightStore
 
-__all__ = ["InsightStore"]
+__all__ = ["InsightStore", "persist_principle_alignment_insight"]

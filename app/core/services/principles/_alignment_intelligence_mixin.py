@@ -24,6 +24,8 @@ from core.services.intelligence import (
     analyze_activity_trajectory,
     calculate_principle_alignment_metrics,
     determine_trend_from_rate,
+    principle_gap_insights,
+    principle_gap_recommendations,
     principle_recommendations,
 )
 from core.utils.decorators import requires_graph_intelligence
@@ -182,8 +184,8 @@ class _AlignmentIntelligenceMixin:
             system_calculator=self._calculate_system_alignment_for_dual_track,
             level_scorer=self._alignment_level_to_score,
             entity_type="principle",
-            insight_generator=self._generate_principle_gap_insights,
-            recommendation_generator=self._generate_principle_gap_recommendations,
+            insight_generator=principle_gap_insights,
+            recommendation_generator=principle_gap_recommendations,
             store_callback=self._store_dual_track_checkin,
         )
 
@@ -257,81 +259,9 @@ class _AlignmentIntelligenceMixin:
         """
         return AlignmentLevel.from_score(score)
 
-    def _generate_principle_gap_insights(
-        self, direction: str, gap: float, entity_name: str
-    ) -> list[str]:
-        """Generate principle-specific gap insights."""
-        insights: list[str] = []
-
-        if direction == "aligned":
-            insights.append(
-                f"Your self-perception of alignment with '{entity_name}' "
-                "matches your recorded actions. This indicates healthy self-reflection."
-            )
-        elif direction == "user_higher":
-            insights.append(
-                f"Your self-assessment is more positive than your recorded actions suggest "
-                f"(gap: {gap:.0%}). Consider: Are there activities expressing this principle "
-                "that aren't tracked in SKUEL?"
-            )
-            if gap > 0.3:
-                insights.append(
-                    "This significant gap may indicate a blind spot in self-perception, "
-                    "or opportunities to better live out this principle."
-                )
-        else:  # system_higher
-            insights.append(
-                f"Your actions show stronger alignment than you perceive (gap: {gap:.0%}). "
-                "You may be undervaluing your consistency with this principle."
-            )
-            if gap > 0.3:
-                insights.append(
-                    "Consider acknowledging your progress - self-recognition strengthens motivation."
-                )
-
-        return insights
-
-    def _generate_principle_gap_recommendations(
-        self, direction: str, _gap: float, entity: Any, evidence: list[str]
-    ) -> list[str]:
-        """Generate principle-specific gap recommendations."""
-        from core.models.principle.principle import Principle
-
-        recommendations: list[str] = []
-
-        if direction == "aligned":
-            recommendations.append(
-                "Continue your current approach - your self-awareness is accurate."
-            )
-            # Check if principle has expressions (Principle model has this attribute)
-            if isinstance(entity, Principle) and entity.expressions:
-                recommendations.append(
-                    "Consider documenting new expressions of this principle as they arise."
-                )
-        elif direction == "user_higher":
-            recommendations.append(
-                "Review your goals and habits to ensure they explicitly connect to this principle."
-            )
-            if not evidence:
-                recommendations.append(
-                    "Create at least one goal or habit that directly expresses this principle."
-                )
-            recommendations.append(
-                "Track specific instances where you practice this principle over the next week."
-            )
-        else:  # system_higher
-            recommendations.append(
-                "Acknowledge the alignment you've already achieved through your actions."
-            )
-            if evidence:
-                recommendations.append(
-                    f"Celebrate your progress: {len(evidence)} activities already express this principle."
-                )
-            recommendations.append(
-                "Consider reflecting on why your self-perception doesn't match your positive actions."
-            )
-
-        return recommendations[:4]
+    # Gap insight/recommendation text lives in core/services/intelligence/
+    # metrics_calculators.py (principle_gap_insights / principle_gap_recommendations),
+    # shared with the single-track path in PrinciplesAlignmentService.
 
     # Persistence: dual-track check-ins are stored via the canonical
     # BaseAnalyticsService._store_dual_track_checkin (uniform across Goals/Habits/

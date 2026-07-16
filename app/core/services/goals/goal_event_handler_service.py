@@ -31,6 +31,7 @@ from core.events.goal_events import (
 )
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.type_hints import EntityUID, UserUID
+from core.services.insight import persist_principle_alignment_insight
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -603,4 +604,16 @@ class GoalEventHandlerService:
                     "principle_uids": principle_uids[:5],
                     "event_type": "goal.achievement.principle_alignment",
                 },
+            )
+
+            # Persist principle alignment insight (parity with the Task handler)
+            await persist_principle_alignment_insight(
+                self.insight_store,
+                self.logger,
+                user_uid=event.user_uid,
+                entity_uid=EntityUID(event.goal_uid),
+                domain="goals",
+                title="Goal Aligned with Principles",
+                description=f"Achieved goal contributes to {len(principle_uids)} principle(s).",
+                principle_uids=principle_uids,
             )

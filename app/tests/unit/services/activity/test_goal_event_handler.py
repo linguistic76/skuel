@@ -246,6 +246,33 @@ class TestHandleGoalAchieved:
             assert len(log_calls) >= 1
 
     @pytest.mark.asyncio
+    async def test_principle_alignment_persists_insight(
+        self,
+        service_full: GoalEventHandlerService,
+        mock_relationships: AsyncMock,
+        mock_insight_store: AsyncMock,
+    ):
+        """Alignment with principles persists a PRINCIPLE_ALIGNMENT insight (Task parity)."""
+        from core.models.insight.persisted_insight import InsightType
+
+        service_full.backend.get_achievement_context.return_value = Result.ok([])  # type: ignore[attr-defined]
+        mock_relationships.get_related_uids.return_value = Result.ok(["principle_test_123"])
+
+        event = GoalAchieved(
+            goal_uid="goal_test_abc",
+            user_uid="user_mike",
+            occurred_at=datetime.now(),
+        )
+
+        await service_full.handle_goal_achieved(event)
+
+        mock_insight_store.create_insight.assert_awaited_once()
+        insight = mock_insight_store.create_insight.await_args.args[0]
+        assert insight.insight_type == InsightType.PRINCIPLE_ALIGNMENT
+        assert insight.domain == "goals"
+        assert insight.related_entities == {"principles": ["principle_test_123"]}
+
+    @pytest.mark.asyncio
     async def test_fire_and_forget_contract(
         self, service: GoalEventHandlerService, mock_backend: Mock
     ):
