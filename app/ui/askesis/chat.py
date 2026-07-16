@@ -8,7 +8,7 @@ Alpine: { sidebarOpen } on shell root; { sourcesOpen } per AI message.
 import json
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Textarea
+from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span, Template, Textarea
 
 from ui.canon import CanonSourcesBlock
 from ui.components import Icon
@@ -25,7 +25,7 @@ def render_askesis_shell(
     username: str = "User",
     learning_scope_label: str = "Your learning",
     nous_topics: list[str] | None = None,
-    nous_subtopics: list[str] | None = None,
+    nous_subtopic_map: dict[str, list[str]] | None = None,
     initial_question: str = "",
     initial_nous: str = "",
     initial_nous_subtopic: str = "",
@@ -35,13 +35,18 @@ def render_askesis_shell(
 
     Height calc(100vh - 3.5rem) aligns with the SKUEL top navbar (h-14 = 3.5rem).
     Alpine root state: { sidebarOpen, settingsOpen, responseMode, selectedNous,
-    selectedNousSubtopic }. The ``selected*`` scope fields live on the root so
-    they persist across composer submits (the composer isn't re-rendered on
-    send) — each submit carries the scope.
+    selectedNousSubtopic, nousSubtopicMap }. The ``selected*`` scope fields live
+    on the root so they persist across composer submits (the composer isn't
+    re-rendered on send) — each submit carries the scope.
 
-    ``nous_subtopics`` is the 2nd-level vocabulary; empty until the vault carries
-    `nous_subtopic:` data, so its selector fails soft to nothing (mechanism ships
-    ahead of content).
+    ``nous_subtopic_map`` is the graph-derived nous→sub-topics dependency
+    (`SearchRouter.nous_subtopic_map`), inlined into x-data so the sub-topic
+    selector offers only the chosen topic's sub-topics (Alpine-native — the
+    topic can change via the select OR the chip's ×, which fires no DOM change
+    event, so an HTMX-on-change swap would miss it). A root ``x-effect`` clears
+    a sub-topic the moment it no longer belongs to the selected topic. Empty
+    until the vault carries `nous_subtopic:` data, so the selector fails soft
+    to nothing (mechanism ships ahead of content).
 
     Handoff (from /search "Ask"): ``initial_question`` prefills the composer and
     ``initial_nous`` / ``initial_nous_subtopic`` seed the scope INLINE into
@@ -51,7 +56,7 @@ def render_askesis_shell(
     """
     return Div(
         _sidebar(username, learning_scope_label),
-        _center_panel(nous_topics or [], nous_subtopics or [], initial_question),
+        _center_panel(nous_topics or [], nous_subtopic_map or {}, initial_question),
         cls="flex overflow-hidden bg-background",
         style="height: calc(100vh - 3.5rem);",
         **{
@@ -59,8 +64,18 @@ def render_askesis_shell(
                 "{ sidebarOpen: true, settingsOpen: false,"
                 " responseMode: localStorage.getItem('askesis_mode') || 'direct',"
                 " selectedNous: " + json.dumps(initial_nous) + ","
-                " selectedNousSubtopic: " + json.dumps(initial_nous_subtopic) + " }"
-            )
+                " selectedNousSubtopic: " + json.dumps(initial_nous_subtopic) + ","
+                " nousSubtopicMap: " + json.dumps(nous_subtopic_map or {}) + " }"
+            ),
+            # Sub-topics go deeper into ONE topic: whenever the selected topic
+            # changes (select or chip x-button), drop a sub-topic that isn't authored
+            # under it — otherwise a stale invisible sub-scope would keep
+            # constraining every answer.
+            "x-effect": (
+                "if (selectedNousSubtopic &&"
+                " !(nousSubtopicMap[selectedNous] || []).includes(selectedNousSubtopic))"
+                " selectedNousSubtopic = ''"
+            ),
         },
     )
 
@@ -332,7 +347,7 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
 
 
 def _center_panel(
-    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+    nous_topics: list[str], nous_subtopic_map: dict[str, list[str]], initial_question: str = ""
 ) -> Any:
     return Div(
         _top_bar(),
@@ -344,7 +359,7 @@ def _center_panel(
             cls="flex-1 overflow-y-auto max-w-[768px] mx-auto w-full",
             id="thread-scroll",
         ),
-        _composer_area(nous_topics, nous_subtopics, initial_question),
+        _composer_area(nous_topics, nous_subtopic_map, initial_question),
         cls="flex-1 flex flex-col overflow-hidden",
     )
 
@@ -366,12 +381,12 @@ def _top_bar() -> Any:
 
 
 def _composer_area(
-    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+    nous_topics: list[str], nous_subtopic_map: dict[str, list[str]], initial_question: str = ""
 ) -> Any:
     return Div(
         Div(
             _nous_scope_chip(),
-            _composer_form(nous_topics, nous_subtopics, initial_question),
+            _composer_form(nous_topics, nous_subtopic_map, initial_question),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
                 cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
@@ -424,31 +439,50 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
     )
 
 
-def _nous_subtopic_scope_select(nous_subtopics: list[str]) -> Any:
-    """Native NOUS sub-topic picker (2nd level) bound to root ``selectedNousSubtopic``.
+def _nous_subtopic_scope_select(nous_subtopic_map: dict[str, list[str]]) -> Any:
+    """Native NOUS sub-topic picker (2nd level), dependent on the selected topic.
 
-    Empty option = no sub-scope. Rendered only when the vocabulary is available —
-    fails soft to no control on an empty list, exactly like ``_nous_scope_select``.
-    FLAT for now (not dependent on the chosen topic): a nous→subtopic MAP can't
-    exist without authored data, so dependent filtering is a follow-up (don't fake it).
+    Sub-topics go deeper into ONE topic, so the control is disabled until a
+    topic is picked, and its options render client-side (Alpine ``x-for``) from
+    the root ``nousSubtopicMap`` scoped to ``selectedNous`` — Alpine-native
+    because the topic also changes via the chip's × (plain state write, no DOM
+    change event for an HTMX trigger to catch). ``:selected`` re-asserts a
+    seeded/kept value after ``x-for`` renders the options (``x-model`` alone
+    applies before the dynamic options exist and would silently drop it).
+
+    Rendered only when the dependency map has entries — fails soft to no
+    control, exactly like ``_nous_scope_select``. Option labels are the raw
+    kebab-case slugs, matching the topic picker.
     """
-    if not nous_subtopics:
+    if not nous_subtopic_map:
         return None
-    options = [Option("All sub-topics", value="")]
-    options.extend(Option(sub, value=sub) for sub in nous_subtopics)
     return Select(
-        *options,
+        Option(
+            value="",
+            **{"x-text": "selectedNous ? 'All sub-topics' : 'Pick a topic first'"},
+        ),
+        Template(
+            Option(
+                **{
+                    ":value": "sub",
+                    "x-text": "sub",
+                    ":selected": "selectedNousSubtopic === sub",
+                }
+            ),
+            **{"x-for": "sub in (nousSubtopicMap[selectedNous] || [])", ":key": "sub"},
+        ),
         aria_label="Scope answer to a NOUS sub-topic",
         cls=(
             "text-[13px] text-muted-foreground bg-transparent border border-border"
             " rounded-[18px] px-2.5 py-1.5 outline-none cursor-pointer max-w-[160px]"
+            " disabled:opacity-60 disabled:cursor-not-allowed"
         ),
-        **{"x-model": "selectedNousSubtopic"},
+        **{"x-model": "selectedNousSubtopic", ":disabled": "!selectedNous"},
     )
 
 
 def _composer_form(
-    nous_topics: list[str], nous_subtopics: list[str], initial_question: str = ""
+    nous_topics: list[str], nous_subtopic_map: dict[str, list[str]], initial_question: str = ""
 ) -> Any:
     # Scope hidden field is Alpine-bound (:value="selectedNous") — the single
     # source of truth, always in sync with the chip/selector at submit time.
@@ -519,7 +553,7 @@ def _composer_form(
                 _circle_btn("plus", "Attach", bordered=True),
                 _kb_pill(),
                 _nous_scope_select(nous_topics),
-                _nous_subtopic_scope_select(nous_subtopics),
+                _nous_subtopic_scope_select(nous_subtopic_map),
                 cls="flex items-center gap-2",
             ),
             Div(

@@ -54,22 +54,24 @@ def create_askesis_ui_routes(
             return []
         return sorted(result.value)
 
-    async def _load_nous_subtopics() -> list[str]:
-        """Fetch the NOUS sub-topic vocabulary (2nd level) for the composer scope.
+    async def _load_nous_subtopic_map() -> dict[str, list[str]]:
+        """Fetch the nous→sub-topics dependency map for the composer scope.
 
         Spans BOTH :Ku and :PathStep via SearchRouter (which merges each
-        curriculum domain's own-label pairs — cross-domain aggregation in the
-        service layer, not a backend). Fails soft the same way as topics. Empty
-        until the vault carries `nous_subtopic:` data, so the sub-topic selector
-        renders nothing (mechanism ships ahead of content).
+        curriculum domain's own-label positional pairs — cross-domain
+        aggregation in the service layer, not a backend). The composer inlines
+        it into Alpine state so the sub-topic selector offers only the chosen
+        topic's sub-topics. Fails soft the same way as topics. Empty until the
+        vault carries `nous_subtopic:` data, so the sub-topic selector renders
+        nothing (mechanism ships ahead of content).
         """
         if search_router is None:
-            return []
-        result = await search_router.list_nous_subtopics()
+            return {}
+        result = await search_router.nous_subtopic_map()
         if result.is_error:
             logger.warning(f"Could not load NOUS sub-topics for Askesis composer: {result.error}")
-            return []
-        return sorted(result.value)
+            return {}
+        return result.value or {}
 
     @rt("/askesis")
     async def askesis_home(request: Request) -> Any:
@@ -82,23 +84,26 @@ def create_askesis_ui_routes(
         """
         question = request.query_params.get("question", "")
         nous_topics = await _load_nous_topics()
-        nous_subtopics = await _load_nous_subtopics()
+        nous_subtopic_map = await _load_nous_subtopic_map()
         # Only honor a seeded scope when the live vocabulary actually contains it.
         # In the no-data fail-soft path the sub-topic selector + chip don't render,
         # so a crafted ?nous_subtopic= would be an INVISIBLE scope silently
         # constraining every answer with no way to see or clear it (Codex #546).
-        # Validate BOTH facets against their vocab — a valid /search handoff always
-        # passes; only crafted or stale values are dropped.
+        # Validation is DEPENDENT, mirroring the selector: a sub-topic only means
+        # something under its parent topic, so it must be authored under the
+        # seeded nous (a sub-topic with no/other nous is dropped). A valid
+        # /search handoff always passes — its dropdown offers exactly these
+        # pairs; only crafted or stale values are dropped.
         nous = request.query_params.get("nous", "")
         if nous not in nous_topics:
             nous = ""
         nous_subtopic = request.query_params.get("nous_subtopic", "")
-        if nous_subtopic not in nous_subtopics:
+        if nous_subtopic not in nous_subtopic_map.get(nous, []):
             nous_subtopic = ""
         return await render_askesis_page(
             request,
             nous_topics=nous_topics,
-            nous_subtopics=nous_subtopics,
+            nous_subtopic_map=nous_subtopic_map,
             initial_question=question,
             initial_nous=nous,
             initial_nous_subtopic=nous_subtopic,

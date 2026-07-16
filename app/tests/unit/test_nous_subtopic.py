@@ -133,22 +133,37 @@ class TestFaucetFailsSoft:
         assert _render_nous_subtopic_select([]) is None
 
     def test_askesis_subtopic_selector_renders_when_vocab_present(self) -> None:
-        xml = to_xml(render_askesis_shell(nous_subtopics=["nervous-system"]))
+        xml = to_xml(render_askesis_shell(nous_subtopic_map={"body": ["nervous-system"]}))
 
         # Hidden field always present (bound to root state); selector present with vocab.
         assert 'name="nous_subtopic"' in xml
         assert ':value="selectedNousSubtopic"' in xml
         assert "selectedNousSubtopic:" in xml
+        # Dependency map inlined into x-data (never a window global).
+        assert "nousSubtopicMap:" in xml
         assert "nervous-system" in xml
 
     def test_askesis_subtopic_selector_absent_when_empty(self) -> None:
-        # Empty vocab → no <select> for the sub-topic, but the hidden field + root
+        # Empty map → no <select> for the sub-topic, but the hidden field + root
         # state still exist (mirror of the nous selector fail-soft).
-        xml = to_xml(render_askesis_shell(nous_subtopics=[]))
+        xml = to_xml(render_askesis_shell(nous_subtopic_map={}))
 
         assert "Scope answer to a NOUS sub-topic" not in xml
         assert 'name="nous_subtopic"' in xml
         assert 'selectedNousSubtopic: ""' in xml
+
+    def test_askesis_subtopic_selector_is_dependent_on_selected_topic(self) -> None:
+        # Options render client-side from the map scoped to selectedNous; the
+        # control is disabled until a topic is picked; a root x-effect drops a
+        # sub-topic that no longer belongs to the selected topic (the chip's x
+        # clears the topic with no DOM change event, so this must be Alpine
+        # state, not an HTMX-on-change swap).
+        xml = to_xml(render_askesis_shell(nous_subtopic_map={"body": ["breath"]}))
+
+        assert 'x-for="sub in (nousSubtopicMap[selectedNous] || [])"' in xml
+        assert ':disabled="!selectedNous"' in xml
+        assert ':selected="selectedNousSubtopic === sub"' in xml
+        assert "selectedNousSubtopic = ''" in xml  # the x-effect reset
 
 
 class TestPathStepNousSubtopicField:

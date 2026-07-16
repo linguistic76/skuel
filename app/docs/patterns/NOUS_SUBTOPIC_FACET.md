@@ -49,8 +49,16 @@ scope on the curriculum corpus.
   `<select>` drops `nous_subtopic` from its results include so a topic switch re-scopes
   cleanly instead of carrying a now-orphaned sub-topic. "All Nous" resets the control
   to the disabled gate (the flat cross-topic list is never offered); a topic with no
-  sub-topics yields a disabled "All Sub-topics". The Askesis scope selector is still
-  flat (its Alpine-bound selector predates the dependency) — known follow-up.
+  sub-topics yields a disabled "All Sub-topics".
+- **Dependent selector (Askesis):** same dependency, Alpine-native — the topic can also
+  change via the scope chip's × (a plain state write with no DOM change event), so an
+  HTMX-on-change swap would miss it. `render_askesis_shell` inlines the map into root
+  x-data (`nousSubtopicMap`); the sub-topic `<select>` renders its options client-side
+  (`x-for` over `nousSubtopicMap[selectedNous]`, `:selected` re-asserts the seeded value
+  after the dynamic options render), is `:disabled` until a topic is picked, and a root
+  `x-effect` clears a sub-topic the moment it isn't authored under the selected topic.
+  The `/askesis?nous=…&nous_subtopic=…` handoff params are validated DEPENDENTLY
+  (sub-topic must be authored under the seeded nous) before seeding.
 
 ## Authoring & changing the ontology
 
