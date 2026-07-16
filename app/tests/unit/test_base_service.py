@@ -454,6 +454,112 @@ class TestSearchOperations:
 
 
 # ============================================================================
+# TESTS: get_for_user_filtered (DomainConfig.status_filters dispatch)
+# ============================================================================
+
+
+class StatusFilteredService(BaseService["BackendOperations[MockModel]", MockModel]):
+    """Service with a tasks-shaped status_filters vocabulary."""
+
+    _config = DomainConfig(
+        dto_class=MockDTO,
+        model_class=MockModel,
+        status_filters={
+            "active": {"status__not_in": ["completed"]},
+            "paused": {"status": "paused"},
+        },
+    )
+    _dto_class = MockDTO
+    _model_class = MockModel
+
+
+@pytest.fixture
+def filtered_service(mock_backend):
+    """Service whose config declares status_filters."""
+    return StatusFilteredService(backend=mock_backend)
+
+
+class TestGetForUserFiltered:
+    """The generic method dispatches DomainConfig.status_filters to find_by kwargs."""
+
+    @pytest.mark.asyncio
+    async def test_configured_filter_adds_kwargs(self, filtered_service, mock_backend):
+        """A configured name forwards its extra kwargs (tasks-shaped 'active')."""
+        result = await filtered_service.get_for_user_filtered("user_001", "active")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001", status__not_in=["completed"])
+
+    @pytest.mark.asyncio
+    async def test_exact_status_filter(self, filtered_service, mock_backend):
+        """A status-equality filter forwards status=<value>."""
+        result = await filtered_service.get_for_user_filtered("user_001", "paused")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001", status="paused")
+
+    @pytest.mark.asyncio
+    async def test_all_applies_no_constraint(self, filtered_service, mock_backend):
+        """'all' always means no status constraint."""
+        result = await filtered_service.get_for_user_filtered("user_001", "all")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001")
+
+    @pytest.mark.asyncio
+    async def test_unknown_name_applies_no_constraint(self, filtered_service, mock_backend):
+        """An unconfigured filter name falls back to unfiltered."""
+        result = await filtered_service.get_for_user_filtered("user_001", "bogus")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001")
+
+    @pytest.mark.asyncio
+    async def test_default_is_all(self, filtered_service, mock_backend):
+        """Omitting status_filter behaves like 'all'."""
+        result = await filtered_service.get_for_user_filtered("user_001")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001")
+
+    @pytest.mark.asyncio
+    async def test_empty_config_always_unfiltered(self, service, mock_backend):
+        """Domains without status_filters (Principles) return everything."""
+        result = await service.get_for_user_filtered("user_001", "active")
+
+        assert result.is_ok
+        mock_backend.find_by.assert_awaited_with(user_uid="user_001")
+
+    @pytest.mark.asyncio
+    async def test_empty_user_uid_is_validation_error(self, filtered_service, mock_backend):
+        """Missing user_uid fails fast without touching the backend."""
+        result = await filtered_service.get_for_user_filtered("")
+
+        assert result.is_error
+        mock_backend.find_by.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_backend_error_propagates(self, filtered_service, mock_backend):
+        """A backend failure surfaces as an error Result."""
+        mock_backend.find_by.return_value = Result.fail(
+            Errors.database(message="boom", operation="find_by")
+        )
+
+        result = await filtered_service.get_for_user_filtered("user_001", "paused")
+
+        assert result.is_error
+
+    def test_all_key_reserved_in_config(self):
+        """DomainConfig rejects 'all' in status_filters at construction time."""
+        with pytest.raises(ValueError, match="reserved"):
+            DomainConfig(
+                dto_class=MockDTO,
+                model_class=MockModel,
+                status_filters={"all": {"status": "x"}},
+            )
+
+
+# ============================================================================
 # TESTS: Status/Progress Management
 # ============================================================================
 

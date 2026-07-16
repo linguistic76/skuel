@@ -97,6 +97,18 @@ Filter by status field. Activity domains use `EntityStatus` enum.
 result = await tasks_search.get_by_status("active", user_uid="user.123")
 ```
 
+#### `get_for_user_filtered(user_uid: UserUID, status_filter: str = "all") -> Result[list[Model]]`
+Fetch a user's entities with a domain-configured status filter. The filter
+vocabulary lives in `DomainConfig.status_filters` (filter-name → extra
+`find_by` kwargs); `"all"` or an unconfigured name applies no status
+constraint. Domains without `status_filters` (Principles) always return
+every entity for the user.
+
+```python
+result = await tasks_core.get_for_user_filtered("user.123", "active")
+# Tasks' "active" is configured as status__not_in=["completed"]
+```
+
 #### `get_by_category(category: str, user_uid: UserUID | None = None) -> Result[list[Model]]`
 Filter by the DomainConfig `category_field` (varies by domain — e.g. Goals `domain`, Habits `habit_category`).
 

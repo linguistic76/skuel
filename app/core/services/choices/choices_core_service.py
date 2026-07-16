@@ -80,6 +80,11 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
         domain_name="choices",
         date_field="decision_deadline",
         completed_statuses=(EntityStatus.COMPLETED.value,),
+        status_filters={
+            "pending": {"status": "pending"},
+            "decided": {"status": "decided"},
+            "implemented": {"status": "implemented"},
+        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -1048,19 +1053,5 @@ class ChoicesCoreService(BaseService["ChoicesOperations", Choice, ChoiceUpdateIn
         """Count choice stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "pending"
-    ) -> Result[list[Choice]]:
-        """Fetch choices with status filter pushed to Cypher WHERE."""
-        match status_filter:
-            case "pending":
-                result = await self.backend.find_by(user_uid=user_uid, status="pending")
-            case "decided":
-                result = await self.backend.find_by(user_uid=user_uid, status="decided")
-            case "implemented":
-                result = await self.backend.find_by(user_uid=user_uid, status="implemented")
-            case _:  # "all" or unknown
-                result = await self.backend.find_by(user_uid=user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(self._to_domain_models(result.value, ChoiceDTO, Choice))
+    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
+    # the status_filters map in _config above.
