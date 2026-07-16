@@ -820,3 +820,86 @@ def principle_recommendations(
         )
     )
     return recommendations
+
+
+def principle_gap_insights(direction: str, gap: float, principle_name: str) -> list[str]:
+    """Perception-gap insights for principle alignment.
+
+    Shared by both alignment paths: the dual-track template callback
+    (ADR-030, _AlignmentIntelligenceMixin) and the single-track
+    PrinciplesAlignmentService.assess_with_user_input.
+    """
+    insights: list[str] = []
+
+    if direction == "aligned":
+        insights.append(
+            f"Your self-perception of alignment with '{principle_name}' "
+            "matches your recorded actions. This indicates healthy self-reflection."
+        )
+    elif direction == "user_higher":
+        insights.append(
+            f"Your self-assessment is more positive than your recorded actions suggest "
+            f"(gap: {gap:.0%}). Consider: Are there activities expressing this principle "
+            "that aren't tracked in SKUEL?"
+        )
+        if gap > 0.3:
+            insights.append(
+                "This significant gap may indicate a blind spot in self-perception, "
+                "or opportunities to better live out this principle."
+            )
+    else:  # system_higher
+        insights.append(
+            f"Your actions show stronger alignment than you perceive (gap: {gap:.0%}). "
+            "You may be undervaluing your consistency with this principle."
+        )
+        if gap > 0.3:
+            insights.append(
+                "Consider acknowledging your progress - self-recognition strengthens motivation."
+            )
+
+    return insights
+
+
+def principle_gap_recommendations(
+    direction: str, _gap: float, principle: Any, evidence: list[str]
+) -> list[str]:
+    """Perception-gap recommendations for principle alignment (both alignment paths).
+
+    ``principle`` is typed Any to satisfy the dual-track template's generic
+    callback signature; the isinstance guard narrows before touching
+    Principle-specific fields.
+    """
+    from core.models.principle.principle import Principle
+
+    recommendations: list[str] = []
+
+    if direction == "aligned":
+        recommendations.append("Continue your current approach - your self-awareness is accurate.")
+        if isinstance(principle, Principle) and principle.expressions:
+            recommendations.append(
+                "Consider documenting new expressions of this principle as they arise."
+            )
+    elif direction == "user_higher":
+        recommendations.append(
+            "Review your goals and habits to ensure they explicitly connect to this principle."
+        )
+        if not evidence:
+            recommendations.append(
+                "Create at least one goal or habit that directly expresses this principle."
+            )
+        recommendations.append(
+            "Track specific instances where you practice this principle over the next week."
+        )
+    else:  # system_higher
+        recommendations.append(
+            "Acknowledge the alignment you've already achieved through your actions."
+        )
+        if evidence:
+            recommendations.append(
+                f"Celebrate your progress: {len(evidence)} activities already express this principle."
+            )
+        recommendations.append(
+            "Consider reflecting on why your self-perception doesn't match your positive actions."
+        )
+
+    return recommendations[:4]

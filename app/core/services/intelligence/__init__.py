@@ -26,6 +26,8 @@ from core.services.intelligence.metrics_calculators import (
     goal_learning_recommendations,
     goal_recommendations,
     habit_recommendations,
+    principle_gap_insights,
+    principle_gap_recommendations,
     principle_recommendations,
     task_recommendations,
 )
@@ -65,6 +67,8 @@ __all__ = [
     "goal_learning_recommendations",
     "goal_recommendations",
     "habit_recommendations",
+    "principle_gap_insights",
+    "principle_gap_recommendations",
     "principle_recommendations",
     "task_recommendations",
     # consolidation: Shared helper utilities (January 2026)
