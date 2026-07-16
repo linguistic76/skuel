@@ -12,6 +12,7 @@ Covers the mechanism shipped ahead of the data (there is no authored
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -104,13 +105,29 @@ class TestScopedChunkRetrievalHonorsSubtopic:
         assert kwargs["parent_filters"].get("nous") == "body"
 
 
+def _select_is_disabled(html: str) -> bool:
+    """True when the <select> tag itself carries the bare ``disabled`` attribute.
+
+    A whole-fragment substring check false-positives on the control's Tailwind
+    ``disabled:``/``peer-disabled:`` variant classes, so scope to the select
+    tag's attributes and match the standalone attribute token.
+    """
+    attrs = html.split("<select", 1)[1].split(">", 1)[0]
+    return re.search(r"\sdisabled(\s|$)", attrs) is not None
+
+
 class TestFaucetFailsSoft:
-    def test_search_subtopic_select_renders_control_when_vocab_present(self) -> None:
+    def test_search_subtopic_select_renders_gated_control_when_vocab_present(self) -> None:
+        # The flat vocabulary is a render GATE only — the initial control is the
+        # disabled "Choose a Nous first" state, never the flat cross-topic list
+        # (sub-topics only mean something inside their parent NOUS topic).
         html = to_xml(_render_nous_subtopic_select(["nervous-system", "sleep"]))
 
         assert 'name="nous_subtopic"' in html
-        assert "Nervous System" in html
-        assert "Sleep" in html
+        assert "Choose a Nous first" in html
+        assert _select_is_disabled(html)
+        assert "Nervous System" not in html
+        assert "Sleep" not in html
 
     def test_search_subtopic_select_renders_nothing_when_empty(self) -> None:
         assert _render_nous_subtopic_select([]) is None
@@ -154,13 +171,9 @@ class TestPathStepNousSubtopicField:
 
 def test_nous_subtopic_select_escapes_option_values() -> None:
     """Graph-derived sub-topic strings are HTML-escaped by the FT renderer — a
-    malicious authored value can't inject stored XSS on /search (Kody #546)."""
-    html = to_xml(_render_nous_subtopic_select(['"><script>alert(1)</script>']))
-
-    assert "<script>" not in html
-    assert "&lt;script&gt;" in html
-
-    # The re-rendered fragment (HTMX swap target of /search/subtopics) escapes too.
+    malicious authored value can't inject stored XSS on /search (Kody #546).
+    Options only ever render in the /search/subtopics fragment now (the initial
+    column is a gated placeholder), so the fragment is the escape surface."""
     inner = to_xml(render_nous_subtopic_inner(['"><script>alert(1)</script>']))
     assert "<script>" not in inner
     assert "&lt;script&gt;" in inner
@@ -200,12 +213,61 @@ class TestNousSubtopicDependentDropdown:
         assert "nous-subtopic-column" not in inner
 
     def test_inner_fragment_fail_soft_empty_keeps_all_option(self) -> None:
-        # A NOUS topic with no authored sub-topics → just "All Sub-topics" (the
-        # column stays present so the HTMX target never vanishes mid-interaction).
+        # A NOUS topic with no authored sub-topics → just a disabled
+        # "All Sub-topics" (the column stays present so the HTMX target never
+        # vanishes mid-interaction — it simply has nothing to narrow by).
         inner = to_xml(render_nous_subtopic_inner([]))
 
         assert "All Sub-topics" in inner
         assert 'name="nous_subtopic"' in inner
+        assert _select_is_disabled(inner)
+
+    def test_inner_fragment_scoped_options_are_enabled(self) -> None:
+        # A chosen NOUS topic with authored sub-topics → enabled select offering
+        # exactly those, headed by "All Sub-topics".
+        inner = to_xml(render_nous_subtopic_inner(["breath", "nervous-system"]))
+
+        assert "All Sub-topics" in inner
+        assert "Breath" in inner
+        assert "Nervous System" in inner
+        assert not _select_is_disabled(inner)
+
+    def test_inner_fragment_without_nous_is_gated_placeholder(self) -> None:
+        # "All Nous" (no topic) resets the control to the disabled gate — the
+        # flat cross-topic vocabulary is never offered.
+        inner = to_xml(render_nous_subtopic_inner([], nous_selected=False))
+
+        assert "Choose a Nous first" in inner
+        assert 'name="nous_subtopic"' in inner
+        assert _select_is_disabled(inner)
+
+
+class TestBackendPairsArePositional:
+    """`nous_subtopic` mirrors `nous` positionally (index i names the sub-topic
+    under the nous topic at index i — the vault taxonomy's authoring contract).
+    The pair derivation must UNWIND by index, never cross-product the two
+    arrays: a [body, exercises] x [breath, practice-design] entity authors
+    breath↔body + practice-design↔exercises, NOT breath↔exercises."""
+
+    @pytest.mark.parametrize("backend_name", ["KuBackend", "PsBackend"])
+    @pytest.mark.asyncio
+    async def test_pair_query_pairs_by_index_not_cross_product(self, backend_name: str) -> None:
+        import adapters.persistence.neo4j.backends.curriculum_backends as backends
+
+        backend = getattr(backends, backend_name).__new__(getattr(backends, backend_name))
+        backend.execute_query = AsyncMock(return_value=Result.ok([]))  # type: ignore[method-assign]
+
+        await backend.nous_subtopic_pairs()
+
+        query = backend.execute_query.await_args.args[0]
+        # Positional pairing: one index UNWIND over parallel arrays…
+        assert "range(0, size(n.nous) - 1)" in query
+        assert "n.nous[i]" in query and "n.nous_subtopic[i]" in query
+        # …guarded to decodable alignments only (equal-length arrays)…
+        assert "size(n.nous) = size(n.nous_subtopic)" in query
+        # …never the old element cross-product.
+        assert "UNWIND n.nous AS" not in query
+        assert "UNWIND n.nous_subtopic AS" not in query
 
 
 class TestSearchRouterNousSubtopicMerge:

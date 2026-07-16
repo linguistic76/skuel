@@ -123,7 +123,7 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         return await self.execute_query(query, {"alias": alias})
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
-        """Distinct co-occurring (nous, nous_subtopic) pairs on this Ku's own label.
+        """Distinct positionally-aligned (nous, nous_subtopic) pairs on this Ku's own label.
 
         The Ku contribution to the dependent nous→sub-topic /search dropdown.
         Scoped to `:Ku` only — cross-domain aggregation (folding in the PathStep
@@ -132,15 +132,21 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         Graph-derived so it can't drift from the vault vocabulary (content
         boundary — the taxonomy lives in the vault, never in the repo).
 
-        Both fields are arrays, so each element combination is UNWOUND to its own
-        row. Returns rows with ``nous`` + ``subtopic`` keys.
+        Both fields are PARALLEL arrays: `nous_subtopic` mirrors `nous` exactly,
+        with index i naming the sub-topic that sits UNDER the nous topic at
+        index i (the vault taxonomy's authoring contract). Pairing is therefore
+        positional — a cross-product would invent pairs like breath↔exercises
+        from a [body, exercises] x [breath, practice-design] entity. Entities
+        whose two arrays disagree in length carry no decodable alignment and
+        contribute nothing (fail-soft). Returns rows with ``nous`` +
+        ``subtopic`` keys.
         """
         query = """
         MATCH (n:Ku)
         WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
-        UNWIND n.nous AS nous
-        UNWIND n.nous_subtopic AS subtopic
-        RETURN DISTINCT nous, subtopic
+          AND size(n.nous) = size(n.nous_subtopic)
+        UNWIND range(0, size(n.nous) - 1) AS i
+        RETURN DISTINCT n.nous[i] AS nous, n.nous_subtopic[i] AS subtopic
         ORDER BY nous, subtopic
         """
         return await self.execute_query(query, {})
@@ -432,20 +438,21 @@ class PsBackend(
     """
 
     async def nous_subtopic_pairs(self) -> Result[list[Neo4jProperties]]:
-        """Distinct co-occurring (nous, nous_subtopic) pairs on this PathStep label.
+        """Distinct positionally-aligned (nous, nous_subtopic) pairs on this PathStep label.
 
         The PathStep contribution to the dependent nous→sub-topic /search
-        dropdown. Scoped to `:PathStep` only — mirror of `KuBackend.nous_subtopic_pairs`;
-        the cross-domain merge lives in `SearchRouter.nous_subtopic_map`, not
-        here. Graph-derived (content boundary). Both fields are arrays, UNWOUND
-        to one row per element combination.
+        dropdown. Scoped to `:PathStep` only — mirror of `KuBackend.nous_subtopic_pairs`
+        (see its docstring for the parallel-array authoring contract and why
+        pairing is positional, never a cross-product); the cross-domain merge
+        lives in `SearchRouter.nous_subtopic_map`, not here. Graph-derived
+        (content boundary). Length-mismatched arrays contribute nothing.
         """
         query = """
         MATCH (n:PathStep)
         WHERE n.nous IS NOT NULL AND n.nous_subtopic IS NOT NULL
-        UNWIND n.nous AS nous
-        UNWIND n.nous_subtopic AS subtopic
-        RETURN DISTINCT nous, subtopic
+          AND size(n.nous) = size(n.nous_subtopic)
+        UNWIND range(0, size(n.nous) - 1) AS i
+        RETURN DISTINCT n.nous[i] AS nous, n.nous_subtopic[i] AS subtopic
         ORDER BY nous, subtopic
         """
         return await self.execute_query(query, {})

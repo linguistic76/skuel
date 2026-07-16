@@ -455,10 +455,17 @@
 
                     this.filterCount = 0;
 
-                    // Trigger search update
-                    var firstSelect = document.querySelector('[name="entity_type"]');
-                    if (firstSelect) {
-                        firstSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                    // Trigger search update. Dispatch on the NOUS select: its own
+                    // hx-trigger re-runs /search/results (with every other cleared
+                    // control included) AND the dependent sub-topic column listens
+                    // for `change from:[name='nous']`, so the same event re-fetches
+                    // the disabled "Choose a Nous first" gate — without it the old
+                    // scoped sub-topic options would survive Clear all, enabled,
+                    // with no parent topic (Codex #642).
+                    var nousSelect = document.querySelector('[name="nous"]');
+                    var trigger = nousSelect || document.querySelector('[name="entity_type"]');
+                    if (trigger) {
+                        trigger.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 },
 
