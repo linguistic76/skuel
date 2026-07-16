@@ -13,8 +13,10 @@ from typing import Any
 
 import yaml
 
-# Matches YAML frontmatter block: --- (optional whitespace) \n content \n --- (optional whitespace) \n
-_FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+# Matches YAML frontmatter block: --- (optional whitespace) \n content \n --- (optional whitespace)
+# terminated by a newline OR end-of-file (frontmatter-only files, e.g. approval
+# report files with no body, end right at the closing fence).
+_FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 
 
 def split_frontmatter(content: str) -> tuple[str | None, str]:
