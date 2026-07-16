@@ -77,6 +77,11 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent])
         domain_name="habits",
         date_field="created_at",
         completed_statuses=(EntityStatus.ARCHIVED.value,),
+        status_filters={
+            "active": {"status": "active"},
+            "paused": {"status": "paused"},
+            "completed": {"status": "completed"},
+        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -504,19 +509,5 @@ class HabitsCoreService(BaseService[HabitsOperations, Habit, HabitUpdateIntent])
         """Count habit stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "active"
-    ) -> Result[list[Habit]]:
-        """Fetch habits with status filter pushed to Cypher WHERE."""
-        match status_filter:
-            case "active":
-                result = await self.backend.find_by(user_uid=user_uid, status="active")
-            case "paused":
-                result = await self.backend.find_by(user_uid=user_uid, status="paused")
-            case "completed":
-                result = await self.backend.find_by(user_uid=user_uid, status="completed")
-            case _:  # "all" or unknown
-                result = await self.backend.find_by(user_uid=user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(self._to_domain_models(result.value, HabitDTO, Habit))
+    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
+    # the status_filters map in _config above.

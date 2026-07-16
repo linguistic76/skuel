@@ -556,9 +556,6 @@ class PrinciplesCoreService(BaseService[PrinciplesOperations, Principle, Princip
         """Count principle stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(self, user_uid: UserUID) -> Result[list[Principle]]:
-        """Fetch all principles for user (category/strength filtering stays Python-side)."""
-        result = await self.backend.find_by(user_uid=user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(self._to_domain_models(result.value, PrincipleDTO, Principle))
+    # get_for_user_filtered: inherited from SearchOperationsMixin. Principles
+    # configures no status_filters, so every call returns all of the user's
+    # principles (category/strength filtering stays Python-side).

@@ -96,6 +96,11 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
         domain_name="goals",
         date_field="target_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
+        status_filters={
+            "active": {"status": "active"},
+            "completed": {"status": "completed"},
+            "paused": {"status": "paused"},
+        },
         entity_label="Entity",
     )
     # ========================================================================
@@ -638,19 +643,5 @@ class GoalsCoreService(BaseService[GoalsOperations, Goal, GoalUpdateIntent]):
         """Count goal stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "active"
-    ) -> Result[list[Goal]]:
-        """Fetch goals with status filter pushed to Cypher WHERE."""
-        match status_filter:
-            case "active":
-                result = await self.backend.find_by(user_uid=user_uid, status="active")
-            case "completed":
-                result = await self.backend.find_by(user_uid=user_uid, status="completed")
-            case "paused":
-                result = await self.backend.find_by(user_uid=user_uid, status="paused")
-            case _:  # "all" or unknown
-                result = await self.backend.find_by(user_uid=user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(self._to_domain_models(result.value, GoalDTO, Goal))
+    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
+    # the status_filters map in _config above.

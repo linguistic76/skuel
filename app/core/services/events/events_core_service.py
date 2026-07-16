@@ -95,6 +95,11 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
         domain_name="events",
         date_field="event_date",
         completed_statuses=(EntityStatus.COMPLETED.value,),
+        status_filters={
+            "scheduled": {"status": "scheduled"},
+            "completed": {"status": "completed"},
+            "cancelled": {"status": "cancelled"},
+        },
     )
     # ========================================================================
     # DOMAIN-SPECIFIC VALIDATION HOOKS
@@ -530,19 +535,5 @@ class EventsCoreService(BaseService["EventsOperations", Event, EventUpdateIntent
         """Count event stats via Cypher COUNT — no entity deserialization."""
         return await self.backend.get_stats_for_user(user_uid)
 
-    async def get_for_user_filtered(
-        self, user_uid: UserUID, status_filter: str = "scheduled"
-    ) -> Result[list[Event]]:
-        """Fetch events with status filter pushed to Cypher WHERE."""
-        match status_filter:
-            case "scheduled":
-                result = await self.backend.find_by(user_uid=user_uid, status="scheduled")
-            case "completed":
-                result = await self.backend.find_by(user_uid=user_uid, status="completed")
-            case "cancelled":
-                result = await self.backend.find_by(user_uid=user_uid, status="cancelled")
-            case _:  # "all" or unknown
-                result = await self.backend.find_by(user_uid=user_uid)
-        if result.is_error:
-            return result
-        return Result.ok(self._to_domain_models(result.value, EventDTO, Event))
+    # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
+    # the status_filters map in _config above.
