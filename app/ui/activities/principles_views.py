@@ -25,6 +25,7 @@ from fasthtml.common import (
 from core.models.enums.principle_enums import AlignmentLevel
 from ui.activities._shared import (
     ActivityList,
+    ConnectionsSection,
     ConnectionSummary,
     MetadataField,
     PriorityBadgeDropdown,
@@ -394,7 +395,7 @@ def PrincipleDetailView(
     # Connections — gravity well (incoming relationships)
     conn_section = Div()
     if connections:
-        conn_section = PrincipleConnectionsSection(connections)
+        conn_section = ConnectionsSection(connections, _CONNECTION_LABELS)
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
@@ -432,57 +433,15 @@ def PrincipleDetailView(
     )
 
 
-def PrincipleConnectionsSection(connections: list[dict[str, str]]) -> "FT":
-    """Display incoming connections grouped by domain (gravity well view)."""
-    # Group by connected_type
-    groups: dict[str, list[dict[str, str]]] = {}
-    for conn in connections:
-        connected_type = conn.get("connected_type", "unknown")
-        if connected_type not in groups:
-            groups[connected_type] = []
-        groups[connected_type].append(conn)
-
-    domain_labels = {
-        "task": ("Tasks embodying this principle", "check-square", "/tasks/detail?uid="),
-        "habit": ("Habits reinforcing this principle", "repeat", "/habits/detail?uid="),
-        "goal": ("Goals aligned with this principle", "target", "/goals/detail?uid="),
-        "event": ("Events demonstrating this principle", "calendar", "/events/detail?uid="),
-        "choice": ("Choices expressing this principle", "git-branch", "/choices/detail?uid="),
-        "ku": ("Knowledge connected", "atom", "/explore/ku/"),
-    }
-
-    sections: list[Any] = []
-    for domain, conns in groups.items():
-        label, icon, base_href = domain_labels.get(
-            domain, (f"{domain.title()} connections", "link", "#")
-        )
-        links = [
-            Li(
-                Icon(icon, size=12, cls="inline mr-2"),
-                A(
-                    conn.get("title", conn.get("connected_uid", "?")),
-                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
-                    cls="hover:underline text-muted-foreground",
-                ),
-            )
-            for conn in conns
-        ]
-        sections.append(
-            Div(
-                Small(
-                    label,
-                    cls="text-muted-foreground uppercase text-sm block mb-2",
-                ),
-                Ul(*links, cls="divide-y"),
-                cls="mb-2",
-            )
-        )
-
-    return Div(
-        section_label("Connections"),
-        *sections,
-        cls="my-4",
-    )
+# ConnectionsSection labels (gravity well view): connected_type -> (label, icon, href prefix).
+_CONNECTION_LABELS: dict[str, tuple[str, str, str]] = {
+    "task": ("Tasks embodying this principle", "check-square", "/tasks/detail?uid="),
+    "habit": ("Habits reinforcing this principle", "repeat", "/habits/detail?uid="),
+    "goal": ("Goals aligned with this principle", "target", "/goals/detail?uid="),
+    "event": ("Events demonstrating this principle", "calendar", "/events/detail?uid="),
+    "choice": ("Choices expressing this principle", "git-branch", "/choices/detail?uid="),
+    "ku": ("Knowledge connected", "atom", "/explore/ku/"),
+}
 
 
 def StrengthBadge(strength: str) -> "FT":

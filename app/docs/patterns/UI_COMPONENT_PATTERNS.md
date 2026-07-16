@@ -1741,7 +1741,6 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 **Exercises & learning loop:**
 - `/ui/exercises/cards.py`, `/ui/exercises/editor.py`, `/ui/exercises/detail.py`
 - `/ui/learning_loop/` — exercise status pills, PS submissions/feedback renderers (shared with Library)
-- `/ui/submissions/revised_exercise.py`, `/ui/submissions/report.py`
 
 **Teaching:**
 - `/ui/teaching/nav.py`, `/ui/teaching/student_hub.py`, `/ui/teaching/types.py`

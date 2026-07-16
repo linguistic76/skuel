@@ -23,6 +23,7 @@ from core.models.enums.activity_enums import ProgressLevel
 from core.utils.activity_stats import compute_goal_stats
 from ui.activities._shared import (
     ActivityList,
+    ConnectionsSection,
     ConnectionSummary,
     MetadataField,
     PriorityBadgeDropdown,
@@ -288,7 +289,7 @@ def GoalDetailView(
     # Connections section — grouped by domain (gravity well view)
     conn_section = Div()
     if connections:
-        conn_section = GoalConnectionsSection(connections)
+        conn_section = ConnectionsSection(connections, _CONNECTION_LABELS)
 
     # Dual-track self-assessment (perception gap + trend) — ADR-030
     dual_track_section = DualTrackSection(
@@ -351,54 +352,12 @@ def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
     )
 
 
-def GoalConnectionsSection(connections: list[dict[str, str]]) -> "FT":
-    """Display connections grouped by domain: tasks fulfilling, habits supporting, etc."""
-    # Group by connected_type
-    groups: dict[str, list[dict[str, str]]] = {}
-    for conn in connections:
-        connected_type = conn.get("connected_type", "unknown")
-        if connected_type not in groups:
-            groups[connected_type] = []
-        groups[connected_type].append(conn)
-
-    domain_labels = {
-        "task": ("Tasks fulfilling this goal", "check-square", "/tasks/detail?uid="),
-        "habit": ("Habits supporting this goal", "repeat", "#"),
-        "event": ("Events contributing", "calendar", "#"),
-        "choice": ("Choices affecting this goal", "git-branch", "#"),
-        "principle": ("Principles guiding this goal", "compass", "#"),
-        "ku": ("Knowledge connected", "atom", "/explore/ku/"),
-    }
-
-    sections: list[Any] = []
-    for domain, conns in groups.items():
-        label, icon, base_href = domain_labels.get(
-            domain, (f"{domain.title()} connections", "link", "#")
-        )
-        links = [
-            Li(
-                Icon(icon, size=12, cls="inline mr-1"),
-                A(
-                    conn.get("title", conn.get("connected_uid", "?")),
-                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
-                    cls="hover:underline text-muted-foreground",
-                ),
-            )
-            for conn in conns
-        ]
-        sections.append(
-            Div(
-                Small(
-                    label,
-                    cls="text-muted-foreground uppercase text-sm block mb-2",
-                ),
-                Ul(*links, cls="divide-y"),
-                cls="mb-2",
-            )
-        )
-
-    return Div(
-        section_label("Connections"),
-        *sections,
-        cls="my-4",
-    )
+# ConnectionsSection labels: connected_type -> (label, icon, href prefix).
+_CONNECTION_LABELS: dict[str, tuple[str, str, str]] = {
+    "task": ("Tasks fulfilling this goal", "check-square", "/tasks/detail?uid="),
+    "habit": ("Habits supporting this goal", "repeat", "#"),
+    "event": ("Events contributing", "calendar", "#"),
+    "choice": ("Choices affecting this goal", "git-branch", "#"),
+    "principle": ("Principles guiding this goal", "compass", "#"),
+    "ku": ("Knowledge connected", "atom", "/explore/ku/"),
+}

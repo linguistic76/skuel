@@ -42,6 +42,13 @@ if TYPE_CHECKING:
     from core.models.habit.habit import Habit
     from core.services.habits.habits_pattern_service import PatternAnalysis
 
+# HabitPolarity value -> badge variant (build = positive, break = negative).
+_POLARITY_VARIANTS: dict[str, BadgeT] = {
+    "build": BadgeT.primary,
+    "break": BadgeT.error,
+    "neutral": BadgeT.neutral,
+}
+
 
 def HabitStatsBar(habits: list["Habit"]) -> "FT":
     """Quick stats bar showing habit counts."""
@@ -116,15 +123,10 @@ def HabitCard(
     # Badges
     badges: list[Any] = []
     if habit.polarity:
-        polarity_variants = {
-            "build": BadgeT.primary,
-            "break": BadgeT.error,
-            "neutral": BadgeT.neutral,
-        }
         badges.append(
             Badge(
                 str(habit.polarity.value).title(),
-                variant=polarity_variants.get(habit.polarity.value, BadgeT.neutral),
+                variant=_POLARITY_VARIANTS.get(habit.polarity.value, BadgeT.neutral),
             )
         )
     if habit.habit_category:
@@ -295,15 +297,10 @@ def HabitDetailView(
     # Badges
     badges: list[Any] = []
     if habit.polarity:
-        polarity_variants = {
-            "build": BadgeT.primary,
-            "break": BadgeT.error,
-            "neutral": BadgeT.neutral,
-        }
         badges.append(
             Badge(
                 str(habit.polarity.value).title(),
-                variant=polarity_variants.get(habit.polarity.value, BadgeT.neutral),
+                variant=_POLARITY_VARIANTS.get(habit.polarity.value, BadgeT.neutral),
             )
         )
     if habit.habit_category:
