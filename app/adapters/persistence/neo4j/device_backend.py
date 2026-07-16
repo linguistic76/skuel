@@ -20,11 +20,9 @@ See Also: session_backend.py — the sibling auth-infrastructure backend.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from neo4j.time import DateTime as Neo4jDateTime
-
+from adapters.persistence.neo4j._backend_helpers import to_native_datetime
 from core.models.relationship_names import RelationshipName
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -47,15 +45,6 @@ _DEVICE_RETURN = """
 """
 
 
-def _to_native_datetime(value: object) -> datetime | None:
-    """Convert a Neo4j temporal value to a native datetime (None passes through)."""
-    if isinstance(value, Neo4jDateTime):
-        return cast("datetime", value.to_native())
-    if isinstance(value, datetime):
-        return value
-    return None
-
-
 def _device_record(data: dict[str, object]) -> Neo4jProperties:
     """Normalize a device row: Neo4j temporals → native datetimes."""
     return {
@@ -63,9 +52,9 @@ def _device_record(data: dict[str, object]) -> Neo4jProperties:
         "pubkey": str(data["pubkey"]),
         "name": str(data["name"]),
         "user_uid": str(data["user_uid"]),
-        "enrolled_at": _to_native_datetime(data.get("enrolled_at")),
-        "revoked_at": _to_native_datetime(data.get("revoked_at")),
-        "last_seen_at": _to_native_datetime(data.get("last_seen_at")),
+        "enrolled_at": to_native_datetime(data.get("enrolled_at")),
+        "revoked_at": to_native_datetime(data.get("revoked_at")),
+        "last_seen_at": to_native_datetime(data.get("last_seen_at")),
     }
 
 

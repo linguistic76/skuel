@@ -19,13 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-# ANSI colors
-CYAN = "\033[96m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
+from core.utils.terminal_colors import Colors
 
 ROOT = Path(__file__).parent.parent.parent  # /home/mike/skuel/app
 
@@ -281,14 +275,14 @@ def _sort_stale_name_issues(record: tuple[Path, int, str, str, str]) -> tuple[st
 
 def print_tables() -> None:
     """Print the full RENAMED and DELETED tables."""
-    print(f"\n{BOLD}RENAMED identifiers ({len(RENAMED)}):{RESET}")
+    print(f"\n{Colors.BOLD}RENAMED identifiers ({len(RENAMED)}):{Colors.RESET}")
     for old, new in sorted(RENAMED.items()):
-        print(f"  {RED}{old}{RESET} → {GREEN}{new}{RESET}")
+        print(f"  {Colors.RED}{old}{Colors.RESET} → {Colors.GREEN}{new}{Colors.RESET}")
 
-    print(f"\n{BOLD}DELETED identifiers ({len(DELETED)}):{RESET}")
+    print(f"\n{Colors.BOLD}DELETED identifiers ({len(DELETED)}):{Colors.RESET}")
     for ident, reason in sorted(DELETED.items()):
-        print(f"  {RED}{ident}{RESET}")
-        print(f"      {CYAN}{reason}{RESET}")
+        print(f"  {Colors.RED}{ident}{Colors.RESET}")
+        print(f"      {Colors.CYAN}{reason}{Colors.RESET}")
 
 
 def main() -> int:
@@ -307,7 +301,7 @@ def main() -> int:
         print_tables()
         return 0
 
-    print(f"{BOLD}Stale Name Scanner{RESET}")
+    print(f"{Colors.BOLD}Stale Name Scanner{Colors.RESET}")
     print("=" * 60)
     print(f"Rules: {len(RENAMED)} renamed identifiers, {len(DELETED)} deleted identifiers\n")
 
@@ -325,25 +319,33 @@ def main() -> int:
                 print(f"  [{kind}] {rel}:{lineno}  {old}")
 
     if all_issues:
-        print(f"{RED}{BOLD}Stale Names — {len(all_issues)} violations:{RESET}\n")
+        print(
+            f"{Colors.RED}{Colors.BOLD}Stale Names — {len(all_issues)} violations:{Colors.RESET}\n"
+        )
 
         current_file = None
         for source, lineno, old, new, kind in sorted(all_issues, key=_sort_stale_name_issues):
             if source != current_file:
-                print(f"\n  {BOLD}{source}{RESET}")
+                print(f"\n  {Colors.BOLD}{source}{Colors.RESET}")
                 current_file = source
 
             if kind == "renamed":
-                print(f"    {YELLOW}L{lineno:4d}{RESET}  {RED}{old}{RESET} → {GREEN}{new}{RESET}")
+                print(
+                    f"    {Colors.YELLOW}L{lineno:4d}{Colors.RESET}  {Colors.RED}{old}{Colors.RESET} → {Colors.GREEN}{new}{Colors.RESET}"
+                )
             else:  # deleted
-                print(f"    {YELLOW}L{lineno:4d}{RESET}  {RED}[DELETED]{RESET} {RED}{old}{RESET}")
-                print(f"               {CYAN}reason: {new}{RESET}")
+                print(
+                    f"    {Colors.YELLOW}L{lineno:4d}{Colors.RESET}  {Colors.RED}[DELETED]{Colors.RESET} {Colors.RED}{old}{Colors.RESET}"
+                )
+                print(f"               {Colors.CYAN}reason: {new}{Colors.RESET}")
 
-        print(f"\n{YELLOW}Total: {len(all_issues)} stale references{RESET}")
-        print(f"\n{CYAN}Tip: Run with --list to see all tracked renamed/deleted identifiers{RESET}")
+        print(f"\n{Colors.YELLOW}Total: {len(all_issues)} stale references{Colors.RESET}")
+        print(
+            f"\n{Colors.CYAN}Tip: Run with --list to see all tracked renamed/deleted identifiers{Colors.RESET}"
+        )
         return 1
     else:
-        print(f"{GREEN}✓ No stale names found{RESET}")
+        print(f"{Colors.GREEN}✓ No stale names found{Colors.RESET}")
         return 0
 
 

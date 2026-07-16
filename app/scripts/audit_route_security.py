@@ -57,13 +57,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# ── ANSI colors ──────────────────────────────────────────────────────────────
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-CYAN = "\033[96m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
+from core.utils.terminal_colors import Colors
 
 ROOT = Path(__file__).resolve().parent.parent  # /home/mike/skuel/app
 SCAN_DIR = ROOT / "adapters" / "inbound"
@@ -245,7 +239,7 @@ def collect_handlers(scan_dir: Path, include_json: bool) -> list[Handler]:
         except SyntaxError as exc:
             # Fail closed: a syntax-broken module must not be silently skipped,
             # or the audit (and its unit guard) would pass on a partial tree.
-            print(f"{RED}parse error: {path}: {exc}{RESET}", file=sys.stderr)
+            print(f"{Colors.RED}parse error: {path}: {exc}{Colors.RESET}", file=sys.stderr)
             raise
         for node in ast.walk(tree):
             if isinstance(node, ast.AsyncFunctionDef | ast.FunctionDef):
@@ -288,10 +282,10 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.list_exempt:
-        print(f"{BOLD}AUTH_EXEMPT{RESET}")
+        print(f"{Colors.BOLD}AUTH_EXEMPT{Colors.RESET}")
         for (f, fn), why in sorted(AUTH_EXEMPT.items()):
             print(f"  {f}:{fn} — {why}")
-        print(f"{BOLD}CSRF_EXEMPT{RESET}")
+        print(f"{Colors.BOLD}CSRF_EXEMPT{Colors.RESET}")
         for (f, fn), why in sorted(CSRF_EXEMPT.items()):
             print(f"  {f}:{fn} — {why}")
         return 0
@@ -307,7 +301,9 @@ def main() -> int:
     stale = sorted(k for k in (AUTH_EXEMPT.keys() | CSRF_EXEMPT.keys()) if k not in seen)
 
     mode = "form+methods" if args.form_only else "form+methods+json"
-    print(f"{BOLD}{CYAN}Route Security Audit{RESET}  ({SCAN_DIR.relative_to(ROOT)}, mode={mode})")
+    print(
+        f"{Colors.BOLD}{Colors.CYAN}Route Security Audit{Colors.RESET}  ({SCAN_DIR.relative_to(ROOT)}, mode={mode})"
+    )
     print(
         f"  scanned {len(handlers)} @rt handlers · "
         f"{len(mutations)} mutations · "
@@ -315,27 +311,37 @@ def main() -> int:
     )
 
     if args.verbose:
-        print(f"\n{BOLD}Mutation handlers:{RESET}")
+        print(f"\n{Colors.BOLD}Mutation handlers:{Colors.RESET}")
         for h in sorted(mutations, key=_by_location):
-            csrf = f"{GREEN}csrf{RESET}" if h.has_csrf else f"{RED}NO-csrf{RESET}"
-            auth = f"{GREEN}auth{RESET}" if h.has_auth else f"{YELLOW}no-auth{RESET}"
+            csrf = (
+                f"{Colors.GREEN}csrf{Colors.RESET}"
+                if h.has_csrf
+                else f"{Colors.RED}NO-csrf{Colors.RESET}"
+            )
+            auth = (
+                f"{Colors.GREEN}auth{Colors.RESET}"
+                if h.has_auth
+                else f"{Colors.YELLOW}no-auth{Colors.RESET}"
+            )
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]  {csrf} {auth}")
 
     if csrf_gaps:
-        print(f"\n{RED}{BOLD}✗ CSRF gaps ({len(csrf_gaps)}):{RESET} add @csrf_protected")
+        print(
+            f"\n{Colors.RED}{Colors.BOLD}✗ CSRF gaps ({len(csrf_gaps)}):{Colors.RESET} add @csrf_protected"
+        )
         for h in sorted(csrf_gaps, key=_by_location):
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]")
 
     if auth_gaps:
         print(
-            f"\n{RED}{BOLD}✗ Auth gaps ({len(auth_gaps)}):{RESET} add auth, or exempt with a reason"
+            f"\n{Colors.RED}{Colors.BOLD}✗ Auth gaps ({len(auth_gaps)}):{Colors.RESET} add auth, or exempt with a reason"
         )
         for h in sorted(auth_gaps, key=_by_location):
             print(f"  {h.file}:{h.lineno} {h.name}  [{h.signal}]")
 
     if collisions:
         print(
-            f"\n{RED}{BOLD}✗ POST shadowing collisions ({len(collisions)}):{RESET} "
+            f"\n{Colors.RED}{Colors.BOLD}✗ POST shadowing collisions ({len(collisions)}):{Colors.RESET} "
             'make the page/reader handler GET-only (methods=["GET"])'
         )
         for path, hs in collisions:
@@ -344,20 +350,20 @@ def main() -> int:
 
     if stale:
         print(
-            f"\n{YELLOW}⚠ stale exemptions (handler renamed/removed — clean up the table):{RESET}"
+            f"\n{Colors.YELLOW}⚠ stale exemptions (handler renamed/removed — clean up the table):{Colors.RESET}"
         )
         for f, fn in stale:
             print(f"  {f}:{fn}")
 
     if csrf_gaps or auth_gaps or collisions:
         print(
-            f"\n{RED}{BOLD}FAILED{RESET} — fix the handler, or if intentional add it to the "
+            f"\n{Colors.RED}{Colors.BOLD}FAILED{Colors.RESET} — fix the handler, or if intentional add it to the "
             f"exemption table in {Path(__file__).name} with a reason."
         )
         return 1
 
     print(
-        f"\n{GREEN}{BOLD}✓ PASSED{RESET} — every {mode} mutation handler is "
+        f"\n{Colors.GREEN}{Colors.BOLD}✓ PASSED{Colors.RESET} — every {mode} mutation handler is "
         "CSRF-protected and authenticated, and no path has shadowed POST registrations."
     )
     return 0

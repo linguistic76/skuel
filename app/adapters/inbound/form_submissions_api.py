@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission import FormSubmission
 from core.models.forms.form_submission_request import (
@@ -75,7 +76,7 @@ def create_form_submissions_api_routes(
     async def list_my_submissions(request: Request) -> Result[list[dict[str, Any]]]:
         """List the authenticated user's form submissions."""
         user_uid = require_authenticated_user(request)
-        limit = int(request.query_params.get("limit", "50"))
+        limit = parse_int_query_param(request.query_params, "limit", 50)
         return await form_submission_service.get_my_submissions(user_uid, limit=limit)
 
     @rt("/api/form-submissions/get", methods=["GET"])

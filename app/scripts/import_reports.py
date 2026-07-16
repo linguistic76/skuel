@@ -35,21 +35,7 @@ import shutil
 import sys
 from pathlib import Path
 
-import yaml
-
-
-def _parse_frontmatter(text: str) -> tuple[dict, str]:
-    """Parse YAML frontmatter from a markdown file. Returns (metadata, body)."""
-    if not text.startswith("---"):
-        return {}, text.strip()
-    parts = text.split("---", 2)
-    if len(parts) < 3:
-        return {}, text.strip()
-    try:
-        fm = yaml.safe_load(parts[1]) or {}
-    except yaml.YAMLError:
-        fm = {}
-    return fm, parts[2].strip()
+from core.utils.frontmatter import parse_frontmatter
 
 
 async def main(teacher_uid: str, done_dir: Path) -> None:
@@ -91,7 +77,8 @@ async def main(teacher_uid: str, done_dir: Path) -> None:
 
     for path in report_files:
         text = path.read_text(encoding="utf-8")
-        fm, body = _parse_frontmatter(text)
+        fm, body = parse_frontmatter(text)
+        body = body.strip()
 
         submission_uid = fm.get("submission_uid")
         if not submission_uid:

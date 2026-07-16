@@ -23,13 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-# ANSI colors
-CYAN = "\033[96m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
+from core.utils.terminal_colors import Colors
 
 ROOT = Path(__file__).parent.parent.parent  # /home/mike/skuel/app
 
@@ -240,7 +234,7 @@ def main() -> int:
     parser.add_argument("--verbose", "-v", action="store_true", help="Show each dead link as found")
     args = parser.parse_args()
 
-    print(f"{BOLD}Dead Doc Link Validator{RESET}")
+    print(f"{Colors.BOLD}Dead Doc Link Validator{Colors.RESET}")
     print("=" * 60)
 
     md_files = get_md_files()
@@ -254,7 +248,9 @@ def main() -> int:
         all_dead.extend(dead)
 
     if all_dead:
-        print(f"{RED}{BOLD}Broken References — {len(all_dead)} dead links:{RESET}\n")
+        print(
+            f"{Colors.RED}{Colors.BOLD}Broken References — {len(all_dead)} dead links:{Colors.RESET}\n"
+        )
 
         # Group by source file
         by_file: dict[Path, list[tuple[int, str, str]]] = {}
@@ -266,23 +262,25 @@ def main() -> int:
             marker = ""
             if str(source) == str(index_md):
                 index_issues = len(items)
-                marker = f"  {RED}[INDEX.md]{RESET}"
-            print(f"\n  {BOLD}{source}{RESET}{marker}")
+                marker = f"  {Colors.RED}[INDEX.md]{Colors.RESET}"
+            print(f"\n  {Colors.BOLD}{source}{Colors.RESET}{marker}")
             for lineno, raw, kind in items:
                 tag = f"[{kind}]"
-                print(f"    {YELLOW}L{lineno:4d}{RESET}  {tag:10s}  {RED}{raw}{RESET}")
+                print(
+                    f"    {Colors.YELLOW}L{lineno:4d}{Colors.RESET}  {tag:10s}  {Colors.RED}{raw}{Colors.RESET}"
+                )
 
-        print(f"\n{YELLOW}Total: {len(all_dead)} broken references{RESET}")
+        print(f"\n{Colors.YELLOW}Total: {len(all_dead)} broken references{Colors.RESET}")
 
         if index_issues:
             print(
-                f"{RED}⚠  docs/INDEX.md has {index_issues} broken reference(s) — "
-                f"update the index to match current files{RESET}"
+                f"{Colors.RED}⚠  docs/INDEX.md has {index_issues} broken reference(s) — "
+                f"update the index to match current files{Colors.RESET}"
             )
         return 1
     else:
-        print(f"{GREEN}✓ All links valid{RESET}")
-        print(f"{GREEN}✓ docs/INDEX.md references verified{RESET}")
+        print(f"{Colors.GREEN}✓ All links valid{Colors.RESET}")
+        print(f"{Colors.GREEN}✓ docs/INDEX.md references verified{Colors.RESET}")
         return 0
 
 
