@@ -257,16 +257,17 @@ class TestNousSubtopicDependentDropdown:
         assert _select_is_disabled(inner)
 
 
-class TestBackendPairsArePositional:
-    """`nous_subtopic` mirrors `nous` positionally (index i names the sub-topic
-    under the nous topic at index i — the vault taxonomy's authoring contract).
-    The pair derivation must UNWIND by index, never cross-product the two
-    arrays: a [body, exercises] x [breath, practice-design] entity authors
-    breath↔body + practice-design↔exercises, NOT breath↔exercises."""
+class TestBackendPairsAreCoOccurrence:
+    """A (nous, sub-topic) pair exists once ≥1 entity carries both — the
+    dropdown follows wherever the content connects them. The two frontmatter
+    lists are fully INDEPENDENT: any lengths, any combination. There is
+    deliberately NO alignment/equal-length authoring contract (Mike's ruling,
+    2026-07-16: no false restrictions — do not reintroduce positional pairing
+    or a size guard)."""
 
     @pytest.mark.parametrize("backend_name", ["KuBackend", "PsBackend"])
     @pytest.mark.asyncio
-    async def test_pair_query_pairs_by_index_not_cross_product(self, backend_name: str) -> None:
+    async def test_pair_query_is_unrestricted_co_occurrence(self, backend_name: str) -> None:
         import adapters.persistence.neo4j.backends.curriculum_backends as backends
 
         backend = getattr(backends, backend_name).__new__(getattr(backends, backend_name))
@@ -275,14 +276,13 @@ class TestBackendPairsArePositional:
         await backend.nous_subtopic_pairs()
 
         query = backend.execute_query.await_args.args[0]
-        # Positional pairing: one index UNWIND over parallel arrays…
-        assert "range(0, size(n.nous) - 1)" in query
-        assert "n.nous[i]" in query and "n.nous_subtopic[i]" in query
-        # …guarded to decodable alignments only (equal-length arrays)…
-        assert "size(n.nous) = size(n.nous_subtopic)" in query
-        # …never the old element cross-product.
-        assert "UNWIND n.nous AS" not in query
-        assert "UNWIND n.nous_subtopic AS" not in query
+        # Co-occurrence: each list element pairs with each of the other's…
+        assert "UNWIND n.nous AS" in query
+        assert "UNWIND n.nous_subtopic AS" in query
+        # …with NO authoring restriction re-imposed (no length guard, no
+        # positional indexing).
+        assert "size(n.nous) = size(n.nous_subtopic)" not in query
+        assert "range(" not in query
 
 
 class TestSearchRouterNousSubtopicMerge:
