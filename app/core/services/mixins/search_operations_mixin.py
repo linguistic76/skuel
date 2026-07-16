@@ -46,7 +46,7 @@ from core.models.enums import EntityStatus, SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol, DTOProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.ports import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
@@ -698,10 +698,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             return Result.fail(config_result)
         dto_class, model_class = config_result.value
 
-        status_filters: Mapping[str, dict[str, Any]] = self._get_config_value("status_filters", {})
-        extra_filters: dict[str, Any] = status_filters.get(status_filter, {})
+        status_filters: Mapping[str, FilterParams] = self._get_config_value("status_filters", {})
+        # Same call-boundary shape as get_by_status: find_by's **kwargs signature
+        # needs a plain dict for unpacking alongside its typed keywords.
+        filters: dict[str, Any] = {"user_uid": user_uid, **status_filters.get(status_filter, {})}
 
-        result = await self.backend.find_by(user_uid=user_uid, **extra_filters)
+        result = await self.backend.find_by(**filters)
         if result.is_error:
             return Result.fail(result)
 

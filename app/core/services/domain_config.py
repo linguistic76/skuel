@@ -63,6 +63,7 @@ from core.models.protocols.domain_model_protocol import (
     DTOProtocol,
 )
 from core.models.relationship_names import RelationshipName
+from core.models.type_hints import FilterParams
 
 
 @dataclass(frozen=True)
@@ -146,7 +147,7 @@ class DomainConfig:
     # "all" or any unconfigured name applies no status constraint. Per-domain
     # semantics are preserved exactly here (e.g. Tasks' "active" means NOT
     # completed via status__not_in; Goals' "active" means status == "active").
-    status_filters: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    status_filters: Mapping[str, FilterParams] = field(default_factory=dict)
 
     # Text Search
     search_fields: tuple[str, ...] = ("title", "description")
@@ -312,7 +313,7 @@ def create_activity_domain_config(
     domain_name: str,
     date_field: str = "created_at",
     completed_statuses: tuple[str, ...] = (),
-    status_filters: Mapping[str, dict[str, Any]] | None = None,
+    status_filters: Mapping[str, FilterParams] | None = None,
     category_field: str = "category",
     search_fields: tuple[str, ...] | None = None,
     search_order_by: str | None = None,
