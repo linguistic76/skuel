@@ -85,6 +85,15 @@ def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
 
 Bigger than `HubCard` — more padding, larger icon, full description paragraph, and arrow affordance. Reuses `HubCardData`.
 
+### MocCard
+
+```python
+def MocCard(title: str, description: str, href: str, icon: str, icon_bg: str = "bg-muted") -> A:
+    """MOC root-page card — icon tile + title + description, wrapped in <A>."""
+```
+
+Icon-tile card used by the MOC hub roots (`/library`, `/submissions`, `/gradebook`) to link their sub-pages. Takes plain args instead of `HubCardData` (needs `icon_bg`, no badge).
+
 ### HubDomainBlock + HubDomainBlockList (HTMX preview blocks)
 
 ```python
@@ -316,7 +325,7 @@ _panel("activities", HubAccordionBlockList(ACTIVITY_BLOCKS))
 
 ### MOC root pages (`/submissions`, `/gradebook`, `/library`)
 
-Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `_moc_card()` components. No sidebar, no Alpine state. Defined in:
+Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `MocCard()` components (shared, in `ui/patterns/hub.py`). No sidebar, no Alpine state. Routes in:
 
 - `adapters/inbound/user_entry_ui.py` — `submissions_moc` and `gradebook_moc`
 - `adapters/inbound/library_ui.py` — `library_moc`

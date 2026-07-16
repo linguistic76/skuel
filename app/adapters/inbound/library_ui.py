@@ -17,7 +17,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H2, A, Div, P, Span
+from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
@@ -28,7 +28,7 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
-from ui.components import ButtonT, Icon
+from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
@@ -43,7 +43,7 @@ from ui.library.nav import render_library_sidebar_page
 from ui.library.resource_detail import render_resource_detail, render_resource_not_found
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
+from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid, MocCard
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -208,55 +208,31 @@ def create_library_ui_routes(
         """Library MOC — links to all 4 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
-        def _moc_card(
-            title: str,
-            description: str,
-            href: str,
-            icon: str,
-            icon_bg: str = "bg-muted",
-        ) -> Any:
-            return A(
-                Div(
-                    Div(
-                        Icon(icon, size=28),
-                        cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
-                    ),
-                    H2(title, cls="text-lg font-semibold mb-1"),
-                    P(description, cls="text-sm text-muted-foreground"),
-                    cls="p-6",
-                ),
-                href=href,
-                cls=(
-                    "block border border-border rounded-2xl bg-card "
-                    "hover:border-primary/40 hover:shadow-md transition-all duration-150"
-                ),
-            )
-
         content = Div(
             PageHeader("Library", subtitle="Browse your learning content and resources"),
             Div(
-                _moc_card(
+                MocCard(
                     "Exercises",
                     "Exercises assigned via group membership, with submission and feedback status.",
                     "/library/exercises",
                     "book-open",
                     "bg-blue-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Resources",
                     "Admin-curated content — books, talks, films, podcasts, and articles.",
                     "/library/resources",
                     "bookmark",
                     "bg-amber-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Ku",
                     "Your bookmarked atomic knowledge units from the curriculum graph.",
                     "/library/ku",
                     "brain",
                     "bg-violet-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Path Steps",
                     "Your enrolled path steps — structured learning content and exercises.",
                     "/library/path-steps",

@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fasthtml.common import A, Details, Div, P, Span, Summary
+from fasthtml.common import H2, A, Details, Div, P, Span, Summary
 
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from ui.components import ButtonT, Icon
@@ -59,6 +59,36 @@ def HubCard(card: HubCardData) -> A:
         P(card.description, cls="text-sm text-muted-foreground"),
         href=card.href,
         cls="bg-card border border-border rounded-[12px] p-[22px] shadow-sm hover:shadow-md transition-shadow block",
+    )
+
+
+def MocCard(
+    title: str,
+    description: str,
+    href: str,
+    icon: str,
+    icon_bg: str = "bg-muted",
+) -> A:
+    """MOC root-page card — icon tile + title + description, wrapped in <A>.
+
+    Used by the MOC hub roots (/library, /submissions, /gradebook) to link
+    their sub-pages.
+    """
+    return A(
+        Div(
+            Div(
+                Icon(icon, size=28),
+                cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
+            ),
+            H2(title, cls="text-lg font-semibold mb-1"),
+            P(description, cls="text-sm text-muted-foreground"),
+            cls="p-6",
+        ),
+        href=href,
+        cls=(
+            "block border border-border rounded-2xl bg-card "
+            "hover:border-primary/40 hover:shadow-md transition-all duration-150"
+        ),
     )
 
 

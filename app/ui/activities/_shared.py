@@ -10,16 +10,68 @@ Usage:
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Button, Div, Small, Span
+from fasthtml.common import A, Button, Div, Li, Small, Span, Ul
 
 from core.models.enums import Priority
 from ui.components import Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge
 from ui.patterns.empty_state import EmptyState
-from ui.primitives import dropdown_menu
+from ui.primitives import dropdown_menu, section_label
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
+
+
+def ConnectionsSection(
+    connections: list[dict[str, str]],
+    domain_labels: dict[str, tuple[str, str, str]],
+) -> "FT":
+    """Detail-page 'Connections' block: linked entities grouped by domain.
+
+    Args:
+        connections: Dicts with connected_type / connected_uid / title keys.
+        domain_labels: connected_type -> (section label, icon name, href prefix).
+            An href prefix of "#" renders a dead link (detail page not built yet).
+    """
+    groups: dict[str, list[dict[str, str]]] = {}
+    for conn in connections:
+        connected_type = conn.get("connected_type", "unknown")
+        if connected_type not in groups:
+            groups[connected_type] = []
+        groups[connected_type].append(conn)
+
+    sections: list[Any] = []
+    for domain, conns in groups.items():
+        label, icon, base_href = domain_labels.get(
+            domain, (f"{domain.title()} connections", "link", "#")
+        )
+        links = [
+            Li(
+                Icon(icon, size=12, cls="inline mr-2"),
+                A(
+                    conn.get("title", conn.get("connected_uid", "?")),
+                    href=f"{base_href}{conn.get('connected_uid', '')}" if base_href != "#" else "#",
+                    cls="hover:underline text-muted-foreground",
+                ),
+            )
+            for conn in conns
+        ]
+        sections.append(
+            Div(
+                Small(
+                    label,
+                    cls="text-muted-foreground uppercase text-sm block mb-2",
+                ),
+                Ul(*links, cls="divide-y"),
+                cls="mb-2",
+            )
+        )
+
+    return Div(
+        section_label("Connections"),
+        *sections,
+        cls="my-4",
+    )
 
 
 def MetadataField(label: str, *value: "FT") -> "FT":

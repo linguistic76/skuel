@@ -31,7 +31,7 @@ import mimetypes
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H2, H4, A, Div, P, Span
+from fasthtml.common import H4, Div, P, Span
 from starlette.responses import FileResponse, RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
@@ -42,7 +42,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.layout import Size
@@ -51,7 +51,7 @@ from ui.learning_loop.report import render_yours_list
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
-from ui.patterns.hub import HubSection, hub_cards_from_organizers
+from ui.patterns.hub import HubSection, MocCard, hub_cards_from_organizers
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import render_upload_form, upload_form_script
@@ -226,62 +226,38 @@ def create_user_entry_ui_routes(
         """Submissions MOC — links to all 4 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
-        def _moc_card(
-            title: str,
-            description: str,
-            href: str,
-            icon: str,
-            icon_bg: str = "bg-muted",
-        ) -> Any:
-            return A(
-                Div(
-                    Div(
-                        Icon(icon, size=28),
-                        cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
-                    ),
-                    H2(title, cls="text-lg font-semibold mb-1"),
-                    P(description, cls="text-sm text-muted-foreground"),
-                    cls="p-6",
-                ),
-                href=href,
-                cls=(
-                    "block border border-border rounded-2xl bg-card "
-                    "hover:border-primary/40 hover:shadow-md transition-all duration-150"
-                ),
-            )
-
         content = Div(
             PageHeader("Submissions", subtitle="Choose how you want to submit or sync your work"),
             Div(
-                _moc_card(
+                MocCard(
                     "Exercise",
                     "Upload a completed exercise worksheet for teacher or AI feedback.",
                     "/submissions/exercise",
                     "send",
                     "bg-blue-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Journal",
                     "Upload audio, text, or files to be transcribed and processed by AI.",
                     "/submissions/journal",
                     "book-open",
                     "bg-violet-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Sync",
                     "Pull your Obsidian Daily Notes into SKUEL and write completions back.",
                     "/submissions/sync",
                     "refresh-cw",
                     "bg-emerald-50",
                 ),
-                _moc_card(
+                MocCard(
                     "History",
                     "Browse your past exercise submissions and feedback status.",
                     "/submissions/history",
                     "clock",
                     "bg-amber-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Knowledge",
                     "Review your knowledge notes and the concepts SKUEL grounded them to.",
                     "/submissions/knowledge",
@@ -601,48 +577,24 @@ def create_user_entry_ui_routes(
         """GradeBook MOC — links to all 3 sub-pages, no sidebar."""
         require_authenticated_user(request)
 
-        def _moc_card(
-            title: str,
-            description: str,
-            href: str,
-            icon: str,
-            icon_bg: str = "bg-muted",
-        ) -> Any:
-            return A(
-                Div(
-                    Div(
-                        Icon(icon, size=28),
-                        cls=f"w-14 h-14 rounded-2xl {icon_bg} flex items-center justify-center mb-4",
-                    ),
-                    H2(title, cls="text-lg font-semibold mb-1"),
-                    P(description, cls="text-sm text-muted-foreground"),
-                    cls="p-6",
-                ),
-                href=href,
-                cls=(
-                    "block border border-border rounded-2xl bg-card "
-                    "hover:border-primary/40 hover:shadow-md transition-all duration-150"
-                ),
-            )
-
         content = Div(
             PageHeader("GradeBook", subtitle="Review your feedback, reports, and revised work"),
             Div(
-                _moc_card(
+                MocCard(
                     "Entry Reports",
                     "AI and teacher feedback on your submitted exercises and journals.",
                     "/entry-reports",
                     "clipboard-check",
                     "bg-blue-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Activity Reports",
                     "Holistic reports aggregating your activity patterns and progress.",
                     "/activity-reports",
                     "bar-chart-2",
                     "bg-amber-50",
                 ),
-                _moc_card(
+                MocCard(
                     "Revised Exercises",
                     "Exercises returned for revision with teacher comments and scoring.",
                     "/revised-exercises",

@@ -375,6 +375,29 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     )
 
 
+def _render_submission_list(items: list[SubmissionRow], empty_message: str) -> Any:
+    """Inline rows for a submission list, or a centered empty-state message."""
+    if not items:
+        return P(empty_message, cls="text-center text-muted-foreground py-8 text-sm")
+    return Div(*[render_student_submission_inline_row(item) for item in items])
+
+
+def _render_ku_progress(ku_detail: dict[str, Any] | None) -> Any:
+    """KU progress summary + detail list, or an unavailable message."""
+    if ku_detail is None:
+        return P(
+            "KU progress data unavailable.",
+            cls="text-center text-muted-foreground py-8 text-sm",
+        )
+    from ui.admin.views import AdminLearningComponents
+
+    return Div(
+        AdminLearningComponents.render_user_ku_summary(ku_detail),
+        Div(cls="mb-6"),
+        AdminLearningComponents.render_user_ku_detail_list(ku_detail),
+    )
+
+
 def render_student_detail_tabs(
     pending: list[SubmissionRow],
     revision_requested: list[SubmissionRow],
@@ -410,36 +433,6 @@ def render_student_detail_tabs(
             },
         )
 
-    def _render_pending_list() -> Any:
-        if not pending:
-            return P(
-                "No submissions awaiting review.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        return Div(*[render_student_submission_inline_row(item) for item in pending])
-
-    def _render_simple_list(items: list[SubmissionRow]) -> Any:
-        if not items:
-            return P(
-                "No submissions in this category.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        return Div(*[render_student_submission_inline_row(item) for item in items])
-
-    def _render_ku_progress() -> Any:
-        if ku_detail is None:
-            return P(
-                "KU progress data unavailable.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        from ui.admin.views import AdminLearningComponents
-
-        return Div(
-            AdminLearningComponents.render_user_ku_summary(ku_detail),
-            Div(cls="mb-6"),
-            AdminLearningComponents.render_user_ku_detail_list(ku_detail),
-        )
-
     if default_tab is None:
         default_tab = "pending" if pending else ("revision" if revision_requested else "completed")
 
@@ -451,14 +444,23 @@ def render_student_detail_tabs(
     ]
     # Tab panels
     tab_panels = [
-        Div(_render_pending_list(), **{"x-show": "tab === 'pending'"}),
-        Div(_render_simple_list(revision_requested), **{"x-show": "tab === 'revision'"}),
-        Div(_render_simple_list(completed), **{"x-show": "tab === 'completed'"}),
+        Div(
+            _render_submission_list(pending, "No submissions awaiting review."),
+            **{"x-show": "tab === 'pending'"},
+        ),
+        Div(
+            _render_submission_list(revision_requested, "No submissions in this category."),
+            **{"x-show": "tab === 'revision'"},
+        ),
+        Div(
+            _render_submission_list(completed, "No submissions in this category."),
+            **{"x-show": "tab === 'completed'"},
+        ),
     ]
 
     # KU Progress tab (always shown — data may be unavailable)
     tab_buttons.append(_tab_button("ku", "KU Progress"))
-    tab_panels.append(Div(_render_ku_progress(), **{"x-show": "tab === 'ku'"}))
+    tab_panels.append(Div(_render_ku_progress(ku_detail), **{"x-show": "tab === 'ku'"}))
 
     return Div(
         Div(*tab_buttons, cls="flex border-b border-border mb-6"),
@@ -512,41 +514,20 @@ def render_student_detail_sections(
     Each panel uses x-show="section === '...'" for instant switching.
     """
 
-    def _render_pending_list() -> Any:
-        if not pending:
-            return P(
-                "No submissions awaiting review.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        return Div(*[render_student_submission_inline_row(item) for item in pending])
-
-    def _render_simple_list(items: list[SubmissionRow]) -> Any:
-        if not items:
-            return P(
-                "No submissions in this category.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        return Div(*[render_student_submission_inline_row(item) for item in items])
-
-    def _render_ku_progress() -> Any:
-        if ku_detail is None:
-            return P(
-                "KU progress data unavailable.",
-                cls="text-center text-muted-foreground py-8 text-sm",
-            )
-        from ui.admin.views import AdminLearningComponents
-
-        return Div(
-            AdminLearningComponents.render_user_ku_summary(ku_detail),
-            Div(cls="mb-6"),
-            AdminLearningComponents.render_user_ku_detail_list(ku_detail),
-        )
-
     return Div(
-        Div(_render_pending_list(), **{"x-show": "section === 'pending'"}),
-        Div(_render_simple_list(revision_requested), **{"x-show": "section === 'revision'"}),
-        Div(_render_simple_list(completed), **{"x-show": "section === 'completed'"}),
-        Div(_render_ku_progress(), **{"x-show": "section === 'ku'"}),
+        Div(
+            _render_submission_list(pending, "No submissions awaiting review."),
+            **{"x-show": "section === 'pending'"},
+        ),
+        Div(
+            _render_submission_list(revision_requested, "No submissions in this category."),
+            **{"x-show": "section === 'revision'"},
+        ),
+        Div(
+            _render_submission_list(completed, "No submissions in this category."),
+            **{"x-show": "section === 'completed'"},
+        ),
+        Div(_render_ku_progress(ku_detail), **{"x-show": "section === 'ku'"}),
     )
 
 
