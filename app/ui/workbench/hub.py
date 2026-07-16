@@ -10,9 +10,9 @@ from ui.components import ButtonT, Icon
 from ui.primitives import ButtonLink
 
 _SUBMISSION_LINKS: tuple[tuple[str, str, str], ...] = (
+    ("Sync", "/submissions/sync", "refresh-cw"),
     ("Exercises", "/submissions/exercise", "send"),
     ("Journals", "/submissions/journal", "book-open"),
-    ("Sync", "/submissions/sync", "refresh-cw"),
     ("History", "/submissions/history", "clock"),
 )
 
