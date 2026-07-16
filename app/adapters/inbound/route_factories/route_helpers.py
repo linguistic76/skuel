@@ -161,6 +161,33 @@ def parse_int_query_param(
     return value
 
 
+def parse_float_query_param(
+    params: Mapping[str, Any],
+    key: str,
+    default: float,
+    *,
+    minimum: float | None = None,
+    maximum: float | None = None,
+) -> float:
+    """Parse a float query param with safe fallback and optional bounds.
+
+    Invalid, missing, or blank values return ``default``.
+    Values are clamped when ``minimum`` and/or ``maximum`` are provided.
+    """
+    raw_value = params.get(key)
+    if raw_value is None or raw_value == "":
+        return default
+    try:
+        value = float(str(raw_value))
+    except (TypeError, ValueError):  # fmt: skip
+        return default
+    if minimum is not None:
+        value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
+
+
 async def require_owned_entity(
     service_core: Any | None,
     uid: str,

@@ -43,6 +43,8 @@ from adapters.inbound.route_factories import (
     ActivityFieldApiConfig,
     FieldUpdateSpec,
     create_activity_field_api_routes,
+    parse_bool_query_param,
+    parse_float_query_param,
     parse_int_query_param,
     verify_entity_ownership,
 )
@@ -240,8 +242,8 @@ def create_goals_api_routes(
             return Result.fail(
                 Errors.system(message="user_service not available", operation="goals_stalled")
             )
-        max_progress = float(request.query_params.get("max_progress", "0.1"))
-        limit = int(request.query_params.get("limit", "10"))
+        max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
+        limit = parse_int_query_param(request.query_params, "limit", 10)
         ctx_result = await user_service.get_user_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
@@ -261,8 +263,8 @@ def create_goals_api_routes(
             return Result.fail(
                 Errors.system(message="user_service not available", operation="goals_achievable")
             )
-        min_progress = float(request.query_params.get("min_progress", "0.7"))
-        limit = int(request.query_params.get("limit", "5"))
+        min_progress = parse_float_query_param(request.query_params, "min_progress", 0.7)
+        limit = parse_int_query_param(request.query_params, "limit", 5)
         ctx_result = await user_service.get_user_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
@@ -283,7 +285,7 @@ def create_goals_api_routes(
             return Result.fail(
                 Errors.system(message="user_service not available", operation="goals_advancing")
             )
-        limit = int(request.query_params.get("limit", "2"))
+        limit = parse_int_query_param(request.query_params, "limit", 2)
         ctx_result = await user_service.get_rich_unified_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
@@ -310,8 +312,9 @@ def create_goals_api_routes(
                     message="user_service not available", operation="goal_create_with_scheduling"
                 )
             )
-        check_capacity_str = request.query_params.get("check_capacity", "true")
-        check_capacity = check_capacity_str.lower() not in ("false", "0")
+        check_capacity = parse_bool_query_param(
+            request.query_params, "check_capacity", default=True
+        )
         parsed = await parse_json_body(request, GoalCreateRequest)
         if parsed.is_error:
             return Result.fail(parsed)

@@ -20,13 +20,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-# ANSI colors
-CYAN = "\033[96m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-RED = "\033[91m"
-BOLD = "\033[1m"
-RESET = "\033[0m"
+from core.utils.terminal_colors import Colors
 
 ROOT = Path(__file__).parent.parent.parent  # /home/mike/skuel/app
 
@@ -298,7 +292,7 @@ def main() -> int:
     parser.add_argument("--verbose", "-v", action="store_true", help="Show all modules scanned")
     args = parser.parse_args()
 
-    print(f"{BOLD}Dead Module Detector{RESET}")
+    print(f"{Colors.BOLD}Dead Module Detector{Colors.RESET}")
     print("=" * 60)
 
     subjects, all_sources = get_production_py_files()
@@ -322,27 +316,33 @@ def main() -> int:
             dead.append((path, module, lines, hint))
 
     if args.verbose:
-        print(f"{CYAN}Entry points (excluded from analysis):{RESET}")
+        print(f"{Colors.CYAN}Entry points (excluded from analysis):{Colors.RESET}")
         for p in entry_points_found:
             print(f"  {p.relative_to(ROOT)}")
         print()
 
     if dead:
-        print(f"{RED}{BOLD}Dead Modules — {len(dead)} files with zero importers:{RESET}")
-        print(f"{YELLOW}These are not imported anywhere in production code.{RESET}")
-        print(f"{YELLOW}Review before deleting — some may be loaded by convention.{RESET}\n")
+        print(
+            f"{Colors.RED}{Colors.BOLD}Dead Modules — {len(dead)} files with zero importers:{Colors.RESET}"
+        )
+        print(f"{Colors.YELLOW}These are not imported anywhere in production code.{Colors.RESET}")
+        print(
+            f"{Colors.YELLOW}Review before deleting — some may be loaded by convention.{Colors.RESET}\n"
+        )
 
         for path, module, lines, hint in sorted(dead, key=_sort_dead_modules_by_size):
             rel = path.relative_to(ROOT)
-            print(f"  {RED}●{RESET} {BOLD}{rel}{RESET}  ({lines} lines)")
-            print(f"      module: {CYAN}{module}{RESET}")
+            print(
+                f"  {Colors.RED}●{Colors.RESET} {Colors.BOLD}{rel}{Colors.RESET}  ({lines} lines)"
+            )
+            print(f"      module: {Colors.CYAN}{module}{Colors.RESET}")
             if hint:
                 print(f"      hint:   {hint}")
 
-        print(f"\n{YELLOW}Total: {len(dead)} files{RESET}")
+        print(f"\n{Colors.YELLOW}Total: {len(dead)} files{Colors.RESET}")
         return 1
     else:
-        print(f"{GREEN}✓ No dead modules found{RESET}")
+        print(f"{Colors.GREEN}✓ No dead modules found{Colors.RESET}")
         return 0
 
 

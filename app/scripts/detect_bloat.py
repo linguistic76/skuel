@@ -47,6 +47,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from core.utils.terminal_colors import Colors
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # Production code that confers liveness. tests/ is parsed separately and only
@@ -781,31 +783,6 @@ PLANNED_METHODS: dict[str, str] = {
 # Method findings are scoped to the service layer; the rest of the tree is
 # covered by the standalone vulture run at --min-confidence 90.
 METHOD_SCOPE = "core/services/"
-
-
-class Colors:
-    """Terminal colors for better output readability."""
-
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE = "\033[94m"
-    CYAN = "\033[96m"
-    BOLD = "\033[1m"
-    DIM = "\033[2m"
-    RESET = "\033[0m"
-
-    @classmethod
-    def disable(cls) -> None:
-        """Disable colors (for non-TTY output)."""
-        cls.RED = ""
-        cls.GREEN = ""
-        cls.YELLOW = ""
-        cls.BLUE = ""
-        cls.CYAN = ""
-        cls.BOLD = ""
-        cls.DIM = ""
-        cls.RESET = ""
 
 
 class BloatSeverity(Enum):

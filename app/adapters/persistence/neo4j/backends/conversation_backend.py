@@ -31,11 +31,9 @@ See Also: session_backend.py, device_backend.py — sibling thin backends.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, cast
 
-from neo4j.time import DateTime as Neo4jDateTime
-
+from adapters.persistence.neo4j._backend_helpers import to_native_datetime
 from core.models.conversation import ROLE_ASSISTANT as _ROLE_ASSISTANT
 from core.models.conversation import ROLE_USER as _ROLE_USER
 from core.models.enums.neo_labels import NeoLabel
@@ -68,23 +66,14 @@ _SESSION_RETURN = """
 # constant — the projected key list is identical in all three places.
 
 
-def _to_native_datetime(value: object) -> datetime | None:
-    """Convert a Neo4j temporal to a native datetime (None passes through)."""
-    if isinstance(value, Neo4jDateTime):
-        return cast("datetime", value.to_native())
-    if isinstance(value, datetime):
-        return value
-    return None
-
-
 def _session_record(data: dict[str, object]) -> Neo4jProperties:
     """Normalize a session row: Neo4j temporals → native datetimes."""
     return {
         "session_id": str(data["session_id"]),
         "user_uid": str(data["user_uid"]),
         "kind": str(data["kind"]),
-        "started_at": _to_native_datetime(data.get("started_at")),
-        "last_activity": _to_native_datetime(data.get("last_activity")),
+        "started_at": to_native_datetime(data.get("started_at")),
+        "last_activity": to_native_datetime(data.get("last_activity")),
         "title": str(data["title"]),
         "source_selection": str(data["source_selection"]),
     }
@@ -97,7 +86,7 @@ def _turn_record(data: dict[str, object]) -> Neo4jProperties:
         "session_id": str(data["session_id"]),
         "role": str(data["role"]),
         "content": str(data["content"]),
-        "timestamp": _to_native_datetime(data.get("timestamp")),
+        "timestamp": to_native_datetime(data.get("timestamp")),
         "turn_number": int(cast("int", data["turn_number"])),
     }
 

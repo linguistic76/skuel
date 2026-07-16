@@ -39,6 +39,7 @@ import anthropic
 from anthropic.types import TextBlock
 
 from core.config.credential_store import get_credential
+from core.utils.terminal_colors import Colors
 from scripts.docs_freshness import (
     DocFreshness,
     check_freshness,
@@ -46,15 +47,6 @@ from scripts.docs_freshness import (
     normalize_path,
     scan_docs,
 )
-
-# ANSI color codes for terminal output
-RED = "\033[91m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-CYAN = "\033[96m"
-RESET = "\033[0m"
-BOLD = "\033[1m"
-
 
 SYSTEM_PROMPT = """You are a documentation maintainer. Given a markdown doc and
 the current code it references, update the doc to reflect code changes.
@@ -191,7 +183,7 @@ def generate_update(context: UpdateContext, client: anthropic.Anthropic, model: 
         )
     except anthropic.BadRequestError as e:
         if "credit balance" in str(e):
-            print(f"\n{RED}Error: Insufficient API credits.{RESET}", file=sys.stderr)
+            print(f"\n{Colors.RED}Error: Insufficient API credits.{Colors.RESET}", file=sys.stderr)
             print(
                 "Your Anthropic API key needs credits. Claude Pro subscription does not",
                 file=sys.stderr,
@@ -225,17 +217,17 @@ def show_diff(original: str, updated: str, doc_path: str) -> None:
         lineterm="",
     )
 
-    print(f"\n{BOLD}Diff for {doc_path}:{RESET}\n")
+    print(f"\n{Colors.BOLD}Diff for {doc_path}:{Colors.RESET}\n")
 
     for line in diff:
         if line.startswith("+++") or line.startswith("---"):
-            print(f"{BOLD}{line}{RESET}", end="")
+            print(f"{Colors.BOLD}{line}{Colors.RESET}", end="")
         elif line.startswith("@@"):
-            print(f"{CYAN}{line}{RESET}", end="")
+            print(f"{Colors.CYAN}{line}{Colors.RESET}", end="")
         elif line.startswith("+"):
-            print(f"{GREEN}{line}{RESET}", end="")
+            print(f"{Colors.GREEN}{line}{Colors.RESET}", end="")
         elif line.startswith("-"):
-            print(f"{RED}{line}{RESET}", end="")
+            print(f"{Colors.RED}{line}{Colors.RESET}", end="")
         else:
             print(line, end="")
 
@@ -245,7 +237,7 @@ def show_diff(original: str, updated: str, doc_path: str) -> None:
 def apply_update(doc_path: Path, content: str) -> None:
     """Write updated content to doc file."""
     doc_path.write_text(content, encoding="utf-8")
-    print(f"{GREEN}Updated: {doc_path}{RESET}")
+    print(f"{Colors.GREEN}Updated: {doc_path}{Colors.RESET}")
 
 
 def touch_mtime(doc_path: Path) -> None:
@@ -266,30 +258,30 @@ def update_single_doc(
 
     Returns True if updated, False if skipped.
     """
-    print(f"\n{BOLD}Processing: {doc_path.relative_to(project_root)}{RESET}")
+    print(f"\n{Colors.BOLD}Processing: {doc_path.relative_to(project_root)}{Colors.RESET}")
 
     context = gather_context(doc_path, project_root)
 
     if context is None:
-        print(f"{YELLOW}Skipping: Doc is not stale{RESET}")
+        print(f"{Colors.YELLOW}Skipping: Doc is not stale{Colors.RESET}")
         return False
 
     print(f"  Stale refs: {len(context.stale_refs)}")
     for ref in context.stale_refs:
         print(f"    - {ref}")
 
-    print(f"\n{CYAN}Generating update with Claude...{RESET}")
+    print(f"\n{Colors.CYAN}Generating update with Claude...{Colors.RESET}")
     updated_content = generate_update(context, client, model)
 
     # Check if there are actual changes
     if updated_content.strip() == context.doc_content.strip():
-        print(f"{YELLOW}No changes needed{RESET}")
+        print(f"{Colors.YELLOW}No changes needed{Colors.RESET}")
         return False
 
     show_diff(context.doc_content, updated_content, str(doc_path.relative_to(project_root)))
 
     if dry_run:
-        print(f"{YELLOW}Dry run - no changes written{RESET}")
+        print(f"{Colors.YELLOW}Dry run - no changes written{Colors.RESET}")
         return False
 
     if auto_approve:
@@ -298,12 +290,14 @@ def update_single_doc(
 
     # Interactive approval
     while True:
-        response = input(f"\n{BOLD}Apply this update? [y/n/q] {RESET}").strip().lower()
+        response = (
+            input(f"\n{Colors.BOLD}Apply this update? [y/n/q] {Colors.RESET}").strip().lower()
+        )
         if response == "y":
             apply_update(doc_path, updated_content)
             return True
         elif response == "n":
-            print(f"{YELLOW}Skipped{RESET}")
+            print(f"{Colors.YELLOW}Skipped{Colors.RESET}")
             return False
         elif response == "q":
             print("Quitting")
@@ -369,8 +363,8 @@ Examples:
     api_key = get_credential("ANTHROPIC_API_KEY", fallback_to_env=True)
     if not api_key:
         print(
-            f"{RED}Error: ANTHROPIC_API_KEY not found in the active credential "
-            f"backend or env. Run: uv run python -m core.config{RESET}",
+            f"{Colors.RED}Error: ANTHROPIC_API_KEY not found in the active credential "
+            f"backend or env. Run: uv run python -m core.config{Colors.RESET}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -379,7 +373,10 @@ Examples:
 
     docs_dir = project_root / "docs"
     if not docs_dir.exists():
-        print(f"{RED}Error: docs directory not found at {docs_dir}{RESET}", file=sys.stderr)
+        print(
+            f"{Colors.RED}Error: docs directory not found at {docs_dir}{Colors.RESET}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     updated_count = 0
@@ -392,7 +389,7 @@ Examples:
             doc_path = project_root / doc_path
 
         if not doc_path.exists():
-            print(f"{RED}Error: File not found: {doc_path}{RESET}", file=sys.stderr)
+            print(f"{Colors.RED}Error: File not found: {doc_path}{Colors.RESET}", file=sys.stderr)
             sys.exit(1)
 
         if update_single_doc(doc_path, project_root, client, args.model, args.dry_run, args.yes):
@@ -402,12 +399,12 @@ Examples:
 
     else:
         # All stale docs mode
-        print(f"{BOLD}Scanning for stale documentation...{RESET}")
+        print(f"{Colors.BOLD}Scanning for stale documentation...{Colors.RESET}")
         results = scan_docs(docs_dir, project_root)
         stale_results = [r for r in results if r.is_stale]
 
         if not stale_results:
-            print(f"{GREEN}No stale documentation found!{RESET}")
+            print(f"{Colors.GREEN}No stale documentation found!{Colors.RESET}")
             return
 
         print(f"Found {len(stale_results)} stale document(s)\n")
@@ -422,7 +419,7 @@ Examples:
                 skipped_count += 1
 
     # Summary
-    print(f"\n{BOLD}Summary:{RESET}")
+    print(f"\n{Colors.BOLD}Summary:{Colors.RESET}")
     print(f"  Updated: {updated_count}")
     print(f"  Skipped: {skipped_count}")
 
