@@ -61,6 +61,7 @@ These methods are available on **all services that extend BaseService**.
 | `get_by_category()` | ✅ |
 | `get_by_relationship()` | ✅ |
 | `get_by_status()` | ✅ |
+| `get_for_user_filtered()` | ✅ |
 | `graph_aware_faceted_search()` | ✅ |
 | `list_all_categories()` | ✅ |
 | `list_recent_for_user()` | ✅ |
