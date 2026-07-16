@@ -81,9 +81,10 @@ async def render_search_page_with_navbar(
         nous_topics: NOUS topic vocabulary derived from the graph
             (route fetches via KuService.list_nous_topics)
         nous_subtopics: NOUS sub-topic vocabulary (2nd level) derived from the
-            graph (route fetches via KuService.list_nous_subtopics). Empty until
-            the vault carries `nous_subtopic:` data — the control fails soft to
-            nothing on an empty list.
+            graph (route fetches via SearchRouter.list_nous_subtopics). Render
+            gate only — the control starts disabled until a NOUS topic is
+            chosen. Empty until the vault carries `nous_subtopic:` data — the
+            control fails soft to nothing on an empty list.
         ask_enabled: FULL-tier gate for the "Ask" button (hands the query +
             nous facet to scoped Askesis). Hidden in CORE tier.
 
@@ -441,24 +442,34 @@ def _render_nous_select(nous_topics: list[str]) -> Any:
 NOUS_SUBTOPIC_COLUMN_ID = "nous-subtopic-column"
 
 
-def render_nous_subtopic_inner(nous_subtopics: list[str]) -> tuple["FT", "FT"]:
+def render_nous_subtopic_inner(
+    nous_subtopics: list[str], *, nous_selected: bool = True
+) -> tuple["FT", "FT"]:
     """Inner label + select for the sub-topic column (the HTMX-swapped fragment).
 
     Options are DERIVED from the graph, never hardcoded (content boundary). The
     ``/search/subtopics`` endpoint re-renders THIS fragment scoped to the chosen
-    NOUS topic; the initial page render passes the full flat vocabulary.
+    NOUS topic. Sub-topics go DEEPER into one topic, so the control is gated on
+    a topic being chosen: with ``nous_selected=False`` (initial render, or the
+    "All Nous" option) the select is disabled with a "Choose a Nous first"
+    placeholder instead of offering the flat cross-topic vocabulary.
 
-    Fail-soft: an empty ``nous_subtopics`` (a NOUS topic with no authored
-    sub-topics, or none authored at all) yields just the "All Sub-topics" option
-    — the column stays present and stable so the dependent HTMX target never
-    vanishes mid-interaction, it simply has nothing to narrow by.
+    Fail-soft: a chosen NOUS topic with no authored sub-topics yields just a
+    disabled "All Sub-topics" option — the column stays present and stable so
+    the dependent HTMX target never vanishes mid-interaction, it simply has
+    nothing to narrow by. (Disabled selects don't serialize, and both states
+    carry only the empty value, so no stale sub-topic ever rides a request.)
     """
-    options = [("", "All Sub-topics")] + [
-        (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
-    ]
+    if not nous_selected:
+        options = [("", "Choose a Nous first")]
+    else:
+        options = [("", "All Sub-topics")] + [
+            (sub, sub.replace("-", " ").title()) for sub in nous_subtopics
+        ]
+    disabled = not nous_selected or not nous_subtopics
     return (
         _bar_label("Sub-topic", fr="nous_subtopic"),
-        _filter_select("nous_subtopic", options),
+        _filter_select("nous_subtopic", options, disabled=disabled),
     )
 
 
@@ -466,9 +477,12 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> Any | None:
     """NOUS sub-topic column (2nd taxonomy level), dependent on the NOUS topic.
 
     DERIVED from the graph (KuService.list_nous_subtopics / nous_subtopic_map),
-    never hardcoded. Fails soft: with no authored `nous_subtopic` data at all the
-    column renders NOTHING (no orphan control) — the mechanism ships ahead of
-    the vault content.
+    never hardcoded. ``nous_subtopics`` (the flat vocabulary) acts purely as the
+    render GATE here: with no authored `nous_subtopic` data at all the column
+    renders NOTHING (no orphan control) — the mechanism ships ahead of the vault
+    content. The initial control itself is the DISABLED "Choose a Nous first"
+    state, never the flat cross-topic list — sub-topics only mean something
+    inside their parent NOUS topic.
 
     Dependent wiring: the stable container listens for changes on the NOUS
     select (``change from:[name='nous']``) and re-fetches ``/search/subtopics``,
@@ -479,7 +493,7 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> Any | None:
     if not nous_subtopics:
         return None
     return Div(
-        *render_nous_subtopic_inner(nous_subtopics),
+        *render_nous_subtopic_inner([], nous_selected=False),
         id=NOUS_SUBTOPIC_COLUMN_ID,
         cls="space-y-2 flex-1 min-w-[150px]",
         hx_get="/search/subtopics",

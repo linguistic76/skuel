@@ -99,8 +99,10 @@ def create_search_api_routes(
         # NOUS sub-topic (2nd taxonomy level) vocabulary spans BOTH :Ku and
         # :PathStep — SearchRouter merges each curriculum domain's own-label
         # pairs (cross-domain aggregation stays in the service, not a backend).
-        # Empty until the vault carries `nous_subtopic:` data, so the faucet
-        # fails soft to no control (mechanism ships ahead of content).
+        # Render GATE only: the control starts disabled ("Choose a Nous first")
+        # and scopes via /search/subtopics once a topic is picked. Empty until
+        # the vault carries `nous_subtopic:` data, so the faucet fails soft to
+        # no control (mechanism ships ahead of content).
         nous_subtopics: list[str] = []
         subtopics_result = await search_router.list_nous_subtopics()
         if subtopics_result.is_ok and subtopics_result.value:
@@ -122,23 +124,22 @@ def create_search_api_routes(
 
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
         changes it fires ``change from:[name='nous']`` at the sub-topic column,
-        which fetches this fragment. With no ``nous`` (the "All Nous" option) the
-        full flat vocabulary is returned; with a topic selected, only the
-        sub-topics authored ALONGSIDE it (graph-derived co-occurrence map — the
-        taxonomy never leaves the vault). Fail-soft: an unknown/empty topic
-        yields just "All Sub-topics".
+        which fetches this fragment. With a topic selected, only the sub-topics
+        authored UNDER it (graph-derived positional map — the taxonomy never
+        leaves the vault); with no ``nous`` (the "All Nous" option) the control
+        resets to its disabled "Choose a Nous first" state — sub-topics go
+        deeper into ONE topic, so a flat cross-topic list is never offered.
+        Fail-soft: an unknown topic yields a disabled "All Sub-topics".
         """
         require_authenticated_user(request)
 
+        if not nous:
+            return render_nous_subtopic_inner([], nous_selected=False)
+
         subtopics: list[str] = []
-        if nous:
-            map_result = await search_router.nous_subtopic_map()
-            if map_result.is_ok and map_result.value:
-                subtopics = map_result.value.get(nous, [])
-        else:
-            flat_result = await search_router.list_nous_subtopics()
-            if flat_result.is_ok and flat_result.value:
-                subtopics = flat_result.value
+        map_result = await search_router.nous_subtopic_map()
+        if map_result.is_ok and map_result.value:
+            subtopics = map_result.value.get(nous, [])
 
         return render_nous_subtopic_inner(subtopics)
 
