@@ -212,7 +212,7 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 
 **Activity domain detail pages (6):** `/tasks/detail`, `/goals/detail`, `/habits/detail`, `/events/detail`, `/choices/detail`, `/principles/detail`
 
-**Calendar (3):** `/cal/month/{year}/{month}`, `/cal/week/{date_str}`, `/cal/day/{date_str}`
+**Calendar (2):** `/cal/month/{year}/{month}`, `/cal/week/{date_str}`
 
 **Library (1):** `/library/path-steps`
 

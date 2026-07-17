@@ -809,21 +809,24 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",  # services.calendar
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
+    # habits_service backs POST /cal/habit/{uid}/complete (item-details modal).
+    ui_related_services={"habits_service": "habits"},
 )
 ```
 
 **API Routes:** (`calendar_api.py` - 1 route)
 - `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
 
-**UI Routes:** (`calendar_ui.py` - 8 routes)
+**UI Routes:** (`calendar_ui.py` - 7 routes)
 - 1 redirect: `/cal` → the current month
-- 3 page shells: `/cal/month/{y}/{m}`, `/cal/week/{date}`, `/cal/day/{date}` (chrome renders immediately; the grid loads via HTMX)
-- 3 HTMX content fragments: month grid, week agenda, day agenda
+- 2 page shells: `/cal/month/{y}/{m}`, `/cal/week/{date}` (chrome renders immediately; the grid loads via HTMX)
+- 2 HTMX content fragments: month grid, week agenda
 - 1 HTMX fragment: item-details modal
-- Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week/day)
+- 1 POST action: `/cal/habit/{uid}/complete` (item-details modal "Mark Complete", ownership-verified + csrf-protected)
+- Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week)
 
 **Key features:**
-- **Minimal config:** the calendar wires no related services — both factories take only `(app, rt, calendar_service)`. All three views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`.
+- **Near-minimal config:** the UI factory takes `(app, rt, calendar_service, habits_service)` — `habits_service` arrives via `ui_related_services` and backs only the habit-complete POST. Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
 - **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as type filters (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps).
 - **Redirect entry point:** `GET /cal` issues a `RedirectResponse` to `/cal/month/{y}/{m}` for the current month.
 - **Item-details modal:** event chips carry `hx_get=/cal/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.

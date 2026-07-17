@@ -959,56 +959,23 @@ def create_example_routes(app, rt, services):
 
 ## Domain-Specific UI
 
-Each Activity Domain has a `ui/{domain}/` directory with domain-specific components:
+All six Activity Domains share one directory, `ui/activities/`, with a
+`{domain}_views.py` + `{domain}_form.py` pair per domain plus shared pieces:
 
 ```
-ui/tasks/     — TodoistTaskComponents, TasksViewComponents, layout
-ui/goals/     — GoalHierarchyView, views
-ui/habits/    — HabitStreakDisplay, views
-ui/events/    — EventCalendarView, views
-ui/choices/   — ChoiceComparisonView, views
-ui/principles/ — PrincipleStrengthView, views
+ui/activities/tasks_views.py …    — list/detail view components (one pair per domain)
+ui/activities/tasks_form.py …     — create/edit form components
+ui/activities/filter_bar.py       — shared list filter bar
+ui/activities/_shared.py          — cross-domain view helpers
+ui/activities/nav.py              — Activity sidebar (render_activity_sidebar_page)
+ui/activities/hub.py              — Activities content embedded in /profile
 ```
 
-These compose the same core components (CardGenerator, StatsGrid, etc.) with domain-specific data. The pattern:
-
-```python
-# ui/tasks/views.py
-class TasksViewComponents:
-    @staticmethod
-    def render_list(tasks, filters, stats):
-        return Stack(
-            PageHeader("Tasks", actions=...),
-            StatsGrid(stats),
-            Grid(*[CardGenerator.from_dataclass(t, display_fields=["description"], show_labels=False) for t in tasks], cols=2),
-        )
-
-    @staticmethod
-    def render_create(form_data=None):
-        return FormGenerator.render(TaskCreateRequest, ...)
-
-    @staticmethod
-    def render_detail(task):
-        return Card(CardBody(...))
-```
-
----
-
-## Activity Views Base Pattern
-
-All six Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles) share a three-view tab interface:
-
-```python
-from ui.patterns.activity_views_base import ActivityViewTabs
-
-tabs = ActivityViewTabs.render("goals", "list", [
-    ("list", "List", "List"),         # (id, desktop_label, mobile_label)
-    ("create", "Create", "+"),
-    ("calendar", "Calendar", "Cal"),
-])
-```
-
-This renders `ui.components.TabContainer` tabs (Alpine.js-driven) with HTMX for dynamic content switching.
+These compose the same core components (`PageHeader`, `StatsGrid`, badges, etc.)
+with domain-specific data, and every domain page wraps in
+`render_activity_sidebar_page()`. The calendar (Week/Month views) is a
+cross-cutting surface with its own `ui/calendar/` module and `/cal/` routes —
+it is not part of the per-domain pair pattern.
 
 ---
 

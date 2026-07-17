@@ -2,12 +2,12 @@
  * Calendar CSS Styles
  * ====================
  *
- * Styles for the SKUEL calendar views (month, week, day).
+ * Styles for the SKUEL calendar views (month, week).
  * Event chips carry the `.calendar-item` class; everything else is Tailwind
  * utilities bound to SKUEL tokens.
  */
 
-/* Event chip lift on hover (month/week/day). */
+/* Event chip lift on hover (month/week). */
 .calendar-item {
     transition: box-shadow 0.15s ease-out, transform 0.15s ease-out;
 }
@@ -31,7 +31,7 @@
 /*
  * Legend type filters (calendarLegend Alpine component, skuel.js).
  * The shell wrapper carries cal-hide-* / cal-spot-* classes; items carry
- * data-item-type (chips in month/week, gutter+card rows in day view).
+ * data-item-type (chips in month/week).
  * Pure CSS so filters keep applying to HTMX-swapped grid content.
  */
 .cal-hide-event [data-item-type="event"],

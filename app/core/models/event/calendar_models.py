@@ -73,12 +73,14 @@ class CalendarItemType(StrEnum):
 
 
 class CalendarView(StrEnum):
-    """Calendar view modes"""
+    """Calendar view modes.
 
-    DAY = "day"
+    Exactly the two shipped calendar surfaces. The single-day view was dropped
+    (the Today surface owns the current day); AGENDA was never built.
+    """
+
     WEEK = "week"
     MONTH = "month"
-    AGENDA = "agenda"  # List view
 
 
 @dataclass(frozen=True, kw_only=True)
