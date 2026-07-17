@@ -53,6 +53,27 @@ def _load(key: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def load_named_instruction(filename: str) -> str | None:
+    """Read a user-named instruction file from ``INSTRUCTIONS_DIR`` — or ``None``.
+
+    The named-file counterpart to the fixed ``_FILES`` registry above: the DNWF
+    stage prompts compose known files, while the batch upload/folder pipeline
+    lets the form select a file by name. Same directory, one loading home. The
+    containment guard blocks path traversal out of the instructions dir; a
+    missing file degrades to ``None`` (the pipeline runs uninstructed).
+    """
+    candidate = (INSTRUCTIONS_DIR / filename).resolve()
+    try:
+        candidate.relative_to(INSTRUCTIONS_DIR.resolve())
+    except ValueError:
+        _logger.warning("Path traversal attempt blocked: %r", filename)
+        return None
+    if not candidate.is_file():
+        _logger.warning("Instruction file not found: %s", candidate)
+        return None
+    return candidate.read_text(encoding="utf-8")
+
+
 def stage1_system_prompt() -> str:
     """System prompt for Stage 1 — Scribe."""
     return _load("main")

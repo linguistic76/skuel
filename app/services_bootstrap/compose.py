@@ -1226,6 +1226,18 @@ async def compose_services(
             )
             logger.info("✅ JournalService created")
 
+        # JournalBatchService: the zero-persistence je_in/upload → je_out batch
+        # pipeline (ADR-073). Tier-independent — created in CORE too, where each
+        # mode degrades to its tier-error message (no Deepgram / no LLM).
+        from core.services.journal import JournalBatchService
+
+        journal_batch_service = JournalBatchService(
+            batch_transcription_service=batch_transcription,
+            llm_caller=llm_caller,
+            journal_service=journal_service,
+        )
+        logger.info("✅ JournalBatchService created (je_in/upload → je_out pipeline)")
+
         # DSL activity extractor (ADR-069 — Pipeline.EXTRACT_ACTIVITIES).
         # Domain facades are the create surfaces; ps/lp/calendar/lifepath
         # carry no create-capable method today and finance was retired with
@@ -1866,6 +1878,7 @@ async def compose_services(
             context_aware_ai=context_aware_ai,
             # Journal domain — DNWF three-stage workflow (FULL tier only)
             journal=journal_service,
+            journal_batch=journal_batch_service,
             # Conversation store — owner-private discussion sessions (ADR-078)
             conversation=conversation_service,
             # Lateral relationship services (January 2026 - Core graph architecture)

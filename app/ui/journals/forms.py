@@ -246,7 +246,7 @@ def _build_summon_toggle(field_name: str, label: str, *, compact: bool = False) 
     upload form here. Shown only in ``instructions_only`` mode with a single
     file selected (``fileCount <= 1``) — the sole upload shape that reaches the
     FOUNDER DNWF compile (``run_compiled``). A multi-file / folder upload takes
-    the batch path (``_run_batch_over_dir``), which never reaches
+    the batch path (``JournalBatchService.run_batch_over_dir``), which never reaches
     ``run_compiled``, so the toggle hides itself rather than submit a flag the
     server would silently ignore. Unchecked → the field is omitted and the
     compile is ungrounded (default). Rendered ONLY when the caller is FOUNDER.

@@ -25,254 +25,39 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import rate_limited
-from core.config import get_settings
-from core.models.enums.pipeline import JeUse, Pipeline
-from core.utils.frontmatter import parse_frontmatter, split_frontmatter
+from core.models.enums.pipeline import Pipeline
 from core.utils.logging import get_logger
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
     from core.models.conversation import ConversationTurn
+    from core.models.type_hints import UserUID
+    from core.services.journal import BatchRunReport, JournalBatchService
     from services_bootstrap._container import Services
 
 
 logger = get_logger("skuel.routes.journals")
 
-_JOURNAL_INSTRUCTIONS_DIR = Path(__file__).parents[2] / "data" / "instructions"
-
-
-# The je_* journal-exchange staging folders live under the *personal* vault
-# (VaultConfig.vault_root — the single source of truth for the vault root), so they
-# follow VAULT_ROOT rather than drifting from a hardcoded literal. Resolved lazily
-# (get_settings() is cached) to avoid an import-time config dependency.
-def _je_in() -> Path:
-    return get_settings().vault.vault_path / "je_in"
-
-
-# je_out is a pipeline staging area — excluded from vault sync by the fail-closed
-# SyncAllowlist (code-defined _DEFAULT_SYNC_SUBDIRS): only allowed folders ingest,
-# and je_out is never one of them. Users open je_out files in Obsidian and
-# manually decide what enters their personal vault. SKUEL never auto-syncs je_out.
-def _je_out() -> Path:
-    return get_settings().vault.vault_path / "je_out"
-
-
-# je_raw/je_pro hold curated example input→output pairs, read *off disk at
-# processing time* as few-shot exemplars that shape journal-processing STYLE.
-# je_raw stays workshop: never ingested, walled unconditionally
-# (STAGING_EXCLUDED_DIRS). je_pro is a CONDITIONAL doorway (ADR-073 amendment):
-# a je_pro file with explicit `type: user_entry` + `pipeline:` frontmatter (and
-# a compatible `je_use:`) ingests as a stored understanding entry; a bare file
-# stays exemplar-only. The `je_use:` enum scopes dual duty — `exemplar` (style
-# only, never ingested), `understanding` (ingested, never used as a style
-# exemplar), `both`/absent (default). This loader is the second consumer that
-# must respect it (the ingestion gate `je_pro_skip_reason` is the first).
-def _je_raw() -> Path:
-    return get_settings().vault.vault_path / "je_raw"
-
-
-def _je_pro() -> Path:
-    return get_settings().vault.vault_path / "je_pro"
-
-
-_TEXT_EXTENSIONS = {".txt", ".md", ".rst"}
-_LLM_MODEL_CLAUDE = "claude-sonnet-4-6"
-_LLM_MODEL_GPT = "gpt-4o-mini"
-_LLM_MAX_TOKENS = 4000
-# Bound token cost of injected exemplars: at most N pairs, each side truncated.
-_EXEMPLAR_MAX_PAIRS = 3
-_EXEMPLAR_MAX_CHARS = 2000
-# Extra read headroom so a je_pro file's YAML frontmatter block (stripped
-# before injection — YAML is consent metadata, not style) doesn't eat into the
-# exemplar's content budget.
-_EXEMPLAR_FRONTMATTER_HEADROOM = 2048
-
 
 # ---------------------------------------------------------------------------
 # Helpers
+#
+# The je_in/upload → je_out batch pipeline (transcription, LLM compile,
+# exemplar injection, the je_* staging-folder layout) lives in
+# ``core.services.journal.JournalBatchService`` — routes here only parse the
+# request, gate auth/tier, call the service, and render fragments.
 # ---------------------------------------------------------------------------
 
 
-def _load_journal_instruction_file(filename: str, processing_mode: str) -> str | None:
-    """Read an instruction file from data/instructions/ with path-containment guard."""
-    if processing_mode == "transcribe_only" or not filename:
-        return None
-    candidate = (_JOURNAL_INSTRUCTIONS_DIR / filename).resolve()
-    try:
-        candidate.relative_to(_JOURNAL_INSTRUCTIONS_DIR.resolve())
-    except ValueError:
-        logger.warning(f"Path traversal attempt blocked: {filename!r}")
-        return None
-    if not candidate.is_file():
-        logger.warning(f"Instruction file not found: {candidate}")
-        return None
-    return candidate.read_text(encoding="utf-8")
-
-
-def _write_je_out(stem: str, suffix: str, content: str) -> str:
-    """Write processed content *flat* to ``je_out/`` and return the filename.
-
-    Zero-persistence (ADR-073): journal processing outputs land in the user's
-    own ``je_out/`` folder — local, user-owned, never synced to SKUEL and never
-    written to Neo4j. The user opens these in Obsidian and decides what (if
-    anything) enters the vault via the doorway folders. The rename formula is
-    ``{stem}{suffix}`` (``.txt`` for raw transcripts, ``_out.md`` for compiled
-    output), matching the batch/folder-process path so a single scheme applies
-    across every entry point. ``Path(stem).name`` strips any path components
-    from an untrusted upload filename.
-    """
-    _je_out().mkdir(parents=True, exist_ok=True)
-    filename = f"{Path(stem).name}{suffix}"
-    (_je_out() / filename).write_text(content, encoding="utf-8")
-    return filename
-
-
-async def _compile_text(
-    text: str,
-    instructions: str | None,
-    *,
-    user_uid: str,
-    is_founder: bool,
-    journal_service: Any,
-    processing_service: Any,
-    summon_canon: bool = False,
-    summon_vault: bool = False,
-) -> Any:
-    """Compile raw text to processed output — statelessly. Returns ``Result[str]``.
-
-    FOUNDER runs the full DNWF compile (``run_compiled``); everyone else runs a
-    single LLM pass over the text with the supplied instructions. Neither path
-    touches Neo4j. ``summon_canon`` / ``summon_vault`` reach the FOUNDER compile
-    only (ungrounded single passes have no stages to infuse).
-    """
-    if is_founder and journal_service is not None:
-        return await journal_service.run_compiled(
-            text, user_uid, summon_canon=summon_canon, summon_vault=summon_vault
-        )
-    return await _call_llm_with_instructions(text, instructions, processing_service)
-
-
-def _load_journal_exemplars() -> list[tuple[str, str]]:
-    """Read matched ``je_raw``↔``je_pro`` example pairs from disk (ADR-073 §4).
-
-    Pairs are matched by filename **stem**: a ``je_raw`` text file pairs with the
-    ``je_pro`` text file sharing its stem. Unmatched files are skipped. The result is
-    bounded to ``_EXEMPLAR_MAX_PAIRS`` pairs, each side truncated to
-    ``_EXEMPLAR_MAX_CHARS``, to keep token cost predictable.
-
-    Read-only and in-memory: nothing is ingested, persisted, or turned into an entity.
-    These teach the pipeline *how the user likes journals processed* (style), never
-    facts about the user. Missing/empty folders yield ``[]`` — the caller degrades to
-    today's no-exemplar behavior.
-
-    ``je_use`` scoping (ADR-073 amendment): a je_pro file whose frontmatter
-    resolves to UNDERSTANDING is never used as a style exemplar; an
-    unrecognized ``je_use`` value also skips (garbled scoping intent is
-    honored in neither direction — the ingestion gate skips it too). Any YAML
-    frontmatter block is stripped before injection: it is consent metadata,
-    not processing style.
-    """
-
-    def _text_files(directory: Path) -> dict[str, Path]:
-        try:
-            entries = sorted(directory.iterdir()) if directory.is_dir() else []
-        except OSError as e:  # unscannable folder — degrade to no exemplars
-            logger.warning(f"Skipping journal exemplar folder {directory}: {e}")
-            return {}
-        return {p.stem: p for p in entries if p.is_file() and p.suffix.lower() in _TEXT_EXTENSIONS}
-
-    def _read_exemplar(path: Path) -> tuple[dict[str, Any], str] | None:
-        # Read only a bounded prefix — never load an oversized exemplar fully.
-        # Frontmatter headroom keeps the stripped body at full budget.
-        # UnicodeDecodeError (a UnicodeError, NOT an OSError) must be caught here
-        # too, or an undecodable file would abort the whole request instead of
-        # being skipped.
-        try:
-            with path.open(encoding="utf-8") as fh:
-                raw_text = fh.read(_EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM)
-        except (OSError, UnicodeError) as e:  # unreadable/undecodable — skip it
-            logger.warning(f"Skipping unreadable journal exemplar {path.name!r}: {e}")
-            return None
-        if raw_text.startswith("---") and split_frontmatter(raw_text)[0] is None:
-            # An opening fence with no close inside the bounded read: parsing
-            # would silently default je_use to BOTH and inject the raw YAML as
-            # style (Codex #608) — fail closed, skip the file.
-            logger.warning(
-                f"Skipping journal exemplar {path.name!r}: frontmatter does not "
-                "close within the bounded read"
-            )
-            return None
-        frontmatter, body = parse_frontmatter(raw_text)
-        return frontmatter, body[:_EXEMPLAR_MAX_CHARS]
-
-    raw_by_stem = _text_files(_je_raw())
-    pro_by_stem = _text_files(_je_pro())
-    pairs: list[tuple[str, str]] = []
-    for stem in sorted(raw_by_stem.keys() & pro_by_stem.keys()):
-        if len(pairs) >= _EXEMPLAR_MAX_PAIRS:
-            break
-        pro_read = _read_exemplar(pro_by_stem[stem])
-        if pro_read is None:
-            continue
-        pro_frontmatter, pro = pro_read
-        if JeUse.from_string(pro_frontmatter.get("je_use")) not in (JeUse.BOTH, JeUse.EXEMPLAR):
-            continue  # understanding-only (or garbled scoping) — never style
-        raw_read = _read_exemplar(raw_by_stem[stem])
-        if raw_read is None:
-            continue
-        _, raw = raw_read
-        if raw.strip() and pro.strip():
-            pairs.append((raw, pro))
-    return pairs
-
-
-def _build_exemplar_preamble(pairs: list[tuple[str, str]]) -> str:
-    """Render exemplar pairs as a labeled few-shot block, or ``""`` if none."""
-    if not pairs:
-        return ""
-    blocks = [
-        f"### Example {i} — raw input\n{raw}\n\n### Example {i} — processed output\n{pro}"
-        for i, (raw, pro) in enumerate(pairs, start=1)
-    ]
-    body = "\n\n".join(blocks)
-    return (
-        "The following are examples of how this user likes a journal processed. "
-        "Match their STYLE and structure. Do NOT treat their content as facts about "
-        f"the user or carry it into your output.\n\n{body}"
+def _render_batch_report(report: BatchRunReport, status_id: str) -> Any:
+    """Render a ``BatchRunReport`` as the upload-status fragment."""
+    return render_journal_upload_status(
+        "completed" if report.ok else "error",
+        report.message,
+        is_error=not report.ok,
+        status_id=status_id,
     )
-
-
-async def _call_llm_with_instructions(
-    text: str,
-    instructions: str | None,
-    processing_service: Any,
-) -> Any:
-    """Call LLM directly on raw text for folder processing (no database records).
-
-    When curated ``je_raw``/``je_pro`` example pairs are present, they are injected as
-    few-shot style exemplars (ADR-073 §4) — read-only, zero-persistence.
-    """
-    from core.utils.result_simplified import Errors, Result
-
-    llm_caller = getattr(processing_service, "llm_caller", None)
-    if llm_caller is None:
-        return Result.fail(
-            Errors.business(
-                rule="llm_tier_required",
-                message="LLM processing requires INTELLIGENCE_TIER=full",
-            )
-        )
-    model = (
-        _LLM_MODEL_CLAUDE if llm_caller.is_model_supported(_LLM_MODEL_CLAUDE) else _LLM_MODEL_GPT
-    )
-    preamble = _build_exemplar_preamble(_load_journal_exemplars())
-    header = "\n\n".join(part for part in (instructions, preamble) if part)
-    prompt = f"{header}\n\n---\n\n{text}" if header else text
-    try:
-        return await llm_caller.generate(prompt=prompt, model=model, max_tokens=_LLM_MAX_TOKENS)
-    except Exception as e:  # safety-net: LLM call errors in folder-batch context
-        return Result.fail(Errors.integration(service="llm", message=f"LLM failed: {e}"))
 
 
 async def _process_single_upload(
@@ -282,12 +67,10 @@ async def _process_single_upload(
     title: str,
     processing_mode: str,
     instructions: str | None,
-    user_uid: str,
+    user_uid: UserUID,
     is_founder: bool,
     retarget_workspace: bool,
-    journal_service: Any,
-    batch_transcription_service: Any,
-    processing_service: Any,
+    journal_batch: JournalBatchService,
     summon_canon: bool = False,
     summon_vault: bool = False,
 ) -> Any:
@@ -298,9 +81,6 @@ async def _process_single_upload(
     transcript to the interactive DNWF review→Scribe flow; everyone else gets a
     ``je_out/`` file plus a download fragment.
     """
-    import contextlib
-    import tempfile
-
     from fasthtml.common import to_xml
 
     from core.models.conversation import ROLE_ASSISTANT, ROLE_USER
@@ -338,19 +118,17 @@ async def _process_single_upload(
                 "File must be valid UTF-8 text for Instructions only mode",
                 is_error=True,
             )
-        compiled = await _compile_text(
+        compiled = await journal_batch.compile_text(
             text_content,
             instructions,
             user_uid=user_uid,
             is_founder=is_founder,
-            journal_service=journal_service,
-            processing_service=processing_service,
             summon_canon=summon_canon,
             summon_vault=summon_vault,
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
-        out_name = _write_je_out(stem, "_out.md", compiled.value)
+        out_name = journal_batch.write_output(stem, "_out.md", compiled.value)
         return _workspace(
             FileOutputFragment(
                 title=title,
@@ -364,7 +142,7 @@ async def _process_single_upload(
         )
 
     # Transcription modes (audio) — require Deepgram (FULL tier).
-    if batch_transcription_service is None:
+    if not journal_batch.transcription_available:
         return render_journal_upload_status(
             "error", "Transcription service not available (requires FULL tier)", is_error=True
         )
@@ -376,22 +154,15 @@ async def _process_single_upload(
     if (
         processing_mode == "transcribe_and_instructions"
         and not is_founder
-        and (processing_service is None or getattr(processing_service, "llm_caller", None) is None)
+        and not journal_batch.llm_available
     ):
         return render_journal_upload_status(
             "error", "LLM service not available (requires INTELLIGENCE_TIER=full)", is_error=True
         )
 
-    suffix = Path(filename).suffix or ".audio"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(file_content)
-        tmp_path = tmp.name
-    try:
-        transcript_result = await batch_transcription_service.transcribe_one(tmp_path)
-    finally:
-        with contextlib.suppress(OSError):
-            Path(tmp_path).unlink()
-
+    transcript_result = await journal_batch.transcribe_upload(
+        file_content, Path(filename).suffix or ".audio"
+    )
     if transcript_result.is_error:
         logger.error("Single-file transcription failed: %s", transcript_result.expect_error())
         return render_journal_upload_status(
@@ -402,21 +173,19 @@ async def _process_single_upload(
     if is_founder:
         # FOUNDER: save the raw transcript to je_out and hand it to the DNWF
         # review→Scribe flow (stateless stage routes take over from here).
-        _write_je_out(stem, ".txt", transcript)
+        journal_batch.write_output(stem, ".txt", transcript)
         return _workspace(TranscriptReviewFragment(transcript=transcript, title=title))
 
     if processing_mode == "transcribe_and_instructions":
-        compiled = await _compile_text(
+        compiled = await journal_batch.compile_text(
             transcript,
             instructions,
             user_uid=user_uid,
             is_founder=False,
-            journal_service=journal_service,
-            processing_service=processing_service,
         )
         if compiled.is_error:
             return render_journal_upload_status("error", str(compiled.error), is_error=True)
-        out_name = _write_je_out(stem, "_out.md", compiled.value)
+        out_name = journal_batch.write_output(stem, "_out.md", compiled.value)
         return _workspace(
             FileOutputFragment(
                 title=title,
@@ -432,7 +201,7 @@ async def _process_single_upload(
     # transcribe_only (STANDARD) — raw transcript download. source == output, so
     # a synthetic "Transcribe: {title}" user turn avoids duplicating the full
     # transcript in both turns (ADR-078 P3 decision 3, transcribe_only).
-    out_name = _write_je_out(stem, ".txt", transcript)
+    out_name = journal_batch.write_output(stem, ".txt", transcript)
     return _workspace(
         FileOutputFragment(
             title=title,
@@ -443,168 +212,6 @@ async def _process_single_upload(
             summon_canon=summon_canon,
             summon_vault=summon_vault,
         )
-    )
-
-
-async def _run_batch_over_dir(
-    input_dir: Path,
-    processing_mode: str,
-    instructions: str | None,
-    *,
-    status_id: str,
-    batch_transcription_service: Any,
-    processing_service: Any,
-    skip_existing: bool = True,
-) -> Any:
-    """Run a batch pipeline over every file in ``input_dir`` → ``je_out/``.
-
-    The shared, zero-persistence engine behind both ``/journals/folder-process``
-    (scans ``je_in/``) and multi-file upload (scans a temp dir of uploads). Pure
-    filesystem: outputs land in ``je_out/`` via the rename formula, nothing is
-    written to Neo4j. Returns a rendered status fragment.
-
-    ``skip_existing`` controls transcription reuse: ``True`` (folder-process) keeps
-    idempotent rerun semantics — a file whose ``je_out/{stem}.txt`` already exists
-    is not re-transcribed. ``False`` (uploads) forces fresh transcription, since an
-    upload is new content that must not be shadowed by a stale same-stem transcript.
-    """
-    _je_out().mkdir(parents=True, exist_ok=True)
-
-    if processing_mode in ("transcribe_only", "transcribe_and_instructions"):
-        if batch_transcription_service is None:
-            return render_journal_upload_status(
-                "error",
-                "Transcription service not available (requires FULL tier)",
-                is_error=True,
-                status_id=status_id,
-            )
-        # Verify the LLM branch BEFORE transcribing: transcription spends Deepgram
-        # quota and writes .txt to je_out/, so a missing llm_caller must fail the
-        # whole run up front, not after every file is transcribed for nothing.
-        if processing_mode == "transcribe_and_instructions" and (
-            processing_service is None or getattr(processing_service, "llm_caller", None) is None
-        ):
-            return render_journal_upload_status(
-                "error",
-                "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                is_error=True,
-                status_id=status_id,
-            )
-        # transcribe_and_instructions structures the transcript into ``_out.md``,
-        # so the transcript must reflect the CURRENT audio — never reuse a stale
-        # ``je_out/{stem}.txt`` from a prior run whose audio was since replaced
-        # under the same basename. Force fresh transcription for that mode;
-        # transcribe_only may reuse per the caller's ``skip_existing``
-        # (folder-process reruns idempotently, uploads are always fresh).
-        effective_skip = skip_existing if processing_mode == "transcribe_only" else False
-        transcribe_result = await batch_transcription_service.transcribe_batch(
-            input_dir, _je_out(), skip_existing=effective_skip
-        )
-        if transcribe_result.is_error:
-            return render_journal_upload_status(
-                "error", str(transcribe_result.error), is_error=True, status_id=status_id
-            )
-        r = transcribe_result.value
-
-        # No supported audio files at all (e.g. a text/PDF folder under "Transcribe
-        # only") is a validation error, not a silent success.
-        if r.total_files == 0:
-            return render_journal_upload_status(
-                "error",
-                "No supported audio files found to transcribe",
-                is_error=True,
-                status_id=status_id,
-            )
-
-        if processing_mode == "transcribe_only":
-            msg = (
-                f"{r.succeeded} transcribed, {r.failed} failed, {r.skipped} skipped"
-                " — results in je_out/"
-            )
-            is_err = r.failed > 0 and r.succeeded == 0
-            return render_journal_upload_status(
-                "error" if is_err else "completed", msg, is_error=is_err, status_id=status_id
-            )
-
-        # transcribe_and_instructions — LLM-structure each freshly-transcribed
-        # transcript (LLM availability already verified above). This mode forces
-        # skip_existing=False (see above), so every audio file yields a ``success``
-        # with a current transcript — no ``skipped`` stems to worry about staleness.
-        structurable_stems = {
-            Path(res["name"]).stem
-            for res in transcribe_result.value.results
-            if res.get("status") == "success"
-        }
-        llm_ok = 0
-        llm_fail = 0
-        for stem in structurable_stems:
-            txt_path = _je_out() / f"{stem}.txt"
-            if not txt_path.exists():
-                continue
-            text = txt_path.read_text(encoding="utf-8")
-            llm_result = await _call_llm_with_instructions(text, instructions, processing_service)
-            if llm_result.is_error:
-                logger.error(f"LLM failed for {stem}: {llm_result.error}")
-                llm_fail += 1
-            else:
-                (_je_out() / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
-                llm_ok += 1
-        msg = (
-            f"{r.succeeded} transcribed, {llm_ok} structured, "
-            f"{r.failed + llm_fail} failed — results in je_out/"
-        )
-        # The deliverable is the structured _out.md; if nothing structured, this is
-        # a failure even when raw transcripts were written (match the other branches).
-        return render_journal_upload_status(
-            "completed" if llm_ok > 0 else "error",
-            msg,
-            is_error=(llm_ok == 0),
-            status_id=status_id,
-        )
-
-    if processing_mode == "instructions_only":
-        if processing_service is None or getattr(processing_service, "llm_caller", None) is None:
-            return render_journal_upload_status(
-                "error",
-                "LLM service not available (requires INTELLIGENCE_TIER=full)",
-                is_error=True,
-                status_id=status_id,
-            )
-        if not input_dir.is_dir():
-            return render_journal_upload_status(
-                "error", f"Input folder not found: {input_dir}", is_error=True, status_id=status_id
-            )
-        text_files = sorted(
-            f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() in _TEXT_EXTENSIONS
-        )
-        if not text_files:
-            return render_journal_upload_status(
-                "error", "No text files found to process", is_error=True, status_id=status_id
-            )
-        ok = 0
-        fail = 0
-        for text_file in text_files:
-            try:
-                text = text_file.read_text(encoding="utf-8")
-            except Exception:  # safety-net: per-file read error
-                fail += 1
-                continue
-            llm_result = await _call_llm_with_instructions(text, instructions, processing_service)
-            if llm_result.is_error:
-                logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
-                fail += 1
-            else:
-                (_je_out() / f"{text_file.stem}_out.md").write_text(
-                    llm_result.value, encoding="utf-8"
-                )
-                ok += 1
-        msg = f"{ok} processed, {fail} failed — results in je_out/"
-        return render_journal_upload_status(
-            "completed" if ok > 0 else "error", msg, is_error=(ok == 0), status_id=status_id
-        )
-
-    return render_journal_upload_status(
-        "error", f"Unknown processing mode: {processing_mode!r}", is_error=True, status_id=status_id
     )
 
 
@@ -788,8 +395,12 @@ def create_journals_routes(
     user_service = services.user
     journal_service = services.journal  # None when INTELLIGENCE_TIER=core
     user_entry_service = services.user_entry
-    batch_transcription_service = services.batch_transcription
-    processing_service = services.user_entry_processor
+    # The je_in/upload → je_out pipeline engine — tier-independent (present in
+    # CORE and FULL; each mode degrades to its tier-error message internally).
+    assert services.journal_batch is not None, (
+        "JournalBatchService must be wired before journals routes"
+    )
+    journal_batch = services.journal_batch
     # ADR-078 discussion store — tier-independent (present in CORE and FULL), but
     # only reached at FULL tier since /journals/start requires journal_service.
     assert services.conversation is not None, (
@@ -1015,8 +626,10 @@ def create_journals_routes(
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
-            instructions = instruction_content or _load_journal_instruction_file(
-                instruction_filename, processing_mode
+            instructions = journal_batch.resolve_instructions(
+                instruction_content=instruction_content,
+                instruction_filename=instruction_filename,
+                processing_mode=processing_mode,
             )
 
             user_result = await user_service.get_user(user_uid)
@@ -1051,9 +664,7 @@ def create_journals_routes(
                     user_uid=user_uid,
                     is_founder=is_founder,
                     retarget_workspace=retarget_workspace,
-                    journal_service=journal_service,
-                    batch_transcription_service=batch_transcription_service,
-                    processing_service=processing_service,
+                    journal_batch=journal_batch,
                     summon_canon=summon_canon,
                     summon_vault=summon_vault,
                 )
@@ -1066,10 +677,11 @@ def create_journals_routes(
             # (an ignored ``meeting.txt`` next to ``meeting.mp3`` under "Transcribe
             # only" is not a collision). Non-processed files are still written to
             # temp; the batch engine ignores them.
+            from core.services.journal.journal_batch_service import TEXT_EXTENSIONS
             from core.services.transcription.batch_transcription_service import AUDIO_EXTENSIONS
 
             output_exts = (
-                _TEXT_EXTENSIONS if processing_mode == "instructions_only" else (AUDIO_EXTENSIONS)
+                TEXT_EXTENSIONS if processing_mode == "instructions_only" else (AUDIO_EXTENSIONS)
             )
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir)
@@ -1091,17 +703,15 @@ def create_journals_routes(
                             )
                         seen_stems.add(file_stem)
                     (tmp_path / name).write_bytes(await uploaded_file.read())
-                return await _run_batch_over_dir(
+                report = await journal_batch.run_batch_over_dir(
                     tmp_path,
                     processing_mode,
                     instructions,
-                    status_id=status_id,
-                    batch_transcription_service=batch_transcription_service,
-                    processing_service=processing_service,
                     # Uploads are fresh content — never reuse a stale same-stem
                     # transcript already sitting in the flat je_out/ folder.
                     skip_existing=False,
                 )
+                return _render_batch_report(report, status_id)
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error uploading journal: {e}", exc_info=True)
@@ -1127,18 +737,18 @@ def create_journals_routes(
             processing_mode = str(form.get("processing_mode", "transcribe_only")).strip()
             instruction_filename = str(form.get("instruction_filename", "")).strip()
             instruction_content = str(form.get("instruction_content", "")).strip()
-            instructions = instruction_content or _load_journal_instruction_file(
-                instruction_filename, processing_mode
+            instructions = journal_batch.resolve_instructions(
+                instruction_content=instruction_content,
+                instruction_filename=instruction_filename,
+                processing_mode=processing_mode,
             )
 
-            return await _run_batch_over_dir(
-                _je_in(),
+            report = await journal_batch.run_batch_over_dir(
+                journal_batch.je_in_dir,
                 processing_mode,
                 instructions,
-                status_id="upload-status",
-                batch_transcription_service=batch_transcription_service,
-                processing_service=processing_service,
             )
+            return _render_batch_report(report, "upload-status")
 
         except Exception as e:  # safety-net: HTMX fragment error boundary
             logger.error(f"Error in folder-process: {e}", exc_info=True)
@@ -1175,9 +785,9 @@ def create_journals_routes(
         if not (filename.endswith(".md") or filename.endswith(".txt")):
             return Response("Not found", status_code=404)
 
-        candidate = (_je_out() / filename).resolve()
+        candidate = (journal_batch.je_out_dir / filename).resolve()
         try:
-            candidate.relative_to(_je_out().resolve())
+            candidate.relative_to(journal_batch.je_out_dir.resolve())
         except ValueError:
             return Response("Not found", status_code=404)
 

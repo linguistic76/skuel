@@ -175,21 +175,14 @@ def mock_services() -> Any:
 
 
 @pytest.fixture
-def handlers(mock_services: Any) -> dict[str, Any]:
-    """Register the journals routes and return path → handler."""
-    from adapters.inbound.journals_routes import create_journals_routes
+def handlers(mock_services: Any, tmp_path: Any) -> dict[str, Any]:
+    """Register the journals routes and return path → handler.
 
-    registered: dict[str, Any] = {}
-
-    def rt_collector(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
-            registered[path] = fn
-            return fn
-
-        return decorator
-
-    create_journals_routes(MagicMock(), rt_collector, mock_services)
-    return registered
+    Wires a REAL ``JournalBatchService`` (je_* folders under ``tmp_path``) so
+    the batch pipeline is exercised for real while the surrounding services
+    stay mocked.
+    """
+    return _register(mock_services, vault_root=tmp_path)
 
 
 def _assert_understanding_channel_untouched(services: Any) -> None:
@@ -248,14 +241,25 @@ def _text_upload(filename: str, content: bytes) -> Any:
     return UploadFile(file=io.BytesIO(content), filename=filename)
 
 
-def _register(services: Any) -> dict[str, Any]:
+def _register(services: Any, vault_root: Any = None, llm_caller: Any = None) -> dict[str, Any]:
     """Register journals routes against ``services`` → path → handler.
 
     Used by tests that customise a service the route closure captures at
     registration time (e.g. ``batch_transcription``), which the module-level
-    ``handlers`` fixture can't do after the fact.
+    ``handlers`` fixture can't do after the fact. Builds a real
+    ``JournalBatchService`` from the CURRENT ``services`` mocks — je_* staging
+    folders resolve under ``vault_root``, the LLM caller is injected directly
+    (``None`` = CORE-tier degradation).
     """
     from adapters.inbound.journals_routes import create_journals_routes
+    from core.services.journal import JournalBatchService
+
+    services.journal_batch = JournalBatchService(
+        batch_transcription_service=services.batch_transcription,
+        llm_caller=llm_caller,
+        journal_service=services.journal,
+        vault_root=vault_root,
+    )
 
     registered: dict[str, Any] = {}
 
@@ -456,12 +460,10 @@ class TestJournalsUploadZeroPersistence:
         self,
         handlers: dict[str, Any],
         mock_services: Any,
-        monkeypatch: pytest.MonkeyPatch,
         tmp_path: Any,
     ) -> None:
         # FOUNDER instructions_only → run_compiled → je_out/{stem}_out.md.
         # workspace_target=1 marks the /journals landing layout (has a workspace).
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_upload_request(
             [
@@ -473,7 +475,7 @@ class TestJournalsUploadZeroPersistence:
         response = await handlers["/journals/upload"](request=request)
 
         mock_services.journal.run_compiled.assert_awaited_once()
-        assert (tmp_path / "reflection_out.md").read_text() == "# Compiled output"
+        assert (tmp_path / "je_out" / "reflection_out.md").read_text() == "# Compiled output"
         # Result is retargeted to the centre workspace, not the right-panel status.
         assert response.headers["HX-Retarget"] == "#journal-workspace"
         _assert_understanding_channel_untouched(mock_services)
@@ -492,12 +494,9 @@ class TestJournalsUploadZeroPersistence:
         self,
         handlers: dict[str, Any],
         mock_services: Any,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Any,
     ) -> None:
         # The /submissions/journal form omits workspace_target → the result must
         # NOT retarget to a missing #journal-workspace (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.user.get_user = AsyncMock(return_value=Result.ok(_make_user(is_founder=True)))
         request = _make_upload_request(
             [
@@ -540,19 +539,16 @@ class TestJournalsUploadZeroPersistence:
         assert "same je_out/ output" in to_xml(response)
         _assert_understanding_channel_untouched(mock_services)
 
-    async def test_empty_audio_batch_reports_error(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    async def test_empty_audio_batch_reports_error(self, mock_services: Any, tmp_path: Any) -> None:
         # A "Transcribe only" batch with no supported audio (e.g. a text folder)
         # must not render a false success (Codex, #478). Register handlers with a
         # batch service wired, since the closure captures it at registration.
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         empty = SimpleNamespace(total_files=0, succeeded=0, failed=0, skipped=0, results=[])
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_batch = AsyncMock(
             return_value=Result.ok(empty)
         )
-        registered = _register(mock_services)
+        registered = _register(mock_services, vault_root=tmp_path)
 
         request = _make_upload_request(
             [
@@ -569,17 +565,15 @@ class TestJournalsUploadZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_single_transcribe_and_instructions_preflights_llm(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+        self, mock_services: Any, tmp_path: Any
     ) -> None:
         # STANDARD single audio upload with Deepgram but no LLM must fail BEFORE
         # transcribing, so no Deepgram quota is spent (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_one = AsyncMock(
             return_value=Result.ok("transcript")
         )
-        mock_services.user_entry_processor = SimpleNamespace(llm_caller=None)  # no LLM
-        registered = _register(mock_services)
+        registered = _register(mock_services, vault_root=tmp_path, llm_caller=None)  # no LLM
 
         request = _make_upload_request(
             [
@@ -596,7 +590,7 @@ class TestJournalsUploadZeroPersistence:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_structuring_forces_fresh_transcription(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+        self, mock_services: Any, tmp_path: Any
     ) -> None:
         # folder-process transcribe_and_instructions must force skip_existing=False
         # even though folder reruns default to True — structured output must match
@@ -604,10 +598,7 @@ class TestJournalsUploadZeroPersistence:
         je_in = tmp_path / "je_in"
         je_in.mkdir()
         (je_in / "memo.mp3").write_bytes(b"audio")
-        je_out = tmp_path / "je_out"
-        je_out.mkdir()
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_in", lambda: je_in)
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: je_out)
+        (tmp_path / "je_out").mkdir()
 
         done = SimpleNamespace(
             total_files=1,
@@ -621,8 +612,7 @@ class TestJournalsUploadZeroPersistence:
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)
         llm.generate = AsyncMock(return_value=Result.ok("structured"))
-        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
-        registered = _register(mock_services)
+        registered = _register(mock_services, vault_root=tmp_path, llm_caller=llm)
 
         request = _make_upload_request([("processing_mode", "transcribe_and_instructions")])
         await registered["/journals/folder-process"](request=request)
@@ -631,13 +621,10 @@ class TestJournalsUploadZeroPersistence:
         assert kwargs.get("skip_existing") is False
         _assert_understanding_channel_untouched(mock_services)
 
-    async def test_dedup_guard_is_mode_aware(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    async def test_dedup_guard_is_mode_aware(self, mock_services: Any, tmp_path: Any) -> None:
         # Under "Transcribe only", an ignored same-stem text file (meeting.txt)
         # next to meeting.mp3 must NOT trigger the duplicate-output guard — only
         # the mp3 produces je_out output (Codex, #478).
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path)
         done = SimpleNamespace(
             total_files=1,
             succeeded=1,
@@ -647,7 +634,7 @@ class TestJournalsUploadZeroPersistence:
         )
         mock_services.batch_transcription = MagicMock()
         mock_services.batch_transcription.transcribe_batch = AsyncMock(return_value=Result.ok(done))
-        registered = _register(mock_services)
+        registered = _register(mock_services, vault_root=tmp_path)
 
         request = _make_upload_request(
             [
@@ -672,209 +659,162 @@ class TestJournalsUploadZeroPersistence:
 class TestJournalExemplarLoading:
     """`je_raw`/`je_pro` are read off disk as few-shot exemplars (ADR-073 §4).
 
-    Read-only, in-memory, bounded — never ingested or persisted.
+    Read-only, in-memory, bounded — never ingested or persisted. Driven on the
+    service directly (``JournalBatchService._load_exemplars``) with the je_*
+    folders rooted under ``tmp_path``.
     """
 
     @staticmethod
-    def _wire(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> tuple[Any, Any]:
+    def _service(tmp_path: Any, *, make_dirs: bool = True) -> tuple[Any, Any, Any]:
+        from core.services.journal import JournalBatchService
+
         raw = tmp_path / "je_raw"
         pro = tmp_path / "je_pro"
-        raw.mkdir()
-        pro.mkdir()
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: raw)
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: pro)
-        return raw, pro
+        if make_dirs:
+            raw.mkdir()
+            pro.mkdir()
+        return JournalBatchService(vault_root=tmp_path), raw, pro
 
-    def test_matched_pairs_load_by_stem(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+    def test_matched_pairs_load_by_stem(self, tmp_path: Any) -> None:
+        service, raw, pro = self._service(tmp_path)
         (raw / "example.md").write_text("RAW BODY")
         (pro / "example.md").write_text("PRO BODY")
 
-        pairs = _load_journal_exemplars()
+        pairs = service._load_exemplars()
         assert pairs == [("RAW BODY", "PRO BODY")]
 
-    def test_unmatched_files_are_skipped(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+    def test_unmatched_files_are_skipped(self, tmp_path: Any) -> None:
+        service, raw, pro = self._service(tmp_path)
         (raw / "lonely.md").write_text("no partner")  # only in je_raw
         (pro / "orphan.md").write_text("no partner")  # only in je_pro
 
-        assert _load_journal_exemplars() == []
+        assert service._load_exemplars() == []
 
-    def test_absent_folders_degrade_to_empty(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
-        from adapters.inbound.journals_routes import _load_journal_exemplars
+    def test_absent_folders_degrade_to_empty(self, tmp_path: Any) -> None:
+        service, _raw, _pro = self._service(tmp_path, make_dirs=False)
+        assert service._load_exemplars() == []
 
-        monkeypatch.setattr(
-            "adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw"
-        )
-        monkeypatch.setattr(
-            "adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro"
-        )
-        assert _load_journal_exemplars() == []
+    def test_pair_count_is_capped(self, tmp_path: Any) -> None:
+        from core.services.journal.journal_batch_service import EXEMPLAR_MAX_PAIRS
 
-    def test_pair_count_is_capped(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-        from adapters.inbound.journals_routes import (
-            _EXEMPLAR_MAX_PAIRS,
-            _load_journal_exemplars,
-        )
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
-        for i in range(_EXEMPLAR_MAX_PAIRS + 2):
+        service, raw, pro = self._service(tmp_path)
+        for i in range(EXEMPLAR_MAX_PAIRS + 2):
             (raw / f"e{i}.md").write_text(f"raw {i}")
             (pro / f"e{i}.md").write_text(f"pro {i}")
 
-        assert len(_load_journal_exemplars()) == _EXEMPLAR_MAX_PAIRS
+        assert len(service._load_exemplars()) == EXEMPLAR_MAX_PAIRS
 
-    def test_each_side_is_truncated(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-        from adapters.inbound.journals_routes import (
-            _EXEMPLAR_MAX_CHARS,
-            _load_journal_exemplars,
-        )
+    def test_each_side_is_truncated(self, tmp_path: Any) -> None:
+        from core.services.journal.journal_batch_service import EXEMPLAR_MAX_CHARS
 
-        raw, pro = self._wire(monkeypatch, tmp_path)
-        (raw / "big.md").write_text("R" * (_EXEMPLAR_MAX_CHARS + 500))
-        (pro / "big.md").write_text("P" * (_EXEMPLAR_MAX_CHARS + 500))
+        service, raw, pro = self._service(tmp_path)
+        (raw / "big.md").write_text("R" * (EXEMPLAR_MAX_CHARS + 500))
+        (pro / "big.md").write_text("P" * (EXEMPLAR_MAX_CHARS + 500))
 
-        (raw_body, pro_body) = _load_journal_exemplars()[0]
-        assert len(raw_body) == _EXEMPLAR_MAX_CHARS
-        assert len(pro_body) == _EXEMPLAR_MAX_CHARS
+        (raw_body, pro_body) = service._load_exemplars()[0]
+        assert len(raw_body) == EXEMPLAR_MAX_CHARS
+        assert len(pro_body) == EXEMPLAR_MAX_CHARS
 
-    def test_undecodable_exemplar_is_skipped_not_raised(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_undecodable_exemplar_is_skipped_not_raised(self, tmp_path: Any) -> None:
         # A non-UTF-8 exemplar must be skipped, never raise out of the helper
         # (UnicodeDecodeError is a UnicodeError, not an OSError). Kody #480.
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+        service, raw, pro = self._service(tmp_path)
         (raw / "bad.md").write_bytes(b"\xff\xfe not valid utf-8")
         (pro / "bad.md").write_text("valid partner")
 
-        assert _load_journal_exemplars() == []  # skipped cleanly, no exception
+        assert service._load_exemplars() == []  # skipped cleanly, no exception
 
     def test_preamble_empty_when_no_pairs(self) -> None:
-        from adapters.inbound.journals_routes import _build_exemplar_preamble
+        from core.services.journal.journal_batch_service import _build_exemplar_preamble
 
         assert _build_exemplar_preamble([]) == ""
 
-    def test_understanding_only_je_pro_file_never_used_as_exemplar(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_understanding_only_je_pro_file_never_used_as_exemplar(self, tmp_path: Any) -> None:
         # ADR-073 amendment: `je_use: understanding` scopes the file to the
         # ingestion channel only — the loader must skip it even with a raw twin.
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+        service, raw, pro = self._service(tmp_path)
         (raw / "private.md").write_text("RAW BODY")
         (pro / "private.md").write_text(
             "---\npipeline: knowledge\nje_use: understanding\n---\nABOUT ME"
         )
 
-        assert _load_journal_exemplars() == []
+        assert service._load_exemplars() == []
 
-    def test_garbled_je_use_skips_exemplar_use(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_garbled_je_use_skips_exemplar_use(self, tmp_path: Any) -> None:
         # Unrecognized je_use is honored in neither direction (fail-closed
         # both ways — the ingestion gate skips it too).
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+        service, raw, pro = self._service(tmp_path)
         (raw / "typo.md").write_text("RAW BODY")
         (pro / "typo.md").write_text("---\nje_use: exmplar\n---\nSTYLED")
 
-        assert _load_journal_exemplars() == []
+        assert service._load_exemplars() == []
 
-    def test_frontmatter_stripped_from_exemplar_text(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_frontmatter_stripped_from_exemplar_text(self, tmp_path: Any) -> None:
         # A consented je_pro file carries YAML frontmatter — consent metadata,
         # not style. It must never reach the LLM as exemplar text.
-        from adapters.inbound.journals_routes import _load_journal_exemplars
-
-        raw, pro = self._wire(monkeypatch, tmp_path)
+        service, raw, pro = self._service(tmp_path)
         (raw / "pair.md").write_text("RAW BODY")
         (pro / "pair.md").write_text(
             "---\ntype: user_entry\npipeline: knowledge\nje_use: both\n---\nSTYLED BODY"
         )
 
-        pairs = _load_journal_exemplars()
+        pairs = service._load_exemplars()
         assert pairs == [("RAW BODY", "STYLED BODY")]
 
-    def test_unterminated_frontmatter_fails_closed(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_unterminated_frontmatter_fails_closed(self, tmp_path: Any) -> None:
         # Codex #608: an opening fence whose close falls OUTSIDE the bounded
         # read must skip the file — parsing the truncated text would default
         # je_use to BOTH and inject raw YAML into the prompt as style.
-        from adapters.inbound.journals_routes import (
-            _EXEMPLAR_FRONTMATTER_HEADROOM,
-            _EXEMPLAR_MAX_CHARS,
-            _load_journal_exemplars,
+        from core.services.journal.journal_batch_service import (
+            EXEMPLAR_FRONTMATTER_HEADROOM,
+            EXEMPLAR_MAX_CHARS,
         )
 
-        raw, pro = self._wire(monkeypatch, tmp_path)
+        service, raw, pro = self._service(tmp_path)
         (raw / "big.md").write_text("RAW BODY")
         oversized = "---\nje_use: understanding\npad: " + "z" * (
-            _EXEMPLAR_MAX_CHARS + _EXEMPLAR_FRONTMATTER_HEADROOM
+            EXEMPLAR_MAX_CHARS + EXEMPLAR_FRONTMATTER_HEADROOM
         )
         (pro / "big.md").write_text(oversized + "\n---\nSTYLED")
 
-        assert _load_journal_exemplars() == []
+        assert service._load_exemplars() == []
 
-    def test_frontmatter_headroom_preserves_content_budget(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
-    ) -> None:
+    def test_frontmatter_headroom_preserves_content_budget(self, tmp_path: Any) -> None:
         # The frontmatter block must not eat into the exemplar's char budget.
-        from adapters.inbound.journals_routes import (
-            _EXEMPLAR_MAX_CHARS,
-            _load_journal_exemplars,
-        )
+        from core.services.journal.journal_batch_service import EXEMPLAR_MAX_CHARS
 
-        raw, pro = self._wire(monkeypatch, tmp_path)
-        (raw / "big.md").write_text("R" * (_EXEMPLAR_MAX_CHARS + 500))
+        service, raw, pro = self._service(tmp_path)
+        (raw / "big.md").write_text("R" * (EXEMPLAR_MAX_CHARS + 500))
         (pro / "big.md").write_text(
-            "---\npipeline: knowledge\n---\n" + "P" * (_EXEMPLAR_MAX_CHARS + 500)
+            "---\npipeline: knowledge\n---\n" + "P" * (EXEMPLAR_MAX_CHARS + 500)
         )
 
-        (raw_body, pro_body) = _load_journal_exemplars()[0]
-        assert len(raw_body) == _EXEMPLAR_MAX_CHARS
-        assert len(pro_body) == _EXEMPLAR_MAX_CHARS
-        assert pro_body == "P" * _EXEMPLAR_MAX_CHARS
+        (raw_body, pro_body) = service._load_exemplars()[0]
+        assert len(raw_body) == EXEMPLAR_MAX_CHARS
+        assert len(pro_body) == EXEMPLAR_MAX_CHARS
+        assert pro_body == "P" * EXEMPLAR_MAX_CHARS
 
 
 class TestJournalExemplarInjection:
     """Exemplars reach the LLM prompt and still persist nothing."""
 
     async def test_exemplars_injected_into_prompt_and_persist_nothing(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+        self, mock_services: Any, tmp_path: Any
     ) -> None:
-        # STANDARD single upload (instructions_only) routes through
-        # _call_llm_with_instructions, which injects the je_raw/je_pro pair.
+        # STANDARD single upload (instructions_only) routes through the service's
+        # LLM path, which injects the je_raw/je_pro pair.
         raw = tmp_path / "je_raw"
         pro = tmp_path / "je_pro"
         raw.mkdir()
         pro.mkdir()
         (raw / "sample.md").write_text("RAW_EXEMPLAR_MARKER")
         (pro / "sample.md").write_text("PRO_EXEMPLAR_MARKER")
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_raw", lambda: raw)
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_pro", lambda: pro)
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path / "je_out")
 
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)
         llm.generate = AsyncMock(return_value=Result.ok("processed"))
-        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
-        registered = _register(mock_services)  # STANDARD user (default fixture)
+        # STANDARD user (default fixture)
+        registered = _register(mock_services, vault_root=tmp_path, llm_caller=llm)
 
         request = _make_upload_request(
             [
@@ -893,22 +833,13 @@ class TestJournalExemplarInjection:
         _assert_understanding_channel_untouched(mock_services)
 
     async def test_no_exemplars_leaves_prompt_clean(
-        self, mock_services: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+        self, mock_services: Any, tmp_path: Any
     ) -> None:
         # Absent je_raw/je_pro → prompt is just the user's text (today's behavior).
-        monkeypatch.setattr(
-            "adapters.inbound.journals_routes._je_raw", lambda: tmp_path / "nope_raw"
-        )
-        monkeypatch.setattr(
-            "adapters.inbound.journals_routes._je_pro", lambda: tmp_path / "nope_pro"
-        )
-        monkeypatch.setattr("adapters.inbound.journals_routes._je_out", lambda: tmp_path / "je_out")
-
         llm = MagicMock()
         llm.is_model_supported = MagicMock(return_value=True)
         llm.generate = AsyncMock(return_value=Result.ok("processed"))
-        mock_services.user_entry_processor = SimpleNamespace(llm_caller=llm)
-        registered = _register(mock_services)
+        registered = _register(mock_services, vault_root=tmp_path, llm_caller=llm)
 
         request = _make_upload_request(
             [
