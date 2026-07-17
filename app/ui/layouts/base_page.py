@@ -40,6 +40,7 @@ from fasthtml.common import (
     Title,
 )
 
+from core.utils.auth_context import current_auth_state
 from ui.layouts.navbar import (
     create_bottom_nav,
     create_bottom_nav_for_request,
@@ -186,15 +187,16 @@ async def BasePage(
     """
     config = PAGE_CONFIG[page_type]
 
-    # Determine effective admin/auth state for layout decisions
+    # Determine effective admin/auth state for layout decisions. With a
+    # request, read the middleware-set auth context (AuthContextMiddleware
+    # mirrors the session per request); without one, use the explicit
+    # fallback parameters.
     effective_is_admin = is_admin
     effective_is_authenticated = is_authenticated
     if request is not None:
-        from adapters.inbound.auth import get_is_admin
-        from adapters.inbound.auth import is_authenticated as check_auth
-
-        effective_is_admin = get_is_admin(request)
-        effective_is_authenticated = check_auth(request)
+        auth = current_auth_state()
+        effective_is_admin = auth.is_admin
+        effective_is_authenticated = auth.is_authenticated
 
     navbar = await _build_navbar(
         request=request,
