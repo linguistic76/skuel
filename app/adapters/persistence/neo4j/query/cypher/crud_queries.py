@@ -850,9 +850,13 @@ def build_distinct_values_query(
     user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
-    Build query to get distinct values from a field.
+    Build query to get distinct values from a field, with occurrence counts.
 
-    Used for category listing and dynamic filter options.
+    Used for category listing, dynamic filter options, and frequency-ranked
+    facet vocabularies (library tag chips). Each row carries ``value`` plus
+    ``count`` — how many nodes (array elements, for list fields) carry it —
+    so callers that only need the distinct values read ``value`` and callers
+    that rank by usage read ``count`` from the same query.
 
     Args:
         label: Neo4j node label
@@ -885,7 +889,7 @@ def build_distinct_values_query(
         MATCH (n:{label})
         WHERE n.user_uid = $user_uid AND n.{field} IS NOT NULL
         {unwind_clause}
-        RETURN DISTINCT value
+        RETURN value, count(*) AS count
         ORDER BY value
         """
         params["user_uid"] = user_uid
@@ -894,7 +898,7 @@ def build_distinct_values_query(
         MATCH (n:{label})
         WHERE n.{field} IS NOT NULL
         {unwind_clause}
-        RETURN DISTINCT value
+        RETURN value, count(*) AS count
         ORDER BY value
         """
 

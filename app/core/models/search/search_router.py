@@ -90,6 +90,7 @@ if TYPE_CHECKING:
         CapacityWarnings,
         NousSubtopicPair,
         SemanticSearchChunkResult,
+        TagFrequency,
     )
     from core.services.user import UserContext
     from services_bootstrap import Services
@@ -371,27 +372,48 @@ class SearchRouter:
             mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
         return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
 
-    async def list_tags(self) -> Result[list[str]]:
-        """Flat tag vocabulary across the shared curriculum catalog (Ku + PathStep).
+    async def tag_frequencies(self) -> Result["list[TagFrequency]"]:
+        """Tag vocabulary across the shared curriculum catalog, most-used first.
 
-        Powers the /explore/library tag chips and the /search tags filter.
-        Same cross-domain aggregation point as the NOUS vocabulary: each
-        domain's search sub-service lists its OWN distinct tags
-        (``list_all_tags`` → ``distinct_values_raw("tags")``), the merge lives
-        here. Deduped + sorted; fails soft per domain (a missing service or an
-        errored call contributes nothing rather than failing the vocabulary).
+        Powers the frequency-ranked /explore/library tag chips. Same
+        cross-domain aggregation point as the NOUS vocabulary: each domain's
+        search sub-service counts its OWN tags (``tag_frequencies`` →
+        ``distinct_values_raw("tags")``), the merge — summing counts for tags
+        both domains carry — lives here. Ordered by count descending, ties
+        alphabetical; fails soft per domain (a missing service or an errored
+        call contributes nothing rather than failing the vocabulary).
         """
-        tags: set[str] = set()
+        counts: dict[str, int] = {}
         for entity_type in (EntityType.KU, EntityType.PATH_STEP):
             service = self.get_service(entity_type)
             if service is None:
                 continue
-            result = await service.search.list_all_tags()
+            result = await service.search.tag_frequencies()
             if result.is_error:
-                self.logger.warning(f"list_all_tags failed for {entity_type}: {result.error}")
+                self.logger.warning(f"tag_frequencies failed for {entity_type}: {result.error}")
                 continue
-            tags.update(result.value or [])
-        return Result.ok(sorted(tags))
+            for tag, count in (result.value or {}).items():
+                counts[tag] = counts.get(tag, 0) + count
+
+        def most_used_first(item: tuple[str, int]) -> tuple[int, str]:
+            return (-item[1], item[0])
+
+        ordered: "list[TagFrequency]" = [
+            {"tag": tag, "count": count}
+            for tag, count in sorted(counts.items(), key=most_used_first)
+        ]
+        return Result.ok(ordered)
+
+    async def list_tags(self) -> Result[list[str]]:
+        """Flat alphabetical tag vocabulary — the /search tags-filter shape.
+
+        Derived from ``tag_frequencies`` (one aggregation path); dropdowns
+        scan alphabetically, so the counts are dropped and the order re-sorted.
+        """
+        result = await self.tag_frequencies()
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(sorted(item["tag"] for item in result.value))
 
     async def list_nous_subtopics(self) -> Result[list[str]]:
         """Flat NOUS sub-topic vocabulary — every distinct sub-topic, deduped + sorted.
