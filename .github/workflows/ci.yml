@@ -171,6 +171,68 @@ jobs:
               body: body,
             });
 
+  # Lint — the mechanical rule set ./dev quality runs locally, minus MyPy
+  # (its own job above): Ruff format + check, the SKUEL architecture linter,
+  # the Cypher linter, and the route-security audit. Before this job existed
+  # none of these ran in CI, so a PR authored without a local ./dev lint
+  # merged with zero lint coverage.
+  lint:
+    name: Lint
+    needs: changes
+    if: needs.changes.outputs.py == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --no-install-project
+
+      # The checks below keep running after one fails (but not if setup itself
+      # failed — `steps.fmt.outcome == 'skipped'` in that case), so a PR author
+      # sees every category of violation in a single run.
+      - name: Ruff format check
+        id: fmt
+        working-directory: app
+        run: uv run ruff format --check
+
+      - name: Ruff lint
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run ruff check
+
+      - name: SKUEL architecture linter
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/lint_skuel.py --strict --quiet
+
+      - name: Cypher linter
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/cypher_linter.py --errors-only --strict
+
+      - name: Route security audit
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/audit_route_security.py
+
   validate_documentation:
     name: Validate Documentation
     needs: changes
@@ -494,7 +556,7 @@ jobs:
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, validate_documentation, unit_tests, smoke, content_boundary]
+    needs: [changes, mypy, lint, validate_documentation, unit_tests, smoke, content_boundary]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -502,13 +564,14 @@ jobs:
         run: |
           changes_result="${{ needs.changes.result }}"
           mypy_result="${{ needs.mypy.result }}"
+          lint_result="${{ needs.lint.result }}"
           docs_result="${{ needs.validate_documentation.result }}"
           unit_tests_result="${{ needs.unit_tests.result }}"
           smoke_result="${{ needs.smoke.result }}"
           content_boundary_result="${{ needs.content_boundary.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
+          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$docs_result" "$unit_tests_result" "$smoke_result" "$content_boundary_result"; do
+          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$smoke_result" "$content_boundary_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1

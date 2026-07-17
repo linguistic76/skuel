@@ -3451,3 +3451,35 @@ class TestSuppressibleRulesDrift:
         )
         called = set(re.findall(r'_is_(?:line|file)_suppressed\([^)]*"(SKUEL\d{3})"\)', source))
         assert called == set(SkuelLinter.SUPPRESSIBLE_RULES)
+
+
+class TestGitChangedFiles:
+    """--staged / --changed path resolution.
+
+    Git prints diff paths relative to the REPO ROOT, but the linter's root_dir
+    is app/ — a subdirectory of the real repo. Without `--relative` in the git
+    command, every path failed the `.exists()` join and both modes silently
+    linted nothing (0 files, exit 0). These tests run against a real temp repo
+    with the same repo-root/app-subdir layout.
+    """
+
+    def test_staged_files_resolve_from_subdirectory_root(self, tmp_path: Path) -> None:
+        import subprocess
+
+        app = tmp_path / "app"
+        (app / "core").mkdir(parents=True)
+        target = app / "core" / "thing.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+        # A staged .py OUTSIDE app/ must not appear in the result.
+        (tmp_path / "top_level.py").write_text("y = 2\n", encoding="utf-8")
+
+        def git(*args: str) -> None:
+            subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+        git("init")
+        git("config", "user.email", "test@test")
+        git("config", "user.name", "test")
+        git("add", ".")
+
+        files = SkuelLinter._git_changed_files(app, staged_only=True)
+        assert files == [target]

@@ -9,6 +9,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 |---|---|---|---|---|
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
+| **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
@@ -42,6 +43,7 @@ One workflow, path-guarded jobs, one always-on gate.
 
 ```
 changes ──┬─▶ mypy (if app py changed) ─────────────┐
+          ├─▶ lint (if app py changed) ──────────────┤
           ├─▶ unit_tests (if app py changed) ────────┤
           ├─▶ smoke (if py OR ui/static changed) ────┤
           └─▶ validate_documentation (if docs) ──────┤
@@ -50,8 +52,13 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 ```
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
-- **`mypy` / `unit_tests` / `smoke` / `validate_documentation`** run only when
-  their paths changed, so they're skipped (not failed) on unrelated PRs.
+- **`mypy` / `lint` / `unit_tests` / `smoke` / `validate_documentation`** run only
+  when their paths changed, so they're skipped (not failed) on unrelated PRs.
+- **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
+  MyPy (its own job): `ruff format --check`, `ruff check`,
+  `lint_skuel.py --strict`, `cypher_linter.py --errors-only --strict`, and
+  `audit_route_security.py`. Steps keep running after one fails so a single CI
+  run surfaces every violation category.
 - **`smoke`** renders the unauthenticated pages and loads them in headless Chrome,
   failing if any never reaches idle (catches client-side render hangs / infinite
   JS loops that unit tests can't see). No server or Neo4j needed.
@@ -65,9 +72,10 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 ```bash
 cd app
 uv run mypy .                                  # MyPy check
+./dev lint                                     # Ruff + SKUEL linter (the CI Lint job's core)
 uv run python scripts/docs_freshness.py --critical-only
 uv run python scripts/skills_validator.py
-./dev quality                                  # full suite (ruff + SKUEL linter + cypher + mypy)
+./dev quality                                  # full suite (ruff + SKUEL linter + cypher + route audit + mypy)
 ```
 
 ## `codex-review.yml`

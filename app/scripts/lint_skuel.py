@@ -1075,10 +1075,22 @@ class SkuelLinter:
     def _git_changed_files(root_dir: Path, staged_only: bool = False) -> list[Path] | None:
         """Get Python files changed via git. Returns None if git is unavailable."""
         try:
+            # --relative: git prints paths relative to the REPO ROOT by default,
+            # but root_dir here is app/ (a subdirectory of the repo). Without it,
+            # every path fails the .exists() join below and the mode silently
+            # lints nothing. --relative re-roots paths to cwd AND excludes
+            # changes outside it — both exactly what we want.
             if staged_only:
-                cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=ACMR"]
+                cmd = ["git", "diff", "--relative", "--name-only", "--cached", "--diff-filter=ACMR"]
             else:
-                cmd = ["git", "diff", "--name-only", "main...HEAD", "--diff-filter=ACMR"]
+                cmd = [
+                    "git",
+                    "diff",
+                    "--relative",
+                    "--name-only",
+                    "main...HEAD",
+                    "--diff-filter=ACMR",
+                ]
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=root_dir, timeout=5)
             if result.returncode != 0:
                 return None
