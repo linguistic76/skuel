@@ -18,6 +18,7 @@ from typing import Any
 from fasthtml.common import Div, P
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.exercises.cards import render_exercises_list
@@ -78,7 +79,11 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercises dashboard: {e}")
-            return render_error_banner("Error loading exercises", technical_details=str(e))
+            return render_error_banner(
+                "Error loading exercises",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/exercises/content")
     async def exercises_content_fragment(request) -> Any:
@@ -91,7 +96,11 @@ def create_exercises_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercises content: {e}")
             return Div(
-                render_error_banner("Error loading exercises", technical_details=str(e)),
+                render_error_banner(
+                    "Error loading exercises",
+                    technical_details=str(e),
+                    show_details=get_settings().application.debug,
+                ),
                 id="exercises-content",
             )
 
@@ -179,7 +188,11 @@ def create_exercises_ui_routes(
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error rendering exercise detail {uid}: {e}")
-            return render_error_banner("Error loading exercise", technical_details=str(e))
+            return render_error_banner(
+                "Error loading exercise",
+                technical_details=str(e),
+                show_details=get_settings().application.debug,
+            )
 
     @app.get("/exercises/get/content")
     async def exercise_detail_content_fragment(request, uid: str, from_ps: str = "") -> Any:
@@ -200,7 +213,11 @@ def create_exercises_ui_routes(
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Error loading exercise content {uid}: {e}")
             return Div(
-                render_error_banner("Error loading exercise", technical_details=str(e)),
+                render_error_banner(
+                    "Error loading exercise",
+                    technical_details=str(e),
+                    show_details=get_settings().application.debug,
+                ),
                 id="exercise-detail-content",
             )
 

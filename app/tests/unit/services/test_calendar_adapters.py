@@ -11,13 +11,6 @@ from unittest.mock import patch
 
 import pytest
 
-from adapters.calendar_adapters import (
-    EventAdapter,
-    HabitAdapter,
-    TaskAdapter,
-    adapt_entities,
-    create_adapter,
-)
 from core.models.enums import (
     ActivityType,
     EntityStatus,
@@ -26,6 +19,13 @@ from core.models.enums import (
 )
 from core.models.event.event_request import EventType
 from core.ports.calendar_protocol import WindowKind
+from core.services.calendar_adapters import (
+    EventAdapter,
+    HabitAdapter,
+    TaskAdapter,
+    adapt_entities,
+    create_adapter,
+)
 
 
 def _make_event(**overrides):
@@ -270,7 +270,7 @@ class TestCreateAdapter:
                     setattr(self, k, v)
 
         sentinel = FakeEvent()
-        with patch("adapters.calendar_adapters.Event", FakeEvent):
+        with patch("core.services.calendar_adapters.Event", FakeEvent):
             adapter = create_adapter(sentinel)  # type: ignore[arg-type]
         assert isinstance(adapter, EventAdapter)
 
@@ -281,7 +281,7 @@ class TestCreateAdapter:
                 self.title = "t"
 
         task = FakeTask()
-        with patch("adapters.calendar_adapters.Task", FakeTask):
+        with patch("core.services.calendar_adapters.Task", FakeTask):
             adapter = create_adapter(task)  # type: ignore[arg-type]
         # Tasks pass through (cast to CalendarTrackable), so we get the entity itself.
         assert adapter is task  # type: ignore[comparison-overlap]
@@ -293,7 +293,7 @@ class TestCreateAdapter:
                 self.name = "h"
 
         habit = FakeHabit()
-        with patch("adapters.calendar_adapters.Habit", FakeHabit):
+        with patch("core.services.calendar_adapters.Habit", FakeHabit):
             adapter = create_adapter(habit)  # type: ignore[arg-type]
         assert adapter is habit  # type: ignore[comparison-overlap]
 
@@ -311,7 +311,7 @@ class TestAdaptEntities:
                     setattr(self, k, v)
 
         sentinel_event = FakeEvent()
-        with patch("adapters.calendar_adapters.Event", FakeEvent):
+        with patch("core.services.calendar_adapters.Event", FakeEvent):
             adapted = adapt_entities([sentinel_event, SimpleNamespace(uid="garbage")])  # type: ignore[arg-type]
         assert len(adapted) == 1
         assert isinstance(adapted[0], EventAdapter)

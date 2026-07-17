@@ -8,15 +8,9 @@ from typing import Any
 
 from fasthtml.common import Div, Form, NotStr, P, Pre
 
-from core.config.settings import get_settings
 from ui.components import Button, ButtonT, Card, CardBody, Icon
 from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
-
-
-def _get_default_vault_path() -> str:
-    """Get default ingestion path from configuration."""
-    return str(get_settings().vault.ingestion_path)
 
 
 def _form_group(
@@ -299,9 +293,13 @@ async function regenerateChunks() {
 )
 
 
-def build_ingestion_dashboard() -> Any:
-    """Build the full ingestion dashboard content."""
-    vault_path = _get_default_vault_path()
+def build_ingestion_dashboard(vault_path: str) -> Any:
+    """Build the full ingestion dashboard content.
+
+    Args:
+        vault_path: Default ingestion path shown in the directory form —
+            resolved by the route (UI components don't read config).
+    """
 
     regen_form_groups = [
         LabelTextArea(

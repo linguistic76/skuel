@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, Request
 
+from core.config.settings import get_settings
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
@@ -77,7 +78,11 @@ async def error_page(
     from ui.patterns.error_banner import render_error_banner
 
     content = Div(
-        render_error_banner(f"Error {status_code}", technical_details=message),
+        render_error_banner(
+            f"Error {status_code}",
+            technical_details=message,
+            show_details=get_settings().application.debug,
+        ),
         cls="flex flex-col items-center justify-center min-h-[400px] p-8",
     )
 
