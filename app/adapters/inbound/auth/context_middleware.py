@@ -22,7 +22,7 @@ rather than re-reading the keys.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -30,8 +30,7 @@ from adapters.inbound.auth.session import get_current_user, get_is_admin, get_is
 from core.utils.auth_context import AuthState, auth_state_var
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
+    from starlette.middleware.base import RequestResponseEndpoint
     from starlette.responses import Response
 
     from adapters.inbound.fasthtml_types import Request
@@ -40,9 +39,7 @@ if TYPE_CHECKING:
 class AuthContextMiddleware(BaseHTTPMiddleware):
     """Set the request-scoped auth context from the session, reset after."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Any], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         state = AuthState(
             user_uid=get_current_user(request),
             is_admin=get_is_admin(request),
