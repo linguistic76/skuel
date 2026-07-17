@@ -34,7 +34,7 @@ DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 # User-facing folder-transcribe dirs. These are the je_in/je_out staging folders
 # under the *personal* vault (VaultConfig.vault_root — the single source of truth
-# for the vault root), matching the journals routes' _je_in()/_je_out() so the
+# for the vault root), matching JournalBatchService.je_in_dir/je_out_dir so the
 # transcribe surface writes where the download/folder-process surface reads.
 # Resolved lazily (get_settings() is cached) to avoid an import-time config dep.
 def _user_je_in() -> Path:

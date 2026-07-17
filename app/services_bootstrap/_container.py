@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
     from core.services.insight.insight_store import InsightStore
     from core.services.interaction.interaction_service import InteractionService
-    from core.services.journal import JournalService
+    from core.services.journal import JournalBatchService, JournalService
     from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.knowledge_domain_service import KnowledgeDomainService
@@ -378,6 +378,10 @@ class Services:
 
     # Journal domain — DNWF three-stage workflow (FULL tier only)
     journal: "JournalService | None" = None
+
+    # Journal batch pipeline — zero-persistence je_in/upload → je_out engine
+    # (ADR-073). Tier-independent: present in CORE and FULL.
+    journal_batch: "JournalBatchService | None" = None
 
     # Conversation store — owner-private discussion sessions (ADR-078).
     # Tier-independent (pure persistence); the understanding-agnostic boundary.
