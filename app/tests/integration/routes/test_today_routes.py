@@ -99,6 +99,7 @@ def mock_services() -> Any:
     services.today_orchestrator.build_context = AsyncMock(
         return_value=Result.ok(
             {
+                "today_iso": "2027-04-23",
                 "date_label": "Saturday · April 23",
                 "now_hhmm": "09:00",
                 "stats": {"nodes": 0, "committed_min": 0, "done": 0},

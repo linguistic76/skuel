@@ -61,9 +61,11 @@ def TodayPage(ctx: TodayPageContext) -> FT:
     seed_json = json.dumps(dict(ctx), default=str)
 
     # The lens switcher + Daily-note link are static server HTML (not Alpine-seeded)
-    # so their active/href state is correct without JS. date.today() is the server
-    # clock — the same source the orchestrator uses to build the context.
-    today = date.today()
+    # so their active/href state is correct without JS. Anchor them to the SAME
+    # date the orchestrator built the context from (ctx["today_iso"]) — a second
+    # date.today() here could disagree across a midnight boundary and send the
+    # user to a different day's daily note than the page's data reflects.
+    today = date.fromisoformat(ctx["today_iso"])
 
     return Main(
         _seed_script(seed_json),

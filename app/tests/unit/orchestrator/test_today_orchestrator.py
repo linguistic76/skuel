@@ -178,6 +178,7 @@ async def test_build_context_empty_day_returns_valid_shape() -> None:
     ctx = result.value
     # required keys present
     for key in (
+        "today_iso",
         "date_label",
         "now_hhmm",
         "stats",
