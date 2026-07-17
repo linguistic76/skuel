@@ -963,6 +963,15 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
+    # Interaction: immutable learning-loop event record — the outcome lives
+    # on its own result_status field (InteractionResult), not EntityStatus.
+    # Record-like lifecycle, same as LifePath: exists (ACTIVE) or archived.
+    EntityType.INTERACTION: frozenset(
+        {
+            EntityStatus.ACTIVE,
+            EntityStatus.ARCHIVED,
+        }
+    ),
     # Activity Templates: authoring lifecycle is publish-and-engage.
     # Templates are not "completed" — instances spawned from them are.
     EntityType.TASK_TEMPLATE: _TEMPLATE_STATUSES,

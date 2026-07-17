@@ -1,9 +1,9 @@
 # Enum Architecture
-*Last updated: 2026-03-28*
+*Last updated: 2026-07-17*
 
 > **Core Principle:** "Enums define behavior, services consume it"
 
-SKUEL has **87 enum classes** across **17 files** in `core/models/enums/`. Enums are not just value holders — they carry display logic, scoring, search, validation, and transition rules. This document maps the enum landscape, explains the two most important enums (EntityType and EntityStatus), catalogs per-domain enums, and documents the recurring dynamic patterns.
+SKUEL has **94 enum classes** across **19 files** in `core/models/enums/`. Enums are not just value holders — they carry display logic, scoring, search, validation, and transition rules. This document maps the enum landscape, explains the two most important enums (EntityType and EntityStatus), catalogs per-domain enums, and documents the recurring dynamic patterns.
 
 ---
 
@@ -26,10 +26,11 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
 | `learning_enums.py` | Education, knowledge, mastery, assessment, feedback | MasteryImpact, AssessmentOutcome, FeedbackCategory, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
-| `metadata_enums.py` | Relationships, search, system config | RelationshipType (48 values), Intent, Visibility, SystemConstants |
+| `metadata_enums.py` | Relationships, search, system config | RelationshipType (59 values), Intent, Visibility, SystemConstants |
 | `user_enums.py` | User roles, health scoring, and journal config | UserRole, ContextHealthScore, JournalTier, JournalMode |
-| `finance_enums.py` | Finance domain | ExpenseStatus, PaymentMethod, ExpenseCategory (`get_icon()`), BudgetPeriod |
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
+| `interaction_enums.py` | Learning-loop interaction records | InteractionType, InteractionResult |
+| `relationship_enums.py` | Knowledge-relationship qualifiers | ProficiencyLevel, KnowledgeRelevance |
 | `neo_labels.py` | Neo4j node labels | NeoLabel (44 labels) |
 
 **Import convention:**
@@ -41,11 +42,11 @@ from core.models.enums import EntityType, EntityStatus, Priority
 
 ## The Two Core Enums
 
-### EntityType — What Is It? (20 values)
+### EntityType — What Is It? (25 values)
 
 EntityType is the type discriminator for every entity in SKUEL. It lives on the `entity_type` field of every Entity and determines valid statuses, default status, content origin, ownership rules, and Neo4j labels.
 
-**Eight groups:**
+**Nine groups:**
 
 | Group | EntityTypes | Ownership | Neo4j Labels |
 |-------|-------------|-----------|--------------|
@@ -55,6 +56,8 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | **UserEntry** | USER_ENTRY | User-owned | :Entity:UserEntry |
 | **Reports** | ENTRY_REPORT, ACTIVITY_REPORT | User-owned | :Entity:EntryReport, :Entity:ActivityReport |
 | **Activity** (user-owned) | TASK, GOAL, HABIT, EVENT, CHOICE, PRINCIPLE | User-owned | :Entity:Task, :Entity:Goal, etc. |
+| **Activity Templates** (PS-owned, spawn instances on engagement) | TASK_TEMPLATE, GOAL_TEMPLATE, HABIT_TEMPLATE, EVENT_TEMPLATE, CHOICE_TEMPLATE, PRINCIPLE_TEMPLATE | Curriculum-authored, no user_uid | :Entity:TaskTemplate, etc. |
+| **Learning-loop record** | INTERACTION | User-owned (system-written) | :Entity:Interaction |
 | **Hybrid/Destination** | REVISED_EXERCISE, LIFE_PATH | User-owned | :Entity:RevisedExercise, :Entity:LifePath |
 
 **Content Origin tiers** (derived from EntityType via `.content_origin()`):
@@ -62,8 +65,8 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | Tier | ContentOrigin | EntityTypes |
 |------|---------------|-------------|
 | A | CURATED | Resource, FormTemplate |
-| B | CURRICULUM | KU, PathStep, LearningPath, Exercise, RevisedExercise |
-| C | USER_CREATED | All 6 Activity types + UserEntry, LifePath, FormSubmission |
+| B | CURRICULUM | KU, PathStep, LearningPath, Exercise, all 6 Activity Templates |
+| C | USER_CREATED | All 6 Activity types + UserEntry, LifePath, FormSubmission, RevisedExercise, Interaction |
 | D | REPORT | ActivityReport, EntryReport |
 
 **Key methods:**
@@ -152,16 +155,21 @@ Non-submission entity types can't use this path — they don't have SUBMITTED in
 
 | EntityType | Valid Statuses | Default |
 |------------|---------------|---------|
-| Ku, Resource, EntryReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
+| Ku, Resource | DRAFT, COMPLETED, ARCHIVED | COMPLETED (vault-ingested content arrives complete) |
+| EntryReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | PathStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | UserEntry | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
-| ActivityReport | COMPLETED (always — created already complete) | COMPLETED |
+| ActivityReport | DRAFT, PROCESSING, COMPLETED, FAILED, ARCHIVED | DRAFT at the enum layer — but the `ActivityReport` model constructs at COMPLETED (reports are written post-generation), so the enum's draft/processing lifecycle is currently writer-unused |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |
 | Habit | ACTIVE, PAUSED, COMPLETED, CANCELLED, ARCHIVED | ACTIVE |
 | Event | SCHEDULED, ACTIVE, COMPLETED, CANCELLED | SCHEDULED |
 | Principle | ACTIVE, PAUSED, ARCHIVED | ACTIVE |
 | LifePath | ACTIVE, ARCHIVED | ACTIVE |
+| Interaction | ACTIVE, ARCHIVED (immutable event record — outcome lives on `result_status`) | ACTIVE |
+| Activity Templates (all 6) | DRAFT, ACTIVE, ARCHIVED (publish-and-engage — instances complete, templates don't) | DRAFT |
+| FormTemplate | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
+| FormSubmission | DRAFT, COMPLETED, ARCHIVED | COMPLETED |
 
 **Key methods:**
 
@@ -209,7 +217,7 @@ task.is_shareable()  # method — True only when COMPLETED (quality control)
 | Validating a state transition | Enum methods | `status.can_transition_to(target, entity_type)` |
 | Filtering/querying by status category | Enum methods | `[s for s in statuses if s.is_active()]` |
 
-Entity properties are defined on the `Entity` base class (`core/models/entity.py`), so they are available on all 20 entity types. They are simple one-liner `@property` methods — no configuration or overrides needed because all types share the single `EntityStatus` enum.
+Entity properties are defined on the `Entity` base class (`core/models/entity.py`), so they are available on all 25 entity types. They are simple one-liner `@property` methods — no configuration or overrides needed because all types share the single `EntityStatus` enum.
 
 ### How They Interact
 
@@ -243,7 +251,7 @@ Enums wire into the model layer through a class hierarchy. Each level inherits e
 
 | Base Class | Enum Fields | Models |
 |------------|-------------|--------|
-| Entity | entity_type, status, visibility | *(all 20 entity types)* |
+| Entity | entity_type, status, visibility | *(all 25 entity types)* |
 | UserOwnedEntity | *(inherits above)* | Task, Goal, Habit, Event, Choice, Principle, Submission types, LifePath |
 | Curriculum *(base class)* | + complexity, learning_level, sel_category | PathStep, LearningPath, Exercise |
 
@@ -312,7 +320,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 | Pipeline | NONE, TRANSCRIBE, TRANSCRIBE_AND_STRUCTURE, LLM_SUMMARY, EXTRACT_ACTIVITIES, TEACHER_REVIEW | User entry processing dispatch. Replaces `ProcessorType`. |
 | ReportSource | HUMAN, LLM, HYBRID, AUTOMATIC | Provenance of a report. Replaces `ProcessorType`. |
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
-| ExerciseScope | PERSONAL, ASSIGNED | Exercise scope (user's own vs teacher-assigned). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
+| ExerciseScope | PERSONAL, ASSIGNED, ASSESSMENT, CURRICULUM | Exercise scope (user's own / teacher-assigned / formal test / content-vault-authored). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
 | FormattingStyle | STRUCTURED, NARRATIVE, BULLET_POINTS, CONVERSATIONAL, EXECUTIVE_SUMMARY | Transcript formatting |
 | AnalysisDepth | BASIC, DETAILED, COMPREHENSIVE | LLM processing depth |
@@ -355,20 +363,23 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 - `JournalMode` — SCRIBE (Stage 1, faithful record) / THOUGHT_PARTNER (Stage 2, patterns + challenge) / WHAT_IS_RELATED (Stage 3, graph connections). Selects DNWF function, not tone. Default: THOUGHT_PARTNER. Use `JournalMode.from_string()` for form-submitted values.
 
 **Metadata** (`metadata_enums.py`) — System-wide configuration:
-- `RelationshipType` (48 values — all entity relationship types)
-- `Intent` (19 values — user intent classification)
+- `RelationshipType` (59 values — all entity relationship types)
+- `Intent` (23 values — user intent classification)
 - `Visibility` (PRIVATE, SHARED, TEAM, PUBLIC)
 - `SystemConstants` (class with thresholds: MASTERY_THRESHOLD=0.8, etc.)
 - Plus: ResponseTone, Personality, GuidanceMode, LearningModality, SearchScope, FacetType, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, BridgeType, ErrorSeverity, ExtractionMethod
 
-**Finance** (`finance_enums.py`):
-- ExpenseStatus (7), PaymentMethod (8+), ExpenseCategory (3), RecurrencePattern (7), BudgetPeriod (4)
-
 **Transcription** (`transcription_enums.py`):
 - `TranscriptionStatus` — PENDING, PROCESSING, COMPLETED, FAILED. Has `is_terminal()` and `can_retry()`.
 
+**Interaction** (`interaction_enums.py`):
+- `InteractionType` (4 values) — what kind of learning-loop event an Interaction records; `InteractionResult` (5 values) — the outcome stamped on the record (its `result_status` field — Interaction's EntityStatus never transitions).
+
+**Relationship properties** (`relationship_enums.py`):
+- `ProficiencyLevel` (4 values) — proficiency on knowledge/skill relationships; `KnowledgeRelevance` (3 values) — how a principle or goal relates to a knowledge unit.
+
 **Neo4j Labels** (`neo_labels.py`):
-- `NeoLabel` — 44 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
+- `NeoLabel` — 48 labels mapping to Neo4j node types. `from_entity_type()` bridges EntityType → Neo4j label. `is_valid()` validates label strings.
 
 ---
 
