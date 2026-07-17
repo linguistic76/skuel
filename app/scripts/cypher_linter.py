@@ -747,7 +747,11 @@ def main() -> int:
     if args.files:
         files_to_lint = [Path(f) for f in args.files]
     else:
-        root_dir = Path("/home/mike/skuel/app")
+        # Derive the app root from this file's location (scripts/ -> app/) so
+        # auto-discovery works on any checkout path — a hardcoded absolute path
+        # made the CI Lint step discover 0 files on GitHub runners and pass
+        # vacuously (Codex finding, PR #671).
+        root_dir = Path(__file__).resolve().parents[1]
         files_to_lint = find_python_files_with_cypher(root_dir)
         print(f"🔍 Auto-discovered {len(files_to_lint)} files with potential Cypher queries\n")
 

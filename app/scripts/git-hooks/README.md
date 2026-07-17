@@ -6,7 +6,7 @@ Two hooks, two purposes, one canonical source per file. Install with `app/script
 
 ### `pre-commit` — runs on every `git commit`
 
-Three checks, fail-fast on any:
+Four checks, fail-fast on any:
 
 1. **Secret-leak scan** — always runs.
    - Refuses to commit `.env` / `.env.local` / `.env.<anything>` (allows `.env.example` and `.env.sample`).
@@ -20,9 +20,14 @@ Three checks, fail-fast on any:
 
 3. **MyPy type check** — only when at least one `app/**/*.py` file is staged.
    - Runs `uv run mypy --follow-imports=silent <staged files>` from `app/`.
-   - `--follow-imports=silent` means MyPy loads imported modules for full type info but doesn't *report* errors there. Pre-existing issues in unmodified files don't block unrelated commits; the [`quality.yml`](../../../.github/workflows/quality.yml) CI job is the global zero-baseline gate.
+   - `--follow-imports=silent` means MyPy loads imported modules for full type info but doesn't *report* errors there. Pre-existing issues in unmodified files don't block unrelated commits; the MyPy job in [`ci.yml`](../../../.github/workflows/ci.yml) is the global zero-baseline gate.
    - Reads files from disk, not from the index — if you `git add` then edit, the check sees the edited version. (This is almost always what you want.)
    - ~10 s warm cache for ~20 staged files; cold first run can take longer.
+
+4. **Lint (Ruff + SKUEL architecture linter)** — only when at least one `app/**/*.py` file is staged.
+   - Runs `uv run ruff check <staged files>` and `uv run python scripts/lint_skuel.py --staged --strict` from `app/`.
+   - Both are file-scoped to the staged set, so pre-existing issues elsewhere never block an unrelated commit; the Lint job in [`ci.yml`](../../../.github/workflows/ci.yml) is the full-tree gate.
+   - Auto-fix most Ruff findings with `cd app && ./dev lint-fix`.
 
 ### `pre-push` — runs on every `git push`
 
@@ -39,6 +44,7 @@ git commit --no-verify     # skip ALL pre-commit checks (last resort)
 git push   --no-verify     # skip ALL pre-push checks (last resort)
 SKUEL_ALLOW_SECRETS=1 ...  # skip just the secret scan (false-positive case)
 SKUEL_SKIP_MYPY=1     ...  # skip just the MyPy check (work-in-progress refactor)
+SKUEL_SKIP_LINT=1     ...  # skip just the Ruff + SKUEL lint check
 ```
 
 If you find yourself reaching for `--no-verify`, that's a signal — either fix the underlying issue or open a discussion about adjusting the patterns. The env-var bypasses are the right tool when you're committing a legitimate fixture (e.g. a test that asserts a fake-looking key is rejected) or staging a deliberate WIP that you'll fix before pushing — narrower scope, more obvious in `git log -p`. CI will still gate the push regardless of local bypasses.
@@ -50,10 +56,10 @@ A pre-commit hook is the cheap, fast first line — not a comprehensive defense.
 | Layer | Catches at | Bypassable? | Implemented? |
 |---|---|---|---|
 | `.gitignore` patterns | before `git add` | `git add -f`; useless against literals in `.py`/`.yaml` | yes (baseline) |
-| **pre-commit hook** | at `git commit` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1`, `SKUEL_SKIP_MYPY=1` | **yes** (this file) |
+| **pre-commit hook** | at `git commit` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1`, `SKUEL_SKIP_MYPY=1`, `SKUEL_SKIP_LINT=1` | **yes** (this file) |
 | **pre-push hook** | at `git push` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1` | **yes** (this file) |
 | Server-side scan (GitHub secret scanning) | after push, on remote | no, but post-leak — alerts you to rotate | depends on plan |
-| CI quality scan (MyPy) | on every PR / push to main, develop | no — runs in CI | **yes** ([`quality.yml`](../../../.github/workflows/quality.yml)) |
+| CI quality scan (MyPy + Lint) | on every PR / push to main | no — runs in CI | **yes** ([`ci.yml`](../../../.github/workflows/ci.yml)) |
 | CI secret scan (gitleaks / trufflehog) | on every PR / on schedule | no — runs in CI, separate auth | **not yet** |
 | No plaintext secrets on disk | always — there is no `.env` to commit | n/a | **not yet** (see below) |
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SKUEL pre-commit hook — single canonical script.
 #
-# Runs three independent checks; failure of ANY blocks the commit:
+# Runs four independent checks; failure of ANY blocks the commit:
 #
 #   1. Secret-leak scan
 #      - .env / .env.local / .env.<anything> files staged
@@ -19,13 +19,22 @@
 #      - runs `uv run mypy --follow-imports=silent <staged files>`
 #      - --follow-imports=silent loads imports for type info but suppresses
 #        errors in unmodified files, so pre-existing issues elsewhere don't
-#        block unrelated commits. The CI job (quality.yml) is the global gate.
+#        block unrelated commits. The CI Lint + MyPy jobs (ci.yml) are the
+#        global gate.
 #      - Reads files from disk, not the index — if you staged then edited,
 #        the check sees the edited version (usually what you want).
+#
+#   4. Lint (Ruff + SKUEL architecture linter) on staged Python files
+#      - only when at least one app/**/*.py file is staged
+#      - runs `uv run ruff check <staged files>` and
+#        `uv run python scripts/lint_skuel.py --staged --strict`
+#      - both are file-scoped, so pre-existing issues in unmodified files
+#        never block an unrelated commit; the CI Lint job is the full-tree gate.
 #
 # Bypass (use sparingly, prefer fixing):
 #   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only
 #   SKUEL_SKIP_MYPY=1     git commit ...   # skip MyPy only
+#   SKUEL_SKIP_LINT=1     git commit ...   # skip Ruff + SKUEL lint only
 #   git commit --no-verify ...             # skip ALL (last resort)
 #
 # Install (idempotent):  app/scripts/install_git_hooks.sh
@@ -150,6 +159,52 @@ else
 fi
 
 # =========================================================================
+# Check 4 — Lint (Ruff + SKUEL architecture linter) on staged Python files
+# =========================================================================
+if [[ "${SKUEL_SKIP_LINT:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_SKIP_LINT=1 set — skipping Ruff + SKUEL lint."
+else
+  # Same file selection as the MyPy check: .py files inside app/, paths
+  # relative to app/ so Ruff's per-file-ignores patterns resolve correctly.
+  staged_py_lint=$(git diff --cached --name-only --diff-filter=ACMR \
+    | grep -E '^app/.*\.py$' \
+    | sed 's|^app/||' || true)
+
+  if [[ -n "$staged_py_lint" ]]; then
+    lint_count=$(printf '%s\n' "$staged_py_lint" | wc -l | tr -d ' ')
+    lint_word=$([[ "$lint_count" == "1" ]] && echo "file" || echo "files")
+    echo "🔍 Linting ${lint_count} staged Python ${lint_word}..."
+
+    if ruff_output=$(
+      printf '%s\n' "$staged_py_lint" \
+        | (cd "$repo_root/app" && xargs --no-run-if-empty uv run ruff check 2>&1)
+    ); then
+      green "✅ Ruff check passed (${lint_count} ${lint_word})"
+    else
+      red "✗ Ruff check failed"
+      printf '%s\n' "$ruff_output" | sed 's/^/    /' >&2
+      yellow "  Auto-fix:    cd app && ./dev lint-fix"
+      yellow "  Bypass once: SKUEL_SKIP_LINT=1 git commit ..."
+      fail=1
+    fi
+
+    # --staged resolves the staged file list itself (reads from disk, like
+    # the MyPy check above); --strict makes warnings block too, matching CI.
+    if skuel_output=$(
+      cd "$repo_root/app" && uv run python scripts/lint_skuel.py --staged --strict --quiet 2>&1
+    ); then
+      green "✅ SKUEL linter passed"
+    else
+      red "✗ SKUEL linter failed"
+      printf '%s\n' "$skuel_output" | sed 's/^/    /' >&2
+      yellow "  Details:     cd app && uv run python scripts/lint_skuel.py --staged"
+      yellow "  Bypass once: SKUEL_SKIP_LINT=1 git commit ..."
+      fail=1
+    fi
+  fi
+fi
+
+# =========================================================================
 # Verdict
 # =========================================================================
 if [[ $fail -ne 0 ]]; then
@@ -159,6 +214,8 @@ if [[ $fail -ne 0 ]]; then
   yellow "      SKUEL_ALLOW_SECRETS=1 git commit ..."
   yellow "  • Skip just the MyPy check (work-in-progress refactor):"
   yellow "      SKUEL_SKIP_MYPY=1     git commit ..."
+  yellow "  • Skip just the Ruff + SKUEL lint check:"
+  yellow "      SKUEL_SKIP_LINT=1     git commit ..."
   yellow "  • Skip ALL checks (use only if you understand the trade-off):"
   yellow "      git commit --no-verify ..."
   yellow "Real key in staged diff? Rotate it now and unstage."
