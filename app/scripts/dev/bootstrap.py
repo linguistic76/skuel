@@ -23,7 +23,9 @@ from pathlib import Path
 from typing import Any
 
 from fasthtml.common import StaticFiles, fast_app
+from starlette.middleware import Middleware
 
+from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
     RequestIDMiddleware,
@@ -409,6 +411,14 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     )
 
     logger.info("✅ Session support configured (FastHTML built-in)")
+
+    # Auth context — mirrors session auth flags into a ContextVar so page
+    # chrome (BasePage/navbar in ui/) reads auth state without importing
+    # adapters. MUST run INSIDE SessionMiddleware to see request.session:
+    # FastHTML appends the session middleware last (innermost), and
+    # add_middleware() prepends (outermost) — so append directly instead of
+    # using add_middleware(), which would place this outside the session.
+    app.user_middleware.append(Middleware(AuthContextMiddleware))
 
     # Configure static files path (idempotent and path-safe)
     # Default: ./static relative to current working directory (not source file)

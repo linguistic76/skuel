@@ -290,20 +290,38 @@ async def update_goal_progress(request, user_uid, entity):
     return await goals_service.update_progress(entity.uid, ...)
 ```
 
-### Checking Admin in UI (Without Decorator)
+### Checking Admin for Conditional Rendering (Without Decorator)
 
-For conditional UI rendering:
+In **route code** (`adapters/inbound/`), read the session directly:
 
 ```python
 from adapters.inbound.auth import get_is_admin
 
-def create_navbar(request):
+@rt("/some-page")
+async def some_page(request):
     is_admin = get_is_admin(request)  # Reads from session, no DB call
-
-    if is_admin:
-        return NavWithAdminLink()
-    return NavStandard()
+    ...
 ```
+
+In **UI components** (`ui/`), never import `adapters.inbound.auth` — the
+boundary guard (`tests/unit/test_ui_layer_boundary.py`) fails closed on any
+runtime ui → adapters import. Read the middleware-set auth context instead:
+
+```python
+from core.utils.auth_context import current_auth_state
+
+def render_section():
+    auth = current_auth_state()  # AuthState(user_uid, is_admin, is_teacher)
+    if auth.is_admin:
+        return SectionWithAdminLink()
+    return SectionStandard()
+```
+
+`AuthContextMiddleware` (`adapters/inbound/auth/context_middleware.py`)
+mirrors the session's auth flags into `core/utils/auth_context.py` once per
+request — same shape as the CSRF token context. The session stays the single
+source of truth; outside a request (unit renders, WebSocket paths), the
+context degrades to unauthenticated defaults.
 
 ## Navbar Authentication Pattern (January 2026)
 
@@ -318,12 +336,15 @@ Without passing the request, layouts default to unauthenticated state:
 
 ### The Solution: `create_navbar_for_request()`
 
-Use `create_navbar_for_request(request)` for automatic auth detection:
+Use `create_navbar_for_request(request)` for automatic auth detection. Auth
+state comes from the middleware-set auth context (`core/utils/auth_context.py`,
+written per request by `AuthContextMiddleware` from the session) — the navbar
+never imports `adapters.inbound.auth`:
 
 ```python
 from ui.layouts.navbar import create_navbar_for_request
 
-# ✅ RECOMMENDED: Auto-detects auth from session
+# ✅ RECOMMENDED: Auto-detects auth from the request-scoped auth context
 navbar = create_navbar_for_request(request, active_page="tasks")
 
 # ❌ LEGACY: Manual parameters (still supported for backwards compatibility)

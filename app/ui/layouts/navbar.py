@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Nav, Span
 
+from core.utils.auth_context import current_auth_state
 from ui.components import Icon
 from ui.layouts.nav_config import (
     ICON_NAV_ITEMS,
@@ -429,7 +430,9 @@ async def create_navbar_for_request(
     active_page: str = "",
 ) -> Nav:
     """
-    Create top navbar with automatic user/admin detection from session.
+    Create top navbar with automatic user/admin detection from the
+    middleware-set auth context (AuthContextMiddleware mirrors the session
+    per request; the request parameter is kept so routes need no changes).
 
     Badge counts (notifications, insights) are lazy-loaded via HTMX from
     /api/navbar/notification-badge — not fetched here to keep page render fast.
@@ -441,19 +444,13 @@ async def create_navbar_for_request(
     Returns:
         FastHTML Nav element (slim top bar)
     """
-    from adapters.inbound.auth import (
-        get_current_user,
-        get_is_admin,
-        get_is_teacher,
-        is_authenticated,
-    )
-
+    auth = current_auth_state()
     return create_navbar(
-        current_user=get_current_user(request),
-        is_authenticated=is_authenticated(request),
+        current_user=auth.user_uid,
+        is_authenticated=auth.is_authenticated,
         active_page=active_page,
-        is_admin=get_is_admin(request),
-        is_teacher=get_is_teacher(request),
+        is_admin=auth.is_admin,
+        is_teacher=auth.is_teacher,
     )
 
 
@@ -462,7 +459,8 @@ async def create_bottom_nav_for_request(
     active_page: str = "",
 ) -> Any:
     """
-    Create mobile bottom nav with automatic auth/admin detection from session.
+    Create mobile bottom nav with automatic auth/admin detection from the
+    middleware-set auth context (request kept so routes need no changes).
 
     Args:
         request: Starlette/FastHTML request object
@@ -471,13 +469,12 @@ async def create_bottom_nav_for_request(
     Returns:
         FastHTML Nav element or empty Div
     """
-    from adapters.inbound.auth import get_is_admin, get_is_teacher, is_authenticated
-
+    auth = current_auth_state()
     return create_bottom_nav(
-        is_authenticated=is_authenticated(request),
+        is_authenticated=auth.is_authenticated,
         active_page=active_page,
-        is_admin=get_is_admin(request),
-        is_teacher=get_is_teacher(request),
+        is_admin=auth.is_admin,
+        is_teacher=auth.is_teacher,
     )
 
 

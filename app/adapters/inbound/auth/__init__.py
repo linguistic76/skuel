@@ -16,6 +16,7 @@ Quick Start:
     ```
 """
 
+from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.auth.roles import (
     check_role_permission,
     get_user_role,
@@ -50,6 +51,8 @@ from adapters.inbound.auth.session import (
 __all__ = [
     # Type aliases
     "UserUID",
+    # Middleware
+    "AuthContextMiddleware",
     # Constants
     "DEFAULT_DEV_USER",
     # Session management

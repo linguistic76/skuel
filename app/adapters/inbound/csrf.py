@@ -60,6 +60,8 @@ from core.utils.logging import get_logger
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from starlette.middleware.base import RequestResponseEndpoint
+
 logger = get_logger("skuel.security.csrf")
 
 # ============================================================================
@@ -180,9 +182,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     middleware reuses it and does not rewrite the Set-Cookie header.
     """
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Any], Awaitable[Response]]
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         incoming = request.cookies.get(CSRF_COOKIE_NAME)
         if incoming:
             request.state.csrf_token = incoming
