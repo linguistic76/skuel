@@ -63,7 +63,11 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgeEntryGroundingRow, OrganizerResult
+    from core.ports.query_types import (
+        ExtractionTwinRow,
+        KnowledgeEntryGroundingRow,
+        OrganizerResult,
+    )
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
@@ -648,6 +652,45 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         Backend: UniversalNeo4jBackend (via _RelationshipCrudMixin).update_extracted_from_vault_id.
         """
         return await self.backend.update_extracted_from_vault_id(entry_uid, entity_uid, vault_id)
+
+    # =========================================================================
+    # PROCESSING PIPELINE (UserEntryProcessingService)
+    # =========================================================================
+
+    async def get_user_active_extraction_twins(
+        self, user_uid: UserUID, labels: list[str]
+    ) -> Result[list[ExtractionTwinRow]]:
+        """Return the user's OWNED, non-terminal entities for extraction dedup Guard 4.
+
+        Backend: UserEntryBackend.get_user_active_extraction_twins.
+        """
+        return await self.backend.get_user_active_extraction_twins(user_uid, labels)
+
+    async def create_extracted_from_links(
+        self, entry_uid: str, links: list[tuple[str, str, str | None]]
+    ) -> Result[int]:
+        """Batch-write EXTRACTED_FROM provenance edges for DSL-created entities (ADR-069).
+
+        Backend: UserEntryBackend.create_extracted_from_links.
+        """
+        return await self.backend.create_extracted_from_links(entry_uid, links)
+
+    async def update_processing_state(
+        self,
+        uid: str,
+        updates: dict[
+            str, Any
+        ],  # boundary: raw update patch — mixes scalars, datetimes, and a nested metadata dict that backend.update JSON-serializes into a string prop
+    ) -> Result[UserEntry]:
+        """Persist pipeline state on an entry (status, processing_error, run metadata).
+
+        Internal to the processing pipeline — bypasses the ownership-verified
+        ``update_entry`` path because the writer is the system, not the user,
+        and the fields are processing bookkeeping, not user content.
+
+        Backend: UserEntryBackend.update.
+        """
+        return await self.backend.update(uid, updates)
 
     # =========================================================================
     # DELETE

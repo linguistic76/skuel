@@ -50,7 +50,8 @@ if TYPE_CHECKING:
     import builtins
     from logging import Logger
 
-    from core.models.graph_models import GraphPath, Relationship
+    from core.models.graph_models import GraphPath
+    from core.ports.query_types import RelationshipRow
 
 
 class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
@@ -166,9 +167,12 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         uid: str,
         rel_type: RelationshipName | None = None,
         direction: Direction = "both",
-    ) -> Result[builtins.list[Relationship]]:
+    ) -> Result[builtins.list[RelationshipRow]]:
         """
         Get all relationships for an entity.
+
+        Returns raw edge rows (``type``/``target_uid``/``direction``/``properties``),
+        not domain models — see ``RelationshipRow``.
 
         Args:
             uid: Entity UID
