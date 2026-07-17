@@ -67,10 +67,14 @@ def create_user_entry_routes(
             create_batch_transcription_api_routes,
         )
 
+        assert services.journal_batch is not None, (
+            "JournalBatchService must be wired before batch transcription routes"
+        )
         create_batch_transcription_api_routes(
             app,
             rt,
             batch_transcription_service=batch_transcription_svc,
+            journal_batch=services.journal_batch,
             user_service=getattr(services, "user", None),
         )
         logger.info("UserEntry: batch transcription API routes registered (admin-only)")
