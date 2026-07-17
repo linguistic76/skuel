@@ -46,7 +46,7 @@ A signed, opaque session cookie managed by Starlette's `SessionMiddleware`. Cont
 | `Secure` | `True` in production | TLS only |
 | `max_age` | 30 days | Matches session lifetime |
 
-**Source:** [`adapters/inbound/csrf.py:239-247`](../../adapters/inbound/csrf.py)
+**Source:** [`adapters/inbound/csrf.py:207-215`](../../adapters/inbound/csrf.py)
 
 ---
 
@@ -104,7 +104,7 @@ The cookie is the single source of truth. Three mirror paths carry that value in
 
 | Path | When it runs | How |
 |---|---|---|
-| **Server-rendered hidden input** | At page-render time | `csrf_hidden_input()` reads a `ContextVar` the middleware set for this request and emits `<input type="hidden" name="csrf_token" value="...">` as a child of the `<form>` |
+| **Server-rendered hidden input** | At page-render time | `csrf_hidden_input()` (`ui/patterns/csrf.py`) reads a `ContextVar` the middleware set for this request (`core/utils/csrf_token_context.py`) and emits `<input type="hidden" name="csrf_token" value="...">` as a child of the `<form>` |
 | **HTMX header hook** | Every HTMX mutating request | `static/js/skuel.js` listens for `htmx:configRequest` and attaches `X-CSRF-Token` from `document.cookie` |
 | **Native form sync** | Every native `<form method="POST">` submit | Same file, capture-phase `submit` listener re-injects and refreshes the hidden input from the cookie right before the browser serialises the form |
 
@@ -141,7 +141,7 @@ When a browser first visits SKUEL, it opens the HTML **and in parallel** fires s
 
 The fix: the middleware never mints on `/static/*`, `/manifest.json`, `/service-worker.js`, `/favicon.ico`, `/robots.txt`. Only HTML requests mint.
 
-**Source:** [`adapters/inbound/csrf.py:70-77, 220-230`](../../adapters/inbound/csrf.py)
+**Source:** [`adapters/inbound/csrf.py:78-92, 195-199`](../../adapters/inbound/csrf.py)
 
 ### 5.2 · `Cache-Control: no-store` on /login
 
@@ -167,7 +167,7 @@ The philosophy, concretely.
 | Parameterised queries (injection protection) | Neo4j driver | Every query uses `$variables`; `SKUEL001` linter proves it |
 | Label/field name allowlisting | Pure functions in `_helpers.py` | ~30 lines of regex validators |
 
-Everything SKUEL-specific in the CSRF story is roughly **300 lines in `adapters/inbound/csrf.py`**, mostly orchestration: the middleware, the decorator, the hidden-input renderer, the three mirror paths, the mint exemption. No hand-rolled crypto. No custom cookie parsing. No custom hashing.
+Everything SKUEL-specific in the CSRF story is roughly **300 lines**, mostly orchestration, split along the hexagonal seam: enforcement in `adapters/inbound/csrf.py` (the middleware, the decorator, the mint exemption), the request-scoped token context in `core/utils/csrf_token_context.py`, and the hidden-input renderer in `ui/patterns/csrf.py`. No hand-rolled crypto. No custom cookie parsing. No custom hashing.
 
 This is the posture the project commits to keeping.
 
@@ -204,7 +204,7 @@ The through-line: **rely on open, well-maintained primitives; add the smallest c
 
 - `CSRFMiddleware` — mints the cookie, owns the mint-exemption
 - `@csrf_protected` — gates state-changing routes
-- `csrf_hidden_input()` — renders the hidden field from the request `ContextVar`
+- `csrf_hidden_input()` (`ui/patterns/csrf.py`) — renders the hidden field from the request `ContextVar` (`core/utils/csrf_token_context.py`)
 - `@boundary_handler` — strips internal errors at HTTP boundaries
 - Ownership helpers — return 404 (not 403) to prevent UID enumeration
 
@@ -229,7 +229,9 @@ Notice how many of these are *configuration* or *library drop-ins*, not new code
 
 ## Related
 
-- [`adapters/inbound/csrf.py`](../../adapters/inbound/csrf.py) — the CSRF module, including the design doc at the top
+- [`adapters/inbound/csrf.py`](../../adapters/inbound/csrf.py) — the enforcement half (middleware, decorator, mint/verify), including the design doc at the top
+- [`core/utils/csrf_token_context.py`](../../core/utils/csrf_token_context.py) — the request-scoped token ContextVar the middleware writes and form builders read
+- [`ui/patterns/csrf.py`](../../ui/patterns/csrf.py) — `csrf_hidden_input()`, the render half
 - [`adapters/inbound/auth/session.py`](../../adapters/inbound/auth/session.py) — session cookie configuration
 - [`static/js/skuel.js`](../../static/js/skuel.js) — the `window.SKUEL.csrf()` cookie-read helper plus the two JS mirror paths (HTMX `htmx:configRequest` hook and the capture-phase native-form `submit` sync)
 - [`.claude/skills/security/SKILL.md`](../../.claude/skills/security/SKILL.md) — broader security patterns: ownership verification, error stripping, Cypher injection guards

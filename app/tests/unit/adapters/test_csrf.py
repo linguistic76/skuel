@@ -8,15 +8,14 @@ import pytest
 
 from adapters.inbound.csrf import (
     CSRF_COOKIE_NAME,
-    CSRF_FORM_FIELD,
     CSRF_HEADER_NAME,
-    csrf_hidden_input,
     csrf_protected,
-    current_csrf_token,
     is_csrf_enforced,
     mint_token,
     verify_csrf,
 )
+from core.utils.csrf_token_context import CSRF_FORM_FIELD, current_csrf_token
+from ui.patterns.csrf import csrf_hidden_input
 
 
 def _make_request(
@@ -305,13 +304,13 @@ class TestCsrfHiddenInput:
         assert 'value=""' in rendered
 
     def test_uses_contextvar_token(self):
-        from adapters.inbound.csrf import _current_csrf_token
+        from core.utils.csrf_token_context import csrf_token_var
 
         token = mint_token()
-        reset = _current_csrf_token.set(token)
+        reset = csrf_token_var.set(token)
         try:
             assert current_csrf_token() == token
             rendered = str(csrf_hidden_input())
             assert f'value="{token}"' in rendered
         finally:
-            _current_csrf_token.reset(reset)
+            csrf_token_var.reset(reset)

@@ -23,7 +23,6 @@ from fasthtml.common import Input as FTInput
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from core.ports import (
     GeConstraint,
     GtConstraint,
@@ -33,6 +32,7 @@ from core.ports import (
     MinLenConstraint,
     PydanticFieldInfo,
 )
+from core.utils.csrf_token_context import CSRF_FORM_FIELD, current_csrf_token
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT, Icon
 from ui.forms import Checkbox, Input, Label, Select, Textarea

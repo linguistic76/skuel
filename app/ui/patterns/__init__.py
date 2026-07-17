@@ -2,6 +2,7 @@
 
 from ui.patterns.activity_form_helper import render_activity_form
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_empty_state_with_error, render_error_banner
 from ui.patterns.form_generator import FormGenerator
@@ -27,6 +28,7 @@ __all__ = [
     "StatTile",
     "StatsGrid",
     "content_loading_placeholder",
+    "csrf_hidden_input",
     "render_activity_form",
     "render_empty_state_with_error",
     "render_error_banner",

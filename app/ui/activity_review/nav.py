@@ -1,9 +1,13 @@
 """Activity Review sidebar navigation."""
 
-from typing import Any
+from __future__ import annotations
 
-from adapters.inbound.fasthtml_types import Request
+from typing import TYPE_CHECKING, Any
+
 from ui.patterns.sidebar import SidebarItem, SidebarPage
+
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request
 
 ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
     SidebarItem("Queue", "/activity-review/queue", "queue", icon="\U0001f4cb"),
