@@ -162,7 +162,7 @@ def _shared_inbox_button(active_page: str) -> A:
 
 
 def _calendar_button(active_page: str) -> A:
-    """Calendar icon linking to /events/calendar — the unified calendar view.
+    """Calendar icon linking to /cal — the unified calendar view.
 
     Desktop-only (like Search): mobile keeps the 44px tap-target minimum by
     folding Calendar into the bottom nav instead of a seventh top-bar icon.
@@ -172,7 +172,7 @@ def _calendar_button(active_page: str) -> A:
     return A(
         Span("Calendar", cls="sr-only"),
         Icon("calendar", cls="size-6", aria_hidden="true"),
-        href="/events/calendar",
+        href="/cal",
         cls=f"hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
         **({"aria-current": "page"} if is_active else {}),
     )
@@ -386,7 +386,7 @@ _SEARCH_TAB = IconNavItem(
 _CALENDAR_TAB = IconNavItem(
     label="Calendar",
     letter="",
-    href="/events/calendar",
+    href="/cal",
     page_key="calendar",
     requires_auth=True,
     icon="calendar",

@@ -118,9 +118,9 @@ def create_calendar_header(title: str) -> Div:
 def create_view_switcher(current_view: str, target_date: date) -> Div:
     """Segmented Day/Week/Month control. Active segment is a non-navigating span."""
     views = (
-        ("Day", "day", f"/events/day/{target_date.isoformat()}"),
-        ("Week", "week", f"/events/week/{target_date.isoformat()}"),
-        ("Month", "month", f"/events/month/{target_date.year}/{target_date.month}"),
+        ("Day", "day", f"/cal/day/{target_date.isoformat()}"),
+        ("Week", "week", f"/cal/week/{target_date.isoformat()}"),
+        ("Month", "month", f"/cal/month/{target_date.year}/{target_date.month}"),
     )
     seg_base = "inline-flex items-center h-7 px-4 rounded-md text-[13px] font-semibold"
     segments = []
@@ -281,7 +281,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
     interactive: dict[str, str] = (
         {
             "data_item_id": item.uid,
-            "hx_get": f"/events/calendar/item-details/{item.uid}",
+            "hx_get": f"/cal/item-details/{item.uid}",
             "hx_target": "body",
             "hx_swap": "beforeend",
         }
@@ -543,7 +543,7 @@ def create_day_timeline(calendar_data: CalendarData) -> Div:
         interactive: dict[str, str] = (
             {
                 "data_item_id": item.uid,
-                "hx_get": f"/events/calendar/item-details/{item.uid}",
+                "hx_get": f"/cal/item-details/{item.uid}",
                 "hx_target": "body",
                 "hx_swap": "beforeend",
             }
@@ -752,7 +752,7 @@ def create_item_details_modal(item: Any) -> Div:
             0,
             ButtonLink(
                 "Edit Task",
-                href=f"/tasks/{item.source_uid}/edit",
+                href=f"/tasks/edit?uid={item.source_uid}",
                 cls=(ButtonT.primary, "mr-2"),
             ),
         )
@@ -761,7 +761,7 @@ def create_item_details_modal(item: Any) -> Div:
             0,
             ButtonLink(
                 "Edit Event",
-                href=f"/events/{item.source_uid}/edit",
+                href=f"/events/edit?uid={item.source_uid}",
                 cls=(ButtonT.primary, "mr-2"),
             ),
         )
@@ -771,8 +771,8 @@ def create_item_details_modal(item: Any) -> Div:
             Button(
                 "Mark Complete",
                 cls=(ButtonT.secondary, "mr-2"),
-                hx_post=f"/events/calendar/habit/{item.source_uid}/complete",
-                hx_swap="none",
+                hx_post=f"/cal/habit/{item.source_uid}/complete",
+                hx_swap="outerHTML",
             ),
         )
 
