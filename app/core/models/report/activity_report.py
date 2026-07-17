@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.report.activity_report_dto import ActivityReportDTO
 
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
 
@@ -70,8 +70,6 @@ class ActivityReport(UserOwnedEntity):
                 f"ActivityReport constructed with entity_type={self.entity_type!r} "
                 f"(uid={self.uid!r}) — the writer persisted a wrong type (G6)"
             )
-        if self.status is None:
-            object.__setattr__(self, "status", EntityStatus.COMPLETED)
         super().__post_init__()
 
     # =========================================================================
@@ -153,7 +151,6 @@ class ActivityReport(UserOwnedEntity):
             uid=uid,
             title=title,
             entity_type=EntityType.ACTIVITY_REPORT,
-            status=EntityStatus.COMPLETED,
             user_uid=user_uid,
             subject_uid=subject_uid,
             processed_content=content,

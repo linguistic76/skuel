@@ -839,15 +839,10 @@ _VALID_STATUSES_BY_TYPE: dict[EntityType, frozenset[EntityStatus]] = {
             EntityStatus.ARCHIVED,
         }
     ),
-    EntityType.ACTIVITY_REPORT: frozenset(
-        {
-            EntityStatus.DRAFT,
-            EntityStatus.PROCESSING,
-            EntityStatus.COMPLETED,
-            EntityStatus.FAILED,
-            EntityStatus.ARCHIVED,
-        }
-    ),
+    # ActivityReport: generated artifact — written post-generation, always
+    # complete. No draft/processing pipeline states exist for it (ruling
+    # 2026-07-17: enum map matches the writer, not a speculative lifecycle).
+    EntityType.ACTIVITY_REPORT: frozenset({EntityStatus.COMPLETED}),
     EntityType.ENTRY_REPORT: frozenset(
         {
             EntityStatus.DRAFT,
@@ -989,7 +984,7 @@ _DEFAULT_STATUS_BY_TYPE: dict[EntityType, EntityStatus] = {
     EntityType.LEARNING_PATH: EntityStatus.DRAFT,
     EntityType.EXERCISE: EntityStatus.DRAFT,
     EntityType.REVISED_EXERCISE: EntityStatus.DRAFT,
-    EntityType.ACTIVITY_REPORT: EntityStatus.DRAFT,
+    EntityType.ACTIVITY_REPORT: EntityStatus.COMPLETED,
     EntityType.ENTRY_REPORT: EntityStatus.DRAFT,
     EntityType.TASK: EntityStatus.DRAFT,
     EntityType.GOAL: EntityStatus.DRAFT,
