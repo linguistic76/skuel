@@ -303,9 +303,9 @@ async def some_page(request):
     ...
 ```
 
-In **UI components** (`ui/`), never import `adapters.inbound.auth` — the
-boundary guard (`tests/unit/test_ui_layer_boundary.py`) fails closed on any
-runtime ui → adapters import. Read the middleware-set auth context instead:
+In **UI components** (`ui/`), never import `adapters.inbound.auth` — lint rule
+SKUEL027 fails closed on any runtime ui → adapters import. Read the
+middleware-set auth context instead:
 
 ```python
 from core.utils.auth_context import current_auth_state

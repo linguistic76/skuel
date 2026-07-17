@@ -28,7 +28,7 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 298 tests covering all 25 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_lint_skuel.py` — 312 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
 - `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
 
 ## SKUEL-Specific Rules
@@ -51,6 +51,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL023** | `self.backend` typed against an adapter class in `core/` | Type against the `core/ports` protocol (AST rule, ADR-044) |
 | **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 | **SKUEL025** | A deleted Activity `*UpdatePayload` name (ADR-066) | Use the domain `*UpdateIntent` / `*UpdateRequest.to_intent()` (AST rule) |
+| **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (AST rule, SKUEL022's ui/ sibling) |
 
 ### WARNING (blocks `./dev lint` / `./dev quality` via `--strict`; plain runs report only)
 
@@ -96,7 +97,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -548,7 +549,7 @@ if TYPE_CHECKING:
 
 **TYPE_CHECKING is exempt:** an import under `if TYPE_CHECKING:` (or `if typing.TYPE_CHECKING:`) never executes, so it *cannot* create a runtime dependency — you can't smuggle a real runtime import through it (it would `NameError`). Typing `self.backend` against a concrete adapter class under `TYPE_CHECKING` is a separate, lower-priority purity concern (type against `core/ports` instead), not a layering violation. Relative imports (`from . import x`) are not adapter imports and are never flagged.
 
-**Scope:** all of `core/` (not just `core/services/`). `adapters/`, `services_bootstrap/` (the composition root — it SHOULD import adapters), `ui/`, and `routes/` are not checked. Test files are skipped.
+**Scope:** all of `core/` (not just `core/services/`). `adapters/`, `services_bootstrap/` (the composition root — it SHOULD import adapters), and `routes/` are not checked; `ui/` gets the same enforcement from SKUEL027. Test files are skipped.
 
 **How to fix a violation:** move the adapter construction to the composition root (`services_bootstrap/`) or a factory below the boundary, and inject the result behind a `core/ports` protocol. See the PsEngagement (port injection), UnifiedIngestion (`adapters/persistence/neo4j/ingestion_service_factory.py`), and finance-renderer (`InvoiceRenderer` port) inversions for the patterns.
 
@@ -557,6 +558,41 @@ if TYPE_CHECKING:
 **Suppression:**
 - `# skuel-lint: disable=SKUEL022 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL022 -- <reason>` (file)
+
+## Rule: SKUEL027 - ui/ Must Not Import adapters/
+
+**Pattern:** `ui/` is pure presentation — it renders what routes hand it. The dependency arrows point inward: `adapters/inbound` (routes) imports `ui/` components, never the reverse at runtime. This is SKUEL022's sibling for the `ui/` layer; both share the same AST scan (`_collect_runtime_adapter_imports`). Before this rule, no lint watched `ui/`, which is how `ui/calendar/converters.py` grew an adapters import (fixed in #653) and CSRF render helpers were consumed from `adapters/inbound/csrf.py` (split inward in #654). The rule replaced the interim unit-test guard `tests/unit/test_ui_layer_boundary.py` (one enforcement point — lint fires in `./dev quality`, not only under pytest; inline suppressions beat a remote sanction list).
+
+```python
+# ❌ VIOLATION (ERROR) — module-level adapter import in a ui/ file
+from adapters.inbound.auth import get_session_user
+
+# ❌ VIOLATION (ERROR) — hidden inside a function (where the last real violations hid,
+# BasePage/navbar session readers, cleared by the middleware-set auth context in #655)
+def Navbar(request):
+    from adapters.inbound.auth import get_session_user
+    user = get_session_user(request)
+
+# ✅ CORRECT — request-derived state flows inward via a middleware-set ContextVar
+from core.utils.auth_context import current_auth_state
+
+# ✅ CORRECT — type-only import under TYPE_CHECKING (never executes, exempt;
+# the Request protocol lives at the FastHTML boundary by design)
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request
+```
+
+**AST-based, runtime scope:** same mechanics as SKUEL022 — flags `import adapters...` / `from adapters... import ...` at module scope **and inside functions**; `TYPE_CHECKING` bodies (both `TYPE_CHECKING` and `typing.TYPE_CHECKING` forms) are exempt, the `else`/`elif` branch is not; adapter paths in docstrings/strings are prose, never flagged.
+
+**Scope:** all of `ui/`. `core/` is SKUEL022's territory; `adapters/`, `services_bootstrap/`, and test files are not checked.
+
+**How to fix a violation:** move the shared code inward (`core/utils/` or `ui/`) or pass the value in from the route. For request-derived state, use the middleware-set ContextVar shape — `core/utils/auth_context.py` (auth flags) and `core/utils/csrf_token_context.py` (CSRF token) are the reference implementations: the middleware (adapters → core) writes, layout components (ui → core) read.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL027` covers module-level, plain `import`, function-local, both `TYPE_CHECKING` forms, else-branch/try-except runtime branches, docstring prose, inward imports, layer-scope exemptions (core/, routes, test files), and suppression. The real `ui/` tree is held clean by `./dev quality` in CI.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL027 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL027 -- <reason>` (file)
 
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 

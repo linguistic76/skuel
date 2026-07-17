@@ -46,6 +46,7 @@ def lint_content(
     # Determine context flags
     is_test = "test_" in fp.name or "/tests/" in str(fp)
     is_core = "/core/" in str(fp) and fp.suffix == ".py"
+    is_ui = "/ui/" in str(fp) and fp.suffix == ".py"
 
     # Shared parse — mirrors _lint_file: AST rules receive one tree per file,
     # None on syntax error (they skip; ruff owns syntax errors).
@@ -113,6 +114,9 @@ def lint_content(
 
     if is_core and not is_test and linter._should_run_rule("SKUEL023"):
         linter._check_adapter_type_annotations(fp, rel, content, lines, tree)
+
+    if is_ui and not is_test and linter._should_run_rule("SKUEL027"):
+        linter._check_ui_imports_adapter(fp, rel, content, lines, tree)
 
     return linter.result.violations
 
@@ -3241,6 +3245,179 @@ class TestSKUEL026:
         assert [v for v in linter.result.violations if v.rule_id == "SKUEL026"] == []
         assert len(linter.result.suppressions) == 1
         assert linter.result.suppressions[0].used is True
+
+
+# ============================================================================
+# SKUEL027 — ui/ Must Not Import adapters/
+# ============================================================================
+
+
+class TestSKUEL027:
+    """Import-direction enforcement for the ui/ layer: presentation renders what
+    routes hand it, so a runtime `adapters` import inside ui/ inverts the layering.
+    SKUEL022's sibling — same scan (shared `_collect_runtime_adapter_imports`),
+    different layer scope. Replaced the tests/unit/test_ui_layer_boundary.py guard
+    (one enforcement point; lint fires in ./dev quality, not only under pytest)."""
+
+    def test_detects_module_level_from_import(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = "from adapters.inbound.auth import require_authenticated_user\n"
+        violations = lint_content(
+            linter, content, file_path="ui/layouts/base_page.py", is_service=False
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL027"
+        assert violations[0].severity == Severity.ERROR
+        assert "adapters.inbound.auth" in violations[0].message
+
+    def test_detects_plain_import(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = "import adapters.inbound.csrf\n"
+        violations = lint_content(
+            linter, content, file_path="ui/patterns/csrf.py", is_service=False
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL027"
+
+    def test_detects_function_local_import(self) -> None:
+        """Function-local imports are where the last real violations hid
+        (BasePage/navbar's `adapters.inbound.auth` session readers, cleared in #655)."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "def Navbar(request):\n"
+            "    from adapters.inbound.auth import get_session_user\n"
+            "    return get_session_user(request)\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/layouts/navbar.py", is_service=False
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL027"
+        assert violations[0].line_number == 2
+
+    def test_type_checking_import_exempt(self) -> None:
+        """The sanctioned shape: type-only `fasthtml_types.Request` annotations."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.inbound.fasthtml_types import Request\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/layouts/base_page.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_typing_dot_type_checking_exempt(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "import typing\n"
+            "\n"
+            "if typing.TYPE_CHECKING:\n"
+            "    from adapters.inbound.fasthtml_types import Request\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/explore/nav.py", is_service=False)
+        assert len(violations) == 0
+
+    def test_else_branch_of_type_checking_not_exempt(self) -> None:
+        """The `else:` of `if TYPE_CHECKING:` is the runtime branch — flagged."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    from adapters.inbound.fasthtml_types import Request\n"
+            "else:\n"
+            "    from adapters.inbound.auth import get_session_user\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/layouts/navbar.py", is_service=False
+        )
+        assert len(violations) == 1
+        assert violations[0].line_number == 6
+
+    def test_adapter_path_in_docstring_not_flagged(self) -> None:
+        """AST-based: adapter paths named in docstrings/strings are prose, not imports
+        (many real ui/ modules cite their consuming route file, e.g. tasks_form.py)."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            '"""Form used by ``adapters/inbound/tasks_ui.py`` (GET /tasks/create)."""\n'
+            "\n"
+            "PATH = 'adapters.inbound.tasks_ui'\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/activities/tasks_form.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_relative_and_inward_imports_clean(self) -> None:
+        """ui/ importing core/ and its own siblings is the correct direction."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "from core.models.task import Task\n"
+            "from ui.components import Button\n"
+            "from .helpers import thing\n"
+        )
+        violations = lint_content(
+            linter, content, file_path="ui/activities/tasks_form.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_core_file_not_checked_by_this_rule(self) -> None:
+        """core/ is SKUEL022's territory — SKUEL027 only scans ui/."""
+        linter = make_linter(["SKUEL027"])
+        content = "from adapters.inbound.auth import require_authenticated_user\n"
+        violations = lint_content(
+            linter, content, file_path="core/services/example_service.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_route_file_not_flagged(self) -> None:
+        """adapters/inbound routes composing adapters is the correct direction."""
+        linter = make_linter(["SKUEL027"])
+        content = "from adapters.inbound.auth import require_authenticated_user\n"
+        violations = lint_content(
+            linter, content, file_path="adapters/inbound/tasks_ui.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_skips_test_files(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = "from adapters.inbound.auth import require_authenticated_user\n"
+        violations = lint_content(linter, content, file_path="ui/test_example.py", is_service=False)
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "from adapters.inbound.x import Y  "
+            "# skuel-lint: disable=SKUEL027 -- documented boundary exception\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/x.py", is_service=False)
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL027 -- documented boundary exception\n"
+            "from adapters.inbound.x import Y\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/x.py", is_service=False)
+        assert len(violations) == 0
+
+    def test_try_and_except_bodies_both_flagged(self) -> None:
+        """Runtime-branch coverage rides the shared scan — same guarantee as SKUEL022."""
+        linter = make_linter(["SKUEL027"])
+        content = (
+            "try:\n"
+            "    from adapters.inbound.fast import Fast\n"
+            "except ImportError:\n"
+            "    from adapters.inbound.slow import Slow\n"
+        )
+        violations = lint_content(linter, content, file_path="ui/x.py", is_service=False)
+        assert len(violations) == 2
+        assert {v.line_number for v in violations} == {2, 4}
 
 
 class TestSuppressibleRulesDrift:

@@ -19,6 +19,7 @@ ERROR (blocks CI):
   SKUEL023: core/ thin services must type self.backend against a core/ports protocol
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
+  SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -688,6 +689,49 @@ This rule is itself not suppressible.""",
         "bad": """value = compute()  # skuel-lint: disable=SKUEL011 -- no hasattr here anymore
 # (SKUEL011 would not fire on this line -> the comment is rot; delete it)""",
     },
+    "SKUEL027": {
+        "title": "ui/ Must Not Import adapters/",
+        "severity": "ERROR",
+        "description": """ui/ is pure presentation — it renders what routes hand it. The
+dependency arrows point inward: adapters/inbound (routes) imports ui/ components, never
+the reverse at runtime. A runtime `import adapters` inside ui/ inverts that layering.
+SKUEL022 enforces the same direction for core/; before this rule existed, no lint watched
+ui/, which is how `ui/calendar/converters.py` grew an adapters import (fixed in #653) and
+CSRF render helpers were consumed from `adapters/inbound/csrf.py` (split into
+`core/utils/csrf_token_context.py` + `ui/patterns/csrf.py` in #654).
+
+AST-based, same mechanics as SKUEL022: flags `import adapters...` /
+`from adapters... import ...` at module scope OR inside a function (a function-local
+import is the same runtime dependency, deferred past module load — exactly where the
+last violations hid: BasePage/navbar's function-local `adapters.inbound.auth` imports,
+cleared by the middleware-set auth context in #655).
+
+TYPE_CHECKING-only imports are EXEMPT: an import under `if TYPE_CHECKING:` never
+executes, so it cannot create a runtime ui→adapters dependency. Typing a parameter
+against `adapters.inbound.fasthtml_types.Request` under TYPE_CHECKING is fine — the
+Request protocol lives at the FastHTML boundary by design (CLAUDE.md § FastHTML
+boundary).
+
+Fix: move the shared code inward (`core/utils/` or `ui/`) or pass the value in from the
+route. For request-derived state, use a middleware-set ContextVar
+(`core/utils/auth_context.py`, `core/utils/csrf_token_context.py`) — values flow inward,
+ui/ never reaches out.
+
+Suppress: # skuel-lint: disable=SKUEL027 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL027 -- <reason>""",
+        "good": """# Route derives state and hands it to the UI; ui/ reads inward-facing context
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request  # type-only, never executes
+
+from core.utils.auth_context import current_user_role  # middleware-set, flows inward""",
+        "bad": """# Runtime adapter import inside a ui/ module — presentation reaching outward
+from adapters.inbound.auth import get_session_user
+
+def Navbar(request):
+    # ...or hidden inside a function (still a runtime ui→adapters dependency):
+    from adapters.inbound.auth import get_session_user
+    user = get_session_user(request)""",
+    },
 }
 
 
@@ -836,6 +880,7 @@ class SkuelLinter:
             "SKUEL023",
             "SKUEL024",
             "SKUEL025",
+            "SKUEL027",
         }
     )
 
@@ -897,6 +942,7 @@ class SkuelLinter:
             "SKUEL023",
             "SKUEL024",
             "SKUEL025",
+            "SKUEL027",
         }
     )
 
@@ -1256,6 +1302,7 @@ class SkuelLinter:
             # Other service-only rules (SKUEL002/004/005/007/013/014) stay on is_service.
             path_str = str(file_path)
             is_core = "/core/" in path_str and file_path.suffix == ".py"
+            is_ui = "/ui/" in path_str and file_path.suffix == ".py"
             # is_service is a strict subset of is_core today (no /services/ tree lives
             # outside core/), but keep it in the OR so a future non-core service dir
             # still gets the boundary rules.
@@ -1315,6 +1362,11 @@ class SkuelLinter:
             # Import-direction rule (ADR-044): all of core/, not just services.
             if is_core and not is_test and self._should_run_rule("SKUEL022"):
                 self._check_core_imports_adapter(file_path, rel_path, content, lines, tree)
+
+            # Import-direction rule (SoC): ui/ renders what routes hand it — no
+            # runtime adapters imports (SKUEL022's sibling for the ui/ layer).
+            if is_ui and not is_test and self._should_run_rule("SKUEL027"):
+                self._check_ui_imports_adapter(file_path, rel_path, content, lines, tree)
 
             # Static type-direction rule (ADR-044): all of core/, not just services.
             # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
@@ -3039,6 +3091,51 @@ class SkuelLinter:
             )
         return False
 
+    def _collect_runtime_adapter_imports(self, tree: ast.Module) -> list[tuple[ast.stmt, str]]:
+        """``(node, module)`` for every runtime ``adapters`` import in *tree*.
+
+        Shared scan behind SKUEL022 (core/) and SKUEL027 (ui/) — the layer scope,
+        suppression, and message live in each rule's checker. Flags imports at module
+        scope AND inside functions (a function-local import is the same runtime
+        dependency, deferred past module load — the dodge a module-level-only check
+        would miss).
+
+        ``TYPE_CHECKING``-only imports are excluded: they never execute, so they cannot
+        create a runtime dependency. Only the ``if`` BODY is exempt, never the
+        ``else``/``elif`` branch — an import there DOES execute at runtime. Relative
+        imports (``node.module`` is None for ``from . import x``) are never adapter
+        imports.
+        """
+        type_checking_lines: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
+                for stmt in node.body:
+                    for child in ast.walk(stmt):
+                        if hasattr(child, "lineno"):
+                            type_checking_lines.add(child.lineno)
+
+        found: list[tuple[ast.stmt, str]] = []
+        for node in ast.walk(tree):
+            imported_modules: list[str] = []
+            if isinstance(node, ast.ImportFrom):
+                if node.module:
+                    imported_modules.append(node.module)
+            elif isinstance(node, ast.Import):
+                imported_modules.extend(alias.name for alias in node.names)
+            else:
+                continue
+
+            adapter_modules = [
+                m for m in imported_modules if m == "adapters" or m.startswith("adapters.")
+            ]
+            if not adapter_modules:
+                continue
+            if node.lineno in type_checking_lines:
+                continue  # TYPE_CHECKING-only — cannot create a runtime dependency
+
+            found.append((node, adapter_modules[0]))
+        return found
+
     def _check_core_imports_adapter(
         self,
         file_path: Path,
@@ -3051,13 +3148,11 @@ class SkuelLinter:
         SKUEL022 [ERROR]: a ``core/`` module must not import from ``adapters/``.
 
         The hexagonal dependency direction is core → adapter (ADR-044). A runtime
-        import of an adapter inside ``core/`` inverts it. Flagged at module scope AND
-        inside functions (a function-local import is the same runtime dependency,
-        deferred past module load — the dodge a module-level-only check would miss).
+        import of an adapter inside ``core/`` inverts it. Scan mechanics (function-local
+        imports flagged, TYPE_CHECKING body exempt): ``_collect_runtime_adapter_imports``.
 
-        ``TYPE_CHECKING``-only imports are exempt: they never execute, so they cannot
-        create a runtime dependency. Typing an annotation against a concrete adapter
-        class under ``if TYPE_CHECKING:`` is a separate purity concern, not a layering
+        Typing an annotation against a concrete adapter class under
+        ``if TYPE_CHECKING:`` is a separate purity concern (SKUEL023), not a layering
         violation.
 
         Fix: depend on a ``core/ports`` protocol and inject the concrete adapter at the
@@ -3075,33 +3170,7 @@ class SkuelLinter:
         if tree is None:
             return
 
-        # Collect line numbers inside the BODY of `if TYPE_CHECKING:` blocks — exempt.
-        # Only the `if` body, never the `else`/`elif` branch: an import under
-        # `else:` (or `elif`) DOES execute at runtime, so it must still be flagged.
-        type_checking_lines: set[int] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
-                for stmt in node.body:
-                    for child in ast.walk(stmt):
-                        if hasattr(child, "lineno"):
-                            type_checking_lines.add(child.lineno)
-
-        for node in ast.walk(tree):
-            imported_modules: list[str] = []
-            if isinstance(node, ast.ImportFrom):
-                # Ignore relative imports (node.module is None for `from . import x`).
-                if node.module:
-                    imported_modules.append(node.module)
-            elif isinstance(node, ast.Import):
-                imported_modules.extend(alias.name for alias in node.names)
-            else:
-                continue
-
-            if not any(m == "adapters" or m.startswith("adapters.") for m in imported_modules):
-                continue
-            if node.lineno in type_checking_lines:
-                continue  # TYPE_CHECKING-only — cannot create a runtime dependency
-
+        for node, module in self._collect_runtime_adapter_imports(tree):
             line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL022"):
                 continue
@@ -3114,12 +3183,71 @@ class SkuelLinter:
                     severity=Severity.ERROR,
                     rule_id="SKUEL022",
                     message=(
-                        f"core/ module imports adapter '{imported_modules[0]}' at runtime "
+                        f"core/ module imports adapter '{module}' at runtime "
                         f"— wrong dependency direction (core → adapter only, ADR-044)"
                     ),
                     suggestion=(
                         "Depend on a core/ports protocol and inject the concrete adapter "
                         "at the composition root; or move a type-only import under "
+                        "`if TYPE_CHECKING:`"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    def _check_ui_imports_adapter(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL027 [ERROR]: a ``ui/`` module must not import from ``adapters/`` at runtime.
+
+        ``ui/`` is pure presentation — routes (``adapters/inbound``) compose UI
+        components, never the reverse. Scan mechanics (function-local imports flagged,
+        TYPE_CHECKING body exempt): ``_collect_runtime_adapter_imports``. A type-only
+        ``adapters.inbound.fasthtml_types.Request`` annotation is fine — the Request
+        protocol lives at the FastHTML boundary by design.
+
+        Fix: move the shared code inward (``core/utils/`` or ``ui/``) or pass the value
+        in from the route; request-derived state flows in via middleware-set ContextVars
+        (``core/utils/auth_context.py``, ``core/utils/csrf_token_context.py``).
+
+        Suppress: # skuel-lint: disable=SKUEL027 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL027 -- <reason>
+        """
+        if self._is_file_suppressed(content, "SKUEL027"):
+            return
+        # Cheap pre-filter: only walk files that mention adapters at all.
+        if "adapters" not in content:
+            return
+
+        if tree is None:
+            return
+
+        for node, module in self._collect_runtime_adapter_imports(tree):
+            line = lines[node.lineno - 1] if 0 < node.lineno <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL027"):
+                continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=node.lineno,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL027",
+                    message=(
+                        f"ui/ module imports adapter '{module}' at runtime "
+                        f"— presentation must not depend on the boundary layer "
+                        f"(routes compose UI, never the reverse)"
+                    ),
+                    suggestion=(
+                        "Move the shared code inward (core/utils/ or ui/) or pass the "
+                        "value in from the route; or move a type-only import under "
                         "`if TYPE_CHECKING:`"
                     ),
                     line_content=line.strip(),
