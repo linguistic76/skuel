@@ -825,16 +825,17 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         self.logger.debug(f"Found {len(categories)} total {self.config_lookup_label} categories")
         return Result.ok(categories)
 
-    @with_error_handling("list_all_tags", error_type="database")
-    async def list_all_tags(self) -> Result[builtins.list[str]]:
+    @with_error_handling("tag_frequencies", error_type="database")
+    async def tag_frequencies(self) -> Result[dict[str, int]]:
         """
-        List all unique tag values across this domain's entities.
+        Map each distinct tag on this domain's entities to its usage count.
 
         The tag-facet vocabulary source (library chips, /search tags filter).
-        Mirrors ``list_all_categories`` on the universal ``tags`` array field.
+        Mirrors ``list_all_categories`` on the universal ``tags`` array field,
+        but keeps the per-tag counts so consumers can rank by usage.
 
         Backend: ``distinct_values_raw`` UNWINDs array properties, so each
-        distinct tag comes back as its own sorted row.
+        distinct tag comes back as its own row with an occurrence ``count``.
         """
         result = await self.backend.distinct_values_raw(
             "tags",
@@ -843,10 +844,14 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if result.is_error:
             return Result.fail(result)
 
-        tags = [record["value"] for record in result.value if record.get("value")]
+        frequencies = {
+            str(record["value"]): int(record.get("count", 1))
+            for record in result.value
+            if record.get("value")
+        }
 
-        self.logger.debug(f"Found {len(tags)} distinct {self.config_lookup_label} tags")
-        return Result.ok(tags)
+        self.logger.debug(f"Found {len(frequencies)} distinct {self.config_lookup_label} tags")
+        return Result.ok(frequencies)
 
     async def count(self, **filters: Any) -> Result[int]:
         """Count entities matching filters."""

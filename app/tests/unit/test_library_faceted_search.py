@@ -14,7 +14,9 @@ closed four faceted-path gaps in the process:
    over-fetch + slice (multi-domain sweep).
 4. Anonymous browse — PUBLIC-visibility domains take the rich
    graph-aware path without a user; OWNER_ONLY fails closed.
-5. Tag vocabulary — ``SearchRouter.list_tags`` Ku+PS aggregation.
+5. Tag vocabulary — ``SearchRouter.tag_frequencies`` Ku+PS aggregation
+   (count-summed, most-used first) + the alphabetical ``list_tags`` shape
+   derived from it, and the panel's visible/overflow chip split.
 6. Route mapping — the library panel's form params onto SearchRequest.
 """
 
@@ -25,6 +27,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fasthtml.common import to_xml
 
 from adapters.inbound.explore_ui import _library_cards, _library_search_request
 from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
@@ -35,7 +38,11 @@ from core.models.search.filter_enums import SearchSortOrder
 from core.models.search.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Result
-from ui.explore.cards import LIBRARY_PAGE_SIZE
+from ui.explore.cards import (
+    LIBRARY_PAGE_SIZE,
+    VISIBLE_TAG_CHIPS,
+    render_explore_search_panel,
+)
 
 # ============================================================================
 # 1. SearchSortOrder mapping
@@ -332,13 +339,42 @@ class TestSweepMergeAndPagination:
 # ============================================================================
 
 
-class TestListTags:
+class TestTagVocabulary:
     @pytest.mark.asyncio
-    async def test_aggregates_ku_and_ps_sorted_unique(self) -> None:
+    async def test_frequencies_sum_across_domains_most_used_first(self) -> None:
         ku = MagicMock()
-        ku.search.list_all_tags = AsyncMock(return_value=Result.ok(["yoga", "mind"]))
+        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
         ps = MagicMock()
-        ps.search.list_all_tags = AsyncMock(return_value=Result.ok(["yoga", "attention"]))
+        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 3, "attention": 1}))
+        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+
+        result = await router.tag_frequencies()
+
+        assert result.is_ok
+        assert result.value == [
+            {"tag": "yoga", "count": 5},
+            {"tag": "attention", "count": 1},
+            {"tag": "mind", "count": 1},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_frequency_ties_break_alphabetically(self) -> None:
+        ku = MagicMock()
+        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"zen": 1, "action": 1}))
+        ps = MagicMock()
+        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({}))
+        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+
+        result = await router.tag_frequencies()
+
+        assert [item["tag"] for item in result.value] == ["action", "zen"]
+
+    @pytest.mark.asyncio
+    async def test_list_tags_derives_alphabetical_unique(self) -> None:
+        ku = MagicMock()
+        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
+        ps = MagicMock()
+        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 9, "attention": 1}))
         router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
 
         result = await router.list_tags()
@@ -349,15 +385,41 @@ class TestListTags:
     @pytest.mark.asyncio
     async def test_fails_soft_per_domain(self) -> None:
         ku = MagicMock()
-        ku.search.list_all_tags = AsyncMock(return_value=Result.fail(MagicMock(is_error=True)))
+        ku.search.tag_frequencies = AsyncMock(return_value=Result.fail(MagicMock(is_error=True)))
         ps = MagicMock()
-        ps.search.list_all_tags = AsyncMock(return_value=Result.ok(["attention"]))
+        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"attention": 1}))
         router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
 
         result = await router.list_tags()
 
         assert result.is_ok
         assert result.value == ["attention"]
+
+
+class TestSearchPanelTagChips:
+    """Visible/overflow split of the frequency-ranked chip row."""
+
+    def _tags(self, n: int) -> list[str]:
+        return [f"tag{i:03d}" for i in range(n)]
+
+    def test_few_tags_render_without_expander(self) -> None:
+        html = to_xml(render_explore_search_panel(self._tags(5)))
+        assert html.count("#tag0") == 5
+        assert "showAllTags" not in html
+
+    def test_overflow_tags_are_cloaked_behind_expander(self) -> None:
+        html = to_xml(render_explore_search_panel(self._tags(VISIBLE_TAG_CHIPS + 6)))
+        # Every tag renders (full vocabulary reachable), overflow x-cloaked.
+        assert html.count("setTag(") == VISIBLE_TAG_CHIPS + 6
+        assert html.count("x-cloak") == 6
+        assert "'+6 more'" in html
+        # Collapsed by default when no active tag is hidden.
+        assert "{ showAllTags: false }" in html
+
+    def test_active_tag_in_overflow_starts_expanded(self) -> None:
+        tags = self._tags(VISIBLE_TAG_CHIPS + 2)
+        html = to_xml(render_explore_search_panel(tags, active_tag=tags[-1]))
+        assert "{ showAllTags: true }" in html
 
 
 # ============================================================================

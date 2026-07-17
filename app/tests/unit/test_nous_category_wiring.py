@@ -63,7 +63,7 @@ class TestDistinctValuesArrayAware:
 
         assert "UNWIND" in cypher
         assert "IS :: LIST<ANY>" in cypher
-        assert "RETURN DISTINCT value" in cypher
+        assert "RETURN value, count(*) AS count" in cypher
         assert params == {}
 
     def test_user_scope_preserved(self):

@@ -303,7 +303,9 @@ def create_explore_ui_routes(
 
         First page via SearchRouter.faceted_search (same path as
         /api/explore/search); the tag-chip vocabulary comes from the graph
-        via SearchRouter.list_tags — never derived from the loaded page.
+        via SearchRouter.tag_frequencies — never derived from the loaded
+        page — ranked most-used first so the visible chip row surfaces the
+        densest facets instead of an alphabetical A-C slice.
         """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
 
@@ -315,8 +317,12 @@ def create_explore_ui_routes(
         else:
             records = result.value.results
 
-        tags_result = await search_router.list_tags()
-        all_tags = tags_result.value if tags_result.is_ok and tags_result.value else []
+        tags_result = await search_router.tag_frequencies()
+        all_tags = (
+            [item["tag"] for item in tags_result.value]
+            if tags_result.is_ok and tags_result.value
+            else []
+        )
 
         pinned_uids, learning_states = await orchestrator.load_card_decorations(user_uid)
         cards = _library_cards(records, pinned_uids, learning_states, offset=0)
