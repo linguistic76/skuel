@@ -28,7 +28,7 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 312 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_lint_skuel.py` — 314 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
 - `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
 
 ## SKUEL-Specific Rules

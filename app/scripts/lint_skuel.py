@@ -3103,22 +3103,24 @@ class SkuelLinter:
         ``TYPE_CHECKING``-only imports are excluded: they never execute, so they cannot
         create a runtime dependency. Only the ``if`` BODY is exempt, never the
         ``else``/``elif`` branch — an import there DOES execute at runtime. Relative
-        imports (``node.module`` is None for ``from . import x``) are never adapter
-        imports.
+        imports (``level > 0``) are never top-level ``adapters`` imports — including
+        ``from .adapters import x``, a sibling module that happens to share the name
+        (``node.module`` is ``"adapters"`` there but ``level`` is 1).
         """
         type_checking_lines: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
                 for stmt in node.body:
                     for child in ast.walk(stmt):
-                        if hasattr(child, "lineno"):
-                            type_checking_lines.add(child.lineno)
+                        lineno = getattr(child, "lineno", None)
+                        if lineno is not None:
+                            type_checking_lines.add(lineno)
 
         found: list[tuple[ast.stmt, str]] = []
         for node in ast.walk(tree):
             imported_modules: list[str] = []
             if isinstance(node, ast.ImportFrom):
-                if node.module:
+                if node.module and node.level == 0:
                     imported_modules.append(node.module)
             elif isinstance(node, ast.Import):
                 imported_modules.extend(alias.name for alias in node.names)

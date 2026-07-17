@@ -2053,6 +2053,15 @@ class TestSKUEL022:
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
+    def test_relative_sibling_named_adapters_not_flagged(self) -> None:
+        """`from .adapters import x` — a sibling module that happens to be named
+        `adapters` has `node.module == "adapters"` but `level == 1`; only top-level
+        (`level == 0`) imports target the adapters/ package (Codex P2 on #656)."""
+        linter = make_linter(["SKUEL022"])
+        content = "from .adapters import convert\nfrom ..adapters.helpers import thing\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
     def test_non_adapter_import_clean(self) -> None:
         linter = make_linter(["SKUEL022"])
         content = "from core.ports import BackendOperations\nimport core.constants\n"
@@ -3361,6 +3370,16 @@ class TestSKUEL027:
         )
         violations = lint_content(
             linter, content, file_path="ui/activities/tasks_form.py", is_service=False
+        )
+        assert len(violations) == 0
+
+    def test_relative_sibling_named_adapters_not_flagged(self) -> None:
+        """`from .adapters import x` is a sibling ui/ module named `adapters`
+        (`level == 1`), not the top-level adapters/ package (Codex P2 on #656)."""
+        linter = make_linter(["SKUEL027"])
+        content = "from .adapters import to_chart_config\n"
+        violations = lint_content(
+            linter, content, file_path="ui/visualization/formats.py", is_service=False
         )
         assert len(violations) == 0
 

@@ -346,7 +346,7 @@ Pure helper functions (no I/O, no database) have dedicated unit tests for fast r
 ```
 tests/unit/
 ├── scripts/                          # Script/tool tests
-│   ├── test_lint_skuel.py            # 312 tests — all 26 active SKUEL lint rules, LintResult, suppression audit
+│   ├── test_lint_skuel.py            # 314 tests — all 26 active SKUEL lint rules, LintResult, suppression audit
 │   └── test_cypher_linter.py         # 35 tests — CYP001-006, CYP009, query extraction, helpers
 ├── ui/                               # UI component tests
 │   ├── test_enum_helpers.py          # 52 tests — 34 bridge/helper/builder functions
