@@ -79,10 +79,8 @@ async def _wrap_calendar_page(request: Request, content: Any, title: str = "Cale
         title=title,
         page_type=PageType.CUSTOM,
         request=request,
-        # "tasks" lights the Tasks+ navbar item — the calendar's nav family now
-        # that the sidebar no longer carries the active state ("activity"
-        # matched no top-nav key).
-        active_page="tasks",
+        # "calendar" lights the navbar calendar icon.
+        active_page="calendar",
         extra_css=["/static/css/calendar.css"],
     )
 

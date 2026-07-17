@@ -6,7 +6,7 @@ Navigation bar using Tailwind utilities.
 
 Layout:
 - Mobile: slim top bar (brand + bell + signout) + fixed bottom nav derived
-  from ``ICON_NAV_ITEMS`` with Search appended
+  from ``ICON_NAV_ITEMS`` with Calendar and Search appended
 - Desktop: slim top bar (brand + text nav links + search + bell + signout)
 
 Usage:
@@ -43,8 +43,9 @@ def _visible_icon_items(
     """Filter ICON_NAV_ITEMS by the viewer's auth/role flags.
 
     Shared by desktop text links and the mobile bottom nav so both surfaces
-    stay in lockstep with nav_config. Desktop excludes Today because the brand
-    link already goes to /today; mobile keeps it (include_today=True).
+    stay in lockstep with nav_config. Desktop excludes Today (kept out of the
+    center links since the brand link moved to /explore — /today is reached
+    from within the app); mobile keeps it (include_today=True).
     """
     visible: list[IconNavItem] = []
     for item in ICON_NAV_ITEMS:
@@ -156,6 +157,23 @@ def _shared_inbox_button(active_page: str) -> A:
         Icon("inbox", cls="size-6", aria_hidden="true"),
         href="/profile/shared",
         cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
+def _calendar_button(active_page: str) -> A:
+    """Calendar icon linking to /events/calendar — the unified calendar view.
+
+    Desktop-only (like Search): mobile keeps the 44px tap-target minimum by
+    folding Calendar into the bottom nav instead of a seventh top-bar icon.
+    """
+    is_active = active_page == "calendar"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    return A(
+        Span("Calendar", cls="sr-only"),
+        Icon("calendar", cls="size-6", aria_hidden="true"),
+        href="/events/calendar",
+        cls=f"hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
         **({"aria-current": "page"} if is_active else {}),
     )
 
@@ -299,7 +317,7 @@ def create_navbar(
     # --- Regular user top bar ---
 
     # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link.
-    # Today is omitted from desktop because the SKUEL brand link already goes to /today.
+    # Today is mobile-bottom-nav-only (the brand link goes to /explore).
     desktop_links = Div(
         *[
             _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
@@ -324,6 +342,7 @@ def create_navbar(
     if is_authenticated:
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
+            _calendar_button(active_page),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
@@ -362,6 +381,17 @@ _SEARCH_TAB = IconNavItem(
     icon="search",
 )
 
+# Calendar mirrors Search: desktop keeps it as a right-section icon button,
+# mobile folds it into the bottom nav (six top-bar icons overflow 320px).
+_CALENDAR_TAB = IconNavItem(
+    label="Calendar",
+    letter="",
+    href="/events/calendar",
+    page_key="calendar",
+    requires_auth=True,
+    icon="calendar",
+)
+
 
 def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
     is_active = active_page == item.page_key
@@ -391,8 +421,8 @@ def create_bottom_nav(
 
     Shown only on mobile (sm:hidden) for authenticated non-admin users.
     Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
-    menu) with Search appended — desktop keeps Search as a separate icon in
-    the right section, mobile folds it into the bottom nav.
+    menu) with Calendar and Search appended — desktop keeps those two as
+    separate icons in the right section, mobile folds them into the bottom nav.
     Respects iOS safe-area-inset-bottom for notched devices.
 
     Args:
@@ -414,6 +444,7 @@ def create_bottom_nav(
             is_teacher=is_teacher,
             include_today=True,
         ),
+        _CALENDAR_TAB,
         _SEARCH_TAB,
     ]
 

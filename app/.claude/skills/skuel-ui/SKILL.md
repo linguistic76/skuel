@@ -449,8 +449,8 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: 6 icon links (Hub, Tasks+, Explore, Library, Submissions, GradeBook) + avatar dropdown (Profile/6 Activity links/Sign out) |
-| `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `*_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: center links from `ICON_NAV_ITEMS` (Journals, PathSteps; Today on mobile bottom nav) + right icon cluster (Search, Calendar, Askesis, Shared-inbox, bell, Profile avatar, Sign out) |
+| `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `ACTIVITY_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `IconStat`, `StatTile`, `StatsGrid`, `FormGenerator`, `SettingToggle` |
