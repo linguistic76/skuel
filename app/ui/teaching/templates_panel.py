@@ -19,10 +19,10 @@ from typing import Any
 
 from fasthtml.common import H3, H4, Button, Div, Form, Li, P, Span, Ul
 
-from adapters.inbound.csrf import csrf_hidden_input
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.patterns.csrf import csrf_hidden_input
 from ui.primitives import ButtonLink
 
 TEMPLATES_PANEL_ID = "ps-templates-panel"

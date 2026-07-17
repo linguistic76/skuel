@@ -8,11 +8,10 @@ and swaps itself out with a success/error fragment.
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, H4, Div, Form, Option, P
-from fasthtml.common import Input as FTInput
 
-from adapters.inbound.csrf import CSRF_FORM_FIELD, current_csrf_token
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Label, LabelCheckbox, LabelInput, LabelTextArea, Select
+from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.error_banner import render_inline_error
 
 if TYPE_CHECKING:
@@ -60,8 +59,7 @@ def render_embedded_forms_error(form: "FormTemplate", ps_uid: str, message: str)
 
 def _render_form(form: "FormTemplate", ps_uid: str) -> Div:
     """Render a single FormTemplate as an HTMX-submittable inline form."""
-    token = current_csrf_token() or ""
-    fields: list[Any] = [FTInput(type="hidden", name=CSRF_FORM_FIELD, value=token)]
+    fields: list[Any] = [csrf_hidden_input()]
 
     if form.instructions:
         fields.append(P(form.instructions, cls="text-sm text-muted-foreground mb-4"))

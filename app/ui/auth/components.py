@@ -15,9 +15,9 @@ from typing import Any
 
 from fasthtml.common import H1, H3, A, Div, Form, Li, P, Span, Strong, Ul
 
-from adapters.inbound.csrf import csrf_hidden_input
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
+from ui.patterns.csrf import csrf_hidden_input
 from ui.primitives import ButtonLink
 
 

@@ -1,9 +1,13 @@
 """LifePath sidebar navigation."""
 
-from typing import Any
+from __future__ import annotations
 
-from adapters.inbound.fasthtml_types import Request
+from typing import TYPE_CHECKING, Any
+
 from ui.patterns.sidebar import SidebarItem, SidebarPage
+
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request
 
 LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Dashboard", "/lifepath", "dashboard", icon="\U0001f3e0"),

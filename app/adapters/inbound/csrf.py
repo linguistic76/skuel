@@ -10,8 +10,9 @@ SSO, OAuth embeds) or if an XSS on the same origin forges writes.
 The `csrf_token` cookie is the single source of truth. Three layers mirror
 it into the request so handlers can verify a match:
 
-1. **Server-render** — `csrf_hidden_input()` emits a hidden form field seeded
-   from a ContextVar the middleware sets per request. Works with JS disabled.
+1. **Server-render** — `csrf_hidden_input()` (ui/patterns/csrf.py) emits a
+   hidden form field seeded from a ContextVar this middleware sets per request
+   (core/utils/csrf_token_context.py). Works with JS disabled.
 2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` to every
    mutating HTMX request via the `htmx:configRequest` hook.
 3. **Native form sync** — the same JS file also re-injects/refreshes the
@@ -46,15 +47,14 @@ from __future__ import annotations
 import hmac
 import os
 import secrets
-from contextvars import ContextVar
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Input
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
 from adapters.inbound.fasthtml_types import Request
+from core.utils.csrf_token_context import CSRF_FORM_FIELD, csrf_token_var
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -68,7 +68,8 @@ logger = get_logger("skuel.security.csrf")
 
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
-CSRF_FORM_FIELD = "csrf_token"
+# CSRF_FORM_FIELD lives in core/utils/csrf_token_context.py (the render
+# surface UI form builders read) — imported above so verify stays in sync.
 CSRF_ENFORCE_ENV = "SKUEL_CSRF_ENFORCE"
 CSRF_TOKEN_BYTES = 32
 CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # match session max_age
@@ -89,28 +90,6 @@ _MINT_EXEMPT_PATHS: frozenset[str] = frozenset(
 
 def _is_mint_exempt(path: str) -> bool:
     return path in _MINT_EXEMPT_PATHS or path.startswith(_MINT_EXEMPT_PREFIXES)
-
-
-# ContextVar lets form generators fetch the current request's token without a
-# plumbed `request` argument. Scope is per request/task (set in middleware).
-_current_csrf_token: ContextVar[str | None] = ContextVar("_current_csrf_token", default=None)
-
-
-def current_csrf_token() -> str | None:
-    """Return the CSRF token for the in-flight request, or None if no middleware."""
-    return _current_csrf_token.get()
-
-
-def csrf_hidden_input() -> Any:
-    """Return a hidden <input name="csrf_token"> populated from the contextvar.
-
-    Drop this as the first child of any hand-built ``Form()`` that posts to a
-    ``@csrf_protected`` route. Forms routed through ``FormGenerator`` receive
-    the field automatically — only hand-built forms (e.g., login/register)
-    need this helper.
-    """
-    token = _current_csrf_token.get() or ""
-    return Input(type="hidden", name=CSRF_FORM_FIELD, value=token)
 
 
 def is_csrf_enforced() -> bool:
@@ -207,11 +186,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         incoming = request.cookies.get(CSRF_COOKIE_NAME)
         if incoming:
             request.state.csrf_token = incoming
-            ctx_token = _current_csrf_token.set(incoming)
+            ctx_token = csrf_token_var.set(incoming)
             try:
                 return await call_next(request)
             finally:
-                _current_csrf_token.reset(ctx_token)
+                csrf_token_var.reset(ctx_token)
 
         # Static assets and PWA subresources must never mint — see comment on
         # _MINT_EXEMPT_PREFIXES. Pass straight through with no Set-Cookie.
@@ -220,11 +199,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         token = mint_token()
         request.state.csrf_token = token
-        ctx_token = _current_csrf_token.set(token)
+        ctx_token = csrf_token_var.set(token)
         try:
             response = await call_next(request)
         finally:
-            _current_csrf_token.reset(ctx_token)
+            csrf_token_var.reset(ctx_token)
         response.set_cookie(
             key=CSRF_COOKIE_NAME,
             value=token,
@@ -286,12 +265,9 @@ def csrf_protected(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitab
 
 __all__ = [
     "CSRF_COOKIE_NAME",
-    "CSRF_FORM_FIELD",
     "CSRF_HEADER_NAME",
     "CSRFMiddleware",
-    "csrf_hidden_input",
     "csrf_protected",
-    "current_csrf_token",
     "get_csrf_token",
     "is_csrf_enforced",
     "mint_token",

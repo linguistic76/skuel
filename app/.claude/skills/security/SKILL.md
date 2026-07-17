@@ -127,16 +127,17 @@ if not api_key:
 
 Primary defense is `SameSite=Strict` on the session cookie — the browser refuses to send it on cross-site POSTs, so forged requests have no identity. Double-submit is the second line so the app stays safe if `SameSite` is ever loosened (cross-subdomain SSO, OAuth embeds) or if an XSS on the same origin forges writes.
 
-`CSRFMiddleware` mints a non-HttpOnly `csrf_token` cookie on first GET and exposes it via a ContextVar. Three mirror paths feed the submitted token back to the server:
+`CSRFMiddleware` mints a non-HttpOnly `csrf_token` cookie on first GET and exposes it via a ContextVar (`core/utils/csrf_token_context.py` — the render surface, written by the middleware, read by form builders). Three mirror paths feed the submitted token back to the server:
 
-1. **Server-render** — `csrf_hidden_input()` emits a hidden form field from the ContextVar
+1. **Server-render** — `csrf_hidden_input()` (`ui/patterns/csrf.py`) emits a hidden form field from the ContextVar
 2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` via `htmx:configRequest`
 3. **Native form sync** — capture-phase `submit` handler in `skuel.js` refreshes the hidden input from the cookie before serialization (covers SW-cached HTML, extension-mutated DOM)
 
 State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. `SKUEL_CSRF_ENFORCE=false` is a revert lever; production runs enforcement on.
 
 ```python
-from adapters.inbound.csrf import csrf_protected, csrf_hidden_input
+from adapters.inbound.csrf import csrf_protected
+from ui.patterns.csrf import csrf_hidden_input
 
 @rt("/tasks/create", methods=["POST"])
 @csrf_protected

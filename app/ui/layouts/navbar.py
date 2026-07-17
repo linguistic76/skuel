@@ -14,11 +14,12 @@ Usage:
     from ui.layouts.navbar import create_navbar_for_request, create_bottom_nav_for_request
 """
 
-from typing import Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Div, Nav, Span
 
-from adapters.inbound.fasthtml_types import Request
 from ui.components import Icon
 from ui.layouts.nav_config import (
     ICON_NAV_ITEMS,
@@ -26,6 +27,9 @@ from ui.layouts.nav_config import (
     IconNavItem,
     NavItem,
 )
+
+if TYPE_CHECKING:
+    from adapters.inbound.fasthtml_types import Request
 
 
 def _visible_icon_items(
