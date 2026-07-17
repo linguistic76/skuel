@@ -22,3 +22,15 @@ class TestEntityTypeStatusCoverage:
             assert et.default_status() in et.valid_statuses(), (
                 f"{et.value}: default {et.default_status().value} not in its valid_statuses()"
             )
+
+    def test_activity_report_dto_defaults_inside_valid_set(self) -> None:
+        # EntityDTO defaults status to DRAFT; ActivityReport's only valid
+        # status is COMPLETED — the DTO overrides the default so a
+        # status-omitted DTO can't produce an out-of-set report (Codex P2
+        # on the {COMPLETED} shrink).
+        from core.models.report.activity_report import ActivityReport
+        from core.models.report.activity_report_dto import ActivityReportDTO
+
+        dto = ActivityReportDTO(uid="ar_t", title="t", user_uid="u_t")
+        report = ActivityReport.from_dto(dto)
+        assert report.status in EntityType.ACTIVITY_REPORT.valid_statuses()

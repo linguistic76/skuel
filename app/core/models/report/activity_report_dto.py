@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 from core.models.enum_field_registry import enum_fields_for
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_dto import UserOwnedDTO
 
@@ -42,6 +42,11 @@ class ActivityReportDTO(UserOwnedDTO):
 
     # Honest leaf default (base EntityDTO requires entity_type — G6).
     entity_type: EntityType = field(default=EntityType.ACTIVITY_REPORT, kw_only=True)
+
+    # Generated artifact: COMPLETED is the only valid status (see
+    # _VALID_STATUSES_BY_TYPE) — override EntityDTO's DRAFT default so a
+    # status-omitted DTO can't produce an out-of-set report via from_dto().
+    status: EntityStatus = field(default=EntityStatus.COMPLETED, kw_only=True)
 
     # =========================================================================
     # PROCESSOR
