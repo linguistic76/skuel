@@ -1188,16 +1188,21 @@ class SearchRouter:
         # WHERE clauses in each domain's query). Without the relationship check a
         # relationship-only, empty-query request would silently fall through to
         # the unfiltered text sweep and drop the filter (Codex, PR #549).
-        # Tag facets and EMPTY-QUERY browse (July 2026, /explore/library
-        # consolidation) route the same way: the text sweep can express neither
-        # (search() hard-rejects an empty query), the faceted path handles both.
-        # No user_uid gate here — _faceted_sweep admits anonymous callers
-        # per-domain (PUBLIC visibility only).
+        # Tag facets, EMPTY-QUERY browse, and EXPLICIT SORT (July 2026,
+        # /explore/library consolidation) route the same way: the text sweep
+        # can express none of them — search() hard-rejects an empty query,
+        # drops tag/property filters, caps at limit//6 per domain, and ranks
+        # by score only (so a requested created/title order would be ignored
+        # and the library's All-Types text search starved to ≤10 minimal
+        # records — Codex, PR #669). Only a RELEVANCE-sorted pure text query
+        # belongs on the scored sweep. No user_uid gate here — _faceted_sweep
+        # admits anonymous callers per-domain (PUBLIC visibility only).
         wants_faceted = (
             request.to_property_filters()
             or request.has_relationship_filters()
             or request.has_tag_filter()
             or not request.query_text
+            or request.get_sort_order() is not SearchSortOrder.RELEVANCE
         )
         if wants_faceted:
             return await self._faceted_sweep(request, user_uid, sweep_domains)

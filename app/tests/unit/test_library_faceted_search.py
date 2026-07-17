@@ -250,6 +250,26 @@ class TestAnonymousGates:
         router._faceted_sweep.assert_awaited_once()
         router.search_domains.assert_not_awaited()
 
+    @pytest.mark.asyncio
+    async def test_text_query_with_explicit_sort_routes_to_faceted_sweep(self) -> None:
+        # The library's All-Types text search carries an explicit sort
+        # (created_desc/title_asc). The scored text sweep ignores sort and
+        # offset and caps at limit//6 minimal records per domain — an explicit
+        # sort must force the faceted sweep (Codex, PR #669).
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
+        router.search_domains = AsyncMock()  # type: ignore[method-assign]
+
+        request = SearchRequest(
+            query_text="breath",
+            entity_types=[EntityType.KU, EntityType.PATH_STEP],
+            sort_order=SearchSortOrder.CREATED_DESC,
+        )
+        await router._cross_domain_search(request, user_uid=None)
+
+        router._faceted_sweep.assert_awaited_once()
+        router.search_domains.assert_not_awaited()
+
 
 class TestSweepMergeAndPagination:
     @pytest.mark.asyncio
