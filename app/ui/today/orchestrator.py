@@ -309,6 +309,7 @@ class TodayOrchestrator:
         }
 
         ctx: TodayPageContext = {
+            "today_iso": today.isoformat(),
             "date_label": _date_label(today),
             "now_hhmm": now.strftime("%H:%M"),
             "stats": stats,

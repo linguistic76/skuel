@@ -268,6 +268,8 @@ class TodayPageContext(TypedDict):
     flag on ``LifePathRibbonView``, not a sort order.
     """
 
+    today_iso: str  # ISO date the context was built from — the single source
+    #                 for every "today"-anchored href (lens switcher, daily note)
     date_label: str  # "Saturday · March 22"
     now_hhmm: str  # server clock, user tz
     stats: TodayStats
