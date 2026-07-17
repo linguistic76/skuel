@@ -316,8 +316,8 @@ Current `ICON_NAV_ITEMS` (in order):
 
 - **Left:** SKUEL brand text link → `/explore` (authed) or `/` (anon)
 - **Center (desktop only):** text links from `ICON_NAV_ITEMS` (minus Today) + `MAIN_NAV_ITEMS` (Teaching, when teacher)
-- **Right (icon buttons):** Search (`/search`, desktop only — mobile folds it into the bottom nav) → Calendar (`/events/calendar`, `page_key="calendar"`) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`)
-- **Mobile:** slim top bar (brand + right icon cluster) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus a Search tab, `sm:hidden`, respects `safe-area-inset-bottom`
+- **Right (icon buttons):** Search (`/search`) and Calendar (`/events/calendar`, `page_key="calendar"`) — both desktop only, mobile folds them into the bottom nav (a sixth always-visible top-bar icon would break the 44px tap-target minimum at 320px) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`)
+- **Mobile:** slim top bar (brand + right icon cluster) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus Calendar and Search tabs, `sm:hidden`, respects `safe-area-inset-bottom`
 
 There are no navbar dropdowns — all items are direct links. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
 

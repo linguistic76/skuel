@@ -6,7 +6,7 @@ Navigation bar using Tailwind utilities.
 
 Layout:
 - Mobile: slim top bar (brand + bell + signout) + fixed bottom nav derived
-  from ``ICON_NAV_ITEMS`` with Search appended
+  from ``ICON_NAV_ITEMS`` with Calendar and Search appended
 - Desktop: slim top bar (brand + text nav links + search + bell + signout)
 
 Usage:
@@ -161,14 +161,18 @@ def _shared_inbox_button(active_page: str) -> A:
 
 
 def _calendar_button(active_page: str) -> A:
-    """Calendar icon linking to /events/calendar — the unified calendar view."""
+    """Calendar icon linking to /events/calendar — the unified calendar view.
+
+    Desktop-only (like Search): mobile keeps the 44px tap-target minimum by
+    folding Calendar into the bottom nav instead of a seventh top-bar icon.
+    """
     is_active = active_page == "calendar"
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     return A(
         Span("Calendar", cls="sr-only"),
         Icon("calendar", cls="size-6", aria_hidden="true"),
         href="/events/calendar",
-        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
+        cls=f"hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
         **({"aria-current": "page"} if is_active else {}),
     )
 
@@ -376,6 +380,17 @@ _SEARCH_TAB = IconNavItem(
     icon="search",
 )
 
+# Calendar mirrors Search: desktop keeps it as a right-section icon button,
+# mobile folds it into the bottom nav (six top-bar icons overflow 320px).
+_CALENDAR_TAB = IconNavItem(
+    label="Calendar",
+    letter="",
+    href="/events/calendar",
+    page_key="calendar",
+    requires_auth=True,
+    icon="calendar",
+)
+
 
 def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
     is_active = active_page == item.page_key
@@ -405,8 +420,8 @@ def create_bottom_nav(
 
     Shown only on mobile (sm:hidden) for authenticated non-admin users.
     Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
-    menu) with Search appended — desktop keeps Search as a separate icon in
-    the right section, mobile folds it into the bottom nav.
+    menu) with Calendar and Search appended — desktop keeps those two as
+    separate icons in the right section, mobile folds them into the bottom nav.
     Respects iOS safe-area-inset-bottom for notched devices.
 
     Args:
@@ -428,6 +443,7 @@ def create_bottom_nav(
             is_teacher=is_teacher,
             include_today=True,
         ),
+        _CALENDAR_TAB,
         _SEARCH_TAB,
     ]
 
