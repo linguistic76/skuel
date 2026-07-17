@@ -160,6 +160,19 @@ def _shared_inbox_button(active_page: str) -> A:
     )
 
 
+def _calendar_button(active_page: str) -> A:
+    """Calendar icon linking to /events/calendar — the unified calendar view."""
+    is_active = active_page == "calendar"
+    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
+    return A(
+        Span("Calendar", cls="sr-only"),
+        Icon("calendar", cls="size-6", aria_hidden="true"),
+        href="/events/calendar",
+        cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
+        **({"aria-current": "page"} if is_active else {}),
+    )
+
+
 def _askesis_button(active_page: str) -> A:
     """Flame icon linking to /askesis — the ZPD-aware practice companion."""
     is_active = active_page == "askesis"
@@ -324,6 +337,7 @@ def create_navbar(
     if is_authenticated:
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
+            _calendar_button(active_page),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),

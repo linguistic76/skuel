@@ -297,80 +297,47 @@ See: `/docs/patterns/ROUTE_FACTORIES.md`
 
 ## 3. Navigation
 
-### NavItem Configuration
+### Nav Configuration (`ui/layouts/nav_config.py`)
 
-```python
-from dataclasses import dataclass
+Two frozen dataclasses drive the navbar:
 
-@dataclass(frozen=True)
-class NavItem:
-    label: str
-    href: str
-    page_key: str         # Matches active_page parameter for highlighting
-    requires_auth: bool = True
-    requires_admin: bool = False
+- `NavItem` (label, href, page_key, requires_auth, requires_admin, requires_teacher, hide_for_admin) — `MAIN_NAV_ITEMS` holds only the teacher-gated **Teaching** link (`/teaching/students`).
+- `IconNavItem` (label, letter, href, page_key, requires_auth, has_dropdown, icon, hide_for_teacher, hide_for_admin) — `ICON_NAV_ITEMS` is the primary nav spec, rendered as **desktop center text links** and **mobile bottom-nav icon tabs** (same list, filtered by `_visible_icon_items()` in `navbar.py`).
 
-MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem("Profile Hub", "/profile", "profile"),
-    NavItem("Search", "/search", "search"),
-    NavItem("Calendar", "/calendar", "calendar"),
-)
-```
+Current `ICON_NAV_ITEMS` (in order):
+
+| Label | Icon | Route | `page_key` | Notes |
+|-------|------|-------|------------|-------|
+| Today | `sun` | `/today` | `"today"` | Mobile bottom nav only — desktop brand link covers it |
+| Journals | `book-open` | `/journals` | `"journals"` | Auth only |
+| PathSteps | `map` | `/path-steps` | `"path-steps"` | Public (`requires_auth=False`) |
+
+### Regular User Navbar
+
+- **Left:** SKUEL brand text link → `/explore` (authed) or `/` (anon)
+- **Center (desktop only):** text links from `ICON_NAV_ITEMS` (minus Today) + `MAIN_NAV_ITEMS` (Teaching, when teacher)
+- **Right (icon buttons):** Search (`/search`, desktop only — mobile folds it into the bottom nav) → Calendar (`/events/calendar`, `page_key="calendar"`) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`)
+- **Mobile:** slim top bar (brand + right icon cluster) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus a Search tab, `sm:hidden`, respects `safe-area-inset-bottom`
+
+There are no navbar dropdowns — all items are direct links. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
 
 ### Admin Navbar
 
-Admin users see a different navbar than regular users:
+Admin users see a different navbar:
 - **Left:** SKUEL logo text link → `/` (admin home hub)
 - **Center:** Empty (no text nav links)
 - **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
-- **Mobile:** Hamburger menu with Admin (`/admin`) + Teaching (`/teaching`) + Sign out links
+- **Mobile:** Hamburger menu (inline Alpine `x-data="{ mobileMenuOpen: false }"`) with Admin (`/admin`) + Teaching (`/teaching/students`) + Sign out links; no bottom nav for admins
 
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home`. Icon links are hidden for admins. `/submissions`, `/gradebook`, and `/library` are sidebar-free MOC root pages (2×2 icon-badge card grids), not tabbed hubs — `HomeHub` is retired.
-
-### Navbar Icon Links (Regular Users)
-
-The navbar left section has 4 icon links (in order):
-
-| Position | Icon | Route | `page_key` | Description |
-|----------|------|-------|------------|-------------|
-| 1st | `home` | `/home` | `"home"` | Hub (furthest left, auth only) |
-| 2nd | `check-square` | `/profile` | `"profile"` | Tasks+ (auth only) |
-| 3rd | `compass` | `/explore` | `"explore"` | Explore hub (public) |
-| 4th | `book-open` | `/library` | `"library"` | Library hub (public) |
-
-Right section: Search icon (`/search`) + notification bell + Sign out icon (`/logout`).
-
-`/reports` redirects 301 → `/library`.
-
-See `/ui/layouts/nav_config.py` for `ICON_NAV_ITEMS` and `IconNavItem`. All current icons use `has_dropdown=False` — direct links only. The Hub icon is separated from `icon_links` in `create_navbar()` so it renders furthest left.
-
-Icon dropdowns are rendered via `_DROPDOWN_ITEMS_MAP` in `navbar.py`. Items without `has_dropdown` render as direct links via `_icon_nav_link()`. Emoji letters (multi-char) get `text-base` styling instead of `font-semibold text-sm`.
-
-### Mobile Navigation
-
-The navbar handles the mobile hamburger menu with inline Alpine state (`x-data="{ mobileMenuOpen: false }"` in `ui/layouts/navbar.py` — simple enough that no `skuel.js` component is registered). On mobile, activity domains (from avatar dropdown) and icon nav items are expanded into individual links. All current icon nav items are direct links (no dropdowns):
-
-```python
-# Mobile: activity domains first, then icon nav items, then Sign out
-for di in ACTIVITY_DROPDOWN_ITEMS:
-    mobile_icon_links.append(...)
-for item in ICON_NAV_ITEMS:  # Hub, Tasks+, Explore, Library
-    if item.has_dropdown:
-        for di in _DROPDOWN_ITEMS_MAP.get(item.page_key, ()):
-            mobile_icon_links.append(...)
-    else:
-        mobile_icon_links.append(...)  # All 4 current items take this path
-if is_authenticated:
-    mobile_icon_links.append(Sign out link)
-```
+The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home`. Nav links are hidden for admins. `/submissions`, `/gradebook`, and `/library` are sidebar-free MOC root pages (2×2 icon-badge card grids), not tabbed hubs — `HomeHub` is retired. `/reports` redirects 301 → `/library`.
 
 **Navbar accessibility requirements:**
 
 | Element | Required Attribute |
 |---------|--------------------|
-| `<nav>` | `aria-label="Main navigation"` |
+| `<nav>` | `aria-label="Main navigation"` (top) / `aria-label="Primary navigation"` (bottom) |
 | Icon buttons | `<span class="sr-only">Description</span>` |
-| Dropdowns | `aria-haspopup="true"` on trigger |
+| Active links | `aria-current="page"` |
 
 ---
 

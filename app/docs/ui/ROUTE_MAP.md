@@ -18,7 +18,7 @@ Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" r
 
 ## Regular User Navigation
 
-Navbar icon links (left section, in order): **Hub** (`/home`) → **Tasks+** (`/tasks`) → **Groups** (`/groups`) → **Explore** (`/explore`). Right section: **Search** (`/search`) icon + notification bell + **Sign out** (`/logout`) icon. After login, regular users land on `/home`.
+Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile only — the SKUEL brand link covers it on desktop) → **Journals** (`/journals`) → **PathSteps** (`/path-steps`). Right section (icon buttons): **Search** (`/search`, desktop only — mobile folds it into the bottom nav) → **Calendar** (`/events/calendar`) → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
 
 ### `/groups` — Student-Facing Group-Shares Hub
 

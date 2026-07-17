@@ -95,13 +95,13 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         icon="sun",
     ),
     IconNavItem(
-        "Tasks+",
+        "Journals",
         "",
-        "/tasks",
-        "tasks",
+        "/journals",
+        "journals",
         requires_auth=True,
         has_dropdown=False,
-        icon="check-square",
+        icon="book-open",
     ),
     IconNavItem(
         "PathSteps",
