@@ -15,13 +15,16 @@ See: ui/journals/forms.py, ui/user_entry/forms.py, ui/askesis/chat.py
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, P, Span
 
 from ui.components import ButtonT, Icon
 from ui.components._util import _cls
 from ui.components.button import _BTN_BASE, _BTN_SIZES
+
+if TYPE_CHECKING:
+    from datetime import date
 
 # Default subtitle class for option rows (description text)
 _SUBTITLE_CLS = "block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
@@ -128,6 +131,40 @@ def ButtonLink(
     """
     size_cls = _BTN_SIZES.get(size, _BTN_SIZES["md"])
     return A(*c, href=href, cls=_cls(_BTN_BASE, size_cls, cls), **kwargs)
+
+
+def view_switcher(current_view: str, target_date: date) -> Any:  # boundary: fasthtml-elements
+    """Segmented Today | Week | Month lens control, shared by /today and /cal.
+
+    Three lenses on one timeline (#665): the Today surface owns the current day;
+    Week and Month are the calendar's temporal lenses. The active segment is a
+    non-navigating span; the others are plain links. ``target_date`` anchors the
+    Week/Month hrefs — the Today lens always points at ``/today``.
+    """
+    views = (
+        ("Today", "today", "/today"),
+        ("Week", "week", f"/cal/week/{target_date.isoformat()}"),
+        ("Month", "month", f"/cal/month/{target_date.year}/{target_date.month}"),
+    )
+    seg_base = "inline-flex items-center h-7 px-4 rounded-md text-[13px] font-semibold"
+    segments: list[Any] = []
+    for label, view, url in views:
+        if view == current_view:
+            segments.append(
+                Span(
+                    label,
+                    cls=f"{seg_base} bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]",
+                )
+            )
+        else:
+            segments.append(
+                A(
+                    label,
+                    href=url,
+                    cls=f"{seg_base} bg-transparent text-muted-foreground hover:text-foreground",
+                )
+            )
+    return Div(*segments, cls="inline-flex p-[3px] bg-muted border border-border rounded-[9px]")
 
 
 def SelectableOptionRow(

@@ -13,11 +13,13 @@ extra_css=["/static/css/today.css"])``.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     H1,
     H2,
+    A,
     Aside,
     Button,
     Div,
@@ -35,7 +37,7 @@ from fasthtml.common import (
 )
 
 from ui.components import Icon
-from ui.primitives import section_label
+from ui.primitives import section_label, view_switcher
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -44,6 +46,10 @@ if TYPE_CHECKING:
 
 
 _CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
+
+# Force a full browser navigation on the Daily-note link — /journals/daily/*
+# answers with a 302 redirect that HTMX boost would otherwise swap in place.
+_NO_BOOST = {"hx-boost": "false"}
 
 
 def TodayPage(ctx: TodayPageContext) -> FT:
@@ -54,9 +60,14 @@ def TodayPage(ctx: TodayPageContext) -> FT:
     """
     seed_json = json.dumps(dict(ctx), default=str)
 
+    # The lens switcher + Daily-note link are static server HTML (not Alpine-seeded)
+    # so their active/href state is correct without JS. date.today() is the server
+    # clock — the same source the orchestrator uses to build the context.
+    today = date.today()
+
     return Main(
         _seed_script(seed_json),
-        _header(),
+        _header(today),
         _two_column(),
         _flash_toast(),
         _drawer(),
@@ -99,7 +110,7 @@ def _seed_script(seed_json: str) -> FT:
 # ============================================================================
 
 
-def _header() -> FT:
+def _header(today: date) -> FT:
     return Header(
         Div(
             Div(
@@ -120,8 +131,38 @@ def _header() -> FT:
             ),
             cls="min-w-[280px] flex-1",
         ),
-        _stats_row(),
+        # Right column: the Today | Week | Month lens switcher + Daily-note link
+        # sit top-right (Today active), the stats row below them.
+        Div(
+            Div(
+                view_switcher("today", today),
+                _daily_note_button(today),
+                cls="flex items-center gap-2",
+            ),
+            _stats_row(),
+            cls="flex flex-col items-end gap-4",
+        ),
         cls="flex flex-wrap items-end justify-between gap-5 mb-8",
+    )
+
+
+def _daily_note_button(today: date) -> FT:
+    """Daily-note link — the Today rung of the periodic-notes ladder.
+
+    Styled like the calendar's Monthly-note button (square-pen icon); the
+    ``_NO_BOOST`` splat forces a full navigation through the journal redirect.
+    """
+    return A(
+        Icon("square-pen", cls="w-[15px] h-[15px]"),
+        Span("Daily note"),
+        href=f"/journals/daily/{today.isoformat()}",
+        title="Open daily note",
+        **_NO_BOOST,
+        cls=(
+            "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
+            " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+            " whitespace-nowrap"
+        ),
     )
 
 

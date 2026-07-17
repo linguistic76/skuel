@@ -6,8 +6,9 @@ UI components for the redesigned calendar views (month, week).
 
 Both views share one visual language:
 - eyebrow + large title + a per-type legend (``create_calendar_header``)
-- a segmented Week/Month switcher + Prev/Today/Next + Monthly-note toolbar
-  (``create_view_switcher`` / ``create_calendar_toolbar``)
+- a segmented Today/Week/Month lens switcher (``view_switcher``, shared with the
+  Today surface via ``ui.primitives``) + Prev/Now/Next + Monthly-note toolbar
+  (``create_calendar_toolbar``)
 - per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
   the item's type color, fill at ~10% alpha
 
@@ -38,7 +39,7 @@ from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
-from ui.primitives import ButtonLink
+from ui.primitives import ButtonLink, view_switcher
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -116,33 +117,6 @@ def create_calendar_header(title: str) -> Div:
     )
 
 
-def create_view_switcher(current_view: str, target_date: date) -> Div:
-    """Segmented Week/Month control. Active segment is a non-navigating span."""
-    views = (
-        ("Week", "week", f"/cal/week/{target_date.isoformat()}"),
-        ("Month", "month", f"/cal/month/{target_date.year}/{target_date.month}"),
-    )
-    seg_base = "inline-flex items-center h-7 px-4 rounded-md text-[13px] font-semibold"
-    segments = []
-    for label, view, url in views:
-        if view == current_view:
-            segments.append(
-                Span(
-                    label,
-                    cls=f"{seg_base} bg-card text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]",
-                )
-            )
-        else:
-            segments.append(
-                A(
-                    label,
-                    href=url,
-                    cls=f"{seg_base} bg-transparent text-muted-foreground hover:text-foreground",
-                )
-            )
-    return Div(*segments, cls="inline-flex p-[3px] bg-muted border border-border rounded-[9px]")
-
-
 def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False) -> A:
     """A bordered nav pill with a leading (or trailing) Lucide chevron."""
     icon = Icon(icon_name, cls="w-[15px] h-[15px]")
@@ -166,11 +140,15 @@ def create_calendar_toolbar(
     today_href: str,
     monthly_note_href: str,
 ) -> Div:
-    """Segmented switcher (left) + Prev/Today/Next and Monthly-note cluster (right)."""
+    """Segmented switcher (left) + Prev/Now/Next and Monthly-note cluster (right).
+
+    The recenter pill is labelled "Now" — the word "Today" belongs solely to the
+    lens segment (the Today surface), keeping the two meanings distinct.
+    """
     nav = Div(
         _nav_button("Prev", prev_href, "chevron-left"),
         A(
-            "Today",
+            "Now",
             href=today_href,
             cls=(
                 "inline-flex items-center h-[34px] px-4 bg-primary text-primary-foreground"
@@ -194,7 +172,7 @@ def create_calendar_toolbar(
         cls="flex items-center gap-2",
     )
     return Div(
-        create_view_switcher(current_view, target_date),
+        view_switcher(current_view, target_date),
         nav,
         cls="flex items-center justify-between gap-4 flex-wrap mb-5",
     )
