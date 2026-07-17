@@ -641,6 +641,20 @@ class CapacityWarnings(TypedDict, total=False):
     overdue_tasks: OverdueTasksWarning
 
 
+class TagFrequency(TypedDict):
+    """One tag of the curriculum vocabulary with its usage count.
+
+    The typed record `SearchRouter.tag_frequencies` emits after merging the
+    per-domain `tag_frequencies` counts (Ku + PathStep), ordered most-used
+    first. Powers the frequency-ranked /explore/library tag chips; the
+    alphabetical /search dropdown derives from the same list via
+    `SearchRouter.list_tags`.
+    """
+
+    tag: str
+    count: int
+
+
 class NousSubtopicPair(TypedDict):
     """A single (NOUS topic, sub-topic) co-occurrence pair.
 

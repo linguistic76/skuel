@@ -18,6 +18,10 @@ from ui.layout import Size
 # One grid page of the library catalog (bento cards per "Load more" fetch).
 LIBRARY_PAGE_SIZE = 24
 
+# Tag chips shown before the "+N more" expander (vocabulary arrives ranked
+# most-used first, so the visible row is the densest facets, not A-C).
+VISIBLE_TAG_CHIPS = 24
+
 # Search SVG icon (shared)
 SEARCH_ICON = NotStr(
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
@@ -149,11 +153,36 @@ def render_load_more(next_offset: int) -> Button:
     )
 
 
+def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
+    """One clickable tag chip; overflow chips render x-cloaked behind the expander."""
+    overflow_attrs: dict[str, Any] = (
+        {"x-show": "showAllTags", "x-cloak": True} if in_overflow else {}
+    )
+    return Span(
+        f"#{tag}",
+        cls=(
+            "cursor-pointer text-xs px-2 py-0.5 rounded-full border transition-colors select-none "
+            + (
+                "border-foreground text-foreground bg-accent"
+                if tag == active_tag
+                else "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
+            )
+        ),
+        # json.dumps → properly-escaped JS string literal so tags containing
+        # quotes/specials can't break out of (or inject into) the Alpine expression.
+        **{"x-on:click": f"setTag({json.dumps(tag)})"},
+        **overflow_attrs,
+    )
+
+
 def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Div:
     """Search + filter panel for the explore index.
 
     Args:
-        all_tags: Available tag strings (without leading #).
+        all_tags: Available tag strings (without leading #), pre-ranked by the
+            caller (most-used first via SearchRouter.tag_frequencies). The
+            first VISIBLE_TAG_CHIPS render immediately; the rest sit behind a
+            "+N more" expander so the full vocabulary stays reachable.
         active_tag: Pre-selected tag from the URL (e.g. from ?tag=attention).
             Threaded into the Alpine factory so sort/search HTMX requests
             preserve the filter rather than resetting to tag=''.
@@ -169,23 +198,26 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
         Option("Title A\u2013Z", value="title"),
     ]
 
-    tag_chips = [
-        Span(
-            f"#{tag}",
-            cls=(
-                "cursor-pointer text-xs px-2 py-0.5 rounded-full border transition-colors select-none "
-                + (
-                    "border-foreground text-foreground bg-accent"
-                    if tag == active_tag
-                    else "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
-                )
-            ),
-            # json.dumps → properly-escaped JS string literal so tags containing
-            # quotes/specials can't break out of (or inject into) the Alpine expression.
-            **{"x-on:click": f"setTag({json.dumps(tag)})"},
+    visible_tags = all_tags[:VISIBLE_TAG_CHIPS]
+    overflow_tags = all_tags[VISIBLE_TAG_CHIPS:]
+
+    tag_chips: list[Any] = [_tag_chip(tag, active_tag, in_overflow=False) for tag in visible_tags]
+    tag_chips += [_tag_chip(tag, active_tag, in_overflow=True) for tag in overflow_tags]
+    if overflow_tags:
+        tag_chips.append(
+            Button(
+                type="button",
+                cls=(
+                    "cursor-pointer text-xs px-2 py-0.5 rounded-full border border-dashed "
+                    "border-border text-muted-foreground hover:border-foreground "
+                    "hover:text-foreground transition-colors select-none"
+                ),
+                **{
+                    "x-on:click": "showAllTags = !showAllTags",
+                    "x-text": f"showAllTags ? 'Show fewer' : '+{len(overflow_tags)} more'",
+                },
+            )
         )
-        for tag in all_tags[:24]
-    ]
 
     dropdown_cls = (
         "text-sm border border-border rounded-md px-2 py-1.5 bg-background "
@@ -239,8 +271,24 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
                 ),
                 cls="flex flex-wrap gap-2",
             ),
-            # Row 3: tags
-            Div(*tag_chips, cls="flex flex-wrap gap-1.5") if tag_chips else None,
+            # Row 3: tags — nested Alpine scope for the expander; setTag stays
+            # reachable from the parent exploreSearch scope. Starts expanded
+            # when the active tag would otherwise be hidden in the overflow.
+            Div(
+                *tag_chips,
+                cls="flex flex-wrap gap-1.5",
+                **(
+                    {
+                        "x_data": "{ showAllTags: "
+                        + json.dumps(bool(active_tag) and active_tag in overflow_tags)
+                        + " }"
+                    }
+                    if overflow_tags
+                    else {}
+                ),
+            )
+            if tag_chips
+            else None,
             # Hidden input for active tag
             Input(name="tag", type="hidden", **{"x-bind:value": "activeTag"}),
             cls="flex flex-col gap-3",

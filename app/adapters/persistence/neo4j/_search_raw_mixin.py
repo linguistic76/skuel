@@ -295,7 +295,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid: Optional user scope (None = all users)
 
         Returns:
-            Result[list[dict]]: Records with "value" key
+            Result[list[dict]]: Records with "value" and occurrence "count" keys
         """
         from adapters.persistence.neo4j.query.cypher import build_distinct_values_query
 

@@ -666,7 +666,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         field: str,
         user_uid: UserUID | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Get distinct values for a field, optionally scoped to a user."""
+        """Get distinct values (with occurrence counts) for a field, optionally user-scoped."""
         ...
 
     async def faceted_search_raw(
