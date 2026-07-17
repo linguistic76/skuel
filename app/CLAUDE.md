@@ -138,7 +138,7 @@ Entity (~18 fields: uid, entity_type, title, description, status, tags, ...)
 ```
 DTOs mirror the hierarchy: `EntityDTO → UserOwnedDTO, KuDTO, CurriculumDTO → PathStepDTO, ResourceDTO`
 
-**Key enums:** `EntityType` (25 values), `EntityStatus` (16 values) — `entity_enums.py`. **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
+**Key enums:** `EntityType` (25 values), `EntityStatus` (14 values) — `entity_enums.py`. **Neo4j Multi-Label:** `:Entity` (universal) + domain label (`:Task`, `:Goal`, etc.). Backend uses `base_label=NeoLabel.ENTITY`.
 
 **Enum-Enforced Boundaries:** `UserRole`, `ExerciseScope`, `SubmissionModality`, `EntityStatus`, `FeedbackCategory`, `MasteryImpact`, `Pipeline`, `ReportSource`, `Visibility`, `EnrichmentMode` — zero raw string comparisons.
 

@@ -179,7 +179,7 @@ CREATE (n:Entity:Goal {uid: $uid, ...})
 
 **Key files:**
 - `/core/models/entity.py` — `Entity` + `UserOwnedEntity` base classes
-- `/core/models/enums/entity_enums.py` — `EntityType` (20 values), `EntityStatus`
+- `/core/models/enums/entity_enums.py` — `EntityType` (25 values), `EntityStatus` (14 values)
 
 ---
 
