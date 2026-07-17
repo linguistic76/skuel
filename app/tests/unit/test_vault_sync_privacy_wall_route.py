@@ -15,14 +15,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fasthtml.common import to_xml
 
-from adapters.inbound.vault_routes import (
-    _consent_form,
-    _privacy_wall_panel,
-    create_vault_routes,
-)
+from adapters.inbound.vault_routes import create_vault_routes
 from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.result_simplified import Result
+from ui.vault.sync_fragments import consent_form, privacy_wall_panel
 
 
 @pytest.fixture(autouse=True)
@@ -50,11 +47,11 @@ class _RouteRegistry:
         return self.handlers[(path, method.upper())]
 
 
-def _request():
+def _request(method: str = "POST", path: str = "/settings/vault/sync"):
     request = SimpleNamespace()
     request.session = {"user_uid": "user_owner"}
-    request.method = "POST"
-    request.url = SimpleNamespace(path="/settings/vault/sync")
+    request.method = method
+    request.url = SimpleNamespace(path=path)
     return request
 
 
@@ -85,9 +82,51 @@ class TestConsentFormShowsLiveWall:
         assert "nothing else" in html
 
 
+class TestSyncPageRender:
+    """Full-page render of /submissions/sync — NOT covered by the render smoke."""
+
+    @pytest.mark.asyncio
+    async def test_configured_vault_page_shows_wall_and_both_doors(self) -> None:
+        registry = _RouteRegistry()
+        reconciler = MagicMock()
+        reconciler.describe = AsyncMock(return_value=Result.ok(_DOORWAYS))
+        create_vault_routes(
+            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
+        )
+
+        handler = registry.get("/submissions/sync", "GET")
+        html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))
+
+        assert "Obsidian Sync" in html
+        assert "What SKUEL can see" in html
+        for folder in _DOORWAYS.allowed_folders:
+            assert f"{folder}/" in html
+        # Both HTMX doors plus the swap target the fragments post into.
+        assert 'hx-post="/settings/vault/sync"' in html
+        assert 'hx-post="/settings/vault/preview"' in html
+        assert 'id="vault-results"' in html
+
+    @pytest.mark.asyncio
+    async def test_unconfigured_vault_page_says_nothing_is_read(self) -> None:
+        registry = _RouteRegistry()
+        reconciler = MagicMock()
+        reconciler.describe = AsyncMock(
+            return_value=Result.ok(VaultDescription(vault_configured=False))
+        )
+        create_vault_routes(
+            app=None, rt=registry, vault_reconciler=reconciler, user_service=MagicMock()
+        )
+
+        handler = registry.get("/submissions/sync", "GET")
+        html = to_xml(await handler(_request(method="GET", path="/submissions/sync")))
+
+        assert "No personal vault is configured" in html
+        assert 'hx-post="/settings/vault/sync"' not in html
+
+
 class TestPrivacyWallFragments:
     def test_folder_wall_lists_each_folder_as_mono_dir(self) -> None:
-        html = to_xml(_privacy_wall_panel(_DOORWAYS))
+        html = to_xml(privacy_wall_panel(_DOORWAYS))
 
         assert "What SKUEL can see" in html
         for folder in _DOORWAYS.allowed_folders:
@@ -96,7 +135,7 @@ class TestPrivacyWallFragments:
 
     def test_empty_personal_wall_is_honest_not_everything(self) -> None:
         """Fail-closed empty allowlist → 'nothing is synced', never 'everything'."""
-        html = to_xml(_privacy_wall_panel(VaultDescription(vault_configured=True)))
+        html = to_xml(privacy_wall_panel(VaultDescription(vault_configured=True)))
 
         assert "No folders are currently synced" in html
         assert "whole vault" not in html
@@ -104,8 +143,8 @@ class TestPrivacyWallFragments:
     def test_combined_vault_says_whole_vault_with_staging_exception(self) -> None:
         description = VaultDescription(vault_configured=True, whole_vault_open=True)
 
-        assert "whole vault" in to_xml(_privacy_wall_panel(description))
-        assert "je_*" in to_xml(_consent_form(description))
+        assert "whole vault" in to_xml(privacy_wall_panel(description))
+        assert "je_*" in to_xml(consent_form(description))
 
 
 if __name__ == "__main__":
