@@ -9,8 +9,8 @@ No async, no service calls — receives pre-fetched data.
 import json
 from typing import Any
 
+from fasthtml.common import FT, Button, Div, Form, Input, NotStr, Option, P, Select, Span
 from fasthtml.common import A as Anchor
-from fasthtml.common import Button, Div, Form, Input, NotStr, Option, P, Select, Span
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -155,7 +155,7 @@ def render_load_more(next_offset: int) -> Button:
 
 def _tag_chip(tag: str, active_tag: str, in_overflow: bool) -> Span:
     """One clickable tag chip; overflow chips render x-cloaked behind the expander."""
-    overflow_attrs: dict[str, Any] = (
+    overflow_attrs: dict[str, str | bool] = (
         {"x-show": "showAllTags", "x-cloak": True} if in_overflow else {}
     )
     return Span(
@@ -201,7 +201,7 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
     visible_tags = all_tags[:VISIBLE_TAG_CHIPS]
     overflow_tags = all_tags[VISIBLE_TAG_CHIPS:]
 
-    tag_chips: list[Any] = [_tag_chip(tag, active_tag, in_overflow=False) for tag in visible_tags]
+    tag_chips: list[FT] = [_tag_chip(tag, active_tag, in_overflow=False) for tag in visible_tags]
     tag_chips += [_tag_chip(tag, active_tag, in_overflow=True) for tag in overflow_tags]
     if overflow_tags:
         tag_chips.append(
