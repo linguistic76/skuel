@@ -349,6 +349,8 @@ class TestBatchUnknownMode:
         assert report == BatchRunReport(
             ok=False, message="Unknown processing mode: 'surprise_mode'"
         )
+        # Unknown mode fails before any filesystem effect — je_out/ is not created.
+        assert not service.je_out_dir.exists()
 
 
 class TestBatchTranscribeOnly:

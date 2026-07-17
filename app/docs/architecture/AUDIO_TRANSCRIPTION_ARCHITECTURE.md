@@ -176,8 +176,8 @@ BatchTranscriptionService.transcribe_batch()
 **Access points:**
 - **Admin console UI:** `/admin/batch-transcribe` — any server-side path, admin-only
 - **User journals UI:** `/journals` → "Upload Folder" tab — fixed server-side to
-  the personal vault's `je_in` → `je_out` (derived from `VAULT_ROOT` via
-  `VaultConfig.vault_path`), authenticated users
+  the personal vault's `je_in` → `je_out` (`JournalBatchService.je_in_dir/je_out_dir`,
+  the canonical je_* staging-folder layout), authenticated users
 - **CLI:** `uv run python scripts/batch_transcribe.py`
 - **API (admin):** `POST /api/journals/batch-transcribe`
 - **API (user):** `POST /api/journals/folder-transcribe`

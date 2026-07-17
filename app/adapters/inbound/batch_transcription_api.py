@@ -21,7 +21,7 @@ from adapters.inbound.auth import make_service_getter, require_admin, require_au
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
-from core.config import get_settings
+from core.services.journal import JournalBatchService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -32,23 +32,11 @@ DEFAULT_INPUT_DIR = "data/je_inputs"
 DEFAULT_OUTPUT_DIR = "data/je_outputs"
 
 
-# User-facing folder-transcribe dirs. These are the je_in/je_out staging folders
-# under the *personal* vault (VaultConfig.vault_root — the single source of truth
-# for the vault root), matching JournalBatchService.je_in_dir/je_out_dir so the
-# transcribe surface writes where the download/folder-process surface reads.
-# Resolved lazily (get_settings() is cached) to avoid an import-time config dep.
-def _user_je_in() -> Path:
-    return get_settings().vault.vault_path / "je_in"
-
-
-def _user_je_out() -> Path:
-    return get_settings().vault.vault_path / "je_out"
-
-
 def create_batch_transcription_api_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     batch_transcription_service: Any,
+    journal_batch: JournalBatchService,
     user_service: Any = None,
 ) -> list[Any]:
     """
@@ -58,6 +46,9 @@ def create_batch_transcription_api_routes(
         _app: FastHTML app instance
         rt: Route decorator
         batch_transcription_service: BatchTranscriptionService
+        journal_batch: canonical home of the je_in/je_out staging-folder layout —
+            folder-transcribe reads/writes ``journal_batch.je_in_dir/je_out_dir``
+            so this surface writes where download/folder-process reads
         user_service: UserService for admin role checks
     """
     get_user_service = make_service_getter(user_service)
@@ -139,9 +130,10 @@ def create_batch_transcription_api_routes(
         """
         User: batch transcribe audio files to text from the vault transcription dirs.
 
-        Paths are fixed server-side (the vault je_in/je_out dirs via _user_je_in() /
-        _user_je_out()). Client-supplied paths are ignored — accepting them would let any
-        authenticated user read from and write to arbitrary server directories.
+        Paths are fixed server-side (``JournalBatchService.je_in_dir/je_out_dir`` —
+        the canonical je_* staging-folder layout). Client-supplied paths are ignored —
+        accepting them would let any authenticated user read from and write to
+        arbitrary server directories.
 
         POST body (JSON):
             skip_existing: bool — skip already-transcribed files (default: true)
@@ -156,8 +148,8 @@ def create_batch_transcription_api_routes(
         # Paths are fixed server-side — never sourced from the request body.
         # Accepting client-supplied paths would let any authenticated user
         # read from and write to arbitrary server directories (Codex P1).
-        input_dir = _user_je_in()
-        output_dir = _user_je_out()
+        input_dir = journal_batch.je_in_dir
+        output_dir = journal_batch.je_out_dir
         skip_existing = body.get("skip_existing", True)
         preview_only = body.get("preview_only", False)
 

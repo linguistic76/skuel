@@ -370,17 +370,19 @@ class JournalBatchService:
         transcription, since an upload is new content that must not be shadowed
         by a stale same-stem transcript.
         """
-        self.je_out_dir.mkdir(parents=True, exist_ok=True)
-
-        if processing_mode in ("transcribe_only", "transcribe_and_instructions"):
-            return await self._run_transcription_batch(
-                input_dir, processing_mode, instructions, skip_existing=skip_existing
-            )
-
         if processing_mode == "instructions_only":
             return await self._run_instructions_batch(input_dir, instructions)
 
-        return BatchRunReport(ok=False, message=f"Unknown processing mode: {processing_mode!r}")
+        if processing_mode not in ("transcribe_only", "transcribe_and_instructions"):
+            # Unknown mode fails before any filesystem effect — no je_out/ mkdir.
+            return BatchRunReport(ok=False, message=f"Unknown processing mode: {processing_mode!r}")
+
+        # transcribe_batch writes .txt outputs into je_out/ itself (outside
+        # write_output), so the folder must exist before the batch starts.
+        self.je_out_dir.mkdir(parents=True, exist_ok=True)
+        return await self._run_transcription_batch(
+            input_dir, processing_mode, instructions, skip_existing=skip_existing
+        )
 
     async def _run_transcription_batch(
         self,
@@ -448,7 +450,7 @@ class JournalBatchService:
                 self.logger.error(f"LLM failed for {stem}: {llm_result.error}")
                 llm_fail += 1
             else:
-                (self.je_out_dir / f"{stem}_out.md").write_text(llm_result.value, encoding="utf-8")
+                self.write_output(stem, "_out.md", llm_result.value)
                 llm_ok += 1
         msg = (
             f"{r.succeeded} transcribed, {llm_ok} structured, "
@@ -486,9 +488,7 @@ class JournalBatchService:
                 self.logger.error(f"LLM failed for {text_file.name}: {llm_result.error}")
                 fail += 1
             else:
-                (self.je_out_dir / f"{text_file.stem}_out.md").write_text(
-                    llm_result.value, encoding="utf-8"
-                )
+                self.write_output(text_file.stem, "_out.md", llm_result.value)
                 ok += 1
         msg = f"{ok} processed, {fail} failed — results in je_out/"
         return BatchRunReport(ok=ok > 0, message=msg)
