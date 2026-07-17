@@ -157,92 +157,53 @@ class ExploreOrchestrator:
         return await self._form_templates.get_forms_for_path_step(ps_uid)
 
     # ------------------------------------------------------------------
-    # Index data aggregation (was _load_explore_data)
+    # Library card decorations (pins + learning states)
     # ------------------------------------------------------------------
 
-    async def load_explore_index(
+    async def load_card_decorations(
         self, user_uid: UserUID | None
-    ) -> tuple[list[tuple[Any, str]], set[str], dict[str, str]]:
-        """Load all Ku + PS items, pins, and learning states for the index page.
+    ) -> tuple[set[str], dict[str, str]]:
+        """Pins + learning-state labels for decorating library cards.
 
-        Runs independent queries concurrently via asyncio.gather.
+        The catalog content itself comes from SearchRouter.faceted_search
+        (One Path Forward — July 2026 /explore/library consolidation); this
+        loads only the per-user overlay. Anonymous browse gets empty
+        decorations. Runs the three user queries concurrently; each fails
+        soft — a missing overlay degrades a badge, never the grid.
 
         Returns:
-            (unified_items, pinned_uids, learning_states)
+            (pinned_uids, learning_states) — states keyed by entity UID with
+            labels "Understood"/"Studying" (Ku) and "In Progress" (PathStep).
         """
-        # Content queries
-        ku_coro = self._ku.core.list(limit=500)
-        ps_coro = self._ps.core.list(limit=200)
-
-        # User-specific queries
-        pins_coro = (
-            self._user_relationships.get_pinned_entities(user_uid) if user_uid else asyncio.sleep(0)
-        )
-        ku_states_coro = (
-            self._ku.get_user_learning_states(user_uid) if user_uid else asyncio.sleep(0)
-        )
-        ps_states_coro = (
-            self._ps.mastery.get_in_progress_step_uids(user_uid) if user_uid else asyncio.sleep(0)
-        )
-
-        (
-            ku_result,
-            ps_result,
-            pins_result,
-            ku_states_result,
-            ps_states_result,
-        ) = await asyncio.gather(ku_coro, ps_coro, pins_coro, ku_states_coro, ps_states_coro)
-
-        # Assemble items
-        items: list[tuple[Any, str]] = []
-        if (
-            ku_result
-            and not getattr(ku_result, "is_error", False)
-            and getattr(ku_result, "value", None)
-        ):
-            kus = ku_result.value[0]
-            items.extend((ku, "ku") for ku in kus)
-        if (
-            ps_result
-            and not getattr(ps_result, "is_error", False)
-            and getattr(ps_result, "value", None)
-        ):
-            raw = ps_result.value[0]
-            items.extend((ps, "ps") for ps in raw)
-
-        # Assemble user-specific data
         pinned_uids: set[str] = set()
         learning_states: dict[str, str] = {}
+        if not user_uid:
+            return pinned_uids, learning_states
 
-        if user_uid:
-            if (
-                pins_result
-                and not getattr(pins_result, "is_error", False)
-                and getattr(pins_result, "value", None)
-            ):
-                pinned_uids = set(pins_result.value)
+        pins_result, ku_states_result, ps_states_result = await asyncio.gather(
+            self._user_relationships.get_pinned_entities(user_uid),
+            self._ku.get_user_learning_states(user_uid),
+            self._ps.mastery.get_in_progress_step_uids(user_uid),
+        )
 
-            if (
-                ku_states_result
-                and getattr(ku_states_result, "is_ok", False)
-                and getattr(ku_states_result, "value", None)
-            ):
-                for rec in ku_states_result.value:
-                    ku_uid = rec.get("uid", "")
-                    if rec.get("is_understood"):
-                        learning_states[ku_uid] = "Understood"
-                    elif rec.get("is_studying"):
-                        learning_states[ku_uid] = "Studying"
+        if not getattr(pins_result, "is_error", False) and getattr(pins_result, "value", None):
+            pinned_uids = set(pins_result.value)
 
-            if (
-                ps_states_result
-                and not getattr(ps_states_result, "is_error", False)
-                and getattr(ps_states_result, "value", None)
-            ):
-                for ps_uid in ps_states_result.value:
-                    learning_states[ps_uid] = "In Progress"
+        if getattr(ku_states_result, "is_ok", False) and getattr(ku_states_result, "value", None):
+            for rec in ku_states_result.value:
+                ku_uid = rec.get("uid", "")
+                if rec.get("is_understood"):
+                    learning_states[ku_uid] = "Understood"
+                elif rec.get("is_studying"):
+                    learning_states[ku_uid] = "Studying"
 
-        return items, pinned_uids, learning_states
+        if not getattr(ps_states_result, "is_error", False) and getattr(
+            ps_states_result, "value", None
+        ):
+            for ps_uid in ps_states_result.value:
+                learning_states[ps_uid] = "In Progress"
+
+        return pinned_uids, learning_states
 
     # ------------------------------------------------------------------
     # Learning universe graph (was inline in /api/explore/graph)

@@ -23,6 +23,7 @@ from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_distinct_values_query,
     build_search_query,
 )
+from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.ku.ku import Ku
@@ -116,6 +117,10 @@ class TestFacetedSweepInterleave:
         def _svc(records):
             service = MagicMock()
             service.graph_aware_faceted_search = AsyncMock(return_value=Result.ok(records))
+            # Protocol isinstance uses getattr_static (Py 3.12+) — the
+            # SupportsGraphAwareSearch members must be REAL attributes, not
+            # MagicMock lazy ones, or _resolve_graph_aware_service skips the mock.
+            service.search_visibility = SearchVisibility.PUBLIC
             return service
 
         ps_records = [{"uid": f"ps_{i}", "title": f"PS {i}", "_domain": "ps"} for i in range(5)]

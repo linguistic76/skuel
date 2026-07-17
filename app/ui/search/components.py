@@ -32,6 +32,7 @@ from core.models.enums import (
     LearningLevel,
     SELCategory,
 )
+from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import FacetCount, SearchResponse
 from ui.components import (
     Button,
@@ -66,6 +67,7 @@ async def render_search_page_with_navbar(
     request: Any = None,
     nous_topics: list[str] | None = None,
     nous_subtopics: list[str] | None = None,
+    all_tags: list[str] | None = None,
     ask_enabled: bool = False,
 ) -> Any:
     """
@@ -85,13 +87,18 @@ async def render_search_page_with_navbar(
             gate only — the control starts disabled until a NOUS topic is
             chosen. Empty until the vault carries `nous_subtopic:` data — the
             control fails soft to nothing on an empty list.
+        all_tags: Tag vocabulary derived from the graph (route fetches via
+            SearchRouter.list_tags — Ku + PathStep distinct tags). Fails soft
+            to no Tags control on an empty list.
         ask_enabled: FULL-tier gate for the "Ask" button (hands the query +
             nous facet to scoped Askesis). Hidden in CORE tier.
 
     Returns:
         Complete HTML page using unified BasePage layout
     """
-    content = _render_search_layout(nous_topics or [], nous_subtopics or [], ask_enabled)
+    content = _render_search_layout(
+        nous_topics or [], nous_subtopics or [], all_tags or [], ask_enabled
+    )
 
     return await BasePage(
         content=content,
@@ -104,7 +111,10 @@ async def render_search_page_with_navbar(
 
 
 def _render_search_layout(
-    nous_topics: list[str], nous_subtopics: list[str], ask_enabled: bool = False
+    nous_topics: list[str],
+    nous_subtopics: list[str],
+    all_tags: list[str],
+    ask_enabled: bool = False,
 ) -> Div:
     """
     Horizontal search layout: query box, a compact filter bar, then full-width results.
@@ -122,7 +132,7 @@ def _render_search_layout(
             # Search Input (+ Ask verb when FULL tier) — spans the top
             _render_search_input(ask_enabled),
             # Filter bar (desktop) / mobile trigger + backdrop + drawer
-            *_render_filter_panel(nous_topics, nous_subtopics),
+            *_render_filter_panel(nous_topics, nous_subtopics, all_tags),
             # Active Filter Badges — below the bar, above the results
             _render_active_filter_badges(),
             # Results — full width
@@ -174,6 +184,8 @@ ALL_FILTER_NAMES = [
     "nous",
     # NOUS sub-topic (2nd taxonomy level)
     "nous_subtopic",
+    # Tag facet (exact values; vocabulary via SearchRouter.list_tags)
+    "tags",
     # Learning progress
     "not_yet_viewed",
     "viewed_not_mastered",
@@ -246,7 +258,9 @@ def _primary_field(label_text: str, control: Any, *, fr: str) -> Div:
     )
 
 
-def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> tuple[Any, Any, Any]:
+def _render_filter_panel(
+    nous_topics: list[str], nous_subtopics: list[str], all_tags: list[str]
+) -> tuple[Any, Any, Any]:
     """
     Build the filter surface: (mobile trigger, mobile backdrop, filter panel).
 
@@ -345,6 +359,7 @@ def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> t
             ),
             cls="grid grid-cols-1 md:grid-cols-3 gap-6",
         ),
+        _render_tags_filter(all_tags),
         _render_context_filters(),
         cls="filter-advanced",
         style="display:none",
@@ -505,18 +520,39 @@ def _render_nous_subtopic_select(nous_subtopics: list[str]) -> Any | None:
 
 
 def _render_sort_select() -> Any:
-    """Sort order dropdown for the primary filter row."""
+    """Sort order dropdown for the primary filter row.
+
+    Options mirror SearchSortOrder exactly — every entry here is honored
+    end-to-end by the faceted path. The formerly-listed domain-specific sorts
+    (priority/due-date/progress/streak) were never implemented and were
+    deleted with them in July 2026 (One Path Forward: no fake options).
+    """
     sort_options = [
-        ("relevance", "Relevance"),
-        ("created_desc", "Newest First"),
-        ("created_asc", "Oldest First"),
-        ("updated_desc", "Recently Updated"),
-        ("priority_desc", "Highest Priority"),
-        ("due_date_asc", "Due Date (Soonest)"),
-        ("progress_desc", "Most Progress"),
-        ("streak_desc", "Longest Streak"),
+        (SearchSortOrder.RELEVANCE.value, "Relevance"),
+        (SearchSortOrder.CREATED_DESC.value, "Newest First"),
+        (SearchSortOrder.CREATED_ASC.value, "Oldest First"),
+        (SearchSortOrder.UPDATED_DESC.value, "Recently Updated"),
+        (SearchSortOrder.TITLE_ASC.value, "Title A–Z"),
     ]
     return _filter_select("sort_order", sort_options)
+
+
+def _render_tags_filter(all_tags: list[str]) -> Div | None:
+    """Tags facet select for the advanced (More filters) section.
+
+    Vocabulary is DERIVED from the graph (SearchRouter.list_tags — distinct
+    Ku + PathStep tags), never hardcoded. Applies across entity types, so it
+    sits outside the per-type context filters. Fails soft: no tags in the
+    corpus → no control.
+    """
+    if not all_tags:
+        return None
+    options = [("", "All Tags")] + [(tag, f"#{tag}") for tag in all_tags]
+    return Div(
+        Label("Tag", fr="tags", cls="block py-0.5"),
+        _filter_select("tags", options),
+        cls="space-y-2 min-w-[160px] mt-6 pt-4 border-t border-border",
+    )
 
 
 # ----------------------------------------------------------------------------

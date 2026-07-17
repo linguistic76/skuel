@@ -178,14 +178,28 @@ class TestCrossDomainRoutesRelationshipOnly:
         router.search_domains.assert_not_awaited()
 
     @pytest.mark.anyio
-    async def test_blank_request_uses_plain_text_sweep(self) -> None:
-        # Sanity control: with no filters at all, the property/relationship gate
-        # is False, so the plain sweep runs (the route gates blank away earlier).
+    async def test_blank_request_routes_to_faceted_sweep(self) -> None:
+        # Empty-query browse (July 2026, /explore/library consolidation): a
+        # request with no query text routes through the faceted sweep — the
+        # plain text sweep would hard-reject the empty query per domain.
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
+        router.search_domains = AsyncMock()  # type: ignore[method-assign]
+
+        await router._cross_domain_search(SearchRequest(), user_uid="user_x")
+
+        router._faceted_sweep.assert_awaited_once()
+        router.search_domains.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_query_only_request_uses_plain_text_sweep(self) -> None:
+        # Sanity control: query text with no filters still rides the scored
+        # plain text sweep (relevance ranking), not the faceted sweep.
         router = SearchRouter(MagicMock())
         router._faceted_sweep = AsyncMock()  # type: ignore[method-assign]
         router.search_domains = AsyncMock(return_value=MagicMock(results_by_domain={}))  # type: ignore[method-assign]
 
-        await router._cross_domain_search(SearchRequest(), user_uid="user_x")
+        await router._cross_domain_search(SearchRequest(query_text="breath"), user_uid="user_x")
 
         router._faceted_sweep.assert_not_awaited()
         router.search_domains.assert_awaited_once()

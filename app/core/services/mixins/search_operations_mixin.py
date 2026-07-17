@@ -545,7 +545,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def graph_aware_faceted_search(
         self,
         request: SearchRequest,
-        user_uid: UserUID,
+        user_uid: UserUID | None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Graph-aware faceted search - THE unified method for all domains.
@@ -558,10 +558,13 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         3. Text search on _search_fields
         4. Graph pattern enrichment from _graph_enrichment_patterns
         5. Relationship filters from request.to_relationship_filters()
+        6. Tag facet (tags_contain ANY/ALL), sort (SearchSortOrder), offset
 
         Args:
             request: SearchRequest with query and facets
-            user_uid: User identifier for ownership and graph patterns
+            user_uid: User identifier for ownership and graph patterns.
+                None is valid only for PUBLIC-visibility domains (anonymous
+                catalog browse); OWNER_ONLY domains fail closed.
 
         Returns:
             Result[list[dict]]: Results with _graph_context enrichment
@@ -569,6 +572,21 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         config_result = self._ensure_configured_for_search()
         if config_result.is_error:
             return Result.fail(config_result)
+
+        # PUBLIC domains (PS, LP, KU) get no ownership MATCH; SCOPE_AWARE
+        # (Exercise) scopes via WHERE in the backend instead of the MATCH.
+        visibility = self.search_visibility
+
+        # Fail-closed anonymous gate: without a user there is nothing to own,
+        # so an OWNER_ONLY domain must refuse rather than leak or return all.
+        if user_uid is None and visibility is not SearchVisibility.PUBLIC:
+            return Result.fail(
+                Errors.validation(
+                    message=f"{self.config_lookup_label} search requires an authenticated user",
+                    field="user_uid",
+                    value=None,
+                )
+            )
 
         # Extract request parameters
         property_filters = request.to_property_filters()
@@ -578,9 +596,10 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         )
         limit = getattr(request, "limit", 50)
 
-        # PUBLIC domains (PS, LP, KU) get no ownership MATCH; SCOPE_AWARE
-        # (Exercise) scopes via WHERE in the backend instead of the MATCH.
-        visibility = self.search_visibility
+        # Explicit sort override; RELEVANCE maps to None → the backend falls
+        # back to the domain's search_order_by DESC (historical behavior).
+        sort = request.get_sort_order()
+
         ownership_relationship = (
             self.user_ownership_relationship if visibility is SearchVisibility.OWNER_ONLY else None
         )
@@ -597,7 +616,12 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             property_filters=property_filters,
             query_text=query_text,
             relationship_filters=relationship_filters,
+            tags_contain=request.tags_contain if request.has_tag_filter() else None,
+            tags_match_all=request.tags_match_all,
+            order_by=sort.get_sort_field(),
+            order_desc=sort.is_descending(),
             limit=limit,
+            offset=request.offset,
             visibility=visibility,
         )
         if result.is_error:
@@ -800,6 +824,29 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         self.logger.debug(f"Found {len(categories)} total {self.config_lookup_label} categories")
         return Result.ok(categories)
+
+    @with_error_handling("list_all_tags", error_type="database")
+    async def list_all_tags(self) -> Result[builtins.list[str]]:
+        """
+        List all unique tag values across this domain's entities.
+
+        The tag-facet vocabulary source (library chips, /search tags filter).
+        Mirrors ``list_all_categories`` on the universal ``tags`` array field.
+
+        Backend: ``distinct_values_raw`` UNWINDs array properties, so each
+        distinct tag comes back as its own sorted row.
+        """
+        result = await self.backend.distinct_values_raw(
+            "tags",
+            user_uid=None,
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        tags = [record["value"] for record in result.value if record.get("value")]
+
+        self.logger.debug(f"Found {len(tags)} distinct {self.config_lookup_label} tags")
+        return Result.ok(tags)
 
     async def count(self, **filters: Any) -> Result[int]:
         """Count entities matching filters."""

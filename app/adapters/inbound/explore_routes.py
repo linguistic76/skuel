@@ -36,9 +36,12 @@ def create_explore_routes(
         raise RuntimeError("ExploreOrchestrator is required — check bootstrap wiring")
 
     orchestrator = services.explore_orchestrator
+    # Library catalog queries flow through SearchRouter (One Path Forward);
+    # the orchestrator supplies only per-user card decorations.
+    search_router = services.search_router
 
-    create_explore_api_routes(app, rt, orchestrator=orchestrator)
-    create_explore_ui_routes(app, rt, orchestrator=orchestrator)
+    create_explore_api_routes(app, rt, orchestrator=orchestrator, search_router=search_router)
+    create_explore_ui_routes(app, rt, orchestrator=orchestrator, search_router=search_router)
     create_learning_loop_routes(
         app,
         rt,

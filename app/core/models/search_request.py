@@ -73,6 +73,7 @@ from core.models.enums import (
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_filters import RelationshipFilters
+from core.models.search.filter_enums import SearchSortOrder
 from core.models.type_hints import UserUID
 from core.ports.query_types import CapacityWarnings
 from core.utils.logging import get_logger
@@ -384,10 +385,20 @@ class SearchRequest(BaseModel):
     )
 
     # ========================================================================
-    # PAGINATION & OPTIONS
+    # SORT, PAGINATION & OPTIONS
     # ========================================================================
 
-    limit: int = Field(default=20, ge=1, le=100, description="Maximum results to return")
+    # Result ordering. Every SearchSortOrder member is honored end-to-end in
+    # the faceted path (ORDER BY in faceted_search_raw); RELEVANCE falls back
+    # to the domain's configured `search_order_by` DESC.
+    sort_order: SearchSortOrder = Field(
+        default=SearchSortOrder.RELEVANCE,
+        description="Result ordering (relevance, created_desc, created_asc, updated_desc, title_asc)",
+    )
+
+    # Ceiling accommodates the multi-domain sweep's over-fetch pagination
+    # (limit=offset+limit per domain) and the library browse page depth.
+    limit: int = Field(default=20, ge=1, le=200, description="Maximum results to return")
 
     offset: int = Field(default=0, ge=0, description="Pagination offset")
 
@@ -554,6 +565,17 @@ class SearchRequest(BaseModel):
         """Check if tag/array filter is specified."""
         return self.tags_contain is not None and len(self.tags_contain) > 0
 
+    def get_sort_order(self) -> SearchSortOrder:
+        """``sort_order`` re-hydrated as the enum.
+
+        ``use_enum_values=True`` stores the field as its raw string value, so
+        every consumer that wants enum behavior (get_sort_field / is_descending)
+        goes through this accessor.
+        """
+        if isinstance(self.sort_order, SearchSortOrder):
+            return self.sort_order
+        return SearchSortOrder.from_string(self.sort_order)
+
     def has_semantic_boost(self) -> bool:
         """Check if semantic relationship boosting is enabled."""
         return (
@@ -623,7 +645,9 @@ class SearchRequest(BaseModel):
         query: str = "",
         user_uid: UserUID | None = None,
         entity_type: str | None = None,
-        _sort_order: str = "relevance",  # Placeholder — not yet implemented
+        sort_order: str = "relevance",
+        # Tag facet — CSV of exact tag values (vocabulary via SearchRouter.list_tags)
+        tags: str | None = None,
         # Common filters
         status: str | None = None,
         priority: str | None = None,
@@ -693,6 +717,9 @@ class SearchRequest(BaseModel):
             if et:
                 parsed_entity_types = [et]
 
+        # Parse CSV tags → exact-match tag facet
+        parsed_tags = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
         # Build extended_facets for domain-specific filters
         extended_facets: dict[str, Any] = {
             key: val
@@ -710,6 +737,8 @@ class SearchRequest(BaseModel):
             # bare "" would otherwise trip validate_query_text.
             query_text=_none_if_empty(query),
             entity_types=parsed_entity_types,
+            sort_order=SearchSortOrder.from_string(sort_order),
+            tags_contain=parsed_tags or None,
             status=_facet_enum_or_none(EntityStatus, status),
             priority=_facet_enum_or_none(Priority, priority),
             extended_facets=extended_facets if extended_facets else None,

@@ -29,7 +29,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
-from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.auth import is_authenticated, require_authenticated_user
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
 from ui.activities.hub import render_domain_card_preview
@@ -198,6 +198,12 @@ def setup_user_profile_routes(rt: Any, services: "Services") -> None:
 
         from ui.profile.badges import CountBadge, HealthIndicator
 
+        # Anonymous gets an empty fragment, not a 401: this loader fires on
+        # every sidebar page (hx-trigger="load", hx-swap="none"), and the
+        # global htmx 401 handler would bounce anonymous visitors to /login —
+        # killing anonymous surfaces like the /explore/library catalog browse.
+        if not is_authenticated(request):
+            return Div()
         user_uid = require_authenticated_user(request)
 
         try:

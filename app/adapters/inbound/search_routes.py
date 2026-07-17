@@ -108,12 +108,20 @@ def create_search_api_routes(
         if subtopics_result.is_ok and subtopics_result.value:
             nous_subtopics = subtopics_result.value
 
+        # Tag vocabulary (Ku + PathStep distinct tags) for the Tags facet —
+        # graph-derived like the NOUS vocabularies; fails soft to no control.
+        all_tags: list[str] = []
+        tags_result = await search_router.list_tags()
+        if tags_result.is_ok and tags_result.value:
+            all_tags = tags_result.value
+
         ask_enabled = await _caller_ai_enabled(user_uid)
 
         return await render_search_page_with_navbar(
             request,
             nous_topics=nous_topics,
             nous_subtopics=nous_subtopics,
+            all_tags=all_tags,
             ask_enabled=ask_enabled,
         )
 
@@ -152,6 +160,8 @@ def create_search_api_routes(
         # Scope filters
         entity_type: str | None = None,
         sort_order: str = "relevance",
+        # Tag facet (CSV of exact tag values)
+        tags: str | None = None,
         # Common filters (NEW)
         status: str | None = None,
         priority: str | None = None,
@@ -204,7 +214,8 @@ def create_search_api_routes(
                 query=query,
                 user_uid=user_uid,
                 entity_type=entity_type,
-                _sort_order=sort_order,
+                sort_order=sort_order,
+                tags=tags,
                 status=status,
                 priority=priority,
                 frequency=frequency,
