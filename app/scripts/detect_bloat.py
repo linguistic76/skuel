@@ -441,7 +441,26 @@ _EXERCISES_ARCHIVE = (
 # between B2 and B3; the detector stopped flagging them (test coverage + name
 # collisions), so the markings went stale and were removed per its convention.
 # Their production consumer is still B4's LocalAgentVaultAdapter.
+_CALENDAR_TRACKABLE_AFFORDANCE = (
+    "CalendarTrackable protocol member the calendar converters don't consume yet — "
+    "edit/delete/reschedule/progress affordances declared for calendar views "
+    "(protocol: core/ports/calendar_protocol.py). Exposed to this gate when "
+    "calendar_adapters.py moved adapters/ → core/services/ (SoC PR B, 2026-07-17); "
+    "wire calendar-item action buttons or trim the protocol member set"
+)
+
 PLANNED_METHODS: dict[str, str] = {
+    # --- Calendar adapters: unconsumed CalendarTrackable affordances ---
+    "core/services/calendar_adapters.py::can_edit": _CALENDAR_TRACKABLE_AFFORDANCE,
+    "core/services/calendar_adapters.py::can_delete": _CALENDAR_TRACKABLE_AFFORDANCE,
+    "core/services/calendar_adapters.py::can_reschedule": _CALENDAR_TRACKABLE_AFFORDANCE,
+    "core/services/calendar_adapters.py::get_completion_percentage": (
+        _CALENDAR_TRACKABLE_AFFORDANCE
+    ),
+    "core/services/calendar_adapters.py::get_visibility": _CALENDAR_TRACKABLE_AFFORDANCE,
+    "core/services/calendar_adapters.py::get_actual_duration_minutes": (
+        _CALENDAR_TRACKABLE_AFFORDANCE
+    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE

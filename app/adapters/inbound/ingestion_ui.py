@@ -10,6 +10,7 @@ Security:
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.ingestion import build_ingestion_dashboard
 from ui.layouts.base_page import BasePage
@@ -44,7 +45,7 @@ def create_ingestion_ui_routes(
     async def ingest_dashboard(request: Request, current_user):
         """Unified ingestion dashboard UI. Requires ADMIN role."""
         return await BasePage(
-            build_ingestion_dashboard(),
+            build_ingestion_dashboard(vault_path=str(get_settings().vault.ingestion_path)),
             title="Content Ingestion",
             request=request,
             active_page="ingest",

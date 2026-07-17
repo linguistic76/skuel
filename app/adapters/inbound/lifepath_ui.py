@@ -22,6 +22,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_string
+from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.lifepath import (
@@ -49,6 +50,7 @@ def _service_unavailable_page() -> Any:
         render_error_banner(
             "Service Unavailable",
             technical_details="The LifePath service is not available. Please try again later.",
+            show_details=get_settings().application.debug,
         ),
         cls="container mx-auto px-4 py-8",
     )
@@ -57,7 +59,11 @@ def _service_unavailable_page() -> Any:
 def _error_page(message: str) -> Any:
     """Return error page."""
     return Div(
-        render_error_banner("Error", technical_details=message),
+        render_error_banner(
+            "Error",
+            technical_details=message,
+            show_details=get_settings().application.debug,
+        ),
         ButtonLink("Go back", href="/lifepath", cls=(ButtonT.primary, "mt-4")),
         cls="container mx-auto px-4 py-8",
     )

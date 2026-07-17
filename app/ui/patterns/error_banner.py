@@ -52,7 +52,9 @@ def render_error_banner(
         user_message: User-facing error message (clear, actionable)
         technical_details: Developer/debug information (optional)
         severity: Alert severity ('error', 'warning', 'info')
-        show_details: Whether to show technical details (default: False, respects DEBUG mode)
+        show_details: Whether to render technical_details. Callers at the
+            route boundary decide (typically ``get_settings().application.debug``) —
+            this component never reads config itself.
 
     Returns:
         Alert component with error message
@@ -61,7 +63,7 @@ def render_error_banner(
         # Simple error
         render_error_banner("Unable to save task")
 
-        # With technical details (shown in dev mode)
+        # With technical details (rendered only when the caller opts in)
         render_error_banner(
             "Unable to save task",
             technical_details="Database connection timeout",
@@ -92,16 +94,7 @@ def render_error_banner(
         )
     ]
 
-    # Conditionally show technical details
-    # Check environment variable for DEBUG mode (common pattern in SKUEL)
-    try:
-        import os
-
-        debug_mode = os.getenv("DEBUG", "false").lower() == "true"
-    except Exception:  # safety-net: env var access must not crash rendering
-        debug_mode = False
-
-    if technical_details and (show_details or debug_mode):
+    if technical_details and show_details:
         content.append(
             Details(
                 Summary("Technical Details (Dev Mode)", cls="cursor-pointer text-sm mt-2"),

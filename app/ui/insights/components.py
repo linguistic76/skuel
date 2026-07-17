@@ -1,14 +1,30 @@
 """Insights dashboard UI components — filter form, bulk actions, charts, card wrappers."""
 
+from dataclasses import dataclass
 from typing import Any
 
 from fasthtml.common import H3, Canvas, Div, NotStr, Span
 
 from ui.components import Button, ButtonT
 from ui.forms import Input, Label, LabelInput, LabelSelect
-from ui.insights.filters import InsightsFilters
 from ui.insights.insight_card import InsightCard
 from ui.layout import Size
+
+
+@dataclass
+class InsightsFilters:
+    """Filter-state contract between the insights routes and UI components.
+
+    Routes parse query params into this (see ``insights_ui.py``); the filter
+    form renders from it.
+    """
+
+    domain: str | None
+    impact: str | None
+    search: str
+    insight_type: str | None
+    action_status: str | None
+    offset: int
 
 
 def render_filter_form(filters: InsightsFilters) -> Any:

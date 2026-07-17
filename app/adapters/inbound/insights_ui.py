@@ -6,24 +6,22 @@ UI routes for displaying and managing event-driven insights.
 (January 2026): Insight dashboard with dismiss/action functionality.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories import parse_int_query_param
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.insights.components import (
+    InsightsFilters,
     render_bulk_action_bar,
     render_charts_section,
     render_filter_form,
     render_insight_card_with_checkbox,
     render_select_all_header,
-)
-from ui.insights.filters import (
-    build_filter_query_string,
-    filter_insights,
-    parse_insights_filters,
 )
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
@@ -35,7 +33,54 @@ from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
 
+if TYPE_CHECKING:
+    from core.models.insight.persisted_insight import PersistedInsight
+    from core.services.insight import InsightStore
+
 logger = get_logger("skuel.routes.insights.ui")
+
+
+def _parse_insights_filters(request: Request) -> InsightsFilters:
+    """Extract insights filter parameters from request query params."""
+    offset = parse_int_query_param(request.query_params, "offset", 0, minimum=0)
+
+    return InsightsFilters(
+        domain=request.query_params.get("domain"),
+        impact=request.query_params.get("impact"),
+        search=request.query_params.get("search", ""),
+        insight_type=request.query_params.get("type"),
+        action_status=request.query_params.get("status"),
+        offset=offset,
+    )
+
+
+def _apply_insight_filters(
+    insight_store: "InsightStore", insights: "list[PersistedInsight]", filters: InsightsFilters
+) -> "list[PersistedInsight]":
+    """Apply in-memory filters via InsightStore.filter_insights (staticmethod on the injected store)."""
+    return insight_store.filter_insights(
+        insights,
+        impact=filters.impact,
+        insight_type=filters.insight_type,
+        action_status=filters.action_status,
+        search=filters.search or None,
+    )
+
+
+def _build_filter_query_string(filters: InsightsFilters) -> str:
+    """Build URL query string from insight filters."""
+    params = []
+    if filters.domain:
+        params.append(f"domain={filters.domain}")
+    if filters.impact:
+        params.append(f"impact={filters.impact}")
+    if filters.search:
+        params.append(f"search={filters.search}")
+    if filters.insight_type:
+        params.append(f"type={filters.insight_type}")
+    if filters.action_status:
+        params.append(f"status={filters.action_status}")
+    return "&".join(params)
 
 
 def create_insights_ui_routes(
@@ -60,7 +105,7 @@ def create_insights_ui_routes(
         user_uid = require_authenticated_user(request)
 
         # Parse typed filter parameters
-        filters = parse_insights_filters(request)
+        filters = _parse_insights_filters(request)
 
         # Progressive loading - load 10 initially for fast page load
         page_size = 10
@@ -76,7 +121,7 @@ def create_insights_ui_routes(
             insights = []
             insights_load_error = True
         else:
-            insights = filter_insights(result.value, filters)
+            insights = _apply_insight_filters(insight_store, result.value, filters)
 
         # Build filter form
         filter_form = render_filter_form(filters)
@@ -89,7 +134,7 @@ def create_insights_ui_routes(
 
         # Build insight cards with load-more trigger
         if insights:
-            filter_query = build_filter_query_string(filters)
+            filter_query = _build_filter_query_string(filters)
             load_more_url = (
                 f"/insights/load-more?offset={page_size}&{filter_query}"
                 if filter_query
@@ -241,7 +286,7 @@ def create_insights_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        filters = parse_insights_filters(request)
+        filters = _parse_insights_filters(request)
         page_size = 10
 
         result = await insight_store.get_active_insights(
@@ -254,13 +299,13 @@ def create_insights_ui_routes(
             logger.error(f"Failed to retrieve insights: {result.error}")
             return render_error_banner("Failed to load more insights", str(result.error))
 
-        all_insights = filter_insights(result.value, filters)
+        all_insights = _apply_insight_filters(insight_store, result.value, filters)
         new_insights = all_insights[filters.offset : filters.offset + page_size]
 
         if not new_insights:
             return EmptyState("No more insights to load", id="load-more-trigger", cls="py-4")
 
-        filter_query = build_filter_query_string(filters)
+        filter_query = _build_filter_query_string(filters)
         next_offset = filters.offset + page_size
         next_url = (
             f"/insights/load-more?offset={next_offset}&{filter_query}"

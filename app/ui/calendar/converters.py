@@ -22,11 +22,11 @@ Usage:
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from adapters.calendar_adapters import adapt_entities
 from core.models.enums import ActivityType, Priority
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.models.type_hints import EntityUID
 from core.ports.calendar_protocol import CalendarTrackable, WindowKind
+from core.services.calendar_adapters import adapt_entities
 from core.utils.neo4j_temporal import convert_neo4j_date, convert_neo4j_time
 from ui.palette import EventTypeColor, FrequencyColor
 

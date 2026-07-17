@@ -762,11 +762,12 @@ Error banner component.
   - `"warning"` - Yellow alert
   - `"info"` - Blue alert
   - `"success"` - Green alert
-- `show_details: bool` - Force show technical details (default: False)
+- `show_details: bool` - Whether to render technical details (default: False)
 
 **Technical Details:**
-- Shown in DEBUG mode automatically
-- Hidden in production unless `show_details=True`
+- Rendered only when the caller passes `show_details=True` — the component
+  never reads config; route-boundary callers decide (typically
+  `get_settings().application.debug`)
 - Displayed in collapsible `<details>` element
 
 **Examples:**
@@ -776,11 +777,12 @@ from ui.patterns.error_banner import render_error_banner
 # Simple error
 render_error_banner("Unable to load tasks")
 
-# With technical details (shown in DEBUG mode)
+# With technical details (dev-only, gated by the caller)
 render_error_banner(
     "Unable to save task",
     technical_details="Database connection timeout",
     severity="error",
+    show_details=get_settings().application.debug,
 )
 
 # Warning (non-critical)
