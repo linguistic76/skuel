@@ -101,10 +101,13 @@ def lint_content(
             linter._check_result_return_types(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
-        if linter._should_run_rule("SKUEL013"):
-            linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
             linter._check_entity_type_strings(fp, rel, content, lines, tree)
+
+    # SKUEL013 also covers the inbound/presentation layers — mirror _lint_file.
+    is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+    if (is_service or is_inbound_layer) and not is_test and linter._should_run_rule("SKUEL013"):
+        linter._check_relationship_name_strings(fp, rel, content, lines, tree)
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
@@ -928,6 +931,50 @@ class TestSKUEL013:
         violations = lint_content(linter, content)
         assert len(violations) == 1
         assert violations[0].line_number == 4
+
+    def test_fires_in_inbound_adapters(self) -> None:
+        # Widened scope: routes/handlers under adapters/inbound/ are covered.
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'edges.append(DependencyEdge(relationship_type="ENABLES"))',
+            file_path="adapters/inbound/graphql/schema.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL013"
+
+    def test_fires_in_ui(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'badge = rel_badge("SERVES_GOAL")',
+            file_path="ui/components/relationship_badge.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_fires_in_api(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'DEFAULT_RELATIONSHIP = "BLOCKS"',
+            file_path="api/models.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_silent_outside_scope(self) -> None:
+        # scripts/ and non-service core/ modules stay out of SKUEL013's scope.
+        linter = make_linter(["SKUEL013"])
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+            violations = lint_content(
+                linter,
+                'rel = "SERVES_GOAL"',
+                file_path=path,
+                is_service=False,
+            )
+            assert violations == [], path
 
 
 # ============================================================================

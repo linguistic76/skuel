@@ -31,6 +31,7 @@ from adapters.inbound.graphql.context import GraphQLContext
 from adapters.inbound.graphql.guardrails import QueryComplexityLimiter, ResolverTimeoutExtension
 from core.constants import ConfidenceLevel, QueryLimit
 from core.models.enums import Domain
+from core.models.relationship_names import RelationshipName
 from core.services.adaptive_lp_types import KnowledgeState
 
 if TYPE_CHECKING:
@@ -828,7 +829,7 @@ class Query:
                 DependencyEdge(
                     from_knowledge=center_node,
                     to_knowledge=enabled_node,
-                    relationship_type="ENABLES",
+                    relationship_type=RelationshipName.LATERAL_ENABLES,
                     strength=1.0,
                 )
             )

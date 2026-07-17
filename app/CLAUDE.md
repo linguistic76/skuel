@@ -533,7 +533,7 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 | SKUEL007 | `Errors` factory | ERROR |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
 | SKUEL012 | No lambda — named functions | ERROR |
-| SKUEL013 | `RelationshipName` enum | ERROR |
+| SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/`, `api/` | ERROR |
 | SKUEL014 | `EntityType`/`NonKuDomain` enum | ERROR |
 | SKUEL015 | No `print()` in production | ERROR |
 | SKUEL016 | No Poetry refs — SKUEL uses uv | ERROR |

@@ -1311,7 +1311,8 @@ class SkuelLinter:
             # skips docstring / bare-string example blocks, so the legitimate Cypher
             # examples in core/utils docstrings (processor_functions, neo4j_mapper, ...)
             # do not trip it; SKUEL001 has no hits in core/ outside the old gate.
-            # Other service-only rules (SKUEL002/004/005/007/013/014) stay on is_service.
+            # Other service-only rules (SKUEL002/004/005/007/014) stay on is_service;
+            # SKUEL013 additionally covers the inbound/presentation layers (see below).
             path_str = str(file_path)
             is_core = "/core/" in path_str and file_path.suffix == ".py"
             is_ui = "/ui/" in path_str and file_path.suffix == ".py"
@@ -1392,10 +1393,17 @@ class SkuelLinter:
                     self._check_result_return_types(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL014"):
                     self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
+
+            # Inbound/presentation layers (routes, UI renderers, api/ models) —
+            # raw relationship-type strings creep in here too, so SKUEL013 runs
+            # on these layers in addition to services. SKUEL014/SKUEL007 stay
+            # service-only for now; widening them is staged as follow-up PRs.
+            is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+            if (is_service or is_inbound_layer) and not is_test:
+                if self._should_run_rule("SKUEL013"):
+                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
 
             if "/adapters/persistence/" in str(file_path):
                 if self._should_run_rule("SKUEL008"):

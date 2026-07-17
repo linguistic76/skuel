@@ -281,6 +281,13 @@ a relationship name — docstrings, comments, and prose are structurally immune,
 name embedded in a longer string (Cypher text, log messages) is not an exact match,
 so no Cypher-context heuristics are needed.
 
+**Scope:** any `/services/` path **plus the inbound/presentation layers** —
+`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07: raw relationship strings
+crept into routes and renderers too, e.g. GraphQL edge builders). Test files are
+skipped. `adapters/persistence/` is below the boundary and stays out of scope —
+Cypher there interpolates `RelationshipName.X.value` by convention, guarded by
+`validate_relationship_type()` at runtime.
+
 **Rationale:**
 - Type safety - IDE autocomplete and MyPy verification
 - Single source of truth - all relationships in one place
