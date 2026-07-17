@@ -23,7 +23,7 @@ Protocol Categories:
 
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
-from core.models.enums import EntityStatus, EntityType
+from core.models.enums import EntityStatus, EntityType, SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Metadata, UserUID
 from core.ports.base_protocols import Direction
@@ -693,18 +693,25 @@ class SupportsGraphAwareSearch(Protocol):
     async def graph_aware_faceted_search(
         self,
         request: "SearchRequest",
-        user_uid: UserUID,
+        user_uid: UserUID | None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Faceted search with graph enrichment.
 
         Args:
             request: SearchRequest with query and filters
-            user_uid: User performing the search
+            user_uid: User performing the search. None is valid only for
+                PUBLIC-visibility domains (anonymous catalog browse) — the
+                implementation fails closed for OWNER_ONLY domains.
 
         Returns:
             Result containing list of enriched search results with _graph_context
         """
+        ...
+
+    @property
+    def search_visibility(self) -> SearchVisibility:
+        """The domain's declared visibility (drives the anonymous-access gate)."""
         ...
 
 

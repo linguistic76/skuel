@@ -509,7 +509,7 @@ class SearchOperations(Protocol[T]):
     async def graph_aware_faceted_search(
         self,
         request: Any,  # SearchRequest
-        user_uid: UserUID,
+        user_uid: UserUID | None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Graph-aware faceted search - THE unified method for all domains.

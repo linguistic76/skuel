@@ -28,9 +28,16 @@ from fasthtml.common import (
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from core.models.enums.entity_enums import EntityType
+from core.models.search.filter_enums import SearchSortOrder
+from core.models.search_request import SearchRequest
 from core.utils.logging import get_logger
-from ui.explore.cards import render_explore_card, render_explore_search_panel
-from ui.explore.filters import filter_items, sort_by_created_at
+from ui.explore.cards import (
+    LIBRARY_PAGE_SIZE,
+    render_explore_card,
+    render_explore_search_panel,
+    render_load_more,
+)
 from ui.explore.graph import ExploreGraphView
 from ui.explore.nav import render_explore_sidebar_page
 from ui.explore.reading_plan import ExploreReadingView
@@ -42,6 +49,64 @@ from ui.patterns.page_header import PageHeader
 
 logger = get_logger("skuel.routes.explore")
 
+# The library's sort dropdown values → SearchSortOrder (boundary mapping).
+_LIBRARY_SORT_MAP = {
+    "created_at": SearchSortOrder.CREATED_DESC,
+    "title": SearchSortOrder.TITLE_ASC,
+}
+
+
+def _library_search_request(
+    q: str,
+    type_filter: str,
+    tag: str,
+    sort: str,
+    offset: int,
+) -> SearchRequest:
+    """Map the library panel's form params onto THE canonical SearchRequest.
+
+    Empty type = the whole catalog (Ku + PathStep); "ku"/"ps" resolve through
+    EntityType.from_string (aliases are input-only). An active tag chip becomes
+    an exact-match tags facet. Unknown sort values fall back to newest-first.
+    """
+    entity_type = EntityType.from_string(type_filter) if type_filter else None
+    entity_types: list[Any] = (
+        [entity_type] if entity_type else [EntityType.KU, EntityType.PATH_STEP]
+    )
+    return SearchRequest(
+        query_text=q.strip() or None,
+        entity_types=entity_types,
+        tags_contain=[tag] if tag else None,
+        sort_order=_LIBRARY_SORT_MAP.get(sort, SearchSortOrder.CREATED_DESC),
+        limit=LIBRARY_PAGE_SIZE,
+        offset=max(offset, 0),
+    )
+
+
+def _library_cards(
+    records: list[dict[str, Any]],
+    pinned_uids: set[str],
+    learning_states: dict[str, str],
+    offset: int,
+) -> list[Any]:
+    """Bare cards + Load-more sentinel for one library page.
+
+    Bare (no grid wrapper) because every consumer swaps innerHTML into — or
+    appends within — the ``#explore-grid`` container; a wrapped response would
+    nest grid-in-grid. The sentinel is omitted on a short page (no next page).
+    """
+    cards: list[Any] = [
+        render_explore_card(
+            record,
+            learning_state=learning_states.get(str(record.get("uid", "")), ""),
+            is_pinned=str(record.get("uid", "")) in pinned_uids,
+        )
+        for record in records
+    ]
+    if len(records) == LIBRARY_PAGE_SIZE:
+        cards.append(render_load_more(offset + LIBRARY_PAGE_SIZE))
+    return cards
+
 
 # =============================================================================
 # API factory
@@ -52,10 +117,13 @@ def create_explore_api_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
+    search_router: Any,
 ) -> list[Any]:
     """Register /api/explore/* JSON + HTMX API routes."""
     if orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
+    if search_router is None:
+        raise RuntimeError("SearchRouter is required — bootstrap misconfigured")
 
     @rt("/api/explore/search")
     async def explore_search(
@@ -64,30 +132,29 @@ def create_explore_api_routes(
         type: str = "",
         tag: str = "",
         sort: str = "created_at",
+        offset: int = 0,
     ) -> Any:
-        """Return filtered card grid HTML fragment for HTMX swap."""
+        """One library page of bare cards (+ Load-more sentinel) for HTMX swap.
+
+        The catalog query runs through SearchRouter.faceted_search (One Path
+        Forward) — Neo4j-side text/tag/type filtering, sort, and pagination.
+        Anonymous browse is supported (Ku/PS are PUBLIC-visibility domains).
+        """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
-        items, pinned_uids, learning_states = await orchestrator.load_explore_index(user_uid)
 
-        filtered = filter_items(items, q.strip(), type, tag, sort)
+        search_request = _library_search_request(q, type, tag, sort, offset)
+        result = await search_router.faceted_search(search_request, user_uid)
+        if result.is_error:
+            logger.error(f"Library search failed: {result.error}")
+            return EmptyState("Search is unavailable right now. Please try again.")
 
-        if not filtered:
-            return EmptyState("No results match your search.")
+        records = result.value.results
+        if not records:
+            # Page-two-and-beyond emptiness just ends the pagination quietly.
+            return EmptyState("No results match your search.") if offset == 0 else Div()
 
-        cards = [
-            render_explore_card(
-                item,
-                entity_type=et,
-                learning_state=learning_states.get(item.uid, ""),
-                is_pinned=item.uid in pinned_uids,
-            )
-            for item, et in filtered
-        ]
-
-        return Div(
-            *cards,
-            cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
-        )
+        pinned_uids, learning_states = await orchestrator.load_card_decorations(user_uid)
+        return tuple(_library_cards(records, pinned_uids, learning_states, offset))
 
     @rt("/api/explore/graph")
     async def explore_graph(request: Request) -> Any:
@@ -114,10 +181,13 @@ def create_explore_ui_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
+    search_router: Any,
 ) -> list[Any]:
     """Create /explore discovery UI routes."""
     if orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
+    if search_router is None:
+        raise RuntimeError("SearchRouter is required — bootstrap misconfigured")
 
     # -----------------------------------------------------------------
     # GET /explore — Reading-first shell (shell-first pattern)
@@ -229,27 +299,27 @@ def create_explore_ui_routes(
 
     @rt("/explore/library/content")
     async def explore_library_content(request: Request, tag: str = "") -> Any:
-        """HTMX fragment: bento card grid with search panel."""
+        """HTMX fragment: bento card grid with search panel.
+
+        First page via SearchRouter.faceted_search (same path as
+        /api/explore/search); the tag-chip vocabulary comes from the graph
+        via SearchRouter.list_tags — never derived from the loaded page.
+        """
         user_uid = require_authenticated_user(request) if is_authenticated(request) else None
-        items, pinned_uids, learning_states = await orchestrator.load_explore_index(user_uid)
 
-        all_tags = sorted(
-            {t for item, _ in items for t in (getattr(item, "tags", None) or ())} - {""}
-        )
-        items.sort(key=sort_by_created_at, reverse=True)
+        search_request = _library_search_request("", "", tag, "created_at", 0)
+        result = await search_router.faceted_search(search_request, user_uid)
+        if result.is_error:
+            logger.error(f"Library content load failed: {result.error}")
+            records = []
+        else:
+            records = result.value.results
 
-        if tag:
-            items = [(item, et) for item, et in items if tag in (getattr(item, "tags", None) or [])]
+        tags_result = await search_router.list_tags()
+        all_tags = tags_result.value if tags_result.is_ok and tags_result.value else []
 
-        cards = [
-            render_explore_card(
-                item,
-                entity_type=et,
-                learning_state=learning_states.get(item.uid, ""),
-                is_pinned=item.uid in pinned_uids,
-            )
-            for item, et in items
-        ]
+        pinned_uids, learning_states = await orchestrator.load_card_decorations(user_uid)
+        cards = _library_cards(records, pinned_uids, learning_states, offset=0)
 
         grid = (
             Div(
@@ -257,7 +327,7 @@ def create_explore_ui_routes(
                 cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
                 id="explore-grid",
             )
-            if cards
+            if records
             else EmptyState(
                 "No content yet",
                 description="Ingest Ku or PathStep YAML files to populate this page.",

@@ -312,7 +312,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
     @safe_backend_operation("faceted_search_raw")
     async def faceted_search_raw(
         self,
-        user_uid: UserUID,
+        user_uid: UserUID | None,
         *,
         user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
@@ -321,7 +321,12 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         property_filters: dict[str, Any],
         query_text: str | None = None,
         relationship_filters: RelationshipFilters | None = None,
+        tags_contain: builtins.list[str] | None = None,
+        tags_match_all: bool = False,
+        order_by: str | None = None,
+        order_desc: bool = True,
         limit: int = 50,
+        offset: int = 0,
         visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
@@ -329,16 +334,23 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         and graph enrichment in a single Cypher query.
 
         Args:
-            user_uid: User identifier for ownership patterns
+            user_uid: User identifier for ownership patterns; None is valid for
+                PUBLIC-visibility domains (anonymous browse — the service layer
+                fails closed before reaching here for OWNER_ONLY domains)
             user_ownership_relationship: Relationship type for ownership (None for shared content)
             search_fields: Fields for text search
-            search_order_by: Sort field
+            search_order_by: Default sort field (from DomainConfig)
             graph_enrichment_patterns: Tuples of (rel_type, target_label, context_name[, direction])
             property_filters: Exact-match property filters
             query_text: Optional text search
             relationship_filters: Optional graph-aware relationship-filter intent;
                 its Cypher WHERE-clause fragments are authored below the boundary
+            tags_contain: Exact tag values for array-membership filtering
+            tags_match_all: True = every tag must be present (ALL), False = any (ANY)
+            order_by: Explicit sort field overriding search_order_by (SearchSortOrder)
+            order_desc: Sort direction for the effective sort field
             limit: Maximum results
+            offset: Rows to SKIP before the LIMIT window (pagination)
             visibility: SCOPE_AWARE replaces the ownership MATCH with the
                 scope/sharing WHERE fragment (curriculum + OWNS/SHARES_WITH/
                 group membership); other values keep the MATCH-based path
@@ -346,6 +358,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
         """
+        from adapters.persistence.neo4j.neo4j_schema_manager import _validate_identifier
         from adapters.persistence.neo4j.query.cypher import (
             build_relationship_filter_fragments,
             build_search_visibility_clause,
@@ -402,13 +415,21 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             if text_conditions:
                 where_clauses.append(f"({' OR '.join(text_conditions)})")
 
-        # 4. Relationship filters from request (Cypher authored below the boundary)
+        # 4. Tag facet — element membership with ANY/ALL semantics. Distinct
+        # from property_filters, whose list branch is whole-array equality.
+        # Entities with no tags property yield NULL predicates → filtered out.
+        if tags_contain:
+            op = "ALL" if tags_match_all else "ANY"
+            where_clauses.append(f"{op}(t IN $tags_contain WHERE t IN entity.tags)")
+            params["tags_contain"] = tags_contain
+
+        # 5. Relationship filters from request (Cypher authored below the boundary)
         if relationship_filters is not None:
             where_clauses.extend(build_relationship_filter_fragments(relationship_filters))
 
         cypher_parts.append(f"WHERE {' AND '.join(where_clauses)}")
 
-        # 5. Graph enrichment via OPTIONAL MATCHes
+        # 6. Graph enrichment via OPTIONAL MATCHes
         enrichment_returns = []
         for pattern in graph_enrichment_patterns:
             if len(pattern) == 4:
@@ -430,14 +451,21 @@ class _SearchRawMixin[T: DomainModelProtocol]:
                 f"{context_name}_title: {context_name}.title}}) as {context_name}_list"
             )
 
-        # 6. RETURN clause
+        # 7. RETURN clause
         return_fields = ["entity"]
         return_fields.extend(enrichment_returns)
         cypher_parts.append(f"RETURN {', '.join(return_fields)}")
 
-        # 7. Ordering and limit
-        cypher_parts.append(f"ORDER BY entity.{search_order_by} DESC")
-        cypher_parts.append(f"LIMIT {limit}")
+        # 8. Ordering + pagination window. The sort field is interpolated, so
+        # both the explicit override and the config default pass the same
+        # identifier whitelist the schema manager uses — never raw user input.
+        sort_field = order_by or search_order_by
+        _validate_identifier(sort_field, context="sort field")
+        direction = "DESC" if order_desc else "ASC"
+        cypher_parts.append(f"ORDER BY entity.{sort_field} {direction}")
+        if offset > 0:
+            cypher_parts.append(f"SKIP {int(offset)}")
+        cypher_parts.append(f"LIMIT {int(limit)}")
 
         cypher_query = "\n".join(cypher_parts)
 

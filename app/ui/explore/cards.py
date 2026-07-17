@@ -10,10 +10,13 @@ import json
 from typing import Any
 
 from fasthtml.common import A as Anchor
-from fasthtml.common import Div, Form, Input, NotStr, Option, P, Select, Span
+from fasthtml.common import Button, Div, Form, Input, NotStr, Option, P, Select, Span
 
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+
+# One grid page of the library catalog (bento cards per "Load more" fetch).
+LIBRARY_PAGE_SIZE = 24
 
 # Search SVG icon (shared)
 SEARCH_ICON = NotStr(
@@ -28,24 +31,26 @@ SEARCH_ICON = NotStr(
 
 
 def render_explore_card(
-    item: Any,
-    entity_type: str,
+    item: dict[str, Any],
     learning_state: str = "",
     is_pinned: bool = False,
 ) -> Div:
     """Render a single explore card for bento grid layout.
 
     Args:
-        item: Ku or PathStep entity.
-        entity_type: "ku" or "ps".
+        item: SearchRouter faceted-search result dict — raw Neo4j node
+            properties plus the ``_domain`` stamp (EntityType values:
+            "ku" / "path_step"). Enum-backed properties (complexity,
+            learning_level) arrive as their stored string values.
         learning_state: Learning state label (e.g., "Studying", "In Progress").
         is_pinned: Whether the entity is bookmarked/pinned.
     """
-    uid = item.uid
-    title = item.title or uid
+    uid = str(item.get("uid", ""))
+    title = item.get("title") or uid
+    is_ku = item.get("_domain") == "ku"
 
     # Type pill
-    if entity_type == "ku":
+    if is_ku:
         pill = Badge("Ku", variant=BadgeT.accent, size=Size.sm, cls="shrink-0")
         detail_href = f"/explore/ku/{uid}"
     else:
@@ -58,32 +63,28 @@ def render_explore_card(
         detail_href = f"/explore/ps/{uid}"
 
     # Truncated description
-    desc = (getattr(item, "description", "") or "")[:120]
-    if len(getattr(item, "description", "") or "") > 120:
+    full_desc = item.get("description") or ""
+    desc = full_desc[:120]
+    if len(full_desc) > 120:
         desc += "..."
 
     # Metadata badges — Ku is a lightweight reference node (no display metadata);
     # PathStep carries complexity / time / level.
     meta_parts: list[Any] = []
-    if entity_type != "ku":
-        if getattr(item, "complexity", None):
+    if not is_ku:
+        if item.get("complexity"):
+            meta_parts.append(Span(str(item["complexity"]), cls="text-xs text-muted-foreground"))
+        if item.get("estimated_time_minutes"):
             meta_parts.append(
-                Span(
-                    str(item.complexity.value),
-                    cls="text-xs text-muted-foreground",
-                )
+                Span(f"{item['estimated_time_minutes']} min", cls="text-xs text-muted-foreground")
             )
-        if getattr(item, "estimated_time_minutes", None):
+        if item.get("learning_level"):
             meta_parts.append(
-                Span(f"{item.estimated_time_minutes} min", cls="text-xs text-muted-foreground")
-            )
-        if getattr(item, "learning_level", None):
-            meta_parts.append(
-                Span(str(item.learning_level.value), cls="text-xs text-muted-foreground")
+                Span(str(item["learning_level"]), cls="text-xs text-muted-foreground")
             )
 
     # Tag chips (max 3)
-    tags = (getattr(item, "tags", None) or ())[:3]
+    tags = (item.get("tags") or ())[:3]
     tag_chips = [
         Span(
             f"#{tag}",
@@ -120,6 +121,31 @@ def render_explore_card(
         if meta_parts or tag_chips or state_badge
         else None,
         cls="p-4 border border-border rounded-lg bg-background hover:border-foreground/20 transition-colors",
+    )
+
+
+def render_load_more(next_offset: int) -> Button:
+    """Sentinel "Load more" button — last child of the card grid.
+
+    Replaces itself (outerHTML swap) with the next page of bare cards plus a
+    fresh sentinel, so pages append in place. Filter state rides along via
+    ``hx_include`` on the search form; the offset is the button's own
+    ``hx_vals`` (filter-triggered requests carry no offset input, so any
+    filter change naturally resets to page one).
+    """
+    return Button(
+        "Load more",
+        type="button",
+        hx_get="/api/explore/search",
+        hx_target="this",
+        hx_swap="outerHTML",
+        hx_include="#explore-search-form",
+        hx_vals=json.dumps({"offset": next_offset}),
+        cls=(
+            "col-span-full justify-self-center mt-2 px-4 py-2 text-sm rounded-lg "
+            "border border-border text-muted-foreground hover:border-foreground "
+            "hover:text-foreground transition-colors cursor-pointer"
+        ),
     )
 
 
@@ -218,6 +244,7 @@ def render_explore_search_panel(all_tags: list[str], active_tag: str = "") -> Di
             # Hidden input for active tag
             Input(name="tag", type="hidden", **{"x-bind:value": "activeTag"}),
             cls="flex flex-col gap-3",
+            id="explore-search-form",
         ),
         cls="p-4 mb-5 border border-border rounded-xl bg-background flex flex-col gap-3",
         x_data=f"exploreSearch({json.dumps(active_tag)})",

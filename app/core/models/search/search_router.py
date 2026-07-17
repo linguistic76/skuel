@@ -65,11 +65,14 @@ Changes:
 - v1.0.0: Initial implementation
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar
 
+from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
+from core.models.search.filter_enums import SearchSortOrder
 from core.models.type_hints import UserUID
 from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
@@ -94,6 +97,25 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 logger = get_logger(__name__)
+
+
+def _sweep_sort_key(sort_field: str) -> "Callable[[dict[str, Any]], str]":
+    """Sort-key factory for cross-domain merges on a shared entity field.
+
+    Per-domain result sets arrive Cypher-sorted; the merged list re-sorts on
+    the same field in Python. Neo4j temporal values stringify to ISO-8601
+    (lexicographic order == chronological order), titles compare
+    case-insensitively, and missing values collapse to "" (last on DESC).
+    """
+
+    def sort_key(record: dict[str, Any]) -> str:
+        value = record.get(sort_field)
+        if value is None:
+            return ""
+        text = str(value)
+        return text.lower() if sort_field == "title" else text
+
+    return sort_key
 
 
 # =============================================================================
@@ -348,6 +370,28 @@ class SearchRouter:
         for pair in await self._nous_subtopic_pairs():
             mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
         return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
+
+    async def list_tags(self) -> Result[list[str]]:
+        """Flat tag vocabulary across the shared curriculum catalog (Ku + PathStep).
+
+        Powers the /explore/library tag chips and the /search tags filter.
+        Same cross-domain aggregation point as the NOUS vocabulary: each
+        domain's search sub-service lists its OWN distinct tags
+        (``list_all_tags`` → ``distinct_values_raw("tags")``), the merge lives
+        here. Deduped + sorted; fails soft per domain (a missing service or an
+        errored call contributes nothing rather than failing the vocabulary).
+        """
+        tags: set[str] = set()
+        for entity_type in (EntityType.KU, EntityType.PATH_STEP):
+            service = self.get_service(entity_type)
+            if service is None:
+                continue
+            result = await service.search.list_all_tags()
+            if result.is_error:
+                self.logger.warning(f"list_all_tags failed for {entity_type}: {result.error}")
+                continue
+            tags.update(result.value or [])
+        return Result.ok(sorted(tags))
 
     async def list_nous_subtopics(self) -> Result[list[str]]:
         """Flat NOUS sub-topic vocabulary — every distinct sub-topic, deduped + sorted.
@@ -620,9 +664,12 @@ class SearchRouter:
                         )
                     )
 
-                # Graph-aware domains with user → graph_aware_faceted_search
-                # January 2026: Unified search for Activity Domains + Curriculum Domains
-                if domain_str in self._GRAPH_AWARE_DOMAINS and user_uid:
+                # Graph-aware domains → graph_aware_faceted_search. Anonymous
+                # callers are allowed through — the per-domain visibility gate
+                # inside _graph_aware_domain_search admits PUBLIC domains
+                # (Ku/PS/LP catalog browse) and bounces everything else to the
+                # fallback below (July 2026, /explore/library consolidation).
+                if domain_str in self._GRAPH_AWARE_DOMAINS:
                     response = await self._graph_aware_domain_search(request, user_uid, domain_str)
 
                 # Curriculum or other domains → simple text search
@@ -993,7 +1040,7 @@ class SearchRouter:
     async def _graph_aware_domain_search(
         self,
         request: "SearchRequest",
-        user_uid: UserUID,
+        user_uid: UserUID | None,
         domain_str: str,
     ) -> Result["SearchResponse"] | None:
         """
@@ -1002,6 +1049,8 @@ class SearchRouter:
         Works for both Activity Domains (Tasks, Goals, etc.) and Curriculum Domains (KU).
 
         January 2026: Unified search architecture - One Path Forward.
+        Anonymous callers (user_uid=None) are admitted only for PUBLIC-visibility
+        domains; others fall back to the caller's next strategy (None return).
         """
         from datetime import datetime
 
@@ -1009,6 +1058,8 @@ class SearchRouter:
 
         search_service = self._resolve_graph_aware_service(domain_str)
         if search_service is None:
+            return None
+        if user_uid is None and search_service.search_visibility is not SearchVisibility.PUBLIC:
             return None
 
         self.logger.debug(f"Graph-aware domain search: {domain_str}")
@@ -1137,7 +1188,23 @@ class SearchRouter:
         # WHERE clauses in each domain's query). Without the relationship check a
         # relationship-only, empty-query request would silently fall through to
         # the unfiltered text sweep and drop the filter (Codex, PR #549).
-        if (request.to_property_filters() or request.has_relationship_filters()) and user_uid:
+        # Tag facets, EMPTY-QUERY browse, and EXPLICIT SORT (July 2026,
+        # /explore/library consolidation) route the same way: the text sweep
+        # can express none of them — search() hard-rejects an empty query,
+        # drops tag/property filters, caps at limit//6 per domain, and ranks
+        # by score only (so a requested created/title order would be ignored
+        # and the library's All-Types text search starved to ≤10 minimal
+        # records — Codex, PR #669). Only a RELEVANCE-sorted pure text query
+        # belongs on the scored sweep. No user_uid gate here — _faceted_sweep
+        # admits anonymous callers per-domain (PUBLIC visibility only).
+        wants_faceted = (
+            request.to_property_filters()
+            or request.has_relationship_filters()
+            or request.has_tag_filter()
+            or not request.query_text
+            or request.get_sort_order() is not SearchSortOrder.RELEVANCE
+        )
+        if wants_faceted:
             return await self._faceted_sweep(request, user_uid, sweep_domains)
 
         unified_result = await self.search_domains(
@@ -1167,7 +1234,7 @@ class SearchRouter:
     async def _faceted_sweep(
         self,
         request: "SearchRequest",
-        user_uid: UserUID,
+        user_uid: UserUID | None,
         sweep_domains: list[EntityType | NonKuDomain],
     ) -> list[dict]:
         """Cross-domain sweep with property facets applied in-query.
@@ -1176,12 +1243,29 @@ class SearchRouter:
         the request's property filters become WHERE clauses. Domains without
         graph-aware support are SKIPPED, not text-searched: a filtered sweep
         must never mix unfiltered results into a facet the user narrowed.
+        Anonymous callers sweep PUBLIC-visibility domains only (Ku/PS/LP
+        catalog browse); user-owned domains are skipped fail-closed.
 
-        Faceted results carry no relevance score, so the final truncation is
-        round-robin interleaved across domains — iteration order must not let
-        an early domain consume the whole budget and starve later ones
-        (Kody, PR #534).
+        Results are FULL node-property dicts (same shape as the single-domain
+        graph-aware route) so consumers like /explore/library can render rich
+        cards from either path.
+
+        Merging: with an explicit sort the per-domain (already sorted) result
+        sets are merged on the shared sort key. RELEVANCE results carry no
+        cross-domain score, so they keep the round-robin interleave — iteration
+        order must not let an early domain consume the whole budget and starve
+        later ones (Kody, PR #534).
+
+        Pagination is global-window: each domain over-fetches offset+limit
+        rows from 0, then the merged list is sliced — a per-domain SKIP would
+        drop rows that belong in the merged page. Window is capped by the
+        SearchRequest limit ceiling, bounding All-types page depth.
         """
+        sort = request.get_sort_order()
+        # Over-fetch window so the merged slice is correct across domains.
+        window = min(request.offset + request.limit, 200)
+        window_request = request.model_copy(update={"limit": window, "offset": 0})
+
         per_domain: list[list[dict]] = []
         for entity_type in sweep_domains:
             domain_str = self._SERVICE_REGISTRY.get(entity_type)
@@ -1190,34 +1274,39 @@ class SearchRouter:
             search_service = self._resolve_graph_aware_service(domain_str)
             if search_service is None:
                 continue
+            if user_uid is None and search_service.search_visibility is not SearchVisibility.PUBLIC:
+                continue
 
             result = await search_service.graph_aware_faceted_search(
-                request=request,
+                request=window_request,
                 user_uid=user_uid,
             )
             if result.is_error:
                 self.logger.warning(f"Faceted sweep failed for {domain_str}: {result.error}")
                 continue
 
-            domain_results = [
-                {
-                    "uid": record.get("uid", ""),
-                    "title": record.get("title", ""),
-                    # Records already carry _domain = EntityType value (stamped
-                    # by graph_aware_faceted_search); fall back to the same
-                    # vocabulary, never the Services attr name in domain_str.
-                    "_domain": record.get("_domain", entity_type.value),
-                    "_score": 0.0,
-                }
-                for record in result.value or []
-            ]
+            domain_results = []
+            for record in result.value or []:
+                # Full node-property dict; ensure the _domain stamp (already
+                # set by graph_aware_faceted_search) uses the EntityType-value
+                # vocabulary, never the Services attr name in domain_str.
+                item = dict(record)
+                item.setdefault("_domain", entity_type.value)
+                item.setdefault("_score", 0.0)
+                domain_results.append(item)
             if domain_results:
                 per_domain.append(domain_results)
 
         merged: list[dict] = []
-        for tier in zip_longest(*per_domain):
-            merged.extend(item for item in tier if item is not None)
-        return merged[: request.limit]
+        if sort is SearchSortOrder.RELEVANCE:
+            for tier in zip_longest(*per_domain):
+                merged.extend(item for item in tier if item is not None)
+        else:
+            sort_field = sort.get_sort_field() or "updated_at"
+            for domain_results in per_domain:
+                merged.extend(domain_results)
+            merged.sort(key=_sweep_sort_key(sort_field), reverse=sort.is_descending())
+        return merged[request.offset : request.offset + request.limit]
 
     async def intelligent_search(
         self,

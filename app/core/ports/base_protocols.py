@@ -671,7 +671,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
     async def faceted_search_raw(
         self,
-        user_uid: UserUID,
+        user_uid: UserUID | None,
         *,
         user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
@@ -680,13 +680,22 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         property_filters: dict[str, Any],
         query_text: str | None = None,
         relationship_filters: RelationshipFilters | None = None,
+        tags_contain: builtins.list[str] | None = None,
+        tags_match_all: bool = False,
+        order_by: str | None = None,
+        order_desc: bool = True,
         limit: int = 50,
+        offset: int = 0,
         visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Graph-aware faceted search with ownership, filters, and enrichment.
 
         The Cypher for ``relationship_filters`` is authored below the boundary
-        (ADR-044); callers pass only the active-flag intent.
+        (ADR-044); callers pass only the active-flag intent. ``user_uid`` may
+        be None for PUBLIC-visibility domains (anonymous browse); the service
+        layer fails closed before reaching here for OWNER_ONLY domains.
+        ``order_by``/``order_desc`` override the domain's ``search_order_by``
+        DESC default (SearchSortOrder plumbing).
         """
         ...
 

@@ -1,0 +1,404 @@
+"""
+Library ⇄ SearchRouter consolidation — faceted-path capability tests
+=====================================================================
+
+Unit coverage for the July 2026 /explore/library consolidation, which made
+SearchRouter.faceted_search the single path for the library catalog and
+closed four faceted-path gaps in the process:
+
+1. Real sort — SearchSortOrder plumbed end-to-end (ORDER BY in
+   ``faceted_search_raw``; field whitelisted, direction honored).
+2. Tags facet — ``tags_contain`` ANY/ALL membership clause in the
+   faceted Cypher; CSV ``tags`` param parsed at the form boundary.
+3. Pagination — SKIP emission (single-domain) and global-window
+   over-fetch + slice (multi-domain sweep).
+4. Anonymous browse — PUBLIC-visibility domains take the rich
+   graph-aware path without a user; OWNER_ONLY fails closed.
+5. Tag vocabulary — ``SearchRouter.list_tags`` Ku+PS aggregation.
+6. Route mapping — the library panel's form params onto SearchRequest.
+"""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from adapters.inbound.explore_ui import _library_cards, _library_search_request
+from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
+from core.models.enums import SearchVisibility
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
+from core.models.search.filter_enums import SearchSortOrder
+from core.models.search.search_router import SearchRouter
+from core.models.search_request import SearchRequest
+from core.utils.result_simplified import Result
+from ui.explore.cards import LIBRARY_PAGE_SIZE
+
+# ============================================================================
+# 1. SearchSortOrder mapping
+# ============================================================================
+
+
+class TestSearchSortOrder:
+    @pytest.mark.parametrize(
+        ("member", "field", "descending"),
+        [
+            (SearchSortOrder.RELEVANCE, None, True),
+            (SearchSortOrder.CREATED_DESC, "created_at", True),
+            (SearchSortOrder.CREATED_ASC, "created_at", False),
+            (SearchSortOrder.UPDATED_DESC, "updated_at", True),
+            (SearchSortOrder.TITLE_ASC, "title", False),
+        ],
+    )
+    def test_field_and_direction(self, member, field, descending) -> None:
+        assert member.get_sort_field() == field
+        assert member.is_descending() is descending
+
+    def test_from_string_falls_back_to_relevance(self) -> None:
+        assert SearchSortOrder.from_string("title_asc") is SearchSortOrder.TITLE_ASC
+        assert SearchSortOrder.from_string("bogus") is SearchSortOrder.RELEVANCE
+        assert SearchSortOrder.from_string("") is SearchSortOrder.RELEVANCE
+        assert SearchSortOrder.from_string(None) is SearchSortOrder.RELEVANCE
+
+
+class TestFormParamBoundary:
+    def test_sort_order_parsed(self) -> None:
+        request = SearchRequest.from_form_params(query="x", sort_order="created_asc")
+        assert request.get_sort_order() is SearchSortOrder.CREATED_ASC
+
+    def test_tags_csv_parsed_and_trimmed(self) -> None:
+        request = SearchRequest.from_form_params(query="x", tags="yoga, mind ,,anxiety")
+        assert request.tags_contain == ["yoga", "mind", "anxiety"]
+        assert request.has_tag_filter()
+
+    def test_empty_tags_is_no_filter(self) -> None:
+        request = SearchRequest.from_form_params(query="x", tags="")
+        assert request.tags_contain is None
+        assert not request.has_tag_filter()
+
+    def test_get_sort_order_rehydrates_enum_values_string(self) -> None:
+        # use_enum_values=True stores the raw string — the accessor re-wraps.
+        request = SearchRequest(sort_order=SearchSortOrder.TITLE_ASC)
+        assert request.get_sort_order() is SearchSortOrder.TITLE_ASC
+
+
+# ============================================================================
+# 2/3. faceted_search_raw Cypher composition
+# ============================================================================
+
+
+class _CapturingResult:
+    async def data(self) -> list[dict[str, Any]]:
+        return []
+
+
+class _CapturingSession:
+    def __init__(self, store: dict[str, Any]) -> None:
+        self._store = store
+
+    async def __aenter__(self) -> _CapturingSession:
+        return self
+
+    async def __aexit__(self, *exc: object) -> bool:
+        return False
+
+    async def run(self, query: str, params: dict[str, Any]) -> _CapturingResult:
+        self._store["query"] = query
+        self._store["params"] = params
+        return _CapturingResult()
+
+
+class _CapturingDriver:
+    def __init__(self, store: dict[str, Any]) -> None:
+        self._store = store
+
+    def session(self) -> _CapturingSession:
+        return _CapturingSession(self._store)
+
+
+class _StubBackend(_SearchRawMixin):
+    def __init__(self, store: dict[str, Any]) -> None:
+        self.driver = _CapturingDriver(store)
+        self.label = NeoLabel.KU
+        self.entity_class = object
+
+
+async def _run_faceted(store: dict[str, Any], **overrides: Any) -> Result[list[dict[str, Any]]]:
+    backend = _StubBackend(store)
+    kwargs: dict[str, Any] = {
+        "user_ownership_relationship": None,
+        "search_fields": ("title", "description"),
+        "search_order_by": "updated_at",
+        "graph_enrichment_patterns": (),
+        "property_filters": {},
+        "visibility": SearchVisibility.PUBLIC,
+    }
+    kwargs.update(overrides)
+    return await backend.faceted_search_raw(None, **kwargs)
+
+
+class TestFacetedSearchRawClauses:
+    @pytest.mark.asyncio
+    async def test_default_order_by_config_field_desc(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store)
+        assert "ORDER BY entity.updated_at DESC" in store["query"]
+        assert "SKIP" not in store["query"]
+
+    @pytest.mark.asyncio
+    async def test_explicit_sort_overrides_direction_and_field(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store, order_by="title", order_desc=False)
+        assert "ORDER BY entity.title ASC" in store["query"]
+
+    @pytest.mark.asyncio
+    async def test_offset_emits_skip_before_limit(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store, offset=24, limit=24)
+        query = store["query"]
+        assert "SKIP 24" in query
+        assert query.index("SKIP 24") < query.index("LIMIT 24")
+
+    @pytest.mark.asyncio
+    async def test_tags_any_semantics(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store, tags_contain=["yoga", "mind"])
+        assert "ANY(t IN $tags_contain WHERE t IN entity.tags)" in store["query"]
+        assert store["params"]["tags_contain"] == ["yoga", "mind"]
+
+    @pytest.mark.asyncio
+    async def test_tags_all_semantics(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store, tags_contain=["yoga"], tags_match_all=True)
+        assert "ALL(t IN $tags_contain WHERE t IN entity.tags)" in store["query"]
+
+    @pytest.mark.asyncio
+    async def test_malicious_sort_field_rejected_before_query(self) -> None:
+        # _validate_identifier raises; safe_backend_operation converts to a
+        # failed Result. Either way the injection must never reach the driver.
+        store: dict[str, Any] = {}
+        result = await _run_faceted(store, order_by="title DESC; MATCH (n) DETACH DELETE n //")
+        assert result.is_error
+        assert "query" not in store  # never reached the driver
+
+    @pytest.mark.asyncio
+    async def test_empty_query_text_omits_text_clause(self) -> None:
+        store: dict[str, Any] = {}
+        await _run_faceted(store, query_text=None)
+        assert "CONTAINS" not in store["query"]
+
+
+# ============================================================================
+# 4. Router gates — anonymous PUBLIC browse + empty-query sweep
+# ============================================================================
+
+
+def _graph_aware_service(
+    records: list[dict[str, Any]],
+    visibility: SearchVisibility = SearchVisibility.PUBLIC,
+) -> MagicMock:
+    service = MagicMock()
+    # Protocol isinstance uses getattr_static (Py 3.12+) — SupportsGraphAwareSearch
+    # members must be REAL attributes on the mock, not lazily-created ones.
+    service.graph_aware_faceted_search = AsyncMock(return_value=Result.ok(records))
+    service.search_visibility = visibility
+    return service
+
+
+class TestAnonymousGates:
+    @pytest.mark.asyncio
+    async def test_anon_public_single_domain_takes_rich_path(self) -> None:
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        router = SearchRouter(services=SimpleNamespace(ku=ku, event_bus=None))
+
+        result = await router.faceted_search(
+            SearchRequest(entity_types=[EntityType.KU]), user_uid=None
+        )
+
+        assert result.is_ok
+        assert [r["uid"] for r in result.value.results] == ["ku_1"]
+        ku.graph_aware_faceted_search.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_anon_owner_only_domain_skipped_in_sweep(self) -> None:
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        tasks = _graph_aware_service(
+            [{"uid": "task_1", "title": "T", "_domain": "task"}],
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+        router = SearchRouter(services=SimpleNamespace(ku=ku, tasks=tasks, event_bus=None))
+
+        results = await router._faceted_sweep(
+            SearchRequest(), None, [EntityType.KU, EntityType.TASK]
+        )
+
+        assert [r["uid"] for r in results] == ["ku_1"]
+        tasks.graph_aware_faceted_search.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_query_multi_domain_routes_to_faceted_sweep(self) -> None:
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
+        router.search_domains = AsyncMock()  # type: ignore[method-assign]
+
+        request = SearchRequest(entity_types=[EntityType.KU, EntityType.PATH_STEP])
+        await router._cross_domain_search(request, user_uid=None)
+
+        router._faceted_sweep.assert_awaited_once()
+        router.search_domains.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_text_query_with_explicit_sort_routes_to_faceted_sweep(self) -> None:
+        # The library's All-Types text search carries an explicit sort
+        # (created_desc/title_asc). The scored text sweep ignores sort and
+        # offset and caps at limit//6 minimal records per domain — an explicit
+        # sort must force the faceted sweep (Codex, PR #669).
+        router = SearchRouter(MagicMock())
+        router._faceted_sweep = AsyncMock(return_value=[])  # type: ignore[method-assign]
+        router.search_domains = AsyncMock()  # type: ignore[method-assign]
+
+        request = SearchRequest(
+            query_text="breath",
+            entity_types=[EntityType.KU, EntityType.PATH_STEP],
+            sort_order=SearchSortOrder.CREATED_DESC,
+        )
+        await router._cross_domain_search(request, user_uid=None)
+
+        router._faceted_sweep.assert_awaited_once()
+        router.search_domains.assert_not_awaited()
+
+
+class TestSweepMergeAndPagination:
+    @pytest.mark.asyncio
+    async def test_explicit_sort_merges_across_domains(self) -> None:
+        ku = _graph_aware_service(
+            [
+                {"uid": "ku_b", "title": "Banana", "_domain": "ku"},
+                {"uid": "ku_z", "title": "zebra", "_domain": "ku"},
+            ]
+        )
+        ps = _graph_aware_service([{"uid": "ps_a", "title": "Apple", "_domain": "path_step"}])
+        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps, event_bus=None))
+
+        request = SearchRequest(sort_order=SearchSortOrder.TITLE_ASC)
+        results = await router._faceted_sweep(
+            request, "user_x", [EntityType.KU, EntityType.PATH_STEP]
+        )
+
+        # Case-insensitive title merge across both domains
+        assert [r["uid"] for r in results] == ["ps_a", "ku_b", "ku_z"]
+
+    @pytest.mark.asyncio
+    async def test_sweep_returns_full_dicts(self) -> None:
+        record = {
+            "uid": "ps_1",
+            "title": "Step",
+            "_domain": "path_step",
+            "tags": ["yoga"],
+            "created_at": "2026-01-01T00:00:00",
+            "learning_level": "beginner",
+            "estimated_time_minutes": 15,
+        }
+        ps = _graph_aware_service([record])
+        router = SearchRouter(services=SimpleNamespace(ps=ps, event_bus=None))
+
+        results = await router._faceted_sweep(SearchRequest(), "user_x", [EntityType.PATH_STEP])
+
+        assert results[0]["tags"] == ["yoga"]
+        assert results[0]["estimated_time_minutes"] == 15
+
+    @pytest.mark.asyncio
+    async def test_offset_slices_merged_window(self) -> None:
+        ku = _graph_aware_service(
+            [{"uid": f"ku_{i}", "title": f"T{i:02d}", "_domain": "ku"} for i in range(5)]
+        )
+        router = SearchRouter(services=SimpleNamespace(ku=ku, event_bus=None))
+
+        request = SearchRequest(sort_order=SearchSortOrder.TITLE_ASC, limit=2, offset=2)
+        results = await router._faceted_sweep(request, "user_x", [EntityType.KU])
+
+        assert [r["uid"] for r in results] == ["ku_2", "ku_3"]
+        # Domain call over-fetched the whole window from 0 (offset+limit, offset=0)
+        window_request = ku.graph_aware_faceted_search.await_args.kwargs["request"]
+        assert window_request.limit == 4
+        assert window_request.offset == 0
+
+
+# ============================================================================
+# 5. Tag vocabulary aggregation
+# ============================================================================
+
+
+class TestListTags:
+    @pytest.mark.asyncio
+    async def test_aggregates_ku_and_ps_sorted_unique(self) -> None:
+        ku = MagicMock()
+        ku.search.list_all_tags = AsyncMock(return_value=Result.ok(["yoga", "mind"]))
+        ps = MagicMock()
+        ps.search.list_all_tags = AsyncMock(return_value=Result.ok(["yoga", "attention"]))
+        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+
+        result = await router.list_tags()
+
+        assert result.is_ok
+        assert result.value == ["attention", "mind", "yoga"]
+
+    @pytest.mark.asyncio
+    async def test_fails_soft_per_domain(self) -> None:
+        ku = MagicMock()
+        ku.search.list_all_tags = AsyncMock(return_value=Result.fail(MagicMock(is_error=True)))
+        ps = MagicMock()
+        ps.search.list_all_tags = AsyncMock(return_value=Result.ok(["attention"]))
+        router = SearchRouter(services=SimpleNamespace(ku=ku, ps=ps))
+
+        result = await router.list_tags()
+
+        assert result.is_ok
+        assert result.value == ["attention"]
+
+
+# ============================================================================
+# 6. Library route param mapping + card assembly
+# ============================================================================
+
+
+class TestLibrarySearchRequest:
+    def test_all_types_browse_defaults(self) -> None:
+        request = _library_search_request("", "", "", "created_at", 0)
+        assert request.query_text is None
+        assert len(request.entity_types) == 2
+        assert request.tags_contain is None
+        assert request.get_sort_order() is SearchSortOrder.CREATED_DESC
+        assert request.limit == LIBRARY_PAGE_SIZE
+        assert request.offset == 0
+
+    def test_ps_alias_resolves_at_boundary(self) -> None:
+        request = _library_search_request("", "ps", "", "created_at", 0)
+        assert request.entity_types == [EntityType.PATH_STEP.value]
+
+    def test_tag_and_title_sort_and_offset(self) -> None:
+        request = _library_search_request("breath", "ku", "yoga", "title", 24)
+        assert request.query_text == "breath"
+        assert request.tags_contain == ["yoga"]
+        assert request.get_sort_order() is SearchSortOrder.TITLE_ASC
+        assert request.offset == 24
+
+    def test_unknown_sort_falls_back_to_newest(self) -> None:
+        request = _library_search_request("", "", "", "bogus", 0)
+        assert request.get_sort_order() is SearchSortOrder.CREATED_DESC
+
+
+class TestLibraryCards:
+    def _records(self, n: int) -> list[dict[str, Any]]:
+        return [{"uid": f"ku_{i}", "title": f"K{i}", "_domain": "ku"} for i in range(n)]
+
+    def test_full_page_appends_load_more_sentinel(self) -> None:
+        cards = _library_cards(self._records(LIBRARY_PAGE_SIZE), set(), {}, offset=0)
+        assert len(cards) == LIBRARY_PAGE_SIZE + 1  # cards + sentinel
+
+    def test_short_page_has_no_sentinel(self) -> None:
+        cards = _library_cards(self._records(3), set(), {}, offset=0)
+        assert len(cards) == 3
