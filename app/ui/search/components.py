@@ -396,14 +396,17 @@ def _render_filter_panel(nous_topics: list[str], nous_subtopics: list[str]) -> t
     return mobile_trigger, backdrop, panel
 
 
-# Type dropdown vocabulary — SHORT aliases (EntityType.from_string resolves
-# them server-side). Also consumed by _render_domain_breakdown to translate
-# the results' _domain stamp (full EntityType values) into clickable tokens.
+# Type dropdown vocabulary — CANONICAL EntityType values as wire values, per
+# the emission rule (ENUM_ARCHITECTURE § Canonical Values vs Aliases): aliases
+# like "ps" stay valid INPUT (EntityType.from_string resolves them, so old
+# bookmarks keep working), but the system itself emits canonical values only.
+# That makes these compare 1:1 against the results' _domain stamps in
+# _render_domain_breakdown — no translation layer.
 _ENTITY_TYPE_OPTIONS = [
     ("", "All Types"),
     ("ku", "Knowledge Units"),
-    ("ps", "Path Steps"),
-    ("lp", "Learning Paths"),
+    ("path_step", "Path Steps"),
+    ("learning_path", "Learning Paths"),
     ("task", "Tasks"),
     ("goal", "Goals"),
     ("habit", "Habits"),
@@ -412,9 +415,6 @@ _ENTITY_TYPE_OPTIONS = [
     ("principle", "Principles"),
     ("user_entry", "My Entries"),
 ]
-
-# _domain stamp (EntityType value) → Type dropdown token, where they differ.
-_DOMAIN_TO_TYPE_OPTION = {"path_step": "ps", "learning_path": "lp"}
 
 
 def _render_entity_type_select() -> Any:
@@ -849,17 +849,17 @@ def _render_domain_breakdown(response: SearchResponse) -> Any | None:
     if len(entity_counts) < 2:
         return None
 
-    # Clickable only when the _domain value maps to a real dropdown token —
-    # assigning an unknown value to the <select> would CLEAR it (reset to
-    # "All Types") instead of narrowing.
+    # Clickable only when the _domain value has a dropdown option — assigning
+    # an unknown value to the <select> would CLEAR it (reset to "All Types")
+    # instead of narrowing. Stamps and option values both speak canonical
+    # EntityType values, so membership is a direct check.
     dropdown_tokens = {value for value, _ in _ENTITY_TYPE_OPTIONS if value}
 
     def _chip(fc: FacetCount) -> Any:
         label = f"{fc.display_name or fc.facet_value} {fc.count}"
-        token = _DOMAIN_TO_TYPE_OPTION.get(fc.facet_value, fc.facet_value)
-        if token not in dropdown_tokens:
+        if fc.facet_value not in dropdown_tokens:
             return Badge(label, variant=BadgeT.neutral)
-        attrs: dict[str, Any] = {"x-on:click": f"setEntityType('{token}')"}
+        attrs: dict[str, Any] = {"x-on:click": f"setEntityType('{fc.facet_value}')"}
         return Badge(
             label,
             variant=BadgeT.neutral,

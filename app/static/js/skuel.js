@@ -319,7 +319,9 @@
                 filterCount: 0,       // active facets, shown on the mobile trigger badge
 
                 // Entity type to filter group mapping — keys mirror the Type
-                // dropdown values in ui/search/components.py (_render_entity_type_select)
+                // dropdown values in ui/search/components.py
+                // (_render_entity_type_select): canonical EntityType values,
+                // per the emission rule (aliases like 'ps' are input-only).
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],
                     'goal': ['common', 'status', 'priority'],
@@ -328,8 +330,8 @@
                     'choice': ['common', 'status', 'urgency'],
                     'principle': ['common', 'status', 'strength'],
                     'ku': ['knowledge', 'sel_category', 'learning_level', 'content_type', 'educational_level'],
-                    'ps': ['knowledge', 'sel_category', 'learning_level'],
-                    'lp': ['knowledge', 'sel_category', 'learning_level'],
+                    'path_step': ['knowledge', 'sel_category', 'learning_level'],
+                    'learning_path': ['knowledge', 'sel_category', 'learning_level'],
                     'user_entry': []
                 },
 
@@ -342,8 +344,8 @@
                     'choice': 'Choices',
                     'principle': 'Principles',
                     'ku': 'Knowledge Units',
-                    'ps': 'Path Steps',
-                    'lp': 'Learning Paths',
+                    'path_step': 'Path Steps',
+                    'learning_path': 'Learning Paths',
                     'user_entry': 'My Entries'
                 },
 
@@ -355,7 +357,7 @@
                 // Computed: label for context filter section
                 get contextFilterLabel() {
                     if (!this.entityType) return 'Filters';
-                    var isKnowledge = ['ku', 'ps', 'lp'].indexOf(this.entityType) !== -1;
+                    var isKnowledge = ['ku', 'path_step', 'learning_path'].indexOf(this.entityType) !== -1;
                     return isKnowledge ? 'Knowledge Filters' : 'Activity Filters';
                 },
 

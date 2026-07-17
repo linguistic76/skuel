@@ -39,6 +39,7 @@ When working in a file or area of the codebase, address problems you encounter �
 - **Files:** Names must reflect function. Rename randomly-generated plan file names immediately.
 - **Parameters:** Underscore prefix (`_filters`, `_ctx`) marks a placeholder for future implementation.
 - **Entities / edges / variants:** EntityType = noun, Relationship = verb, Variant = enum field. **See:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md § Naming Convention`.
+- **Emission rule:** aliases (`ps`, `lp`) are input-only — `from_string()` resolves them at the boundary; every machine channel (payloads, stamps, option values) speaks canonical enum values. Route segments (`/explore/ps/`) are naming, not entity_type values. **See:** `/docs/architecture/ENUM_ARCHITECTURE.md § Canonical Values vs Aliases`.
 
 ## Neo4j Infrastructure
 
