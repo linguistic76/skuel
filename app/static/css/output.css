@@ -1543,6 +1543,10 @@ body {
   margin-left: -1rem;
 }
 
+.-mt-2 {
+  margin-top: -0.5rem;
+}
+
 .-mt-4 {
   margin-top: -1rem;
 }
@@ -2155,6 +2159,10 @@ body {
   min-height: 80px;
 }
 
+.min-h-\[calc\(100dvh-250px\)\] {
+  min-height: calc(100dvh - 250px);
+}
+
 .min-h-\[calc\(100vh-64px\)\] {
   min-height: calc(100vh - 64px);
 }
@@ -2405,10 +2413,6 @@ body {
 
 .w-\[6px\] {
   width: 6px;
-}
-
-.w-\[72px\] {
-  width: 72px;
 }
 
 .w-\[7px\] {
@@ -4232,6 +4236,10 @@ body {
   padding-left: 0px;
 }
 
+.pl-1 {
+  padding-left: 0.25rem;
+}
+
 .pl-10 {
   padding-left: 2.5rem;
 }
@@ -4304,10 +4312,6 @@ body {
   padding-top: 0.75rem;
 }
 
-.pt-3\.5 {
-  padding-top: 0.875rem;
-}
-
 .pt-4 {
   padding-top: 1rem;
 }
@@ -4338,10 +4342,6 @@ body {
 
 .pt-\[9px\] {
   padding-top: 9px;
-}
-
-.pt-px {
-  padding-top: 1px;
 }
 
 .text-left {
@@ -4563,6 +4563,11 @@ body {
 
 .italic {
   font-style: italic;
+}
+
+.ordinal {
+  --tw-ordinal: ordinal;
+  font-variant-numeric: var(--tw-ordinal) var(--tw-slashed-zero) var(--tw-numeric-figure) var(--tw-numeric-spacing) var(--tw-numeric-fraction);
 }
 
 .tabular-nums {
@@ -4997,8 +5002,20 @@ body {
   text-decoration-line: none;
 }
 
+.decoration-dotted {
+  text-decoration-style: dotted;
+}
+
+.underline-offset-2 {
+  text-underline-offset: 2px;
+}
+
 .underline-offset-4 {
   text-underline-offset: 4px;
+}
+
+.accent-foreground {
+  accent-color: hsl(var(--foreground));
 }
 
 .opacity-0 {
@@ -5565,6 +5582,10 @@ body {
   border-color: hsl(var(--foreground) / 0.3);
 }
 
+.focus\:border-foreground\/40:focus {
+  border-color: hsl(var(--foreground) / 0.4);
+}
+
 .focus\:border-primary:focus {
   border-color: hsl(var(--primary));
 }
@@ -5633,6 +5654,10 @@ body {
 
 .disabled\:opacity-50:disabled {
   opacity: 0.5;
+}
+
+.disabled\:opacity-60:disabled {
+  opacity: 0.6;
 }
 
 .group[open] .group-open\:rotate-90 {

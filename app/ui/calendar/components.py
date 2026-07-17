@@ -331,7 +331,12 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
 
 
 def create_month_grid(calendar_data: CalendarData) -> Div:
-    """Bordered month grid: ISO-week rail + 7 day columns, one row per week."""
+    """Flat month grid: ISO-week rail + 7 day columns, one row per week.
+
+    Fills the viewport below the page chrome (uniform rows on sparse months);
+    the Monday-anchored ISO-week rail is load-bearing — each week number links
+    to that week's Obsidian weekly note, so Sunday-start is off the table.
+    """
     items_by_date = _items_by_date(calendar_data)
 
     # Grid starts on the Monday on/just before the 1st of the month.
@@ -366,7 +371,10 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
                 " bg-muted/25 border-r border-b border-border hover:text-primary hover:bg-muted/60"
             ),
         )
-        weeks.append(Div(rail, *week_cells, cls=_MONTH_GRID_COLS))
+        # flex-1: week rows share the container's spare height equally (uniform
+        # rows on sparse months); a busy row still grows to its content, so no
+        # chip is ever clipped (the #623 all-chips-visible ruling).
+        weeks.append(Div(rail, *week_cells, cls=f"{_MONTH_GRID_COLS} flex-1"))
 
         if current_date.month != first_day.month and current_date > calendar_data.end_date:
             break
@@ -392,10 +400,13 @@ def create_month_grid(calendar_data: CalendarData) -> Div:
         cls=f"{_MONTH_GRID_COLS} bg-muted/50",
     )
 
+    # Flat grid (no rounded card/shadow) that fills the viewport below the
+    # chrome: min-height (not height) so sparse months stretch rows evenly
+    # while busy months simply scroll the page.
     return Div(
         header,
         *weeks,
-        cls="border border-border rounded-xl overflow-hidden bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
+        cls="border border-border bg-card flex flex-col min-h-[calc(100dvh-250px)]",
     )
 
 
@@ -454,7 +465,8 @@ def create_day_cell(
     # note only when the cell background (not a chip) is clicked. Plain JS so it works
     # in HTMX-swapped content without an Alpine re-init.
     return Div(
-        Div(date_el, cls="flex items-center min-h-[24px] mb-[5px]"),
+        # Day number top-right (standard desktop-calendar convention).
+        Div(date_el, cls="flex items-center justify-end min-h-[24px] mb-[5px]"),
         Div(*chips, cls="flex flex-col gap-[3px]"),
         cls=cell_cls,
         style=cell_style,
