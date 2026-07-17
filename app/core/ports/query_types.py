@@ -1948,6 +1948,20 @@ class LateralRelationshipItem(TypedDict, total=False):
     direction: str
 
 
+class RelationshipRow(TypedDict):
+    """Single relationship row from ``get_relationships()``.
+
+    Runtime shape produced by ``_TraversalMixin.get_relationships`` and
+    surfaced by ``RelationshipOperationsMixin.get_relationships`` — a raw
+    edge row, not a domain model.
+    """
+
+    type: str
+    target_uid: str
+    direction: str
+    properties: dict[str, Any]
+
+
 class AlternativeComparisonItem(TypedDict, total=False):
     """Single alternative in get_alternatives_with_comparison() result.
 

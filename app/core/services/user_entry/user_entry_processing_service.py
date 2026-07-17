@@ -496,9 +496,7 @@ class UserEntryProcessingService:
         # but died before the metadata write, the next run must still dedup.
         # One query feeds both guards: exact line hashes (Guard 2) and the
         # semantic (node label, normalized title) → uid map (Guard 3, R3).
-        extracted_result = await self.entry_service.backend.get_extracted_entities_for_entry(
-            entry.uid
-        )
+        extracted_result = await self.entry_service.get_extracted_entities(entry.uid)
         if extracted_result.is_error:
             return await self._fail(entry, extracted_result.expect_error(), phase="read_provenance")
         extracted_rows = extracted_result.value or []
@@ -519,7 +517,7 @@ class UserEntryProcessingService:
         # Rows are oldest-first; setdefault keeps the same winner the F4 fixer
         # keeps. A line matching an ACTIVE owned twin merges instead of
         # re-creating a node the cleanup deleted (resurrection guard).
-        twins_result = await self.entry_service.backend.get_user_active_extraction_twins(
+        twins_result = await self.entry_service.get_user_active_extraction_twins(
             entry.user_uid, list(USER_OWNED_DEDUP_LABELS)
         )
         if twins_result.is_error:
@@ -540,7 +538,7 @@ class UserEntryProcessingService:
         # exists would double-count times_reflected_in_entries on a force re-run
         # or a crash-recovery retry. Read the already-linked Kus up front and
         # only emit the event for genuinely new links.
-        applied_result = await self.entry_service.backend.get_relationships(
+        applied_result = await self.entry_service.get_relationships(
             entry.uid, rel_type=RelationshipName.APPLIES_KNOWLEDGE, direction="outgoing"
         )
         if applied_result.is_error:
@@ -575,7 +573,7 @@ class UserEntryProcessingService:
 
         # --- Provenance edges ---------------------------------------------------
         if extraction.created_links:
-            links_result = await self.entry_service.backend.create_extracted_from_links(
+            links_result = await self.entry_service.create_extracted_from_links(
                 entry.uid, extraction.created_links
             )
             if links_result.is_error:
@@ -587,8 +585,8 @@ class UserEntryProcessingService:
         link_errors: list[str] = []
         ku_uids = dict.fromkeys(extraction.created_ku_uids + extraction.referenced_ku_uids)
         for ku_uid in ku_uids:
-            edge_result = await self.entry_service.backend.add_relationship(
-                entry.uid, ku_uid, RelationshipName.APPLIES_KNOWLEDGE
+            edge_result = await self.entry_service.add_relationship(
+                entry.uid, RelationshipName.APPLIES_KNOWLEDGE, ku_uid
             )
             if edge_result.is_error:
                 message = f"APPLIES_KNOWLEDGE {entry.uid} -> {ku_uid}: " + str(
@@ -635,7 +633,7 @@ class UserEntryProcessingService:
         }
         if bridge_error is not None:
             updates["processing_error"] = f"DSL bridge degraded to parser-only: {bridge_error}"
-        update_result = await self.entry_service.backend.update(entry.uid, updates)
+        update_result = await self.entry_service.update_processing_state(entry.uid, updates)
         if update_result.is_error:
             return await self._fail(entry, update_result.expect_error(), phase="persist_metadata")
 
@@ -758,7 +756,7 @@ class UserEntryProcessingService:
             f"for {entry.uid}: {message}"
         )
         try:
-            await self.entry_service.backend.update(
+            await self.entry_service.update_processing_state(
                 entry.uid,
                 {
                     "processing_error": message,

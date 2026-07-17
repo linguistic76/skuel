@@ -17,6 +17,7 @@ import pytest
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
+from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
@@ -87,8 +88,7 @@ def _make_dispatcher(
 def _entry_service_with_updated(updated_entry: UserEntry) -> MagicMock:
     svc = MagicMock()
     svc.update_processed_content = AsyncMock(return_value=Result.ok(updated_entry))
-    svc.backend = MagicMock()
-    svc.backend.update = AsyncMock(return_value=Result.ok(True))
+    svc.update_processing_state = AsyncMock(return_value=Result.ok(updated_entry))
     svc.create_entry = AsyncMock()
     return svc
 
@@ -132,7 +132,7 @@ class TestTranscribe:
         result = await dispatcher.process(entry)
 
         assert result.is_error
-        svc.backend.update.assert_awaited_once()
+        svc.update_processing_state.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_missing_file_path_validation_error(self):
@@ -149,7 +149,7 @@ class TestTranscribe:
 
         assert result.is_error
         adapter.transcribe.assert_not_awaited()
-        svc.backend.update.assert_awaited_once()
+        svc.update_processing_state.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_adapter_failure_marks_entry_failed(self):
@@ -169,8 +169,8 @@ class TestTranscribe:
 
         assert result.is_error
         svc.update_processed_content.assert_not_awaited()
-        svc.backend.update.assert_awaited_once()
-        update_args = svc.backend.update.await_args
+        svc.update_processing_state.assert_awaited_once()
+        update_args = svc.update_processing_state.await_args
         assert update_args.args[1]["status"] == EntityStatus.FAILED.value
         assert "API down" in update_args.args[1]["processing_error"]
 
@@ -228,7 +228,7 @@ class TestLlmSummary:
         assert result.is_error
         err = result.expect_error()
         assert "llm_tier_required" in str(err.details) or "llm" in str(err).lower()
-        svc.backend.update.assert_awaited_once()
+        svc.update_processing_state.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_missing_content_validation_error(self):
@@ -271,8 +271,8 @@ class TestLlmSummary:
 
         assert result.is_error
         svc.update_processed_content.assert_not_awaited()
-        svc.backend.update.assert_awaited_once()
-        assert svc.backend.update.await_args.args[1]["status"] == EntityStatus.FAILED.value
+        svc.update_processing_state.assert_awaited_once()
+        assert svc.update_processing_state.await_args.args[1]["status"] == EntityStatus.FAILED.value
 
 
 # ---------------------------------------------------------------------------
@@ -356,7 +356,7 @@ class TestTranscribeAndStructure:
         assert result.is_error
         llm.generate.assert_not_awaited()
         svc.create_entry.assert_not_awaited()
-        svc.backend.update.assert_awaited_once()
+        svc.update_processing_state.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_llm_failure_after_transcript_still_marks_failed(self):
@@ -393,8 +393,8 @@ class TestTranscribeAndStructure:
         svc.create_entry.assert_not_awaited()
         # Transcript was persisted before the LLM call failed.
         svc.update_processed_content.assert_awaited_once()
-        svc.backend.update.assert_awaited_once()
-        assert svc.backend.update.await_args.args[1]["status"] == EntityStatus.FAILED.value
+        svc.update_processing_state.assert_awaited_once()
+        assert svc.update_processing_state.await_args.args[1]["status"] == EntityStatus.FAILED.value
 
 
 # ---------------------------------------------------------------------------
@@ -403,13 +403,13 @@ class TestTranscribeAndStructure:
 
 
 def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
-    """Entry-service mock with the backend surfaces the extraction branch uses."""
+    """Entry-service mock with the service surfaces the extraction branch uses."""
     svc = _entry_service_with_updated(updated_entry)
-    svc.backend.get_relationships = AsyncMock(return_value=Result.ok([]))
-    svc.backend.get_extracted_entities_for_entry = AsyncMock(return_value=Result.ok([]))
-    svc.backend.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
-    svc.backend.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
-    svc.backend.add_relationship = AsyncMock(return_value=Result.ok(True))
+    svc.get_relationships = AsyncMock(return_value=Result.ok([]))
+    svc.get_extracted_entities = AsyncMock(return_value=Result.ok([]))
+    svc.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
+    svc.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
+    svc.add_relationship = AsyncMock(return_value=Result.ok(True))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
     return svc
 
@@ -466,13 +466,17 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_ok
-        svc.backend.create_extracted_from_links.assert_awaited_once_with(
+        svc.create_extracted_from_links.assert_awaited_once_with(
             entry.uid, [("task:1", "hash1", None)]
         )
-        svc.backend.add_relationship.assert_awaited_once()
-        assert svc.backend.add_relationship.await_args.args[:2] == (entry.uid, "ku:tech/x")
-        svc.backend.update.assert_awaited_once()
-        updates = svc.backend.update.await_args.args[1]
+        svc.add_relationship.assert_awaited_once()
+        assert svc.add_relationship.await_args.args == (
+            entry.uid,
+            RelationshipName.APPLIES_KNOWLEDGE,
+            "ku:tech/x",
+        )
+        svc.update_processing_state.assert_awaited_once()
+        updates = svc.update_processing_state.await_args.args[1]
         assert updates["metadata"]["activity_extraction"]["status"] == "completed"
         assert updates["status"] == EntityStatus.COMPLETED.value
         assert "processing_error" not in updates
@@ -504,7 +508,7 @@ class TestExtractActivities:
         kwargs = extractor.extract_and_create.await_args.kwargs
         assert kwargs["content_override"] == entry.content
         # Degradation recorded, run completed.
-        updates = svc.backend.update.await_args.args[1]
+        updates = svc.update_processing_state.await_args.args[1]
         assert "DSL bridge degraded to parser-only" in updates["processing_error"]
         assert updates["metadata"]["activity_extraction"]["status"] == "completed"
         assert "rate limited" in updates["metadata"]["activity_extraction"]["bridge_error"]
@@ -654,7 +658,7 @@ class TestExtractActivities:
     async def test_existing_hashes_are_read_and_threaded(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.backend.get_extracted_entities_for_entry = AsyncMock(
+        svc.get_extracted_entities = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -697,7 +701,7 @@ class TestExtractActivities:
         extractor."""
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.backend.get_user_active_extraction_twins = AsyncMock(
+        svc.get_user_active_extraction_twins = AsyncMock(
             return_value=Result.ok(
                 [
                     {
@@ -731,7 +735,7 @@ class TestExtractActivities:
     async def test_provenance_write_failure_fails_run(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.backend.create_extracted_from_links = AsyncMock(
+        svc.create_extracted_from_links = AsyncMock(
             return_value=Result.fail(Errors.database("create_extracted_from_links", "boom"))
         )
         extractor = MagicMock()
@@ -761,7 +765,7 @@ class TestExtractActivities:
     async def test_ku_edge_failure_is_recorded_not_fatal(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
         svc = _extract_entry_service(entry)
-        svc.backend.add_relationship = AsyncMock(
+        svc.add_relationship = AsyncMock(
             return_value=Result.fail(Errors.validation("Invalid relationship type"))
         )
         extractor = MagicMock()
@@ -774,7 +778,7 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_ok
-        updates = svc.backend.update.await_args.args[1]
+        updates = svc.update_processing_state.await_args.args[1]
         link_errors = updates["metadata"]["activity_extraction"]["link_errors"]
         assert len(link_errors) == 1
         assert "ku:typo/x" in link_errors[0]

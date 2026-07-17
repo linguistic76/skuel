@@ -261,7 +261,7 @@ class EntryReportService:
         if entry.pipeline in (Pipeline.EXTRACT_ACTIVITIES, Pipeline.TRANSCRIBE_AND_STRUCTURE):
             return Result.ok(True)
         if entry.pipeline == Pipeline.NONE and self.entry_service is not None:
-            rels = await self.entry_service.backend.get_relationships(
+            rels = await self.entry_service.get_relationships(
                 entry.uid, rel_type=RelationshipName.TRANSFORMS, direction="outgoing"
             )
             if rels.is_error:
