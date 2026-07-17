@@ -308,7 +308,7 @@ Current `ICON_NAV_ITEMS` (in order):
 
 | Label | Icon | Route | `page_key` | Notes |
 |-------|------|-------|------------|-------|
-| Today | `sun` | `/today` | `"today"` | Mobile bottom nav only — desktop brand link covers it |
+| Today | `sun` | `/today` | `"today"` | Mobile bottom nav only — no desktop nav item (brand link goes to `/explore`) |
 | Journals | `book-open` | `/journals` | `"journals"` | Auth only |
 | PathSteps | `map` | `/path-steps` | `"path-steps"` | Public (`requires_auth=False`) |
 

@@ -43,8 +43,9 @@ def _visible_icon_items(
     """Filter ICON_NAV_ITEMS by the viewer's auth/role flags.
 
     Shared by desktop text links and the mobile bottom nav so both surfaces
-    stay in lockstep with nav_config. Desktop excludes Today because the brand
-    link already goes to /today; mobile keeps it (include_today=True).
+    stay in lockstep with nav_config. Desktop excludes Today (kept out of the
+    center links since the brand link moved to /explore — /today is reached
+    from within the app); mobile keeps it (include_today=True).
     """
     visible: list[IconNavItem] = []
     for item in ICON_NAV_ITEMS:
@@ -316,7 +317,7 @@ def create_navbar(
     # --- Regular user top bar ---
 
     # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link.
-    # Today is omitted from desktop because the SKUEL brand link already goes to /today.
+    # Today is mobile-bottom-nav-only (the brand link goes to /explore).
     desktop_links = Div(
         *[
             _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
