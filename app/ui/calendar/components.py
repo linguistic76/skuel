@@ -461,16 +461,18 @@ def create_day_cell(
     else:
         cell_cls += "bg-background"
 
-    # event.target===this replicates Alpine's .self modifier — navigate to the daily
-    # note only when the cell background (not a chip) is clicked. Plain JS so it works
-    # in HTMX-swapped content without an Alpine re-init.
+    # Navigate to the daily note on any click that isn't a chip (item modal) or a
+    # link. closest() — not target===this — because on busy days chips and their
+    # column wrapper cover most of the cell, which shrank the daily-note click
+    # surface to the date number alone. Plain JS so it works in HTMX-swapped
+    # content without an Alpine re-init.
     return Div(
         # Day number top-right (standard desktop-calendar convention).
         Div(date_el, cls="flex items-center justify-end min-h-[24px] mb-[5px]"),
         Div(*chips, cls="flex flex-col gap-[3px]"),
-        cls=cell_cls,
+        cls=cell_cls + " cursor-pointer",
         style=cell_style,
-        onclick=f"if(event.target===this)window.location.href='{daily_href}'",
+        onclick=f"if(!event.target.closest('.calendar-item,a'))window.location.href='{daily_href}'",
     )
 
 
@@ -512,11 +514,21 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
             body_children = [Div("No events", cls="text-[12px] text-muted-foreground/60 p-1.5")]
         body = Div(*body_children, cls="p-2 flex flex-col gap-1.5 flex-1")
 
+        # Same non-chip/non-link click-through as the month cells: the card's
+        # empty space opens the daily note (the head link and chips keep their
+        # own behavior).
         cards.append(
             Div(
                 head,
                 body,
-                cls="border border-border rounded-[11px] overflow-hidden bg-card min-h-[360px] flex flex-col",
+                cls=(
+                    "border border-border rounded-[11px] overflow-hidden bg-card"
+                    " min-h-[360px] flex flex-col cursor-pointer"
+                ),
+                onclick=(
+                    "if(!event.target.closest('.calendar-item,a'))"
+                    f"window.location.href='/journals/daily/{day.isoformat()}'"
+                ),
             )
         )
 
