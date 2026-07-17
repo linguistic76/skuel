@@ -428,12 +428,12 @@ class TestPreviewRoute:
         assert "Deletion reconciliation refused" in html
 
     def test_preview_button_posts_to_preview_door(self) -> None:
-        # The sync page composes _preview_button next to _sync_button; the page
-        # handler needs the full sidebar-page machinery, so assert the button
-        # helper wiring directly — the fragment posts to the preview door.
-        from adapters.inbound.vault_routes import _preview_button
+        # The sync page composes preview_button next to sync_button (page-level
+        # render is covered in test_vault_sync_privacy_wall_route.py); assert
+        # the button wiring directly — the fragment posts to the preview door.
+        from ui.vault.sync_fragments import preview_button
 
-        html = to_xml(_preview_button())
+        html = to_xml(preview_button())
         assert 'hx-post="/settings/vault/preview"' in html
         assert "Preview sync" in html
 
