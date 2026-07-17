@@ -251,11 +251,17 @@ get_priority = lambda item: item.priority.to_numeric()
         "title": "Use RelationshipName Enum",
         "severity": "WARNING",
         "description": """Use RelationshipName enum instead of magic strings for
-relationship type parameters. Single source of truth in relationship_names.py.""",
+relationship type parameters. Single source of truth in relationship_names.py.
+Scope: any /services/ path plus adapters/inbound/, ui/, and api/.
+
+Suppress (boundary-shaped literals, e.g. an external system's status string
+that collides with a relationship name):
+  # skuel-lint: disable=SKUEL013 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL013 -- <reason>""",
         "good": """from core.models.relationship_names import RelationshipName
-await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)""",
+await backend.add_relationship(uid1, RelationshipName.SUPPORTS_GOAL, uid2)""",
         "bad": """# Magic string - error prone
-await backend.add_relationship(uid1, "SERVES_GOAL", uid2)""",
+await backend.add_relationship(uid1, "SUPPORTS_GOAL", uid2)""",
     },
     "SKUEL014": {
         "title": "Use EntityType/NonKuDomain Enum",
@@ -870,6 +876,7 @@ class SkuelLinter:
             "SKUEL005",
             "SKUEL011",
             "SKUEL012",
+            "SKUEL013",
             "SKUEL015",
             "SKUEL017",
             "SKUEL018",
@@ -1311,7 +1318,8 @@ class SkuelLinter:
             # skips docstring / bare-string example blocks, so the legitimate Cypher
             # examples in core/utils docstrings (processor_functions, neo4j_mapper, ...)
             # do not trip it; SKUEL001 has no hits in core/ outside the old gate.
-            # Other service-only rules (SKUEL002/004/005/007/013/014) stay on is_service.
+            # Other service-only rules (SKUEL002/004/005/007/014) stay on is_service;
+            # SKUEL013 additionally covers the inbound/presentation layers (see below).
             path_str = str(file_path)
             is_core = "/core/" in path_str and file_path.suffix == ".py"
             is_ui = "/ui/" in path_str and file_path.suffix == ".py"
@@ -1392,10 +1400,17 @@ class SkuelLinter:
                     self._check_result_return_types(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL007"):
                     self._check_string_result_fail(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
                 if self._should_run_rule("SKUEL014"):
                     self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
+
+            # Inbound/presentation layers (routes, UI renderers, api/ models) —
+            # raw relationship-type strings creep in here too, so SKUEL013 runs
+            # on these layers in addition to services. SKUEL014/SKUEL007 stay
+            # service-only for now; widening them is staged as follow-up PRs.
+            is_inbound_layer = rel_path.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+            if (is_service or is_inbound_layer) and not is_test:
+                if self._should_run_rule("SKUEL013"):
+                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
 
             if "/adapters/persistence/" in str(file_path):
                 if self._should_run_rule("SKUEL008"):
@@ -2010,43 +2025,185 @@ class SkuelLinter:
     # SKUEL013: relationship type names that must go through the RelationshipName
     # enum. A string literal whose value IS one of these (exact match) is a magic
     # string standing in for the enum member.
+    #
+    # Canonical source of truth: `RelationshipName` in
+    # `core/models/relationship_names.py` — this is the FULL set of enum values.
+    # Mirrored here because the linter deliberately has no runtime dependency on
+    # `core/`. Keep both in sync — `TestRelationshipNamesDrift` in
+    # `test_lint_skuel.py` pins the contract (it previously drifted to a ~30-value
+    # subset with four stale names, silently under-enforcing the rule).
     RELATIONSHIP_NAMES: ClassVar[frozenset[str]] = frozenset(
         {
-            # Core domain relationships
-            "SERVES_GOAL",
-            "SERVES_LIFE_PATH",
-            "APPLIES_KNOWLEDGE",
-            "REQUIRES_KNOWLEDGE",
-            "REINFORCES_KNOWLEDGE",
-            "FULFILLS_GOAL",
-            "SUPPORTS_GOAL",
+            "AFFECTS_GOAL",
+            "ALIGNED_WITH_GOAL",
+            "ALIGNED_WITH_PATH",
             "ALIGNED_WITH_PRINCIPLE",
-            "GUIDED_BY_PRINCIPLE",
-            "GUIDES_GOAL",
-            "GUIDES_CHOICE",
-            "HAS_STEP",
-            "HAS_PATH",
-            "CONTRIBUTES_TO",
-            "ENABLES",
-            "PREREQUISITE",
-            # Curriculum composition
-            "USES_KU",
-            "TRAINS_KU",
-            "ORGANIZES",
-            # Lateral relationships (Phase 5)
-            "BLOCKS",
-            "BLOCKED_BY",
-            "DEPENDS_ON",
-            "COMPLEMENTARY_TO",
+            "ALIGNMENT_SNAPSHOT",
             "ALTERNATIVE_TO",
-            "PREREQUISITE_FOR",
-            "SIBLING",
-            # Sharing & groups
-            "SHARES_WITH",
-            "SHARED_WITH_GROUP",
+            "APPLIES_KNOWLEDGE",
+            "ASSESSMENT_OF",
+            "ASSIGNED_TO",
+            "ASSIGNS_TASK",
+            "ATTENDS",
+            "AUNT_UNCLE",
+            "BLOCKED_BY",
+            "BLOCKED_BY_KNOWLEDGE",
+            "BLOCKS",
+            "BUILDS_HABIT",
+            "CAUSES",
+            "CELEBRATES_GOAL",
+            "CITES_RESOURCE",
+            "COMPLEMENTARY_TO",
+            "COMPLETED_TASK",
+            "COMPLETES_KNOWLEDGE",
+            "CONFLICTS_WITH",
+            "CONFLICTS_WITH_PRINCIPLE",
+            "CONTAINS_KNOWLEDGE",
+            "CONTRIBUTES_TO_GOAL",
+            "CORRELATED_WITH",
+            "COUSIN",
+            "DEMONSTRATES_PRINCIPLE",
+            "DEPENDS_ON",
+            "DEPENDS_ON_GOAL",
+            "EARNED_BADGE",
+            "EMBEDS_FORM",
+            "EMBODIES_PRINCIPLE",
+            "ENABLED_BY",
+            "ENABLES",
+            "ENABLES_GOAL",
+            "ENABLES_HABIT",
+            "ENABLES_KNOWLEDGE",
+            "ENABLES_TASK",
+            "ENGAGED_WITH",
+            "ENROLLED_IN",
+            "EXACERBATED_BY",
+            "EXECUTES_TASK",
+            "EXTRACTED_FROM",
+            "FOLLOWS",
+            "FULFILLS_EXERCISE",
+            "FULFILLS_GOAL",
+            "FULFILLS_REVISED_EXERCISE",
+            "FUNDS_EVENT",
+            "FUNDS_TASK",
+            "GENERATES_TASK",
+            "GROUNDED_IN_KNOWLEDGE",
+            "GROUNDS_PRINCIPLE",
+            "GUIDED_BY_KNOWLEDGE",
+            "GUIDED_BY_PRINCIPLE",
+            "GUIDES_CHOICE",
+            "GUIDES_GOAL",
+            "HAD_AUTH_EVENT",
+            "HAS_BROADER",
+            "HAS_CHILD",
+            "HAS_CHOICE",
+            "HAS_CHOICE_TEMPLATE",
+            "HAS_DEVICE",
+            "HAS_EVENT",
+            "HAS_EVENT_TEMPLATE",
+            "HAS_EXERCISE",
+            "HAS_GOAL",
+            "HAS_GOAL_TEMPLATE",
+            "HAS_HABIT",
+            "HAS_HABIT_TEMPLATE",
+            "HAS_KU",
+            "HAS_MILESTONE_EVENT",
+            "HAS_NARROWER",
+            "HAS_NOTIFICATION",
+            "HAS_PRINCIPLE",
+            "HAS_PRINCIPLE_TEMPLATE",
+            "HAS_REFLECTION",
+            "HAS_RESET_TOKEN",
+            "HAS_SCHEDULE",
+            "HAS_SESSION",
+            "HAS_STEP",
+            "HAS_SUBCHOICE",
+            "HAS_SUBEVENT",
+            "HAS_SUBGOAL",
+            "HAS_SUBHABIT",
+            "HAS_SUBPRINCIPLE",
+            "HAS_SUBTASK",
+            "HAS_TASK",
+            "HAS_TASK_TEMPLATE",
+            "HAS_TURN",
+            "IMPACTS_HABIT",
+            "IMPLEMENTS_CHOICE",
+            "INFERRED_KNOWLEDGE",
+            "INFORMED_BY_KNOWLEDGE",
+            "INFORMED_BY_PRINCIPLE",
+            "INFORMS_CHOICE",
+            "INSPIRED_BY_CHOICE",
+            "INSPIRES_GOAL",
+            "INSPIRES_HABIT",
+            "INTERACTION_DURING",
+            "INTERACTION_WITHIN",
+            "IN_DOMAIN",
+            "IN_PROGRESS",
+            "MADE_REFLECTION",
+            "MASTERED",
             "MEMBER_OF",
-            # Ownership
+            "MOTIVATED_BY_GOAL",
+            "NIECE_NEPHEW",
+            "OPENS_LEARNING_PATH",
+            "ORGANIZES",
             "OWNS",
+            "PART_OF_PROJECT",
+            "PINNED",
+            "PINNED_TODAY",
+            "PRACTICED_AT_EVENT",
+            "PRECEDES",
+            "PREREQUISITE_FOR",
+            "PURSUING_GOAL",
+            "RECOMMENDED_WITH",
+            "RECORDS",
+            "REDUCED_BY",
+            "REFLECTS_ON",
+            "REINFORCED_BY_KNOWLEDGE",
+            "REINFORCES_HABIT",
+            "REINFORCES_KNOWLEDGE",
+            "REINFORCES_STEP",
+            "RELATED_TO",
+            "REPORT_FOR",
+            "REQUESTED",
+            "REQUIRES_HABIT",
+            "REQUIRES_KNOWLEDGE",
+            "REQUIRES_KNOWLEDGE_FOR_DECISION",
+            "REQUIRES_PATH_COMPLETION",
+            "REQUIRES_PREREQUISITE",
+            "REQUIRES_PREREQUISITE_HABIT",
+            "REQUIRES_STEP",
+            "REQUIRES_TASK",
+            "RESPONDS_TO_FORM",
+            "RESPONDS_TO_REPORT",
+            "REVEALS_CONFLICT",
+            "REVISES_EXERCISE",
+            "SCHEDULES_EVENT",
+            "SERVES_LIFE_PATH",
+            "SHARED_WITH_GROUP",
+            "SHARES_WITH",
+            "SIBLING",
+            "SIMILAR_TO",
+            "SPAWNED_FROM",
+            "STACKS_WITH",
+            "SUBCHOICE_OF",
+            "SUBEVENT_OF",
+            "SUBGOAL_OF",
+            "SUBHABIT_OF",
+            "SUBPRINCIPLE_OF",
+            "SUBTASK_OF",
+            "SUPPORTS",
+            "SUPPORTS_GOAL",
+            "SUPPORTS_PRINCIPLE",
+            "TRAINS_KU",
+            "TRANSCRIBED_FOR",
+            "TRANSFORMS",
+            "TRIGGERED_BY",
+            "TRIGGERS_CHOICE",
+            "TRIGGERS_ON_COMPLETION",
+            "ULTIMATE_PATH",
+            "UNLOCKED_ACHIEVEMENT",
+            "UNLOCKS_KNOWLEDGE",
+            "USES_KU",
+            "VIEWED",
         }
     )
 
@@ -2069,8 +2226,14 @@ class SkuelLinter:
         replaces the old 10-line "am I inside a Cypher query" lookback heuristic.
         Cypher itself cannot legitimately exist in this rule's scope anyway:
         SKUEL021 bans it across core/.
+
+        Suppressible: boundary-shaped literals (e.g. mapping an EXTERNAL system's
+        status/type string that merely collides with a relationship name) are
+        legitimate — annotate with `# skuel-lint: disable=SKUEL013 -- <reason>`.
         """
         if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL013"):
             return
 
         inert_ids = self._inert_ids_for(tree)
@@ -2089,6 +2252,8 @@ class SkuelLinter:
                 continue
             reported.add((line_num, node.value))
             line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL013"):
+                continue
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,

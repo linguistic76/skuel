@@ -97,7 +97,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -269,17 +269,24 @@ access — that file is for domain logic, None-fallback, and composite sort keys
 
 ```python
 # ❌ VIOLATION - Magic string
-await backend.add_relationship(uid1, "SERVES_GOAL", uid2)
+await backend.add_relationship(uid1, "SUPPORTS_GOAL", uid2)
 
 # ✅ CORRECT - Use enum
 from core.models.relationship_names import RelationshipName
-await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)
+await backend.add_relationship(uid1, RelationshipName.SUPPORTS_GOAL, uid2)
 ```
 
 **Detection (AST, 2026-07):** flags a *used* string constant whose value is exactly
 a relationship name — docstrings, comments, and prose are structurally immune, and a
 name embedded in a longer string (Cypher text, log messages) is not an exact match,
 so no Cypher-context heuristics are needed.
+
+**Scope:** any `/services/` path **plus the inbound/presentation layers** —
+`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07: raw relationship strings
+crept into routes and renderers too, e.g. GraphQL edge builders). Test files are
+skipped. `adapters/persistence/` is below the boundary and stays out of scope —
+Cypher there interpolates `RelationshipName.X.value` by convention, guarded by
+`validate_relationship_type()` at runtime.
 
 **Rationale:**
 - Type safety - IDE autocomplete and MyPy verification
@@ -302,7 +309,9 @@ RETURN child
 """
 ```
 
-**Coverage (March 2026):** All 80+ relationships enforced — Activity Domain hierarchy (HAS_SUBTASK/SUBTASK_OF, HAS_SUBGOAL/SUBGOAL_OF, HAS_SUBHABIT/SUBHABIT_OF, HAS_SUBPRINCIPLE/SUBPRINCIPLE_OF, HAS_SUBCHOICE/SUBCHOICE_OF, HAS_SUBEVENT/SUBEVENT_OF), cross-domain (SUPPORTS_GOAL, GUIDED_BY_PRINCIPLE, ALIGNED_WITH_PRINCIPLE, CONFLICTS_WITH_PRINCIPLE, REINFORCES_KNOWLEDGE, etc.), PathStep/Ku composition (USES_KU, TRAINS_KU, ORGANIZES), lateral (BLOCKS, BLOCKED_BY, DEPENDS_ON, COMPLEMENTARY_TO, ALTERNATIVE_TO, PREREQUISITE_FOR, SIBLING), sharing (SHARES_WITH, SHARED_WITH_GROUP), groups (MEMBER_OF, FOR_GROUP), ownership (OWNS), achievements (UNLOCKED_ACHIEVEMENT, EARNED_BADGE), reflections (REFLECTS_ON, REVEALS_CONFLICT), life path (ULTIMATE_PATH, SERVES_LIFE_PATH).
+**Coverage (2026-07):** the linter's `RELATIONSHIP_NAMES` catalog mirrors the **complete** `RelationshipName` enum (all 170 values), pinned by `TestRelationshipNamesDrift` in `test_lint_skuel.py` — add a member to the enum and the drift test tells you to mirror it. (It previously drifted to a ~30-value hand-picked subset with four stale names, silently under-enforcing the rule.)
+
+**Suppression:** boundary-shaped literals — e.g. mapping an *external* system's status/type string that merely collides with a relationship name (`"IN_PROGRESS"` in `calendar_adapters.py` is an EventStatus literal, not the relationship) — are legitimate; annotate with `# skuel-lint: disable=SKUEL013 -- <reason>`.
 
 **Infrastructure defense-in-depth:** Even when callers use `RelationshipName` enum (safe), the infrastructure layer validates all interpolated identifiers before Cypher interpolation. Shared guards `validate_label()` and `validate_identifier()` in `_helpers.py` are used by all 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`). Backend mixins additionally use `validate_relationship_type()` in `_build_direction_pattern()`, `traverse()`, `find_path()`. See `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`.
 

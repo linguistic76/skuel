@@ -101,10 +101,13 @@ def lint_content(
             linter._check_result_return_types(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
-        if linter._should_run_rule("SKUEL013"):
-            linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
             linter._check_entity_type_strings(fp, rel, content, lines, tree)
+
+    # SKUEL013 also covers the inbound/presentation layers — mirror _lint_file.
+    is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+    if (is_service or is_inbound_layer) and not is_test and linter._should_run_rule("SKUEL013"):
+        linter._check_relationship_name_strings(fp, rel, content, lines, tree)
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
@@ -883,7 +886,7 @@ class TestSKUEL013:
     def test_detects_magic_string(self) -> None:
         linter = make_linter(["SKUEL013"])
         violations = lint_content(
-            linter, 'await backend.add_relationship(uid1, "SERVES_GOAL", uid2)'
+            linter, 'await backend.add_relationship(uid1, "SUPPORTS_GOAL", uid2)'
         )
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL013"
@@ -892,24 +895,24 @@ class TestSKUEL013:
         linter = make_linter(["SKUEL013"])
         violations = lint_content(
             linter,
-            "await backend.add_relationship(uid1, RelationshipName.SERVES_GOAL, uid2)",
+            "await backend.add_relationship(uid1, RelationshipName.SUPPORTS_GOAL, uid2)",
         )
         assert len(violations) == 0
 
     def test_cypher_query_exempt(self) -> None:
         linter = make_linter(["SKUEL013"])
-        violations = lint_content(linter, 'query = "MATCH (a)-[:SERVES_GOAL]->(b) RETURN b"')
+        violations = lint_content(linter, 'query = "MATCH (a)-[:SUPPORTS_GOAL]->(b) RETURN b"')
         assert len(violations) == 0
 
     def test_skips_docstrings(self) -> None:
         linter = make_linter(["SKUEL013"])
-        content = '"""\nUses "SERVES_GOAL" relationship.\n"""'
+        content = '"""\nUses "SUPPORTS_GOAL" relationship.\n"""'
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
     def test_skips_comments(self) -> None:
         linter = make_linter(["SKUEL013"])
-        violations = lint_content(linter, 'x = 1  # pass "SERVES_GOAL" here')
+        violations = lint_content(linter, 'x = 1  # pass "SUPPORTS_GOAL" here')
         assert len(violations) == 0
 
     def test_multiline_call_now_caught(self) -> None:
@@ -921,13 +924,108 @@ class TestSKUEL013:
             "# a comment mentioning MATCH above the call\n"
             "await backend.add_relationship(\n"
             "    uid1,\n"
-            '    "SERVES_GOAL",\n'
+            '    "SUPPORTS_GOAL",\n'
             "    uid2,\n"
             ")"
         )
         violations = lint_content(linter, content)
         assert len(violations) == 1
         assert violations[0].line_number == 4
+
+    def test_fires_in_inbound_adapters(self) -> None:
+        # Widened scope: routes/handlers under adapters/inbound/ are covered.
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'edges.append(DependencyEdge(relationship_type="ENABLES"))',
+            file_path="adapters/inbound/graphql/schema.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL013"
+
+    def test_fires_in_ui(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'badge = rel_badge("SUPPORTS_GOAL")',
+            file_path="ui/components/relationship_badge.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_fires_in_api(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'DEFAULT_RELATIONSHIP = "BLOCKS"',
+            file_path="api/models.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_silent_outside_scope(self) -> None:
+        # scripts/ and non-service core/ modules stay out of SKUEL013's scope.
+        linter = make_linter(["SKUEL013"])
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+            violations = lint_content(
+                linter,
+                'rel = "SUPPORTS_GOAL"',
+                file_path=path,
+                is_service=False,
+            )
+            assert violations == [], path
+
+    def test_line_suppression(self) -> None:
+        # Boundary-shaped literal: an external system's status string that merely
+        # collides with a relationship name.
+        linter = make_linter(["SKUEL013"])
+        violations = lint_content(
+            linter,
+            'status_map = {"IN_PROGRESS": EntityStatus.ACTIVE}'
+            "  # skuel-lint: disable=SKUEL013 -- external status literal",
+        )
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL013"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL013 -- external status mapping module\n"
+            'a = "SUPPORTS_GOAL"\n'
+            'b = "BLOCKS"\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+
+class TestRelationshipNamesDrift:
+    """The linter mirrors the FULL RelationshipName enum value set.
+
+    If those drift, SKUEL013 silently under-enforces (new relationship values
+    pass as raw strings) or gives broken advice (suggesting enum members that
+    no longer exist — the pre-2026-07 catalog carried four stale names).
+    """
+
+    def test_linter_catalog_matches_relationship_name_enum(self) -> None:
+        # Import inside the test so collection still works in environments
+        # where core/ isn't importable (e.g. minimal CI lint runners).
+        from core.models.relationship_names import RelationshipName
+
+        actual = {member.value for member in RelationshipName}
+        mirrored = set(SkuelLinter.RELATIONSHIP_NAMES)
+
+        missing = actual - mirrored
+        extra = mirrored - actual
+        assert not missing, (
+            f"SkuelLinter.RELATIONSHIP_NAMES is missing values present in "
+            f"RelationshipName: {sorted(missing)}. "
+            f"Add them to scripts/lint_skuel.py::SkuelLinter.RELATIONSHIP_NAMES."
+        )
+        assert not extra, (
+            f"SkuelLinter.RELATIONSHIP_NAMES has values not in RelationshipName: "
+            f"{sorted(extra)}. Remove them from "
+            f"scripts/lint_skuel.py::SkuelLinter.RELATIONSHIP_NAMES."
+        )
 
 
 # ============================================================================
