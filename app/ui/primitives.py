@@ -26,6 +26,8 @@ from ui.components.button import _BTN_BASE, _BTN_SIZES
 if TYPE_CHECKING:
     from datetime import date
 
+    from fasthtml.common import FT
+
 # Default subtitle class for option rows (description text)
 _SUBTITLE_CLS = "block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
 
@@ -147,7 +149,7 @@ def view_switcher(current_view: str, target_date: date) -> Any:  # boundary: fas
         ("Month", "month", f"/cal/month/{target_date.year}/{target_date.month}"),
     )
     seg_base = "inline-flex items-center h-7 px-4 rounded-md text-[13px] font-semibold"
-    segments: list[Any] = []
+    segments: list[FT] = []
     for label, view, url in views:
         if view == current_view:
             segments.append(
