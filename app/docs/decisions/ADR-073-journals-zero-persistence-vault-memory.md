@@ -89,7 +89,7 @@ self-contradictable):
 | `exemplar` | ✅ | ❌ never ("learn nothing about me") |
 | `understanding` | ❌ never | ✅ (iff `pipeline:` declared) |
 
-Two consumers must respect it: the exemplar loader (`_load_journal_exemplars` skips
+Two consumers must respect it: the exemplar loader (`JournalBatchService._load_exemplars` skips
 `understanding` files and strips frontmatter from exemplar text) and the ingestion gate
 (`je_pro_skip_reason` skips `exemplar` files and bare files, with a per-file sync warning
 telling the author how to promote). An unrecognized `je_use` value is honored in *neither*
