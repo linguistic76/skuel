@@ -40,13 +40,18 @@ import ui as _ui_pkg
 
 _UI = Path(next(iter(_ui_pkg.__path__))).resolve()
 
-# (relative file, imported module) pairs sanctioned until the auth-context
-# design call — see module docstring. Keyed exactly so a new import in the
-# same file still fails.
+# (relative file, imported module, symbol) triples sanctioned until the
+# auth-context design call — see module docstring. Keyed down to the SYMBOL so
+# a new name pulled from the same module in the same file still fails closed
+# (a bare ``import adapters.x`` would key on symbol == the module name).
 SANCTIONED_RUNTIME_IMPORTS = frozenset(
     {
-        ("ui/layouts/base_page.py", "adapters.inbound.auth"),
-        ("ui/layouts/navbar.py", "adapters.inbound.auth"),
+        ("ui/layouts/base_page.py", "adapters.inbound.auth", "get_is_admin"),
+        ("ui/layouts/base_page.py", "adapters.inbound.auth", "is_authenticated"),
+        ("ui/layouts/navbar.py", "adapters.inbound.auth", "get_current_user"),
+        ("ui/layouts/navbar.py", "adapters.inbound.auth", "get_is_admin"),
+        ("ui/layouts/navbar.py", "adapters.inbound.auth", "get_is_teacher"),
+        ("ui/layouts/navbar.py", "adapters.inbound.auth", "is_authenticated"),
     }
 )
 
@@ -83,24 +88,25 @@ def _runtime_adapters_imports(path: Path) -> list[str]:
     """``file:line -> module`` for every runtime ``adapters`` import in *path*."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     type_only = _type_checking_import_lines(tree)
+    rel = str(path.relative_to(_UI.parent))
     violations: list[str] = []
     for node in ast.walk(tree):
+        # (module, symbol) per imported name — for ``import adapters.x`` the
+        # symbol IS the module path, so sanctioning it requires naming it twice.
         if isinstance(node, ast.Import):
-            names = [a.name for a in node.names]
-        elif isinstance(node, ast.ImportFrom):
+            imports = [(a.name, a.name) for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             # level > 0 is a relative import inside ui/ — never adapters.
-            names = [node.module] if node.module and node.level == 0 else []
+            imports = [(node.module, a.name) for a in node.names]
         else:
             continue
-        for name in names:
-            top = name.split(".")[0]
-            rel = str(path.relative_to(_UI.parent))
+        for module, symbol in imports:
             if (
-                top == "adapters"
+                module.split(".")[0] == "adapters"
                 and node.lineno not in type_only
-                and (rel, name) not in SANCTIONED_RUNTIME_IMPORTS
+                and (rel, module, symbol) not in SANCTIONED_RUNTIME_IMPORTS
             ):
-                violations.append(f"{rel}:{node.lineno} -> {name}")
+                violations.append(f"{rel}:{node.lineno} -> {module} ({symbol})")
     return violations
 
 
