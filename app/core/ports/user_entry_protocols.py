@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.query_types import (
+    ExtractionTwinRow,
     GroundingEntryRow,
     GroundingRemovalRow,
     KnowledgeEntryGroundingRow,
@@ -141,11 +142,11 @@ class UserEntryCrudOperations(Protocol):
 
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ExtractionTwinRow]]:
         """The user's OWNED, non-terminal entities of the given domain labels.
 
-        Returns dicts with keys: entity_uid, title, labels — ordered oldest-first.
-        Input to extraction dedup Guard 4 (cross-entry, F4).
+        Returns rows ordered oldest-first. Input to extraction dedup Guard 4
+        (cross-entry, F4).
         """
         ...
 

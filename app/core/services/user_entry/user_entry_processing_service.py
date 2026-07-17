@@ -523,13 +523,11 @@ class UserEntryProcessingService:
         if twins_result.is_error:
             return await self._fail(entry, twins_result.expect_error(), phase="read_provenance")
         user_owned_semantic: dict[tuple[str, str], str] = {}
-        for row in twins_result.value or []:
-            label = next(
-                (lb for lb in row.get("labels", []) if lb not in ("Entity", "Content")), None
-            )
-            if label and row.get("title") and row.get("entity_uid"):
+        for twin in twins_result.value or []:
+            label = next((lb for lb in twin["labels"] if lb not in ("Entity", "Content")), None)
+            if label and twin["title"] and twin["entity_uid"]:
                 user_owned_semantic.setdefault(
-                    semantic_dedup_key(label, row["title"]), row["entity_uid"]
+                    semantic_dedup_key(label, twin["title"]), twin["entity_uid"]
                 )
 
         # --- Existing APPLIES_KNOWLEDGE targets (substance idempotency) --------

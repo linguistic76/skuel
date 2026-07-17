@@ -1953,13 +1953,26 @@ class RelationshipRow(TypedDict):
 
     Runtime shape produced by ``_TraversalMixin.get_relationships`` and
     surfaced by ``RelationshipOperationsMixin.get_relationships`` — a raw
-    edge row, not a domain model.
+    edge row, not a domain model. Edge properties are scalar-valued in
+    Neo4j, so ``Neo4jProperties`` is exact.
     """
 
     type: str
     target_uid: str
     direction: str
-    properties: dict[str, Any]
+    properties: Neo4jProperties
+
+
+class ExtractionTwinRow(TypedDict):
+    """Single owned-entity row from ``get_user_active_extraction_twins()``.
+
+    Input to extraction dedup Guard 4 (cross-entry, F4) — ordered
+    oldest-first by the backend query.
+    """
+
+    entity_uid: str
+    title: str
+    labels: list[str]
 
 
 class AlternativeComparisonItem(TypedDict, total=False):

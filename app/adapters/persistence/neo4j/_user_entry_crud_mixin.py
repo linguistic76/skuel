@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.ports.query_types import ExtractionTwinRow
 from core.utils.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.utils.result_simplified import Errors, Result
 
@@ -384,7 +385,7 @@ class _UserEntryCrudMixin:
 
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ExtractionTwinRow]]:
         """Return the user's OWNED, non-terminal entities of the given domain labels.
 
         Input to extraction dedup Guard 4 (cross-entry, F4): a checkbox/DSL line

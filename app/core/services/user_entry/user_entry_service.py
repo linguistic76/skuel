@@ -63,7 +63,11 @@ from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import KnowledgeEntryGroundingRow, OrganizerResult
+    from core.ports.query_types import (
+        ExtractionTwinRow,
+        KnowledgeEntryGroundingRow,
+        OrganizerResult,
+    )
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
     from core.services.interaction.interaction_service import InteractionService
@@ -655,7 +659,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[ExtractionTwinRow]]:
         """Return the user's OWNED, non-terminal entities for extraction dedup Guard 4.
 
         Backend: UserEntryBackend.get_user_active_extraction_twins.
@@ -671,7 +675,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """
         return await self.backend.create_extracted_from_links(entry_uid, links)
 
-    async def update_processing_state(self, uid: str, updates: dict[str, Any]) -> Result[UserEntry]:
+    async def update_processing_state(
+        self,
+        uid: str,
+        updates: dict[
+            str, Any
+        ],  # boundary: raw update patch — mixes scalars, datetimes, and a nested metadata dict that backend.update JSON-serializes into a string prop
+    ) -> Result[UserEntry]:
         """Persist pipeline state on an entry (status, processing_error, run metadata).
 
         Internal to the processing pipeline — bypasses the ownership-verified
