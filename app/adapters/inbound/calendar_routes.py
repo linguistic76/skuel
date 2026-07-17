@@ -26,6 +26,8 @@ CALENDAR_CONFIG = DomainRouteConfig(
     primary_service_attr="calendar",
     api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
+    # habits_service backs POST /cal/habit/{uid}/complete (item-details modal).
+    ui_related_services={"habits_service": "habits"},
 )
 
 

@@ -18,7 +18,7 @@ Admin-only interactive queue (sidebar: "Prereq Edges"). "Generate suggestions" r
 
 ## Regular User Navigation
 
-Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile bottom nav only — no desktop nav item; the SKUEL brand link goes to `/explore` for authenticated users) → **Journals** (`/journals`) → **PathSteps** (`/path-steps`); the mobile bottom nav appends **Calendar** and **Search** tabs. Right section (icon buttons): **Search** (`/search`) and **Calendar** (`/events/calendar`) — both desktop only, mobile folds them into the bottom nav → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
+Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile bottom nav only — no desktop nav item; the SKUEL brand link goes to `/explore` for authenticated users) → **Journals** (`/journals`) → **PathSteps** (`/path-steps`); the mobile bottom nav appends **Calendar** and **Search** tabs. Right section (icon buttons): **Search** (`/search`) and **Calendar** (`/cal`) — both desktop only, mobile folds them into the bottom nav → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
 
 ### `/groups` — Student-Facing Group-Shares Hub
 
@@ -73,7 +73,7 @@ Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/events/calendar`, month/week/day) are navbar-only full-width pages — the sidebar's Events item still links there, but the calendar itself surfaces the activity domains via its legend/chips instead of the sidebar.
+Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/cal`, month/week/day) are navbar-only full-width pages — the sidebar's Events item still links there, but the calendar itself surfaces the activity domains via its legend/chips instead of the sidebar.
 
 ### `/profile/shared` — Shared With Me
 

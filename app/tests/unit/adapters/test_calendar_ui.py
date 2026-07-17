@@ -5,7 +5,7 @@ fragments (month/week/day grids, where the service interaction happens) and the
 item-details modal (the "read" code path).
 
 Authentication is satisfied by attaching a fake `session` dict to requests.
-We deliberately do not exercise the page-shell routes (`/events/month/...`)
+We deliberately do not exercise the page-shell routes (`/cal/month/...`)
 because they pull in the full sidebar-page template stack.
 """
 
@@ -101,8 +101,20 @@ def _make_calendar_item() -> CalendarItem:
 def routes_and_service():
     registry = _RouteRegistry()
     service = AsyncMock()
-    create_calendar_ui_routes(_app=None, rt=registry, calendar_service=service)
+    create_calendar_ui_routes(
+        _app=None, rt=registry, calendar_service=service, habits_service=AsyncMock()
+    )
     return registry, service
+
+
+@pytest.fixture
+def routes_and_habits_service():
+    registry = _RouteRegistry()
+    habits_service = AsyncMock()
+    create_calendar_ui_routes(
+        _app=None, rt=registry, calendar_service=AsyncMock(), habits_service=habits_service
+    )
+    return registry, habits_service
 
 
 # ============================================================================
@@ -113,13 +125,14 @@ def routes_and_service():
 def test_expected_routes_are_registered(routes_and_service) -> None:
     registry, _ = routes_and_service
     expected = [
-        ("/events/month/{year}/{month}", "GET"),
-        ("/events/month/{year}/{month}/content", "GET"),
-        ("/events/week/{date_str}", "GET"),
-        ("/events/week/{date_str}/content", "GET"),
-        ("/events/day/{date_str}", "GET"),
-        ("/events/day/{date_str}/content", "GET"),
-        ("/events/calendar/item-details/{item_id}", "GET"),
+        ("/cal/month/{year}/{month}", "GET"),
+        ("/cal/month/{year}/{month}/content", "GET"),
+        ("/cal/week/{date_str}", "GET"),
+        ("/cal/week/{date_str}/content", "GET"),
+        ("/cal/day/{date_str}", "GET"),
+        ("/cal/day/{date_str}/content", "GET"),
+        ("/cal/item-details/{item_id}", "GET"),
+        ("/cal/habit/{habit_uid}/complete", "POST"),
     ]
     for key in expected:
         assert key in registry.handlers, f"missing handler: {key}"
@@ -137,7 +150,7 @@ class TestMonthContentFragment:
         service.get_calendar_view = AsyncMock(
             return_value=Result.ok(_make_calendar_data(items=[_make_calendar_item()]))
         )
-        handler = registry.get("/events/month/{year}/{month}/content")
+        handler = registry.get("/cal/month/{year}/{month}/content")
         response = await handler(_make_request(), year=2026, month=5)
 
         rendered = _render(response)
@@ -155,7 +168,7 @@ class TestMonthContentFragment:
         service.get_calendar_view = AsyncMock(
             return_value=Result.fail(Errors.database("calendar.view", "boom"))
         )
-        handler = registry.get("/events/month/{year}/{month}/content")
+        handler = registry.get("/cal/month/{year}/{month}/content")
         response = await handler(_make_request(), year=2026, month=5)
         # Wraps the error_response inside a Div with id="calendar-month-content"
         rendered = _render(response)
@@ -167,7 +180,7 @@ class TestWeekContentFragment:
     async def test_success(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/events/week/{date_str}/content")
+        handler = registry.get("/cal/week/{date_str}/content")
         response = await handler(_make_request(), date_str="2026-05-20")
         assert "calendar-week-content" in _render(response)
         kwargs = service.get_calendar_view.await_args.kwargs
@@ -177,7 +190,7 @@ class TestWeekContentFragment:
     async def test_invalid_date_falls_back_to_today(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/events/week/{date_str}/content")
+        handler = registry.get("/cal/week/{date_str}/content")
         response = await handler(_make_request(), date_str="not-a-date")
         # Did not crash; service was still called.
         assert service.get_calendar_view.await_count == 1
@@ -189,7 +202,7 @@ class TestDayContentFragment:
     async def test_success(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/events/day/{date_str}/content")
+        handler = registry.get("/cal/day/{date_str}/content")
         response = await handler(_make_request(), date_str="2026-05-20")
         kwargs = service.get_calendar_view.await_args.kwargs
         assert kwargs["start_date"] == date(2026, 5, 20)
@@ -199,7 +212,7 @@ class TestDayContentFragment:
 
 
 # ============================================================================
-# /events/calendar/item-details/{item_id} — the "read" code path
+# /cal/item-details/{item_id} — the "read" code path
 # ============================================================================
 
 
@@ -208,7 +221,7 @@ class TestItemDetailsModal:
     async def test_found_returns_modal(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(_make_calendar_item()))
-        handler = registry.get("/events/calendar/item-details/{item_id}")
+        handler = registry.get("/cal/item-details/{item_id}")
         response = await handler(_make_request(), item_id="cal_event_1")
         # Returns a modal containing the item title.
         assert "Smoke item" in _render(response)
@@ -217,6 +230,54 @@ class TestItemDetailsModal:
     async def test_missing_returns_error_modal(self, routes_and_service) -> None:
         registry, service = routes_and_service
         service.get_item = AsyncMock(return_value=Result.ok(None))
-        handler = registry.get("/events/calendar/item-details/{item_id}")
+        handler = registry.get("/cal/item-details/{item_id}")
         response = await handler(_make_request(), item_id="missing")
         assert "Calendar item not found" in _render(response)
+
+
+# ============================================================================
+# POST /cal/habit/{habit_uid}/complete — modal "Mark Complete" action
+# ============================================================================
+
+
+class TestHabitComplete:
+    @pytest.mark.asyncio
+    async def test_records_completion_and_swaps_button(self, routes_and_habits_service) -> None:
+        registry, habits_service = routes_and_habits_service
+        habits_service.core.verify_ownership = AsyncMock(return_value=Result.ok(object()))
+        habits_service.completions.record_completion = AsyncMock(
+            return_value=Result.ok(SimpleNamespace())
+        )
+        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        response = await handler(_make_request(), habit_uid="habit_1")
+
+        assert "Completed" in _render(response)
+        habits_service.completions.record_completion.assert_awaited_once_with(
+            "habit_1", "user_smoke"
+        )
+
+    @pytest.mark.asyncio
+    async def test_unowned_habit_returns_not_found(self, routes_and_habits_service) -> None:
+        registry, habits_service = routes_and_habits_service
+        habits_service.core.verify_ownership = AsyncMock(
+            return_value=Result.fail(Errors.not_found(resource="Habit", identifier="habit_x"))
+        )
+        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        response = await handler(_make_request(), habit_uid="habit_x")
+
+        assert response.status_code == 404
+        habits_service.completions.record_completion.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_failed_completion_keeps_retry_button(self, routes_and_habits_service) -> None:
+        registry, habits_service = routes_and_habits_service
+        habits_service.core.verify_ownership = AsyncMock(return_value=Result.ok(object()))
+        habits_service.completions.record_completion = AsyncMock(
+            return_value=Result.fail(Errors.database("habits.complete", "boom"))
+        )
+        handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
+        response = await handler(_make_request(), habit_uid="habit_1")
+
+        rendered = _render(response)
+        assert "try again" in rendered
+        assert "/cal/habit/habit_1/complete" in rendered

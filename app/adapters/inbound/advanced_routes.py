@@ -10,8 +10,8 @@ Extension factories:
 - create_performance_routes: Scale & speed optimization (4 endpoints)
 
 Routes:
-- GET /events/calendar/optimize - Optimize calendar with cognitive load balancing
-- GET /events/calendar/cognitive-load - Analyze cognitive load for a date
+- GET /cal/optimize - Optimize calendar with cognitive load balancing
+- GET /cal/cognitive-load - Analyze cognitive load for a date
 - GET /jupyter/fetch - Fetch curriculum content for Jupyter editing
 - POST /jupyter/save - Save Jupyter edits back to Neo4j
 - POST /jupyter/sync-to-obsidian - Sync changes to Obsidian
@@ -58,7 +58,7 @@ def create_calendar_optimization_routes(
 ) -> list[Any]:
     """Register calendar optimization endpoints."""
 
-    @rt("/events/calendar/optimize")
+    @rt("/cal/optimize")
     @boundary_handler()
     async def optimize(
         request: Request,
@@ -96,7 +96,7 @@ def create_calendar_optimization_routes(
             strategy=strat,
         )
 
-    @rt("/events/calendar/cognitive-load")
+    @rt("/cal/cognitive-load")
     @boundary_handler()
     async def cognitive_load(
         request: Request,

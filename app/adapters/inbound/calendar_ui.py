@@ -4,15 +4,20 @@ Calendar UI Routes
 
 Page views and HTMX fragment endpoints for the calendar.
 
+The calendar is a cross-cutting system (it aggregates Tasks, Events, Habits,
+and Milestones), so it lives under its own ``/cal/`` prefix — not under the
+Events activity domain's ``/events/`` routes.
+
 Routes:
-    GET /events/calendar                                    — Redirect to current month
-    GET /events/month/{year}/{month}                       — Month view shell
-    GET /events/month/{year}/{month}/content               — Month grid fragment
-    GET /events/week/{date_str}                            — Week view shell
-    GET /events/week/{date_str}/content                    — Week agenda fragment
-    GET /events/day/{date_str}                             — Day view shell
-    GET /events/day/{date_str}/content                     — Day agenda fragment
-    GET /events/calendar/item-details/{item_id}            — HTMX item-details modal
+    GET  /cal                                — Redirect to current month
+    GET  /cal/month/{year}/{month}           — Month view shell
+    GET  /cal/month/{year}/{month}/content   — Month grid fragment
+    GET  /cal/week/{date_str}                — Week view shell
+    GET  /cal/week/{date_str}/content        — Week agenda fragment
+    GET  /cal/day/{date_str}                 — Day view shell
+    GET  /cal/day/{date_str}/content         — Day agenda fragment
+    GET  /cal/item-details/{item_id}         — HTMX item-details modal
+    POST /cal/habit/{habit_uid}/complete     — Record today's habit completion
 """
 
 import calendar as cal
@@ -28,7 +33,9 @@ from fasthtml.common import (
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories import require_owned_entity
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -155,17 +162,17 @@ async def _calendar_shell(
 # ============================================================================
 
 
-def create_calendar_ui_routes(_app, rt, calendar_service):
+def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
     """Register calendar page and HTMX fragment routes."""
 
-    @rt("/events/calendar")
+    @rt("/cal")
     async def calendar_today(request: Request) -> Any:
         """Entry point — redirect to current month calendar view."""
         require_authenticated_user(request)
         today = date.today()
-        return RedirectResponse(f"/events/month/{today.year}/{today.month}", status_code=302)
+        return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
-    @rt("/events/month/{year}/{month}")
+    @rt("/cal/month/{year}/{month}")
     async def calendar_month(request: Request, year: int, month: int) -> Any:
         """Month view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
@@ -178,15 +185,15 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             current_view="month",
             title=f"{month_name} {year}",
             target_date=first_day,
-            prev_href=f"/events/month/{prev_y}/{prev_m}",
-            next_href=f"/events/month/{next_y}/{next_m}",
-            today_href="/events/calendar",
+            prev_href=f"/cal/month/{prev_y}/{prev_m}",
+            next_href=f"/cal/month/{next_y}/{next_m}",
+            today_href="/cal",
             monthly_note_href=f"/journals/monthly/{year}/{month}",
-            content_route=f"/events/month/{year}/{month}/content",
+            content_route=f"/cal/month/{year}/{month}/content",
             content_id="calendar-month-content",
         )
 
-    @rt("/events/month/{year}/{month}/content")
+    @rt("/cal/month/{year}/{month}/content")
     async def calendar_month_content(request: Request, year: int, month: int) -> Any:
         """HTMX fragment: month grid."""
         user_uid = require_authenticated_user(request)
@@ -202,7 +209,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             return Div(error_response(result.error), id="calendar-month-content")
         return Div(create_month_grid(result.value), id="calendar-month-content")
 
-    @rt("/events/week/{date_str}")
+    @rt("/cal/week/{date_str}")
     async def calendar_week(request: Request, date_str: str) -> Any:
         """Week view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
@@ -216,15 +223,15 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             current_view="week",
             title=_week_title(week_start, week_end),
             target_date=week_start,
-            prev_href=f"/events/week/{_get_prev_week(week_start)}",
-            next_href=f"/events/week/{_get_next_week(week_start)}",
-            today_href=f"/events/week/{date.today().isoformat()}",
+            prev_href=f"/cal/week/{_get_prev_week(week_start)}",
+            next_href=f"/cal/week/{_get_next_week(week_start)}",
+            today_href=f"/cal/week/{date.today().isoformat()}",
             monthly_note_href=f"/journals/monthly/{week_start.year}/{week_start.month}",
-            content_route=f"/events/week/{date_str}/content",
+            content_route=f"/cal/week/{date_str}/content",
             content_id="calendar-week-content",
         )
 
-    @rt("/events/week/{date_str}/content")
+    @rt("/cal/week/{date_str}/content")
     async def calendar_week_content(request: Request, date_str: str) -> Any:
         """HTMX fragment: week grid."""
         user_uid = require_authenticated_user(request)
@@ -243,7 +250,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             return Div(error_response(result.error), id="calendar-week-content")
         return Div(create_week_grid(result.value), id="calendar-week-content")
 
-    @rt("/events/day/{date_str}")
+    @rt("/cal/day/{date_str}")
     async def calendar_day(request: Request, date_str: str) -> Any:
         """Day view shell — renders chrome immediately, agenda loads via HTMX."""
         require_authenticated_user(request)
@@ -258,16 +265,16 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             current_view="day",
             title=f"{target_date.strftime('%A, %B')} {target_date.day}",
             target_date=target_date,
-            prev_href=f"/events/day/{_get_prev_day(target_date)}",
-            next_href=f"/events/day/{_get_next_day(target_date)}",
-            today_href=f"/events/day/{date.today().isoformat()}",
+            prev_href=f"/cal/day/{_get_prev_day(target_date)}",
+            next_href=f"/cal/day/{_get_next_day(target_date)}",
+            today_href=f"/cal/day/{date.today().isoformat()}",
             monthly_note_href=f"/journals/monthly/{target_date.year}/{target_date.month}",
-            content_route=f"/events/day/{date_str}/content",
+            content_route=f"/cal/day/{date_str}/content",
             content_id="calendar-day-content",
             max_width="max-w-3xl mx-auto",
         )
 
-    @rt("/events/day/{date_str}/content")
+    @rt("/cal/day/{date_str}/content")
     async def calendar_day_content(request: Request, date_str: str) -> Any:
         """HTMX fragment: day timeline."""
         user_uid = require_authenticated_user(request)
@@ -289,7 +296,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
     # HTMX Fragment Routes
     # =========================================================================
 
-    @rt("/events/calendar/item-details/{item_id}")
+    @rt("/cal/item-details/{item_id}")
     async def calendar_item_details_modal(request: Request, item_id: str) -> Any:
         """
         HTMX endpoint for calendar item details modal.
@@ -324,3 +331,28 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             x_data="{ open: true }",
             id="item-details-modal",
         )
+
+    @rt("/cal/habit/{habit_uid}/complete", methods=["POST"])
+    @csrf_protected
+    async def calendar_habit_complete(request: Request, habit_uid: str) -> Any:
+        """Record today's completion for a habit from the item-details modal.
+
+        Backend: HabitsCompletionService.record_completion. The response swaps
+        the modal's "Mark Complete" button (hx_swap="outerHTML").
+        """
+        user_uid = require_authenticated_user(request)
+        _habit, error = await require_owned_entity(
+            habits_service and habits_service.core, habit_uid, user_uid, "Habit"
+        )
+        if error:
+            return error
+        result = await habits_service.completions.record_completion(habit_uid, user_uid)
+        if result.is_error:
+            # Keep the hx attrs so the swapped-in button can retry.
+            return Button(
+                "Completion failed — try again",
+                cls=(ButtonT.secondary, "mr-2"),
+                hx_post=f"/cal/habit/{habit_uid}/complete",
+                hx_swap="outerHTML",
+            )
+        return Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))

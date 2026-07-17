@@ -816,8 +816,8 @@ CALENDAR_CONFIG = DomainRouteConfig(
 - `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
 
 **UI Routes:** (`calendar_ui.py` - 8 routes)
-- 1 redirect: `/events/calendar` → the current month
-- 3 page shells: `/events/month/{y}/{m}`, `/events/week/{date}`, `/events/day/{date}` (chrome renders immediately; the grid loads via HTMX)
+- 1 redirect: `/cal` → the current month
+- 3 page shells: `/cal/month/{y}/{m}`, `/cal/week/{date}`, `/cal/day/{date}` (chrome renders immediately; the grid loads via HTMX)
 - 3 HTMX content fragments: month grid, week agenda, day agenda
 - 1 HTMX fragment: item-details modal
 - Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week/day)
@@ -825,8 +825,8 @@ CALENDAR_CONFIG = DomainRouteConfig(
 **Key features:**
 - **Minimal config:** the calendar wires no related services — both factories take only `(app, rt, calendar_service)`. All three views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`.
 - **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as type filters (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps).
-- **Redirect entry point:** `GET /events/calendar` issues a `RedirectResponse` to `/events/month/{y}/{m}` for the current month.
-- **Item-details modal:** event chips carry `hx_get=/events/calendar/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.
+- **Redirect entry point:** `GET /cal` issues a `RedirectResponse` to `/cal/month/{y}/{m}` for the current month.
+- **Item-details modal:** event chips carry `hx_get=/cal/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; the modal manages its own Alpine `open` state.
 
 **Migration:** 2026-02-03 (Phase 5)
 

@@ -146,7 +146,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
     else:
         ref_date = today
         highlight_dates = set()
-        prev_url = next_url = "/events/calendar"
+        prev_url = next_url = "/cal"
         prev_label = next_label = ""
 
     return Div(
@@ -154,7 +154,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             A(
                 Icon("chevron-left", size=14),
                 Span("Calendar", cls="text-[13px]"),
-                href="/events/calendar",
+                href="/cal",
                 cls=(
                     "flex items-center gap-1 text-muted-foreground hover:text-foreground"
                     " transition-colors no-underline"
