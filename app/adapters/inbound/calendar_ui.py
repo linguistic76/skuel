@@ -14,8 +14,6 @@ Routes:
     GET  /cal/month/{year}/{month}/content   — Month grid fragment
     GET  /cal/week/{date_str}                — Week view shell
     GET  /cal/week/{date_str}/content        — Week agenda fragment
-    GET  /cal/day/{date_str}                 — Day view shell
-    GET  /cal/day/{date_str}/content         — Day agenda fragment
     GET  /cal/item-details/{item_id}         — HTMX item-details modal
     POST /cal/habit/{habit_uid}/complete     — Record today's habit completion
 """
@@ -42,10 +40,8 @@ if TYPE_CHECKING:
 from core.models.event.calendar_models import CalendarView
 from core.utils.logging import get_logger
 from core.utils.timestamp_helpers import (
-    next_day,
     next_month,
     next_week,
-    prev_day,
     prev_month,
     prev_week,
     week_bounds,
@@ -53,7 +49,6 @@ from core.utils.timestamp_helpers import (
 from ui.calendar.components import (
     create_calendar_header,
     create_calendar_toolbar,
-    create_day_timeline,
     create_item_details_modal,
     create_month_grid,
     create_week_grid,
@@ -97,8 +92,6 @@ _get_prev_month = prev_month
 _get_next_month = next_month
 _get_prev_week = prev_week
 _get_next_week = next_week
-_get_prev_day = prev_day
-_get_next_day = next_day
 
 
 def _week_title(week_start: date, week_end: date) -> str:
@@ -124,13 +117,11 @@ async def _calendar_shell(
     monthly_note_href: str,
     content_route: str,
     content_id: str,
-    max_width: str = "",
 ) -> "FT":
     """Assemble the shared calendar chrome (header + toolbar) around an HTMX-loaded grid.
 
     The grid loads lazily via ``content_loading_placeholder`` so each view renders its
-    chrome immediately. ``max_width`` narrows/centers the inner content (Day agenda);
-    Month/Week stay fluid at full page width.
+    chrome immediately.
     """
     # calendarLegend (skuel.js) owns the legend's type filters: it toggles
     # cal-hide-*/cal-spot-* classes here, on the persistent shell, so the pure-CSS
@@ -150,7 +141,7 @@ async def _calendar_shell(
             content_id,
             loading_text="Loading calendar...",
         ),
-        cls=f"w-full {max_width}".strip(),
+        cls="w-full",
         x_data="calendarLegend",
         **{":class": "filterClasses()"},
     )
@@ -249,48 +240,6 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         if not result.is_ok:
             return Div(error_response(result.error), id="calendar-week-content")
         return Div(create_week_grid(result.value), id="calendar-week-content")
-
-    @rt("/cal/day/{date_str}")
-    async def calendar_day(request: Request, date_str: str) -> Any:
-        """Day view shell — renders chrome immediately, agenda loads via HTMX."""
-        require_authenticated_user(request)
-        try:
-            target_date = date.fromisoformat(date_str)
-        except ValueError:
-            target_date = date.today()
-        # Day view is a vertical agenda list — it reads better with a centered cap
-        # than at full fluid width.
-        return await _calendar_shell(
-            request,
-            current_view="day",
-            title=f"{target_date.strftime('%A, %B')} {target_date.day}",
-            target_date=target_date,
-            prev_href=f"/cal/day/{_get_prev_day(target_date)}",
-            next_href=f"/cal/day/{_get_next_day(target_date)}",
-            today_href=f"/cal/day/{date.today().isoformat()}",
-            monthly_note_href=f"/journals/monthly/{target_date.year}/{target_date.month}",
-            content_route=f"/cal/day/{date_str}/content",
-            content_id="calendar-day-content",
-            max_width="max-w-3xl mx-auto",
-        )
-
-    @rt("/cal/day/{date_str}/content")
-    async def calendar_day_content(request: Request, date_str: str) -> Any:
-        """HTMX fragment: day timeline."""
-        user_uid = require_authenticated_user(request)
-        try:
-            target_date = date.fromisoformat(date_str)
-        except ValueError:
-            target_date = date.today()
-        result = await calendar_service.get_calendar_view(
-            user_uid=user_uid,
-            start_date=target_date,
-            end_date=target_date,
-            view_type=CalendarView.DAY,
-        )
-        if not result.is_ok:
-            return Div(error_response(result.error), id="calendar-day-content")
-        return Div(create_day_timeline(result.value), id="calendar-day-content")
 
     # =========================================================================
     # HTMX Fragment Routes

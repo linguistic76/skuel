@@ -558,16 +558,6 @@ def next_week(d: date) -> str:
     return (d + timedelta(days=7)).isoformat()
 
 
-def prev_day(d: date) -> str:
-    """Return previous day as ISO date string."""
-    return (d - timedelta(days=1)).isoformat()
-
-
-def next_day(d: date) -> str:
-    """Return next day as ISO date string."""
-    return (d + timedelta(days=1)).isoformat()
-
-
 def week_label(d: date) -> str:
     """Format a week range label like ``'Mar 09 - Mar 15, 2026'``."""
     monday, sunday = week_bounds(d)

@@ -2,18 +2,19 @@
 Calendar UI Components
 ======================
 
-UI components for the redesigned calendar views (month, week, day).
+UI components for the redesigned calendar views (month, week).
 
-All three views share one visual language:
+Both views share one visual language:
 - eyebrow + large title + a per-type legend (``create_calendar_header``)
-- a segmented Day/Week/Month switcher + Prev/Today/Next + Monthly-note toolbar
+- a segmented Week/Month switcher + Prev/Today/Next + Monthly-note toolbar
   (``create_view_switcher`` / ``create_calendar_toolbar``)
 - per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
   the item's type color, fill at ~10% alpha
 
-Month is a bordered grid with an ISO-week rail; Week is 7 day-column agenda cards;
-Day is a vertical agenda list. Colors come from ``CalendarItemType.get_color()`` so
-the legend stays truthful.
+Month is a bordered grid with an ISO-week rail; Week is 7 day-column agenda cards.
+Colors come from ``CalendarItemType.get_color()`` so the legend stays truthful.
+(The single-day agenda view was dropped — for the current day the Today surface
+(/today) is the one path; the calendar keeps the Week/Month temporal lenses.)
 
 See: plans/design_handoff_calendar_month/README.md
 """
@@ -116,9 +117,8 @@ def create_calendar_header(title: str) -> Div:
 
 
 def create_view_switcher(current_view: str, target_date: date) -> Div:
-    """Segmented Day/Week/Month control. Active segment is a non-navigating span."""
+    """Segmented Week/Month control. Active segment is a non-navigating span."""
     views = (
-        ("Day", "day", f"/cal/day/{target_date.isoformat()}"),
         ("Week", "week", f"/cal/week/{target_date.isoformat()}"),
         ("Month", "month", f"/cal/month/{target_date.year}/{target_date.month}"),
     )
@@ -514,76 +514,6 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
 # ============================================================================
 # DAY VIEW (agenda list)
 # ============================================================================
-
-
-def create_day_timeline(calendar_data: CalendarData) -> Div:
-    """Vertical agenda: a mono time gutter + a type-accented card per event."""
-    items = sorted(_items_by_date(calendar_data).get(calendar_data.start_date, []), key=_item_start)
-    if not items:
-        return Div(
-            Div("Nothing scheduled", cls="text-[16px] font-semibold text-foreground mb-1.5"),
-            Div("This day is clear.", cls="text-[13px] text-muted-foreground"),
-            cls="text-center py-16 px-6",
-        )
-
-    rows = []
-    for item in items:
-        color = item.color
-        start_label = "All day" if item.all_day else _fmt_time(item.start_time)
-        pill = Span(
-            item.item_type.get_label(),
-            cls=(
-                "inline-flex items-center px-[9px] py-0.5 rounded-full text-[10.5px]"
-                " font-semibold uppercase tracking-[0.04em]"
-            ),
-            style=f"background-color: {color}1f; color: {color}",
-        )
-        dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
-        # Habit occurrences are display-only overlays (see _opens_detail_modal).
-        interactive: dict[str, str] = (
-            {
-                "data_item_id": item.uid,
-                "hx_get": f"/cal/item-details/{item.uid}",
-                "hx_target": "body",
-                "hx_swap": "beforeend",
-            }
-            if _opens_detail_modal(item)
-            else {}
-        )
-        cursor = " cursor-pointer" if interactive else ""
-        card = Div(
-            Div(
-                dot,
-                Span(item.title, cls="text-[15px] font-semibold text-foreground"),
-                pill,
-                cls="flex items-center gap-2 flex-wrap",
-            ),
-            Div(
-                _time_range_label(item),
-                cls="text-[12.5px] text-muted-foreground font-mono mt-1",
-            ),
-            Div(item.description, cls="text-[13px] text-muted-foreground mt-1.5 leading-[1.5]")
-            if item.description
-            else None,
-            cls=f"calendar-item flex-1 bg-card border border-border rounded-[10px] px-4 py-3.5{cursor}",
-            style=f"border-left: 4px solid {color}",
-            **interactive,
-        )
-        gutter = Div(
-            start_label,
-            cls="w-[72px] flex-none text-right pt-3.5 font-mono text-[12px] text-muted-foreground",
-        )
-        # data-item-type on the row so the time gutter hides with its card.
-        rows.append(
-            Div(
-                gutter,
-                card,
-                cls="flex gap-4 items-stretch",
-                data_item_type=item.item_type.value,
-            )
-        )
-
-    return Div(*rows, cls="flex flex-col gap-2.5")
 
 
 # ============================================================================

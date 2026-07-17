@@ -129,8 +129,6 @@ def test_expected_routes_are_registered(routes_and_service) -> None:
         ("/cal/month/{year}/{month}/content", "GET"),
         ("/cal/week/{date_str}", "GET"),
         ("/cal/week/{date_str}/content", "GET"),
-        ("/cal/day/{date_str}", "GET"),
-        ("/cal/day/{date_str}/content", "GET"),
         ("/cal/item-details/{item_id}", "GET"),
         ("/cal/habit/{habit_uid}/complete", "POST"),
     ]
@@ -195,20 +193,6 @@ class TestWeekContentFragment:
         # Did not crash; service was still called.
         assert service.get_calendar_view.await_count == 1
         assert "calendar-week-content" in _render(response)
-
-
-class TestDayContentFragment:
-    @pytest.mark.asyncio
-    async def test_success(self, routes_and_service) -> None:
-        registry, service = routes_and_service
-        service.get_calendar_view = AsyncMock(return_value=Result.ok(_make_calendar_data()))
-        handler = registry.get("/cal/day/{date_str}/content")
-        response = await handler(_make_request(), date_str="2026-05-20")
-        kwargs = service.get_calendar_view.await_args.kwargs
-        assert kwargs["start_date"] == date(2026, 5, 20)
-        assert kwargs["end_date"] == date(2026, 5, 20)
-        assert kwargs["view_type"] == CalendarView.DAY
-        assert "calendar-day-content" in _render(response)
 
 
 # ============================================================================
