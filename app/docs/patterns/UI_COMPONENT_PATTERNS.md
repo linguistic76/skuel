@@ -1758,6 +1758,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/notifications/` (cards)
 - `/ui/calendar/` (components, converters)
 - `/ui/finance/` (components, invoice_views, layout, section_views, types)
+- `/ui/vault/` (sync_fragments — vault sync/preview buttons, privacy wall, consent form, stats/preview/error fragments; routes stay in `vault_routes.py`)
 
 **Workbench:**
 - `/ui/workbench/hub.py` — `SubmissionsTabPanel` (Submissions tab on `/profile`: 4 link buttons mirroring the sidebar)
