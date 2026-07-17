@@ -17,6 +17,7 @@ from fasthtml.common import (
     Span,
 )
 
+from core.models.relationship_names import RelationshipName
 from ui.activities._shared import (
     ActivityList,
     ConnectionBadges,
@@ -291,7 +292,9 @@ def EventDetailView(
         ms_items: list[Any] = []
         if event.milestone_type:
             ms_items.append(P(f"Type: {event.milestone_type}"))
-        celebrated = next((c for c in connections if c.get("rel_type") == "CELEBRATES_GOAL"), None)
+        celebrated = next(
+            (c for c in connections if c.get("rel_type") == RelationshipName.CELEBRATES_GOAL), None
+        )
         if celebrated:
             goal_uid = celebrated.get("connected_uid", "")
             goal_label = celebrated.get("title") or goal_uid

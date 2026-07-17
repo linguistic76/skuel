@@ -201,7 +201,7 @@ class PsApplicationDiscoveryService:
             ku_uid=ku_uid,
             user_uid=user_uid,
             node_label=NeoLabel.CHOICE,
-            relationship_types=["INFORMS_CHOICE"],
+            relationship_types=[RelationshipName.INFORMS_CHOICE.value],
             filters=filters,
             order_by="created_at",
             reverse_direction=True,

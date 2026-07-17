@@ -71,7 +71,7 @@ class EventAdapter:
         status_map = {
             "DRAFT": EntityStatus.DRAFT,
             "SCHEDULED": EntityStatus.SCHEDULED,
-            "IN_PROGRESS": EntityStatus.ACTIVE,
+            "IN_PROGRESS": EntityStatus.ACTIVE,  # skuel-lint: disable=SKUEL013 -- EventStatus literal, not the IN_PROGRESS relationship
             "COMPLETED": EntityStatus.COMPLETED,
             "CANCELLED": EntityStatus.CANCELLED,
             "POSTPONED": EntityStatus.PAUSED,
