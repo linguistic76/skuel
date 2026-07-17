@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 25 architectural rules (SKUEL001-SKUEL026; SKUEL004 deleted, IDs not renumbered) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 26 architectural rules (SKUEL001-SKUEL027; SKUEL004 deleted, IDs not renumbered) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | 10 Neo4j query rules (CYP001-CYP010) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -64,7 +64,7 @@ Configured in `pyproject.toml` under `[tool.ruff]`:
 - **All rules auto-fixable:** `fixable = ["ALL"]`
 - **Per-file ignores:** Extensive config for tests, UI, routes, scripts (see `[tool.ruff.lint.per-file-ignores]`)
 
-## SKUEL Pattern Rules (SKUEL001-SKUEL026)
+## SKUEL Pattern Rules (SKUEL001-SKUEL027)
 
 These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
@@ -87,6 +87,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 | **SKUEL023** | `self.backend` typed against adapter class in `core/` | Type against the `core/ports` protocol (ADR-044) |
 | **SKUEL024** | `cls=` + `**kwargs` collision in FT helpers | Add explicit `cls: str = ""` and merge |
 | **SKUEL025** | Deleted Activity `*UpdatePayload` names | Use `*UpdateIntent` / `*UpdateRequest.to_intent()` (ADR-066) |
+| **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (SKUEL022's ui/ sibling) |
 
 ### WARNING
 
@@ -148,7 +149,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017–SKUEL025 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017–SKUEL025, SKUEL027 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python

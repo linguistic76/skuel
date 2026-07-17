@@ -18,8 +18,8 @@ does not wrap), readers degrade to the unauthenticated default — the same
 behavior the session readers have when ``request.session`` is absent.
 
 See: ``core/utils/csrf_token_context.py`` for the same shape used by the CSRF
-token, and ``tests/unit/test_ui_layer_boundary.py`` for the guard this
-context exists to satisfy.
+token, and lint rule SKUEL027 (no runtime ``adapters`` imports in ``ui/``) for
+the boundary this context exists to satisfy.
 """
 
 from contextvars import ContextVar
