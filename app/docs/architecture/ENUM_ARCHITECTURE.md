@@ -159,7 +159,7 @@ Non-submission entity types can't use this path — they don't have SUBMITTED in
 | EntryReport | DRAFT, COMPLETED, ARCHIVED | DRAFT |
 | PathStep, LearningPath, Exercise, Choice | DRAFT, ACTIVE, COMPLETED, ARCHIVED | DRAFT |
 | UserEntry | DRAFT, SUBMITTED, QUEUED, PROCESSING, COMPLETED, FAILED, REVISION_REQUESTED, ARCHIVED | DRAFT |
-| ActivityReport | DRAFT, PROCESSING, COMPLETED, FAILED, ARCHIVED | DRAFT at the enum layer — but the `ActivityReport` model constructs at COMPLETED (reports are written post-generation), so the enum's draft/processing lifecycle is currently writer-unused |
+| ActivityReport | COMPLETED (generated artifact — written post-generation, always complete) | COMPLETED |
 | Task | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | DRAFT |
 | Goal | DRAFT, ACTIVE, PAUSED, COMPLETED, CANCELLED, FAILED, ARCHIVED | DRAFT |
 | Habit | ACTIVE, PAUSED, COMPLETED, CANCELLED, ARCHIVED | ACTIVE |
