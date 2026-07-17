@@ -84,6 +84,19 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 | `content_origin()` | ContentOrigin | Which content tier (A-D)? |
 | `from_string(text)` | EntityType \| None | Parse with alias support ("ps" → PATH_STEP, "lp" → LEARNING_PATH, "ku" → KU, "book"/"film"/"talk" → RESOURCE) |
 
+### Canonical Values vs Aliases — the Emission Rule
+
+The enum defines ONE canonical vocabulary and one alias layer, with a strict direction of flow:
+
+- **Canonical values** (`"path_step"`, `"learning_path"`, ...) are what the enum serializes to. Neo4j stores them in the `entity_type` property; search results carry them in `_domain` stamps; facet counts key on them.
+- **Aliases** (`"ps"`, `"step"`, `"lp"`, `"knowledge"`, ...) exist for humans. They are registered in one map (`entity_enums.py`) and resolved by one function, `EntityType.from_string()`.
+
+**The rule: aliases are input-only.** A human may type `ps` in a DSL line, a hand-edited URL, or vault YAML — `from_string()` resolves it once at the boundary. After that, the system speaks canonical values on every machine channel: payloads, stamps, query params it emits, and `<select>` option values (visible labels stay human — "Path Steps"). Emitting an alias on a machine channel creates a second dialect that some later comparison has to translate — the search breakdown chips needed exactly such a shim (`_DOMAIN_TO_TYPE_OPTION`, since deleted) before the Type dropdown switched to canonical wire values.
+
+**Carve-out — route segments are naming, not entity_type values.** URL path segments (`/explore/ps/{uid}`, `/api/lp/{uid}/children`, plural `/api/tasks/...`) and code identifiers (`services.ps`) are route design, like a variable name. They may be short. The constraint on them is the inverse: never compare a route-segment token against an `entity_type` value without going through `from_string()` — a segment token is not an EntityType and must not pretend to be one.
+
+**Litmus test:** if a value ends up compared against an `entity_type` field, a `_domain` stamp, or parsed into `EntityType` — it must be canonical. If it only selects a route or a service, it is a name.
+
 ### EntityStatus — Where Is It? (14 values)
 
 EntityStatus tracks lifecycle across all entity types. Not every status applies to every type — `valid_statuses()` constrains which statuses each EntityType can use.

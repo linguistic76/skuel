@@ -48,7 +48,11 @@ def TreeView(
 
     Args:
         root_uid: Root node UID
-        entity_type: "goal" | "habit" | "event" | "choice" | "principle" | "lp"
+        entity_type: API route segment ("goal" | "habit" | "event" | "choice"
+            | "principle" | "lp") — the hierarchyTree Alpine component splices
+            it into ``/api/{entity_type}/...`` URLs (bulk delete, rename), and
+            it keys the node icon. A route-segment name, NOT an EntityType
+            wire value — see ENUM_ARCHITECTURE § Canonical Values vs Aliases.
         children_endpoint: API endpoint template (use {uid} placeholder)
         move_endpoint: Optional drag-drop move endpoint
         show_checkboxes: Enable multi-select

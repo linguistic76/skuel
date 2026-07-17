@@ -280,10 +280,11 @@ class TestSearchResultsEnrichmentUI:
         assert "setEntityType('ku')" in html
         assert "Task 1" in html
 
-    def test_breakdown_chip_translates_domain_stamp_to_dropdown_token(self) -> None:
-        # _domain carries full EntityType values ('path_step'); the Type
-        # dropdown speaks short aliases ('ps') — an untranslated value would
-        # CLEAR the select instead of narrowing it.
+    def test_breakdown_chip_emits_canonical_entity_type_values(self) -> None:
+        # Emission rule: the Type dropdown's option values ARE canonical
+        # EntityType values ('path_step'), matching the _domain stamps 1:1 —
+        # chips pass the stamp straight through, no alias translation layer.
+        # (Aliases like 'ps' remain valid INPUT via EntityType.from_string.)
         from core.models.search_request import build_facet_counts
         from ui.search.components import render_search_results
 
@@ -296,9 +297,9 @@ class TestSearchResultsEnrichmentUI:
                 _response(results=results, total=2, facet_counts=build_facet_counts(results))
             )
         )
-        assert "setEntityType('ps')" in html
-        assert "setEntityType('lp')" in html
-        assert "setEntityType('path_step')" not in html
+        assert "setEntityType('path_step')" in html
+        assert "setEntityType('learning_path')" in html
+        assert "setEntityType('ps')" not in html
 
     def test_breakdown_chip_without_dropdown_option_is_inert(self) -> None:
         # A domain with no Type-dropdown option (e.g. exercise) renders as a
