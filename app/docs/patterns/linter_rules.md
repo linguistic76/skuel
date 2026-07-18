@@ -25,11 +25,11 @@ For implementation guidance, see:
 2. **MyPy** (`mypy`) - Static type checker
 3. **Pyright** (`pyright`) - Additional type checker for VS Code
 4. **SKUEL Pattern Linter** (`scripts/lint_skuel.py`) - Custom architectural patterns
-5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010)
+5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP010), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations, bulk-upsert templates — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — 314 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
-- `tests/unit/scripts/test_cypher_linter.py` — 35 tests covering CYP001–CYP006, CYP009, query extraction, helpers
+- `tests/unit/scripts/test_lint_skuel.py` — 367 tests covering all 26 active SKUEL rules, LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_cypher_linter.py` — 76 tests covering CYP001–CYP006, CYP009, Python query extraction, `.cypher` statement extraction, file discovery, helpers
 
 ## SKUEL-Specific Rules
 
