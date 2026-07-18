@@ -139,19 +139,18 @@ class TestGenericEngineViaTask:
 
         assert "applies_knowledge_uids" not in field_names(task)
 
-    def test_tags_pass_through_as_list_not_tuple(self) -> None:
-        # QUIRK: Entity.tags is declared tuple[str, ...], but the generic
-        # engine performs no coercion — model_dump() produces a list and the
-        # dataclass constructor accepts it as-is. Only converters with explicit
-        # tuple handling (Principle, Choice, templates) tuple-ize.
+    def test_tags_coerced_to_tuple_generically(self) -> None:
+        # Entity.tags is declared tuple[str, ...]; model_dump() produces a
+        # list, and the generic engine coerces every tuple-typed field so
+        # frozen-dataclass immutability isn't undermined by mutable members.
         task = ConversionServiceV2.task_create_to_pure(
             TaskCreateRequest(title="X", tags=["deep-work"]),
             uid="task:t1",
             user_uid="user_1",
         )
 
-        assert list(task.tags) == ["deep-work"]
-        assert isinstance(task.tags, list)
+        assert task.tags == ("deep-work",)
+        assert isinstance(task.tags, tuple)
 
 
 # =============================================================================
@@ -196,11 +195,10 @@ class TestPrincipleConversion:
         assert principle.key_behaviors == ("admit mistakes", "give real feedback")
         assert principle.tags == ("character",)
 
-    def test_decision_criteria_tupleized_then_filtered_out(self) -> None:
-        # QUIRK: principle_create_to_pure converts decision_criteria to a
-        # tuple, but Principle has no decision_criteria field (it is absent
-        # from Principle/PrincipleDTO — see the note in principle_request.py
-        # to_intent docstring), so the generic filter drops it silently.
+    def test_decision_criteria_request_only_field_filtered_out(self) -> None:
+        # Principle has no decision_criteria field (it is absent from
+        # Principle/PrincipleDTO — see the note in principle_request.py
+        # to_intent docstring); the generic engine filters it out silently.
         principle = ConversionServiceV2.principle_create_to_pure(
             PrincipleCreateRequest(
                 title="Honesty",
@@ -278,7 +276,6 @@ class TestChoiceConversion:
 class TestExerciseConversion:
     def make_request(self, **overrides: object) -> ExerciseCreateRequest:
         payload: dict[str, object] = {
-            "user_uid": "user_schema",
             "name": "Daily Reflection",
             "instructions": "Reflect on the day.",
         }
@@ -314,8 +311,8 @@ class TestExerciseConversion:
 
     def test_user_uid_kwarg_maps_to_owner_uid(self) -> None:
         # Exercise has owner_uid, not user_uid (it is Curriculum, not
-        # UserOwnedEntity). The KWARG (auth context) wins — the schema's own
-        # user_uid field is filtered out by the generic engine.
+        # UserOwnedEntity). Ownership's single source is the user_uid KWARG
+        # (auth context) — ExerciseCreateRequest carries no user_uid field.
         exercise = ConversionServiceV2.exercise_create_to_pure(
             self.make_request(), uid="exercise:e1", user_uid="user_owner"
         )
@@ -324,9 +321,9 @@ class TestExerciseConversion:
         assert "user_uid" not in field_names(exercise)
 
     def test_without_user_uid_kwarg_owner_uid_is_none(self) -> None:
-        # QUIRK: schema.user_uid is REQUIRED on ExerciseCreateRequest, yet the
-        # converter only maps the user_uid KWARG to owner_uid — called without
-        # the kwarg (unlike CRUDRouteFactory), ownership is silently dropped.
+        # Without the user_uid kwarg there is no ownership source, so
+        # owner_uid stays at its None default — same convention as every
+        # other converter (CRUDRouteFactory always supplies the kwarg).
         exercise = ConversionServiceV2.exercise_create_to_pure(
             self.make_request(), uid="exercise:e1"
         )

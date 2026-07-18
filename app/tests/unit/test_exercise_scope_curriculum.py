@@ -84,9 +84,7 @@ def test_assessment_exercise_still_requires_rubric() -> None:
 
 
 def test_api_accepts_unanchored_personal() -> None:
-    request = ExerciseCreateRequest(
-        user_uid="user_test", name="My template", instructions="Reflect."
-    )
+    request = ExerciseCreateRequest(name="My template", instructions="Reflect.")
     assert request.scope is ExerciseScope.PERSONAL
     assert request.path_step_uid is None
 
@@ -94,7 +92,6 @@ def test_api_accepts_unanchored_personal() -> None:
 def test_api_rejects_curriculum_scope() -> None:
     with pytest.raises(ValidationError, match="content vault"):
         ExerciseCreateRequest(
-            user_uid="user_test",
             name="Vault thing",
             instructions="Nope.",
             scope=ExerciseScope.CURRICULUM,
@@ -104,7 +101,6 @@ def test_api_rejects_curriculum_scope() -> None:
 def test_api_still_enforces_assigned_group() -> None:
     with pytest.raises(ValidationError, match="group_uid"):
         ExerciseCreateRequest(
-            user_uid="user_test",
             name="Class task",
             instructions="Do.",
             scope=ExerciseScope.ASSIGNED,
@@ -116,7 +112,6 @@ def test_api_rejects_invalid_domain() -> None:
     surface as a 500 there instead of a 422 here."""
     with pytest.raises(ValidationError, match="invalid domain"):
         ExerciseCreateRequest(
-            user_uid="user_test",
             name="Bad domain",
             instructions="Do.",
             domain="Activity Domains",
@@ -124,9 +119,7 @@ def test_api_rejects_invalid_domain() -> None:
 
 
 def test_api_accepts_valid_domain() -> None:
-    request = ExerciseCreateRequest(
-        user_uid="user_test", name="Tasks list", instructions="List.", domain="tasks"
-    )
+    request = ExerciseCreateRequest(name="Tasks list", instructions="List.", domain="tasks")
     assert request.domain == "tasks"
 
 

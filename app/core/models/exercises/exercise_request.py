@@ -18,7 +18,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from core.models.enums.entity_enums import Domain
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.user_entry_enums import ExerciseScope
-from core.models.type_hints import UserUID
 
 
 def _validate_domain_value(value: str | None) -> str | None:
@@ -36,9 +35,12 @@ def _validate_domain_value(value: str | None) -> str | None:
 
 
 class ExerciseCreateRequest(BaseModel):
-    """Request to create a new Exercise (instruction template)."""
+    """Request to create a new Exercise (instruction template).
 
-    user_uid: UserUID = Field(..., description="User UID who owns this exercise")
+    Carries no user_uid: ownership comes from the authenticated session —
+    CRUDRouteFactory passes it to exercise_create_to_pure, which maps it to
+    Exercise.owner_uid. A client-supplied owner would be untrusted anyway.
+    """
 
     name: str = Field(
         ...,

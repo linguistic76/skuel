@@ -107,10 +107,8 @@ def create_exercises_ui_routes(
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
     def new_exercise_form(request, current_user=None) -> Any:
-        """New exercise form."""
-        user_uid = current_user.uid if current_user else None
-
-        return render_exercise_editor(user_uid=user_uid, mode="create")
+        """New exercise form — ownership comes from the session at POST time."""
+        return render_exercise_editor(mode="create")
 
     @app.get("/exercises/{uid}/edit")
     @require_teacher(get_user_service)
