@@ -403,7 +403,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
 
         return Result.ok(learning_supporting)
 
-    async def suggest_learning_aligned_entities(
+    async def suggest_learning_aligned_entities(  # skuel-lint: disable=SKUEL029 -- cross-domain bridge: awaited by suggest_learning_aligned_{tasks,goals,choices,habits} across 4 domains
         self,
         learning_position: LpPosition,
         filter_param: Any = None,

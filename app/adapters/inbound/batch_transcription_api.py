@@ -81,7 +81,7 @@ def create_batch_transcription_api_routes(
 
         if preview_only:
             logger.info(f"Admin {current_user.uid} previewing batch transcription: {input_dir}")
-            preview_result = await batch_transcription_service.preview(input_dir, output_dir)
+            preview_result = batch_transcription_service.preview(input_dir, output_dir)
             if preview_result.is_error:
                 return Result.fail(preview_result)
 
@@ -155,7 +155,7 @@ def create_batch_transcription_api_routes(
 
         if preview_only:
             logger.info(f"User {user_uid} previewing folder transcription: {input_dir}")
-            preview_result = await batch_transcription_service.preview(input_dir, output_dir)
+            preview_result = batch_transcription_service.preview(input_dir, output_dir)
             if preview_result.is_error:
                 return Result.fail(preview_result)
 

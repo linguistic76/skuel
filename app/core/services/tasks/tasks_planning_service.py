@@ -235,7 +235,7 @@ class TasksPlanningService(BasePlanningService["TasksOperations", Task]):
         )
 
     @with_error_handling("get_actionable_tasks_for_user", error_type="database")
-    async def get_actionable_tasks_for_user(
+    async def get_actionable_tasks_for_user(  # skuel-lint: disable=SKUEL029 -- facade-delegated: TasksService awaits this via delegation
         self,
         context: RichUserContext,
         limit: int = 10,

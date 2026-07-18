@@ -422,7 +422,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
 
         # 1. Update goal progress if linked
         if task.fulfills_goal_uid and task.completion_updates_goal:
-            await self._update_goal_progress(
+            self._update_goal_progress(
                 task.fulfills_goal_uid, task.goal_progress_contribution, user_context
             )
 
@@ -432,12 +432,12 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         )
         reinforced_habit_uids = habit_result.value if habit_result.is_ok else []
         for habit_uid in reinforced_habit_uids:
-            await self._reinforce_habit(habit_uid, quality_score or 4)
+            self._reinforce_habit(habit_uid, quality_score or 4)
 
         # 3. Update knowledge mastery if checking
         if task.knowledge_mastery_check and applies_knowledge_uids:
             for knowledge_uid in applies_knowledge_uids:
-                await self._update_knowledge_mastery(knowledge_uid, 0.1)  # Increase by 10%
+                self._update_knowledge_mastery(knowledge_uid, 0.1)  # Increase by 10%
 
         # 4. Trigger dependent tasks
         if completion_triggers_tasks:
@@ -447,7 +447,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # 5. Unlock knowledge
         if completion_unlocks_knowledge:
             for knowledge_uid in completion_unlocks_knowledge:
-                await self._unlock_knowledge(knowledge_uid, user_uid)
+                self._unlock_knowledge(knowledge_uid, user_uid)
 
         # Context invalidation happens via TaskCompleted event (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
@@ -691,7 +691,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
     # PRIVATE CASCADE METHODS
     # ========================================================================
 
-    async def _update_goal_progress(
+    def _update_goal_progress(
         self, goal_uid: str, contribution: float, user_context: UserContext | None
     ) -> None:
         """Update goal progress based on task completion."""
@@ -704,12 +704,12 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             user_context.user_uid if user_context is not None else "<unknown>",
         )
 
-    async def _reinforce_habit(self, habit_uid: str, quality: int) -> None:
+    def _reinforce_habit(self, habit_uid: str, quality: int) -> None:
         """Reinforce a habit with completion quality."""
         # This would call habit service
         self.logger.debug("Would reinforce habit %s with quality %d", habit_uid, quality)
 
-    async def _update_knowledge_mastery(self, knowledge_uid: str, increment: float) -> None:
+    def _update_knowledge_mastery(self, knowledge_uid: str, increment: float) -> None:
         """Update knowledge mastery level."""
         # This would call knowledge service
         self.logger.debug("Would increase knowledge %s mastery by %.2f", knowledge_uid, increment)
@@ -724,7 +724,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         else:
             self.logger.debug(f"Triggered task {task_uid}")
 
-    async def _unlock_knowledge(self, knowledge_uid: str, user_uid: UserUID) -> None:
+    def _unlock_knowledge(self, knowledge_uid: str, user_uid: UserUID) -> None:
         """Unlock knowledge for a user."""
         # This would call knowledge service
         self.logger.debug("Would unlock knowledge %s for user %s", knowledge_uid, user_uid)

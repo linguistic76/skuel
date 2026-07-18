@@ -126,7 +126,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
 
         return Result.ok(choice)
 
-    async def get_learning_informed_guidance(
+    async def get_learning_informed_guidance(  # skuel-lint: disable=SKUEL029 -- facade-delegated: ChoicesService awaits this via delegation
         self,
         choice_description: str,
         learning_position: LpPosition,

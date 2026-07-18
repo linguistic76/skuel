@@ -21,7 +21,7 @@ async def test_preview_finds_mixed_case_audio_extensions(tmp_path: Any) -> None:
     out_dir.mkdir()
 
     service = BatchTranscriptionService(deepgram_adapter=MagicMock())
-    result = await service.preview(tmp_path, out_dir)
+    result = service.preview(tmp_path, out_dir)
 
     assert result.is_ok
     names = {f.name for f in result.value.files}

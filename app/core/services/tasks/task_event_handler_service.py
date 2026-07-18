@@ -270,7 +270,7 @@ class TaskEventHandlerService:
                 },
             )
 
-    async def handle_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
+    def handle_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
         """Handle batch task completion with pattern detection.
 
         Classifies the batch by count and time of day:

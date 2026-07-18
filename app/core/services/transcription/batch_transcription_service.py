@@ -10,7 +10,7 @@ skip-existing logic for idempotent reruns.
 
 Usage:
     service = BatchTranscriptionService(deepgram_adapter)
-    preview = await service.preview(Path("data/je_inputs"), Path("data/je_outputs"))
+    preview = service.preview(Path("data/je_inputs"), Path("data/je_outputs"))
     result = await service.transcribe_batch(Path("data/je_inputs"), Path("data/je_outputs"))
 """
 
@@ -131,7 +131,7 @@ class BatchTranscriptionService:
         ]
         return sorted(files, key=_path_name)
 
-    async def preview(
+    def preview(
         self,
         input_dir: Path,
         output_dir: Path,
