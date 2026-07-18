@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from core.models.type_hints import Neo4jProperties, Neo4jValue
+
 
 class QueryOptimizationStrategy(Enum):
     """Optimization strategies based on available schema elements"""
@@ -52,6 +54,16 @@ class TemplateSpec:
     base_template: str
     required_parameters: set[str]
     optional_parameters: set[str] = field(default_factory=set)
+    # Parameters that are spliced into the query text as {name} placeholders
+    # (labels, relationship types) because Neo4j cannot parameterize them.
+    # Must be a subset of required_parameters; values are validated before
+    # substitution. All other parameters stay $name driver parameters.
+    structural_parameters: set[str] = field(default_factory=set)
+    # Bind values for omitted optional parameters. Optional parameters without
+    # a default bind as NULL (for `$x IS NULL OR ...` filter branches); declare
+    # a default here when NULL is invalid in the slot's Cypher position
+    # (LIMIT, property maps).
+    parameter_defaults: dict[str, Neo4jValue | Neo4jProperties] = field(default_factory=dict)
     optimization_rules: dict[str, str] = field(
         default_factory=dict
     )  # condition -> optimized template,

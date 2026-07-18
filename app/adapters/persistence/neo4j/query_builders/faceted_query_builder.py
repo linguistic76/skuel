@@ -21,6 +21,7 @@ from adapters.persistence.neo4j.query import (
     QueryOptimizationResult,
     TemplateSpec,
 )
+from core.constants import QueryLimit
 from core.models.enums import Domain
 from core.models.search_models import FacetSetRequest as FacetSetSchema
 from core.services.search.core_types import FacetSet
@@ -314,6 +315,7 @@ class FacetedQueryBuilder:
                 """,
                 required_parameters=set(),
                 optional_parameters={"domain", "level", "search_text", "limit"},
+                parameter_defaults={"limit": QueryLimit.MEDIUM},
                 optimization_rules={
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('knowledge_fulltext', $search_text)
@@ -326,26 +328,6 @@ class FacetedQueryBuilder:
                     """
                 },
                 estimated_base_cost=5,
-            ),
-            category="faceted_search",
-        )
-
-        # Faceted aggregation for counts
-        template_manager.register_template(
-            "facet_aggregation",
-            TemplateSpec(
-                name="facet_aggregation",
-                description="Get facet counts for refinement",
-                base_template="""
-                    MATCH (n:$label)
-                    WHERE $base_conditions
-                    WITH n
-                    RETURN n.$facet_field as value, count(*) as count
-                    ORDER BY count DESC
-                    LIMIT 20
-                """,
-                required_parameters={"label", "facet_field", "base_conditions"},
-                estimated_base_cost=6,
             ),
             category="faceted_search",
         )
@@ -370,6 +352,7 @@ class FacetedQueryBuilder:
                 """,
                 required_parameters={"user_uid", "user_level"},
                 optional_parameters={"search_text", "limit"},
+                parameter_defaults={"limit": QueryLimit.MEDIUM},
                 estimated_base_cost=7,
             ),
             category="faceted_search",

@@ -1,0 +1,389 @@
+"""
+Unit tests for QueryTemplateRegistry template rendering.
+
+Covers the structural-parameter design: ``{name}`` slots (labels, relationship
+types) are validated and spliced into the query text, while ``$name`` slots
+stay driver parameters. Guards the regression where structural placeholders
+were left in the query as un-parameterizable ``$label`` / ``$property`` tokens.
+"""
+
+from datetime import datetime
+
+import pytest
+
+from adapters.persistence.neo4j.query import TemplateSpec
+from adapters.persistence.neo4j.query_builders.query_template_registry import (
+    QueryTemplateRegistry,
+)
+from core.constants import QueryLimit
+from core.infrastructure.database.schema import Neo4jIndex, SchemaContext
+from core.models.query_types import IndexStrategy
+from core.utils.result_simplified import Result
+
+
+def _make_schema(indexes: list[Neo4jIndex]) -> SchemaContext:
+    """Build a minimal but valid SchemaContext for template optimization."""
+    return SchemaContext(
+        node_labels=["Entity", "Task", "Goal"],
+        relationship_types=["RELATED_TO"],
+        indexes=indexes,
+        constraints=[],
+        node_label_info={},
+        relationship_type_info={},
+        property_names={"uid", "title"},
+        indexed_properties={},
+        unique_properties={},
+        introspection_timestamp=datetime(2026, 1, 1),
+        schema_hash="hash",
+    )
+
+
+class _FakeSchemaService:
+    """Stand-in for Neo4jSchemaService — returns a fixed SchemaContext."""
+
+    def __init__(self, schema: SchemaContext) -> None:
+        self.schema = schema
+
+    async def get_schema_context(self) -> Result[SchemaContext]:
+        return Result.ok(self.schema)
+
+
+def _registry(indexes: list[Neo4jIndex] | None = None) -> QueryTemplateRegistry:
+    return QueryTemplateRegistry(_FakeSchemaService(_make_schema(indexes or [])))
+
+
+def _fulltext_index(name: str = "entity_fulltext") -> Neo4jIndex:
+    return Neo4jIndex(
+        name=name,
+        type="FULLTEXT",
+        entity_type="NODE",
+        labels=["Entity"],
+        properties=["title", "content"],
+        state="ONLINE",
+    )
+
+
+# ============================================================================
+# Structural substitution — base templates
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_text_search_base_path_substitutes_label():
+    """Without a fulltext index, the base template must splice the label into
+    the query text and keep property lookup + search term as driver params."""
+    result = await _registry().from_template(
+        "text_search",
+        {"label": "Task", "property": "title", "search_term": "hello", "limit": 10},
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "MATCH (n:Task)" in plan.cypher
+    assert "n[$property] CONTAINS $search_term" in plan.cypher
+    # No structural placeholder may survive rendering
+    assert "$label" not in plan.cypher
+    assert "{label}" not in plan.cypher
+    assert plan.parameters == {"property": "title", "search_term": "hello", "limit": 10}
+    assert plan.strategy == IndexStrategy.NO_INDEX
+
+
+@pytest.mark.asyncio
+async def test_count_by_label_substitutes_label_and_binds_nothing():
+    result = await _registry().from_template("count_by_label", {"label": "Goal"})
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "MATCH (n:Goal)" in plan.cypher
+    assert plan.parameters == {}
+
+
+@pytest.mark.asyncio
+async def test_group_by_property_uses_dynamic_property_access():
+    result = await _registry().from_template(
+        "group_by_property", {"label": "Task", "property": "status"}
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "MATCH (n:Task)" in plan.cypher
+    assert "n[$property] as value" in plan.cypher
+    assert plan.parameters == {"property": "status"}
+
+
+@pytest.mark.asyncio
+async def test_find_related_substitutes_relationship_type():
+    result = await _registry().from_template(
+        "find_related", {"uid": "task_123", "rel_type": "RELATED_TO"}
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "-[r:RELATED_TO]-" in plan.cypher
+    assert plan.parameters == {"uid": "task_123"}
+
+
+@pytest.mark.asyncio
+async def test_create_entity_substitutes_label_keeps_properties_param():
+    result = await _registry().from_template(
+        "create_entity", {"label": "Task", "properties": {"uid": "task_123"}}
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "CREATE (n:Task $properties)" in plan.cypher
+    assert plan.parameters == {"properties": {"uid": "task_123"}}
+
+
+# ============================================================================
+# Injection guards
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_unknown_label_is_rejected():
+    result = await _registry().from_template("count_by_label", {"label": "Task) DETACH DELETE (m"})
+
+    assert result.is_error
+    assert "not a valid NeoLabel" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_unsafe_relationship_type_is_rejected():
+    result = await _registry().from_template(
+        "find_related", {"uid": "task_123", "rel_type": "X]->() DETACH DELETE n //"}
+    )
+
+    assert result.is_error
+    assert "not a valid RelationshipName" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_unknown_label_is_rejected_on_fulltext_path_too():
+    """Validation must not depend on which indexes exist: even when the
+    fulltext variant carries the label as a driver parameter, an invalid
+    label is rejected instead of silently matching nothing."""
+    result = await _registry([_fulltext_index()]).from_template(
+        "text_search",
+        {"label": "NotALabel", "property": "title", "search_term": "x"},
+    )
+
+    assert result.is_error
+    assert "not a valid NeoLabel" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_unregistered_relationship_type_is_rejected():
+    """A syntactically safe but unknown edge type must not render into
+    executable Cypher — rel_type slots validate against RelationshipName."""
+    result = await _registry().from_template(
+        "find_related", {"uid": "task_123", "rel_type": "MADE_UP_EDGE"}
+    )
+
+    assert result.is_error
+    assert "not a valid RelationshipName" in result.expect_error().message
+
+
+# ============================================================================
+# Fulltext optimization variant
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_text_search_fulltext_variant_uses_driver_parameters():
+    """With a fulltext index, the label is compared as a value — it must stay
+    a driver parameter, and the index name is spliced from trusted schema."""
+    result = await _registry([_fulltext_index()]).from_template(
+        "text_search",
+        {"label": "Task", "property": "title", "search_term": "hello", "limit": 5},
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "db.index.fulltext.queryNodes($index_name, $search_term)" in plan.cypher
+    assert "$label IN labels(node)" in plan.cypher
+    assert "{label}" not in plan.cypher
+    # property is unused by the fulltext variant and must not be bound;
+    # index_name is bound from trusted schema introspection
+    assert plan.parameters == {
+        "label": "Task",
+        "search_term": "hello",
+        "limit": 5,
+        "index_name": "entity_fulltext",
+    }
+    assert plan.strategy == IndexStrategy.FULLTEXT_SEARCH
+    assert plan.used_indexes == ["entity_fulltext"]
+
+
+# ============================================================================
+# Parameter validation
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_missing_required_parameter_fails():
+    result = await _registry().from_template("text_search", {"label": "Task"})
+
+    assert result.is_error
+    assert "Missing required parameters" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_undeclared_parameter_fails_fast():
+    """A $name the template uses but never declares must fail at build time,
+    not at the driver."""
+    registry = _registry()
+    registry.register_template(
+        "broken_custom",
+        TemplateSpec(
+            name="broken_custom",
+            description="Uses an undeclared parameter",
+            base_template="MATCH (n) WHERE n.x = $undeclared RETURN n",
+            required_parameters=set(),
+        ),
+    )
+
+    result = await registry.from_template("broken_custom", {})
+
+    assert result.is_error
+    assert "unbound" in result.expect_error().message
+    assert "undeclared" in result.expect_error().message
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_properties_default_to_empty_map():
+    """NULL is invalid as a CREATE property map, so the spec declares {} as
+    the default for omitted properties."""
+    result = await _registry().from_template(
+        "create_relationship",
+        {"from_uid": "task_1", "to_uid": "task_2", "rel_type": "RELATED_TO"},
+    )
+
+    assert not result.is_error
+    assert result.value.primary_plan.parameters["properties"] == {}
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_limit_defaults_from_spec():
+    result = await _registry().from_template(
+        "text_search", {"label": "Task", "property": "title", "search_term": "x"}
+    )
+
+    assert not result.is_error
+    assert result.value.primary_plan.parameters["limit"] == QueryLimit.MEDIUM
+
+
+@pytest.mark.asyncio
+async def test_omitted_optional_filters_bind_as_null():
+    """Templates with `$x IS NULL OR ...` branches must receive NULL for
+    omitted optional filters instead of failing as unbound."""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(schema_service=_FakeSchemaService(_make_schema([])))
+    result = await qb.from_template("faceted_knowledge_search", search_text="foo")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert plan.parameters == {
+        "search_text": "foo",
+        "domain": None,
+        "level": None,
+        "limit": QueryLimit.MEDIUM,
+    }
+
+
+@pytest.mark.asyncio
+async def test_fulltext_variant_skipped_when_search_text_omitted():
+    """queryNodes() cannot run with a NULL search string — a facet-only query
+    must fall back to the base template's `IS NULL` branches even when a
+    fulltext index exists."""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(
+        schema_service=_FakeSchemaService(_make_schema([_fulltext_index("knowledge_fulltext")]))
+    )
+    result = await qb.from_template("faceted_knowledge_search", domain="mathematics")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "queryNodes" not in plan.cypher
+    assert "$search_text IS NULL" in plan.cypher
+    assert plan.strategy == IndexStrategy.NO_INDEX
+    assert plan.parameters["search_text"] is None
+
+
+@pytest.mark.asyncio
+async def test_fulltext_variant_selected_when_search_text_provided():
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(
+        schema_service=_FakeSchemaService(_make_schema([_fulltext_index("knowledge_fulltext")]))
+    )
+    result = await qb.from_template("faceted_knowledge_search", search_text="algebra")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "queryNodes" in plan.cypher
+    assert plan.strategy == IndexStrategy.FULLTEXT_SEARCH
+
+
+@pytest.mark.asyncio
+async def test_create_relationship_with_all_parameters_succeeds():
+    result = await _registry().from_template(
+        "create_relationship",
+        {
+            "from_uid": "task_1",
+            "to_uid": "task_2",
+            "rel_type": "RELATED_TO",
+            "properties": {"weight": 1},
+        },
+    )
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "CREATE (a)-[r:RELATED_TO $properties]->(b)" in plan.cypher
+    assert plan.parameters == {
+        "from_uid": "task_1",
+        "to_uid": "task_2",
+        "properties": {"weight": 1},
+    }
+
+
+@pytest.mark.asyncio
+async def test_unknown_template_fails():
+    result = await _registry().from_template("does_not_exist", {})
+
+    assert result.is_error
+    assert "not found" in result.expect_error().message
+
+
+# ============================================================================
+# Library composition
+# ============================================================================
+
+
+def test_no_registered_template_contains_dollar_structural_placeholders():
+    """Every structural slot must use {name} syntax; $name in a template must
+    be a real driver parameter (guards against re-introducing the conflation)."""
+    registry = _registry()
+    for name, registration in registry._template_library.items():
+        spec = registration.spec
+        for key in spec.structural_parameters:
+            assert f"${key}" not in spec.base_template, (
+                f"Template '{name}' uses ${key} for structural slot '{key}'"
+            )
+            assert key in spec.required_parameters, (
+                f"Template '{name}' structural slot '{key}' must be required"
+            )
+
+
+def test_facet_aggregation_template_removed():
+    """facet_aggregation carried a raw-Cypher $base_conditions injection slot
+    and had no consumers — deleted per One Path Forward."""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(schema_service=None)
+    library = qb.get_template_library()
+    all_templates = [name for names in library.values() for name in names]
+    assert "facet_aggregation" not in all_templates
+    assert "faceted_knowledge_search" in all_templates
