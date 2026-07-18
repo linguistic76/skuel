@@ -244,78 +244,103 @@ class TestDateMethods:
             assert completion.completion_time_of_day() == expected
 
 
+FROZEN_NOW = datetime(2026, 7, 15, 10, 30, 0)  # a Wednesday, mid-week and mid-day
+
+
 class TestTimeDependentMethods:
-    """Methods that compare against the wall clock — built relative to datetime.now()."""
+    """Methods that compare against the wall clock — clock frozen at FROZEN_NOW.
+
+    The model calls datetime.now()/date.today() internally (no injection
+    point), so the module-level names in core.models.habit.completion are
+    monkeypatched with frozen subclasses and every completion is built
+    relative to FROZEN_NOW. Without this, a test computing "3 days ago" from
+    one now() call and the model calling now() again could straddle midnight
+    and flake (codex review finding on PR #704).
+    """
+
+    @pytest.fixture(autouse=True)
+    def frozen_clock(self, monkeypatch):
+        import core.models.habit.completion as completion_module
+
+        class _FrozenDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):  # noqa: ARG003 -- mirrors datetime.now signature
+                return FROZEN_NOW
+
+        class _FrozenDate(date):
+            @classmethod
+            def today(cls):
+                return FROZEN_NOW.date()
+
+        monkeypatch.setattr(completion_module, "datetime", _FrozenDatetime)
+        monkeypatch.setattr(completion_module, "date", _FrozenDate)
 
     def test_was_completed_today(self):
-        assert make_completion(completed_at=datetime.now()).was_completed_today() is True
+        assert make_completion(completed_at=FROZEN_NOW).was_completed_today() is True
 
     def test_was_not_completed_today(self):
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = FROZEN_NOW - timedelta(days=1)
         assert make_completion(completed_at=yesterday).was_completed_today() is False
 
     def test_days_since_completion_now(self):
-        assert make_completion(completed_at=datetime.now()).days_since_completion() == 0
+        assert make_completion(completed_at=FROZEN_NOW).days_since_completion() == 0
 
     def test_days_since_completion_three_days(self):
-        three_days_ago = datetime.now() - timedelta(days=3)
+        three_days_ago = FROZEN_NOW - timedelta(days=3)
         assert make_completion(completed_at=three_days_ago).days_since_completion() == 3
 
     def test_streak_eligible_valid_completion_no_previous(self):
-        assert make_completion(completed_at=datetime.now(), quality=3).is_streak_eligible() is True
+        assert make_completion(completed_at=FROZEN_NOW, quality=3).is_streak_eligible() is True
 
     def test_streak_eligible_quality_none_passes_gate(self):
-        assert (
-            make_completion(completed_at=datetime.now(), quality=None).is_streak_eligible() is True
-        )
+        assert make_completion(completed_at=FROZEN_NOW, quality=None).is_streak_eligible() is True
 
     def test_streak_ineligible_low_quality(self):
         # Quality gate: quality < 2 disqualifies.
-        assert make_completion(completed_at=datetime.now(), quality=1).is_streak_eligible() is False
+        assert make_completion(completed_at=FROZEN_NOW, quality=1).is_streak_eligible() is False
 
     def test_streak_ineligible_too_old(self):
         # Recency gate. Docstring says "within 36 hours" but the implementation
         # is calendar-day based: days_since_completion() > 1 disqualifies.
-        three_days_ago = datetime.now() - timedelta(days=3)
+        three_days_ago = FROZEN_NOW - timedelta(days=3)
         assert make_completion(completed_at=three_days_ago).is_streak_eligible() is False
 
     def test_streak_eligible_yesterday_passes_recency(self):
         # days_since == 1 is still eligible (calendar-day gate, not 36 wall-clock hours).
-        yesterday = datetime.now() - timedelta(days=1)
+        yesterday = FROZEN_NOW - timedelta(days=1)
         assert make_completion(completed_at=yesterday).is_streak_eligible() is True
 
     def test_streak_ineligible_duplicate_day(self):
-        now = datetime.now()
-        current = make_completion(completed_at=now, quality=4)
-        previous = make_completion(completed_at=now - timedelta(hours=1), quality=4)
+        current = make_completion(completed_at=FROZEN_NOW, quality=4)
+        previous = make_completion(completed_at=FROZEN_NOW - timedelta(hours=1), quality=4)
         assert current.is_streak_eligible(previous_completion=previous) is False
 
     def test_streak_eligible_consecutive_days(self):
-        now = datetime.now()
-        current = make_completion(completed_at=now, quality=4)
-        previous = make_completion(completed_at=now - timedelta(days=1), quality=4)
+        current = make_completion(completed_at=FROZEN_NOW, quality=4)
+        previous = make_completion(completed_at=FROZEN_NOW - timedelta(days=1), quality=4)
         assert current.is_streak_eligible(previous_completion=previous) is True
 
     def test_consistency_daily_always_counts(self):
         # Daily habits accept any completion regardless of age.
-        old = make_completion(completed_at=datetime.now() - timedelta(days=30))
+        old = make_completion(completed_at=FROZEN_NOW - timedelta(days=30))
         assert old.contributes_to_consistency("daily") is True
 
     def test_consistency_weekly_within_current_week(self):
-        today_completion = make_completion(completed_at=datetime.now())
+        today_completion = make_completion(completed_at=FROZEN_NOW)
         assert today_completion.contributes_to_consistency("weekly") is True
 
     def test_consistency_frequency_is_case_insensitive(self):
-        today_completion = make_completion(completed_at=datetime.now())
+        today_completion = make_completion(completed_at=FROZEN_NOW)
         assert today_completion.contributes_to_consistency("WEEKLY") is True
 
     def test_consistency_weekly_outside_current_week(self):
-        # 7 days ago is always before the current week's Monday start.
-        last_week = make_completion(completed_at=datetime.now() - timedelta(days=7))
+        # FROZEN_NOW is Wednesday the 15th; week starts Monday the 13th.
+        # 7 days earlier (the 8th) is before the week start.
+        last_week = make_completion(completed_at=FROZEN_NOW - timedelta(days=7))
         assert last_week.contributes_to_consistency("weekly") is False
 
     def test_consistency_unknown_frequency_defaults_true(self):
-        completion = make_completion(completed_at=datetime.now() - timedelta(days=30))
+        completion = make_completion(completed_at=FROZEN_NOW - timedelta(days=30))
         assert completion.contributes_to_consistency("biweekly") is True
 
 
