@@ -111,7 +111,7 @@ def create_frontmatter(filepath: Path, content: str) -> str:
     category = infer_category(filepath)
     tags = generate_tags(filepath, title)
 
-    frontmatter = f"""---
+    return f"""---
 title: {title}
 updated: {updated}
 status: {status}
@@ -121,7 +121,6 @@ related: []
 ---
 
 """
-    return frontmatter
 
 
 def process_file(filepath: Path, apply: bool = False) -> dict:
@@ -163,11 +162,7 @@ def process_file(filepath: Path, apply: bool = False) -> dict:
 
 def find_markdown_files(docs_dir: Path) -> list[Path]:
     """Find all markdown files in docs directory."""
-    files = []
-    for path in docs_dir.rglob("*.md"):
-        # Skip archive directory for preview, but include in apply
-        files.append(path)
-    return sorted(files)
+    return sorted(docs_dir.rglob("*.md"))
 
 
 def main():

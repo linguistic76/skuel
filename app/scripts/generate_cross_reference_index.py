@@ -21,7 +21,7 @@ def _parse_adr_number(adr_id: str) -> int:
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
     """Load skills metadata from YAML."""
     metadata_file = base_path / ".claude" / "skills" / "skills_metadata.yaml"
-    with open(metadata_file) as f:
+    with metadata_file.open() as f:
         return yaml.safe_load(f)
 
 

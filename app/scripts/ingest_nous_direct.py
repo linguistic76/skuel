@@ -29,7 +29,7 @@ def parse_markdown_file(file_path: Path) -> dict | None:
         return None
 
     # Extract key fields
-    data = {
+    return {
         "uid": frontmatter.get("uid", ""),
         "title": frontmatter.get("title", ""),
         "description": frontmatter.get("description", ""),
@@ -42,8 +42,6 @@ def parse_markdown_file(file_path: Path) -> dict | None:
         "item_type": frontmatter.get("item_type", "heading"),
         "tags": frontmatter.get("tags", []),
     }
-
-    return data
 
 
 async def create_ku_node(session, data: dict) -> bool:

@@ -46,6 +46,10 @@ except ImportError:
 
 logger = get_logger("skuel.bootstrap")
 
+# Module-level handle for the graph-health poller so the task isn't
+# garbage-collected mid-flight (RUF006); lives until process exit.
+_graph_health_task: "asyncio.Task[None] | None" = None
+
 
 @dataclass(frozen=True)
 class AppContainer:
@@ -86,7 +90,7 @@ async def bootstrap_skuel() -> AppContainer:
             event_bus,
             prometheus_metrics,
             metrics_cache,
-            query_metrics_cache,
+            _query_metrics_cache,
         ) = await _build_infrastructure()
 
         # Step 3: Compose business services
@@ -180,7 +184,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
     logger.info("✅ MetricsEventHandler initialized and subscribed to domain events")
 
     # Start background task to periodically update graph health metrics
-    async def update_graph_health_metrics():
+    async def update_graph_health_metrics() -> None:
         """
         Background task to query Neo4j for graph health statistics.
 
@@ -324,7 +328,10 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
             except Exception as e:
                 logger.error(f"Error updating graph health metrics: {e}")
 
-    asyncio.create_task(update_graph_health_metrics())
+    # Reference kept so the poller isn't garbage-collected mid-flight (RUF006);
+    # module-level lifetime is intentional — it runs until process exit.
+    global _graph_health_task
+    _graph_health_task = asyncio.create_task(update_graph_health_metrics())
     logger.info("✅ Graph health metrics update task started (5 min interval)")
 
     return neo4j_adapter, event_bus, prometheus_metrics, metrics_cache, query_metrics_cache

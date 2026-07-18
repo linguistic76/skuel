@@ -279,7 +279,7 @@ def execute(vault: Path, dest: Path, plan: Plan, path_map: dict[Path, Path]) -> 
     #    note came FROM the vault root (source_old_dir=vault) and lands in dest.
     for f in plan.moved:
         text = f.read_text(encoding="utf-8")
-        text, kind = restamp(text)
+        text, _kind = restamp(text)
         text, n = _rewrite_links(text, vault, dest, path_map)
         if n:
             plan.link_edits[f] = n

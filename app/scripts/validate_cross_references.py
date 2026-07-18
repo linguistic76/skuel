@@ -51,7 +51,7 @@ class CrossRefStats:
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
     """Load skills metadata from YAML."""
     metadata_file = base_path / ".claude" / "skills" / "skills_metadata.yaml"
-    with open(metadata_file) as f:
+    with metadata_file.open() as f:
         return yaml.safe_load(f)
 
 
@@ -331,17 +331,17 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
             )
 
     # Check for skills with no doc references (incomplete metadata)
-    for skill in skill_to_docs:
-        if not skill_to_docs[skill]:
-            issues.append(
-                ValidationIssue(
-                    severity="info",
-                    category="suggestion",
-                    source=f"@{skill}",
-                    message="No documentation references in metadata",
-                    suggestion="Add primary_docs, patterns, or related_adrs to metadata",
-                )
-            )
+    issues.extend(
+        ValidationIssue(
+            severity="info",
+            category="suggestion",
+            source=f"@{skill}",
+            message="No documentation references in metadata",
+            suggestion="Add primary_docs, patterns, or related_adrs to metadata",
+        )
+        for skill in skill_to_docs
+        if not skill_to_docs[skill]
+    )
 
     # Check skill staleness — primary docs updated after last_reviewed
     for skill in skills_data["skills"]:

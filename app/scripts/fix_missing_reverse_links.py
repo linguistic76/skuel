@@ -113,8 +113,7 @@ def update_frontmatter(frontmatter: str, new_skills: list[str]) -> str:
             if "[" in line:
                 # Replace inline array with multiline
                 new_lines.append("related_skills:")
-                for skill in all_skills:
-                    new_lines.append(f"  - {skill}")
+                new_lines.extend(f"  - {skill}" for skill in all_skills)
                 in_related_skills = False
             else:
                 new_lines.append(line)
@@ -126,8 +125,7 @@ def update_frontmatter(frontmatter: str, new_skills: list[str]) -> str:
                 # Empty line or continuation, skip
                 continue
             # Hit next field, insert all skills now
-            for skill in all_skills:
-                new_lines.append(f"  - {skill}")
+            new_lines.extend(f"  - {skill}" for skill in all_skills)
             in_related_skills = False
             new_lines.append(line)
         else:
@@ -135,8 +133,7 @@ def update_frontmatter(frontmatter: str, new_skills: list[str]) -> str:
 
     # If we were still in related_skills at end, add skills now
     if in_related_skills:
-        for skill in all_skills:
-            new_lines.append(f"  - {skill}")
+        new_lines.extend(f"  - {skill}" for skill in all_skills)
 
     return "\n".join(new_lines)
 
@@ -158,8 +155,7 @@ def process_file(file_path: Path, skills_to_add: list[str]) -> bool:
             f"title: {file_path.stem.replace('_', ' ').replace('-', ' ').title()}",
             "related_skills:",
         ]
-        for skill in sorted(skills_to_add):
-            frontmatter_lines.append(f"  - {skill}")
+        frontmatter_lines.extend(f"  - {skill}" for skill in sorted(skills_to_add))
         frontmatter_lines.append("---")
         new_content = "\n".join(frontmatter_lines) + "\n" + content
         file_path.write_text(new_content)

@@ -87,7 +87,7 @@ class Violation:
 class CypherLinter:
     """Static analysis tool for Cypher queries."""
 
-    def __init__(self, errors_only: bool = False):
+    def __init__(self, errors_only: bool = False) -> None:
         """
         Initialize Cypher linter.
 

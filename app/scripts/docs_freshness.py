@@ -47,7 +47,7 @@ class StalenessConfig:
         grace_period: int = 1,
         warning_threshold: int = 7,
         critical_threshold: int = 30,
-    ):
+    ) -> None:
         self.grace_period = grace_period
         self.warning_threshold = warning_threshold
         self.critical_threshold = critical_threshold
@@ -166,8 +166,7 @@ def strip_extra_info(path: str) -> str:
         `/path/file.py` (`method_name`) -> /path/file.py
     """
     path = path.strip()
-    path = re.sub(r"\s*\([^)]*\)\s*$", "", path)
-    return path
+    return re.sub(r"\s*\([^)]*\)\s*$", "", path)
 
 
 def normalize_path(path: str) -> str:

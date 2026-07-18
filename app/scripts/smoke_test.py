@@ -418,7 +418,7 @@ def _free_port() -> int:
 
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
-    def log_message(self, *args: Any) -> None:  # noqa: D102 - silence per-request noise
+    def log_message(self, *args: Any) -> None:
         pass
 
 
@@ -467,9 +467,7 @@ def check_page(chrome: str, url: str, profile_dir: Path) -> tuple[bool, str]:
         url,
     ]
     try:
-        result = subprocess.run(  # noqa: S603 - args are fixed/local
-            cmd, capture_output=True, text=True, timeout=WALL_TIMEOUT_S
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=WALL_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         return False, (
             f"HANG — page never reached idle within {WALL_TIMEOUT_S}s "
@@ -515,7 +513,7 @@ def main() -> int:
         root = Path(tmp)
         # Absolute /static/* references in the HTML resolve against the server
         # root via this symlink to the committed static assets.
-        os.symlink(STATIC_DIR, root / "static")
+        (root / "static").symlink_to(STATIC_DIR)
         for name, html in pages.items():
             (root / f"{name}.html").write_text(html, encoding="utf-8")
         # Fragments the authed_chrome fixture fetches over real htmx requests.

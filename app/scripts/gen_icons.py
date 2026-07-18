@@ -108,9 +108,7 @@ def load_icon_nodes() -> dict[str, list[list[object]]]:
     script = (
         f"const l=require({json.dumps(str(BUNDLE))});process.stdout.write(JSON.stringify(l.icons));"
     )
-    raw = subprocess.run(  # noqa: S603  (trusted local bundle, no user input)
-        ["node", "-e", script], capture_output=True, text=True, check=True
-    ).stdout
+    raw = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
     return json.loads(raw)
 
 

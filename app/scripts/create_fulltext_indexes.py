@@ -254,7 +254,7 @@ async def verify_fulltext_indexes(driver: Any) -> dict[str, bool]:
     logger.info("Verifying Full-Text Indexes")
     logger.info("=" * 70)
 
-    for label, config in FULLTEXT_INDEX_DEFINITIONS.items():
+    for config in FULLTEXT_INDEX_DEFINITIONS.values():
         index_name = str(config["index_name"])
         exists = await check_index_exists(driver, index_name)
         results[index_name] = exists

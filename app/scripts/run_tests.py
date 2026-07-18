@@ -32,7 +32,7 @@ from pathlib import Path
 class TestRunner:
     """Manages test execution with predefined configurations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.project_root = Path(__file__).parent.parent
         self.tests_dir = self.project_root / "tests"
 

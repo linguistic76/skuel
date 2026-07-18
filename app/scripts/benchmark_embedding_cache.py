@@ -205,7 +205,7 @@ async def benchmark_always_generate(
     successes = 0
     errors = 0
 
-    for i, node in enumerate(sample_nodes, 1):
+    for _i, node in enumerate(sample_nodes, 1):
         text = get_text_from_node(node)
 
         start = time.perf_counter()

@@ -58,7 +58,7 @@ class LegacyPattern:
 class LegacyCodeDetector:
     """Detect and categorize legacy code patterns."""
 
-    def __init__(self, root_path: Path = ROOT):
+    def __init__(self, root_path: Path = ROOT) -> None:
         self.root_path = root_path
         self.patterns: list[LegacyPattern] = []
 
@@ -106,10 +106,7 @@ class LegacyCodeDetector:
 
             # Extract attribute name
             attr_match = re.search(r'has no attribute "([^"]*)"', message)
-            if attr_match:
-                attribute = attr_match.group(1)
-            else:
-                attribute = "unknown"
+            attribute = attr_match.group(1) if attr_match else "unknown"
 
             # Categorize by pattern
             pattern_type, severity = self._categorize_pattern(attribute, file_path)

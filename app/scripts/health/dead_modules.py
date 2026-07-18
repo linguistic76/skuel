@@ -120,7 +120,7 @@ def _resolve_relative_import(dots: str, module_suffix: str, source_file: Path) -
     anchor = package_parts[: len(package_parts) - (level - 1)]
 
     if module_suffix:
-        anchor = list(anchor) + [module_suffix]
+        anchor = [*list(anchor), module_suffix]
 
     return ".".join(anchor)
 
