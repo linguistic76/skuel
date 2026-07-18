@@ -10,6 +10,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **CI Gate** | Aggregator job in `ci.yml` | This repo | ✅ status check (**required**) | Every PR/push to `main` |
 | **MyPy Type Check** | Job in `ci.yml` | This repo | ✅ status check + PR comment on failure | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change |
 | **Lint** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — Ruff format + check, SKUEL architecture linter (strict), Cypher linter (errors), route-security audit |
+| **Integration Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/**/*.py`, `pyproject.toml`, or `uv.lock` change — `tests/integration/` against a Neo4j testcontainer (the runner's Docker daemon); the only tier that executes real Cypher |
 | **Render Smoke Test** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/**`, `app/ui/**`, `app/**/*.py`, or deps change — renders unauthenticated pages in headless Chrome and fails if any never reaches idle (infinite JS loop / render hang) |
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
@@ -45,6 +46,7 @@ One workflow, path-guarded jobs, one always-on gate.
 changes ──┬─▶ mypy (if app py changed) ─────────────┐
           ├─▶ lint (if app py changed) ──────────────┤
           ├─▶ unit_tests (if app py changed) ────────┤
+          ├─▶ integration_tests (if app py changed) ─┤
           ├─▶ smoke (if py OR ui/static changed) ────┤
           └─▶ validate_documentation (if docs) ──────┤
                                                       ▼
@@ -52,13 +54,18 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 ```
 
 - **`changes`** uses `dorny/paths-filter` to decide what ran.
-- **`mypy` / `lint` / `unit_tests` / `smoke` / `validate_documentation`** run only
+- **`mypy` / `lint` / `unit_tests` / `integration_tests` / `smoke` /
+  `validate_documentation`** run only
   when their paths changed, so they're skipped (not failed) on unrelated PRs.
 - **`lint`** runs the mechanical rule set `./dev quality` runs locally, minus
   MyPy (its own job): `ruff format --check`, `ruff check`,
   `lint_skuel.py --strict`, `cypher_linter.py --errors-only --strict`, and
   `audit_route_security.py`. Steps keep running after one fails so a single CI
   run surfaces every violation category.
+- **`integration_tests`** runs `tests/integration/` — testcontainers boots the
+  pinned Neo4j image on the runner's Docker daemon, same as `./dev test-integration`
+  locally. This is the only tier that executes real Cypher (unit tests mock the
+  driver), so it gates persistence regressions that `unit_tests` cannot see.
 - **`smoke`** renders the unauthenticated pages and loads them in headless Chrome,
   failing if any never reaches idle (catches client-side render hangs / infinite
   JS loops that unit tests can't see). No server or Neo4j needed.
