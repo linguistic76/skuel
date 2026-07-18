@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# mypy: disable-error-code="var-annotated,call-arg,attr-defined,operator,arg-type"
 """
 Bidirectional Relationships Demo
 ================================
@@ -8,7 +7,7 @@ This demo shows how data flows bidirectionally through the SKUEL system:
 
 1. Services ↔ Models: Protocol-based services work with three-tier models
 2. Pydantic ↔ DTO ↔ Domain: Data conversion maintains integrity in both directions
-3. Cross-domain dependencies: Tasks ↔ Goals ↔ Habits ↔ Knowledge
+3. Cross-domain dependencies: Tasks ↔ Goals ↔ Habits ↔ Knowledge (graph edges)
 4. Context awareness: Services modify and read from user context
 5. Business logic: Embedded in domain models, accessible from services
 
@@ -16,7 +15,9 @@ Key Architecture Points:
 - Protocol injection for clean dependencies
 - Three-tier models prevent mixing of concerns
 - Result[T] pattern for robust error handling
-- Bidirectional validation and transformation
+- GRAPH-NATIVE relationships: multi-UID links (applies_knowledge_uids,
+  reinforces_habit_uid, prerequisites) live as Neo4j edges created by the
+  service layer — they are NOT persisted node properties on TaskDTO/Task.
 """
 
 import asyncio
@@ -24,21 +25,20 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums import Priority
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
-from core.services.tasks_service import TasksService
+from core.services.tasks.tasks_scheduling_service import TasksSchedulingService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
-
-# Add project root to path
 
 
 class BiDirectionalDemo:
     """Demonstrates bidirectional relationships in SKUEL"""
 
     def __init__(self) -> None:
-        self.created_items = []
+        self.created_items: list[Any] = []
 
     async def demonstrate_full_flow(self):
         """Show complete bidirectional flow through the system"""
@@ -91,10 +91,15 @@ class BiDirectionalDemo:
         )
 
         print(f"   ✓ Request: {request.title} (Priority: {request.priority.value})")
+        print(
+            f"      - Relationship-typed fields ({len(request.applies_knowledge_uids)} "
+            "knowledge UIDs) become graph edges, not node properties"
+        )
 
-        print("2. Converting to DTO (Transfer Tier)")
+        print("2. Converting to DTO (Transfer Tier — persisted node properties only)")
         dto = TaskDTO(
             uid="task_demo_001",
+            user_uid="demo_user",
             title=request.title,
             description=request.description,
             priority=request.priority,
@@ -103,9 +108,7 @@ class BiDirectionalDemo:
             project=request.project,
             tags=request.tags,
             fulfills_goal_uid=request.fulfills_goal_uid,
-            applies_knowledge_uids=list(request.applies_knowledge_uids)
-            if request.applies_knowledge_uids
-            else [],
+            source_path_step_uid="ps.python.advanced-concepts",
             goal_progress_contribution=request.goal_progress_contribution,
             knowledge_mastery_check=request.knowledge_mastery_check,
         )
@@ -117,8 +120,8 @@ class BiDirectionalDemo:
 
         print(f"   ✓ Domain: {task.uid} (Immutable, with business logic)")
         print(f"      - Learning Alignment: {task.learning_alignment_score():.2f}")
-        print(f"      - Learning Task: {task.applies_knowledge_uids}")
-        print(f"      - Updates Goal: {task.completion_updates_goal}")
+        print(f"      - Source Path Step: {task.source_path_step_uid}")
+        print(f"      - Mastery Check: {task.knowledge_mastery_check}")
 
         print("4. Bidirectional conversion test")
         # Domain → DTO → Dict → DTO → Domain
@@ -131,7 +134,7 @@ class BiDirectionalDemo:
         assert task.title == task_restored.title
         assert task.priority == task_restored.priority
         assert task.fulfills_goal_uid == task_restored.fulfills_goal_uid
-        assert task.applies_knowledge_uids == task_restored.applies_knowledge_uids
+        assert task.source_path_step_uid == task_restored.source_path_step_uid
         assert (
             abs(task.learning_alignment_score() - task_restored.learning_alignment_score()) < 0.01
         )
@@ -149,35 +152,50 @@ class BiDirectionalDemo:
 
         class MockTaskBackend:
             def __init__(self) -> None:
-                self.tasks = {}
-                self.counter = 0
+                self.tasks: dict[str, dict[str, Any]] = {}
+                self.edges: list[tuple[str, str, str, dict[str, Any] | None]] = []
+
+            async def create(
+                self, model: Task
+            ) -> Result[
+                dict[str, Any]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksSchedulingService awaits it
+                task_data = model.to_dto().to_dict()
+                task_data.setdefault("created_at", datetime.now().isoformat())
+                self.tasks[model.uid] = task_data
+                return Result.ok(task_data)
+
+            async def create_relationships_batch(
+                self, relationships: list[tuple[str, str, str, dict[str, Any] | None]]
+            ) -> Result[
+                int
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksSchedulingService awaits it
+                self.edges.extend(relationships)
+                return Result.ok(len(relationships))
+
+            async def get(
+                self, task_id: str
+            ) -> Result[
+                dict[str, Any]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksSchedulingService awaits it
+                if task_id in self.tasks:
+                    return Result.ok(self.tasks[task_id])
+                return Result.fail(Errors.not_found("Task", task_id))
 
             async def create_task(
                 self, data: dict[str, Any]
             ) -> Result[
                 dict[str, Any]
-            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
-                self.counter += 1
-                task_id = f"task_protocol_{self.counter:03d}"
-                task_data = {"uid": task_id, "created_at": datetime.now(), **data}
-                self.tasks[task_id] = task_data
-                return Result.ok(task_data)
-
-            async def get_task(
-                self, task_id: str
-            ) -> Result[
-                dict[str, Any]
-            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
-                if task_id in self.tasks:
-                    return Result.ok(self.tasks[task_id])
-                return Result.fail(Errors.not_found("Task", task_id))
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; LearningAlignmentBridge awaits it
+                self.tasks[data["uid"]] = data
+                return Result.ok(data)
 
             async def get_user_tasks(
                 self, user_uid: str
             ) -> Result[
                 list
-            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; TasksService awaits it
-                user_tasks = [t for t in self.tasks.values() if t.get("created_by") == user_uid]
+            ]:  # skuel-lint: disable=SKUEL029 -- mock impl of async backend protocol; LearningAlignmentBridge awaits it
+                user_tasks = [t for t in self.tasks.values() if t.get("user_uid") == user_uid]
                 return Result.ok(user_tasks)
 
         backend = MockTaskBackend()
@@ -185,25 +203,29 @@ class BiDirectionalDemo:
 
         print("2. Injecting protocol into service")
 
-        service = TasksService(backend=backend)
+        service = TasksSchedulingService(backend=backend)
         print("   ✓ Service created with protocol injection")
 
         print("3. Service operations through protocol")
 
-        # Create a context
+        # Create a context with completed prerequisites
         context = UserContext(
             user_uid="demo_user",
             username="demo_user",
             email="demo@example.com",
             display_name="Demo User",
         )
+        context.prerequisites_completed = {"ku_python_basics"}
 
-        # Create task through service
+        # Create task through service — relationship-typed fields become edges
         request = TaskCreateRequest(
             title="Protocol Demo Task",
             description="Testing protocol interactions",
             priority=Priority.MEDIUM,
             fulfills_goal_uid="goal_protocol_demo",
+            reinforces_habit_uid="habit_daily_code",
+            applies_knowledge_uids=["ku_protocols", "ku_dependency_injection"],
+            prerequisite_knowledge_uids=["ku_python_basics"],
         )
 
         result = await service.create_task_with_context(request, context)
@@ -212,8 +234,11 @@ class BiDirectionalDemo:
             task = result.value
             print(f"   ✓ Task created: {task.uid}")
             print("      - Through protocol interface")
-            print("      - With context validation")
+            print("      - With O(1) prerequisite validation from context")
             print(f"      - Goal: {task.fulfills_goal_uid}")
+            print(f"      - GRAPH-NATIVE edges written: {len(backend.edges)}")
+            for _from_uid, to_uid, rel_name, _props in backend.edges:
+                print(f"        • -[:{rel_name}]-> {to_uid}")
         else:
             print(f"   ❌ Error: {result.error}")
 
@@ -252,10 +277,10 @@ class BiDirectionalDemo:
             title="Build REST API",
             description="Create a REST API using FastAPI",
             priority=Priority.HIGH,
-            fulfills_goal_uid="goal_build_app",  # Links to goal
-            reinforces_habit_uid="habit_daily_code",  # Links to habit
-            applies_knowledge_uids=["ku_fastapi", "ku_databases"],  # Links to knowledge
-            prerequisite_knowledge_uids=["ku_python_basics"],  # Has prerequisites
+            fulfills_goal_uid="goal_build_app",  # Links to goal (node property)
+            reinforces_habit_uid="habit_daily_code",  # Links to habit (graph edge)
+            applies_knowledge_uids=["ku_fastapi", "ku_databases"],  # Graph edges
+            prerequisite_knowledge_uids=["ku_python_basics"],  # Graph edges
             goal_progress_contribution=0.3,  # Contributes to goal progress
             knowledge_mastery_check=True,  # Will update knowledge on completion
         )
@@ -268,33 +293,29 @@ class BiDirectionalDemo:
 
         print("3. Validating cross-domain relationships")
 
-        # Convert to domain model
-        dto = TaskDTO(
-            uid="task_cross_domain",
-            title=request.title,
-            description=request.description,
-            priority=request.priority,
-            fulfills_goal_uid=request.fulfills_goal_uid,
-            reinforces_habit_uid=request.reinforces_habit_uid,
-            applies_knowledge_uids=list(request.applies_knowledge_uids),
-            prerequisite_knowledge_uids=list(request.prerequisite_knowledge_uids),
-            goal_progress_contribution=request.goal_progress_contribution,
-            knowledge_mastery_check=request.knowledge_mastery_check,
-        )
+        # Convert to domain model via the production factory. Only persisted
+        # node properties land on Task; relationship-typed request fields are
+        # written as graph edges by the service layer after construction.
+        task = Task.from_request(request, user_uid=context.user_uid)
 
-        task = Task.from_dto(dto)
+        edge_specs: list[tuple[str, list[str]]] = [
+            (
+                RelationshipName.REINFORCES_HABIT.value,
+                [request.reinforces_habit_uid] if request.reinforces_habit_uid else [],
+            ),
+            (RelationshipName.APPLIES_KNOWLEDGE.value, list(request.applies_knowledge_uids)),
+            (RelationshipName.REQUIRES_KNOWLEDGE.value, list(request.prerequisite_knowledge_uids)),
+        ]
 
-        # Check relationships
         has_goal_link = bool(task.fulfills_goal_uid)
-        has_habit_link = bool(task.reinforces_habit_uid)
-        has_knowledge_links = len(task.applies_knowledge_uids) > 0
-        has_prerequisites = len(task.prerequisite_knowledge_uids) > 0
+        edge_count = sum(len(targets) for _name, targets in edge_specs)
 
         print("   ✓ Cross-domain validation complete")
-        print(f"      - Goal linkage: {'✓' if has_goal_link else '✗'}")
-        print(f"      - Habit linkage: {'✓' if has_habit_link else '✗'}")
-        print(f"      - Knowledge links: {'✓' if has_knowledge_links else '✗'}")
-        print(f"      - Has prerequisites: {'✓' if has_prerequisites else '✗'}")
+        print(f"      - Goal linkage (node property): {'✓' if has_goal_link else '✗'}")
+        print(f"      - GRAPH-NATIVE edges to be written: {edge_count}")
+        for rel_name, targets in edge_specs:
+            for target in targets:
+                print(f"        • ({task.uid})-[:{rel_name}]->({target})")
 
         return task, context
 
@@ -342,18 +363,19 @@ class BiDirectionalDemo:
         # Create task and calculate priority using context
         dto = TaskDTO(
             uid="task_context_demo",
+            user_uid="context_demo_user",
             title="Context-Aware Task",
             priority=Priority.MEDIUM,
             fulfills_goal_uid="goal_primary",
+            source_path_step_uid="ps.demo.context-awareness",
         )
 
         task = Task.from_dto(dto)
         alignment = task.learning_alignment_score()
 
         print(f"   ✓ Task learning alignment: {alignment:.2f}")
-        print("      - Path step linkage")
-        print("      - Learning path linkage")
-        print("      - Knowledge mastery check")
+        print("      - Path step linkage (0.7 weight)")
+        print("      - Knowledge mastery check (0.3 weight)")
 
         return context
 
@@ -364,17 +386,23 @@ class BiDirectionalDemo:
 
         print("1. Business logic in domain models")
 
-        # Create task with complex learning relationships
+        # Create task with knowledge intelligence data
         dto = TaskDTO(
             uid="task_business_logic",
+            user_uid="business_logic_user",
             title="Advanced Algorithm Implementation",
             priority=Priority.HIGH,
             duration_minutes=180,
             fulfills_goal_uid="goal_algorithm_mastery",
-            applies_knowledge_uids=["ku_algorithms", "ku_data_structures", "ku_complexity"],
+            source_path_step_uid="ps.cs.algorithms",
             goal_progress_contribution=0.4,
             knowledge_mastery_check=True,
-            prerequisite_knowledge_uids=["ku_basic_programming"],
+            knowledge_confidence_scores={
+                "ku_algorithms": 0.6,
+                "ku_data_structures": 0.8,
+                "ku_complexity": 0.4,
+            },
+            learning_opportunities_count=2,
         )
 
         task = Task.from_dto(dto)
@@ -383,20 +411,22 @@ class BiDirectionalDemo:
 
         # Test business logic methods
         alignment = task.learning_alignment_score()
-        has_prereqs = task.has_prerequisites()
-        will_update_goal = task.completion_updates_goal
-        applies_knowledge = len(task.applies_knowledge_uids)
+        complexity = task.calculate_knowledge_complexity()
+        learning_impact = task.calculate_learning_impact()
+        will_update_goal = task.validates_knowledge_mastery()
 
         print(f"      - Learning alignment: {alignment:.2f}")
-        print(f"      - Has prerequisites: {has_prereqs}")
-        print(f"      - Updates goal: {will_update_goal}")
-        print(f"      - Knowledge units: {applies_knowledge}")
+        print(f"      - Knowledge complexity: {complexity:.2f}")
+        print(f"      - Learning impact: {learning_impact:.2f}")
+        print(f"      - Validates mastery: {will_update_goal}")
 
         print("2. Business rules validation")
 
-        # Test prerequisite validation
+        # Prerequisite validation is context-based set arithmetic — the same
+        # O(1) check create_task_with_context runs against UserContext.
+        required_prereqs = {"ku_basic_programming"}
         user_completed_prereqs = {"ku_basic_programming", "ku_python_basics"}
-        missing_prereqs = set(task.prerequisite_knowledge_uids) - user_completed_prereqs
+        missing_prereqs = required_prereqs - user_completed_prereqs
 
         if not missing_prereqs:
             print("   ✓ Prerequisites satisfied - task can start")
@@ -405,10 +435,10 @@ class BiDirectionalDemo:
 
         print("3. Complex business calculations")
 
-        # Calculate learning velocity impact
-        knowledge_units = len(task.applies_knowledge_uids)
+        # Calculate learning velocity impact from knowledge intelligence data
+        knowledge_units = len(task.knowledge_confidence_scores or {})
         goal_contribution = task.goal_progress_contribution
-        duration_hours = task.duration_minutes / 60
+        duration_hours = (task.duration_minutes or 60) / 60
 
         learning_velocity = (knowledge_units * goal_contribution) / duration_hours
         print(f"   ✓ Learning velocity: {learning_velocity:.2f} units/hour")
