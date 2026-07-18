@@ -77,7 +77,7 @@ def create_admin_api_routes(
     @boundary_handler()
     async def list_users(
         request: Request,
-        current_user: Any,
+        current_user: Any = None,
         limit: int = 100,
         offset: int = 0,
         role: str | None = None,
@@ -137,8 +137,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def get_user_details(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Get detailed user information (ADMIN only).
@@ -185,8 +185,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def change_user_role(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Change a user's role (ADMIN only).
@@ -250,8 +250,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def deactivate_user(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Deactivate a user account (ADMIN only).
@@ -301,8 +301,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def activate_user(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Reactivate a user account (ADMIN only).
@@ -341,8 +341,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def hard_delete_user(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Hard-delete a user and every OWNS-linked entity (ADMIN only, GDPR erasure).
@@ -423,8 +423,8 @@ def create_admin_api_routes(
     @boundary_handler()
     async def generate_reset_token(
         request: Request,
-        current_user: Any,
         uid: str,
+        current_user: Any = None,
     ):
         """
         Generate a password reset token for a user (ADMIN only).

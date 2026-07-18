@@ -360,7 +360,7 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_group_detail(
-        request: Request, uid: str, current_user: Any
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[list[GroupMemberProgress]]:
         """Get members of a specific group with their submission progress."""
         return await teacher_review_service.get_group_detail(
