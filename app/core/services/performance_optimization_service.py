@@ -193,7 +193,7 @@ class AdvancedCache:
         self.stats = {"hits": 0, "misses": 0, "evictions": 0, "size_bytes": 0}
         self.logger = get_logger(__name__)
 
-    async def get(self, key: str) -> Any | None:
+    def get(self, key: str) -> Any | None:
         """Get value from cache."""
         if key not in self.cache:
             self.stats["misses"] += 1
@@ -202,7 +202,7 @@ class AdvancedCache:
         entry = self.cache[key]
 
         if entry.is_expired():
-            await self.delete(key)
+            self.delete(key)
             self.stats["misses"] += 1
             return None
 
@@ -211,7 +211,7 @@ class AdvancedCache:
         self.stats["hits"] += 1
         return entry.value
 
-    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """Set value in cache."""
         try:
             # Calculate size (simplified)
@@ -219,7 +219,7 @@ class AdvancedCache:
 
             # Check if eviction needed
             if len(self.cache) >= self.max_size:
-                await self._evict()
+                self._evict()
 
             # Create cache entry
             entry = CacheEntry(
@@ -243,7 +243,7 @@ class AdvancedCache:
             self.logger.error(f"Unexpected cache set error: {type(e).__name__}: {e}")
             return False
 
-    async def delete(self, key: str) -> bool:
+    def delete(self, key: str) -> bool:
         """Delete value from cache."""
         if key in self.cache:
             entry = self.cache[key]
@@ -253,14 +253,14 @@ class AdvancedCache:
             return True
         return False
 
-    async def clear(self) -> None:
+    def clear(self) -> None:
         """Clear entire cache."""
         self.cache.clear()
         self.access_order.clear()
         self.frequency_heap.clear()
         self.stats = {"hits": 0, "misses": 0, "evictions": 0, "size_bytes": 0}
 
-    async def _evict(self) -> None:
+    def _evict(self) -> None:
         """Evict entries based on strategy."""
         if not self.cache:
             return
@@ -268,28 +268,28 @@ class AdvancedCache:
         if self.strategy == CacheStrategy.LRU:
             # Remove least recently used
             oldest_key = next(iter(self.access_order))
-            await self.delete(oldest_key)
+            self.delete(oldest_key)
         elif self.strategy == CacheStrategy.LFU:
             # Remove least frequently used
             if self.frequency_heap:
                 _, key = heapq.heappop(self.frequency_heap)
-                await self.delete(key)
+                self.delete(key)
         elif self.strategy == CacheStrategy.TTL:
             # Remove expired entries first
             expired_keys = [key for key, entry in self.cache.items() if entry.is_expired()]
             if expired_keys:
-                await self.delete(expired_keys[0])
+                self.delete(expired_keys[0])
             else:
                 # Fall back to LRU
                 oldest_key = next(iter(self.access_order))
-                await self.delete(oldest_key)
+                self.delete(oldest_key)
         elif self.strategy == CacheStrategy.ADAPTIVE:
             # Use adaptive eviction based on access patterns
-            await self._adaptive_evict()
+            self._adaptive_evict()
 
         self.stats["evictions"] += 1
 
-    async def _adaptive_evict(self) -> None:
+    def _adaptive_evict(self) -> None:
         """Adaptive eviction based on usage patterns."""
         # Score entries based on multiple factors
         scores = {}
@@ -309,7 +309,7 @@ class AdvancedCache:
             from core.utils.sort_functions import make_dict_value_getter
 
             victim_key = min(scores.keys(), key=make_dict_value_getter(scores))
-            await self.delete(victim_key)
+            self.delete(victim_key)
 
     def _update_access_patterns(self, key: str) -> None:
         """Update access tracking patterns."""
@@ -338,7 +338,7 @@ class FastInferenceEngine:
         self.inference_rules: dict[str, Any] = {}
         self.logger = get_logger(__name__)
 
-    async def _heuristic_inference(self, request: InferenceRequest) -> dict[str, Any]:
+    def _heuristic_inference(self, request: InferenceRequest) -> dict[str, Any]:
         """Fast heuristic-based inference."""
         # Demo implementation with realistic response
         query_terms = request.query.lower().split()
@@ -380,7 +380,7 @@ class FastInferenceEngine:
             "computation_path": ["domain_detection", "relevance_scoring", "action_generation"],
         }
 
-    async def precompute_patterns(self, common_queries: list[str]) -> None:
+    def precompute_patterns(self, common_queries: list[str]) -> None:
         """Precompute inference results for common queries."""
         for query in common_queries:
             query_hash = hashlib.md5(query.encode()).hexdigest()[:8]
@@ -394,7 +394,7 @@ class FastInferenceEngine:
                 requested_at=datetime.now(),
             )
 
-            result = await self._heuristic_inference(mock_request)
+            result = self._heuristic_inference(mock_request)
             self.precomputed_patterns[query_hash] = result
 
         self.logger.info(f"Precomputed {len(common_queries)} inference patterns")
@@ -420,7 +420,9 @@ class BackgroundProcessingEngine:
 
         self.logger = get_logger(__name__)
 
-    async def start(self) -> None:
+    async def start(
+        self,
+    ) -> None:  # skuel-lint: disable=SKUEL029 -- lifecycle: spawns _process_queue via create_task; awaited in the async startup chain
         """Start background processing engine."""
         self.is_running = True
 
@@ -455,7 +457,7 @@ class BackgroundProcessingEngine:
 
         self.logger.info("Background processing engine shutdown complete")
 
-    async def submit_task(self, task: BackgroundTask) -> bool:
+    def submit_task(self, task: BackgroundTask) -> bool:
         """Submit task for background processing."""
         try:
             heapq.heappush(self.task_queue, task)
@@ -476,7 +478,7 @@ class BackgroundProcessingEngine:
                 await self._process_pending_tasks()
 
                 # Clean up completed tasks
-                await self._cleanup_completed_tasks()
+                self._cleanup_completed_tasks()
 
                 # Short sleep to prevent busy waiting
                 await asyncio.sleep(0.1)
@@ -676,7 +678,9 @@ class BackgroundProcessingEngine:
             "backup_location": "/backups/knowledge_backup_20251001.zip",
         }
 
-    async def _handle_task_failure(self, task: BackgroundTask, error: str) -> None:
+    async def _handle_task_failure(
+        self, task: BackgroundTask, error: str
+    ) -> None:  # skuel-lint: disable=SKUEL029 -- async task machinery: awaited by _monitor_task_completion (wrap_future boundary) and _execute_task
         """Handle task execution failure."""
         task.retry_count += 1
 
@@ -692,7 +696,7 @@ class BackgroundProcessingEngine:
         if task.task_id in self.running_tasks:
             del self.running_tasks[task.task_id]
 
-    async def _cleanup_completed_tasks(self) -> None:
+    def _cleanup_completed_tasks(self) -> None:
         """Clean up old completed task references."""
         # Keep completed task IDs for dependency resolution
         # but limit the size to prevent memory growth
@@ -728,10 +732,10 @@ class PerformanceOptimizationService:
             "learning strategies",
             "productivity tips",
         ]
-        await self.inference_engine.precompute_patterns(common_queries)
+        self.inference_engine.precompute_patterns(common_queries)
 
         # Start background optimization tasks
-        await self._schedule_optimization_tasks()
+        self._schedule_optimization_tasks()
 
         self.logger.info("Performance optimization service initialized")
 
@@ -744,7 +748,7 @@ class PerformanceOptimizationService:
         """Close service - cleanup hook for ServiceContainer."""
         await self.shutdown()
 
-    async def submit_background_task(
+    def submit_background_task(
         self,
         task_type: str,
         payload: dict[str, Any],
@@ -761,10 +765,10 @@ class PerformanceOptimizationService:
             created_at=datetime.now(),
         )
 
-        success = await self.background_engine.submit_task(task)
+        success = self.background_engine.submit_task(task)
         return task_id if success else ""
 
-    async def _schedule_optimization_tasks(self) -> None:
+    def _schedule_optimization_tasks(self) -> None:
         """Schedule periodic optimization tasks."""
         tasks: list[ScheduledOptimizationTask] = [
             {
@@ -785,6 +789,6 @@ class PerformanceOptimizationService:
         ]
 
         for task_config in tasks:
-            await self.submit_background_task(
+            self.submit_background_task(
                 task_config["task_type"], task_config["payload"], task_config["priority"]
             )

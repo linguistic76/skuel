@@ -129,19 +129,19 @@ class GoalTaskGenerator:
 
         # Generate different types of tasks
         if self.config.generate_milestone_tasks:
-            milestone_tasks = await self._generate_milestone_tasks(goal, user_context)
+            milestone_tasks = self._generate_milestone_tasks(goal, user_context)
             generated_tasks.extend(milestone_tasks)
 
         if self.config.generate_knowledge_tasks:
-            knowledge_tasks = await self._generate_knowledge_tasks(goal, rels, user_context)
+            knowledge_tasks = self._generate_knowledge_tasks(goal, rels, user_context)
             generated_tasks.extend(knowledge_tasks)
 
         if self.config.generate_habit_tasks:
-            habit_tasks = await self._generate_habit_tasks(goal, user_context, habit_links, rels)
+            habit_tasks = self._generate_habit_tasks(goal, user_context, habit_links, rels)
             generated_tasks.extend(habit_tasks)
 
         if self.config.generate_check_in_tasks:
-            checkin_tasks = await self._generate_checkin_tasks(goal, user_context)
+            checkin_tasks = self._generate_checkin_tasks(goal, user_context)
             generated_tasks.extend(checkin_tasks)
 
         # Limit total tasks
@@ -243,7 +243,7 @@ class GoalTaskGenerator:
             # Check if goal is at risk
             if goal.days_remaining() and goal.days_remaining() < 30:
                 # Generate urgent milestone tasks
-                urgent_tasks = await self._generate_urgent_tasks(goal, user_context)
+                urgent_tasks = self._generate_urgent_tasks(goal, user_context)
                 critical_tasks.extend(urgent_tasks)
 
         # Sort by priority and limit (using centralized sort function)
@@ -256,9 +256,7 @@ class GoalTaskGenerator:
     # PRIVATE GENERATION METHODS
     # ========================================================================
 
-    async def _generate_milestone_tasks(
-        self, goal: Goal, _user_context: UserContext
-    ) -> list[TaskDTO]:
+    def _generate_milestone_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
         """Generate tasks for goal milestones."""
         tasks: list[TaskDTO] = []
 
@@ -302,7 +300,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_knowledge_tasks(
+    def _generate_knowledge_tasks(
         self, goal: Goal, rels: GoalRelationships, user_context: UserContext
     ) -> list[TaskDTO]:
         """
@@ -361,7 +359,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_habit_tasks(
+    def _generate_habit_tasks(
         self,
         goal: Goal,
         user_context: UserContext,
@@ -411,9 +409,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_checkin_tasks(
-        self, goal: Goal, _user_context: UserContext
-    ) -> list[TaskDTO]:
+    def _generate_checkin_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
         """Generate periodic check-in tasks for goal progress."""
         tasks = []
 
@@ -441,7 +437,7 @@ class GoalTaskGenerator:
 
         return tasks
 
-    async def _generate_urgent_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
+    def _generate_urgent_tasks(self, goal: Goal, _user_context: UserContext) -> list[TaskDTO]:
         """Generate urgent tasks for at-risk goals."""
         tasks = []
 
