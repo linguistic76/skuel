@@ -26,6 +26,7 @@ from fasthtml.common import StaticFiles, fast_app
 from starlette.middleware import Middleware
 
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
+from adapters.inbound.boundary import install_malformed_json_guard
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
     RequestIDMiddleware,
@@ -418,6 +419,11 @@ def _create_web_app(_config: UnifiedConfig, static_directory: str | None = None)
     )
 
     logger.info("✅ Session support configured (FastHTML built-in)")
+
+    # Malformed application/json bodies fail inside FastHTML's parameter
+    # extraction — before any route guard runs — so without this chokepoint
+    # they surface as 500s instead of a validation 400.
+    install_malformed_json_guard(app)
 
     # Auth context — mirrors session auth flags into a ContextVar so page
     # chrome (BasePage/navbar in ui/) reads auth state without importing

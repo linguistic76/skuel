@@ -777,7 +777,12 @@ class InferenceConfidence:
     # Domain expertise
     DOMAIN_EXPERTISE_BOOST: Final = 0.1
 
-    # Pattern type reliability bonuses
+    # Pattern type reliability bonuses. Keys are KuPattern.pattern_type values
+    # as they leave _merge_similar_patterns: singletons keep their detector
+    # type; "merged" applies only when several detectors corroborated the same
+    # knowledge UID (hence the highest bonus). Types without an entry
+    # (e.g. "contextual_learning" — the weakest signal) deliberately get 0.0
+    # via the lookup default.
     PATTERN_RELIABILITY: Final[dict[str, float]] = {
         "phrase_pattern": 0.1,
         "keyword_enhanced": 0.05,

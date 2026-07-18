@@ -17,6 +17,7 @@ Usage:
     from adapters.inbound.fasthtml_types import RouteDecorator, FastHTMLApp
 """
 
+from collections.abc import Callable
 from typing import Any, Protocol
 
 # Re-export the concrete Starlette Request class.
@@ -25,6 +26,7 @@ from typing import Any, Protocol
 # route handlers MUST annotate with the real class.  Re-exporting here keeps
 # all imports centralized through the hexagonal boundary.
 from starlette.requests import Request as Request
+from starlette.responses import Response
 
 
 class RouteDecorator(Protocol):
@@ -66,4 +68,16 @@ class FastHTMLApp(Protocol):
 
     def get(self, path: str) -> Any:
         """Register a GET route handler (Starlette-style decorator)."""
+        ...
+
+    def add_exception_handler(
+        self,
+        exc_class_or_status_code: type[Exception] | int,
+        handler: Callable[[Request, Exception], Response],
+    ) -> None:
+        """Register a Starlette exception handler (see boundary.install_malformed_json_guard).
+
+        Starlette also accepts async handlers; this captures the sync form
+        SKUEL actually registers.
+        """
         ...

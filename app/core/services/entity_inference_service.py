@@ -42,14 +42,26 @@ from core.utils.result_simplified import Errors, Result
 
 @dataclass
 class KuPattern:
-    """Represents a detected knowledge pattern with metadata."""
+    """Represents a detected knowledge pattern with metadata.
+
+    ``pattern_type`` names the detector that produced the pattern
+    (``keyword_enhanced``, ``phrase_pattern``, ``contextual_*``,
+    ``complexity_based``) — or ``merged`` when several same-UID patterns
+    were combined, in which case ``contributing_types`` records the
+    original detector types.
+    """
 
     pattern_type: str
     knowledge_uid: str
     confidence: float
     evidence: list[str]
     domain: str
-    cross_references: list[str] = field(default_factory=list)
+    contributing_types: list[str] = field(default_factory=list)
+
+    @property
+    def source_types(self) -> list[str]:
+        """Detector types behind this pattern (unwraps ``merged``)."""
+        return self.contributing_types or [self.pattern_type]
 
 
 @dataclass
@@ -77,8 +89,6 @@ class RelationshipMappingData(TypedDict):
 class InferenceConfig:
     """Configuration for knowledge inference algorithms."""
 
-    confidence_threshold: float = 0.5
-    max_inferred_connections: int = 10
     enable_pattern_detection: bool = True
     enable_opportunity_discovery: bool = True
     enable_insight_generation: bool = True
@@ -337,17 +347,23 @@ class EntityInferenceService:
                 "algorithm_confidence": (
                     max(confidence_scores.values()) if confidence_scores else 0.0
                 ),
-                "patterns_detected": list(set(knowledge_patterns)),
+                "patterns_detected": sorted(set(knowledge_patterns)),
                 "cross_domain_relationships": len(cross_domain_relationships),
+                # source_types unwraps "merged" patterns so contributing
+                # detector types still count.
                 "advanced_features": {
                     "phrase_patterns": len(
-                        [p for p in detected_patterns if p.pattern_type == "phrase_pattern"]
+                        [p for p in detected_patterns if "phrase_pattern" in p.source_types]
                     ),
                     "contextual_analysis": len(
-                        [p for p in detected_patterns if "contextual" in p.pattern_type]
+                        [
+                            p
+                            for p in detected_patterns
+                            if any("contextual" in t for t in p.source_types)
+                        ]
                     ),
                     "complexity_detection": len(
-                        [p for p in detected_patterns if p.pattern_type == "complexity_based"]
+                        [p for p in detected_patterns if "complexity_based" in p.source_types]
                     ),
                 },
             }
@@ -570,36 +586,41 @@ class EntityInferenceService:
         return patterns
 
     def _merge_similar_patterns(self, patterns: list[KuPattern]) -> list[KuPattern]:
-        """Merge similar patterns and combine evidence."""
+        """Combine same-UID patterns; pass singletons through unchanged.
 
-        def _pattern_dict_factory() -> Any:
-            return {"evidence": [], "confidences": []}
-
-        pattern_map: defaultdict[str, dict[str, Any]] = defaultdict(_pattern_dict_factory)
-
+        A knowledge UID detected by several algorithms becomes one ``merged``
+        pattern (max confidence + MERGE_BOOST, capped; evidence deduped) whose
+        ``contributing_types`` records the original detector types. A UID
+        detected once keeps its original pattern — type, confidence, and
+        evidence intact — so per-type reliability scoring and the
+        ``advanced_features`` metadata counters see real detector types.
+        """
+        pattern_map: defaultdict[str, list[KuPattern]] = defaultdict(list)
         for pattern in patterns:
-            key = pattern.knowledge_uid
-            pattern_map[key]["evidence"].extend(pattern.evidence)
-            pattern_map[key]["confidences"].append(pattern.confidence)
-            pattern_map[key]["pattern"] = pattern
+            pattern_map[pattern.knowledge_uid].append(pattern)
 
         merged = []
-        for knowledge_uid, data in pattern_map.items():
-            base_pattern = data["pattern"]
-            max_confidence = max(data["confidences"])
-            if len(data["confidences"]) > 1:
-                max_confidence = min(
-                    InferenceConfidence.MERGE_CAP,
-                    max_confidence + InferenceConfidence.MERGE_BOOST,
-                )
+        for knowledge_uid, group in pattern_map.items():
+            if len(group) == 1:
+                merged.append(group[0])
+                continue
+
+            max_confidence = min(
+                InferenceConfidence.MERGE_CAP,
+                max(p.confidence for p in group) + InferenceConfidence.MERGE_BOOST,
+            )
+            evidence: list[str] = []
+            for pattern in group:
+                evidence.extend(e for e in pattern.evidence if e not in evidence)
 
             merged.append(
                 KuPattern(
                     pattern_type="merged",
                     knowledge_uid=knowledge_uid,
                     confidence=max_confidence,
-                    evidence=list(set(data["evidence"])),
-                    domain=base_pattern.domain,
+                    evidence=evidence,
+                    domain=group[0].domain,
+                    contributing_types=sorted({p.pattern_type for p in group}),
                 )
             )
 
@@ -839,8 +860,6 @@ class EntityInferenceService:
         stats = {
             "engine_type": "advanced" if self.config.enable_advanced_engine else "basic",
             "config": {
-                "confidence_threshold": self.config.confidence_threshold,
-                "max_inferred_connections": self.config.max_inferred_connections,
                 "advanced_features_enabled": self.config.enable_advanced_engine,
                 "cross_domain_mapping": self.config.enable_cross_domain_mapping,
             },

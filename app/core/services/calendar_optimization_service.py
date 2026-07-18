@@ -489,7 +489,7 @@ class CalendarOptimizationService:
         if task.knowledge_mastery_check:
             intrinsic_load += 0.2  # Estimate for knowledge application tasks
 
-        if task.priority == Priority.HIGH:
+        if task.priority in (Priority.HIGH, Priority.CRITICAL):
             intrinsic_load += 0.2
 
         # Extraneous load (environmental factors)
@@ -604,17 +604,31 @@ class CalendarOptimizationService:
     ) -> EnergyAlignedStrategy:
         """Apply energy-aligned scheduling strategy."""
 
-        # Categorize tasks by energy requirements
-        high_energy_tasks = [
-            t for t in tasks if t.priority == Priority.HIGH or t.knowledge_mastery_check
-        ]
+        # Categorize tasks by energy requirements — CRITICAL and HIGH both
+        # demand peak energy; CRITICAL is seated first.
+        def _priority_rank(task) -> int:
+            return Priority.from_value(task.priority).sort_order()
+
+        high_energy_tasks = sorted(
+            (
+                t
+                for t in tasks
+                if t.priority in (Priority.CRITICAL, Priority.HIGH) or t.knowledge_mastery_check
+            ),
+            key=_priority_rank,
+        )
         medium_energy_tasks = [t for t in tasks if t.priority == Priority.MEDIUM]
         low_energy_tasks = [t for t in tasks if t.priority == Priority.LOW]
 
         schedule = {}
 
-        # Assign high-energy tasks to peak/high energy slots
-        peak_slots = [s for s in slots if s.energy_level in [EnergyLevel.PEAK, EnergyLevel.HIGH]]
+        # Assign high-energy tasks to peak/high energy slots, best capacity
+        # first so CRITICAL is seated into PEAK before HIGH slots.
+        peak_slots = sorted(
+            (s for s in slots if s.energy_level in [EnergyLevel.PEAK, EnergyLevel.HIGH]),
+            key=attrgetter("cognitive_capacity"),
+            reverse=True,
+        )
         for i, task in enumerate(high_energy_tasks):
             if i < len(peak_slots):
                 schedule[task.uid] = {"slot": peak_slots[i], "energy_match": "optimal"}
