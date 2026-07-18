@@ -60,7 +60,7 @@ class AdaptiveLpCrossDomainService:
         self.logger = get_logger("skuel.adaptive_lp_cross_domain")
 
     @with_error_handling(error_type="system", uid_param="user_uid")
-    async def discover_cross_domain_opportunities(
+    def discover_cross_domain_opportunities(
         self,
         user_uid: UserUID,
         knowledge_state: KnowledgeState,
@@ -119,7 +119,7 @@ class AdaptiveLpCrossDomainService:
 
         # Generate opportunities for each domain pair
         for source_domain, target_domain in domain_pairs:
-            opportunity = await self._create_cross_domain_opportunity(
+            opportunity = self._create_cross_domain_opportunity(
                 source_domain,
                 target_domain,
                 active_domains[source_domain],
@@ -131,13 +131,13 @@ class AdaptiveLpCrossDomainService:
 
         # Add innovation opportunities (combining 3+ domains)
         if len(active_domains) >= 3:
-            innovation_opportunities = await self._discover_innovation_opportunities(
+            innovation_opportunities = self._discover_innovation_opportunities(
                 active_domains, user_uid
             )
             opportunities.extend(innovation_opportunities)
 
         # Score and rank opportunities
-        scored_opportunities = await self._score_cross_domain_opportunities(
+        scored_opportunities = self._score_cross_domain_opportunities(
             opportunities, user_uid, knowledge_state
         )
 
@@ -148,7 +148,7 @@ class AdaptiveLpCrossDomainService:
 
         return Result.ok(scored_opportunities[:10])  # Return top 10
 
-    async def _create_cross_domain_opportunity(
+    def _create_cross_domain_opportunity(
         self,
         source_domain: str,
         target_domain: str,
@@ -269,9 +269,7 @@ class AdaptiveLpCrossDomainService:
                 estimated_difficulty=5.0 + (min_depth * 0.5),  # Base difficulty + complexity
                 estimated_value=coerce_float(synergy["skill_transfer"])
                 * coerce_float(synergy["innovation_potential"]),
-                supporting_examples=await self._find_real_world_examples(
-                    source_domain, target_domain
-                ),
+                supporting_examples=self._find_real_world_examples(source_domain, target_domain),
                 success_patterns=[
                     f"Professionals combining {source_domain} and {target_domain} skills",
                     f"Startups bridging {source_domain} and {target_domain}",
@@ -287,7 +285,7 @@ class AdaptiveLpCrossDomainService:
             self.logger.warning(f"Failed to create cross-domain opportunity: {e}")
             return None
 
-    async def _discover_innovation_opportunities(
+    def _discover_innovation_opportunities(
         self, domain_knowledge: dict[str, list[str]], _user_uid: UserUID
     ) -> list[CrossDomainOpportunity]:
         """Discover innovation opportunities combining 3+ domains."""
@@ -369,7 +367,7 @@ class AdaptiveLpCrossDomainService:
 
         return opportunities
 
-    async def _score_cross_domain_opportunities(
+    def _score_cross_domain_opportunities(
         self,
         opportunities: list[CrossDomainOpportunity],
         _user_uid: UserUID,
@@ -393,7 +391,7 @@ class AdaptiveLpCrossDomainService:
 
         return opportunities
 
-    async def _find_real_world_examples(self, source_domain: str, target_domain: str) -> list[str]:
+    def _find_real_world_examples(self, source_domain: str, target_domain: str) -> list[str]:
         """Find real-world examples of cross-domain applications."""
 
         domain_examples = {
