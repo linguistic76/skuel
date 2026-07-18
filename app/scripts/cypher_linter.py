@@ -194,28 +194,53 @@ class CypherLinter:
         heuristics — just split on statement-terminating semicolons and keep
         anything with a Cypher keyword. Two comment treatments:
 
-        - Full-line ``//`` comments are blanked (line kept, text dropped):
-          migration headers are prose that would false-positive prose-shaped
-          rules (e.g. "DELETE the edges" tripping CYP002), and commented-out
-          queries are not live code.
-        - Trailing ``//`` comments stay in the statement text — they carry
-          ``noqa:`` suppressions, which the rule checks read from the
-          violation's line.
+        - ``//`` comments are masked with spaces (positions and line numbers
+          preserved): comment prose would false-positive prose-shaped rules —
+          "DELETE the edges" in a migration header trips CYP002, and a
+          trailing comment after a ``;`` would otherwise leak into the NEXT
+          statement (or become a phantom tail statement) and do the same
+          (Codex, PR #710). Commented-out queries are not live code either.
+        - ``noqa:``-carrying comments are kept — the rule checks read
+          suppressions from the violation's line.
 
-        The splitter tracks quoted strings and comments so a ``;`` inside
-        either never splits (audit queries RETURN ';'-free labels today, but
-        string literals with semicolons are legal Cypher).
+        Both passes track quoted strings (a ``//`` inside a string literal is
+        not a comment), and the splitter additionally skips kept comments so
+        a ``;`` or quote inside one never splits or opens a string.
 
         Returns:
             List of (statement, start_line) tuples, start_line 1-indexed at
-            the statement's first character
+            the statement's first token
         """
-        lines = [("" if line.lstrip().startswith("//") else line) for line in content.split("\n")]
-        text = "\n".join(lines)
+        # Pass 1: mask comments in place (same length, so every offset and
+        # line number survives)
+        chars = list(content)
+        in_string: str | None = None
+        i = 0
+        while i < len(content):
+            char = content[i]
+            if in_string is not None:
+                if char == "\\":
+                    i += 2  # skip escaped character inside string
+                    continue
+                if char == in_string:
+                    in_string = None
+            elif char in ("'", '"'):
+                in_string = char
+            elif content[i : i + 2] == "//":
+                end = content.find("\n", i)
+                if end == -1:
+                    end = len(content)
+                if "noqa:" not in content[i:end]:
+                    chars[i:end] = " " * (end - i)
+                i = end
+                continue
+            i += 1
+        text = "".join(chars)
 
+        # Pass 2: split on statement-terminating semicolons
         raw_statements: list[tuple[str, int]] = []
         start = 0
-        in_string: str | None = None
+        in_string = None
         i = 0
         while i < len(text):
             char = text[i]

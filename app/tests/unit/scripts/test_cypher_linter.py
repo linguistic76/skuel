@@ -235,6 +235,28 @@ class TestExtractCypherStatements:
         assert len(statements) == 1
         assert "noqa: CYP002" in statements[0][0]
 
+    def test_trailing_comment_after_final_semicolon_no_phantom_statement(self) -> None:
+        # Codex, PR #710: the tail append turned a keyword-bearing trailing
+        # comment into a phantom raw statement
+        linter = make_linter()
+        content = "MATCH (n:Entity) RETURN n LIMIT 1; // then DELETE n manually\n"
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 1
+        assert "DELETE" not in statements[0][0]
+
+    def test_trailing_comment_after_semicolon_not_leaked_into_next_statement(self) -> None:
+        # Codex, PR #710 (sibling shape): a trailing comment between two
+        # statements belonged to neither, but its prose landed in statement 2
+        linter = make_linter()
+        content = (
+            "MATCH (n:Entity) RETURN n LIMIT 1; // cleanup: DELETE n afterwards\n"
+            "MATCH (m:Entity) RETURN m LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        assert "DELETE" not in statements[1][0]
+        assert statements[1][1] == 2
+
     def test_keywordless_statements_skipped(self) -> None:
         # DROP INDEX / SHOW carry no linted keyword — no rule applies
         linter = make_linter()
