@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from core.models.type_hints import Neo4jProperties
 from core.utils.frontmatter import parse_frontmatter
 
 
@@ -108,10 +109,36 @@ def analyze_doc(filepath: Path, docs_dir: Path) -> tuple[DocNode, list[str]]:
     return node, related
 
 
-def generate_cypher(docs_dir: Path) -> tuple[list[str], list[str]]:
-    """Generate Cypher queries for all docs."""
-    node_queries = []
-    rel_queries = []
+CypherJob = tuple[str, Neo4jProperties]
+
+NODE_QUERY = """
+MERGE (d:Document {uid: $uid})
+SET d.title = $title,
+    d.path = $path,
+    d.category = $category,
+    d.updated = date($updated),
+    d.status = $status,
+    d.tags = $tags,
+    d.size_lines = $size_lines
+""".strip()
+
+CATEGORY_QUERY = "MERGE (c:DocumentCategory {name: $name})"
+
+CATEGORY_REL_QUERY = """
+MATCH (d:Document {uid: $uid}), (c:DocumentCategory {name: $name})
+MERGE (d)-[:IN_CATEGORY]->(c)
+""".strip()
+
+DOC_REL_QUERY = """
+MATCH (s:Document {uid: $source_uid}), (t:Document {uid: $target_uid})
+MERGE (s)-[:RELATES_TO]->(t)
+""".strip()
+
+
+def generate_cypher(docs_dir: Path) -> tuple[list[CypherJob], list[CypherJob]]:
+    """Generate parameterized Cypher jobs (query, params) for all docs."""
+    node_queries: list[CypherJob] = []
+    rel_queries: list[CypherJob] = []
 
     # Collect all docs
     all_docs = {}
@@ -136,36 +163,35 @@ def generate_cypher(docs_dir: Path) -> tuple[list[str], list[str]]:
         except Exception as e:
             print(f"Warning: Failed to process {filepath}: {e}", file=sys.stderr)
 
-    # Generate node creation queries
+    # Generate node creation jobs (values ride as driver parameters — the
+    # interpolated form needed hand-escaping of quotes in titles, CYP003)
     for node in all_docs.values():
-        tags_str = json.dumps(node.tags)
-        query = f"""
-MERGE (d:Document {{uid: '{node.uid}'}})
-SET d.title = '{node.title.replace("'", "\\'")}',
-    d.path = '{node.path}',
-    d.category = '{node.category}',
-    d.updated = date('{node.updated}'),
-    d.status = '{node.status}',
-    d.tags = {tags_str},
-    d.size_lines = {node.size_lines}
-"""
-        node_queries.append(query.strip())
+        # Fresh list so list[str] widens to Neo4jValue's list[str | int | float]
+        tags: list[str | int | float] = list(node.tags)
+        node_queries.append(
+            (
+                NODE_QUERY,
+                {
+                    "uid": node.uid,
+                    "title": node.title,
+                    "path": node.path,
+                    "category": node.category,
+                    "updated": node.updated,
+                    "status": node.status,
+                    "tags": tags,
+                    "size_lines": node.size_lines,
+                },
+            )
+        )
 
     # Generate category nodes and relationships
     categories = set(node.category for node in all_docs.values())
     for category in categories:
-        query = f"""
-MERGE (c:DocumentCategory {{name: '{category}'}})
-"""
-        node_queries.append(query.strip())
+        node_queries.append((CATEGORY_QUERY, {"name": category}))
 
     # Category relationships
     for node in all_docs.values():
-        query = f"""
-MATCH (d:Document {{uid: '{node.uid}'}}), (c:DocumentCategory {{name: '{node.category}'}})
-MERGE (d)-[:IN_CATEGORY]->(c)
-"""
-        rel_queries.append(query.strip())
+        rel_queries.append((CATEGORY_REL_QUERY, {"uid": node.uid, "name": node.category}))
 
     # Document relationships
     for source_path, target_path in all_relationships:
@@ -174,11 +200,9 @@ MERGE (d)-[:IN_CATEGORY]->(c)
 
         # Check if target exists
         if target_path in all_docs or target_path.lstrip("./") in all_docs:
-            query = f"""
-MATCH (s:Document {{uid: '{source_uid}'}}), (t:Document {{uid: '{target_uid}'}})
-MERGE (s)-[:RELATES_TO]->(t)
-"""
-            rel_queries.append(query.strip())
+            rel_queries.append(
+                (DOC_REL_QUERY, {"source_uid": source_uid, "target_uid": target_uid})
+            )
 
     return node_queries, rel_queries
 
@@ -206,13 +230,15 @@ def main():
     if not apply:
         # Preview mode
         print("=== Node Queries (first 5) ===")
-        for q in node_queries[:5]:
+        for q, params in node_queries[:5]:
             print(q)
+            print(f"  params: {json.dumps(params, default=str)}")
             print()
 
         print("=== Relationship Queries (first 5) ===")
-        for q in rel_queries[:5]:
+        for q, params in rel_queries[:5]:
             print(q)
+            print(f"  params: {json.dumps(params, default=str)}")
             print()
 
         print("Run with --apply to execute in Neo4j")
@@ -250,16 +276,16 @@ def main():
 
             # Execute node queries
             print("Creating Document nodes...")
-            for i, query in enumerate(node_queries):
-                session.run(query)
+            for i, (query, params) in enumerate(node_queries):
+                session.run(query, params)
                 if (i + 1) % 20 == 0:
                     print(f"  Created {i + 1}/{len(node_queries)} nodes")
 
             # Execute relationship queries
             print("Creating relationships...")
-            for i, query in enumerate(rel_queries):
+            for i, (query, params) in enumerate(rel_queries):
                 try:
-                    session.run(query)
+                    session.run(query, params)
                 except Exception as e:
                     print(f"Warning: Relationship failed: {e}", file=sys.stderr)
 

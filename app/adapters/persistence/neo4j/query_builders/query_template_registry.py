@@ -22,7 +22,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 _CYPHER_PARAMETER_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
-_FULLTEXT_SEARCH_PARAM_RE = re.compile(r"queryNodes\(\s*'[^']*'\s*,\s*\$([A-Za-z_][A-Za-z0-9_]*)")
+_FULLTEXT_SEARCH_PARAM_RE = re.compile(
+    r"queryNodes\(\s*(?:'[^']*'|\$[A-Za-z_][A-Za-z0-9_]*)\s*,\s*\$([A-Za-z_][A-Za-z0-9_]*)"
+)
 
 
 @dataclass
@@ -140,7 +142,7 @@ class QueryTemplateRegistry:
                 parameter_defaults={"limit": QueryLimit.MEDIUM},
                 optimization_rules={
                     "has_fulltext_index": """
-                        CALL db.index.fulltext.queryNodes('{index_name}', $search_term)
+                        CALL db.index.fulltext.queryNodes($index_name, $search_term)
                         YIELD node, score
                         WHERE $label IN labels(node)
                         RETURN node as n, score
@@ -298,9 +300,11 @@ class QueryTemplateRegistry:
                         search_param is None or params.get(search_param.group(1)) is not None
                     )
                     if fulltext_indexes and has_search_string:
-                        cypher = optimized_template.replace(
-                            "{index_name}", fulltext_indexes[0].name
-                        )
+                        cypher = optimized_template
+                        # $index_name and $label ride the normal parameter path —
+                        # procedure arguments and label-as-value comparisons are
+                        # genuinely parameterizable, unlike structural slots.
+                        params = {**params, "index_name": fulltext_indexes[0].name}
                         used_indexes.append(fulltext_indexes[0].name)
                         strategy = IndexStrategy.FULLTEXT_SEARCH
                         break

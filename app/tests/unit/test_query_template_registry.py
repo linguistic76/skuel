@@ -200,11 +200,17 @@ async def test_text_search_fulltext_variant_uses_driver_parameters():
 
     assert not result.is_error
     plan = result.value.primary_plan
-    assert "db.index.fulltext.queryNodes('entity_fulltext', $search_term)" in plan.cypher
+    assert "db.index.fulltext.queryNodes($index_name, $search_term)" in plan.cypher
     assert "$label IN labels(node)" in plan.cypher
     assert "{label}" not in plan.cypher
-    # property is unused by the fulltext variant and must not be bound
-    assert plan.parameters == {"label": "Task", "search_term": "hello", "limit": 5}
+    # property is unused by the fulltext variant and must not be bound;
+    # index_name is bound from trusted schema introspection
+    assert plan.parameters == {
+        "label": "Task",
+        "search_term": "hello",
+        "limit": 5,
+        "index_name": "entity_fulltext",
+    }
     assert plan.strategy == IndexStrategy.FULLTEXT_SEARCH
     assert plan.used_indexes == ["entity_fulltext"]
 
