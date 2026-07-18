@@ -37,7 +37,7 @@ def _fake_require_role(*_args, **_kwargs):
 async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     """The forms list handler iterates the templates list, not the (list, int) tuple."""
 
-    async def _fake_render(content, active, request):
+    def _fake_render(content, active, request):
         return content
 
     def _fake_auth(_request):

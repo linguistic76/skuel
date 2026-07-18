@@ -38,7 +38,7 @@ def create_settings_routes(
         raise RuntimeError("UserService is required for settings routes")
 
     @rt("/settings")
-    async def settings_page(request: Request) -> Any:
+    def settings_page(request: Request) -> Any:
         """User settings page — shell renders immediately, content loads via HTMX."""
         require_authenticated_user(request)
         from fasthtml.common import A
@@ -57,7 +57,7 @@ def create_settings_routes(
             ),
             content_loading_placeholder("/settings/content", "settings-content"),
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Settings",
             request=request,

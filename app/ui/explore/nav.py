@@ -11,7 +11,7 @@ Usage:
     # Route handler fetches sidebar_data from orchestrator first:
     sidebar_data = await orchestrator.get_sidebar_data(user_uid) if user_uid else None
 
-    return await render_explore_sidebar_page(
+    return render_explore_sidebar_page(
         content=my_content,
         sidebar_data=sidebar_data,
         request=request,
@@ -128,7 +128,7 @@ def _build_section(
     return section
 
 
-async def render_explore_sidebar_page(
+def render_explore_sidebar_page(
     content: Any,
     sidebar_data: dict[str, Any] | None,
     request: "Request",
@@ -260,7 +260,7 @@ async def render_explore_sidebar_page(
             )
         )
 
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=[],
         active="",

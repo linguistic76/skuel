@@ -83,13 +83,13 @@ def create_lifepath_ui_routes(
     """Create LifePath UI routes."""
 
     @rt("/lifepath")
-    async def lifepath_dashboard(request: Request) -> Any:
+    def lifepath_dashboard(request: Request) -> Any:
         """Main life path dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         if not lifepath_service:
             return _service_unavailable_page()
         content = content_loading_placeholder("/lifepath/content", "lifepath-dashboard-content")
-        return await lifepath_sidebar_page("dashboard", content, request)
+        return lifepath_sidebar_page("dashboard", content, request)
 
     @rt("/lifepath/content")
     async def lifepath_dashboard_content(request: Request) -> Any:
@@ -122,7 +122,7 @@ def create_lifepath_ui_routes(
             existing_vision = designation_result.value.vision_statement
 
         content = render_vision_form(existing_vision)
-        return await lifepath_sidebar_page("vision", content, request)
+        return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/vision", methods=["POST"])
     @csrf_protected
@@ -144,7 +144,7 @@ def create_lifepath_ui_routes(
             return _error_page(str(result.expect_error()))
 
         content = render_recommendations_page(result.value, user_uid)
-        return await lifepath_sidebar_page("vision", content, request)
+        return lifepath_sidebar_page("vision", content, request)
 
     @rt("/lifepath/designate", methods=["POST"])
     @csrf_protected
@@ -168,7 +168,7 @@ def create_lifepath_ui_routes(
         return RedirectResponse(url="/lifepath/alignment", status_code=303)
 
     @rt("/lifepath/alignment")
-    async def alignment_dashboard(request: Request) -> Any:
+    def alignment_dashboard(request: Request) -> Any:
         """Alignment dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         if not lifepath_service:
@@ -176,7 +176,7 @@ def create_lifepath_ui_routes(
         content = content_loading_placeholder(
             "/lifepath/alignment/content", "lifepath-alignment-content"
         )
-        return await lifepath_sidebar_page(
+        return lifepath_sidebar_page(
             "alignment",
             content,
             request,

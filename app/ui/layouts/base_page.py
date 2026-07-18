@@ -149,7 +149,7 @@ def _build_bottom_nav(
     )
 
 
-async def BasePage(  # skuel-lint: disable=SKUEL029 -- page-factory interface: awaited at ~51 route call sites; sync-ification cascade is its own slice
+def BasePage(
     content: Any,
     title: str = "SKUEL",
     page_type: PageType = PageType.STANDARD,

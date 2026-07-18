@@ -197,7 +197,7 @@ def create_insights_history_routes(
             cls="space-y-6",
         )
 
-        return await BasePage(
+        return BasePage(
             content,
             title="Insight History | SKUEL",
             page_type=PageType.STANDARD,

@@ -39,7 +39,7 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def create_admin_page(
+def create_admin_page(
     content: Any,
     active_section: str = "",
     admin_username: str = "",
@@ -59,7 +59,7 @@ async def create_admin_page(
     """
     active = active_section if active_section else "overview"
 
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=ADMIN_SIDEBAR_ITEMS,
         active=active,

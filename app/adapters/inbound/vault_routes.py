@@ -163,7 +163,7 @@ def create_vault_routes(
             cls="max-w-2xl",
         )
 
-        return await render_submissions_sidebar_page(
+        return render_submissions_sidebar_page(
             content=content,
             active="sync",
             request=request,

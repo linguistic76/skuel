@@ -68,7 +68,7 @@ logger = get_logger("skuel.routes.calendar")
 # ============================================================================
 
 
-async def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
+def _wrap_calendar_page(request: Request, content: Any, title: str = "Calendar") -> Any:
     """Wrap calendar content in a navbar-only, full-width page.
 
     Calendar views skip the activity sidebar — the legend/chips already surface
@@ -76,7 +76,7 @@ async def _wrap_calendar_page(request: Request, content: Any, title: str = "Cale
     provides no container padding, so the wrapper supplies the same padding the
     sidebar layout used to.
     """
-    return await BasePage(
+    return BasePage(
         content=Div(content, cls="w-full px-4 sm:px-6 lg:px-8 py-4 lg:py-6"),
         title=title,
         page_type=PageType.CUSTOM,
@@ -105,7 +105,7 @@ def _week_title(week_start: date, week_end: date) -> str:
     return f"Week of {start} – {end}"
 
 
-async def _calendar_shell(
+def _calendar_shell(
     request: Request,
     *,
     current_view: str,
@@ -145,7 +145,7 @@ async def _calendar_shell(
         x_data="calendarLegend",
         **{":class": "filterClasses()"},
     )
-    return await _wrap_calendar_page(request, content, title)
+    return _wrap_calendar_page(request, content, title)
 
 
 # ============================================================================
@@ -166,14 +166,14 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/cal/month/{year}/{month}")
-    async def calendar_month(request: Request, year: int, month: int) -> Any:
+    def calendar_month(request: Request, year: int, month: int) -> Any:
         """Month view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
         first_day = date(year, month, 1)
         month_name = cal.month_name[month]
         prev_y, prev_m = _get_prev_month(year, month)
         next_y, next_m = _get_next_month(year, month)
-        return await _calendar_shell(
+        return _calendar_shell(
             request,
             current_view="month",
             title=f"{month_name} {year}",
@@ -203,7 +203,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         return Div(create_month_grid(result.value), id="calendar-month-content")
 
     @rt("/cal/week/{date_str}")
-    async def calendar_week(request: Request, date_str: str) -> Any:
+    def calendar_week(request: Request, date_str: str) -> Any:
         """Week view shell — renders chrome immediately, grid loads via HTMX."""
         require_authenticated_user(request)
         try:
@@ -211,7 +211,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
         except ValueError:
             target_date = date.today()
         week_start, week_end = week_bounds(target_date)
-        return await _calendar_shell(
+        return _calendar_shell(
             request,
             current_view="week",
             title=_week_title(week_start, week_end),

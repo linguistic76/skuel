@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 
-async def render_askesis_page(
+def render_askesis_page(
     request: "Request",
     *,
     username: str = "User",
@@ -28,7 +28,7 @@ async def render_askesis_page(
     shown); the user clicks Send (no auto-submit — a crafted GET must not run a
     prompt in the session).
     """
-    return await BasePage(
+    return BasePage(
         content=render_askesis_shell(
             username=username,
             learning_scope_label=learning_scope_label,

@@ -6,7 +6,7 @@ Exercises, Resources, Ku, Path Steps.
 Usage:
     from ui.library.nav import render_library_sidebar_page
 
-    return await render_library_sidebar_page(
+    return render_library_sidebar_page(
         content=my_content,
         active="exercises",
         request=request,
@@ -32,7 +32,7 @@ LIBRARY_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def render_library_sidebar_page(
+def render_library_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
@@ -44,7 +44,7 @@ async def render_library_sidebar_page(
         active: The active sidebar item slug (e.g. "exercises", "resources").
         request: The request object for auth detection.
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=LIBRARY_SIDEBAR_ITEMS,
         active=active,

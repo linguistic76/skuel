@@ -6,7 +6,7 @@ Students, Groups, Review Queue, Forms.
 Usage:
     from ui.teaching.nav import render_teaching_sidebar_page
 
-    return await render_teaching_sidebar_page(
+    return render_teaching_sidebar_page(
         content=my_content,
         active="students",
         request=request,
@@ -32,7 +32,7 @@ TEACHING_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def render_teaching_sidebar_page(
+def render_teaching_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
@@ -44,7 +44,7 @@ async def render_teaching_sidebar_page(
         active: The active sidebar item slug (e.g. "students", "groups", "queue").
         request: The request object for auth detection.
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=TEACHING_SIDEBAR_ITEMS,
         active=active,

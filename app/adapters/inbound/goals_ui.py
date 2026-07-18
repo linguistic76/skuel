@@ -78,7 +78,7 @@ def create_goals_ui_routes(
     # ------------------------------------------------------------------
 
     @rt("/goals/create", methods=["GET"])
-    async def goal_create_page(request: Request) -> Any:
+    def goal_create_page(request: Request) -> Any:
         """Render the new-goal form."""
         require_authenticated_user(request)
         content = Div(
@@ -86,7 +86,7 @@ def create_goals_ui_routes(
             GoalCreateForm(),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="goals", request=request)
+        return render_activity_sidebar_page(content, active="goals", request=request)
 
     @rt("/goals/create", methods=["POST"])
     @csrf_protected
@@ -103,7 +103,7 @@ def create_goals_ui_routes(
                 GoalCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="goals", request=request)
+            return render_activity_sidebar_page(content, active="goals", request=request)
 
         result = await goals_service.core.create_goal(parsed.value, user_uid)
         if result.is_error:
@@ -114,7 +114,7 @@ def create_goals_ui_routes(
                 GoalCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="goals", request=request)
+            return render_activity_sidebar_page(content, active="goals", request=request)
 
         return RedirectResponse(f"/goals/detail?uid={result.value.uid}", status_code=303)
 
@@ -128,7 +128,7 @@ def create_goals_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing goal UID")),
                 active="goals",
                 request=request,
@@ -136,7 +136,7 @@ def create_goals_ui_routes(
 
         result = await goals_service.get_goal(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Goal not found")),
                 active="goals",
                 request=request,
@@ -148,7 +148,7 @@ def create_goals_ui_routes(
             GoalEditForm(goal),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="goals", request=request)
+        return render_activity_sidebar_page(content, active="goals", request=request)
 
     @rt("/goals/edit", methods=["POST"])
     @csrf_protected
@@ -157,7 +157,7 @@ def create_goals_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing goal UID")),
                 active="goals",
                 request=request,
@@ -165,7 +165,7 @@ def create_goals_ui_routes(
 
         existing = await goals_service.get_goal(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Goal not found")),
                 active="goals",
                 request=request,
@@ -181,7 +181,7 @@ def create_goals_ui_routes(
                 GoalEditForm(goal),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="goals", request=request)
+            return render_activity_sidebar_page(content, active="goals", request=request)
 
         # ADR-066: build the typed GoalUpdateIntent from explicitly-set fields only
         # (model_fields_set). Fields the user left blank stay UNSET and are not written,
@@ -195,7 +195,7 @@ def create_goals_ui_routes(
                 GoalEditForm(goal),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="goals", request=request)
+            return render_activity_sidebar_page(content, active="goals", request=request)
 
         return RedirectResponse(f"/goals/detail?uid={uid}", status_code=303)
 

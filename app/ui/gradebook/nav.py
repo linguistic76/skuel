@@ -7,7 +7,7 @@ Entry Reports, Activity Reports, Revisions.
 Usage:
     from ui.gradebook.nav import render_gradebook_sidebar_page
 
-    return await render_gradebook_sidebar_page(
+    return render_gradebook_sidebar_page(
         content=my_content,
         active="submissions",
         request=request,
@@ -32,7 +32,7 @@ GRADEBOOK_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def render_gradebook_sidebar_page(
+def render_gradebook_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
@@ -44,7 +44,7 @@ async def render_gradebook_sidebar_page(
         active: The active sidebar item slug (e.g. "submissions", "submit").
         request: The request object for auth detection.
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=GRADEBOOK_SIDEBAR_ITEMS,
         active=active,

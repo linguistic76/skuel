@@ -352,7 +352,7 @@ def create_device_routes(
             devices_area,
             cls="max-w-2xl",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Devices",
             request=request,

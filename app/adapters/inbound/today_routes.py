@@ -73,7 +73,7 @@ def create_today_routes(
             )
             return Response("Could not build Today context", status_code=500)
 
-        return await render_activity_sidebar_page(
+        return render_activity_sidebar_page(
             content=TodayPage(ctx_result.value),
             active="today",
             request=request,

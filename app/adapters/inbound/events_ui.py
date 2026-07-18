@@ -93,11 +93,11 @@ def create_events_ui_routes(
         return habit_display, goal_display
 
     @rt("/events/create", methods=["GET"])
-    async def event_create_page(request: Request) -> Any:
+    def event_create_page(request: Request) -> Any:
         """Render the new-event form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Event"), EventCreateForm(), cls="space-y-6")
-        return await render_activity_sidebar_page(content, active="events", request=request)
+        return render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/create", methods=["POST"])
     @csrf_protected
@@ -114,7 +114,7 @@ def create_events_ui_routes(
                 EventCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="events", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         result = await events_service.create_event(parsed.value, user_uid)
         if result.is_error:
@@ -125,7 +125,7 @@ def create_events_ui_routes(
                 EventCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="events", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         return RedirectResponse(f"/events/detail?uid={result.value.uid}", status_code=303)
 
@@ -135,7 +135,7 @@ def create_events_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing event UID")),
                 active="events",
                 request=request,
@@ -143,7 +143,7 @@ def create_events_ui_routes(
 
         result = await events_service.get_event(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Event not found")),
                 active="events",
                 request=request,
@@ -167,7 +167,7 @@ def create_events_ui_routes(
             ),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="events", request=request)
+        return render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/edit", methods=["POST"])
     @csrf_protected
@@ -176,7 +176,7 @@ def create_events_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing event UID")),
                 active="events",
                 request=request,
@@ -184,7 +184,7 @@ def create_events_ui_routes(
 
         existing = await events_service.get_event(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Event not found")),
                 active="events",
                 request=request,
@@ -211,7 +211,7 @@ def create_events_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="events", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         # ADR-066: build the typed EventUpdateIntent from explicitly-set fields only
         # (model_fields_set). Fields the user left blank stay UNSET and are not written,
@@ -233,7 +233,7 @@ def create_events_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="events", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         return RedirectResponse(f"/events/detail?uid={uid}", status_code=303)
 

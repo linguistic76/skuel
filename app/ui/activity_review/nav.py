@@ -15,11 +15,11 @@ ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
 ]
 
 
-async def activity_review_sidebar_page(
+def activity_review_sidebar_page(
     active: str, content: Any, request: Request, *, page_title: str
 ) -> Any:
     """Create sidebar page for Activity Review routes."""
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=ACTIVITY_REVIEW_SIDEBAR_ITEMS,
         active=active,

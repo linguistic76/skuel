@@ -180,7 +180,7 @@ def create_activity_ui_routes(
     )
 
     @rt(f"/{domain}")
-    async def page(request: Request) -> Any:
+    def page(request: Request) -> Any:
         """Main page shell — content loads via HTMX."""
         require_authenticated_user(request)
         # The shell and its content fragment are two separate HTTP requests:
@@ -200,7 +200,7 @@ def create_activity_ui_routes(
             content_loading_placeholder(fragment_url, f"{domain}-content"),
             personal_header_placeholder(),
         )
-        return await render_activity_sidebar_page(content, active=domain, request=request)
+        return render_activity_sidebar_page(content, active=domain, request=request)
 
     # ------------------------------------------------------------------
     # 2. Content fragment: /{domain}/content
@@ -262,12 +262,12 @@ def create_activity_ui_routes(
     # ------------------------------------------------------------------
 
     @rt(f"/{domain}/detail")
-    async def detail_page(request: Request) -> Any:
+    def detail_page(request: Request) -> Any:
         """Detail page shell — content loads via HTMX."""
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner(f"Missing {singular} UID")),
                 active=domain,
                 request=request,
@@ -277,7 +277,7 @@ def create_activity_ui_routes(
                 f"/{domain}/detail/content?uid={uid}", f"{singular}-detail-content"
             ),
         )
-        return await render_activity_sidebar_page(content, active=domain, request=request)
+        return render_activity_sidebar_page(content, active=domain, request=request)
 
     # ------------------------------------------------------------------
     # 5. Detail content fragment: /{domain}/detail/content

@@ -68,11 +68,11 @@ def create_choices_ui_routes(
     base_routes = create_activity_ui_routes(app, rt, config)
 
     @rt("/choices/create", methods=["GET"])
-    async def choice_create_page(request: Request) -> Any:
+    def choice_create_page(request: Request) -> Any:
         """Render the new-choice form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Choice"), ChoiceCreateForm(), cls="space-y-6")
-        return await render_activity_sidebar_page(content, active="choices", request=request)
+        return render_activity_sidebar_page(content, active="choices", request=request)
 
     @rt("/choices/create", methods=["POST"])
     @csrf_protected
@@ -89,7 +89,7 @@ def create_choices_ui_routes(
                 ChoiceCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="choices", request=request)
+            return render_activity_sidebar_page(content, active="choices", request=request)
 
         result = await choices_service.create_choice(parsed.value, user_uid)
         if result.is_error:
@@ -100,7 +100,7 @@ def create_choices_ui_routes(
                 ChoiceCreateForm(),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="choices", request=request)
+            return render_activity_sidebar_page(content, active="choices", request=request)
 
         return RedirectResponse(f"/choices/detail?uid={result.value.uid}", status_code=303)
 
@@ -110,7 +110,7 @@ def create_choices_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing choice UID")),
                 active="choices",
                 request=request,
@@ -118,7 +118,7 @@ def create_choices_ui_routes(
 
         result = await choices_service.get_choice(uid)
         if result.is_error or result.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Choice not found")),
                 active="choices",
                 request=request,
@@ -130,7 +130,7 @@ def create_choices_ui_routes(
             ChoiceEditForm(choice),
             cls="space-y-6",
         )
-        return await render_activity_sidebar_page(content, active="choices", request=request)
+        return render_activity_sidebar_page(content, active="choices", request=request)
 
     @rt("/choices/edit", methods=["POST"])
     @csrf_protected
@@ -139,7 +139,7 @@ def create_choices_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Missing choice UID")),
                 active="choices",
                 request=request,
@@ -147,7 +147,7 @@ def create_choices_ui_routes(
 
         existing = await choices_service.get_choice(uid)
         if existing.is_error or existing.value.user_uid != user_uid:
-            return await render_activity_sidebar_page(
+            return render_activity_sidebar_page(
                 Div(render_error_banner("Choice not found")),
                 active="choices",
                 request=request,
@@ -163,7 +163,7 @@ def create_choices_ui_routes(
                 ChoiceEditForm(choice),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="choices", request=request)
+            return render_activity_sidebar_page(content, active="choices", request=request)
 
         # ADR-066: build the typed ChoiceUpdateIntent from explicitly-set fields only
         # (model_fields_set). Fields the user left blank stay UNSET and are not written,
@@ -177,7 +177,7 @@ def create_choices_ui_routes(
                 ChoiceEditForm(choice),
                 cls="space-y-6",
             )
-            return await render_activity_sidebar_page(content, active="choices", request=request)
+            return render_activity_sidebar_page(content, active="choices", request=request)
 
         return RedirectResponse(f"/choices/detail?uid={uid}", status_code=303)
 

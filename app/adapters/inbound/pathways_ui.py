@@ -59,7 +59,7 @@ def create_pathways_ui_routes(
     routes: list[Any] = []
 
     @rt("/pathways")
-    async def pathways_dashboard(request) -> Any:
+    def pathways_dashboard(request) -> Any:
         """Main pathways dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = Div(
@@ -70,7 +70,7 @@ def create_pathways_ui_routes(
             content_loading_placeholder("/pathways/content", "pathways-dashboard-content"),
             cls="container mx-auto px-4 py-6",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Pathways Dashboard",
             page_type=PageType.STANDARD,
@@ -219,7 +219,7 @@ def create_pathways_ui_routes(
     routes.append(pathways_dashboard_content)
 
     @rt("/pathways/browse")
-    async def browse_learning_paths(request) -> Any:
+    def browse_learning_paths(request) -> Any:
         """Browse learning paths — shell only, content loads via HTMX."""
         content = Div(
             PageHeader(
@@ -229,7 +229,7 @@ def create_pathways_ui_routes(
             content_loading_placeholder("/pathways/browse/content", "pathways-browse-content"),
             cls="container mx-auto px-4 py-6",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Browse Learning Paths",
             page_type=PageType.STANDARD,
@@ -315,7 +315,7 @@ def create_pathways_ui_routes(
             cls="container mx-auto px-4 py-6",
         )
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Browse Learning Steps",
             page_type=PageType.STANDARD,
@@ -357,7 +357,7 @@ def create_pathways_ui_routes(
     routes.append(filter_learning_paths)
 
     @rt("/pathways/path/{path_uid}")
-    async def learning_path_detail(request, path_uid: str) -> Any:
+    def learning_path_detail(request, path_uid: str) -> Any:
         """Learning path detail — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = Div(
@@ -366,7 +366,7 @@ def create_pathways_ui_routes(
             ),
             cls="container mx-auto px-4 py-6",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Learning Path",
             page_type=PageType.STANDARD,
@@ -485,7 +485,7 @@ def create_pathways_ui_routes(
     routes.append(learning_path_detail_content)
 
     @rt("/pathways/analytics")
-    async def learning_analytics(request) -> Any:
+    def learning_analytics(request) -> Any:
         """Learning analytics dashboard — shell only, content loads via HTMX."""
         require_authenticated_user(request)
         content = Div(
@@ -495,7 +495,7 @@ def create_pathways_ui_routes(
             ),
             cls="container mx-auto px-4 py-6",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Learning Analytics",
             page_type=PageType.STANDARD,
@@ -635,7 +635,7 @@ def create_pathways_ui_routes(
             cls="container mx-auto p-6 max-w-4xl",
         )
 
-        return await BasePage(
+        return BasePage(
             content=content,
             title=f"LP: {uid}",
             page_type=PageType.STANDARD,

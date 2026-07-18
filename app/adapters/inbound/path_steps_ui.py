@@ -166,14 +166,14 @@ def create_path_steps_ui_routes(
     # ========================================================================
 
     @rt("/path-steps")
-    async def path_steps_browser(request: Request) -> Any:
+    def path_steps_browser(request: Request) -> Any:
         """PathSteps browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Path Steps", subtitle="Curriculum content units (composed of Kus)"),
             content_loading_placeholder("/path-steps/content", "path-steps-content"),
             id="main-content",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Path Steps",
             request=request,

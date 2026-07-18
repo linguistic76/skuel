@@ -71,7 +71,7 @@ def create_revised_exercises_ui_routes(
     # ========================================================================
 
     @rt("/revised-exercises")
-    async def revised_exercises_page(request: Request) -> Any:
+    def revised_exercises_page(request: Request) -> Any:
         """Student-facing list of revision requests."""
         require_authenticated_user(request)
 
@@ -91,7 +91,7 @@ def create_revised_exercises_ui_routes(
             ),
             revisions_section,
         )
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="revised-exercises",
             request=request,
@@ -108,14 +108,14 @@ def create_revised_exercises_ui_routes(
         uid = request.query_params.get("uid", "").strip()
 
         if not uid:
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision UID is required")),
                 active="revised-exercises",
                 request=request,
             )
 
         if not orchestrator:
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision orchestrator unavailable")),
                 active="revised-exercises",
                 request=request,
@@ -124,7 +124,7 @@ def create_revised_exercises_ui_routes(
         result = await orchestrator.get_revised_exercise(uid)
         if result.is_error:
             logger.warning(f"Revised exercise not found: {uid}")
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision not found")),
                 active="revised-exercises",
                 request=request,
@@ -135,14 +135,14 @@ def create_revised_exercises_ui_routes(
         entity_student = getattr(entity, "student_uid", None) or ""
         entity_owner = getattr(entity, "user_uid", None) or ""
         if user_uid not in (entity_student, entity_owner):
-            return await render_gradebook_sidebar_page(
+            return render_gradebook_sidebar_page(
                 content=Div(render_error_banner("Revision not found")),
                 active="revised-exercises",
                 request=request,
             )
 
         content = Div(render_revised_exercise_detail(entity))
-        return await render_gradebook_sidebar_page(
+        return render_gradebook_sidebar_page(
             content=content,
             active="revised-exercises",
             request=request,

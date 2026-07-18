@@ -152,7 +152,7 @@ async def sel_category(request: Request) -> Any:
     page_layout = create_sel_sidebar_layout(category_slug, content)
 
     # BasePage wrapper
-    return await BasePage(
+    return BasePage(
         page_layout,
         title=f"{category_name} - SEL",
         page_type=PageType.STANDARD,

@@ -200,10 +200,10 @@ def format_console(params: dict) -> str:
 def check_render_shape(session: CdpSession, result: PageResult) -> None:
     """Flag pages that served 200 without actually rendering a page.
 
-    A handler that returns an un-awaited coroutine (e.g. ``return BasePage(...)``
-    instead of ``return await BasePage(...)``) serves a 200 text/html body of
-    ``<coroutine object ...>`` — zero JS errors, so the event-based checks pass.
-    Caught live on /notifications (2026-07-04)."""
+    A handler that returns an un-awaited coroutine (e.g. ``return helper(...)``
+    where ``helper`` is async and the ``await`` was dropped) serves a 200
+    text/html body of ``<coroutine object ...>`` — zero JS errors, so the
+    event-based checks pass. Caught live on /notifications (2026-07-04)."""
     evaluated = session.send(
         "Runtime.evaluate",
         {

@@ -99,7 +99,7 @@ def create_askesis_ui_routes(
         nous_subtopic = request.query_params.get("nous_subtopic", "")
         if nous_subtopic not in nous_subtopic_map.get(nous, []):
             nous_subtopic = ""
-        return await render_askesis_page(
+        return render_askesis_page(
             request,
             nous_topics=nous_topics,
             nous_subtopic_map=nous_subtopic_map,

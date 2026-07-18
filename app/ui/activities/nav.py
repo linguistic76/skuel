@@ -6,7 +6,7 @@ Used on every individual domain page.
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
 
-    return await render_activity_sidebar_page(
+    return render_activity_sidebar_page(
         content=my_content,
         active="tasks",
         request=request,
@@ -36,7 +36,7 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
 ]
 
 
-async def render_activity_sidebar_page(
+def render_activity_sidebar_page(
     content: Any,
     active: str,
     request: "Request | None" = None,
@@ -57,7 +57,7 @@ async def render_activity_sidebar_page(
         content_max_width: Tailwind max-width class for the content column;
             "max-w-none" lets fluid pages (calendar) fill the available width.
     """
-    return await SidebarPage(
+    return SidebarPage(
         content=content,
         items=ACTIVITY_SIDEBAR_ITEMS,
         active=active,

@@ -216,7 +216,7 @@ def create_teaching_ui_routes(
             PageHeader("Review Queue", subtitle="Student submissions awaiting your review"),
             queue_content,
         )
-        return await render_teaching_sidebar_page(
+        return render_teaching_sidebar_page(
             content=content,
             active="queue",
             request=request,
@@ -228,13 +228,13 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/review/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_review_detail(request: Request, uid: str, current_user: Any = None) -> Any:
+    def teaching_review_detail(request: Request, uid: str, current_user: Any = None) -> Any:
         """Review detail — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Review Submission"),
             content_loading_placeholder(f"/teaching/review/{uid}/content", "review-detail-content"),
         )
-        return await render_teaching_sidebar_page(
+        return render_teaching_sidebar_page(
             content=content,
             active="queue",
             request=request,
@@ -308,13 +308,13 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/students")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_students_page(request: Request, current_user: Any = None) -> Any:
+    def teaching_students_page(request: Request, current_user: Any = None) -> Any:
         """Students page — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Students", subtitle="Students who have submitted work"),
             content_loading_placeholder("/teaching/students/content", "students-content"),
         )
-        return await render_teaching_sidebar_page(
+        return render_teaching_sidebar_page(
             content=content,
             active="students",
             request=request,
@@ -358,11 +358,9 @@ def create_teaching_ui_routes(
 
     @rt("/teaching/students/{uid}")
     @require_role(UserRole.TEACHER, get_user_service)
-    async def teaching_student_hub_page(
-        request: Request, uid: str, current_user: Any = None
-    ) -> Any:
+    def teaching_student_hub_page(request: Request, uid: str, current_user: Any = None) -> Any:
         """Student hub — shell renders immediately, content loads via HTMX."""
-        return await BasePage(
+        return BasePage(
             content=content_loading_placeholder(
                 f"/teaching/students/{uid}/content", "student-hub-content"
             ),
@@ -457,7 +455,7 @@ def create_teaching_ui_routes(
             cls="mb-2",
         )
 
-        return await SidebarPage(
+        return SidebarPage(
             content=Div(section_content),
             items=sidebar_items,
             active=default_section,
@@ -532,7 +530,7 @@ def create_teaching_ui_routes(
             _new_group_modal(),
             x_data="{ open: false }",
         )
-        return await render_teaching_sidebar_page(
+        return render_teaching_sidebar_page(
             content=content,
             active="groups",
             request=request,
@@ -586,7 +584,7 @@ def create_teaching_ui_routes(
             members_content,
             back_link,
         )
-        return await render_teaching_sidebar_page(
+        return render_teaching_sidebar_page(
             content=content,
             active="groups",
             request=request,

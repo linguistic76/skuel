@@ -30,14 +30,14 @@ def create_learning_paths_ui_routes(
     """Register learning paths UI routes."""
 
     @rt("/learning-paths")
-    async def learning_paths_browser(request: Request) -> Any:
+    def learning_paths_browser(request: Request) -> Any:
         """Learning Paths browser — shell renders immediately, content loads via HTMX."""
         content = Div(
             PageHeader("Learning Paths", subtitle="Ordered sequences of path step collections"),
             content_loading_placeholder("/learning-paths/content", "learning-paths-content"),
             id="main-content",
         )
-        return await BasePage(
+        return BasePage(
             content=content,
             title="Learning Paths",
             request=request,

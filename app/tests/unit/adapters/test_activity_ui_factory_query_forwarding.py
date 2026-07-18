@@ -49,7 +49,7 @@ def _fake_require_authenticated_user(request: object) -> str:
     return _USER_UID
 
 
-async def _fake_sidebar_page(content: Any, **kwargs: Any) -> Any:
+def _fake_sidebar_page(content: Any, **kwargs: Any) -> Any:
     return content
 
 

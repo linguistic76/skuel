@@ -194,7 +194,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore")
-    async def explore_index(request: Request) -> Any:
+    def explore_index(request: Request) -> Any:
         """Explore reading surface — shell renders immediately, plan loads via HTMX.
 
         exploreReading.js is loaded here (in the full-page shell, before Alpine's
@@ -206,7 +206,7 @@ def create_explore_ui_routes(
             Script(src="/static/js/explore-reading.js"),
             content_loading_placeholder("/explore/content", "explore-reading-content"),
         )
-        return await BasePage(
+        return BasePage(
             content,
             title="Explore",
             page_type=PageType.CUSTOM,
@@ -238,7 +238,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/graph")
-    async def explore_graph_page(request: Request) -> Any:
+    def explore_graph_page(request: Request) -> Any:
         """Full-page learning graph — the user's knowledge universe."""
         content = Div(
             Div(
@@ -266,7 +266,7 @@ def create_explore_ui_routes(
                 cls="w-full",
             ),
         )
-        return await BasePage(
+        return BasePage(
             content,
             title="Learning Graph",
             request=request,
@@ -291,7 +291,7 @@ def create_explore_ui_routes(
             PageHeader("Library", subtitle="Explore all knowledge units and path steps"),
             content_loading_placeholder(fragment_url, "explore-library-content"),
         )
-        return await render_explore_sidebar_page(
+        return render_explore_sidebar_page(
             content=content,
             sidebar_data=sidebar_data,
             request=request,

@@ -117,7 +117,7 @@ def create_search_api_routes(
 
         ask_enabled = await _caller_ai_enabled(user_uid)
 
-        return await render_search_page_with_navbar(
+        return render_search_page_with_navbar(
             request,
             nous_topics=nous_topics,
             nous_subtopics=nous_subtopics,

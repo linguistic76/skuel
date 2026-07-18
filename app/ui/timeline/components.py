@@ -40,7 +40,7 @@ _VIS_TIMELINE_CSS = "/static/vendor/vis-timeline/vis-timeline-graph2d.min.css"
 _VIS_TIMELINE_JS = "/static/vendor/vis-timeline/vis-timeline-graph2d.min.js"
 
 
-async def render_timeline_viewer_page(
+def render_timeline_viewer_page(
     request: "Request",
     src: str | None = None,
     project: str | None = None,
@@ -80,7 +80,7 @@ async def render_timeline_viewer_page(
         ),
     )
 
-    return await BasePage(
+    return BasePage(
         content,
         title="Timeline",
         page_type=PageType.CUSTOM,
@@ -236,7 +236,7 @@ def _render_timeline_container() -> Div:
     )
 
 
-async def render_timeline_error(
+def render_timeline_error(
     error_message: str,
     request: "Request | None" = None,
 ) -> "FT":
@@ -252,7 +252,7 @@ async def render_timeline_error(
         P("Please check the server logs for more details.", cls="text-muted-foreground mt-2"),
         Button("Go Back", cls=(ButtonT.primary, "mt-4"), onclick="history.back()"),
     )
-    return await BasePage(content, title="Timeline Error", request=request)
+    return BasePage(content, title="Timeline Error", request=request)
 
 
 # =============================================================================
