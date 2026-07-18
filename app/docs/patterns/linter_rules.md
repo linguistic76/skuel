@@ -97,7 +97,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -697,6 +697,68 @@ await tasks_service.update_task(uid, TaskUpdateIntent(status="in_progress"))
 **Suppression:**
 - `# skuel-lint: disable=SKUEL025 -- <reason>` (line)
 - `# skuel-lint: disable-file=SKUEL025 -- <reason>` (file)
+
+## Rule: SKUEL028 - Propagate Errors with Result.fail(result)
+
+**Severity:** ERROR
+
+`Result.fail(result)` is THE propagation path across type boundaries (CLAUDE.md § Error
+Handling) — it re-wraps the failed result's typed error intact. `.expect_error()` exists
+to READ the error (logging, branching on category), not to feed it back into
+`Result.fail()`. The direct form is a pointless unwrap/re-wrap; the sibling shape
+`Errors.database(op, str(result.expect_error()))` is worse — it flattens a typed error
+into a stringly Database/Integration error, losing the original category (the family
+PR #674 cleaned out of `ingestion_tracker.py`; the rule's introduction cleaned the same
+shape from `system_api.py`, `askesis_citation_service.py`, `neo4j_vector_search_service.py`,
+and `lp_service.py`).
+
+**Detection:** AST-based — flags any `Result.fail(...)` call whose argument expression
+contains an `.expect_error()` call anywhere in its subtree (direct, conditional-expression,
+and `str(...)`-wrapped forms). `.expect_error()` outside a `Result.fail(...)` argument is
+the sanctioned read use and is never flagged.
+
+```python
+# ❌ Violations
+return Result.fail(result.expect_error())
+return Result.fail(
+    r.expect_error() if r.is_error else Errors.not_found("Task", uid)
+)
+return Result.fail(Errors.database("op", str(result.expect_error())))
+
+# ✅ Correct
+if result.is_error:
+    return Result.fail(result)                       # typed error propagates intact
+logger.warning(f"failed: {result.expect_error()}")   # reading is what it's for
+```
+
+**Scope:** all non-test files.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL028 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL028 -- <reason>` (file)
+
+## Rule: SKUEL029 - async def Without await (Opt-In Audit)
+
+**Severity:** INFO — and **opt-in**: excluded from default sweeps via `OPT_IN_RULES`;
+run explicitly with `uv run python scripts/lint_skuel.py --rule SKUEL029`.
+
+CLAUDE.md's async/sync rule: async for I/O, sync for computation — "if you need `await`
+inside the function, make it `async def`; otherwise use `def`." An `async def` whose body
+never awaits (no `await` / `async for` / `async with` of its own — awaits inside *nested*
+defs belong to the nested function) wraps a synchronous computation in a coroutine: every
+caller pays the event-loop round-trip and the signature misreports I/O.
+
+**Why opt-in:** ~205 sites predate the rule (2026-07 audit), many of them deliberate
+interface-uniformity choices (facade delegation, protocol conformance) where sync-ifying
+breaks every awaiting call site. The staged promotion path is CYP003's: codify the rule
+now, shrink the debt incrementally, then promote by removing it from `OPT_IN_RULES`.
+
+**Exemptions:** trivial bodies (docstring-only, `pass`, `...`, bare `raise`) — protocol
+methods and abstract stubs are declarations, not offenders — and async generators (an
+own `yield`): their `async def` is load-bearing even without awaits, since sync-ifying
+turns the async iterator into a sync generator and breaks every `async for` caller.
+
+**Scope:** all non-test files, when explicitly selected.
 
 ## Authoring AST Rules
 

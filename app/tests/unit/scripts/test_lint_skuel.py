@@ -82,8 +82,14 @@ def lint_content(
         linter._check_cls_kwargs_collision(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL025") and not is_test:
         linter._check_deleted_activity_update_payloads(fp, rel, content, lines, tree)
+    if linter._should_run_rule("SKUEL028") and not is_test:
+        linter._check_result_fail_expect_error(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
+
+    # Opt-in audit rules (OPT_IN_RULES — skipped by default sweeps) — mirror _lint_file
+    if linter._should_run_rule("SKUEL029") and not is_test:
+        linter._check_async_without_await(fp, rel, content, lines, tree)
 
     # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all
     # of core/ as well as any /services/ path — mirror _lint_file's is_below_boundary.
@@ -3425,6 +3431,27 @@ class TestSKUEL026:
         assert len(linter.result.suppressions) == 1
         assert linter.result.suppressions[0].used is True
 
+    def test_opt_in_rule_suppression_never_credited(self, tmp_path: Path) -> None:
+        """A comment naming an opt-in, non-suppressible rule (SKUEL029) must be
+        flagged, not silently credited: the shadow run fires (explicit filter
+        bypasses the opt-in gate) while the main sweep never ran the rule, so
+        without the SUPPRESSIBLE_RULES guard `fired and not hit_in_main` would
+        read as "suppressed" (Codex P2, #678 round 2)."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": (
+                    "async def score(items):  # skuel-lint: disable=SKUEL029 -- uniform iface\n"
+                    "    return sorted(items)\n"
+                )
+            },
+        )
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is False
+        skuel026 = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(skuel026) == 1
+        assert "does not support inline suppression" in skuel026[0].message
+
     def test_unused_line_suppression_flagged(self, tmp_path: Path) -> None:
         """A suppression on a line where the rule would not fire is rot."""
         linter = self._lint_tree(
@@ -3737,6 +3764,191 @@ class TestSKUEL027:
         violations = lint_content(linter, content, file_path="ui/x.py", is_service=False)
         assert len(violations) == 2
         assert {v.line_number for v in violations} == {2, 4}
+
+
+class TestSKUEL028:
+    """Result.fail(result.expect_error()) — use Result.fail(result) to propagate."""
+
+    def test_detects_direct_unwrap_rewrap(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(linter, "x = Result.fail(result.expect_error())")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL028"
+
+    def test_detects_conditional_expression_form(self) -> None:
+        # The lp_service shape: expect_error() inside an IfExp argument.
+        linter = make_linter(["SKUEL028"])
+        content = (
+            "x = Result.fail(\n"
+            "    r.expect_error() if r.is_error else Errors.not_found('LP', uid)\n"
+            ")"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].line_number == 2
+
+    def test_detects_str_wrapped_flattening(self) -> None:
+        # The category-flattening family: a NEW error built from the old one.
+        linter = make_linter(["SKUEL028"])
+        content = "x = Result.fail(Errors.database('op', str(r.expect_error())))"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_detects_keyword_argument_form(self) -> None:
+        # Result.fail(error=r.expect_error()) is the same bypass (Codex P2, #678).
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(linter, "x = Result.fail(error=r.expect_error())")
+        assert len(violations) == 1
+
+    def test_propagation_clean(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(linter, "x = Result.fail(result)")
+        assert len(violations) == 0
+
+    def test_read_use_clean(self) -> None:
+        # .expect_error() outside Result.fail() is the sanctioned READ use.
+        linter = make_linter(["SKUEL028"])
+        content = "logger.warning(f'failed: {result.expect_error().message}')"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_fires_in_inbound_layer(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(
+            linter,
+            "x = Result.fail(r.expect_error())",
+            file_path="adapters/inbound/system_api.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_silent_in_tests(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        violations = lint_content(
+            linter,
+            "x = Result.fail(r.expect_error())",
+            file_path="tests/unit/test_x.py",
+            is_service=False,
+        )
+        assert len(violations) == 0
+
+    def test_line_suppression(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        content = (
+            "x = Result.fail(r.expect_error())  # skuel-lint: disable=SKUEL028 -- boundary re-wrap"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL028"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL028 -- legacy propagation shim\n"
+            "x = Result.fail(r.expect_error())"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+
+class TestSKUEL029:
+    """async def without await — opt-in audit rule."""
+
+    def test_detects_awaitless_async_def(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = "async def score(items):\n    return sorted(items)"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL029"
+
+    def test_awaiting_function_clean(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = "async def fetch(uid):\n    return await backend.get(uid)"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_for_clean(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = "async def drain(q):\n    async for item in q:\n        handle(item)"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_with_clean(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = "async def tx(db):\n    async with db.session() as s:\n        s.ping()"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_trivial_bodies_exempt(self) -> None:
+        # Protocol methods / stubs are declarations, not offenders.
+        linter = make_linter(["SKUEL029"])
+        content = (
+            "class Ops(Protocol):\n"
+            "    async def get(self, uid: str) -> Result:\n"
+            "        ...\n"
+            "\n"
+            "async def docstring_only():\n"
+            '    """Stub."""\n'
+            "\n"
+            "async def not_impl():\n"
+            "    raise NotImplementedError\n"
+            "\n"
+            "async def passer():\n"
+            "    pass\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_comprehension_exempt(self) -> None:
+        # `[x async for x in ...]` is ast.comprehension(is_async=1), not
+        # ast.AsyncFor — still genuine async work (Codex P3, #678 round 2).
+        linter = make_linter(["SKUEL029"])
+        content = "async def collect(stream):\n    return [x async for x in stream]"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_generator_exempt(self) -> None:
+        # A yield-only async def is an ASYNC GENERATOR — async is load-bearing
+        # without awaits; sync-ifying breaks `async for` callers (Codex P3, #678).
+        linter = make_linter(["SKUEL029"])
+        content = "async def stream(items):\n    for item in items:\n        yield item"
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_nested_def_await_does_not_count(self) -> None:
+        # An await inside a NESTED function belongs to the nested function.
+        linter = make_linter(["SKUEL029"])
+        content = (
+            "async def outer():\n"
+            "    async def inner():\n"
+            "        return await thing()\n"
+            "    return inner\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert "outer" in violations[0].message
+
+    def test_opt_in_skipped_by_default_sweep(self) -> None:
+        # No rules_filter = the default sweep — OPT_IN_RULES must not run.
+        linter = make_linter(None)
+        assert linter._should_run_rule("SKUEL029") is False
+        # ...but an explicit --rule selection runs it.
+        assert make_linter(["SKUEL029"])._should_run_rule("SKUEL029") is True
+
+    def test_severity_is_info(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = "async def score(items):\n    return sorted(items)"
+        violations = lint_content(linter, content)
+        assert violations[0].severity == Severity.INFO
+
+
+class TestOptInRulesDrift:
+    """Every OPT_IN_RULES member must be a real, documented rule — a typo'd id
+    here would silently disable nothing while claiming to gate something."""
+
+    def test_opt_in_rules_are_documented(self) -> None:
+        from lint_skuel import RULE_DOCS
+
+        assert set(RULE_DOCS) >= SkuelLinter.OPT_IN_RULES
 
 
 class TestSuppressibleRulesDrift:

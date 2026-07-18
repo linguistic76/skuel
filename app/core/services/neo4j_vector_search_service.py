@@ -355,12 +355,7 @@ class Neo4jVectorSearchService:
 
         if result.is_error:
             self.logger.error(f"Chunk vector search failed: {result.expect_error()}")
-            return Result.fail(
-                Errors.database(
-                    operation="semantic_search_chunks",
-                    message=f"Chunk search failed: {result.expect_error()}",
-                )
-            )
+            return Result.fail(result)
 
         return Result.ok(list(result.value))
 

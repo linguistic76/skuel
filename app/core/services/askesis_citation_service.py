@@ -24,7 +24,7 @@ from typing import Any
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.ports.base_protocols import BackendOperations
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 
 @dataclass(frozen=True)
@@ -234,13 +234,7 @@ class AskesisCitationService:
         )
 
         if result.is_error:
-            return Result.fail(
-                Errors.database(
-                    operation="get_citations",
-                    message=f"Failed to retrieve citations for {knowledge_uid}",
-                    details={"query_error": result.expect_error().message},
-                )
-            )
+            return Result.fail(result)
 
         records = result.value
 
