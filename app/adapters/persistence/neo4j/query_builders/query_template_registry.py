@@ -123,9 +123,9 @@ class QueryTemplateRegistry:
                 optional_parameters={"limit"},
                 optimization_rules={
                     "has_fulltext_index": """
-                        CALL db.index.fulltext.queryNodes('{index_name}', $search_term)
+                        CALL db.index.fulltext.queryNodes($index_name, $search_term)
                         YIELD node, score
-                        WHERE '{label}' IN labels(node)
+                        WHERE $label IN labels(node)
                         RETURN node as n, score
                         ORDER BY score DESC
                         LIMIT $limit
@@ -269,11 +269,12 @@ class QueryTemplateRegistry:
                     # Check for fulltext index
                     fulltext_indexes = [idx for idx in schema.indexes if idx.type == "FULLTEXT"]
                     if fulltext_indexes:
-                        cypher = optimized_template.replace(
-                            "{index_name}", fulltext_indexes[0].name
-                        )
-                        if "label" in params:
-                            cypher = cypher.replace("{label}", params["label"])
+                        cypher = optimized_template
+                        # $index_name and $label ride the normal parameter path —
+                        # the generic loop below keeps every $key present in the
+                        # cypher as a driver parameter (previously textual
+                        # .replace() interpolation, CYP003).
+                        params = {**params, "index_name": fulltext_indexes[0].name}
                         used_indexes.append(fulltext_indexes[0].name)
                         strategy = IndexStrategy.FULLTEXT_SEARCH
                         break

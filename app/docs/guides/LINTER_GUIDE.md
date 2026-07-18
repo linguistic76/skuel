@@ -128,7 +128,7 @@ Static analysis for Neo4j Cypher queries embedded in Python code.
 |------|----------|-------------|
 | **CYP001** | ERROR | Nested aggregate functions |
 | **CYP002** | ERROR | DELETE without DETACH |
-| **CYP003** | WARNING | String interpolation instead of parameters |
+| **CYP003** | ERROR | Interpolated VALUE instead of parameter (`'{var}'`, `= {var}`, `IN {var}`) |
 | **CYP004** | WARNING | Unbounded relationship traversal |
 | **CYP005** | WARNING | Missing depth limit on multi-hop |
 | **CYP006** | INFO | Large result set without LIMIT |
@@ -136,6 +136,24 @@ Static analysis for Neo4j Cypher queries embedded in Python code.
 | **CYP008** | WARNING | WITH clause without DISTINCT (disabled) |
 | **CYP009** | WARNING | Query complexity too high |
 | **CYP010** | INFO | Missing index hint |
+
+**CYP003 (promoted WARNING → ERROR 2026-07, now CI-gated):** flags only
+value-position interpolation — quoted literals (`'{var}'`, including map values
+like `{{uid: '{source_uid}'}}`) and operator operands (`= {var}`, `<= {depth}`,
+`IN {var}`). Structural composition stays legal: clause fragments
+(`{where_clause}`), validated identifiers (`(n:{label})`, `[r:{rel_type}]` —
+labels/reltypes cannot be driver parameters), and variable-length bounds
+(`*1..{depth}`, likewise unparameterizable). The pre-promotion rule flagged all
+structural composition (157 false positives) while missing quoted map values.
+Suppress a boundary-shaped hit with a Cypher comment on the flagged line:
+`// noqa: CYP003 - <reason>` (`// noqa: CYP002 - <reason>` works the same way).
+
+**Discovery scope:** `core/services/`, `adapters/persistence/neo4j/`,
+`scripts/` (added 2026-07 — migrations and maintenance scripts run raw Cypher
+directly), and `tests/integration/`. Queries are extracted from triple-quoted
+strings that pass the `_is_actual_cypher` heuristic; single-line f-string
+concatenation (`cypher += f"..."`) is below its resolution — parameterize those
+by convention.
 
 ## Inline Suppression
 
@@ -149,7 +167,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL015, SKUEL017–SKUEL025, SKUEL027 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python

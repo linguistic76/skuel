@@ -10,6 +10,7 @@ based on available indexes.
 """
 
 from functools import partial
+from typing import Any
 
 from adapters.persistence.neo4j.query import (
     IndexRecommendation,
@@ -305,17 +306,14 @@ class QueryOptimizer:
         # Use the first suitable index (could be enhanced with ranking)
         index = suitable_indexes[0]
 
-        cypher = f"""
-            CALL db.index.fulltext.queryNodes('{index.name}', $search_text)
+        cypher = """
+            CALL db.index.fulltext.queryNodes($index_name, $search_text)
             YIELD node, score
             """
 
         # Add label filtering if specific labels requested
         if request.labels:
-            label_conditions = " OR ".join(
-                [f"'{label}' IN labels(node)" for label in request.labels]
-            )
-            cypher += f" WHERE {label_conditions}"
+            cypher += " WHERE any(lbl IN labels(node) WHERE lbl IN $requested_labels)"
 
         # Add additional constraints
         if request.constraints:
@@ -333,11 +331,19 @@ class QueryOptimizer:
 
         cypher += " RETURN node as n, score ORDER BY score DESC"
 
-        # Add pagination
+        # Add pagination ($limit — interpolating the value rendered `LIMIT $10`,
+        # an invalid parameter reference)
         if request.limit is not None:
-            cypher += f" LIMIT ${request.limit}"
+            cypher += " LIMIT $limit"
 
-        parameters = {"search_text": request.search_text}
+        parameters: dict[str, Any] = {
+            "index_name": index.name,
+            "search_text": request.search_text,
+        }
+        if request.labels:
+            parameters["requested_labels"] = sorted(request.labels)
+        if request.limit is not None:
+            parameters["limit"] = request.limit
         for constraint in request.constraints:
             parameters[constraint.property_name] = constraint.value
 
@@ -373,23 +379,28 @@ class QueryOptimizer:
         index = suitable_indexes[0]
 
         # Vector search with cosine similarity (adjust based on your vector setup)
-        cypher = f"""
-            CALL db.index.vector.queryNodes('{index.name}', $k, $search_vector)
+        cypher = """
+            CALL db.index.vector.queryNodes($index_name, $k, $search_vector)
             YIELD node, score
             """
 
         if request.labels:
-            label_conditions = " OR ".join(
-                [f"'{label}' IN labels(node)" for label in request.labels]
-            )
-            cypher += f" WHERE {label_conditions}"
+            cypher += " WHERE any(lbl IN labels(node) WHERE lbl IN $requested_labels)"
 
         cypher += " RETURN node as n, score ORDER BY score DESC"
 
+        # $k already carries the requested limit; the interpolated form rendered
+        # `LIMIT $10`, an invalid parameter reference
         if request.limit is not None:
-            cypher += f" LIMIT ${request.limit}"
+            cypher += " LIMIT $k"
 
-        parameters = {"search_vector": request.search_vector, "k": request.limit or 10}
+        parameters: dict[str, Any] = {
+            "index_name": index.name,
+            "search_vector": request.search_vector,
+            "k": request.limit or 10,
+        }
+        if request.labels:
+            parameters["requested_labels"] = sorted(request.labels)
 
         return QueryPlan(
             cypher=cypher,

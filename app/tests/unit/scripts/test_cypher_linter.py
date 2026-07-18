@@ -70,6 +70,31 @@ class TestIsActualCypher:
         query = "MATCH (a:Entity)-[r:OWNS]->(b:Entity) WHERE a.uid = $uid RETURN b"
         assert linter._is_actual_cypher(query) is True
 
+    def test_single_command_merge_accepted(self) -> None:
+        # The >= 2 keyword floor silently skipped one-command upserts — exactly
+        # the interpolated MERGE shape CYP003 exists to catch (docs_to_neo4j.py).
+        linter = make_linter()
+        query = "MERGE (c:DocumentCategory {name: $name})"
+        assert linter._is_actual_cypher(query) is True
+
+    def test_call_procedure_with_params_accepted(self) -> None:
+        # Procedure calls have no (n:Label) pattern — $params are their only
+        # structural signal (query_template_registry fulltext template).
+        linter = make_linter()
+        query = (
+            "CALL db.index.fulltext.queryNodes($index_name, $search_term)\n"
+            "YIELD node, score\n"
+            "RETURN node as n, score ORDER BY score DESC LIMIT $limit"
+        )
+        assert linter._is_actual_cypher(query) is True
+
+    def test_merge_set_upsert_accepted(self) -> None:
+        # SET was not a counted keyword — MERGE+SET upserts scored 1 and were
+        # skipped before 2026-07.
+        linter = make_linter()
+        query = "MERGE (d:Document {uid: $uid})\nSET d.title = $title"
+        assert linter._is_actual_cypher(query) is True
+
 
 # ============================================================================
 # _extract_cypher_queries
@@ -196,6 +221,45 @@ class TestCYP003:
         assert len(violations) >= 1
         assert violations[0].rule_code == "CYP003"
 
+    def test_severity_is_error(self) -> None:
+        # Promoted 2026-07 (was WARNING): value interpolation is the injection
+        # shape, and CI's --errors-only --strict gate only enforces ERRORs.
+        linter = make_linter()
+        query = "MATCH (n:Entity) WHERE n.uid = {user_uid} RETURN n"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert violations[0].severity == Severity.ERROR
+
+    def test_detects_quoted_interpolation(self) -> None:
+        linter = make_linter()
+        query = "MATCH (n:Entity) WHERE n.status = '{status}' RETURN n"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_detects_quoted_map_value(self) -> None:
+        # The old ':'-within-5-chars exemption skipped exactly this shape.
+        linter = make_linter()
+        query = "MERGE (d:Document {{uid: '{node_uid}'}})\nRETURN d"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_detects_dotted_expression(self) -> None:
+        linter = make_linter()
+        query = "MATCH (d:Document) SET d.path = '{node.path}' RETURN d"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_detects_comparison_operand(self) -> None:
+        linter = make_linter()
+        query = "MATCH p = (n:Entity)-[*]-(m) WHERE length(p) <= {depth} RETURN m"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
+    def test_detects_in_operand(self) -> None:
+        linter = make_linter()
+        query = "MATCH (n:Entity) WHERE n.status IN {statuses} RETURN n"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 1
+
     def test_parameterized_query_clean(self) -> None:
         linter = make_linter()
         query = "MATCH (n:Entity) WHERE n.uid = $uid RETURN n"
@@ -205,6 +269,51 @@ class TestCYP003:
     def test_cypher_map_syntax_clean(self) -> None:
         linter = make_linter()
         query = "CREATE (n:Entity {uid: $uid, title: $title})"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_clause_fragment_clean(self) -> None:
+        # Structural composition — the sanctioned below-boundary pattern.
+        linter = make_linter()
+        query = "MATCH (n:Entity)\nWHERE true {where_clause}\nRETURN n {order_clause}"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_label_interpolation_clean(self) -> None:
+        # Validated-identifier interpolation ((n:{label}), [r:{rel_type}]) is
+        # structural — labels/reltypes cannot be driver parameters.
+        linter = make_linter()
+        query = "MATCH (n:{label})-[r:{rel_type}]->(m) WHERE n.uid = $uid RETURN m"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_depth_bound_clean(self) -> None:
+        # *1..{depth} bounds cannot be parameterized in Cypher.
+        linter = make_linter()
+        query = "MATCH (u:Entity {uid: $uid})-[r*0..{depth}]-(related) RETURN related"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_relationship_arrow_then_fragment_clean(self) -> None:
+        # -> before an interpolated fragment must not read as a > comparison.
+        linter = make_linter()
+        query = "MATCH (a:Entity)-[:OWNS]->{target_pattern}\nRETURN a"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_doubled_brace_escape_clean(self) -> None:
+        # {{var}} renders to literal {var} — an f-string escape, not interpolation.
+        linter = make_linter()
+        query = "MATCH (n:Entity) WHERE n.uid = {{uid}} RETURN n"
+        violations = linter._check_string_interpolation(query, Path("test.py"), 1)
+        assert len(violations) == 0
+
+    def test_noqa_suppression(self) -> None:
+        linter = make_linter()
+        query = (
+            "MATCH (n:Entity) WHERE n.uid = {user_uid} "
+            "// noqa: CYP003 - template rendered pre-execution\nRETURN n"
+        )
         violations = linter._check_string_interpolation(query, Path("test.py"), 1)
         assert len(violations) == 0
 
