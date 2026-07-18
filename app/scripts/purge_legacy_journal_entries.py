@@ -88,7 +88,7 @@ async def main() -> int:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
     try:
         params = {"pipelines": list(LEGACY_PIPELINES), "cutoff": args.cutoff}
         targets = await _fetch(driver, _SELECT_QUERY, params)

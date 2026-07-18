@@ -413,7 +413,7 @@ Note: Always-generate test is limited to 10 nodes to avoid excessive API costs.
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     try:
         await driver.verify_connectivity()

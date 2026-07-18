@@ -262,7 +262,7 @@ async def main() -> int:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
     try:
         tracked_uids, live_ue_paths = await _fetch_tracked(driver)
         user_entry_rows = await _fetch_user_entry_rows(driver)

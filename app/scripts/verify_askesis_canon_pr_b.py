@@ -34,7 +34,7 @@ async def main() -> int:
     from core.services.embeddings_service import EmbeddingsService
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
 
     async def chunk_count() -> int:
         result = await driver.execute_query(

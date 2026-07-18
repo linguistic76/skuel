@@ -69,7 +69,7 @@ async def main() -> int:
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    driver = await conn.connect()
+    driver = conn.connect()
     try:
         async with driver.session() as session:
             result = await session.run(AUDIT_QUERY)
