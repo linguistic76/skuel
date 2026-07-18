@@ -180,15 +180,13 @@ class AnalyticsLifePathService:
                 )
 
             # Step 4: Calculate substance scores for each entity
-            knowledge_analysis = await self._analyze_knowledge_substance(knowledge_units, user_uid)
+            knowledge_analysis = self._analyze_knowledge_substance(knowledge_units, user_uid)
 
             # Step 5: Calculate overall alignment score (average substance)
             alignment_score = knowledge_analysis["avg_substance"]
 
             # Step 6: Analyze domain contributions
-            domain_contributions = await self._analyze_domain_contributions(
-                knowledge_units, user_uid
-            )
+            domain_contributions = self._analyze_domain_contributions(knowledge_units, user_uid)
 
             # Step 7: Identify gaps (low substance knowledge)
             gaps = knowledge_analysis["gaps"]
@@ -292,7 +290,7 @@ class AnalyticsLifePathService:
                 )
             )
 
-    async def _analyze_knowledge_substance(
+    def _analyze_knowledge_substance(
         self, knowledge_units: list, user_uid: UserUID
     ) -> dict[str, Any]:
         """
@@ -360,7 +358,7 @@ class AnalyticsLifePathService:
             "gaps": gaps,
         }
 
-    async def _analyze_domain_contributions(
+    def _analyze_domain_contributions(
         self, knowledge_units: list, user_uid: UserUID
     ) -> dict[str, float]:
         """

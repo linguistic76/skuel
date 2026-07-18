@@ -125,7 +125,7 @@ class LearningStateAnalyzer:
 
         if include_vectors and self.embeddings:
             learning_style_vector = await self._generate_learning_style_vector(user_context)
-            content_affinity = await self._calculate_content_affinities(
+            content_affinity = self._calculate_content_affinities(
                 user_context, learning_style_vector
             )
 
@@ -489,7 +489,7 @@ class LearningStateAnalyzer:
             logger.warning(f"Failed to generate learning style vector: {e}")
             return None
 
-    async def _calculate_content_affinities(
+    def _calculate_content_affinities(
         self, user_context: UserContext, learning_style_vector: list[float] | None
     ) -> dict[str, float] | None:
         """
