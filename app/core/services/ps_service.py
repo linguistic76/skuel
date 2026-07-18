@@ -996,7 +996,7 @@ class PsService:
         else:
             return await self.graph.find_next_steps(uid=uid, limit=10)
 
-    async def list_step_domains(self) -> Result[list[str]]:
+    def list_step_domains(self) -> Result[list[str]]:
         """List all path step domains."""
         from core.models.enums import Domain
 

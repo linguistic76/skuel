@@ -26,14 +26,16 @@ def _make_service_checker(
     error component, so checkers signal failure by returning ``False``.
     """
 
-    async def check() -> bool:
+    async def check() -> (
+        bool
+    ):  # skuel-lint: disable=SKUEL029 -- registered as an awaited health-checker
         return bool(getattr(services, attr, None))
 
     check.__name__ = f"check_{attr}"
     return check
 
 
-async def initialize_system_service(system_service: SystemService, services: Any) -> Result[None]:
+def initialize_system_service(system_service: SystemService, services: Any) -> Result[None]:
     """
     Initialize SystemService with health checkers for all components.
 

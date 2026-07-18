@@ -129,7 +129,7 @@ class LLMService:
         # No chat port ⇒ MOCK/LOCAL provider (the constructor enforces that real
         # providers are wired with a port) → canned mock response, no external call.
         if self.chat_port is None:
-            return await self._generate_mock(full_prompt, system_prompt)
+            return self._generate_mock(full_prompt, system_prompt)
 
         # Build the conversation (system prompt is passed separately so each
         # adapter places it where its SDK expects).
@@ -162,7 +162,7 @@ class LLMService:
             usage=completion.usage,
         )
 
-    async def _generate_mock(self, prompt: str, _system_prompt: str | None) -> LLMResponse:
+    def _generate_mock(self, prompt: str, _system_prompt: str | None) -> LLMResponse:
         """Generate mock response for testing."""
         # Create a reasonable mock response based on the prompt
         prompt_lower = prompt.lower()

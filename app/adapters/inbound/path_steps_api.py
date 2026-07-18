@@ -252,9 +252,11 @@ def create_path_steps_api_routes(
 
     @rt("/api/path-steps/domains")
     @boundary_handler()
-    async def list_step_domains_route(_request: Request) -> Result[list[str]]:
+    async def list_step_domains_route(  # skuel-lint: disable=SKUEL029 -- FastHTML route handler: async is the router contract
+        _request: Request,
+    ) -> Result[list[str]]:
         """List all path step domains."""
-        return await ps_service.list_step_domains()
+        return ps_service.list_step_domains()
 
     @rt("/api/path-steps/categories")
     @boundary_handler()

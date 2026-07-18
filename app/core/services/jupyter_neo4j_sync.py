@@ -247,7 +247,7 @@ class JupyterNeo4jSync:
 
                 if existing_hash != ku_data.get("last_obsidian_hash"):
                     # Conflict detected
-                    return await self._handle_conflict(ku_data, file_path, existing_content)
+                    return self._handle_conflict(ku_data, file_path, existing_content)
 
             # Generate YAML content
             yaml_content = self._generate_markdown(ku_data)
@@ -304,7 +304,7 @@ class JupyterNeo4jSync:
         # Generate YAML
         return yaml.dump(yaml_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
-    async def _handle_conflict(
+    def _handle_conflict(
         self, ku_data: dict[str, Any], file_path: Path, _existing_content: str
     ) -> Result[Path]:
         """

@@ -89,7 +89,7 @@ class EntityChunkingService:
     # CONTENT PROCESSING
     # ==========================================================================
 
-    async def process_content_for_ingestion(
+    def process_content_for_ingestion(
         self,
         parent_uid: str,
         content_body: str,
@@ -159,7 +159,7 @@ class EntityChunkingService:
     # METADATA OPERATIONS
     # ==========================================================================
 
-    async def get_metadata(self, knowledge_uid: str) -> Result[ContentMetadata]:
+    def get_metadata(self, knowledge_uid: str) -> Result[ContentMetadata]:
         """
         Get metadata for a knowledge unit.
 

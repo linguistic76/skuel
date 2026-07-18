@@ -524,7 +524,7 @@ async def test_similarity_calculation_mock(mock_embeddings_service):
     emb2 = result2.value
 
     # Calculate similarity
-    similarity_result = await mock_embeddings_service.calculate_similarity(emb1, emb2)
+    similarity_result = mock_embeddings_service.calculate_similarity(emb1, emb2)
 
     assert similarity_result.is_ok
     similarity = similarity_result.value

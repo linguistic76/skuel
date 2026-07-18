@@ -85,8 +85,8 @@ def mock_embeddings_service(mock_embedding_vector):
             embeddings.append(vec)
         return Result.ok(embeddings)
 
-    # Mock calculate_similarity
-    async def calculate_similarity(embedding1, embedding2):
+    # Mock calculate_similarity (sync — pure cosine math, SKUEL029)
+    def calculate_similarity(embedding1, embedding2):
         if len(embedding1) != len(embedding2):
             return Result.fail({"error": "Embeddings must have same dimension"})
 

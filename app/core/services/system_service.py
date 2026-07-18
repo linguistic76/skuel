@@ -138,7 +138,11 @@ class SystemService:
             return Result.fail(Errors.system(message=str(e), operation="get_health_status"))
 
     @with_error_handling("get_system_info", error_type="system")
-    async def get_system_info(self) -> Result[SystemInfoResult]:
+    async def get_system_info(
+        self,
+    ) -> Result[
+        SystemInfoResult
+    ]:  # skuel-lint: disable=SKUEL029 -- awaited via asyncio.gather in system_api
         """
         Get general system information.
 

@@ -179,7 +179,7 @@ class EmbeddingsService:
 
         return Result.ok(embeddings)
 
-    async def calculate_similarity(
+    def calculate_similarity(
         self, embedding1: list[float], embedding2: list[float]
     ) -> Result[float]:
         """
