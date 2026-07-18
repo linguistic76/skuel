@@ -8,13 +8,18 @@ Part of QueryBuilder decomposition.
 Manages library of query templates and executes them with parameters.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from adapters.persistence.neo4j.query import QueryOptimizationResult, QueryPlan, TemplateSpec
+from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier, validate_label
+from core.models.enums.neo_labels import NeoLabel
 from core.models.query_types import IndexStrategy
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+
+_CYPHER_PARAMETER_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
 
 
 @dataclass
@@ -30,8 +35,14 @@ class QueryTemplateRegistry:
     """
     Manages query templates and executes them with parameters.
 
-    Provides a library of 40+ built-in templates for common query patterns,
+    Provides a library of built-in templates for common query patterns,
     plus support for custom template registration.
+
+    Templates use two placeholder kinds:
+    - ``$name`` — driver parameters, passed separately at execution time
+    - ``{name}`` — structural slots (labels, relationship types) declared in
+      ``TemplateSpec.structural_parameters``; Neo4j cannot parameterize these,
+      so they are validated and spliced into the query text at render time
     """
 
     def __init__(self, schema_service) -> None:
@@ -65,8 +76,9 @@ class QueryTemplateRegistry:
             TemplateSpec(
                 name="create_entity",
                 description="Create new entity",
-                base_template="CREATE (n:$label $properties) RETURN n",
+                base_template="CREATE (n:{label} $properties) RETURN n",
                 required_parameters={"label", "properties"},
+                structural_parameters={"label"},
                 estimated_base_cost=1,
             ),
             category="crud",
@@ -113,19 +125,20 @@ class QueryTemplateRegistry:
                 name="text_search",
                 description="Text search with automatic index selection",
                 base_template="""
-                    MATCH (n:$label)
-                    WHERE n.$property CONTAINS $search_term
+                    MATCH (n:{label})
+                    WHERE n[$property] CONTAINS $search_term
                     RETURN n
                     ORDER BY n.updated_at DESC
                     LIMIT $limit
                 """,
                 required_parameters={"label", "property", "search_term"},
                 optional_parameters={"limit"},
+                structural_parameters={"label"},
                 optimization_rules={
                     "has_fulltext_index": """
                         CALL db.index.fulltext.queryNodes('{index_name}', $search_term)
                         YIELD node, score
-                        WHERE '{label}' IN labels(node)
+                        WHERE $label IN labels(node)
                         RETURN node as n, score
                         ORDER BY score DESC
                         LIMIT $limit
@@ -143,11 +156,12 @@ class QueryTemplateRegistry:
                 name="find_related",
                 description="Find related nodes",
                 base_template="""
-                    MATCH (n {uid: $uid})-[r:$rel_type]-(related)
+                    MATCH (n {uid: $uid})-[r:{rel_type}]-(related)
                     WHERE NOT n:Content
                     RETURN related, r, type(r) as relationship_type
                 """,
                 required_parameters={"uid", "rel_type"},
+                structural_parameters={"rel_type"},
                 estimated_base_cost=3,
             ),
             category="relationships",
@@ -161,11 +175,12 @@ class QueryTemplateRegistry:
                 base_template="""
                     MATCH (a {uid: $from_uid}), (b {uid: $to_uid})
                     WHERE NOT a:Content AND NOT b:Content
-                    CREATE (a)-[r:$rel_type $properties]->(b)
+                    CREATE (a)-[r:{rel_type} $properties]->(b)
                     RETURN r
                 """,
                 required_parameters={"from_uid", "to_uid", "rel_type"},
                 optional_parameters={"properties"},
+                structural_parameters={"rel_type"},
                 estimated_base_cost=2,
             ),
             category="relationships",
@@ -178,10 +193,11 @@ class QueryTemplateRegistry:
                 name="count_by_label",
                 description="Count nodes by label",
                 base_template="""
-                    MATCH (n:$label)
+                    MATCH (n:{label})
                     RETURN count(n) as count
                 """,
                 required_parameters={"label"},
+                structural_parameters={"label"},
                 estimated_base_cost=4,
             ),
             category="aggregation",
@@ -193,11 +209,12 @@ class QueryTemplateRegistry:
                 name="group_by_property",
                 description="Group and count by property",
                 base_template="""
-                    MATCH (n:$label)
-                    RETURN n.$property as value, count(n) as count
+                    MATCH (n:{label})
+                    RETURN n[$property] as value, count(n) as count
                     ORDER BY count DESC
                 """,
                 required_parameters={"label", "property"},
+                structural_parameters={"label"},
                 estimated_base_cost=5,
             ),
             category="aggregation",
@@ -272,8 +289,6 @@ class QueryTemplateRegistry:
                         cypher = optimized_template.replace(
                             "{index_name}", fulltext_indexes[0].name
                         )
-                        if "label" in params:
-                            cypher = cypher.replace("{label}", params["label"])
                         used_indexes.append(fulltext_indexes[0].name)
                         strategy = IndexStrategy.FULLTEXT_SEARCH
                         break
@@ -289,21 +304,34 @@ class QueryTemplateRegistry:
                         used_indexes.append(uid_indexes[0].name)
                         strategy = IndexStrategy.UNIQUE_LOOKUP
 
-        # Process template with parameters
-        for key, value in params.items():
-            placeholder = f"${key}"
-            if placeholder in cypher:
-                # Parameter will be passed separately
-                continue
-            # Direct substitution for structural elements (labels, relationship types)
-            cypher = cypher.replace(f"${key}", str(value))
+        # Splice structural parameters (labels, relationship types) into the
+        # query text — Neo4j cannot parameterize them. Values are validated
+        # first; everything else stays a driver parameter.
+        try:
+            cypher = self._render_structural_parameters(cypher, spec, params)
+        except ValueError as e:
+            return Result.fail(Errors.validation(field="parameters", message=str(e)))
+
+        # Fail fast on driver parameters the selected variant needs but the
+        # caller did not supply — the query would error at execution time.
+        used_parameter_names = set(_CYPHER_PARAMETER_RE.findall(cypher))
+        unbound = used_parameter_names - params.keys()
+        if unbound:
+            return Result.fail(
+                Errors.validation(
+                    field="parameters",
+                    message=(
+                        f"Template '{template_name}' leaves parameters unbound: {sorted(unbound)}"
+                    ),
+                )
+            )
 
         # Create query plan
         plan = QueryPlan(
             cypher=cypher,
             parameters={
-                k: v for k, v in params.items() if f"${k}" in cypher
-            },  # Only include used parameters
+                k: v for k, v in params.items() if k in used_parameter_names
+            },  # Only include parameters the selected variant uses
             strategy=strategy,
             used_indexes=used_indexes,
             estimated_cost=spec.estimated_base_cost,
@@ -317,6 +345,33 @@ class QueryTemplateRegistry:
         )
 
         return Result.ok(result)
+
+    @staticmethod
+    def _render_structural_parameters(
+        cypher: str, spec: TemplateSpec, params: dict[str, Any]
+    ) -> str:
+        """
+        Substitute validated structural values into ``{name}`` placeholders.
+
+        Label slots must be a known NeoLabel; other slots (relationship types)
+        must be safe Cypher identifiers. Raises ValueError on invalid values.
+        An optimization variant may not contain a given slot (e.g. the fulltext
+        variant uses the label as a driver parameter) — absent placeholders are
+        skipped.
+        """
+        for key in sorted(spec.structural_parameters):
+            placeholder = f"{{{key}}}"
+            if placeholder not in cypher:
+                continue
+            if key not in params:
+                raise ValueError(f"Missing structural parameter: {key!r}")
+            value = str(params[key])
+            if key == "label":
+                validate_label(NeoLabel(value))
+            else:
+                validate_identifier(value, context=key)
+            cypher = cypher.replace(placeholder, value)
+        return cypher
 
     def get_template_library(self) -> dict[str, list[str]]:
         """

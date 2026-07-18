@@ -39,7 +39,7 @@ def test_list_templates_without_manual_injection():
     templates = builder.list_templates()
 
     assert isinstance(templates, dict)
-    assert len(templates) > 0, "Expected 40+ templates from QueryBuilder"
+    assert len(templates) > 0, "Expected built-in templates from QueryBuilder"
 
     # Verify well-known templates exist (from actual library)
     expected_templates = [

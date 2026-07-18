@@ -52,6 +52,11 @@ class TemplateSpec:
     base_template: str
     required_parameters: set[str]
     optional_parameters: set[str] = field(default_factory=set)
+    # Parameters that are spliced into the query text as {name} placeholders
+    # (labels, relationship types) because Neo4j cannot parameterize them.
+    # Must be a subset of required_parameters; values are validated before
+    # substitution. All other parameters stay $name driver parameters.
+    structural_parameters: set[str] = field(default_factory=set)
     optimization_rules: dict[str, str] = field(
         default_factory=dict
     )  # condition -> optimized template,

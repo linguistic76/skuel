@@ -330,26 +330,6 @@ class FacetedQueryBuilder:
             category="faceted_search",
         )
 
-        # Faceted aggregation for counts
-        template_manager.register_template(
-            "facet_aggregation",
-            TemplateSpec(
-                name="facet_aggregation",
-                description="Get facet counts for refinement",
-                base_template="""
-                    MATCH (n:$label)
-                    WHERE $base_conditions
-                    WITH n
-                    RETURN n.$facet_field as value, count(*) as count
-                    ORDER BY count DESC
-                    LIMIT 20
-                """,
-                required_parameters={"label", "facet_field", "base_conditions"},
-                estimated_base_cost=6,
-            ),
-            category="faceted_search",
-        )
-
         # Progressive learning search
         template_manager.register_template(
             "progressive_learning_search",
