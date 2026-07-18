@@ -273,6 +273,41 @@ async def test_omitted_optional_filters_bind_as_null():
 
 
 @pytest.mark.asyncio
+async def test_fulltext_variant_skipped_when_search_text_omitted():
+    """queryNodes() cannot run with a NULL search string — a facet-only query
+    must fall back to the base template's `IS NULL` branches even when a
+    fulltext index exists."""
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(
+        schema_service=_FakeSchemaService(_make_schema([_fulltext_index("knowledge_fulltext")]))
+    )
+    result = await qb.from_template("faceted_knowledge_search", domain="mathematics")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "queryNodes" not in plan.cypher
+    assert "$search_text IS NULL" in plan.cypher
+    assert plan.strategy == IndexStrategy.NO_INDEX
+    assert plan.parameters["search_text"] is None
+
+
+@pytest.mark.asyncio
+async def test_fulltext_variant_selected_when_search_text_provided():
+    from adapters.persistence.neo4j.query_builders import QueryBuilder
+
+    qb = QueryBuilder(
+        schema_service=_FakeSchemaService(_make_schema([_fulltext_index("knowledge_fulltext")]))
+    )
+    result = await qb.from_template("faceted_knowledge_search", search_text="algebra")
+
+    assert not result.is_error
+    plan = result.value.primary_plan
+    assert "queryNodes" in plan.cypher
+    assert plan.strategy == IndexStrategy.FULLTEXT_SEARCH
+
+
+@pytest.mark.asyncio
 async def test_create_relationship_with_all_parameters_succeeds():
     result = await _registry().from_template(
         "create_relationship",

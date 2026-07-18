@@ -22,6 +22,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 _CYPHER_PARAMETER_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
+_FULLTEXT_SEARCH_PARAM_RE = re.compile(r"queryNodes\(\s*'[^']*'\s*,\s*\$([A-Za-z_][A-Za-z0-9_]*)")
 
 
 @dataclass
@@ -289,7 +290,14 @@ class QueryTemplateRegistry:
                 if rule_name == "has_fulltext_index":
                     # Check for fulltext index
                     fulltext_indexes = [idx for idx in schema.indexes if idx.type == "FULLTEXT"]
-                    if fulltext_indexes:
+                    # queryNodes() cannot run without a search string — when the
+                    # (possibly optional) search parameter is absent, fall back
+                    # to the base template and its `IS NULL` filter branches.
+                    search_param = _FULLTEXT_SEARCH_PARAM_RE.search(optimized_template)
+                    has_search_string = (
+                        search_param is None or params.get(search_param.group(1)) is not None
+                    )
+                    if fulltext_indexes and has_search_string:
                         cypher = optimized_template.replace(
                             "{index_name}", fulltext_indexes[0].name
                         )
