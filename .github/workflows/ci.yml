@@ -32,6 +32,7 @@ jobs:
       py: ${{ steps.filter.outputs.py }}
       docs: ${{ steps.filter.outputs.docs }}
       ui: ${{ steps.filter.outputs.ui }}
+      cypher: ${{ steps.filter.outputs.cypher }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -69,6 +70,12 @@ jobs:
               - 'app/scripts/smoke_test.py'
               - 'app/pyproject.toml'
               - 'app/uv.lock'
+              - '.github/workflows/ci.yml'
+            cypher:
+              # Executable Cypher outside .py files: migrations and index DDL are
+              # loaded and exercised by integration tests, so a Cypher-only PR
+              # must still trigger the integration suite (Codex review, PR #701).
+              - 'app/**/*.cypher'
               - '.github/workflows/ci.yml'
 
   mypy:
@@ -179,7 +186,10 @@ jobs:
   lint:
     name: Lint
     needs: changes
-    if: needs.changes.outputs.py == 'true'
+    # cypher too (Codex, PR #701): keeps a Cypher-only PR inside the lint job.
+    # cypher_linter.py currently scans only .py globs, so this is future-proofing
+    # for when it learns .cypher files — the wiring trap dies here, not later.
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -491,6 +501,45 @@ jobs:
         working-directory: app
         run: uv run pytest tests/unit/ -x --tb=short -q
 
+  # Integration tests — the only tier that executes real Cypher against Neo4j
+  # (unit tests mock the driver). Runs the same command as ./dev test-integration:
+  # testcontainers spins up the pinned neo4j image via the runner's Docker daemon
+  # (preinstalled on ubuntu-latest). addopts is cleared to skip coverage collection,
+  # matching scripts/run_tests.py — pass rate is the quality metric here.
+  integration_tests:
+    name: Integration Tests
+    needs: changes
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25  # testcontainer startup can hang on daemon issues; suite itself is ~2-4 min
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v4
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --no-install-project
+
+      - name: Run integration tests
+        working-directory: app
+        run: uv run pytest tests/integration/ -x --tb=short -q --override-ini=addopts=
+
   smoke:
     name: Render Smoke Test
     needs: changes
@@ -556,7 +605,7 @@ jobs:
   # (path not touched); fails only on a real failure/cancellation.
   gate:
     name: CI Gate
-    needs: [changes, mypy, lint, validate_documentation, unit_tests, smoke, content_boundary]
+    needs: [changes, mypy, lint, validate_documentation, unit_tests, integration_tests, smoke, content_boundary]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -567,11 +616,12 @@ jobs:
           lint_result="${{ needs.lint.result }}"
           docs_result="${{ needs.validate_documentation.result }}"
           unit_tests_result="${{ needs.unit_tests.result }}"
+          integration_tests_result="${{ needs.integration_tests.result }}"
           smoke_result="${{ needs.smoke.result }}"
           content_boundary_result="${{ needs.content_boundary.result }}"
-          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
+          echo "changes=$changes_result  mypy=$mypy_result  lint=$lint_result  docs=$docs_result  unit_tests=$unit_tests_result  integration_tests=$integration_tests_result  smoke=$smoke_result  content_boundary=$content_boundary_result"
           # 'success' and 'skipped' pass; 'failure' and 'cancelled' fail the gate.
-          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$smoke_result" "$content_boundary_result"; do
+          for r in "$changes_result" "$mypy_result" "$lint_result" "$docs_result" "$unit_tests_result" "$integration_tests_result" "$smoke_result" "$content_boundary_result"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "::error::A required CI job did not pass (result=$r)"
               exit 1

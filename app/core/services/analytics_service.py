@@ -126,8 +126,10 @@ class AnalyticsService:
             lifepath_service=lifepath_service,
         )
 
-        # Analytics storage
-        self.report_dir = report_dir or Path("/home/mike/skuel/app/data/reports")
+        # Analytics storage — default relative to the app root (parents[2] of
+        # core/services/), never an absolute machine path: the old hardcoded
+        # default failed on any host but the original dev machine.
+        self.report_dir = report_dir or Path(__file__).parents[2] / "data" / "reports"
         self.report_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger = logger

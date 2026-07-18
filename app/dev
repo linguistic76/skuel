@@ -109,7 +109,7 @@ case "$1" in
     ;;
 
   test-unit)
-    echo -e "${GREEN}Running unit tests (the CI suite)${NC}"
+    echo -e "${GREEN}Running unit tests (fast CI tier)${NC}"
     uv run python scripts/run_tests.py unit
     ;;
 
@@ -257,7 +257,7 @@ case "$1" in
     echo "  ./dev test              - unit + integration + infrastructure [RECOMMENDED]"
     echo "  ./dev test-all          - Everything under tests/ (needs Docker)"
     echo "  ./dev test-integration  - Integration tests (local Docker Neo4j)"
-    echo "  ./dev test-unit         - Unit tests — the CI suite (no Docker) [FASTEST]"
+    echo "  ./dev test-unit         - Unit tests — fast CI tier (no Docker) [FASTEST]"
     echo "  ./dev test-quick        - Quick smoke subset (integration + auth + errors)"
     echo ""
     echo "Dependencies:"

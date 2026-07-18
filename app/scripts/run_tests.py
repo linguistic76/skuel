@@ -9,7 +9,7 @@ Modes:
     all           - Run everything under tests/ (needs Docker for integration/e2e)
     comprehensive - unit + integration + infrastructure [RECOMMENDED]
     integration   - Integration tests only (local Docker Neo4j)
-    unit          - Unit tests only — the CI suite (no Docker)
+    unit          - Unit tests only — fast CI tier (no Docker)
     quick         - Fastest smoke subset (integration + auth + error handling)
 
 Options:
@@ -48,13 +48,13 @@ class TestRunner:
     def run_comprehensive(self, extra_args: list[str]) -> int:
         """Run unit + integration + infrastructure (RECOMMENDED).
 
-        tests/unit/ is the CI suite (root-level tests were migrated into it
+        tests/unit/ is the fast CI tier (root-level tests were migrated into it
         2026-07-10) — the old --ignore=tests/unit/ predates that and would
         silently skip the bulk of the suite. Excludes only e2e (slow, worker
         lifecycle) and benchmarks.
         """
         print("✅ Running COMPREHENSIVE test suite (recommended)")
-        print("   unit (CI suite) + integration + infrastructure")
+        print("   unit + integration (both CI tiers) + infrastructure")
         print("   Excludes: e2e, benchmarks")
         print("   Integration needs local Docker Neo4j (testcontainers)\n")
 
@@ -94,8 +94,8 @@ class TestRunner:
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_unit(self, extra_args: list[str]) -> int:
-        """Run unit tests only — the CI suite (no Docker needed)."""
-        print("🧪 Running UNIT tests (the CI suite)")
+        """Run unit tests only — fast CI tier (no Docker needed)."""
+        print("🧪 Running UNIT tests (fast CI tier)")
         print("   Mock-based; no Docker/Neo4j required\n")
 
         cmd = ["uv", "run", "pytest", "tests/unit/", "-v", *extra_args]
