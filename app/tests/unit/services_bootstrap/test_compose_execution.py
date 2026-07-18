@@ -483,12 +483,24 @@ def _assert_container_complete(services: Services, none_ok: frozenset[str]) -> N
 
 
 def _assert_subscriptions_wired(event_bus: InMemoryEventBus, *, full_tier: bool) -> None:
+    expected_counts = _expected_handler_counts(full_tier)
+
+    # The golden table is the EXACT subscription surface: an event type
+    # subscribed during compose but absent from the table means a new
+    # subscription bypassed the contract — add it to the table deliberately.
+    unexpected = event_bus.get_all_event_types() - set(expected_counts)
+    assert not unexpected, (
+        f"Event types subscribed during compose but missing from the golden "
+        f"table: {sorted(t.__name__ for t in unexpected)}. Add them to "
+        f"_expected_handler_counts with their handler counts."
+    )
+
     mismatched = {
         event_type.__name__: {
             "expected": expected,
             "actual": event_bus.get_handler_count(event_type),
         }
-        for event_type, expected in _expected_handler_counts(full_tier).items()
+        for event_type, expected in expected_counts.items()
         if event_bus.get_handler_count(event_type) != expected
     }
     assert not mismatched, (
