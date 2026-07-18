@@ -168,7 +168,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
     # LEARNING CONTEXT ENHANCEMENT
     # ========================================================================
 
-    async def frame_principle_practice_with_learning(
+    async def frame_principle_practice_with_learning(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self, principle_uid: str, learning_position: LpPosition
     ) -> Result[dict[str, Any]]:
         """
@@ -260,7 +260,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
             entity_uid=EntityUID(principle_uid), learning_position=learning_position
         )
 
-    async def suggest_learning_supported_principles(
+    async def suggest_learning_supported_principles(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self, learning_position: LpPosition, principle_category_filter: str | None = None
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -354,7 +354,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
         return Result.ok(suggestions[:8])  # Return top 8 suggestions
 
-    async def track_principle_learning_development(
+    async def track_principle_learning_development(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         principle_uid: str,
         learning_position: LpPosition,

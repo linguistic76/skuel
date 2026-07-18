@@ -72,7 +72,7 @@ class GoalsPlanningService(BasePlanningService[GoalsOperations, Goal]):
     # Philosophy: "Filter by readiness, rank by relevance, enrich with insights"
 
     @with_error_handling("get_advancing_goals_for_user", error_type="database")
-    async def get_advancing_goals_for_user(
+    async def get_advancing_goals_for_user(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
         self,
         context: RichUserContext,
         min_progress: float = 0.1,

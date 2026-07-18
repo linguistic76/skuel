@@ -278,7 +278,7 @@ class LifePathService:
                     has_vision=False,
                     has_designation=False,
                     alignment=None,
-                    recommendations=await self._get_getting_started_recommendations(),
+                    recommendations=self._get_getting_started_recommendations(),
                     next_step="Express your vision to get started",
                 )
             )
@@ -359,7 +359,7 @@ class LifePathService:
             return Result.ok(UserContext(user_uid=user_uid, username=""))
         return await self.user_service.get_user_context(user_uid)
 
-    async def _get_getting_started_recommendations(self) -> list[LifePathRecommendationItem]:
+    def _get_getting_started_recommendations(self) -> list[LifePathRecommendationItem]:
         """Get recommendations for users without a vision."""
         return [
             LifePathRecommendationItem(
