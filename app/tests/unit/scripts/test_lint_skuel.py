@@ -101,13 +101,14 @@ def lint_content(
             linter._check_result_return_types(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL007"):
             linter._check_string_result_fail(fp, rel, content, lines)
+
+    # SKUEL013 + SKUEL014 also cover the inbound/presentation layers — mirror _lint_file.
+    is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
+    if (is_service or is_inbound_layer) and not is_test:
+        if linter._should_run_rule("SKUEL013"):
+            linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
             linter._check_entity_type_strings(fp, rel, content, lines, tree)
-
-    # SKUEL013 also covers the inbound/presentation layers — mirror _lint_file.
-    is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
-    if (is_service or is_inbound_layer) and not is_test and linter._should_run_rule("SKUEL013"):
-        linter._check_relationship_name_strings(fp, rel, content, lines, tree)
 
     if is_adapter and linter._should_run_rule("SKUEL008"):
         linter._check_backend_wrappers(fp, rel, content)
@@ -1098,6 +1099,130 @@ class TestSKUEL014:
         violations = lint_content(linter, 'if entity_type == "interaction":\n    pass')
         assert len(violations) == 1
         assert violations[0].rule_id == "SKUEL014"
+
+    def test_flags_template_and_nonku_domain_values(self) -> None:
+        # Catalog completeness: template types and NonKuDomain values are covered.
+        for value in ("task_template", "user_entry", "group", "calendar", "learning"):
+            linter = make_linter(["SKUEL014"])
+            violations = lint_content(linter, f'if entity_type == "{value}":\n    pass')
+            assert len(violations) == 1, value
+
+    def test_domain_enum_comparison_exempt(self) -> None:
+        # Domain's values overlap the catalog ("learning", "finance") — a
+        # comparison already routed through Domain is enum-safe.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(linter, 'ok = Domain.LEARNING.value == "learning"')
+        assert len(violations) == 0
+
+    def test_fires_in_inbound_adapters(self) -> None:
+        # Widened scope: routes/handlers under adapters/inbound/ are covered.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter,
+            'if req.link_type == "goal":\n    pass',
+            file_path="adapters/inbound/principles_api.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL014"
+
+    def test_fires_in_ui(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter,
+            'is_ku = item.get("_domain") == "ku"',
+            file_path="ui/explore/cards.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_fires_in_api(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter,
+            'if kind == "exercise":\n    pass',
+            file_path="api/models.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_silent_outside_scope(self) -> None:
+        # scripts/ and non-service core/ modules stay out of SKUEL014's scope.
+        linter = make_linter(["SKUEL014"])
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+            violations = lint_content(
+                linter,
+                'if entity_type == "task":\n    pass',
+                file_path=path,
+                is_service=False,
+            )
+            assert violations == [], path
+
+    def test_line_suppression(self) -> None:
+        # Boundary-shaped comparison: a local taxonomy value that merely
+        # collides with an entity-type name.
+        linter = make_linter(["SKUEL014"])
+        violations = lint_content(
+            linter,
+            'if state == "learning":'
+            "  # skuel-lint: disable=SKUEL014 -- progress-state form protocol\n"
+            "    pass",
+        )
+        assert len(violations) == 0
+
+    def test_file_suppression(self) -> None:
+        linter = make_linter(["SKUEL014"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL014 -- local taxonomy module\n"
+            'if kind == "ku":\n    pass\n'
+            'if state == "learning":\n    pass\n'
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+
+class TestEntityTypeCatalogDrift:
+    """The linter mirrors the FULL EntityType + NonKuDomain value sets.
+
+    If those drift, SKUEL014 silently under-enforces — the pre-2026-07 catalog
+    was missing 10 of 29 values (all six *_template types, user_entry, and the
+    group/calendar/learning NonKuDomain values).
+    """
+
+    def test_linter_catalog_matches_entity_enums(self) -> None:
+        # Import inside the test so collection still works in environments
+        # where core/ isn't importable (e.g. minimal CI lint runners).
+        from core.models.enums.entity_enums import EntityType, NonKuDomain
+
+        actual = {m.value for m in EntityType} | {m.value for m in NonKuDomain}
+        mirrored = set(SkuelLinter.ENTITY_TYPE_ENUM_VALUES)
+
+        missing = actual - mirrored
+        extra = mirrored - actual
+        assert not missing, (
+            f"SkuelLinter.ENTITY_TYPE_ENUM_VALUES is missing values present in "
+            f"EntityType/NonKuDomain: {sorted(missing)}. "
+            f"Add them to scripts/lint_skuel.py::SkuelLinter.ENTITY_TYPE_ENUM_VALUES."
+        )
+        assert not extra, (
+            f"SkuelLinter.ENTITY_TYPE_ENUM_VALUES has values not in "
+            f"EntityType/NonKuDomain: {sorted(extra)}. Move them to "
+            f"LEGACY_ENTITY_TYPE_ALIASES if they are stale identifiers worth "
+            f"catching, else remove them."
+        )
+
+    def test_legacy_aliases_disjoint_from_enum_values(self) -> None:
+        # A name can't be both current and legacy — when an alias becomes a real
+        # enum value (or vice versa), the catalogs must be updated.
+        from core.models.enums.entity_enums import EntityType, NonKuDomain
+
+        actual = {m.value for m in EntityType} | {m.value for m in NonKuDomain}
+        overlap = set(SkuelLinter.LEGACY_ENTITY_TYPE_ALIASES) & actual
+        assert not overlap, (
+            f"LEGACY_ENTITY_TYPE_ALIASES contains current enum values: "
+            f"{sorted(overlap)}. Remove them from the legacy set — "
+            f"ENTITY_TYPE_ENUM_VALUES already covers them."
+        )
 
 
 # ============================================================================

@@ -167,7 +167,7 @@ def _calendar_button(active_page: str) -> A:
     Desktop-only (like Search): mobile keeps the 44px tap-target minimum by
     folding Calendar into the bottom nav instead of a seventh top-bar icon.
     """
-    is_active = active_page == "calendar"
+    is_active = active_page == "calendar"  # skuel-lint: disable=SKUEL014 -- nav page id
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     return A(
         Span("Calendar", cls="sr-only"),

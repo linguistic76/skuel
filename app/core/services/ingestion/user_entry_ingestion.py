@@ -298,7 +298,7 @@ async def build_user_entry_request(
         # Expand to the user's group memberships. Empty list means the user
         # has no groups; entry persists privately with no shares.
         share_with_groups = await audience_resolver.resolve_default_teachers(user_uid)
-    elif audience.kind == "group":
+    elif audience.kind == "group":  # skuel-lint: disable=SKUEL014 -- audience kind, not domain
         assert audience.group_uid is not None  # parser guarantees this
         share_with_groups = [audience.group_uid]
     elif audience.kind == "public":

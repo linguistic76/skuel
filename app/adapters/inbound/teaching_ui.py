@@ -72,6 +72,10 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.routes.teaching.ui")
 
+# Review-page section tabs. Tab ids are UI naming — "ku" the tab, not the
+# entity_type value (route segments and tab ids never carry enum semantics).
+_REVIEW_TAB_IDS = ("pending", "revision", "completed", "ku")
+
 
 def _new_group_modal() -> Any:
     """Modal form that POSTs JSON to /api/groups/create and refreshes on success."""
@@ -417,7 +421,7 @@ def create_teaching_ui_routes(
 
         # Determine default section from query param or submission state
         tab_param = request.query_params.get("tab")
-        if tab_param in ("pending", "revision", "completed", "ku"):
+        if tab_param in _REVIEW_TAB_IDS:
             default_section = tab_param
         elif pending:
             default_section = "pending"

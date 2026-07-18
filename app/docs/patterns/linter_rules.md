@@ -97,7 +97,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -342,9 +342,30 @@ if domain == NonKuDomain.FINANCE:
 **Detection (AST, 2026-07):** flags COMPARISON shapes only — `== / !=` against an
 entity-type string (either side, case-insensitive), `"task" in x` membership, and
 `x in ("task", "goal")` literal containers (including multi-line ones the old
-single-line regex missed). A Compare that references `EntityType` / `NonKuDomain`
-anywhere in it (e.g. `EntityType.TASK.value == raw`) is exempt. Plain string
+single-line regex missed). A Compare that references `EntityType` / `NonKuDomain` /
+`Domain` anywhere in it (e.g. `EntityType.TASK.value == raw`) is exempt — `Domain`
+is included because its values overlap the catalog ("learning", "finance", …), so a
+comparison routed through it is enum-safe, just a different taxonomy. Plain string
 literals outside comparisons (dict keys, log messages) are deliberately not flagged.
+
+**Scope:** any `/services/` path **plus the inbound/presentation layers** —
+`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07, same layers as SKUEL013).
+Test files are skipped.
+
+**Catalog (2026-07):** `ENTITY_TYPE_ENUM_VALUES` mirrors the **complete**
+`EntityType` + `NonKuDomain` value sets (29 values), pinned by
+`TestEntityTypeCatalogDrift` in `test_lint_skuel.py` — it previously drifted to 22
+values (all six `*_template` types, `user_entry`, and `group`/`calendar`/`learning`
+were missing). `LEGACY_ENTITY_TYPE_ALIASES` additionally catches comparisons against
+stale identifiers from removed/renamed types (`lesson`, `submission`, `je_input`, …);
+it is hand-curated, and a drift test keeps it disjoint from the live enum values.
+
+**Suppression:** boundary-shaped comparisons against a *local* taxonomy whose values
+merely collide with entity-type names are legitimate — e.g. a progress-state form
+protocol (`state == "learning"`), UI tab ids (`tab in (..., "ku")`), a source-kind
+union (`kind == "submission"` meaning ku|submission|web), table column-header labels,
+or an active-page nav id (`page == "calendar"`). Annotate with
+`# skuel-lint: disable=SKUEL014 -- <reason>`.
 
 **Rationale:**
 - Type safety with compile-time verification

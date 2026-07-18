@@ -1,3 +1,4 @@
+# skuel-lint: disable-file=SKUEL014 -- source-kind taxonomy (ku|submission|web), not entity_type
 """Askesis chat shell — three-column full-height layout.
 
 Three zones: conversation sidebar · message thread · composer (inline in thread).
