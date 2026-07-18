@@ -33,7 +33,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 8: Schedule-Aware Recommendations
     # =========================================================================
 
-    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL005 -- fail-soft intelligence read: degrades to fewer/no recommendations, not an error
+    async def get_schedule_aware_recommendations(  # skuel-lint: disable=SKUEL005 -- fail-soft intelligence read: degrades to fewer/no recommendations, not an error  # skuel-lint: disable=SKUEL029 -- facade-delegated (askesis_service awaits via intelligence)
         self,
         max_recommendations: int = 5,
         time_horizon_hours: int = 8,
@@ -82,16 +82,16 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             )
 
         # Gather candidates from each domain and score them
-        task_recs = await self._get_task_schedule_recommendations(
+        task_recs = self._get_task_schedule_recommendations(
             available_minutes, current_energy, current_time_slot, respect_energy
         )
-        habit_recs = await self._get_habit_schedule_recommendations(
+        habit_recs = self._get_habit_schedule_recommendations(
             available_minutes, current_energy, current_time_slot, respect_energy
         )
-        learning_recs = await self._get_learning_schedule_recommendations(
+        learning_recs = self._get_learning_schedule_recommendations(
             available_minutes, current_energy, current_time_slot, respect_energy
         )
-        goal_recs = await self._get_goal_schedule_recommendations(
+        goal_recs = self._get_goal_schedule_recommendations(
             available_minutes, current_energy, current_time_slot, respect_energy
         )
 
@@ -163,7 +163,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
             overall_score=0.95,
         )
 
-    async def _get_task_schedule_recommendations(
+    def _get_task_schedule_recommendations(
         self,
         available_minutes: int,
         current_energy: str,
@@ -234,7 +234,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         return recommendations
 
-    async def _get_habit_schedule_recommendations(
+    def _get_habit_schedule_recommendations(
         self,
         available_minutes: int,
         current_energy: str,
@@ -310,7 +310,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         return recommendations
 
-    async def _get_learning_schedule_recommendations(
+    def _get_learning_schedule_recommendations(
         self,
         available_minutes: int,
         current_energy: str,
@@ -360,7 +360,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
 
         return recommendations
 
-    async def _get_goal_schedule_recommendations(
+    def _get_goal_schedule_recommendations(
         self,
         available_minutes: int,
         current_energy: str,

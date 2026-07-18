@@ -461,7 +461,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 2: Learning Path Critical Path
     # =========================================================================
 
-    async def get_learning_path_critical_path(self) -> Result[list[str]]:
+    async def get_learning_path_critical_path(
+        self,
+    ) -> Result[
+        list[str]
+    ]:  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         """
         What's the fastest route to life path alignment?
 
@@ -581,7 +585,11 @@ class LearningIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 4: Unblocking Priority Order
     # =========================================================================
 
-    async def get_unblocking_priority_order(self) -> Result[list[tuple[str, int]]]:
+    async def get_unblocking_priority_order(
+        self,
+    ) -> Result[
+        list[tuple[str, int]]
+    ]:  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         """
         What should I learn first to unlock the most items?
 

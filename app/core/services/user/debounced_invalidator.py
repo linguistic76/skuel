@@ -77,7 +77,7 @@ class DebouncedContextInvalidator:
         self._pending_reasons: dict[UserUID, list[str]] = {}
         logger.debug(f"DebouncedContextInvalidator initialized (delay={delay_ms}ms)")
 
-    async def invalidate(  # skuel-lint: disable=SKUEL005 -- fire-and-forget debounced cache invalidation from event handlers
+    def invalidate(
         self,
         user_uid: UserUID,
         reason: str = "event",

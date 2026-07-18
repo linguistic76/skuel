@@ -30,7 +30,11 @@ class LifePathIntelligenceMixin(IntelligenceMixinBase):
     # METHOD 7: Life Path Alignment
     # =========================================================================
 
-    async def calculate_life_path_alignment(self) -> Result[LifePathAlignment]:
+    async def calculate_life_path_alignment(
+        self,
+    ) -> Result[
+        LifePathAlignment
+    ]:  # skuel-lint: disable=SKUEL029 -- askesis_protocols protocol method + facade-delegated
         """
         Calculate comprehensive life path alignment.
 
