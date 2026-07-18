@@ -67,3 +67,7 @@ class FastHTMLApp(Protocol):
     def get(self, path: str) -> Any:
         """Register a GET route handler (Starlette-style decorator)."""
         ...
+
+    def add_exception_handler(self, exc_class_or_status_code: Any, handler: Any) -> None:
+        """Register a Starlette exception handler (see boundary.install_malformed_json_guard)."""
+        ...

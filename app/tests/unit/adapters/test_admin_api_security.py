@@ -155,8 +155,10 @@ class TestHardDeleteGuards:
 
     def test_non_json_body_refuses(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # text/plain so the malformed body reaches the route's own guard —
-        # FastHTML pre-parses application/json bodies during param extraction
-        # and 500s on malformed JSON before any handler code runs.
+        # FastHTML pre-parses application/json bodies during param extraction,
+        # where malformed JSON is handled by the app-wide 400 chokepoint
+        # instead (install_malformed_json_guard, wired in bootstrap; pinned by
+        # test_malformed_json_guard.py), never by handler code.
         client, service = _make_client(monkeypatch)
 
         token = mint_token()
