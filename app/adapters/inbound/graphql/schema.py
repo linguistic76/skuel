@@ -1066,7 +1066,7 @@ class Mutation:
     """
 
     @strawberry.mutation
-    async def placeholder(self) -> str:
+    def placeholder(self) -> str:
         """
         Placeholder mutation to satisfy GraphQL schema requirements.
 

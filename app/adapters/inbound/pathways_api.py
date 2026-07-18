@@ -173,7 +173,11 @@ def create_pathways_api_routes(
 
     @rt("/api/pathways/recommendations")
     @boundary_handler()
-    async def get_path_recommendations_route(request: Request) -> Result[dict[str, Any]]:
+    async def get_path_recommendations_route(
+        request: Request,
+    ) -> Result[
+        dict[str, Any]
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """Get recommended learning paths for a user."""
         require_authenticated_user(request)
 

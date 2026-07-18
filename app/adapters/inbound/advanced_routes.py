@@ -217,7 +217,11 @@ def create_performance_routes(
     @rt("/performance/cache-stats")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def cache_stats(request: Request, current_user: Any = None) -> Result[Any]:
+    async def cache_stats(
+        request: Request, current_user: Any = None
+    ) -> Result[
+        Any
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """Get cache performance statistics (hit rate, size, evictions, efficiency)."""
         stats = performance_optimization.inference_engine.get_cache_stats()
         return Result.ok(stats)
@@ -233,7 +237,7 @@ def create_performance_routes(
     @rt("/performance/scale-test")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def scale_test(
+    async def scale_test(  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         request: Request, current_user: Any, concurrent_users: int = 100, duration_seconds: int = 60
     ) -> Result[dict[str, Any]]:
         """
