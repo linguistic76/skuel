@@ -97,7 +97,7 @@ class CalendarOptimizationOrchestrator:
                 extra={"date": str(target_date), "error": str(events_result.error)},
             )
 
-        return await self._calendar.optimize_knowledge_scheduling(
+        return self._calendar.optimize_knowledge_scheduling(
             user_uid=user_uid,
             target_date=target_date,
             tasks=task_list,
@@ -136,7 +136,7 @@ class CalendarOptimizationOrchestrator:
 
         analyses: list[dict[str, Any]] = []
         for task in task_list:
-            analysis = await self._calendar._analyze_task_cognitive_load(task, [])
+            analysis = self._calendar._analyze_task_cognitive_load(task, [])
             analyses.append(
                 {
                     "task_uid": task.uid,

@@ -224,7 +224,7 @@ class CalendarOptimizationService:
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
 
-    async def optimize_knowledge_scheduling(
+    def optimize_knowledge_scheduling(
         self,
         user_uid: UserUID,
         target_date: date,
@@ -249,7 +249,7 @@ class CalendarOptimizationService:
         """
         try:
             # Get user's energy profile
-            energy_profile = await self._get_user_energy_profile(user_uid)
+            energy_profile = self._get_user_energy_profile(user_uid)
 
             # Analyze existing commitments
             existing_slots = self._analyze_existing_commitments(events, target_date)
@@ -262,22 +262,20 @@ class CalendarOptimizationService:
             # Analyze cognitive load requirements
             task_loads = {}
             for task in tasks:
-                task_loads[task.uid] = await self._analyze_task_cognitive_load(
-                    task, knowledge_units
-                )
+                task_loads[task.uid] = self._analyze_task_cognitive_load(task, knowledge_units)
 
             # Apply optimization strategy
-            optimization = await self._apply_optimization_strategy(
+            optimization = self._apply_optimization_strategy(
                 strategy, available_slots, tasks, task_loads, knowledge_units, energy_profile
             )
 
             # Generate learning sessions
-            learning_sessions = await self._plan_learning_sessions(
+            learning_sessions = self._plan_learning_sessions(
                 user_uid, available_slots, knowledge_units, energy_profile
             )
 
             # Create knowledge scheduling recommendations
-            recommendations = await self._generate_scheduling_recommendations(
+            recommendations = self._generate_scheduling_recommendations(
                 user_uid, tasks, knowledge_units, available_slots, energy_profile
             )
 
@@ -317,7 +315,7 @@ class CalendarOptimizationService:
 
     # Private helper methods
 
-    async def _get_user_energy_profile(self, _user_uid: UserUID) -> EnergyProfile:
+    def _get_user_energy_profile(self, _user_uid: UserUID) -> EnergyProfile:
         """Get user's energy profile - for demo, return realistic pattern."""
         return EnergyProfile(
             peak_hours=[9, 10, 11],  # Morning peak
@@ -471,7 +469,7 @@ class CalendarOptimizationService:
 
         return cognitive_capacity * 0.4 + interruption_factor * 0.3 + learning_factor * 0.3
 
-    async def _analyze_task_cognitive_load(
+    def _analyze_task_cognitive_load(
         self, task: TaskDTO, _knowledge_units: list[KnowledgeUnitDTO]
     ) -> CognitiveLoadAnalysis:
         """
@@ -537,7 +535,7 @@ class CalendarOptimizationService:
         }
         return complexity_map.get(domain, 0.5)
 
-    async def _apply_optimization_strategy(
+    def _apply_optimization_strategy(
         self,
         strategy: SchedulingStrategy,
         available_slots: list[OptimizedTimeSlot],
@@ -779,7 +777,7 @@ class CalendarOptimizationService:
         optimal_matches = sum(1 for s in schedule.values() if s.get("energy_match") == "optimal")
         return optimal_matches / len(schedule)
 
-    async def _plan_learning_sessions(
+    def _plan_learning_sessions(
         self,
         _user_uid: UserUID,
         available_slots: list[OptimizedTimeSlot],
@@ -826,7 +824,7 @@ class CalendarOptimizationService:
 
         return sessions
 
-    async def _generate_scheduling_recommendations(
+    def _generate_scheduling_recommendations(
         self,
         _user_uid: UserUID,
         _tasks: list[TaskDTO],

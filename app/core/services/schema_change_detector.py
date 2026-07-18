@@ -134,7 +134,7 @@ class SchemaChangeDetector:
         # Changes detected - analyze them
         self.logger.info("Schema changes detected, analyzing...")
 
-        change_report = await self._analyze_changes(
+        change_report = self._analyze_changes(
             self._current_fingerprint, new_fingerprint, new_schema
         )
 
@@ -155,7 +155,7 @@ class SchemaChangeDetector:
 
         return Result.ok(change_report)
 
-    async def _analyze_changes(
+    def _analyze_changes(
         self, old_fp: SchemaFingerprint, new_fp: SchemaFingerprint, new_schema: SchemaContext
     ) -> SchemaChangeReport:
         """Analyze specific changes between two schema states"""
@@ -321,7 +321,11 @@ class SchemaChangeDetector:
         return recommendations
 
     @with_error_handling("start_monitoring", error_type="system")
-    async def start_monitoring(self, interval_seconds: int | None = None) -> Result[bool]:
+    async def start_monitoring(
+        self, interval_seconds: int | None = None
+    ) -> Result[
+        bool
+    ]:  # skuel-lint: disable=SKUEL029 -- lifecycle: spawns _monitoring_loop via create_task; awaited by neo4j_adapter
         """Start continuous schema monitoring"""
         if self._is_monitoring:
             return Result.ok(True)  # Already monitoring
@@ -511,11 +515,11 @@ class AdaptiveOptimizationHandler:
 
             # Update optimization systems
             if report.requires_reoptimization:
-                await self._update_optimizations(report)
+                self._update_optimizations(report)
 
             # Handle breaking changes
             if report.has_breaking_changes:
-                await self._handle_breaking_changes(report)
+                self._handle_breaking_changes(report)
 
             event.mark_handled()
 
@@ -530,7 +534,7 @@ class AdaptiveOptimizationHandler:
 
         self.logger.info("Invalidated schema caches")
 
-    async def _update_optimizations(self, _report: SchemaChangeReport) -> None:
+    def _update_optimizations(self, _report: SchemaChangeReport) -> None:
         """Update query optimization systems based on changes"""
         from contextlib import suppress
 
@@ -544,7 +548,7 @@ class AdaptiveOptimizationHandler:
 
         self.logger.info("Updated optimization systems for schema changes")
 
-    async def _handle_breaking_changes(self, report: SchemaChangeReport) -> None:
+    def _handle_breaking_changes(self, report: SchemaChangeReport) -> None:
         """Handle breaking changes that might affect existing queries"""
         breaking_changes = report.get_changes_by_impact(ChangeImpact.CRITICAL)
 
