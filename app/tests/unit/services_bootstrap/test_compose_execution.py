@@ -21,7 +21,7 @@ original traceback, not a Result failure.
 """
 
 import dataclasses
-from typing import Any
+from typing import NoReturn
 
 import pytest
 
@@ -260,14 +260,14 @@ class _NoDatabaseDriver:
     against a nonexistent database.
     """
 
-    def session(self, **_session_config: Any) -> Any:
+    def session(self, **_session_config: object) -> NoReturn:
         raise AssertionError(
             "compose_services opened a Neo4j session during composition — "
             "startup DB work must go through a seam patched in "
             "_patch_db_startup_seams (see this test module)."
         )
 
-    async def execute_query(self, *_args: Any, **_kwargs: Any) -> Any:
+    async def execute_query(self, *_args: object, **_kwargs: object) -> NoReturn:
         raise AssertionError(
             "compose_services executed a Neo4j query during composition — "
             "startup DB work must go through a seam patched in "
@@ -347,7 +347,9 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
         calls[name] = calls.get(name, 0) + 1
 
     def _make_sync_stub(name: str):
-        async def _fake_sync(self: Any, *args: Any, **kwargs: Any) -> Result[dict[str, Any]]:
+        async def _fake_sync(
+            self: Neo4jSchemaManager, *args: object, **kwargs: object
+        ) -> Result[dict[str, list[str]]]:
             _record(name)
             return Result.ok({"created": [], "failed": []})
 
@@ -362,14 +364,14 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
     ):
         monkeypatch.setattr(Neo4jSchemaManager, sync_method, _make_sync_stub(sync_method))
 
-    async def _fake_drop_stale(self: Any) -> Result[dict[str, Any]]:
+    async def _fake_drop_stale(self: Neo4jSchemaManager) -> Result[dict[str, list[str]]]:
         _record("drop_stale_indexes")
         return Result.ok({"dropped": [], "failed": []})
 
     monkeypatch.setattr(Neo4jSchemaManager, "drop_stale_indexes", _fake_drop_stale)
 
     def _make_cleanup_stub(name: str):
-        async def _fake_cleanup(self: Any) -> Result[int]:
+        async def _fake_cleanup(self: SessionBackend) -> Result[int]:
             _record(name)
             return Result.ok(0)
 
@@ -382,7 +384,7 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
         SessionBackend, "cleanup_expired_tokens", _make_cleanup_stub("cleanup_expired_tokens")
     )
 
-    async def _fake_ensure_system_user(self: Any) -> Result[Any]:
+    async def _fake_ensure_system_user(self: UserService) -> Result[None]:
         _record("ensure_system_user")
         # compose only checks is_error; the User payload is never read there.
         return Result.ok(None)
@@ -391,7 +393,7 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
 
     # initialize() starts background asyncio tasks — construction is what's
     # under test, so keep the loop clean.
-    async def _fake_perf_initialize(self: Any) -> None:
+    async def _fake_perf_initialize(self: PerformanceOptimizationService) -> None:
         _record("performance_optimization.initialize")
 
     monkeypatch.setattr(PerformanceOptimizationService, "initialize", _fake_perf_initialize)
