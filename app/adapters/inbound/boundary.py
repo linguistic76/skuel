@@ -17,15 +17,18 @@ import logging
 import time
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
+from json import JSONDecodeError
 from types import MappingProxyType
 from typing import Any, ParamSpec
 
 from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from adapters.inbound.fasthtml_types import FastHTMLApp
 from core.utils.logging import get_logger
-from core.utils.result_simplified import ErrorCategory, ErrorContext, Result
+from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +196,33 @@ def boundary_handler(
         return wrapper
 
     return decorator
+
+
+def malformed_json_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Map a body-parse ``JSONDecodeError`` to a 400 validation response.
+
+    FastHTML pre-parses ``application/json`` bodies during parameter
+    extraction, BEFORE any handler runs — so a route's own malformed-body
+    guard never executes and the raw ``JSONDecodeError`` would surface as a
+    500. This is the single chokepoint that converts it to the same
+    ``Errors.validation`` shape every API boundary emits.
+
+    Only requests that declared a JSON content type are converted; a
+    ``JSONDecodeError`` escaping a handler on any other request is a genuine
+    server bug and is re-raised to keep its 500.
+
+    Register via ``install_malformed_json_guard(app)`` (wired once at
+    bootstrap in ``_create_web_app``).
+    """
+    content_type = request.headers.get("content-type", "")
+    if not content_type.lower().startswith("application/json"):
+        raise exc
+    return result_to_response(Result.fail(Errors.validation("Malformed JSON in request body")))
+
+
+def install_malformed_json_guard(app: FastHTMLApp) -> None:
+    """Register the malformed-JSON → 400 handler on a FastHTML/Starlette app."""
+    app.add_exception_handler(JSONDecodeError, malformed_json_handler)
 
 
 def _get_status_for_error(error: ErrorContext) -> int:
