@@ -159,6 +159,20 @@ async def test_unsafe_relationship_type_is_rejected():
 
 
 @pytest.mark.asyncio
+async def test_unknown_label_is_rejected_on_fulltext_path_too():
+    """Validation must not depend on which indexes exist: even when the
+    fulltext variant carries the label as a driver parameter, an invalid
+    label is rejected instead of silently matching nothing."""
+    result = await _registry([_fulltext_index()]).from_template(
+        "text_search",
+        {"label": "NotALabel", "property": "title", "search_term": "x"},
+    )
+
+    assert result.is_error
+    assert "not a valid NeoLabel" in result.expect_error().message
+
+
+@pytest.mark.asyncio
 async def test_unregistered_relationship_type_is_rejected():
     """A syntactically safe but unknown edge type must not render into
     executable Cypher — rel_type slots validate against RelationshipName."""

@@ -376,16 +376,18 @@ class QueryTemplateRegistry:
 
         Label slots must be a known NeoLabel, relationship-type slots a known
         RelationshipName, and any other slot a safe Cypher identifier. Raises
-        ValueError on invalid values. An optimization variant may not contain
-        a given slot (e.g. the fulltext variant uses the label as a driver
-        parameter) — absent placeholders are skipped.
+        ValueError on invalid values. Validation runs for every supplied
+        structural value even when the selected optimization variant does not
+        contain its placeholder (e.g. the fulltext variant uses the label as a
+        driver parameter) — only the splice itself is conditional, so behavior
+        does not depend on which indexes exist.
         """
         for key in sorted(spec.structural_parameters):
             placeholder = f"{{{key}}}"
-            if placeholder not in cypher:
-                continue
             if key not in params:
-                raise ValueError(f"Missing structural parameter: {key!r}")
+                if placeholder in cypher:
+                    raise ValueError(f"Missing structural parameter: {key!r}")
+                continue
             value = str(params[key])
             if key == "label":
                 validate_label(NeoLabel(value))
@@ -393,7 +395,8 @@ class QueryTemplateRegistry:
                 RelationshipName(value)
             else:
                 validate_identifier(value, context=key)
-            cypher = cypher.replace(placeholder, value)
+            if placeholder in cypher:
+                cypher = cypher.replace(placeholder, value)
         return cypher
 
     def get_template_library(self) -> dict[str, list[str]]:
