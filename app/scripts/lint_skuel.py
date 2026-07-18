@@ -963,6 +963,7 @@ class SkuelLinter:
             "SKUEL025",
             "SKUEL027",
             "SKUEL028",
+            "SKUEL029",
         }
     )
 
@@ -1305,6 +1306,36 @@ class SkuelLinter:
             shadow_violations = shadow.result.violations
             fired_rules = {v.rule_id for v in shadow_violations}
 
+            # The suppression-honored baseline: violations that SURVIVE with the
+            # comment's strict-substring semantics applied. For rules the main
+            # sweep ran, that IS `main_violations`. But an OPT_IN_RULES member
+            # (e.g. SKUEL029) never ran in the main sweep, so a MALFORMED comment
+            # there (loosely discovered but not strictly matched by
+            # `_is_line_suppressed`) has no main violation to compare against and
+            # would be wrongly credited as used. Reconstruct the honored baseline
+            # for those rules with a suppression-respecting shadow lint so a
+            # comment that does not actually suppress is still flagged (Codex P2
+            # on #679; the `suppressible`-only guard sufficed only while SKUEL029
+            # was non-suppressible — #678).
+            opt_in_rules = sorted(
+                {c.rule_id for c in comments if not self._should_run_rule(c.rule_id)}
+            )
+            honored_violations: list[Violation] = []
+            if opt_in_rules:
+                honored = SkuelLinter(
+                    self.root_dir,
+                    rules_filter=opt_in_rules,
+                    ignore_suppressions=False,
+                )
+                honored._lint_file(file_path)
+                honored_violations = honored.result.violations
+            # `main_violations` is the global snapshot; `honored_violations` is
+            # this file only. Both are filtered per-comment by `rel_str` below.
+            baseline_violations = main_violations + honored_violations
+            baseline_file_hits = main_file_hits | {
+                (str(v.file_path), v.rule_id) for v in honored_violations
+            }
+
             for comment in comments:
                 rel_str = str(comment.file_path)
                 fired = (
@@ -1315,24 +1346,23 @@ class SkuelLinter:
                     )
                 )
                 # Only a SUPPRESSIBLE rule can earn "used" credit: for any other
-                # rule the comment is inert by construction. Without this guard,
-                # a comment naming an OPT_IN_RULES member (e.g. SKUEL029) would
-                # be silently credited — the shadow run fires (explicit filter
-                # bypasses the opt-in gate) while the main sweep never ran the
-                # rule at all, so `fired and not hit_in_main` reads as
-                # "suppressed" (Codex P2 on #678).
+                # rule the comment is inert by construction. Combined with the
+                # honored baseline above, this flags both non-suppressible-rule
+                # comments and malformed comments for opt-in suppressible rules.
                 suppressible = comment.rule_id in self.SUPPRESSIBLE_RULES
                 if comment.file_level:
                     comment.used = (
-                        suppressible and fired and (rel_str, comment.rule_id) not in main_file_hits
+                        suppressible
+                        and fired
+                        and (rel_str, comment.rule_id) not in baseline_file_hits
                     )
                 else:
-                    hit_in_main = self._fires_at_line(
-                        [v for v in main_violations if str(v.file_path) == rel_str],
+                    hit_in_baseline = self._fires_at_line(
+                        [v for v in baseline_violations if str(v.file_path) == rel_str],
                         comment.rule_id,
                         comment.line_number,
                     )
-                    comment.used = suppressible and fired and not hit_in_main
+                    comment.used = suppressible and fired and not hit_in_baseline
                 self.result.suppressions.append(comment)
                 if comment.used:
                     continue
@@ -4194,6 +4224,8 @@ class SkuelLinter:
 
         Opt-in audit (see OPT_IN_RULES): run via --rule SKUEL029.
         """
+        if self._is_file_suppressed(content, "SKUEL029"):
+            return
         if tree is None:
             return
 
@@ -4247,12 +4279,22 @@ class SkuelLinter:
             ):
                 continue
 
-            line_num = node.lineno
-            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            # Suppression honored on any line of the (possibly ruff-wrapped)
+            # async-def header; the span is recorded so the SKUEL026 audit reads
+            # the SAME lines (matches SKUEL005's def-signature handling).
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL029")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
+
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=line_num,
+                    line_number=start,
                     column=node.col_offset,
                     severity=Severity.INFO,
                     rule_id="SKUEL029",
@@ -4262,6 +4304,7 @@ class SkuelLinter:
                         "only if an interface/protocol requires it"
                     ),
                     line_content=line.strip(),
+                    suppression_span=(start, end),
                 )
             )
 

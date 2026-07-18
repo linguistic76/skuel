@@ -169,7 +169,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027, SKUEL028 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL029 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python
