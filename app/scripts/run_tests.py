@@ -186,7 +186,15 @@ def main():
         extra_args.extend(["-k", args.k])
 
     if args.cov:
-        extra_args.extend(["--cov=core", "--cov-report=term-missing"])
+        extra_args.extend(
+            [
+                "--cov=core",
+                "--cov=adapters",
+                "--cov=ui",
+                "--cov=services_bootstrap",
+                "--cov-report=term-missing",
+            ]
+        )
 
     if args.tb:
         extra_args.append(f"--tb={args.tb}")
