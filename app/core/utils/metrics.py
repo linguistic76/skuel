@@ -117,7 +117,7 @@ def track_query_metrics(operation_name: str | None = None):
                 # Record timing
                 if _query_metrics_cache:
                     duration_ms = (time.perf_counter() - start_time) * 1000
-                    await _query_metrics_cache.record_timing(op_name, duration_ms, had_error)
+                    _query_metrics_cache.record_timing(op_name, duration_ms, had_error)
 
         @wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -142,7 +142,7 @@ def track_query_metrics(operation_name: str | None = None):
                 # Record timing
                 if _query_metrics_cache:
                     duration_ms = (time.perf_counter() - start_time) * 1000
-                    _query_metrics_cache.record_timing_sync(op_name, duration_ms, had_error)
+                    _query_metrics_cache.record_timing(op_name, duration_ms, had_error)
 
         # Return appropriate wrapper based on function type
         if inspect.iscoroutinefunction(func):
@@ -170,7 +170,7 @@ def get_metrics(operation_name: str | None = None) -> dict[str, Any]:
     """
     if not _query_metrics_cache:
         return {}
-    return _query_metrics_cache.get_metrics_sync(operation_name)
+    return _query_metrics_cache.get_metrics(operation_name)
 
 
 def get_metrics_summary() -> dict[str, Any]:
@@ -196,7 +196,7 @@ def get_metrics_summary() -> dict[str, Any]:
             "enabled": False,
             "cache_note": "Query metrics cache not initialized. Call set_query_metrics_cache() during bootstrap.",
         }
-    return _query_metrics_cache.get_summary_sync()
+    return _query_metrics_cache.get_summary()
 
 
 def reset_metrics():
@@ -207,7 +207,7 @@ def reset_metrics():
     Useful for testing.
     """
     if _query_metrics_cache:
-        _query_metrics_cache.reset_sync()
+        _query_metrics_cache.reset()
 
 
 def enable_metrics():
@@ -266,7 +266,7 @@ class MetricsTimer:
         if _query_metrics_cache:
             duration_ms = (time.perf_counter() - self.start_time) * 1000
             had_error = exc_type is not None
-            _query_metrics_cache.record_timing_sync(self.operation_name, duration_ms, had_error)
+            _query_metrics_cache.record_timing(self.operation_name, duration_ms, had_error)
         # Don't suppress exceptions (return None or False)
 
 
