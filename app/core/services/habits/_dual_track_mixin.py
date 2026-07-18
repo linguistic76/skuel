@@ -99,7 +99,7 @@ class _DualTrackMixin:
             store_callback=self._store_dual_track_checkin,
         )
 
-    async def _calculate_system_consistency(
+    async def _calculate_system_consistency(  # skuel-lint: disable=SKUEL029 -- dual-track system_calculator callback: typed Awaitable + awaited by base_analytics_service
         self, habit: Habit, _user_uid: UserUID
     ) -> tuple[ConsistencyLevel, float, list[str]]:
         """
