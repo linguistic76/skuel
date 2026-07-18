@@ -65,7 +65,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def attach_step_to_path_route(
-        request: Request, current_user: Any, step_uid: str
+        request: Request, step_uid: str, current_user: Any = None
     ) -> Result[bool]:
         """Attach a path step to a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
@@ -81,7 +81,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def detach_step_from_path_route(
-        request: Request, current_user: Any, step_uid: str
+        request: Request, step_uid: str, current_user: Any = None
     ) -> Result[bool]:
         """Detach a path step from a learning path. Requires ADMIN role (curriculum write)."""
         result = await parse_json_body(request, PathStepPathRequest)
@@ -128,7 +128,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def create_step_relationship_route(
-        request: Request, current_user: Any, uid: str
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[bool]:
         """Create a semantic relationship between path steps. Requires ADMIN role."""
         result = await parse_json_body(request, StepRelationshipCreateRequest)
@@ -174,7 +174,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def update_step_content_route(
-        request: Request, current_user: Any, uid: str
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[PathStep]:
         """Update path step content. Requires ADMIN role."""
         result = await parse_json_body(request, StepContentUpdateRequest)
@@ -188,7 +188,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def add_step_tags_route(
-        request: Request, current_user: Any, uid: str
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[PathStep]:
         """Add tags to a path step. Requires ADMIN role."""
         result = await parse_json_body(request, AddTagsRequest)
@@ -202,7 +202,7 @@ def create_path_steps_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def remove_step_tags_route(
-        request: Request, current_user: Any, uid: str
+        request: Request, uid: str, current_user: Any = None
     ) -> Result[PathStep]:
         """Remove tags from a path step. Requires ADMIN role."""
         result = await parse_json_body(request, RemoveTagsRequest)
