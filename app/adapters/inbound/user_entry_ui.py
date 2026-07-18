@@ -319,7 +319,9 @@ def create_user_entry_ui_routes(
         return await _exercise_page(request)
 
     @rt("/submit")
-    async def submit_redirect(request: Request) -> Any:
+    def submit_redirect(
+        request: Request,
+    ) -> Any:
         """Legacy URL — redirect to canonical /submissions/exercise.
 
         Query params must survive: the PS learning-loop "Submit →" links carry

@@ -106,7 +106,7 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
-    async def new_exercise_form(request, current_user=None) -> Any:
+    def new_exercise_form(request, current_user=None) -> Any:
         """New exercise form."""
         user_uid = current_user.uid if current_user else None
 

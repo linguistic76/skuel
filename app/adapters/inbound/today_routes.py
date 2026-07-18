@@ -193,7 +193,9 @@ def create_today_routes(
 
     @rt("/today/lifepaths/{uid}/wake", methods=["POST"])
     @csrf_protected
-    async def today_lifepath_wake(request: Request, uid: str) -> Response:
+    async def today_lifepath_wake(
+        request: Request, uid: str
+    ) -> Response:  # skuel-lint: disable=SKUEL029 -- wrapped by @csrf_protected which awaits the handler unconditionally (csrf.py)
         """Clear the dormant flag on a LifePath ribbon.
 
         There is no server-side dormancy state yet — dormancy is computed

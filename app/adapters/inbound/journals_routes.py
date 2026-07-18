@@ -759,7 +759,7 @@ def create_journals_routes(
     # ------------------------------------------------------------------
 
     @rt("/journals/je-out/{filename}", methods=["GET"])
-    async def journals_download_output(request: Request, filename: str) -> Any:
+    def journals_download_output(request: Request, filename: str) -> Any:
         """Serve a journal output from je_out/ as a file download.
 
         je_out/ is the user's own, flat, local staging folder (ADR-073): outputs

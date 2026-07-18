@@ -157,7 +157,9 @@ def create_calendar_ui_routes(_app, rt, calendar_service, habits_service):
     """Register calendar page and HTMX fragment routes."""
 
     @rt("/cal")
-    async def calendar_today(request: Request) -> Any:
+    def calendar_today(
+        request: Request,
+    ) -> Any:
         """Entry point — redirect to current month calendar view."""
         require_authenticated_user(request)
         today = date.today()

@@ -59,7 +59,7 @@ def create_system_ui_routes(
         return render_login_landing_page()
 
     @rt("/404")
-    async def not_found() -> Any:
+    def not_found() -> Any:
         """404 Not Found page."""
         return render_404_page()
 
