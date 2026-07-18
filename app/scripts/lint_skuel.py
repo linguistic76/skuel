@@ -1314,15 +1314,25 @@ class SkuelLinter:
                         shadow_violations, comment.rule_id, comment.line_number
                     )
                 )
+                # Only a SUPPRESSIBLE rule can earn "used" credit: for any other
+                # rule the comment is inert by construction. Without this guard,
+                # a comment naming an OPT_IN_RULES member (e.g. SKUEL029) would
+                # be silently credited — the shadow run fires (explicit filter
+                # bypasses the opt-in gate) while the main sweep never ran the
+                # rule at all, so `fired and not hit_in_main` reads as
+                # "suppressed" (Codex P2 on #678).
+                suppressible = comment.rule_id in self.SUPPRESSIBLE_RULES
                 if comment.file_level:
-                    comment.used = fired and (rel_str, comment.rule_id) not in main_file_hits
+                    comment.used = (
+                        suppressible and fired and (rel_str, comment.rule_id) not in main_file_hits
+                    )
                 else:
                     hit_in_main = self._fires_at_line(
                         [v for v in main_violations if str(v.file_path) == rel_str],
                         comment.rule_id,
                         comment.line_number,
                     )
-                    comment.used = fired and not hit_in_main
+                    comment.used = suppressible and fired and not hit_in_main
                 self.result.suppressions.append(comment)
                 if comment.used:
                     continue
@@ -4227,9 +4237,12 @@ class SkuelLinter:
             # An own yield makes this an ASYNC GENERATOR — `async def` is
             # load-bearing there even without awaits: converting to `def`
             # turns the async iterator into a sync generator and breaks every
-            # `async for` caller (Codex P3 on #678).
+            # `async for` caller. Likewise an async comprehension
+            # (`[x async for x in ...]`) is ast.comprehension(is_async=1),
+            # not ast.AsyncFor (both Codex findings on #678).
             if any(
                 isinstance(sub, (ast.Await, ast.AsyncFor, ast.AsyncWith, ast.Yield))
+                or (isinstance(sub, ast.comprehension) and sub.is_async)
                 for sub in own_statements(node)
             ):
                 continue

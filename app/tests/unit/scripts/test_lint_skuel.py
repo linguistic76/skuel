@@ -3431,6 +3431,27 @@ class TestSKUEL026:
         assert len(linter.result.suppressions) == 1
         assert linter.result.suppressions[0].used is True
 
+    def test_opt_in_rule_suppression_never_credited(self, tmp_path: Path) -> None:
+        """A comment naming an opt-in, non-suppressible rule (SKUEL029) must be
+        flagged, not silently credited: the shadow run fires (explicit filter
+        bypasses the opt-in gate) while the main sweep never ran the rule, so
+        without the SUPPRESSIBLE_RULES guard `fired and not hit_in_main` would
+        read as "suppressed" (Codex P2, #678 round 2)."""
+        linter = self._lint_tree(
+            tmp_path,
+            {
+                "core/services/x.py": (
+                    "async def score(items):  # skuel-lint: disable=SKUEL029 -- uniform iface\n"
+                    "    return sorted(items)\n"
+                )
+            },
+        )
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is False
+        skuel026 = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
+        assert len(skuel026) == 1
+        assert "does not support inline suppression" in skuel026[0].message
+
     def test_unused_line_suppression_flagged(self, tmp_path: Path) -> None:
         """A suppression on a line where the rule would not fire is rot."""
         linter = self._lint_tree(
@@ -3874,6 +3895,14 @@ class TestSKUEL029:
             "async def passer():\n"
             "    pass\n"
         )
+        violations = lint_content(linter, content)
+        assert len(violations) == 0
+
+    def test_async_comprehension_exempt(self) -> None:
+        # `[x async for x in ...]` is ast.comprehension(is_async=1), not
+        # ast.AsyncFor — still genuine async work (Codex P3, #678 round 2).
+        linter = make_linter(["SKUEL029"])
+        content = "async def collect(stream):\n    return [x async for x in stream]"
         violations = lint_content(linter, content)
         assert len(violations) == 0
 
