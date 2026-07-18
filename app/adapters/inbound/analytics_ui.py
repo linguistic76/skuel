@@ -65,13 +65,17 @@ def create_analytics_ui_routes(
     """Register analytics UI routes."""
 
     @app.get("/ui/analytics")
-    async def analytics_dashboard(request: Request) -> Any:
+    def analytics_dashboard(
+        request: Request,
+    ) -> Any:
         """Analytics dashboard."""
         require_authenticated_user(request)
         return render_analytics_dashboard(request)
 
     @app.get("/ui/analytics/period-fields")
-    async def get_period_fields(request: Request) -> Any:
+    def get_period_fields(
+        request: Request,
+    ) -> Any:
         """Get dynamic period input fields."""
         require_authenticated_user(request)
         params = parse_period_params(request)

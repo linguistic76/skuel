@@ -111,25 +111,33 @@ def create_askesis_ui_routes(
     routes.append(askesis_home)
 
     @rt("/askesis/new-chat")
-    async def askesis_new_chat(request: Request) -> Any:
+    def askesis_new_chat(
+        request: Request,
+    ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
     routes.append(askesis_new_chat)
 
     @rt("/askesis/history")
-    async def askesis_history(request: Request) -> Any:
+    def askesis_history(
+        request: Request,
+    ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
     routes.append(askesis_history)
 
     @rt("/askesis/analytics")
-    async def askesis_analytics(request: Request) -> Any:
+    def askesis_analytics(
+        request: Request,
+    ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
     routes.append(askesis_analytics)
 
     @rt("/askesis/settings")
-    async def askesis_settings(request: Request) -> Any:
+    def askesis_settings(
+        request: Request,
+    ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
     routes.append(askesis_settings)

@@ -56,7 +56,9 @@ def create_activity_review_ui_routes(
     get_user_service = make_service_getter(orchestrator.user_service)
 
     @rt("/activity-review")
-    async def activity_review_landing(request: Request) -> Any:
+    def activity_review_landing(
+        request: Request,
+    ) -> Any:
         """Redirect to queue."""
         return RedirectResponse("/activity-review/queue", status_code=303)
 

@@ -111,7 +111,9 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/register")
-    async def register_page(request: Request) -> Any:
+    def register_page(
+        request: Request,
+    ) -> Any:
         """Show registration page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
@@ -233,7 +235,9 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/login")
-    async def login_page(request: Request) -> Any:
+    def login_page(
+        request: Request,
+    ) -> Any:
         """Show login page"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):
@@ -343,7 +347,9 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/forgot-password", methods=["GET"])
-    async def forgot_password_page(_request: Request) -> Any:
+    def forgot_password_page(
+        _request: Request,
+    ) -> Any:
         """Show forgot password email form"""
         return AuthComponents.render_forgot_password_form()
 
@@ -374,7 +380,7 @@ def create_auth_ui_routes(
     # ========================================================================
 
     @rt("/reset-password")
-    async def reset_password_page(request: Request, token: str = "") -> Any:
+    def reset_password_page(request: Request, token: str = "") -> Any:
         """Show reset password form where users enter token and new password"""
         # If already logged in, redirect to appropriate hub
         if is_authenticated(request):

@@ -229,7 +229,7 @@ def create_explore_ui_routes(
     # -----------------------------------------------------------------
 
     @rt("/explore/read/{uid}")
-    async def explore_read_ku(request: Request, uid: str) -> Any:
+    def explore_read_ku(request: Request, uid: str) -> Any:
         """KU reader — forwards to the Ku detail page."""
         return RedirectResponse(url=f"/explore/ku/{uid}", status_code=302)
 
