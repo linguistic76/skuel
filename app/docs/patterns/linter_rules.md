@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-03-29
+updated: 2026-07-17
 category: patterns
 related_skills:
 - python
@@ -70,7 +70,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 |------|---------|-------------|
 | **SKUEL005** | Non-Result return types | Async service methods return `Result[T]` (AST rule — catches multi-line signatures; Protocol stubs, nested helpers, `@classmethod` factories exempt) |
 | **SKUEL006** | TODO/FIXME tracking | Categorizes and tracks TODO/FIXME comments [INFO] |
-| **SKUEL007** | String `Result.fail()` | Use `Errors` factory |
+| **SKUEL007** | String `Result.fail()` | Use `Errors` factory (catches literal and `str(...)` first arguments) |
 | **SKUEL008** | Backend wrapper classes | Use `UniversalNeo4jBackend` directly |
 | **SKUEL009** | Tuple defaults | Single-element tuple bug [auto-fix] |
 | **SKUEL010** | Nested tuples | Neo4j can't store nested collections [auto-fix] |
@@ -198,6 +198,10 @@ except AttributeError:
 return Result.fail("Task not found")
 return Result.fail(f"Analysis error: {e}")
 
+# ❌ VIOLATION - str() wrap (dodges the literal shape, same flattening)
+return Result.fail(str(e))
+return Result.fail(str(result.error))
+
 # ❌ VIOLATION - Dict-based error
 return Result.fail({
     "message": "No valid items found",
@@ -211,6 +215,9 @@ return Result.fail(Errors.validation(
     message="No valid items found",
     details={"errors": parse_errors}
 ))
+
+# ✅ CORRECT - Error propagation across type boundaries
+return Result.fail(result)
 ```
 
 **Rationale:**
@@ -219,8 +226,21 @@ return Result.fail(Errors.validation(
 - User-safe messages separate from developer messages
 - Automatic source location tracking
 
-**Exceptions:**
-- Error propagation: `Result.fail(result.error)` is ACCEPTABLE (passing errors up)
+`Result.fail(str(result.error))` deserves special mention: it *looks* like
+propagation but flattens a structured `ErrorContext` into a generic SYSTEM error,
+losing the category, code, and details. Use `Result.fail(result)` — six such
+wraps hid in `ingestion_tracker.py` until the `str(...)` shape was added to the
+pattern (2026-07).
+
+**Detection (2026-07):** regex on the first argument — a string literal
+(plain/f-string, same line or wrapped to the next) or a `str(...)` call. It
+previously matched literals only and carried line-based exemptions for
+`result.error` / `.error)` substrings, which would have masked exactly the
+`str(result.error)` shape; both gaps are closed.
+
+**Scope:** any `/services/` path **plus the inbound/presentation layers** —
+`adapters/inbound/`, `ui/`, and `api/` (widened 2026-07, same layers as
+SKUEL013/SKUEL014). Test files are skipped.
 
 ## Rule: SKUEL012 - Lambda Expressions
 

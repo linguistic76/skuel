@@ -530,7 +530,7 @@ CI Gate is the sole automatic check. Codex review is on-demand via `scripts/requ
 |------|--------|----------|
 | SKUEL001 | No APOC in `core/` (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
-| SKUEL007 | `Errors` factory | ERROR |
+| SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/`, `api/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
 | SKUEL012 | No lambda — named functions | ERROR |
 | SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/`, `api/` | ERROR |

@@ -54,7 +54,7 @@ from core.services.ingestion.types import (
 )
 from core.utils.logging import get_logger
 from core.utils.path_display import display_path
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.ingestion_protocols import IngestionBackendOperations
@@ -261,7 +261,7 @@ class IngestionTracker:
                     "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(result.error))
+            return Result.fail(result)
         return Result.ok(None)
 
     async def get_ingestion_metadata(
@@ -291,7 +291,7 @@ class IngestionTracker:
                     "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(result.error))
+            return Result.fail(result)
 
         result_map: dict[str, FileIngestionMetadata] = {}
         for record in result.value:
@@ -341,7 +341,13 @@ class IngestionTracker:
                     "error_message": str(e),
                 },
             )
-            return Result.fail(str(e))
+            return Result.fail(
+                Errors.system(
+                    "Failed to stat file for ingestion metadata update",
+                    exception=e,
+                    file_path=str(file_path),
+                )
+            )
 
         result = await self.backend.update_ingestion_metadata(
             {
@@ -361,7 +367,7 @@ class IngestionTracker:
                     "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(result.error))
+            return Result.fail(result)
 
         return Result.ok(None)
 
@@ -412,7 +418,7 @@ class IngestionTracker:
                     "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(result.error))
+            return Result.fail(result)
 
         records = result.value
         updated_count = records[0]["updated"] if records else 0
@@ -445,7 +451,7 @@ class IngestionTracker:
                     "error_message": str(result.error),
                 },
             )
-            return Result.fail(str(result.error))
+            return Result.fail(result)
 
         records = result.value
         deleted_count = records[0]["deleted"] if records else 0

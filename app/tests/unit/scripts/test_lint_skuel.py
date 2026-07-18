@@ -99,12 +99,13 @@ def lint_content(
             linter._check_semantic_type_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL005"):
             linter._check_result_return_types(fp, rel, content, lines, tree)
-        if linter._should_run_rule("SKUEL007"):
-            linter._check_string_result_fail(fp, rel, content, lines)
 
-    # SKUEL013 + SKUEL014 also cover the inbound/presentation layers — mirror _lint_file.
+    # SKUEL007 + SKUEL013 + SKUEL014 also cover the inbound/presentation
+    # layers — mirror _lint_file.
     is_inbound_layer = rel.as_posix().startswith(("adapters/inbound/", "ui/", "api/"))
     if (is_service or is_inbound_layer) and not is_test:
+        if linter._should_run_rule("SKUEL007"):
+            linter._check_string_result_fail(fp, rel, content, lines)
         if linter._should_run_rule("SKUEL013"):
             linter._check_relationship_name_strings(fp, rel, content, lines, tree)
         if linter._should_run_rule("SKUEL014"):
@@ -674,10 +675,86 @@ class TestSKUEL007:
         violations = lint_content(linter, 'return Result.fail(f"Error: {e}")')
         assert len(violations) == 1
 
+    def test_detects_str_wrapped_exception(self) -> None:
+        # str(...) wraps dodge the literal-only pattern — the shape that hid
+        # six real violations in ingestion_tracker.py.
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(linter, "return Result.fail(str(e))")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL007"
+
+    def test_detects_str_wrapped_result_error(self) -> None:
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(linter, "return Result.fail(str(result.error))")
+        assert len(violations) == 1
+
+    def test_detects_multiline_string_fail(self) -> None:
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(linter, 'return Result.fail(\n    "Task not found"\n)')
+        assert len(violations) == 1
+
     def test_errors_factory_clean(self) -> None:
         linter = make_linter(["SKUEL007"])
         violations = lint_content(linter, 'return Result.fail(Errors.not_found("Task", uid))')
         assert len(violations) == 0
+
+    def test_result_propagation_clean(self) -> None:
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(linter, "return Result.fail(result)")
+        assert len(violations) == 0
+
+    def test_errors_factory_with_str_detail_clean(self) -> None:
+        # str(...) inside a factory call is fine — only a str(...) FIRST
+        # argument to Result.fail() is the violation shape.
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(
+            linter, 'return Result.fail(Errors.system("Stat failed", exception=e))'
+        )
+        assert len(violations) == 0
+
+    def test_fires_in_inbound_adapters(self) -> None:
+        # Widened scope: routes/handlers under adapters/inbound/ are covered.
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(
+            linter,
+            'return Result.fail("Invalid date format")',
+            file_path="adapters/inbound/analytics_summary_api.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL007"
+
+    def test_fires_in_ui(self) -> None:
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(
+            linter,
+            'return Result.fail(f"Render failed: {e}")',
+            file_path="ui/components/fragment_renderer.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_fires_in_api(self) -> None:
+        linter = make_linter(["SKUEL007"])
+        violations = lint_content(
+            linter,
+            "return Result.fail(str(e))",
+            file_path="api/models.py",
+            is_service=False,
+        )
+        assert len(violations) == 1
+
+    def test_silent_outside_scope(self) -> None:
+        # scripts/ and non-service core/ modules stay out of SKUEL007's scope.
+        linter = make_linter(["SKUEL007"])
+        for path in ("scripts/some_tool.py", "core/utils/neo4j_mapper.py"):
+            violations = lint_content(
+                linter,
+                'return Result.fail("boom")',
+                file_path=path,
+                is_service=False,
+            )
+            assert violations == [], path
 
 
 # ============================================================================
