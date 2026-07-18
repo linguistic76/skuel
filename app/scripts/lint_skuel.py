@@ -963,6 +963,7 @@ class SkuelLinter:
             "SKUEL025",
             "SKUEL027",
             "SKUEL028",
+            "SKUEL029",
         }
     )
 
@@ -4194,6 +4195,8 @@ class SkuelLinter:
 
         Opt-in audit (see OPT_IN_RULES): run via --rule SKUEL029.
         """
+        if self._is_file_suppressed(content, "SKUEL029"):
+            return
         if tree is None:
             return
 
@@ -4247,12 +4250,22 @@ class SkuelLinter:
             ):
                 continue
 
-            line_num = node.lineno
-            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            # Suppression honored on any line of the (possibly ruff-wrapped)
+            # async-def header; the span is recorded so the SKUEL026 audit reads
+            # the SAME lines (matches SKUEL005's def-signature handling).
+            start = node.lineno
+            end = max(start, node.body[0].lineno - 1) if node.body else start
+            if any(
+                self._is_line_suppressed(lines[i], "SKUEL029")
+                for i in range(start - 1, min(end, len(lines)))
+            ):
+                continue
+
+            line = lines[start - 1] if 0 < start <= len(lines) else ""
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
-                    line_number=line_num,
+                    line_number=start,
                     column=node.col_offset,
                     severity=Severity.INFO,
                     rule_id="SKUEL029",
@@ -4262,6 +4275,7 @@ class SkuelLinter:
                         "only if an interface/protocol requires it"
                     ),
                     line_content=line.strip(),
+                    suppression_span=(start, end),
                 )
             )
 

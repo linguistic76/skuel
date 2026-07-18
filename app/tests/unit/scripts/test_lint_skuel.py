@@ -3431,12 +3431,13 @@ class TestSKUEL026:
         assert len(linter.result.suppressions) == 1
         assert linter.result.suppressions[0].used is True
 
-    def test_opt_in_rule_suppression_never_credited(self, tmp_path: Path) -> None:
-        """A comment naming an opt-in, non-suppressible rule (SKUEL029) must be
-        flagged, not silently credited: the shadow run fires (explicit filter
-        bypasses the opt-in gate) while the main sweep never ran the rule, so
-        without the SUPPRESSIBLE_RULES guard `fired and not hit_in_main` would
-        read as "suppressed" (Codex P2, #678 round 2)."""
+    def test_opt_in_suppressible_rule_credited(self, tmp_path: Path) -> None:
+        """An opt-in BUT suppressible rule (SKUEL029) is credited as used even in
+        a default sweep that never ran it in the main pass: the shadow run
+        (explicit filter) fires and the comment genuinely suppresses the finding
+        under `--rule SKUEL029`, so it is not SKUEL026 rot. Before SKUEL029 joined
+        SUPPRESSIBLE_RULES this same comment was correctly flagged (#678 P2); the
+        arc that drove SKUEL029→0 made protocol-required async suppressible."""
         linter = self._lint_tree(
             tmp_path,
             {
@@ -3447,10 +3448,9 @@ class TestSKUEL026:
             },
         )
         assert len(linter.result.suppressions) == 1
-        assert linter.result.suppressions[0].used is False
+        assert linter.result.suppressions[0].used is True
         skuel026 = [v for v in linter.result.violations if v.rule_id == "SKUEL026"]
-        assert len(skuel026) == 1
-        assert "does not support inline suppression" in skuel026[0].message
+        assert skuel026 == []
 
     def test_unused_line_suppression_flagged(self, tmp_path: Path) -> None:
         """A suppression on a line where the rule would not fire is rot."""
@@ -3939,6 +3939,40 @@ class TestSKUEL029:
         content = "async def score(items):\n    return sorted(items)"
         violations = lint_content(linter, content)
         assert violations[0].severity == Severity.INFO
+
+    def test_line_suppression_honored(self) -> None:
+        # SKUEL029 is suppressible: protocol-required async that never awaits is
+        # a legitimate keep-async-and-suppress case.
+        linter = make_linter(["SKUEL029"])
+        content = (
+            "async def score(items):  # skuel-lint: disable=SKUEL029 -- Protocol contract\n"
+            "    return sorted(items)"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_file_suppression_honored(self) -> None:
+        linter = make_linter(["SKUEL029"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL029 -- all handlers match a framework contract\n"
+            "async def score(items):\n"
+            "    return sorted(items)"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
+
+    def test_suppression_on_wrapped_signature_end_honored(self) -> None:
+        # The span covers the full (ruff-wrapped) async-def header, so a comment
+        # on the closing signature line is honored (mirrors SKUEL005).
+        linter = make_linter(["SKUEL029"])
+        content = (
+            "async def score(\n"
+            "    items: list[int],\n"
+            ") -> list[int]:  # skuel-lint: disable=SKUEL029 -- Protocol contract\n"
+            "    return sorted(items)"
+        )
+        violations = lint_content(linter, content)
+        assert violations == []
 
 
 class TestOptInRulesDrift:
