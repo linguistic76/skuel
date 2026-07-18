@@ -332,7 +332,7 @@ def create_ai_routes(app: FastHTMLApp, rt: RouteDecorator, services: "Services |
 
     # AI status endpoint — derived from _AI_STATUS_DOMAINS
     @rt("/api/ai/status")
-    async def ai_status(request: Request) -> dict[str, Any]:
+    def ai_status(request: Request) -> dict[str, Any]:
         """Check which AI services are available."""
         require_authenticated_user(request)
         return {

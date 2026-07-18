@@ -302,7 +302,11 @@ def create_principle_alignment_routes(
 
     @rt("/principles/suggest-actions")
     @boundary_handler()
-    async def suggest_actions(request: Request, context: str = "general") -> Result[dict[str, Any]]:
+    async def suggest_actions(
+        request: Request, context: str = "general"
+    ) -> Result[
+        dict[str, Any]
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """
         Suggest actions that align with the authenticated user's principles.
 

@@ -170,7 +170,7 @@ def create_vault_routes(
         )
 
     @rt("/settings/vault")
-    async def vault_settings_redirect(request: Request) -> Any:
+    def vault_settings_redirect(request: Request) -> Any:
         """301 redirect — canonical URL moved to /submissions/sync."""
         return RedirectResponse(url="/submissions/sync", status_code=301)
 

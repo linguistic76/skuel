@@ -83,7 +83,11 @@ def create_system_api_routes(
 
     @rt("/health")
     @boundary_handler()
-    async def liveness_probe(request: Request) -> Result[dict[str, Any]]:
+    async def liveness_probe(
+        request: Request,
+    ) -> Result[
+        dict[str, Any]
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """Liveness probe: returns 200 if the process is running.
 
         Always succeeds — failure here means the process should be restarted.
@@ -416,7 +420,9 @@ def create_system_api_routes(
             )
 
         # Create a simple health checker
-        async def simple_health_check() -> bool:
+        async def simple_health_check() -> (
+            bool
+        ):  # skuel-lint: disable=SKUEL029 -- registered as an awaited health-checker (system_service awaits checkers unconditionally)
             return True  # Assume healthy for now
 
         # Register the service
@@ -464,7 +470,11 @@ def create_system_api_routes(
     @rt("/api/services")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def list_services_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def list_services_route(
+        request: Request, current_user
+    ) -> Result[
+        dict[str, Any]
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """
         List all registered services.
 
@@ -647,7 +657,11 @@ def create_system_api_routes(
     @rt("/api/alerts/thresholds", methods=["GET"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_alert_thresholds_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def get_alert_thresholds_route(
+        request: Request, current_user
+    ) -> Result[
+        dict[str, Any]
+    ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
         """
         Get current alert thresholds.
 

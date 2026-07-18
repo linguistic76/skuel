@@ -71,14 +71,14 @@ class Task:
     priority: str
 
     @strawberry.field
-    async def knowledge(self, info: Info[GraphQLContext, Any]) -> KnowledgeNode | None:
+    def knowledge(self, info: Info[GraphQLContext, Any]) -> KnowledgeNode | None:
         """
         Get the knowledge unit associated with this task.
 
         GRAPH-NATIVE: Queries relationships instead of stored field.
         Uses GraphQLQueryHelpers with DataLoader batching.
         """
-        return await GraphQLQueryHelpers.get_task_knowledge(info.context, self.uid)
+        return GraphQLQueryHelpers.get_task_knowledge(info.context, self.uid)
 
 
 @strawberry.type

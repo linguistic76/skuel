@@ -41,7 +41,7 @@ def create_monitoring_api_routes(
     neo4j_driver = kwargs.get("neo4j_driver")
 
     @rt("/api/monitoring/health")
-    async def health_check(request: Request):
+    def health_check(request: Request):
         """
         Health check endpoint.
 
@@ -59,7 +59,7 @@ def create_monitoring_api_routes(
 
     @rt("/api/monitoring/embedding-worker")
     @require_admin(get_user_service)
-    async def embedding_worker_metrics(request: Request, current_user=None):
+    def embedding_worker_metrics(request: Request, current_user=None):
         """
         Get embedding background worker metrics. Requires ADMIN role.
 
@@ -104,7 +104,7 @@ def create_monitoring_api_routes(
 
     @rt("/api/monitoring/system")
     @require_admin(get_user_service)
-    async def system_metrics(request: Request, current_user=None):
+    def system_metrics(request: Request, current_user=None):
         """
         Get overall system metrics. Requires ADMIN role.
 

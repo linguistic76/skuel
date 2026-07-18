@@ -1308,7 +1308,7 @@ class TestMutationPlaceholder:
     async def test_placeholder(self) -> None:
         from adapters.inbound.graphql.schema import Mutation
 
-        result = await Mutation().placeholder()
+        result = Mutation().placeholder()
         assert "REST API" in result
 
 
@@ -1405,7 +1405,7 @@ class TestGraphQLQueryHelpers:
         from adapters.inbound.graphql.query_helpers import GraphQLQueryHelpers
 
         ctx = _make_context()
-        result = await GraphQLQueryHelpers.get_task_knowledge(ctx, "task_1")
+        result = GraphQLQueryHelpers.get_task_knowledge(ctx, "task_1")
         assert result is None
 
 
@@ -1465,7 +1465,7 @@ class TestTaskKnowledgeResolver:
         info = _make_info(ctx)
 
         task = Task(uid="t1", title="T", description="", status="active", priority="high")
-        result = await task.knowledge(info)
+        result = task.knowledge(info)
         assert result is None
 
 

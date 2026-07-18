@@ -98,7 +98,7 @@ class GraphQLQueryHelpers:
     # ========================================================================
 
     @staticmethod
-    async def get_task_knowledge(context: GraphQLContext, task_uid: str) -> KnowledgeNode | None:
+    def get_task_knowledge(context: GraphQLContext, task_uid: str) -> KnowledgeNode | None:
         """
         Get knowledge unit associated with a task.
 

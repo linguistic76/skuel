@@ -220,7 +220,7 @@ def create_transcription_api_routes(
     # ========================================================================
 
     @rt("/api/transcriptions/health")
-    async def transcription_health(_request) -> dict[str, Any]:
+    def transcription_health(_request) -> dict[str, Any]:
         """Health check endpoint."""
         from datetime import datetime
 

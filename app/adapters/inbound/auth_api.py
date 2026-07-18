@@ -62,7 +62,7 @@ def create_auth_api_routes(
 
     @rt("/debug-session")
     @require_admin(get_user_service)
-    async def debug_session(request: Request, current_user: Any = None) -> Any:
+    def debug_session(request: Request, current_user: Any = None) -> Any:
         """
         Debug session state.
 
@@ -84,7 +84,7 @@ def create_auth_api_routes(
 
     @rt("/whoami")
     @require_admin(get_user_service)
-    async def whoami(request: Request, current_user: Any = None) -> Any:
+    def whoami(request: Request, current_user: Any = None) -> Any:
         """
         Show current user info.
 
