@@ -204,7 +204,11 @@ class CypherLinter:
           queries are not live code either.
         - ``noqa:``-carrying ``//`` comments are kept — the rule checks read
           suppressions from the violation's line. (noqa must be ``//`` style;
-          block comments are always masked.)
+          block comments are always masked.) The natural placement
+          ``DELETE n; // noqa: CYP002 - reason`` sits AFTER the terminator,
+          so the splitter folds a noqa-only tail back into the statement its
+          semicolon just closed (Codex, PR #710 round 3) — otherwise the
+          suppression would land in the next fragment and never be seen.
 
         Both passes track quoted strings (a ``//`` inside a string literal is
         not a comment), and the splitter additionally skips kept comments so
@@ -269,7 +273,23 @@ class CypherLinter:
                     break
                 continue
             elif char == ";":
-                raw_statements.append((text[start:i], start))
+                statement = text[start:i]
+                # Fold a same-line noqa tail into this statement (appended
+                # without a newline, so it stays on the violation's line for
+                # the suppression check), and consume it so it doesn't leak
+                # into the next fragment. The guard requires the tail to be
+                # comment-only — real code after the ';' (multi-statement
+                # line) is left for the next split.
+                tail_end = text.find("\n", i)
+                if tail_end == -1:
+                    tail_end = len(text)
+                tail = text[i + 1 : tail_end]
+                if "noqa:" in tail and tail.lstrip().startswith("//"):
+                    raw_statements.append((statement + " " + tail.strip(), start))
+                    start = tail_end
+                    i = tail_end
+                    continue
+                raw_statements.append((statement, start))
                 start = i + 1
             i += 1
         if text[start:].strip():

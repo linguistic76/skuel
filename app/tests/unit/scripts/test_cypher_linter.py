@@ -235,6 +235,19 @@ class TestExtractCypherStatements:
         assert len(statements) == 1
         assert "noqa: CYP002" in statements[0][0]
 
+    def test_noqa_after_semicolon_folded_into_statement(self) -> None:
+        # Codex, PR #710 round 3: the natural placement puts noqa AFTER the
+        # terminator — it must belong to the statement the ';' just closed
+        linter = make_linter()
+        content = (
+            "MATCH (n:Entity {uid: 'a'})\nDELETE n; // noqa: CYP002 - leaf node\n"
+            "MATCH (m:Entity) RETURN m LIMIT 1;\n"
+        )
+        statements = linter._extract_cypher_statements(content)
+        assert len(statements) == 2
+        assert "noqa: CYP002" in statements[0][0]
+        assert "noqa" not in statements[1][0]
+
     def test_trailing_comment_after_final_semicolon_no_phantom_statement(self) -> None:
         # Codex, PR #710: the tail append turned a keyword-bearing trailing
         # comment into a phantom raw statement
@@ -338,6 +351,20 @@ class TestLintCypherFile:
         )
         violations = linter.lint_file(cypher_file)
         assert [v for v in violations if v.rule_code == "CYP002"] == []
+
+    def test_noqa_after_semicolon_suppresses(self, tmp_path: Path) -> None:
+        # Codex, PR #710 round 3: `DELETE n; // noqa: CYP002` — the natural
+        # single-line form — must suppress, and only for its own statement
+        linter = make_linter()
+        cypher_file = tmp_path / "suppressed_natural.cypher"
+        cypher_file.write_text(
+            "MATCH (n:Entity {uid: 'a'})\nDELETE n; // noqa: CYP002 - node is a leaf\n"
+            "MATCH (m:Entity {uid: 'b'})\nDELETE m;\n"
+        )
+        violations = linter.lint_file(cypher_file)
+        cyp002 = [v for v in violations if v.rule_code == "CYP002"]
+        assert len(cyp002) == 1
+        assert cyp002[0].line_number == 4
 
     def test_violation_only_in_own_statement(self, tmp_path: Path) -> None:
         # Per-statement splitting: a LIMIT in statement 1 must not exempt an
