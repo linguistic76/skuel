@@ -271,7 +271,7 @@ class LearningRecommendationEngine:
             content = ensure_content_protocol(raw_content)
 
             # Calculate scores
-            relevance = await self._calculate_relevance(content, analysis)
+            relevance = self._calculate_relevance(content, analysis)
             readiness = self._calculate_readiness_score(content, analysis)
             difficulty_match = self._calculate_difficulty_match(content, analysis)
 
@@ -514,7 +514,7 @@ class LearningRecommendationEngine:
     # CONTENT SCORING (Private)
     # ========================================================================
 
-    async def _calculate_relevance(self, content: Any, analysis: LearningAnalysis) -> float:
+    def _calculate_relevance(self, content: Any, analysis: LearningAnalysis) -> float:
         """
         Calculate content relevance score.
 

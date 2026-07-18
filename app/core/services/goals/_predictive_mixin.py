@@ -87,9 +87,9 @@ class _PredictiveMixin:
 
         # Calculate various probability factors
         progress_factor = self._calculate_progress_factor(goal)
-        consistency_factor = await self._calculate_consistency_factor(habits, lookback_days)
+        consistency_factor = self._calculate_consistency_factor(habits, lookback_days)
         time_factor = self._calculate_time_factor(goal)
-        momentum_factor = await self._calculate_momentum_factor(goal, habits, lookback_days)
+        momentum_factor = self._calculate_momentum_factor(goal, habits, lookback_days)
 
         # Combine factors using weighted model
         success_probability = self._combine_probability_factors(
@@ -119,7 +119,7 @@ class _PredictiveMixin:
         )
 
         # Determine trend
-        trend = await self._determine_trend(goal, habits, lookback_days)
+        trend = self._determine_trend(goal, habits, lookback_days)
 
         # Create prediction
         prediction = _GoalPrediction(
@@ -295,7 +295,7 @@ class _PredictiveMixin:
                 adjusted_habits.append(habit)
 
         # Recalculate with adjusted values
-        consistency_factor = await self._calculate_consistency_factor(adjusted_habits, 30)
+        consistency_factor = self._calculate_consistency_factor(adjusted_habits, 30)
         progress_factor = self._calculate_progress_factor(goal)
         time_factor = self._calculate_time_factor(goal)
         momentum_factor = 0.5  # Neutral for scenario
@@ -353,9 +353,7 @@ class _PredictiveMixin:
             output_range=(0.0, 1.0),
         )
 
-    async def _calculate_consistency_factor(
-        self, habits: list[Habit], _lookback_days: int
-    ) -> float:
+    def _calculate_consistency_factor(self, habits: list[Habit], _lookback_days: int) -> float:
         """Calculate consistency factor based on habit performance.
 
         Uses MetricsCalculator.weighted_average for consistent calculation.
@@ -402,7 +400,7 @@ class _PredictiveMixin:
 
         return MetricsCalculator.clamp(factor, min_val=0.1, max_val=1.0)
 
-    async def _calculate_momentum_factor(
+    def _calculate_momentum_factor(
         self, goal: Goal, habits: list[Habit], _lookback_days: int
     ) -> float:
         """Calculate momentum based on recent trends."""
@@ -630,7 +628,7 @@ class _PredictiveMixin:
             .build()
         )
 
-    async def _determine_trend(self, goal: Goal, habits: list[Habit], _lookback_days: int) -> str:
+    def _determine_trend(self, goal: Goal, habits: list[Habit], _lookback_days: int) -> str:
         """Determine if goal achievement probability is improving, stable, or declining."""
         # Calculate actual vs expected progress
         recent_progress = goal.calculate_progress()
