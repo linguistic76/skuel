@@ -349,7 +349,7 @@ class QueryTemplateRegistry:
 
     @staticmethod
     def _render_structural_parameters(
-        cypher: str, spec: TemplateSpec, params: dict[str, Any]
+        cypher: str, spec: TemplateSpec, params: dict[str, object]
     ) -> str:
         """
         Substitute validated structural values into ``{name}`` placeholders.
